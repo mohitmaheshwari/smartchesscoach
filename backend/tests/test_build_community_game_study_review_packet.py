@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 
 import chess.pgn
+import pytest
 
 from scripts import build_community_game_study_review_packet as builder
 
@@ -59,3 +60,23 @@ def test_cp_loss_preserves_white_pov_direction_for_both_sides():
     assert builder._cp_loss(100, -50, True) == 150
     assert builder._cp_loss(-50, 100, False) == 150
     assert builder._cp_loss(0, 30, True) == 0
+
+
+def test_demonstration_must_replay_legally_and_match_its_branch_kind():
+    assert builder._validated_demonstration(
+        fen_before=chess.STARTING_FEN,
+        played_san="e4",
+        value={"kind": "played_refutation", "moves_san": ["e4", "e5"]},
+    ) == {"kind": "played_refutation", "moves_san": ["e4", "e5"]}
+    with pytest.raises(builder.CommunityGameStudyError, match="does not start"):
+        builder._validated_demonstration(
+            fen_before=chess.STARTING_FEN,
+            played_san="e4",
+            value={"kind": "played_refutation", "moves_san": ["d4", "d5"]},
+        )
+    with pytest.raises(builder.CommunityGameStudyError, match="not legal"):
+        builder._validated_demonstration(
+            fen_before=chess.STARTING_FEN,
+            played_san="e4",
+            value={"kind": "better_line", "moves_san": ["e5"]},
+        )

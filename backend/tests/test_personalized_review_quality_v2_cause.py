@@ -4,6 +4,8 @@ from __future__ import annotations
 import chess
 
 from services.caption_facts import (
+    VerifiedLineCapture,
+    VerifiedLineCause,
     build_legal_material_loss_cause,
     build_verified_line_cause,
 )
@@ -296,6 +298,51 @@ def test_best_line_material_opportunity_uses_the_stored_legal_capture_line():
     assert cause.best_net_material_gain_cp == 800
     assert cause.first_best_capture.move_san == "Bxh8"
     assert cause.first_best_capture.captured_piece == "rook"
+
+
+def test_best_line_teaching_target_skips_an_opponent_capture_first():
+    opponent_capture = VerifiedLineCapture(
+        ply=2,
+        actor="opponent",
+        move_san="Bxd2+",
+        origin="b4",
+        destination="d2",
+        capturing_piece="bishop",
+        captured_piece="knight",
+        captured_square="d2",
+        captured_value_cp=300,
+    )
+    initiator_capture = VerifiedLineCapture(
+        ply=3,
+        actor="initiator",
+        move_san="Rxd2",
+        origin="d1",
+        destination="d2",
+        capturing_piece="rook",
+        captured_piece="bishop",
+        captured_square="d2",
+        captured_value_cp=300,
+    )
+    cause = VerifiedLineCause(
+        lesson_kind="missed_material_opportunity",
+        phase="middlegame",
+        position_kind="general",
+        played_move_san="Kf2",
+        best_move_san="Rxd3",
+        best_move_from="d1",
+        best_move_to="d3",
+        played_line_san=("Kf2", "Bxd2+"),
+        best_line_san=("Rxd3", "Bxd2+", "Rxd2"),
+        played_captures=(opponent_capture,),
+        best_captures=(opponent_capture, initiator_capture),
+        played_net_material_gain_cp=-300,
+        best_net_material_gain_cp=0,
+    )
+    assert cause.best_captures[0].actor == "opponent"
+    assert cause.first_best_capture is not None
+    assert cause.first_best_capture.actor == "initiator"
+    assert cause.first_best_capture.move_san == "Rxd2"
+    assert cause.first_best_capture.captured_piece == "bishop"
 
 
 def test_pawn_ending_route_remains_generic_but_names_the_exact_payoff():

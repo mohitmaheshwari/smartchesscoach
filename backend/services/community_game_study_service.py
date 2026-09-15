@@ -29,7 +29,7 @@ SHADOW_SCHEMA_VERSION = "community_game_study_shadow_selection.v1"
 ADMISSION_POLICY_VERSION = "licensed_neutral_two_chapter.v1"
 SELECTOR_VERSION = "focus_band_breadth_richness.v1"
 COLLECTION = "community_game_studies"
-SAFE_PROJECTION_VERSION = CONTRACT_SCHEMA_VERSION
+SAFE_PROJECTION_VERSION = "community_neutral_projection.v2"
 
 APPROVED_PROVIDER = "lichess_open_database"
 APPROVED_LICENSE = "CC0-1.0"
@@ -55,6 +55,7 @@ NEUTRAL_CHAPTER_FIELDS = (
     "principle",
     "move_number",
     "move_san",
+    "demonstration",
 )
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -131,10 +132,53 @@ def _cause_piece(cause: Mapping[str, Any], field: str) -> tuple[str, str]:
     return piece, square
 
 
+def _verified_line(
+    cause: Mapping[str, Any],
+    field: str,
+    *,
+    through_ply: Optional[int] = None,
+) -> list[str]:
+    raw = cause.get(field)
+    if not isinstance(raw, list) or not raw or any(
+        not str(move or "").strip() for move in raw
+    ):
+        raise CommunityGameStudyError(f"source event cause.{field} is invalid")
+    moves = [str(move).strip() for move in raw]
+    if through_ply is not None:
+        if through_ply < 1 or through_ply > len(moves):
+            raise CommunityGameStudyError(
+                f"source event cause.{field} does not reach the payoff"
+            )
+        moves = moves[:through_ply]
+    return moves
+
+
+def _line_words(moves: Sequence[str]) -> str:
+    return " → ".join(moves)
+
+
+def _first_initiator_capture(cause: Mapping[str, Any]) -> Mapping[str, Any]:
+    captures = cause.get("best_captures")
+    if not isinstance(captures, list) or not captures:
+        raise CommunityGameStudyError(
+            "source event cause.best_captures is missing"
+        )
+    for index, capture in enumerate(captures):
+        if not isinstance(capture, Mapping):
+            raise CommunityGameStudyError(
+                f"source event cause.best_captures[{index}] is invalid"
+            )
+        if capture.get("actor") == "initiator":
+            return capture
+    raise CommunityGameStudyError(
+        "source event cause.best_captures has no initiator capture"
+    )
+
+
 def _neutral_cause_teaching(
     source_event: Mapping[str, Any],
     cause: Mapping[str, Any],
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, Optional[dict[str, Any]]]:
     """Render only facts already present in a verified typed cause.
 
     These bounded templates change audience perspective; they do not name a
@@ -149,7 +193,7 @@ def _neutral_cause_teaching(
 
     if kind == "legal_material_loss":
         affected_piece, affected_square = _cause_piece(cause, "affected")
-        _cause_piece(cause, "attacker")
+        attacker_piece, attacker_square = _cause_piece(cause, "attacker")
         punishment = _required_text(
             cause.get("punishment_san"), "source_event.cause.punishment_san"
         )
@@ -166,16 +210,30 @@ def _neutral_cause_teaching(
             raise CommunityGameStudyError(
                 "source event cause material loss must be positive"
             )
-        headline = f"The {affected_piece} on {affected_square} is the key"
+        purpose = cause.get("best_move_purpose")
+        if purpose == "moves_affected_piece":
+            best_reason = f"{best} moves that {affected_piece} out of danger."
+        elif purpose == "removes_attacker":
+            best_reason = f"{best} removes the attacker on {attacker_square}."
+        elif purpose == "adds_defender":
+            best_reason = f"{best} adds enough protection to {affected_square}."
+        else:
+            best_reason = f"{best} avoids that loss."
+        headline = f"{punishment} wins the {affected_piece} on {affected_square}"
         explanation = (
-            f"After {played}, {punishment} starts an exchange that costs "
-            f"the {affected_piece} on {affected_square}. {best} was the "
-            "stronger move."
+            f"{played} allows {punishment} because the {attacker_piece} on "
+            f"{attacker_square} can take the {affected_piece} on "
+            f"{affected_square}. {best_reason}"
         )
         principle = (
             "Before choosing a move, check what the opponent can capture next."
         )
-        return headline, explanation, principle
+        return (
+            headline,
+            explanation,
+            principle,
+            {"kind": "played_refutation", "moves_san": [played, punishment]},
+        )
 
     if kind == "verified_stored_line":
         lesson = _required_text(
@@ -185,58 +243,73 @@ def _neutral_cause_teaching(
             cause.get("best_move_san"), "source_event.cause.best_move_san"
         )
         if lesson == "missed_forced_mate":
+            line = _verified_line(cause, "best_line_san")
             return (
                 "A checkmating finish was available",
-                f"{played} missed the finish. {best} starts a sequence "
-                "that ends in checkmate.",
+                f"{played} missed checkmate. The sequence {_line_words(line)} "
+                "ends the game.",
                 "When the king has few safe squares, examine every check first.",
+                {"kind": "better_line", "moves_san": line},
             )
         if lesson == "allowed_forced_mate":
             reply = _required_text(
                 cause.get("reply_san"), "source_event.cause.reply_san"
             )
+            line = _verified_line(cause, "played_line_san")
             return (
                 "This move allowed checkmate",
-                f"After {played}, {reply} is checkmate. {best} avoids that finish.",
+                f"{played} allows the sequence {_line_words(line)}, which ends "
+                f"in checkmate. {best} avoids that finish.",
                 "Before moving, scan every check the opponent can play next.",
+                {"kind": "played_refutation", "moves_san": line},
             )
         if lesson == "exchange_sequence":
+            line = _verified_line(cause, "played_line_san")
             return (
                 "Count the whole exchange",
-                f"{played} starts a capture sequence that loses material. "
-                f"{best} avoids that trade.",
+                f"{played} goes wrong because the sequence {_line_words(line)} "
+                f"gives up more material than it wins. {best} avoids that trade.",
                 "Before starting an exchange, count every recapture to the end.",
+                {"kind": "played_refutation", "moves_san": line},
             )
         if lesson == "missed_material_opportunity":
-            captures = cause.get("best_captures")
-            if not isinstance(captures, list) or not captures:
-                raise CommunityGameStudyError(
-                    "source event cause.best_captures is missing"
-                )
-            first_capture = captures[0]
-            if not isinstance(first_capture, Mapping):
-                raise CommunityGameStudyError(
-                    "source event cause.best_captures[0] is invalid"
-                )
+            first_capture = _first_initiator_capture(cause)
             target_piece = _required_text(
                 first_capture.get("captured_piece"),
-                "source event cause.best_captures[0].captured_piece",
+                "source event cause.best_captures[].captured_piece",
             )
             target_square = _required_text(
                 first_capture.get("captured_square"),
-                "source event cause.best_captures[0].captured_square",
+                "source event cause.best_captures[].captured_square",
             )
             try:
                 chess.parse_square(target_square)
             except ValueError as exc:
                 raise CommunityGameStudyError(
-                    "source event cause.best_captures[0].captured_square is invalid"
+                    "source event cause.best_captures[].captured_square is invalid"
                 ) from exc
+            try:
+                payoff_ply = int(first_capture.get("ply") or 0)
+            except (TypeError, ValueError) as exc:
+                raise CommunityGameStudyError(
+                    "source event cause.best_captures[].ply is invalid"
+                ) from exc
+            line = _verified_line(
+                cause,
+                "best_line_san",
+                through_ply=payoff_ply,
+            )
+            capturing_piece = _required_text(
+                first_capture.get("capturing_piece"),
+                "source event cause.best_captures[].capturing_piece",
+            )
             return (
-                f"The {target_piece} on {target_square} could be won",
-                f"{played} missed the chance. {best} starts the sequence that "
-                f"wins the {target_piece} on {target_square}.",
+                f"{best} can win a {target_piece}",
+                f"{played} missed the chance because {_line_words(line)} ends "
+                f"with the {capturing_piece} taking the {target_piece} on "
+                f"{target_square}.",
                 "Check captures and follow each reply until the gain is clear.",
+                {"kind": "better_line", "moves_san": line},
             )
         raise CommunityGameStudyError("source event verified-line lesson is unsupported")
 
@@ -259,6 +332,7 @@ def _neutral_cause_teaching(
             f"Before {played}, the position was a {before}. After it, the "
             f"result became a {after}. {best} preserved the {before}.",
             "With only a few pieces left, verify that the move keeps the result.",
+            {"kind": "better_line", "moves_san": [best]},
         )
 
     raise CommunityGameStudyError("source event cause kind is unsupported")
@@ -460,6 +534,7 @@ def project_neutral_chapter(
         teaching.get("caption") or teaching.get("practical_lead") or ""
     ).strip()
     principle = str(teaching.get("principle") or "").strip()
+    demonstration: Optional[dict[str, Any]] = None
     personalized = any(
         _SECOND_PERSON.search(value)
         for value in (headline, explanation, principle)
@@ -470,7 +545,7 @@ def project_neutral_chapter(
             raise CommunityGameStudyError(
                 "source event teaching is personalized without a typed cause"
             )
-        headline, explanation, principle = _neutral_cause_teaching(
+        headline, explanation, principle, demonstration = _neutral_cause_teaching(
             source_event, cause
         )
     if not explanation or not (headline or principle):
@@ -498,6 +573,7 @@ def project_neutral_chapter(
         "principle": principle,
         "move_number": event_move_number,
         "move_san": event_move_san,
+        "demonstration": demonstration,
     }
     return {field: projected.get(field) for field in NEUTRAL_CHAPTER_FIELDS}
 

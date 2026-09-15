@@ -42,6 +42,7 @@ from services.community_game_study_service import (  # noqa: E402
     ADMISSION_POLICY_VERSION,
     APPROVED_LICENSE,
     APPROVED_PROVIDER,
+    CommunityGameStudyError,
     SAFE_PROJECTION_VERSION,
     SCHEMA_VERSION as STUDY_SCHEMA_VERSION,
     project_neutral_chapter,
@@ -59,11 +60,11 @@ from services.game_review_shadow_runtime import (  # noqa: E402
 )
 
 
-SCHEMA_VERSION = "community_game_study.neutral_review_packet.v1"
+SCHEMA_VERSION = "community_game_study.neutral_review_packet.v2"
 GENERATED_ON = "2026-09-15"
 TERMS_REVIEWED_AT = "2026-09-15"
 DEFAULT_OUTPUT = BACKEND / (
-    "data/detector_gold/community_game_study_neutral_review_v1.json"
+    "data/detector_gold/community_game_study_neutral_review_v2.json"
 )
 MAX_SOURCE_BYTES_DEFAULT = 16 * 1024 * 1024
 QUALITY_ENV = {
@@ -322,6 +323,46 @@ def _phase_for_event(
     return phase if phase in {"opening", "middlegame", "endgame"} else "middlegame"
 
 
+def _validated_demonstration(
+    *,
+    fen_before: str,
+    played_san: str,
+    value: Any,
+) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise CommunityGameStudyError(
+            "neutral chapter lacks a verified demonstration"
+        )
+    kind = str(value.get("kind") or "")
+    moves = value.get("moves_san")
+    if kind not in {"played_refutation", "better_line"}:
+        raise CommunityGameStudyError(
+            "neutral chapter demonstration kind is invalid"
+        )
+    if not isinstance(moves, list) or not moves or any(
+        not str(move or "").strip() for move in moves
+    ):
+        raise CommunityGameStudyError(
+            "neutral chapter demonstration moves are invalid"
+        )
+    normalized = [str(move).strip() for move in moves]
+    if kind == "played_refutation" and normalized[0] != played_san:
+        raise CommunityGameStudyError(
+            "played refutation does not start with the played move"
+        )
+    if kind == "better_line" and normalized[0] == played_san:
+        raise CommunityGameStudyError("better line repeats the played move")
+    try:
+        board = chess.Board(fen_before)
+        for san in normalized:
+            board.push_san(san)
+    except (ValueError, AssertionError) as exc:
+        raise CommunityGameStudyError(
+            "neutral chapter demonstration is not legal"
+        ) from exc
+    return {"kind": kind, "moves_san": normalized}
+
+
 def _events_for_color(
     *,
     game: chess.pgn.Game,
@@ -481,6 +522,11 @@ def build_study_candidate(
         refs.append(reference)
         projected = project_neutral_chapter(event.contract_dict(), reference)
         context = event_rows[event.event_id]
+        projected["demonstration"] = _validated_demonstration(
+            fen_before=str(context["fen_before"]),
+            played_san=str(projected["move_san"]),
+            value=projected.get("demonstration"),
+        )
         neutral.append(
             {
                 **projected,

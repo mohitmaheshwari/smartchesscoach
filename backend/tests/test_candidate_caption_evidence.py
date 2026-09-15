@@ -153,6 +153,7 @@ def test_central_caption_builds_compact_replayable_comparison():
     )
     comparison = build_candidate_comparison(inputs, cause)
     assert comparison is not None
+    assert comparison.schema_version == "candidate_comparison.v2"
     assert comparison.headline == "Count both sides of the trade"
     assert comparison.played_line_moves == ("Qxd5", "Rxd5")
     assert comparison.stronger_line_moves == ("Qa1", "Kf7")

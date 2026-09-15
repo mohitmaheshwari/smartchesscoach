@@ -100,6 +100,17 @@ def _personalized_verified_line_event(chapter=None):
         "played_captures": [],
         "best_captures": [
             {
+                "ply": 2,
+                "actor": "opponent",
+                "move_san": "Bxd2+",
+                "origin": "b4",
+                "destination": "d2",
+                "capturing_piece": "bishop",
+                "captured_piece": "knight",
+                "captured_square": "d2",
+                "captured_value_cp": 300,
+            },
+            {
                 "ply": 3,
                 "actor": "initiator",
                 "move_san": "Rxb2",
@@ -301,11 +312,15 @@ def test_neutral_projection_renders_real_personalized_event_from_typed_cause():
     projected = service.project_neutral_chapter(
         _personalized_typed_source_event(chapter), chapter
     )
-    assert projected["headline"] == "The rook on d2 is the key"
+    assert projected["headline"] == "Qxd2 wins the rook on d2"
     assert projected["explanation"] == (
-        "After Rd2, Qxd2 starts an exchange that costs the rook on d2. "
-        "Rd1 was the stronger move."
+        "Rd2 allows Qxd2 because the queen on c2 can take the rook on d2. "
+        "Rd1 moves that rook out of danger."
     )
+    assert projected["demonstration"] == {
+        "kind": "played_refutation",
+        "moves_san": ["Rd2", "Qxd2"],
+    }
     assert "you" not in " ".join(str(value) for value in projected.values()).lower()
 
 
@@ -327,13 +342,18 @@ def test_neutral_projection_names_verified_material_target_in_plain_language():
     projected = service.project_neutral_chapter(
         _personalized_verified_line_event(chapter), chapter
     )
-    assert projected["headline"] == "The pawn on b2 could be won"
+    assert projected["headline"] == "Rfb8 can win a pawn"
     assert projected["explanation"] == (
-        "Rab8 missed the chance. Rfb8 starts the sequence that wins the pawn on b2."
+        "Rab8 missed the chance because Rfb8 → Qg3 → Rxb2 ends with the rook "
+        "taking the pawn on b2."
     )
     assert projected["principle"] == (
         "Check captures and follow each reply until the gain is clear."
     )
+    assert projected["demonstration"] == {
+        "kind": "better_line",
+        "moves_san": ["Rfb8", "Qg3", "Rxb2"],
+    }
 
 
 def test_focus_match_requires_both_canonical_identities():

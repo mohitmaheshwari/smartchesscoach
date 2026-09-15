@@ -76,3 +76,46 @@ SHA-256
 `08fa4dca2d127f6dda7663d883658527a28305932c635c2f598e43a342e1f6da`.
 The bounded identity-bearing archive prefix and temporary decompression
 environment were deleted after this packet passed the structural audit.
+
+## Independent v1 verdict
+
+The independent review is preserved beside the source packet as
+`community_game_study_neutral_review_v1.reviewed.json` and is bound to the v1
+SHA above. It changed only reviewer-response fields and review metadata; all 41
+games and 110 source chapters remain byte-equivalent to v1.
+
+- `correct_and_teachable`: 0;
+- `correct_but_not_teachable`: 72;
+- `unclear_or_too_generic`: 31;
+- `incorrect_or_overclaimed`: 7;
+- assignment-worthy: 0 of 110 chapters and 0 of 41 games.
+
+The measured causes were shared implementation defects: the neutral renderer
+discarded the verified line and move purpose, the canonical first-capture
+helper could select an opponent capture as the learner's payoff, and 31
+capture-on-arrival cases repeated the destination without explaining the
+attacker.
+
+## v2 repair and re-review boundary
+
+V2 uses the identical 41-case selection fingerprint. The repair is upstream of
+the packet:
+
+- canonical best-line target selection now chooses the first initiator capture;
+- legal material loss names the exact attacker and its square;
+- the safer move states its verified purpose when available;
+- material opportunities explain the legal sequence through the payoff;
+- every chapter carries a legal SAN demonstration for the existing future
+  replay interaction;
+- candidate-comparison and neutral-projection versions were advanced rather
+  than treating changed semantics as v1.
+
+All 110 v2 demonstrations replay legally and all 110 explanations now contain
+a board-bound cause or sequence. This is implementation evidence, not a quality
+verdict. Player visibility and source-mix locking remain prohibited until an
+independent reviewer scores v2.
+
+The v2 packet is
+`backend/data/detector_gold/community_game_study_neutral_review_v2.json`, with
+SHA-256
+`1d92050c950d3cfa2a17eae7b07208f2156096596b582f00254bef7b68def974`.

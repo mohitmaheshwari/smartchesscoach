@@ -607,7 +607,7 @@ class CandidateComparison:
     cause_fingerprint: str
     proof_authority: str
     proof_version: str
-    schema_version: str = "candidate_comparison.v1"
+    schema_version: str = "candidate_comparison.v2"
 
     def __post_init__(self) -> None:
         required = (

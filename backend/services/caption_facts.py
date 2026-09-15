@@ -920,7 +920,19 @@ class VerifiedLineCause:
 
     @property
     def first_best_capture(self) -> Optional[VerifiedLineCapture]:
-        return self.best_captures[0] if self.best_captures else None
+        # A best line may begin with the opponent capturing something before
+        # the initiator's tactic lands.  Naming that first chronological
+        # capture as "what the better move wins" reverses ownership and can
+        # point at the learner's own piece.  The teaching target is the first
+        # capture made by the side that chose the better move.
+        return next(
+            (
+                capture
+                for capture in self.best_captures
+                if capture.actor == "initiator"
+            ),
+            None,
+        )
 
     @property
     def fingerprint(self) -> str:
@@ -4098,7 +4110,14 @@ def build_verified_line_cause(
         chess.square_name(best.to_square),
         "safe_move",
     ))
-    first_best_capture = best_captures[0] if best_captures else None
+    first_best_capture = next(
+        (
+            capture
+            for capture in best_captures
+            if capture.actor == "initiator"
+        ),
+        None,
+    )
     if (
         lesson_kind == "missed_material_opportunity"
         and
