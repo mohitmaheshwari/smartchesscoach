@@ -146,7 +146,7 @@ Rollback sets `COMPLETE_COACHING_SYSTEM_V1_ENABLED=false`; affected surfaces ret
 - Re-running Stockfish on the existing analysed corpus.
 - Promoting all existing detectors by declaration, or hiding valid content because its detector is not Plan-grade.
 - A second dashboard, coach, content catalog, focus store, event ledger, caption path, or mastery score.
-- Community human explanations; that deserves a later trust, moderation, attribution, reputation, and abuse-prevention scope.
+- Generic community feeds and unmoderated human explanations. The bounded coach-selected community-game study and opted-in human-match experiences are governed by the 2026-09-15 extension in docs/complete_coaching_system_scope.md and its own source, privacy, fair-play and admission gates.
 
 ## 9. Implementation order
 
@@ -162,7 +162,9 @@ Rollback sets `COMPLETE_COACHING_SYSTEM_V1_ENABLED=false`; affected surfaces ret
 7. **Phase 5 — complete Review.** Preserve all verified claims, teach the game's opening/intent/tactics/position/endgame story, ask one useful pre-reveal reflection, and prescribe one canonical next action.
 8. **Phase 6 — human-chess runtime.** Enable exact endgame truth first after deployment provenance tests. Pilot Otter/Maia only for safe opponent choice, findability, distractors, and shadow audit; promote each use separately.
 9. **Phase 7 — one product experience.** Evolve the canonical context across Home, Learn, Review, PWC, and Progress; one primary CTA, one optional support, elective study, and evidence-linked verdicts.
-10. **Phase 8 — rollout.** Ship default-off; Mohit + two coaches A/B for one week; then 10% for one week with pre-registered gates; then 100%; delete legacy paths only after two clean weeks at 100%.
+10. **Phase 7B — coach-selected community study.** Reuse the canonical Game Review prescription, renderer, verified teaching plan and next-action handoff. Admit only licensed or explicitly consented games, remove source-player personalization, require current player-authorized chapters, and rank by the data-locked learner-fit formula. No open community feed is created.
+11. **Phase 7C — coach-guided human matches.** Add opted-in invite/scheduled human games inside Play with Coach, followed by a neutral shared review and separate private follow-ups. Matchmaking, clocks, reconnect, fair play, reporting, blocking, moderation and private-context isolation must pass before ordinary-user exposure.
+12. **Phase 8 — rollout.** Ship default-off; Mohit + two coaches A/B for one week; then 10% for one week with pre-registered gates; then 100%; delete legacy paths only after two clean weeks at 100%.
 
 Each detector family and destructive migration receives its own data lock, pre-code audit, focused tests, and commit boundary. The architecture spec is not permission to merge every phase in one change.
 

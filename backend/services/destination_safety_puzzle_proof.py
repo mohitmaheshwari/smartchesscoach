@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 import chess
 
 from services.destination_safety_detector import (
+    CONCEPT_ID,
     FACT_VERSION,
     LEGACY_FACT_VERSION,
     QUALITY_ID,
@@ -73,7 +74,7 @@ def build_destination_safety_proof(
         return None
 
     detector = DetectorProof(
-        concept_id="piece_safety.destination_safety_exact",
+        concept_id=CONCEPT_ID,
         family="piece_safety",
         detector_id="destination_safety_exact",
         detector_version=FACT_VERSION,
@@ -95,7 +96,7 @@ def build_destination_safety_proof(
     best_gain = _gain_after(board_before, best)
     verified = played_gain >= SEE_FLOOR_CP and best_gain < SEE_FLOOR_CP
     verifier = VerifierProof(
-        concept_id="piece_safety.destination_safety_exact",
+        concept_id=CONCEPT_ID,
         verifier_id="independent_destination_capture_tree",
         verifier_version=PROOF_VERSION,
         calculation_id="independent_target_capture_minimax",

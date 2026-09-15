@@ -299,10 +299,11 @@ New lesson
 The coach may decide that another player's game is the clearest way to teach the current lesson. The player is not sent into a community library to browse:
 
 ```text
-I chose this game for you.
+Your queen exchanges keep deciding games.
 
-Both players were close to your level, and this position asks the same
-question you are working on: when should you exchange queens?
+I chose this game because both players were close to your level, and this
+position asks the same question you are working on: when should you exchange
+queens?
 
 We will study four moments:
 1. the opening plan they both understood

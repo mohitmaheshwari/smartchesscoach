@@ -22,6 +22,7 @@ FACT_VERSION = "piece_safety.destination_safety_exact.v2"
 # Temporary read compatibility while the stored observation and focus
 # migrations replace v1 evidence. Writers must always emit FACT_VERSION.
 READABLE_FACT_VERSIONS = frozenset({LEGACY_FACT_VERSION, FACT_VERSION})
+CONCEPT_ID = "piece_safety.destination_safety_exact"
 QUALITY_ID = "gap:piece_safety:destination_safety_exact"
 REASON_SEMANTIC_VERSION = "destination_safety_reason.v2"
 SEE_FLOOR_CP = 150
@@ -690,6 +691,7 @@ def grade_destination_safety_candidate(fen: str, supplied_move: str) -> Dict[str
 
 __all__ = [
     "CP_LOSS_FLOOR",
+    "CONCEPT_ID",
     "FACT_VERSION",
     "LEGACY_FACT_VERSION",
     "QUALITY_ID",
