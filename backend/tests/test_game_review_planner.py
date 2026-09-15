@@ -27,6 +27,7 @@ from services.game_review_contracts import (
     VisualReference,
 )
 from services.game_review_planner import (
+    COHERENT_STORY_FORMULA,
     PLANNER_VERSION,
     QUALITY_V2_FORMULA,
     SHADOW_FORMULA,
@@ -260,6 +261,91 @@ def test_cap_is_three_and_display_order_is_chronological():
         "I found three moments worth studying in this game. "
         "Each is supported on its own."
     )
+
+
+def test_coherent_story_uses_setup_climax_finish_and_stays_chronological():
+    setup = _event("setup", 8, principle=True)
+    climax = _event("climax", 24, principle=True)
+    finish = _event("finish", 48, principle=True)
+    setup = replace(
+        setup,
+        teaching=replace(setup.teaching, principle="Develop with a threat."),
+    )
+    climax = replace(
+        climax,
+        teaching=replace(climax.teaching, principle="Count every recapture."),
+    )
+    finish = replace(
+        finish,
+        teaching=replace(finish.teaching, principle="Check every escape square."),
+    )
+    features = {
+        setup.event_id: replace(
+            _feature(setup, cp_loss=120),
+            phase="opening",
+            primary_principle_id="development_with_tempo",
+        ),
+        climax.event_id: replace(
+            _feature(climax, cp_loss=500, decisiveness_changed=True),
+            phase="middlegame",
+            primary_principle_id="count_the_exchange",
+        ),
+        finish.event_id: replace(
+            _feature(finish, cp_loss=0),
+            phase="endgame",
+            primary_principle_id="escape_squares",
+            terminal=True,
+        ),
+    }
+    result = build_shadow_game_teaching_plan(
+        game_id="g",
+        events=(finish, climax, setup),
+        features=features,
+        generated_at=NOW,
+        formula_id=COHERENT_STORY_FORMULA,
+    )
+    assert result.selected_event_ids == ("setup", "climax", "finish")
+    assert [chapter.role.value for chapter in result.plan.chapters] == [
+        "setup",
+        "turning_point",
+        "finish",
+    ]
+
+
+def test_coherent_story_deduplicates_ply_and_primary_principle():
+    first = _event("first", 10)
+    same_ply = _event("same-ply", 10)
+    repeated = _event("repeated", 20)
+    distinct = _event("distinct", 30)
+    features = {
+        first.event_id: replace(
+            _feature(first, cp_loss=300),
+            primary_principle_id="loose_piece",
+        ),
+        same_ply.event_id: replace(
+            _feature(same_ply, cp_loss=900),
+            primary_principle_id="same_position_enrichment",
+        ),
+        repeated.event_id: replace(
+            _feature(repeated, cp_loss=700),
+            primary_principle_id="loose_piece",
+        ),
+        distinct.event_id: replace(
+            _feature(distinct, cp_loss=200),
+            primary_principle_id="count_the_exchange",
+        ),
+    }
+    result = build_shadow_game_teaching_plan(
+        game_id="g",
+        events=(first, same_ply, repeated, distinct),
+        features=features,
+        generated_at=NOW,
+        formula_id=COHERENT_STORY_FORMULA,
+    )
+    assert len(result.selected_event_ids) == 2
+    assert "same-ply" in result.selected_event_ids
+    assert "distinct" in result.selected_event_ids
+    assert not ({"first", "same-ply"} <= set(result.selected_event_ids))
 
 
 def test_only_one_selected_event_can_request_reflection():

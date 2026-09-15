@@ -29,6 +29,13 @@ class ReviewProgressRequest(BaseModel):
     move_index: int
 
 
+class CommunityStudyActionRequest(BaseModel):
+    event_id: str
+    action: str
+    selected_option_id: Optional[str] = None
+    played_move_uci: Optional[str] = None
+
+
 async def _review_service_call(operation):
     from services.coach_selected_review_service import ReviewPrescriptionError
     try:
@@ -1259,6 +1266,59 @@ async def dismiss_game_review_recommendation(
     )
 
 
+@router.get("/game-review/recommendation/{prescription_id}/study")
+async def get_game_review_community_study(
+    prescription_id: str,
+    user: User = Depends(get_current_user),
+):
+    from services.coach_selected_review_service import get_community_study
+
+    return await _review_service_call(
+        get_community_study(db, user.user_id, prescription_id)
+    )
+
+
+@router.post("/game-review/recommendation/{prescription_id}/chapter-action")
+async def record_game_review_community_chapter_action(
+    prescription_id: str,
+    request: CommunityStudyActionRequest,
+    user: User = Depends(get_current_user),
+):
+    from services.coach_selected_review_service import (
+        record_community_chapter_action,
+    )
+
+    return await _review_service_call(
+        record_community_chapter_action(
+            db,
+            user.user_id,
+            prescription_id,
+            event_id=request.event_id,
+            action=request.action,
+            selected_option_id=request.selected_option_id,
+            played_move_uci=request.played_move_uci,
+        )
+    )
+
+
+@router.post("/game-review/recommendation/{prescription_id}/next-action")
+async def follow_game_review_community_next_action(
+    prescription_id: str,
+    user: User = Depends(get_current_user),
+):
+    from services.coach_selected_review_service import (
+        follow_community_next_action,
+    )
+
+    return await _review_service_call(
+        follow_community_next_action(
+            db,
+            user.user_id,
+            prescription_id,
+        )
+    )
+
+
 @router.get("/lab-coach-pick")
 async def get_lab_coach_pick(user: User = Depends(get_current_user)):
     """
@@ -2085,6 +2145,50 @@ async def complete_game_review(game_id: str, request: Request, user: User = Depe
                 game_id=game_id,
             )
         )
+    community_learning = (
+        (prescription_result or {}).get("learning")
+        if prescription_result
+        else None
+    )
+    if isinstance(community_learning, dict):
+        next_prescription = (prescription_result or {}).get("prescription")
+        next_game = (
+            (next_prescription or {}).get("game")
+            if isinstance(next_prescription, dict)
+            else {}
+        )
+        next_rec = None
+        if isinstance(next_prescription, dict):
+            next_rec = {
+                "game_id": next_game.get("game_id"),
+                "opponent": next_game.get("opponent", ""),
+                "result": str(next_game.get("result", ""))[:1].upper(),
+                "opening": next_game.get("opening", ""),
+                "review_url": next_prescription.get("review_url"),
+                "prescription_id": next_prescription.get("prescription_id"),
+                "source_kind": next_prescription.get("source_kind"),
+            }
+        return {
+            "success": True,
+            "summary": {
+                "lesson_label": "Guided game study",
+                "lesson": (
+                    f"You worked through {community_learning['chapter_results']} "
+                    "verified moments and replayed each key decision."
+                ),
+                "takeaway": (
+                    "I recorded this as practice with help. I will wait for "
+                    "your own games before I call it improvement."
+                ),
+                "concepts_learned": "not_measured",
+                "assisted_learning": "recorded",
+                "real_game_application": "not_measured",
+                "retention": "not_measured",
+            },
+            "next_game": next_rec,
+            "next_action": (prescription_result or {}).get("next_action"),
+            "next_review": prescription_result,
+        }
     attempts = await db.puzzle_attempts.find({
         "user_id": user.user_id,
         "puzzle_id": {"$regex": f"^{game_id}_m"},

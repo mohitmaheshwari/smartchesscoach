@@ -1,15 +1,16 @@
 """Fail-closed contracts for coach-selected community game studies.
 
-The first release is deliberately a pure Shadow foundation.  This module may
-validate licensed, anonymous whole-game study records and rank their already
-authorized neutral chapters.  It does not select a learner's focus, generate
-chess claims, mutate a review prescription, or expose a route.
+This module validates licensed, anonymous whole-game study records, ranks
+already-authorized neutral chapters, and projects only independently admitted
+studies to player-facing review services. It does not select a learner's focus,
+invent chess claims, own review prescriptions, or expose routes directly.
 """
 from __future__ import annotations
 
 from copy import deepcopy
 import hashlib
 import json
+import os
 import re
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 
@@ -22,14 +23,21 @@ from services.destination_safety_detector import (
     QUALITY_ID as DESTINATION_SAFETY_QUALITY_ID,
 )
 from services.game_review_contracts import CONTRACT_SCHEMA_VERSION
+from services.game_review_planner import COHERENT_STORY_FORMULA
 
 
-SCHEMA_VERSION = "community_game_study.v1"
+SCHEMA_VERSION = "community_game_study.v2"
 SHADOW_SCHEMA_VERSION = "community_game_study_shadow_selection.v1"
-ADMISSION_POLICY_VERSION = "licensed_neutral_two_chapter.v1"
+ADMISSION_POLICY_VERSION = "licensed_neutral_coherent_guided.v2"
 SELECTOR_VERSION = "focus_band_breadth_richness.v1"
 COLLECTION = "community_game_studies"
-SAFE_PROJECTION_VERSION = "community_neutral_projection.v2"
+SHADOW_EVENT_COLLECTION = "community_game_study_shadow_events"
+SAFE_PROJECTION_VERSION = "community_neutral_projection.v3"
+GUIDED_INTERACTION_VERSION = "community_guided_review_interaction.v1"
+SHADOW_FEATURE_FLAG = "COMMUNITY_GAME_STUDY_SHADOW_ENABLED"
+VISIBLE_FEATURE_FLAG = "COMMUNITY_GAME_STUDY_VISIBLE_ENABLED"
+_TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+OPERABILITY_ROLES = frozenset({"admin", "super_admin"})
 
 APPROVED_PROVIDER = "lichess_open_database"
 APPROVED_LICENSE = "CC0-1.0"
@@ -43,7 +51,10 @@ CHAPTER_REFERENCE_FIELDS = (
     "concept_id",
     "quality_id",
     "phase",
+    "ply",
     "move_number",
+    "role",
+    "primary_principle_id",
 )
 NEUTRAL_CHAPTER_FIELDS = (
     "event_id",
@@ -53,9 +64,11 @@ NEUTRAL_CHAPTER_FIELDS = (
     "headline",
     "explanation",
     "principle",
+    "primary_principle_id",
     "move_number",
     "move_san",
     "demonstration",
+    "interaction",
 )
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -84,6 +97,36 @@ _PRIVATE_KEYS = frozenset(
 
 class CommunityGameStudyError(ValueError):
     """Raised when a community study cannot safely enter Shadow selection."""
+
+
+def shadow_enabled(env: Optional[Mapping[str, str]] = None) -> bool:
+    source = os.environ if env is None else env
+    return str(source.get(SHADOW_FEATURE_FLAG, "false")).strip().lower() in _TRUE_VALUES
+
+
+def visible_enabled(env: Optional[Mapping[str, str]] = None) -> bool:
+    source = os.environ if env is None else env
+    return bool(
+        shadow_enabled(source)
+        and str(source.get(VISIBLE_FEATURE_FLAG, "false")).strip().lower()
+        in _TRUE_VALUES
+    )
+
+
+def visible_for_operability_role(
+    role: Any,
+    env: Optional[Mapping[str, str]] = None,
+) -> bool:
+    """Narrow visibility to the approved admin operability cohort.
+
+    This is never an access bypass: the caller must still pass the canonical
+    Complete Coaching enrollment, locked-target and immutable-baseline gate.
+    There is deliberately no second email or user-id allowlist.
+    """
+    normalized_role = str(role or "user").strip().lower()
+    return bool(
+        visible_enabled(env) and normalized_role in OPERABILITY_ROLES
+    )
 
 
 def _verified_cause(source_event: Mapping[str, Any]) -> Optional[Mapping[str, Any]]:
@@ -178,7 +221,14 @@ def _first_initiator_capture(cause: Mapping[str, Any]) -> Mapping[str, Any]:
 def _neutral_cause_teaching(
     source_event: Mapping[str, Any],
     cause: Mapping[str, Any],
-) -> tuple[str, str, str, Optional[dict[str, Any]]]:
+) -> tuple[
+    str,
+    str,
+    str,
+    str,
+    Optional[dict[str, Any]],
+    dict[str, Any],
+]:
     """Render only facts already present in a verified typed cause.
 
     These bounded templates change audience perspective; they do not name a
@@ -219,7 +269,7 @@ def _neutral_cause_teaching(
             best_reason = f"{best} adds enough protection to {affected_square}."
         else:
             best_reason = f"{best} avoids that loss."
-        headline = f"{punishment} wins the {affected_piece} on {affected_square}"
+        headline = f"The {affected_piece} on {affected_square} is left unprotected"
         explanation = (
             f"{played} allows {punishment} because the {attacker_piece} on "
             f"{attacker_square} can take the {affected_piece} on "
@@ -232,7 +282,32 @@ def _neutral_cause_teaching(
             headline,
             explanation,
             principle,
+            "piece_safety.check_the_next_capture",
             {"kind": "played_refutation", "moves_san": [played, punishment]},
+            {
+                "question": "What danger should decide the move?",
+                "options": [
+                    {
+                        "id": "capture_next",
+                        "label": (
+                            f"After {played}, {punishment} can take the "
+                            f"{affected_piece} on {affected_square}."
+                        ),
+                    },
+                    {
+                        "id": "activity_is_enough",
+                        "label": (
+                            f"{played} is active enough, so the "
+                            f"{affected_piece} does not need protection."
+                        ),
+                    },
+                ],
+                "correct_option_id": "capture_next",
+                "hint": (
+                    f"Follow the {attacker_piece} from {attacker_square} "
+                    f"to {affected_square} after {played}."
+                ),
+            },
         )
 
     if kind == "verified_stored_line":
@@ -245,11 +320,27 @@ def _neutral_cause_teaching(
         if lesson == "missed_forced_mate":
             line = _verified_line(cause, "best_line_san")
             return (
-                "A checkmating finish was available",
+                "The king could be trapped with checkmate",
                 f"{played} missed checkmate. The sequence {_line_words(line)} "
                 "ends the game.",
                 "When the king has few safe squares, examine every check first.",
+                "king_safety.examine_every_check",
                 {"kind": "better_line", "moves_san": line},
+                {
+                    "question": "What should be examined first around this king?",
+                    "options": [
+                        {
+                            "id": "checks_first",
+                            "label": f"Every legal check, starting with {best}.",
+                        },
+                        {
+                            "id": "quiet_move_first",
+                            "label": "A quiet move; the king still has time to escape.",
+                        },
+                    ],
+                    "correct_option_id": "checks_first",
+                    "hint": f"Start with {best} and count the king's legal replies.",
+                },
             )
         if lesson == "allowed_forced_mate":
             reply = _required_text(
@@ -257,20 +348,52 @@ def _neutral_cause_teaching(
             )
             line = _verified_line(cause, "played_line_san")
             return (
-                "This move allowed checkmate",
+                "The king runs out of safe squares",
                 f"{played} allows the sequence {_line_words(line)}, which ends "
                 f"in checkmate. {best} avoids that finish.",
                 "Before moving, scan every check the opponent can play next.",
+                "king_safety.scan_opponent_checks",
                 {"kind": "played_refutation", "moves_san": line},
+                {
+                    "question": "What must be checked before this move is played?",
+                    "options": [
+                        {
+                            "id": "opponent_checks",
+                            "label": f"The checking sequence that starts after {played}.",
+                        },
+                        {
+                            "id": "own_threat_only",
+                            "label": f"Only the threat created by {played}.",
+                        },
+                    ],
+                    "correct_option_id": "opponent_checks",
+                    "hint": f"After {played}, begin with the opponent's checks.",
+                },
             )
         if lesson == "exchange_sequence":
             line = _verified_line(cause, "played_line_san")
             return (
-                "Count the whole exchange",
+                "The last capture decides the trade",
                 f"{played} goes wrong because the sequence {_line_words(line)} "
                 f"gives up more material than it wins. {best} avoids that trade.",
                 "Before starting an exchange, count every recapture to the end.",
+                "calculation.count_every_recapture",
                 {"kind": "played_refutation", "moves_san": line},
+                {
+                    "question": "What decides whether this trade works?",
+                    "options": [
+                        {
+                            "id": "last_capture",
+                            "label": "The material left after every recapture.",
+                        },
+                        {
+                            "id": "first_capture",
+                            "label": f"Only the first capture made by {played}.",
+                        },
+                    ],
+                    "correct_option_id": "last_capture",
+                    "hint": f"Do not stop at {played}; follow {_line_words(line)}.",
+                },
             )
         if lesson == "missed_material_opportunity":
             first_capture = _first_initiator_capture(cause)
@@ -304,12 +427,22 @@ def _neutral_cause_teaching(
                 "source event cause.best_captures[].capturing_piece",
             )
             return (
-                f"{best} can win a {target_piece}",
+                f"A loose {target_piece} on {target_square} could be won",
                 f"{played} missed the chance because {_line_words(line)} ends "
                 f"with the {capturing_piece} taking the {target_piece} on "
                 f"{target_square}.",
                 "Check captures and follow each reply until the gain is clear.",
+                "tactics.follow_the_payoff",
                 {"kind": "better_line", "moves_san": line},
+                {
+                    "question": f"Which move starts the gain on {target_square}?",
+                    "options": [
+                        {"id": "better_line", "label": best},
+                        {"id": "played_move", "label": played},
+                    ],
+                    "correct_option_id": "better_line",
+                    "hint": f"Follow {best} until the {target_piece} on {target_square} is taken.",
+                },
             )
         raise CommunityGameStudyError("source event verified-line lesson is unsupported")
 
@@ -332,7 +465,17 @@ def _neutral_cause_teaching(
             f"Before {played}, the position was a {before}. After it, the "
             f"result became a {after}. {best} preserved the {before}.",
             "With only a few pieces left, verify that the move keeps the result.",
+            "endgame.preserve_exact_result",
             {"kind": "better_line", "moves_san": [best]},
+            {
+                "question": f"Which move preserves the {before}?",
+                "options": [
+                    {"id": "preserves_result", "label": best},
+                    {"id": "changes_result", "label": played},
+                ],
+                "correct_option_id": "preserves_result",
+                "hint": f"Compare the exact result after {best} and after {played}.",
+            },
         )
 
     raise CommunityGameStudyError("source event cause kind is unsupported")
@@ -379,7 +522,9 @@ def _private_path(value: Any, path: str = "study") -> Optional[str]:
     return None
 
 
-def _verify_replay(game: Mapping[str, Any], replay: Mapping[str, Any]) -> None:
+def _verify_replay(
+    game: Mapping[str, Any], replay: Mapping[str, Any]
+) -> Dict[int, str]:
     initial_fen = str(game.get("initial_fen") or chess.STARTING_FEN).strip()
     moves_uci = game.get("moves_uci")
     if not isinstance(moves_uci, list) or not moves_uci:
@@ -390,7 +535,9 @@ def _verify_replay(game: Mapping[str, Any], replay: Mapping[str, Any]) -> None:
         raise CommunityGameStudyError("game.initial_fen is invalid") from exc
     if not board.is_valid():
         raise CommunityGameStudyError("game.initial_fen is not a legal position")
+    positions: Dict[int, str] = {}
     for ply, move_text in enumerate(moves_uci, start=1):
+        positions[ply] = board.fen()
         try:
             move = chess.Move.from_uci(str(move_text))
         except ValueError as exc:
@@ -407,6 +554,7 @@ def _verify_replay(game: Mapping[str, Any], replay: Mapping[str, Any]) -> None:
     expected = replay_fingerprint(initial_fen, moves_uci)
     if _required_sha(replay.get("fingerprint"), "replay.fingerprint") != expected:
         raise CommunityGameStudyError("replay fingerprint does not match the game")
+    return positions
 
 
 def _validate_source(source: Mapping[str, Any]) -> None:
@@ -454,9 +602,16 @@ def _validate_chapter(chapter: Mapping[str, Any], index: int) -> Dict[str, Any]:
             "concept_id",
             "quality_id",
             "phase",
+            "role",
+            "primary_principle_id",
         }:
             value = _required_text(value, f"chapters[{index}].{field}")
         normalized[field] = value
+    ply = normalized.get("ply")
+    if isinstance(ply, bool) or not isinstance(ply, int) or ply < 1:
+        raise CommunityGameStudyError(
+            f"chapters[{index}].ply must be a positive integer"
+        )
     move_number = normalized.get("move_number")
     if move_number is not None and (
         not isinstance(move_number, int) or move_number < 1
@@ -464,6 +619,15 @@ def _validate_chapter(chapter: Mapping[str, Any], index: int) -> Dict[str, Any]:
         raise CommunityGameStudyError(
             f"chapters[{index}].move_number must be a positive integer"
         )
+    if normalized["phase"] not in {"opening", "middlegame", "endgame"}:
+        raise CommunityGameStudyError(f"chapters[{index}].phase is invalid")
+    if normalized["role"] not in {
+        "setup",
+        "turning_point",
+        "consequence",
+        "finish",
+    }:
+        raise CommunityGameStudyError(f"chapters[{index}].role is invalid")
     return normalized
 
 
@@ -535,6 +699,8 @@ def project_neutral_chapter(
     ).strip()
     principle = str(teaching.get("principle") or "").strip()
     demonstration: Optional[dict[str, Any]] = None
+    primary_principle_id = ""
+    interaction: Optional[dict[str, Any]] = None
     personalized = any(
         _SECOND_PERSON.search(value)
         for value in (headline, explanation, principle)
@@ -545,9 +711,14 @@ def project_neutral_chapter(
             raise CommunityGameStudyError(
                 "source event teaching is personalized without a typed cause"
             )
-        headline, explanation, principle, demonstration = _neutral_cause_teaching(
-            source_event, cause
-        )
+        (
+            headline,
+            explanation,
+            principle,
+            primary_principle_id,
+            demonstration,
+            interaction,
+        ) = _neutral_cause_teaching(source_event, cause)
     if not explanation or not (headline or principle):
         raise CommunityGameStudyError("source event lacks neutral teaching words")
     for field, value in (
@@ -571,11 +742,137 @@ def project_neutral_chapter(
         "headline": headline or principle,
         "explanation": explanation,
         "principle": principle,
+        "primary_principle_id": primary_principle_id,
         "move_number": event_move_number,
         "move_san": event_move_san,
         "demonstration": demonstration,
+        "interaction": (
+            {"schema_version": GUIDED_INTERACTION_VERSION, **interaction}
+            if interaction is not None
+            else None
+        ),
     }
     return {field: projected.get(field) for field in NEUTRAL_CHAPTER_FIELDS}
+
+
+def validate_guided_interaction(
+    chapter: Mapping[str, Any],
+    *,
+    fen_before: str,
+) -> Dict[str, Any]:
+    """Validate one complete interaction against the chapter position.
+
+    The stored answer remains server-side. The legal demonstration, rather
+    than the selected option, is the chess proof.
+    """
+    interaction = chapter.get("interaction")
+    demonstration = chapter.get("demonstration")
+    if not isinstance(interaction, Mapping):
+        raise CommunityGameStudyError("chapter interaction is missing")
+    if interaction.get("schema_version") != GUIDED_INTERACTION_VERSION:
+        raise CommunityGameStudyError("chapter interaction schema is not current")
+    question = _required_text(interaction.get("question"), "interaction.question")
+    hint = _required_text(interaction.get("hint"), "interaction.hint")
+    correct = _required_text(
+        interaction.get("correct_option_id"), "interaction.correct_option_id"
+    )
+    options = interaction.get("options")
+    if not isinstance(options, list) or len(options) < 2:
+        raise CommunityGameStudyError("interaction needs two position-relevant options")
+    normalized_options = []
+    for index, option in enumerate(options):
+        if not isinstance(option, Mapping):
+            raise CommunityGameStudyError(f"interaction.options[{index}] is invalid")
+        normalized_options.append({
+            "id": _required_text(option.get("id"), f"interaction.options[{index}].id"),
+            "label": _required_text(
+                option.get("label"), f"interaction.options[{index}].label"
+            ),
+        })
+    option_ids = [option["id"] for option in normalized_options]
+    if len(option_ids) != len(set(option_ids)) or correct not in option_ids:
+        raise CommunityGameStudyError("interaction option identity is invalid")
+    if not isinstance(demonstration, Mapping):
+        raise CommunityGameStudyError("interactive chapter needs a demonstration")
+    kind = str(demonstration.get("kind") or "")
+    moves = demonstration.get("moves_san")
+    if kind not in {"played_refutation", "better_line"}:
+        raise CommunityGameStudyError("demonstration kind is invalid")
+    if not isinstance(moves, list) or not moves:
+        raise CommunityGameStudyError("demonstration moves are missing")
+    try:
+        board = chess.Board(_required_text(fen_before, "position.fen"))
+        normalized_moves = []
+        for raw in moves:
+            san = _required_text(raw, "demonstration move")
+            board.push_san(san)
+            normalized_moves.append(san)
+    except (AssertionError, ValueError) as exc:
+        raise CommunityGameStudyError("demonstration is not legal from the chapter") from exc
+    played = _required_text(chapter.get("move_san"), "chapter.move_san")
+    if kind == "played_refutation" and normalized_moves[0] != played:
+        raise CommunityGameStudyError("played refutation must begin with the played move")
+    if kind == "better_line" and normalized_moves[0] == played:
+        raise CommunityGameStudyError("better line cannot begin with the played move")
+    return {
+        "schema_version": GUIDED_INTERACTION_VERSION,
+        "question": question,
+        "options": normalized_options,
+        "correct_option_id": correct,
+        "hint": hint,
+    }
+
+
+def public_guided_interaction(interaction: Mapping[str, Any]) -> Dict[str, Any]:
+    """Project an answer-free interaction for an authenticated learner."""
+    return {
+        "schema_version": interaction["schema_version"],
+        "question": interaction["question"],
+        "options": [dict(option) for option in interaction["options"]],
+        "hint_available": bool(str(interaction.get("hint") or "").strip()),
+    }
+
+
+def _derived_principle_id(principle: str, concept_id: str) -> str:
+    normalized = " ".join(str(principle or "").lower().split())
+    if normalized:
+        digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+        return f"principle:{digest}"
+    return f"concept:{_required_text(concept_id, 'concept_id')}"
+
+
+def principle_identity(chapter: Mapping[str, Any]) -> str:
+    """Return the one canonical teaching identity used for story de-duplication."""
+    explicit = str(chapter.get("primary_principle_id") or "").strip()
+    return explicit or _derived_principle_id(
+        str(chapter.get("principle") or ""),
+        str(chapter.get("concept_id") or ""),
+    )
+
+
+def _project_stored_chapter(
+    source_event: Mapping[str, Any],
+    chapter_ref: Mapping[str, Any],
+    *,
+    fen_before: str,
+) -> Dict[str, Any]:
+    projected = project_neutral_chapter(source_event, chapter_ref)
+    if not projected.get("primary_principle_id"):
+        projected["primary_principle_id"] = principle_identity(projected)
+    if projected["primary_principle_id"] != chapter_ref["primary_principle_id"]:
+        raise CommunityGameStudyError(
+            "chapter primary principle does not match current projection"
+        )
+    projected["interaction"] = validate_guided_interaction(
+        projected,
+        fen_before=fen_before,
+    )
+    projected["role"] = chapter_ref["role"]
+    projected["position"] = {
+        "fen": fen_before,
+        "side_to_move": "white" if chess.Board(fen_before).turn else "black",
+    }
+    return projected
 
 
 def validate_study(study: Mapping[str, Any]) -> Dict[str, Any]:
@@ -599,16 +896,17 @@ def validate_study(study: Mapping[str, Any]) -> Dict[str, Any]:
     game = study.get("game")
     replay = study.get("replay")
     plan = study.get("plan")
+    evidence = study.get("evidence")
     privacy = study.get("privacy")
     if not all(
         isinstance(value, Mapping)
-        for value in (source, game, replay, plan, privacy)
+        for value in (source, game, replay, plan, evidence, privacy)
     ):
         raise CommunityGameStudyError(
-            "source, game, replay, plan and privacy must be mappings"
+            "source, game, replay, plan, evidence and privacy must be mappings"
         )
     _validate_source(source)
-    _verify_replay(game, replay)
+    replay_positions = _verify_replay(game, replay)
 
     rating_band = _required_text(game.get("rating_band"), "game.rating_band")
     if rating_band not in CANONICAL_RATING_BANDS:
@@ -624,6 +922,8 @@ def validate_study(study: Mapping[str, Any]) -> Dict[str, Any]:
         != SAFE_PROJECTION_VERSION
     ):
         raise CommunityGameStudyError("plan.safe_projection_version is not current")
+    if plan.get("story_formula") != COHERENT_STORY_FORMULA:
+        raise CommunityGameStudyError("plan.story_formula is not current")
     chapters = plan.get("chapters")
     if not isinstance(chapters, list):
         raise CommunityGameStudyError("plan.chapters must be a list")
@@ -634,11 +934,69 @@ def validate_study(study: Mapping[str, Any]) -> Dict[str, Any]:
     ]
     if len(normalized_chapters) != len(chapters):
         raise CommunityGameStudyError("every chapter must be a mapping")
-    if len(normalized_chapters) < 2:
-        raise CommunityGameStudyError("a whole-game study needs two chapters")
+    if not 2 <= len(normalized_chapters) <= 3:
+        raise CommunityGameStudyError(
+            "a whole-game study needs two or three chapters"
+        )
     event_ids = [chapter["event_id"] for chapter in normalized_chapters]
     if len(event_ids) != len(set(event_ids)):
         raise CommunityGameStudyError("chapter event ids must be unique")
+    plies = [chapter["ply"] for chapter in normalized_chapters]
+    if plies != sorted(plies) or len(plies) != len(set(plies)):
+        raise CommunityGameStudyError("chapters must be unique and chronological")
+    principles = [
+        chapter["primary_principle_id"] for chapter in normalized_chapters
+    ]
+    if len(principles) != len(set(principles)):
+        raise CommunityGameStudyError("chapter principles must be distinct")
+
+    source_events = evidence.get("events")
+    chapter_positions = evidence.get("chapter_positions")
+    if not isinstance(source_events, list) or not isinstance(chapter_positions, list):
+        raise CommunityGameStudyError(
+            "evidence events and chapter positions must be lists"
+        )
+    event_index: Dict[str, Mapping[str, Any]] = {}
+    for event in source_events:
+        if not isinstance(event, Mapping):
+            raise CommunityGameStudyError("every evidence event must be a mapping")
+        event_id = _required_text(event.get("event_id"), "evidence.event_id")
+        if event_id in event_index:
+            raise CommunityGameStudyError("evidence event ids must be unique")
+        event_index[event_id] = event
+    position_index: Dict[str, Mapping[str, Any]] = {}
+    for position in chapter_positions:
+        if not isinstance(position, Mapping):
+            raise CommunityGameStudyError(
+                "every chapter position must be a mapping"
+            )
+        unexpected = set(position) - {"event_id", "ply", "fen"}
+        if unexpected:
+            raise CommunityGameStudyError(
+                f"chapter position has unsupported fields: {sorted(unexpected)}"
+            )
+        event_id = _required_text(
+            position.get("event_id"), "chapter_position.event_id"
+        )
+        if event_id in position_index:
+            raise CommunityGameStudyError("chapter position ids must be unique")
+        position_index[event_id] = position
+    if set(event_index) != set(event_ids) or set(position_index) != set(event_ids):
+        raise CommunityGameStudyError(
+            "stored evidence must match the selected chapters exactly"
+        )
+    for chapter in normalized_chapters:
+        position = position_index[chapter["event_id"]]
+        ply = position.get("ply")
+        if ply != chapter["ply"] or replay_positions.get(chapter["ply"]) != position.get("fen"):
+            raise CommunityGameStudyError(
+                "chapter position does not match the legal whole-game replay"
+            )
+        _project_stored_chapter(
+            event_index[chapter["event_id"]],
+            chapter,
+            fen_before=str(position["fen"]),
+        )
 
     if privacy.get("identity_state") != "anonymous":
         raise CommunityGameStudyError("privacy.identity_state must be anonymous")
@@ -650,6 +1008,168 @@ def validate_study(study: Mapping[str, Any]) -> Dict[str, Any]:
     normalized = deepcopy(dict(study))
     normalized["plan"] = {**dict(plan), "chapters": normalized_chapters}
     return normalized
+
+
+def project_visible_study(study: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return an anonymous answer-hidden study shell for one learner."""
+    normalized = validate_study(study)
+    events = {
+        str(item["event_id"]): item for item in normalized["evidence"]["events"]
+    }
+    positions = {
+        str(item["event_id"]): item
+        for item in normalized["evidence"]["chapter_positions"]
+    }
+    chapters = []
+    for reference in normalized["plan"]["chapters"]:
+        event_id = reference["event_id"]
+        projected = _project_stored_chapter(
+            events[event_id],
+            reference,
+            fen_before=str(positions[event_id]["fen"]),
+        )
+        chapters.append(
+            {
+                "event_id": event_id,
+                "role": projected["role"],
+                "phase": projected["phase"],
+                "ply": reference["ply"],
+                "move_number": projected["move_number"],
+                "position": projected["position"],
+                "interaction": public_guided_interaction(
+                    projected["interaction"]
+                ),
+            }
+        )
+    return {
+        "schema_version": "community_game_study_player.v1",
+        "study_id": normalized["study_id"],
+        "source_kind": "community",
+        "game": {
+            "initial_fen": normalized["game"]["initial_fen"],
+            "moves_uci": list(normalized["game"]["moves_uci"]),
+            "rating_band": normalized["game"]["rating_band"],
+            "time_control_category": normalized["game"]["time_control_category"],
+        },
+        "chapters": chapters,
+    }
+
+
+def verify_guided_replay_move(
+    study: Mapping[str, Any],
+    *,
+    event_id: str,
+    played_move_uci: str,
+) -> Dict[str, Any]:
+    """Verify the learner replayed the chapter's key move on its exact board.
+
+    The full demonstration has already been replay-validated at admission. The
+    learner owns the first decision; the remaining replies are the line they
+    just watched. This prevents a client from marking replay complete by
+    sending only a UI event.
+    """
+    normalized = validate_study(study)
+    reference = next(
+        (
+            chapter
+            for chapter in normalized["plan"]["chapters"]
+            if chapter["event_id"] == event_id
+        ),
+        None,
+    )
+    if reference is None:
+        raise CommunityGameStudyError("chapter does not belong to this study")
+    source_event = next(
+        item
+        for item in normalized["evidence"]["events"]
+        if item["event_id"] == event_id
+    )
+    position = next(
+        item
+        for item in normalized["evidence"]["chapter_positions"]
+        if item["event_id"] == event_id
+    )
+    projected = _project_stored_chapter(
+        source_event,
+        reference,
+        fen_before=str(position["fen"]),
+    )
+    try:
+        board = chess.Board(str(position["fen"]))
+        expected = board.parse_san(projected["demonstration"]["moves_san"][0])
+        played = chess.Move.from_uci(
+            _required_text(played_move_uci, "played_move_uci").lower()
+        )
+    except (AssertionError, ValueError) as exc:
+        raise CommunityGameStudyError("replayed move is not valid UCI") from exc
+    if played not in board.legal_moves:
+        raise CommunityGameStudyError("replayed move is illegal on this board")
+    if played != expected:
+        raise CommunityGameStudyError("replay the key move from the shown line")
+    return {
+        "event_id": event_id,
+        "correct": True,
+        "played_move_uci": played.uci(),
+        "expected_move_san": board.san(expected),
+    }
+
+
+def reveal_study_chapter(
+    study: Mapping[str, Any],
+    *,
+    event_id: str,
+    selected_option_id: Optional[str] = None,
+    include_hint: bool = False,
+) -> Dict[str, Any]:
+    """Grade or hint one chapter; only this server projection reveals truth."""
+    normalized = validate_study(study)
+    reference = next(
+        (
+            chapter
+            for chapter in normalized["plan"]["chapters"]
+            if chapter["event_id"] == event_id
+        ),
+        None,
+    )
+    if reference is None:
+        raise CommunityGameStudyError("chapter does not belong to this study")
+    source_event = next(
+        item
+        for item in normalized["evidence"]["events"]
+        if item["event_id"] == event_id
+    )
+    position = next(
+        item
+        for item in normalized["evidence"]["chapter_positions"]
+        if item["event_id"] == event_id
+    )
+    projected = _project_stored_chapter(
+        source_event,
+        reference,
+        fen_before=str(position["fen"]),
+    )
+    if include_hint:
+        return {
+            "event_id": event_id,
+            "hint": projected["interaction"]["hint"],
+        }
+    selected = _required_text(selected_option_id, "selected_option_id")
+    option_ids = {
+        item["id"] for item in projected["interaction"]["options"]
+    }
+    if selected not in option_ids:
+        raise CommunityGameStudyError("selected option was not shown")
+    correct_id = projected["interaction"]["correct_option_id"]
+    return {
+        "event_id": event_id,
+        "selected_option_id": selected,
+        "correct_option_id": correct_id,
+        "correct": selected == correct_id,
+        "headline": projected["headline"],
+        "explanation": projected["explanation"],
+        "principle": projected["principle"],
+        "demonstration": projected["demonstration"],
+    }
 
 
 def candidate_from_study(
@@ -780,6 +1300,104 @@ async def load_shadow_selection(
     )
 
 
+async def load_admitted_selection(
+    db,
+    *,
+    focus_concept_id: str,
+    focus_quality_id: str,
+    rating_band: str,
+    terminal_study_ids: Sequence[str] = (),
+) -> Dict[str, Any]:
+    """Rank only independently admitted studies for a visible prescription."""
+    rows = await db[COLLECTION].find(
+        {
+            "status": "admitted",
+            "game.rating_band": rating_band,
+        },
+        {"_id": 0},
+    ).to_list(length=None)
+    return shadow_selection(
+        rows,
+        focus_concept_id=focus_concept_id,
+        focus_quality_id=focus_quality_id,
+        rating_band=rating_band,
+        terminal_study_ids=terminal_study_ids,
+    )
+
+
+async def load_study(db, study_id: str) -> Optional[Dict[str, Any]]:
+    """Load one current anonymous study; malformed rows disappear safely."""
+    row = await db[COLLECTION].find_one(
+        {"study_id": str(study_id), "status": {"$in": sorted(ELIGIBLE_STATUSES)}},
+        {"_id": 0},
+    )
+    if not isinstance(row, Mapping):
+        return None
+    try:
+        return validate_study(row)
+    except CommunityGameStudyError:
+        return None
+
+
+async def load_admitted_study(
+    db, study_id: str
+) -> Optional[Dict[str, Any]]:
+    """Load one independently admitted study for a player-facing surface."""
+    row = await db[COLLECTION].find_one(
+        {"study_id": str(study_id), "status": "admitted"},
+        {"_id": 0},
+    )
+    if not isinstance(row, Mapping):
+        return None
+    try:
+        normalized = validate_study(row)
+    except CommunityGameStudyError:
+        return None
+    if normalized["status"] != "admitted":
+        return None
+    return normalized
+
+
+async def record_shadow_evidence(
+    db,
+    selection: Mapping[str, Any],
+    *,
+    focus_concept_id: str,
+    focus_quality_id: str,
+    rating_band: str,
+) -> None:
+    """Record aggregate selection reach without learner or source identity."""
+    from datetime import datetime, timezone
+
+    candidate = selection.get("candidate")
+    now = datetime.now(timezone.utc)
+    hour = now.replace(minute=0, second=0, microsecond=0)
+    payload = {
+        "schema_version": "community_game_study_shadow_event.v1",
+        "rating_band": rating_band,
+        "focus_concept_id": str(focus_concept_id or ""),
+        "focus_quality_id": str(focus_quality_id or ""),
+        "status": str(selection.get("status") or "empty"),
+        "eligible_count": int(selection.get("eligible_count") or 0),
+        "focus_match": bool(
+            isinstance(candidate, Mapping) and candidate.get("focus_match")
+        ),
+        "observed_hour": hour,
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(
+            {**payload, "observed_hour": hour.isoformat()},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    await db[SHADOW_EVENT_COLLECTION].update_one(
+        {"_id": f"cgse_{fingerprint[:24]}"},
+        {"$setOnInsert": {"_id": f"cgse_{fingerprint[:24]}", **payload}},
+        upsert=True,
+    )
+
+
 __all__ = [
     "ADMISSION_POLICY_VERSION",
     "APPROVED_LICENSE",
@@ -788,13 +1406,31 @@ __all__ = [
     "CommunityGameStudyError",
     "SCHEMA_VERSION",
     "SAFE_PROJECTION_VERSION",
+    "SHADOW_FEATURE_FLAG",
+    "SHADOW_EVENT_COLLECTION",
+    "GUIDED_INTERACTION_VERSION",
     "SELECTOR_VERSION",
     "SHADOW_SCHEMA_VERSION",
+    "VISIBLE_FEATURE_FLAG",
+    "OPERABILITY_ROLES",
     "candidate_from_study",
+    "load_admitted_selection",
+    "load_admitted_study",
     "load_shadow_selection",
+    "load_study",
     "rank_studies",
     "replay_fingerprint",
     "project_neutral_chapter",
+    "principle_identity",
+    "project_visible_study",
+    "verify_guided_replay_move",
+    "public_guided_interaction",
+    "reveal_study_chapter",
+    "record_shadow_evidence",
     "shadow_selection",
+    "shadow_enabled",
     "validate_study",
+    "validate_guided_interaction",
+    "visible_enabled",
+    "visible_for_operability_role",
 ]

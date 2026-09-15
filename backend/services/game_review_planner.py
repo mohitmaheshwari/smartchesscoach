@@ -28,6 +28,7 @@ from services.game_review_contracts import (
 PLANNER_VERSION = "personalized_game_review_planner.v2"
 SHADOW_FORMULA = "D_teaching_then_critical"
 QUALITY_V2_FORMULA = "E_transition_then_teaching"
+COHERENT_STORY_FORMULA = "coherent_role_then_quality.v1"
 SHADOW_MOMENT_CAP = 3
 SHADOW_REFLECTION_QUESTION_BUDGET = 1
 
@@ -40,6 +41,10 @@ class PlannerEventFeatures:
     decisiveness_changed: bool = False
     stayed_winning: bool = False
     mover_winprob_delta: float = 0.0
+    phase: str = "middlegame"
+    primary_principle_id: str = ""
+    primary_family: str = ""
+    terminal: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.event_id, str) or not self.event_id.strip():
@@ -58,6 +63,14 @@ class PlannerEventFeatures:
             raise ReviewContractViolation("stayed_winning must be boolean")
         if not isinstance(self.mover_winprob_delta, (int, float)):
             raise ReviewContractViolation("mover_winprob_delta must be numeric")
+        if self.phase not in {"opening", "middlegame", "endgame"}:
+            raise ReviewContractViolation("planner phase is invalid")
+        if not isinstance(self.primary_principle_id, str):
+            raise ReviewContractViolation("primary_principle_id must be text")
+        if not isinstance(self.primary_family, str):
+            raise ReviewContractViolation("primary_family must be text")
+        if not isinstance(self.terminal, bool):
+            raise ReviewContractViolation("terminal must be boolean")
 
 
 @dataclass(frozen=True)
@@ -112,7 +125,7 @@ def _rank_key(
             float(features.cp_loss),
             float(-event.move.ply),
         )
-    if formula_id == QUALITY_V2_FORMULA:
+    if formula_id in {QUALITY_V2_FORMULA, COHERENT_STORY_FORMULA}:
         return (
             float(features.decisiveness_changed),
             float(not features.stayed_winning),
@@ -122,6 +135,129 @@ def _rank_key(
             float(-event.move.ply),
         )
     raise ReviewContractViolation("unknown review ranking formula")
+
+
+def _principle_key(
+    event: TeachableEvent,
+    features: PlannerEventFeatures,
+) -> str:
+    explicit = features.primary_principle_id.strip().lower()
+    if explicit:
+        return explicit
+    principle = " ".join(event.teaching.principle.lower().split())
+    if principle:
+        return principle
+    family = features.primary_family.strip().lower()
+    return family or event.concept.concept_id.strip().lower()
+
+
+def _coherent_selection(
+    eligible: Sequence[tuple[TeachableEvent, PlannerEventFeatures]],
+) -> tuple[
+    list[tuple[TeachableEvent, PlannerEventFeatures]],
+    dict[str, ChapterRole],
+]:
+    """Select setup, climax and consequence without repeated teaching.
+
+    Quality chooses the climax. Story role chooses the remaining moments.
+    The function performs no chess inference and consumes only explicit,
+    already-authorized planner features.
+    """
+    if not eligible:
+        return [], {}
+
+    # Several proof families may explain one board position. Keep the best
+    # authorized event at that ply; family detail belongs inside the chapter.
+    by_ply: dict[int, tuple[TeachableEvent, PlannerEventFeatures]] = {}
+    for item in eligible:
+        current = by_ply.get(item[0].move.ply)
+        if current is None or _rank_key(
+            item[0], item[1], COHERENT_STORY_FORMULA
+        ) > _rank_key(current[0], current[1], COHERENT_STORY_FORMULA):
+            by_ply[item[0].move.ply] = item
+    moments = list(by_ply.values())
+    climax = max(
+        moments,
+        key=lambda item: _rank_key(
+            item[0], item[1], COHERENT_STORY_FORMULA
+        ),
+    )
+    selected = [climax]
+    used_principles = {_principle_key(*climax)}
+    roles = {climax[0].event_id: ChapterRole.TURNING_POINT}
+
+    terminal_candidates = [item for item in moments if item[1].terminal]
+    terminal = (
+        max(
+            terminal_candidates,
+            key=lambda item: _rank_key(
+                item[0], item[1], COHERENT_STORY_FORMULA
+            ),
+        )
+        if terminal_candidates
+        else None
+    )
+    if terminal is not None and terminal[0].event_id != climax[0].event_id:
+        key = _principle_key(*terminal)
+        if key not in used_principles:
+            selected.append(terminal)
+            used_principles.add(key)
+            roles[terminal[0].event_id] = ChapterRole.FINISH
+    elif terminal is not None:
+        roles[climax[0].event_id] = ChapterRole.FINISH
+
+    def add_first(candidates, role: ChapterRole) -> None:
+        for item in candidates:
+            if len(selected) >= SHADOW_MOMENT_CAP:
+                return
+            key = _principle_key(*item)
+            if key in used_principles:
+                continue
+            selected.append(item)
+            used_principles.add(key)
+            roles[item[0].event_id] = role
+            return
+
+    # The earliest distinct cause supplies context before the climax.
+    add_first(
+        sorted(
+            (
+                item for item in moments
+                if item[0].move.ply < climax[0].move.ply
+                and item[0].event_id not in roles
+            ),
+            key=lambda item: item[0].move.ply,
+        ),
+        ChapterRole.SETUP,
+    )
+    # The latest distinct consequence shows where the decision led. A
+    # terminal chapter, when admitted, has already reserved this role.
+    add_first(
+        sorted(
+            (
+                item for item in moments
+                if item[0].move.ply > climax[0].move.ply
+                and item[0].event_id not in roles
+            ),
+            key=lambda item: item[0].move.ply,
+            reverse=True,
+        ),
+        ChapterRole.CONSEQUENCE,
+    )
+    # If the climax was the first or last useful event, admit the strongest
+    # remaining distinct idea rather than padding a missing visual role.
+    if len(selected) < 2:
+        add_first(
+            sorted(
+                (item for item in moments if item[0].event_id not in roles),
+                key=lambda item: _rank_key(
+                    item[0], item[1], COHERENT_STORY_FORMULA
+                ),
+                reverse=True,
+            ),
+            ChapterRole.CONSEQUENCE,
+        )
+    return selected, roles
 
 
 def _chapter_role(
@@ -204,7 +340,11 @@ def build_shadow_game_teaching_plan(
         key=lambda item: _rank_key(item[0], item[1], formula_id),
         reverse=True,
     )
-    selected_ranked = ranked[:SHADOW_MOMENT_CAP]
+    coherent_roles: dict[str, ChapterRole] = {}
+    if formula_id == COHERENT_STORY_FORMULA:
+        selected_ranked, coherent_roles = _coherent_selection(ranked)
+    else:
+        selected_ranked = ranked[:SHADOW_MOMENT_CAP]
     if not selected_ranked:
         return ShadowPlannerResult(
             plan=None,
@@ -229,7 +369,11 @@ def build_shadow_game_teaching_plan(
     chapters = tuple(
         PlanChapter(
             event_id=event.event_id,
-            role=_chapter_role(event, recurring),
+            role=(
+                coherent_roles[event.event_id]
+                if formula_id == COHERENT_STORY_FORMULA
+                else _chapter_role(event, recurring)
+            ),
             content_ref=event.concept.content_ref,
             canonical_source=event.concept.canonical_source,
         )

@@ -60,6 +60,7 @@ import PersonalizedReviewCoach, {
 } from "@/components/review/PersonalizedReviewCoach";
 import ReviewValidationPanel from "@/components/review/ReviewValidationPanel";
 import CandidateComparisonCard from "@/components/review/CandidateComparisonCard";
+import GuidedReviewMoment from "@/components/review/GuidedReviewMoment";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -142,7 +143,23 @@ function _generateThoughtOptions(move, posCommentary) {
 }
 
 
-const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSummary, coreLesson, gameResult, opponentName, coachReview, onPlayBestLine }) => {
+const GameDecryptionV5 = ({
+  gameId,
+  analysis,
+  pgn,
+  userColor,
+  onBack,
+  coachSummary,
+  coreLesson,
+  gameResult,
+  opponentName,
+  coachReview,
+  onPlayBestLine,
+  communityStudy = null,
+  communityPrescriptionId = "",
+  onCommunityComplete,
+  completingCommunityReview = false,
+}) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedReviewVariant = searchParams.get("review_variant");
@@ -211,6 +228,133 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   // correct cell.
   const [coachLinePlaybackIdx, setCoachLinePlaybackIdx] = useState(-1);
   const [coachLineStepIndex, setCoachLineStepIndex] = useState(-1);
+  const [communityChapterIndex, setCommunityChapterIndex] = useState(0);
+  const [communityProgress, setCommunityProgress] = useState({});
+  const [communityHints, setCommunityHints] = useState({});
+  const [communityReveals, setCommunityReveals] = useState({});
+  const [communityReplay, setCommunityReplay] = useState(null);
+  const [communityReplayBusy, setCommunityReplayBusy] = useState(false);
+
+  useEffect(() => {
+    if (!communityStudy) return;
+    setCommunityChapterIndex(0);
+    setCommunityProgress(communityStudy.progress || {});
+    setCommunityHints(communityStudy.hints || {});
+    setCommunityReveals(communityStudy.reveals || {});
+    setCommunityReplay(null);
+    setCommunityReplayBusy(false);
+    setLoading(false);
+    setError(null);
+  }, [communityStudy]);
+
+  const requestCommunityAction = useCallback(async (
+    eventId,
+    action,
+    extra = {},
+  ) => {
+    if (!communityPrescriptionId) {
+      throw new Error("This guided review is no longer active.");
+    }
+    const response = await fetch(
+      `${API}/game-review/recommendation/${communityPrescriptionId}/chapter-action`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event_id: eventId,
+          action,
+          ...extra,
+        }),
+      },
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload?.detail || "That coaching step could not be saved.");
+    }
+    if (payload.progress) {
+      setCommunityProgress((current) => ({
+        ...current,
+        [eventId]: payload.progress,
+      }));
+    }
+    if (payload.hint) {
+      setCommunityHints((current) => ({
+        ...current,
+        [eventId]: payload,
+      }));
+    }
+    if (payload.demonstration) {
+      setCommunityReveals((current) => ({
+        ...current,
+        [eventId]: payload,
+      }));
+    }
+    return payload;
+  }, [communityPrescriptionId]);
+
+  const watchCommunityLine = useCallback((chapter, demonstration) => (
+    new Promise((resolve, reject) => {
+      if (!boardRef.current?.playVariation) {
+        reject(new Error("The board could not play this line."));
+        return;
+      }
+      setCommunityReplay(null);
+      const started = boardRef.current.playVariation(
+        chapter.position.fen,
+        demonstration.moves_san,
+        {
+          stepDelayMs: 1250,
+          onComplete: async () => {
+            try {
+              const result = await requestCommunityAction(
+                chapter.event_id,
+                "watch",
+              );
+              resolve(result);
+            } catch (requestError) {
+              reject(requestError);
+            }
+          },
+          onError: reject,
+        },
+      );
+      if (started === false) {
+        reject(new Error("The board could not play this verified line."));
+      }
+    })
+  ), [requestCommunityAction]);
+
+  const beginCommunityReplay = useCallback((chapter) => {
+    boardRef.current?.cancelVariation?.();
+    boardRef.current?.setPosition?.(chapter.position.fen);
+    setCommunityReplay({
+      eventId: chapter.event_id,
+      fen: chapter.position.fen,
+    });
+    return Promise.resolve({ ready: true });
+  }, []);
+
+  const playCommunityReplayMove = useCallback(async (moveData) => {
+    if (!communityReplay || communityReplayBusy) return;
+    const promotion = moveData.promotion || "";
+    const playedMoveUci = `${moveData.from}${moveData.to}${promotion}`;
+    setCommunityReplayBusy(true);
+    try {
+      await requestCommunityAction(
+        communityReplay.eventId,
+        "replay",
+        { played_move_uci: playedMoveUci },
+      );
+      setCommunityReplay(null);
+      toast.success("Yes — that is the key move.");
+    } catch (requestError) {
+      boardRef.current?.setPosition?.(communityReplay.fen);
+      toast.error(requestError?.message || "Try that move again.");
+    } finally {
+      setCommunityReplayBusy(false);
+    }
+  }, [communityReplay, communityReplayBusy, requestCommunityAction]);
 
   const playCandidateComparison = useCallback((comparison, startFen, moveIndex) => {
     const board = boardRef.current;
@@ -315,7 +459,12 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       setAnalyzingPlan(false);
       setPlanAnalysis(null);
     }
-    fetchDecryptionDataRef.current?.(false, generation);
+    if (communityStudy) {
+      setLoading(false);
+      setError(null);
+    } else {
+      fetchDecryptionDataRef.current?.(false, generation);
+    }
 
     return () => {
       if (load.generation === generation) {
@@ -326,10 +475,10 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         load.retryTimer = null;
       }
     };
-  }, [gameId, requestedReviewVariant]);
+  }, [gameId, requestedReviewVariant, communityStudy]);
 
   useEffect(() => {
-    if (!gameId) return;
+    if (!gameId || communityStudy) return;
     let ownsRequest = true;
     setGoldMap({});
     setPrefMap({});
@@ -346,7 +495,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         setPrefMap({});
       });
     return () => { ownsRequest = false; };
-  }, [gameId]);
+  }, [gameId, communityStudy]);
 
   // record which caption the reviewer prefers on a move (tester compare vote)
   const savePreference = useCallback((move, preference) => {
@@ -1162,6 +1311,110 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     })();
     return () => controller.abort();
   }, [currentMoveIndex, currentMove, userColor]);
+
+  if (communityStudy) {
+    const chapters = communityStudy.chapters || [];
+    const chapter = chapters[communityChapterIndex];
+    if (!chapter) {
+      return (
+        <div className="flex h-96 items-center justify-center text-slate-600">
+          This study has no available chapter.
+        </div>
+      );
+    }
+    const progress = communityProgress[chapter.event_id] || {};
+    const orientation = chapter.position?.side_to_move || "white";
+    const goForward = () => {
+      boardRef.current?.cancelVariation?.();
+      setCommunityReplay(null);
+      if (communityChapterIndex >= chapters.length - 1) {
+        onCommunityComplete?.();
+        return;
+      }
+      const nextIndex = communityChapterIndex + 1;
+      setCommunityChapterIndex(nextIndex);
+      boardRef.current?.setPosition?.(chapters[nextIndex].position.fen);
+    };
+
+    return (
+      <div
+        ref={containerRef}
+        className="min-h-full bg-[radial-gradient(circle_at_top_right,rgba(190,242,100,0.20),transparent_35%),linear-gradient(135deg,#f8f5ec_0%,#eef5ec_100%)] p-4 md:p-8"
+        data-testid="community-game-walkthrough"
+      >
+        <div className="mx-auto mb-6 flex max-w-[1180px] items-center justify-between">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-950"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Continue later
+          </button>
+          <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">
+            A game your coach chose
+          </p>
+        </div>
+        <div className="mx-auto grid max-w-[1180px] gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.92fr)] lg:items-start">
+          <div>
+            <div className="mx-auto aspect-square w-full max-w-[620px] overflow-hidden rounded-[24px] border-[6px] border-emerald-950 bg-emerald-950 shadow-[0_30px_80px_rgba(8,38,28,0.18)]">
+              <LichessBoard
+                ref={boardRef}
+                fen={chapter.position.fen}
+                orientation={orientation}
+                viewOnly={!communityReplay || communityReplayBusy}
+                interactive={Boolean(communityReplay) && !communityReplayBusy}
+                movableColor={
+                  communityReplay && !communityReplayBusy
+                    ? orientation
+                    : null
+                }
+                onMove={
+                  communityReplay && !communityReplayBusy
+                    ? playCommunityReplayMove
+                    : undefined
+                }
+              />
+            </div>
+            <p className="mt-3 text-center text-sm text-slate-600">
+              {communityReplay
+                ? "Play the key move from the line you just watched."
+                : "Think first. The board unlocks when it is time to replay the idea."}
+            </p>
+          </div>
+
+          <GuidedReviewMoment
+            key={chapter.event_id}
+            chapter={chapter}
+            chapterNumber={communityChapterIndex + 1}
+            chapterCount={chapters.length}
+            progress={progress}
+            restoredHint={communityHints[chapter.event_id]}
+            restoredReveal={communityReveals[chapter.event_id]}
+            onHint={() => requestCommunityAction(chapter.event_id, "hint")}
+            onPredict={(selectedOptionId) => requestCommunityAction(
+              chapter.event_id,
+              "predict",
+              { selected_option_id: selectedOptionId },
+            )}
+            onWatch={(demonstration) => watchCommunityLine(
+              chapter,
+              demonstration,
+            )}
+            onBeginReplay={() => beginCommunityReplay(chapter)}
+            onContinue={goForward}
+            isLast={communityChapterIndex === chapters.length - 1}
+          />
+        </div>
+        {completingCommunityReview && (
+          <div className="mx-auto mt-5 flex max-w-[1180px] items-center justify-end gap-2 text-sm text-emerald-800">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Saving what you practised…
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-96" data-testid="decryption-loading">

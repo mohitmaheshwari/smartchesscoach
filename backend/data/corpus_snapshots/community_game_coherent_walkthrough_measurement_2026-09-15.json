@@ -1,0 +1,1183 @@
+{
+  "schema_version": "community_game_coherent_walkthrough_measurement.v1",
+  "generated_on": "2026-09-15",
+  "status": "precode_data_lock_measurement",
+  "runtime_exposure": "none",
+  "source": {
+    "provider": "lichess_open_database",
+    "license": "CC0-1.0",
+    "release_id": "lichess_db_standard_rated_2026-08",
+    "release_sha256": "6bf6fa8a5dee7bb81d1874ac312160060daf12f18a29dc2740a3bf6f5e5e6248",
+    "local_prefix_sha256": "d8e9c900da9dbcd275a84e4fa08097fcca2c164ba183c04f2659929c10c8ab38",
+    "local_prefix_bytes": 8388608,
+    "v2_packet_sha256": "1d92050c950d3cfa2a17eae7b07208f2156096596b582f00254bef7b68def974",
+    "raw_identity_bearing_pgn_retained": false
+  },
+  "execution": {
+    "production_database_reads": 0,
+    "production_database_writes": 0,
+    "stockfish_runs": 0,
+    "fathom_or_tablebase_probes": 0,
+    "llm_or_model_calls": 0,
+    "player_visible_changes": 0,
+    "public_literate_exports_requested": 60
+  },
+  "population": {
+    "games": 60,
+    "current_v2_eligible_games": 41,
+    "current_v2_chapters": 110,
+    "checkmate_games": 27,
+    "game_length_plies": {
+      "minimum": 9,
+      "p25": 43,
+      "median": 55,
+      "p75": 73,
+      "maximum": 105
+    },
+    "current_event_count": {
+      "minimum": 0,
+      "p25": 1,
+      "median": 2,
+      "p75": 4,
+      "maximum": 17
+    },
+    "combined_moment_count": {
+      "minimum": 0,
+      "p25": 2,
+      "median": 3,
+      "p75": 5,
+      "maximum": 17
+    },
+    "tablebase_eligible_positions_without_pinned_evidence": 0
+  },
+  "family_incidence": {
+    "curriculum:opening_exact_decision": {
+      "verified_fires": 0,
+      "games": 0,
+      "unique_moments": 0,
+      "overlap_with_current_review_moments": 0,
+      "new_moments_beyond_current_review": 0,
+      "newly_eligible_games_if_only_this_family_is_added": 0,
+      "authorization": {
+        "grade": "shadow",
+        "caption_authorized": false,
+        "plan_authorized": false,
+        "evidence_ref": "docs/curriculum_truth_and_delivery_scope.md",
+        "limitations": [
+          "Exact move order only; no transposition or similar-position claim.",
+          "One match is lesson evidence, not a general opening-mastery claim."
+        ]
+      }
+    },
+    "curriculum:opening_exact_position": {
+      "verified_fires": 0,
+      "games": 0,
+      "unique_moments": 0,
+      "overlap_with_current_review_moments": 0,
+      "new_moments_beyond_current_review": 0,
+      "newly_eligible_games_if_only_this_family_is_added": 0,
+      "authorization": {
+        "grade": "shadow",
+        "caption_authorized": false,
+        "plan_authorized": false,
+        "evidence_ref": "backend/tests/test_canonical_curriculum_puzzle_proof.py",
+        "limitations": [
+          "Exact position only; no similar-position or strategic-plan inference.",
+          "One match is lesson evidence, not general opening mastery."
+        ]
+      }
+    },
+    "review:exact_endgame_result_change": {
+      "verified_fires": 0,
+      "games": 0,
+      "unique_moments": 0,
+      "overlap_with_current_review_moments": 0,
+      "new_moments_beyond_current_review": 0,
+      "newly_eligible_games_if_only_this_family_is_added": 0,
+      "authorization": {
+        "grade": "caption",
+        "caption_authorized": true,
+        "plan_authorized": false,
+        "evidence_ref": "docs/exact_endgame_result_caption_evidence_2026_09_01.md",
+        "limitations": [
+          "Single-position Caption authority only; no technique name or recurrence.",
+          "CursedWin and BlessedLoss abstain from simple result language.",
+          "Plan, mastery, prescription and psychological claims remain unauthorized."
+        ]
+      }
+    },
+    "review:verified_single_game_cause": {
+      "verified_fires": 195,
+      "games": 52,
+      "unique_moments": 195,
+      "overlap_with_current_review_moments": 195,
+      "new_moments_beyond_current_review": 0,
+      "newly_eligible_games_if_only_this_family_is_added": 0,
+      "authorization": {
+        "grade": "caption",
+        "caption_authorized": true,
+        "plan_authorized": false,
+        "evidence_ref": "docs/verified_single_game_cause_caption_promotion_2026_09_01.md",
+        "limitations": [
+          "Single-move Caption authority only; no recurrence or learner diagnosis.",
+          "It may not name an opening, trap, tactic motif, or endgame technique.",
+          "Plan, mastery, prescription, and persistent prompts remain unauthorized."
+        ]
+      }
+    },
+    "tactic:aligned_with_stored_payoff": {
+      "verified_fires": 6,
+      "games": 5,
+      "unique_moments": 6,
+      "overlap_with_current_review_moments": 6,
+      "new_moments_beyond_current_review": 0,
+      "newly_eligible_games_if_only_this_family_is_added": 0,
+      "authorization": {
+        "grade": "caption",
+        "caption_authorized": true,
+        "plan_authorized": false,
+        "evidence_ref": "backend/data/detector_gold/aligned_payoff_caption_promotion_v1.json",
+        "limitations": [
+          "Only alignments whose exact payoff appears in the stored line are named.",
+          "Requires a different played move and at least 100cp stored loss.",
+          "Caption only; no persistent prompt, plan, recurrence or mastery claim."
+        ]
+      }
+    },
+    "tactic:forced_mate_exact": {
+      "verified_fires": 0,
+      "games": 0,
+      "unique_moments": 0,
+      "overlap_with_current_review_moments": 0,
+      "new_moments_beyond_current_review": 0,
+      "newly_eligible_games_if_only_this_family_is_added": 0,
+      "authorization": {
+        "grade": "caption",
+        "caption_authorized": true,
+        "plan_authorized": false,
+        "evidence_ref": "backend/data/detector_gold/forced_mate_exact_caption_promotion_v1.json",
+        "limitations": [
+          "Only the exact stored best move is accepted.",
+          "A mate marker without a complete legal replay remains unverified.",
+          "A re-admission must recover any non-persisted consequence from the source game analysis and pass the independent zero-violation gate.",
+          "Longer lines describe the verified stored continuation; they do not claim every defence loses or display a mate distance.",
+          "Caption only; no prompt, plan, recurrence or mastery claim."
+        ]
+      }
+    },
+    "tactic:fork_with_stored_payoff": {
+      "verified_fires": 5,
+      "games": 5,
+      "unique_moments": 5,
+      "overlap_with_current_review_moments": 4,
+      "new_moments_beyond_current_review": 1,
+      "newly_eligible_games_if_only_this_family_is_added": 0,
+      "authorization": {
+        "grade": "caption",
+        "caption_authorized": true,
+        "plan_authorized": false,
+        "evidence_ref": "backend/data/detector_gold/fork_payoff_caption_promotion_v1.json",
+        "limitations": [
+          "Only forks whose payoff appears in the stored continuation are named.",
+          "Requires a different played move and at least 100cp stored loss.",
+          "Caption only; no persistent prompt, plan, recurrence or mastery claim."
+        ]
+      }
+    },
+    "tactic:free_piece_exact": {
+      "verified_fires": 26,
+      "games": 15,
+      "unique_moments": 26,
+      "overlap_with_current_review_moments": 24,
+      "new_moments_beyond_current_review": 2,
+      "newly_eligible_games_if_only_this_family_is_added": 0,
+      "authorization": {
+        "grade": "caption",
+        "caption_authorized": true,
+        "plan_authorized": false,
+        "evidence_ref": "backend/data/detector_gold/free_piece_exact_caption_promotion_v1.json",
+        "limitations": [
+          "Only immediate unrecapturable best-move captures are named.",
+          "Requires a different played move and at least 100cp stored loss.",
+          "Caption only; no persistent prompt, plan, recurrence or mastery claim."
+        ]
+      }
+    },
+    "terminal:checkmate": {
+      "verified_fires": 27,
+      "games": 27,
+      "unique_moments": 27,
+      "overlap_with_current_review_moments": 0,
+      "new_moments_beyond_current_review": 27,
+      "newly_eligible_games_if_only_this_family_is_added": 6,
+      "authorization": {
+        "grade": "board_terminal_fact",
+        "caption_authorized": false,
+        "plan_authorized": false,
+        "evidence_ref": "legal full-game replay",
+        "limitations": [
+          "Incidence only; a player-visible finish still requires an admitted central Review fact."
+        ]
+      }
+    }
+  },
+  "proof_family_overlap_by_position": {},
+  "formula_comparison": {
+    "current_rank_cap_2": {
+      "eligible_games": 41,
+      "mean_chapters": 2,
+      "games_with_two_or_more_principles": 24,
+      "games_with_two_or_more_phases": 13,
+      "games_reaching_final_quarter_or_terminal": 20,
+      "repeated_principle_chapters": 17,
+      "checkmate_games": 16,
+      "checkmate_games_with_terminal_chapter": 0
+    },
+    "combined_severity_cap_2": {
+      "eligible_games": 47,
+      "mean_chapters": 2,
+      "games_with_two_or_more_principles": 30,
+      "games_with_two_or_more_phases": 14,
+      "games_reaching_final_quarter_or_terminal": 28,
+      "repeated_principle_chapters": 17,
+      "checkmate_games": 22,
+      "checkmate_games_with_terminal_chapter": 6
+    },
+    "combined_role_first_cap_2": {
+      "eligible_games": 47,
+      "mean_chapters": 2,
+      "games_with_two_or_more_principles": 39,
+      "games_with_two_or_more_phases": 27,
+      "games_reaching_final_quarter_or_terminal": 34,
+      "repeated_principle_chapters": 8,
+      "checkmate_games": 22,
+      "checkmate_games_with_terminal_chapter": 22
+    },
+    "current_rank_cap_3": {
+      "eligible_games": 41,
+      "mean_chapters": 2.683,
+      "games_with_two_or_more_principles": 29,
+      "games_with_two_or_more_phases": 17,
+      "games_reaching_final_quarter_or_terminal": 22,
+      "repeated_principle_chapters": 36,
+      "checkmate_games": 16,
+      "checkmate_games_with_terminal_chapter": 0
+    },
+    "combined_severity_cap_3": {
+      "eligible_games": 47,
+      "mean_chapters": 2.638,
+      "games_with_two_or_more_principles": 38,
+      "games_with_two_or_more_phases": 23,
+      "games_reaching_final_quarter_or_terminal": 29,
+      "repeated_principle_chapters": 34,
+      "checkmate_games": 22,
+      "checkmate_games_with_terminal_chapter": 8
+    },
+    "combined_role_first_cap_3": {
+      "eligible_games": 47,
+      "mean_chapters": 2.638,
+      "games_with_two_or_more_principles": 40,
+      "games_with_two_or_more_phases": 33,
+      "games_reaching_final_quarter_or_terminal": 37,
+      "repeated_principle_chapters": 16,
+      "checkmate_games": 22,
+      "checkmate_games_with_terminal_chapter": 22
+    },
+    "current_rank_cap_4": {
+      "eligible_games": 41,
+      "mean_chapters": 3.073,
+      "games_with_two_or_more_principles": 31,
+      "games_with_two_or_more_phases": 19,
+      "games_reaching_final_quarter_or_terminal": 23,
+      "repeated_principle_chapters": 45,
+      "checkmate_games": 16,
+      "checkmate_games_with_terminal_chapter": 0
+    },
+    "combined_severity_cap_4": {
+      "eligible_games": 47,
+      "mean_chapters": 3.128,
+      "games_with_two_or_more_principles": 39,
+      "games_with_two_or_more_phases": 29,
+      "games_reaching_final_quarter_or_terminal": 34,
+      "repeated_principle_chapters": 44,
+      "checkmate_games": 22,
+      "checkmate_games_with_terminal_chapter": 13
+    },
+    "combined_role_first_cap_4": {
+      "eligible_games": 47,
+      "mean_chapters": 3.128,
+      "games_with_two_or_more_principles": 40,
+      "games_with_two_or_more_phases": 33,
+      "games_reaching_final_quarter_or_terminal": 37,
+      "repeated_principle_chapters": 31,
+      "checkmate_games": 22,
+      "checkmate_games_with_terminal_chapter": 22
+    },
+    "current_rank_cap_5": {
+      "eligible_games": 41,
+      "mean_chapters": 3.439,
+      "games_with_two_or_more_principles": 33,
+      "games_with_two_or_more_phases": 22,
+      "games_reaching_final_quarter_or_terminal": 23,
+      "repeated_principle_chapters": 57,
+      "checkmate_games": 16,
+      "checkmate_games_with_terminal_chapter": 0
+    },
+    "combined_severity_cap_5": {
+      "eligible_games": 47,
+      "mean_chapters": 3.468,
+      "games_with_two_or_more_principles": 40,
+      "games_with_two_or_more_phases": 31,
+      "games_reaching_final_quarter_or_terminal": 35,
+      "repeated_principle_chapters": 57,
+      "checkmate_games": 22,
+      "checkmate_games_with_terminal_chapter": 14
+    },
+    "combined_role_first_cap_5": {
+      "eligible_games": 47,
+      "mean_chapters": 3.468,
+      "games_with_two_or_more_principles": 40,
+      "games_with_two_or_more_phases": 33,
+      "games_reaching_final_quarter_or_terminal": 37,
+      "repeated_principle_chapters": 44,
+      "checkmate_games": 22,
+      "checkmate_games_with_terminal_chapter": 22
+    }
+  },
+  "game_level_measurement": [
+    {
+      "game_key": "778b96cfd66835dbfaf9",
+      "rating_band": "intermediate",
+      "total_plies": 48,
+      "checkmate": false,
+      "current_event_count": 0,
+      "combined_moment_count": 0,
+      "distinct_primary_principles": 0,
+      "distinct_primary_families": 0,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": []
+    },
+    {
+      "game_key": "0e8fc7e0bb8d9d2272d7",
+      "rating_band": "intermediate",
+      "total_plies": 80,
+      "checkmate": true,
+      "current_event_count": 3,
+      "combined_moment_count": 4,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "6c629be25586c9542459",
+      "rating_band": "intermediate",
+      "total_plies": 90,
+      "checkmate": false,
+      "current_event_count": 1,
+      "combined_moment_count": 1,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "66de7509b924af67aca4",
+      "rating_band": "intermediate",
+      "total_plies": 39,
+      "checkmate": false,
+      "current_event_count": 1,
+      "combined_moment_count": 1,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "87bcf9c8fa7b3f29b10a",
+      "rating_band": "intermediate",
+      "total_plies": 79,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "92ee28c829f0367328b2",
+      "rating_band": "beginner_high",
+      "total_plies": 64,
+      "checkmate": true,
+      "current_event_count": 2,
+      "combined_moment_count": 3,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "d651431dd911cd3cb67e",
+      "rating_band": "beginner_high",
+      "total_plies": 68,
+      "checkmate": true,
+      "current_event_count": 15,
+      "combined_moment_count": 16,
+      "distinct_primary_principles": 5,
+      "distinct_primary_families": 4,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "5951c373e43588c879c7",
+      "rating_band": "beginner_high",
+      "total_plies": 43,
+      "checkmate": true,
+      "current_event_count": 3,
+      "combined_moment_count": 4,
+      "distinct_primary_principles": 4,
+      "distinct_primary_families": 3,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "2da53c08db3f3fda628a",
+      "rating_band": "beginner_low",
+      "total_plies": 66,
+      "checkmate": false,
+      "current_event_count": 3,
+      "combined_moment_count": 3,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "3e43a92b23477cbdb834",
+      "rating_band": "beginner_low",
+      "total_plies": 54,
+      "checkmate": false,
+      "current_event_count": 5,
+      "combined_moment_count": 5,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "3f66d19564a855219e5b",
+      "rating_band": "beginner_high",
+      "total_plies": 31,
+      "checkmate": true,
+      "current_event_count": 0,
+      "combined_moment_count": 1,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": []
+    },
+    {
+      "game_key": "d910b324dda7e911ff98",
+      "rating_band": "beginner_high",
+      "total_plies": 41,
+      "checkmate": true,
+      "current_event_count": 1,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "cab3afe19e7018641dfb",
+      "rating_band": "intermediate",
+      "total_plies": 44,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "dfad814759d1dcc02530",
+      "rating_band": "beginner_high",
+      "total_plies": 79,
+      "checkmate": false,
+      "current_event_count": 3,
+      "combined_moment_count": 3,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "9363290e80a1d01908c3",
+      "rating_band": "beginner_high",
+      "total_plies": 68,
+      "checkmate": true,
+      "current_event_count": 3,
+      "combined_moment_count": 5,
+      "distinct_primary_principles": 5,
+      "distinct_primary_families": 4,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "4280b87dad69753e6be5",
+      "rating_band": "beginner_low",
+      "total_plies": 53,
+      "checkmate": false,
+      "current_event_count": 3,
+      "combined_moment_count": 3,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "db24f7d442576898ca09",
+      "rating_band": "intermediate",
+      "total_plies": 49,
+      "checkmate": true,
+      "current_event_count": 1,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "1dd942a1519eb946e67c",
+      "rating_band": "beginner_high",
+      "total_plies": 87,
+      "checkmate": false,
+      "current_event_count": 3,
+      "combined_moment_count": 4,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "c09e0bdec3428eb00864",
+      "rating_band": "beginner_high",
+      "total_plies": 66,
+      "checkmate": false,
+      "current_event_count": 6,
+      "combined_moment_count": 6,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "e64b1aec0430a8fae516",
+      "rating_band": "beginner_high",
+      "total_plies": 36,
+      "checkmate": false,
+      "current_event_count": 1,
+      "combined_moment_count": 1,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "826da5b6b6afe8f6bbd7",
+      "rating_band": "intermediate",
+      "total_plies": 53,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "4cd389632dec426bf2e5",
+      "rating_band": "beginner_low",
+      "total_plies": 64,
+      "checkmate": true,
+      "current_event_count": 6,
+      "combined_moment_count": 7,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "9f93d8d14267b370f88b",
+      "rating_band": "intermediate",
+      "total_plies": 63,
+      "checkmate": false,
+      "current_event_count": 17,
+      "combined_moment_count": 17,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "6728bd8adfa299cf2dcb",
+      "rating_band": "intermediate",
+      "total_plies": 79,
+      "checkmate": false,
+      "current_event_count": 0,
+      "combined_moment_count": 0,
+      "distinct_primary_principles": 0,
+      "distinct_primary_families": 0,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": []
+    },
+    {
+      "game_key": "aef79102a8f87e883a6e",
+      "rating_band": "intermediate",
+      "total_plies": 47,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "362d03182bcf0989be04",
+      "rating_band": "beginner_high",
+      "total_plies": 58,
+      "checkmate": true,
+      "current_event_count": 9,
+      "combined_moment_count": 10,
+      "distinct_primary_principles": 5,
+      "distinct_primary_families": 4,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "7aa9d49cf20de4653c94",
+      "rating_band": "beginner_high",
+      "total_plies": 48,
+      "checkmate": true,
+      "current_event_count": 0,
+      "combined_moment_count": 1,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": []
+    },
+    {
+      "game_key": "fec1f073ca4069d43bdf",
+      "rating_band": "beginner_low",
+      "total_plies": 85,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "7c928c77aaca85ac79da",
+      "rating_band": "beginner_high",
+      "total_plies": 65,
+      "checkmate": false,
+      "current_event_count": 5,
+      "combined_moment_count": 5,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "dc46a82fb594a8f797b2",
+      "rating_band": "beginner_high",
+      "total_plies": 31,
+      "checkmate": true,
+      "current_event_count": 2,
+      "combined_moment_count": 3,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 3,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "81f7cb66730cc10471b4",
+      "rating_band": "beginner_high",
+      "total_plies": 55,
+      "checkmate": false,
+      "current_event_count": 1,
+      "combined_moment_count": 1,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "a0a16605bf0042669d19",
+      "rating_band": "beginner_low",
+      "total_plies": 54,
+      "checkmate": false,
+      "current_event_count": 6,
+      "combined_moment_count": 6,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "81b6bd7ee91268197b6c",
+      "rating_band": "beginner_high",
+      "total_plies": 55,
+      "checkmate": true,
+      "current_event_count": 1,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "701ad9dc1ec099e00750",
+      "rating_band": "beginner_high",
+      "total_plies": 92,
+      "checkmate": true,
+      "current_event_count": 9,
+      "combined_moment_count": 10,
+      "distinct_primary_principles": 4,
+      "distinct_primary_families": 3,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "799368adf0248c2d329e",
+      "rating_band": "beginner_high",
+      "total_plies": 85,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "5abf6107f000200ebcca",
+      "rating_band": "beginner_high",
+      "total_plies": 84,
+      "checkmate": true,
+      "current_event_count": 7,
+      "combined_moment_count": 9,
+      "distinct_primary_principles": 4,
+      "distinct_primary_families": 3,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "acf5848710110c571ec1",
+      "rating_band": "beginner_high",
+      "total_plies": 51,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "a267a3a3e22730be9c2c",
+      "rating_band": "beginner_low",
+      "total_plies": 73,
+      "checkmate": true,
+      "current_event_count": 3,
+      "combined_moment_count": 4,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "131f9bdd0363f1737f08",
+      "rating_band": "beginner_high",
+      "total_plies": 47,
+      "checkmate": false,
+      "current_event_count": 1,
+      "combined_moment_count": 1,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "1f940f2ad37f5779675d",
+      "rating_band": "beginner_high",
+      "total_plies": 79,
+      "checkmate": true,
+      "current_event_count": 0,
+      "combined_moment_count": 1,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": []
+    },
+    {
+      "game_key": "625014a73b926e3a4b1c",
+      "rating_band": "beginner_low",
+      "total_plies": 35,
+      "checkmate": false,
+      "current_event_count": 3,
+      "combined_moment_count": 3,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "0ee97bcb10ee651c4b47",
+      "rating_band": "beginner_low",
+      "total_plies": 9,
+      "checkmate": false,
+      "current_event_count": 0,
+      "combined_moment_count": 0,
+      "distinct_primary_principles": 0,
+      "distinct_primary_families": 0,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": []
+    },
+    {
+      "game_key": "569955423dee30105876",
+      "rating_band": "beginner_high",
+      "total_plies": 42,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "02a6f1afae43d352fb7c",
+      "rating_band": "beginner_low",
+      "total_plies": 38,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "080c30c60b9fc5b43b3f",
+      "rating_band": "beginner_high",
+      "total_plies": 100,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "3ef342f29ccc48653513",
+      "rating_band": "beginner_low",
+      "total_plies": 62,
+      "checkmate": true,
+      "current_event_count": 8,
+      "combined_moment_count": 9,
+      "distinct_primary_principles": 4,
+      "distinct_primary_families": 3,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "cc73cb6d0b7cddfabccf",
+      "rating_band": "beginner_high",
+      "total_plies": 47,
+      "checkmate": false,
+      "current_event_count": 5,
+      "combined_moment_count": 5,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "554a0d783f23b871321e",
+      "rating_band": "beginner_low",
+      "total_plies": 54,
+      "checkmate": true,
+      "current_event_count": 3,
+      "combined_moment_count": 4,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "0c9b7b6c284ba2047fe0",
+      "rating_band": "beginner_high",
+      "total_plies": 56,
+      "checkmate": true,
+      "current_event_count": 0,
+      "combined_moment_count": 1,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": []
+    },
+    {
+      "game_key": "6c4990186df17252a64f",
+      "rating_band": "beginner_high",
+      "total_plies": 39,
+      "checkmate": false,
+      "current_event_count": 2,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "6f54c2c2563b062a0803",
+      "rating_band": "beginner_high",
+      "total_plies": 88,
+      "checkmate": false,
+      "current_event_count": 4,
+      "combined_moment_count": 4,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "54df32d1452ec4c21343",
+      "rating_band": "beginner_high",
+      "total_plies": 23,
+      "checkmate": true,
+      "current_event_count": 0,
+      "combined_moment_count": 1,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": []
+    },
+    {
+      "game_key": "85fe160b53a2237b48d2",
+      "rating_band": "beginner_high",
+      "total_plies": 29,
+      "checkmate": true,
+      "current_event_count": 1,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "dcefcf6a865165ee7964",
+      "rating_band": "intermediate",
+      "total_plies": 41,
+      "checkmate": true,
+      "current_event_count": 1,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "25a9a86b1a84c902bae4",
+      "rating_band": "beginner_high",
+      "total_plies": 105,
+      "checkmate": false,
+      "current_event_count": 6,
+      "combined_moment_count": 6,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 3,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "bef9502e41ca1b1f5f9c",
+      "rating_band": "beginner_high",
+      "total_plies": 38,
+      "checkmate": true,
+      "current_event_count": 3,
+      "combined_moment_count": 4,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "65d27227acb88c946a4e",
+      "rating_band": "beginner_high",
+      "total_plies": 45,
+      "checkmate": false,
+      "current_event_count": 3,
+      "combined_moment_count": 3,
+      "distinct_primary_principles": 1,
+      "distinct_primary_families": 1,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "7fbd311ab54be3fcad0d",
+      "rating_band": "intermediate",
+      "total_plies": 66,
+      "checkmate": true,
+      "current_event_count": 5,
+      "combined_moment_count": 6,
+      "distinct_primary_principles": 3,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "c41d07f1c1522cec6966",
+      "rating_band": "intermediate",
+      "total_plies": 39,
+      "checkmate": true,
+      "current_event_count": 1,
+      "combined_moment_count": 2,
+      "distinct_primary_principles": 2,
+      "distinct_primary_families": 2,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    },
+    {
+      "game_key": "bb85ace50edcbd420480",
+      "rating_band": "beginner_low",
+      "total_plies": 86,
+      "checkmate": true,
+      "current_event_count": 9,
+      "combined_moment_count": 10,
+      "distinct_primary_principles": 4,
+      "distinct_primary_families": 4,
+      "tablebase_eligible_positions_without_pinned_evidence": 0,
+      "current_quality_ids": [
+        "review:verified_single_game_cause"
+      ]
+    }
+  ],
+  "reproducibility": {
+    "source_replay_population_fingerprint_sha256": "8747ade0b4f00dd3744df0d73c46e4bfbbecd5e500bddfffbdb40cafb334d49f",
+    "measurement_fingerprint_sha256": "d841f9c1c2b1848e970b8d451a01dc84c8fdfb5b2a4a803a00444f072b5a8a8a"
+  },
+  "notes": [
+    "Existing exact endgame result-change authority was recorded but not fired because this machine has no pinned Fathom/Syzygy bundle; eligible positions are counted, never inferred.",
+    "Exact opening families are Shadow and therefore measured as unauthorized with zero player-facing contribution.",
+    "Terminal checkmate is measured as a legal replay fact only; it is not treated as Caption-authorized until a central Review fact contract admits it.",
+    "Combined formula rows measure candidate supply and ordering, not caption quality or rollout authority."
+  ]
+}

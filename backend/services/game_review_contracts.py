@@ -131,7 +131,10 @@ class EventOutcome(str, Enum):
 
 
 class ChapterRole(str, Enum):
+    SETUP = "setup"
     TURNING_POINT = "turning_point"
+    CONSEQUENCE = "consequence"
+    FINISH = "finish"
     DEMONSTRATED_KNOWLEDGE = "demonstrated_knowledge"
     OPPONENT_PLAN = "opponent_plan"
     MISSED_OPPORTUNITY = "missed_opportunity"

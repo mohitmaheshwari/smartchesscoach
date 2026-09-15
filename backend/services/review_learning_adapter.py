@@ -8,7 +8,7 @@ form to ``learning_sessions.events`` in shadow mode.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Iterable, List, Mapping
+from typing import Any, Dict, Iterable, List, Mapping
 
 from services.detector_quality import gap_quality_id
 from services.destination_safety_detector import is_destination_safety_fact_version
@@ -121,6 +121,127 @@ def lesson_result_from_guided_pic_practice(
             f"pic_practice:{session_id}:{item_id}:{interaction_id}"
         ),
     )
+
+
+def lesson_results_from_community_walkthrough(
+    *,
+    prescription_id: str,
+    study: Mapping[str, Any],
+    progress: Mapping[str, Any],
+    occurred_at: datetime,
+) -> List[LessonResult]:
+    """Convert a completed community walkthrough into assisted evidence.
+
+    Prediction, reveal, watching and a board-verified replay can establish
+    guided practice. They can never establish later-game application.
+    """
+    study_id = str(study.get("study_id") or "").strip()
+    policy_version = str(study.get("admission_policy_version") or "").strip()
+    plan = study.get("plan")
+    if not prescription_id or not study_id or not policy_version:
+        raise ContractViolation("community walkthrough identity is incomplete")
+    if not isinstance(plan, Mapping):
+        raise ContractViolation("community walkthrough plan is missing")
+    plan_fingerprint = str(plan.get("input_fingerprint") or "").strip()
+    chapters = plan.get("chapters")
+    if not plan_fingerprint or not isinstance(chapters, list):
+        raise ContractViolation("community walkthrough plan evidence is incomplete")
+
+    by_event = {
+        str(item.get("event_id") or ""): item
+        for item in progress.values()
+        if isinstance(item, Mapping) and item.get("event_id")
+    }
+    results: List[LessonResult] = []
+    for chapter in chapters:
+        if not isinstance(chapter, Mapping):
+            raise ContractViolation("community walkthrough chapter is invalid")
+        event_id = str(chapter.get("event_id") or "").strip()
+        concept_id = str(chapter.get("concept_id") or "").strip()
+        quality_id = str(chapter.get("quality_id") or "").strip()
+        state = by_event.get(event_id)
+        if (
+            not event_id
+            or not concept_id
+            or not quality_id
+            or not isinstance(state, Mapping)
+            or not all(
+                state.get(field) is True
+                for field in ("predicted", "revealed", "watched", "replayed")
+            )
+        ):
+            raise ContractViolation("community walkthrough is not complete")
+        assistance = [AssistanceKind.ANSWER_REVEALED, AssistanceKind.GUIDED_LINE]
+        if state.get("hinted") is True:
+            assistance.insert(0, AssistanceKind.HINT)
+        results.append(
+            LessonResult(
+                content_kind="community_game_study",
+                content_id=study_id,
+                canonical_source="community_game_study_service",
+                content_version=policy_version,
+                skill_id=concept_id,
+                primary_skill_id=concept_id,
+                attempt_kind=AttemptKind.GUIDED,
+                occurred_at=occurred_at,
+                correct=True,
+                assistance=tuple(assistance),
+                position_id=event_id,
+                board_verified=True,
+                distinct_position=True,
+                prediction_correct=bool(state.get("correct")),
+                reason_choice=str(state.get("selected_option_id") or "") or None,
+                source_type=EvidenceSourceType.LESSON,
+                detector_quality_id=quality_id,
+                evidence_owner="community_game_studies",
+                evidence_ref=f"{study_id}:{event_id}",
+                source_event_id=(
+                    f"community_walkthrough:{prescription_id}:{event_id}"
+                ),
+                response_move_uci=str(state.get("replayed_move_uci") or "") or None,
+                first_answer=bool(state.get("correct")),
+                admission_version=policy_version,
+                admission_fingerprint=plan_fingerprint,
+            )
+        )
+    return results
+
+
+async def store_community_walkthrough_results(
+    collection: Any,
+    *,
+    user_id: str,
+    prescription_id: str,
+    study: Mapping[str, Any],
+    progress: Mapping[str, Any],
+    occurred_at: datetime,
+) -> Dict[str, Any]:
+    """Idempotently append one assisted result per verified chapter."""
+    results = lesson_results_from_community_walkthrough(
+        prescription_id=prescription_id,
+        study=study,
+        progress=progress,
+        occurred_at=occurred_at,
+    )
+    receipts = []
+    for result in results:
+        event = build_shadow_learning_event(
+            result,
+            origin="community_game_walkthrough",
+        )
+        receipts.append(
+            await store_shadow_lesson_results(
+                collection,
+                user_id=user_id,
+                events=[event],
+            )
+        )
+    return {
+        "assisted_learning_recorded": True,
+        "chapter_results": len(results),
+        "transfer_status": "not_measured",
+        "receipts": receipts,
+    }
 
 
 def application_results_from_observations(

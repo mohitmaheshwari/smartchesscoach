@@ -187,8 +187,35 @@ const fenToPositionObject = (fen) => {
 };
 
 // Review completion overlay — shown after clicking "Done reviewing"
-const ReviewCompleteOverlay = ({ summary, nextGame, navigate, returnTo = "/lab" }) => {
+const ReviewCompleteOverlay = ({
+  summary,
+  nextGame,
+  nextAction,
+  completedPrescriptionId,
+  navigate,
+  returnTo = "/lab",
+}) => {
   const { lesson_label, lesson, takeaway, concepts_learned, drills_solved } = summary || {};
+
+  const followCoach = async () => {
+    if (!nextAction || !completedPrescriptionId) {
+      navigate(nextGame?.review_url || nextAction?.href || returnTo);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${API}/game-review/recommendation/${completedPrescriptionId}/next-action`,
+        { method: "POST", credentials: "include" },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.href) {
+        throw new Error(payload?.detail || "Your next step is not available.");
+      }
+      navigate(payload.href);
+    } catch (error) {
+      toast.error(error.message || "Your next step is not available.");
+    }
+  };
   
   return (
     <motion.div 
@@ -248,13 +275,13 @@ const ReviewCompleteOverlay = ({ summary, nextGame, navigate, returnTo = "/lab" 
         
         {/* Actions */}
         <div className="space-y-2.5">
-          {nextGame ? (
+          {nextAction || nextGame ? (
             <button
-              onClick={() => navigate(nextGame.review_url || `/game/${nextGame.game_id}`)}
+              onClick={followCoach}
               className="w-full py-3 rounded-lg bg-foreground text-background font-medium text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
               data-testid="review-next-game-btn"
             >
-              Next game: vs {nextGame.opponent}
+              {nextAction?.label || `Next game: vs ${nextGame.opponent}`}
               <ArrowRight className="w-4 h-4" />
             </button>
           ) : (
@@ -357,6 +384,7 @@ const LabV2 = ({ user }) => {
   const [analysis, setAnalysis] = useState(null);
   const [labData, setLabData] = useState(null);
   const [coachReview, setCoachReview] = useState(null);
+  const [communityStudy, setCommunityStudy] = useState(null);
   const [sessionDismissed, setSessionDismissed] = useState(false); // User explicitly dismissed
   const [deepStrategy, setDeepStrategy] = useState(null);
   const [loadingDeepStrategy, setLoadingDeepStrategy] = useState(false);
@@ -377,6 +405,7 @@ const LabV2 = ({ user }) => {
   const initialMoveParam = searchParams.get("move");
   const prescriptionParam = searchParams.get("prescription");
   const resumeParam = searchParams.get("resume");
+  const communityParam = searchParams.get("community") === "1";
   const [initialMoveHandled, setInitialMoveHandled] = useState(false);
   const [positionObject, setPositionObject] = useState(() => fenToPositionObject(START_FEN));
   const [boardOrientation, setBoardOrientation] = useState("white");
@@ -430,6 +459,33 @@ const LabV2 = ({ user }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        if (communityParam) {
+          if (!prescriptionParam) {
+            throw new Error("This guided study is missing its coaching link.");
+          }
+          const studyRes = await fetch(
+            `${API}/game-review/recommendation/${prescriptionParam}/study`,
+            { credentials: "include" },
+          );
+          const studyData = await studyRes.json().catch(() => ({}));
+          if (!studyRes.ok) {
+            throw new Error(
+              studyData?.detail || "This guided study is no longer available.",
+            );
+          }
+          setCommunityStudy(studyData);
+          setGame({
+            game_id: studyData.study_id,
+            opponent_name: "A player near your level",
+            user_color: studyData.chapters?.[0]?.position?.side_to_move || "white",
+            result: "",
+            opening_name: "A real game chosen for your current lesson",
+          });
+          setBoardOrientation(
+            studyData.chapters?.[0]?.position?.side_to_move || "white",
+          );
+          return;
+        }
         // Fetch game
         const gameRes = await fetch(`${API}/games/${gameId}`, { credentials: "include" });
         if (!gameRes.ok) throw new Error("Game not found");
@@ -492,20 +548,29 @@ const LabV2 = ({ user }) => {
         }
         
       } catch (error) {
-        toast.error("Failed to load game");
-        navigate("/lab");
+        toast.error(
+          communityParam
+            ? (error?.message || "This guided study is no longer available.")
+            : "Failed to load game",
+        );
+        navigate(communityParam ? "/games" : "/lab");
       } finally {
         setLoading(false);
       }
     };
     
     fetchData();
-  }, [gameId, navigate]);
+  }, [gameId, navigate, communityParam, prescriptionParam]);
   
   // Fetch deep strategy (for critical moments detail)
   useEffect(() => {
     const fetchDeepStrategy = async () => {
-      if (!gameId || deepStrategy || loadingDeepStrategy) return;
+      if (
+        communityParam
+        || !gameId
+        || deepStrategy
+        || loadingDeepStrategy
+      ) return;
       
       setLoadingDeepStrategy(true);
       try {
@@ -521,7 +586,7 @@ const LabV2 = ({ user }) => {
     };
     
     fetchDeepStrategy();
-  }, [gameId, deepStrategy, loadingDeepStrategy]);
+  }, [gameId, deepStrategy, loadingDeepStrategy, communityParam]);
   
   // Build moves and FENs from game
   useEffect(() => {
@@ -598,7 +663,12 @@ const LabV2 = ({ user }) => {
   // Keep a coach-selected review resumable across devices. This records only
   // the last viewed ply; it never claims that the player learned the lesson.
   useEffect(() => {
-    if (!prescriptionParam || !initialMoveHandled || reviewComplete) return;
+    if (
+      communityParam
+      || !prescriptionParam
+      || !initialMoveHandled
+      || reviewComplete
+    ) return;
     const timer = window.setTimeout(() => {
       fetch(
         `${API}/game-review/recommendation/${prescriptionParam}/progress`,
@@ -616,6 +686,7 @@ const LabV2 = ({ user }) => {
     initialMoveHandled,
     currentMoveIndex,
     reviewComplete,
+    communityParam,
   ]);
   
   // Update position when move index changes — always show AFTER the move
@@ -852,7 +923,8 @@ const LabV2 = ({ user }) => {
         setReviewSummary(data);
         setReviewComplete(true);
       } else {
-        toast.error("Failed to save review");
+        const failure = await res.json().catch(() => ({}));
+        toast.error(failure?.detail || "Failed to save review");
       }
     } catch (e) {
       toast.error("Failed to save review");
@@ -1301,7 +1373,7 @@ const LabV2 = ({ user }) => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate("/lab")}
+                onClick={() => navigate(communityParam ? "/games" : "/lab")}
                 className="h-8 w-8"
                 data-testid="lab-back-btn"
               >
@@ -1315,10 +1387,14 @@ const LabV2 = ({ user }) => {
                       Let’s look at this together
                     </span>
                     <span className="font-serif text-[15px] text-foreground/90">
-                      vs {game?.opponent_name || "Opponent"}
+                      {communityParam
+                        ? game?.opponent_name
+                        : `vs ${game?.opponent_name || "Opponent"}`}
                     </span>
-                    <ResultBadge result={result} userColor={userColor} />
-                    {game?.termination && game.termination !== "unknown" && (
+                    {!communityParam && (
+                      <ResultBadge result={result} userColor={userColor} />
+                    )}
+                    {!communityParam && game?.termination && game.termination !== "unknown" && (
                       <TerminationTag termination={game.termination} result={result} userColor={userColor} />
                     )}
                   </div>
@@ -1331,7 +1407,7 @@ const LabV2 = ({ user }) => {
             
             {/* View Mode Toggle + Done Button */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center bg-muted/60 rounded-lg p-0.5" data-testid="view-mode-tabs">
+              {!communityParam && <div className="flex items-center bg-muted/60 rounded-lg p-0.5" data-testid="view-mode-tabs">
                 {[
                   { key: "decrypt", label: "The game", icon: BookOpen },
                   { key: "habits", label: "Carry forward", icon: Target },
@@ -1350,9 +1426,9 @@ const LabV2 = ({ user }) => {
                     {label}
                   </button>
                 ))}
-              </div>
+              </div>}
               
-              {!game?.reviewed && (
+              {!communityParam && !game?.reviewed && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -1412,6 +1488,10 @@ const LabV2 = ({ user }) => {
               opponentName={game?.opponent_name}
               coachReview={coachReview}
               onPlayBestLine={playBestLine}
+              communityStudy={communityStudy}
+              communityPrescriptionId={prescriptionParam || ""}
+              onCommunityComplete={() => completeReview()}
+              completingCommunityReview={completingReview}
             />
           </div>
         ) : (
@@ -1968,6 +2048,8 @@ const LabV2 = ({ user }) => {
           <ReviewCompleteOverlay 
             summary={reviewSummary.summary}
             nextGame={reviewSummary.next_game}
+            nextAction={reviewSummary.next_action}
+            completedPrescriptionId={prescriptionParam}
             navigate={navigate}
             returnTo={prescriptionParam ? "/games" : "/lab"}
           />

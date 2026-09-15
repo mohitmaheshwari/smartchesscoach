@@ -28,6 +28,15 @@ REACH_STEPS = frozenset({
     "lesson_completed",
     "review_served",
     "progress_verdict_served",
+    "community_review_started",
+    "community_review_predicted",
+    "community_review_hint_used",
+    "community_review_revealed",
+    "community_review_line_watched",
+    "community_review_key_move_replayed",
+    "community_review_completed",
+    "community_review_next_action_linked",
+    "community_review_next_action_followed",
 })
 
 

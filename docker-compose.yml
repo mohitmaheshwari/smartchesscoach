@@ -104,6 +104,11 @@ services:
       # the frozen target, immutable baseline and existing per-user review
       # enrollment must all pass the central access resolver.
       - COMPLETE_COACHING_SYSTEM_V1_ENABLED=${COMPLETE_COACHING_SYSTEM_V1_ENABLED:-false}
+      # Licensed anonymous whole-game studies. Shadow computes selection only;
+      # visibility additionally requires the visible flag and central complete-
+      # coaching access. Both remain false until independent v3 review passes.
+      - COMMUNITY_GAME_STUDY_SHADOW_ENABLED=${COMMUNITY_GAME_STUDY_SHADOW_ENABLED:-false}
+      - COMMUNITY_GAME_STUDY_VISIBLE_ENABLED=${COMMUNITY_GAME_STUDY_VISIBLE_ENABLED:-false}
       # Personalized game review coach (Phases 0-6). Fail-closed: the master
       # switch always wins, and rollout=validation enables only accounts that
       # carry both per-user feature flags. Declared here because the backend

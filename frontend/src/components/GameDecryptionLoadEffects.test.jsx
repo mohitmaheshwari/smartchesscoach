@@ -6,6 +6,9 @@ import GameDecryptionV5 from "./GameDecryptionV5";
 
 let mockSearchParams = new URLSearchParams();
 const mockSetSearchParams = jest.fn();
+let mockBoardProps = {};
+const mockPlayVariation = jest.fn();
+const mockSetBoardPosition = jest.fn();
 jest.mock("react-router-dom", () => ({
   useNavigate: () => jest.fn(),
   useSearchParams: () => [mockSearchParams, mockSetSearchParams],
@@ -13,12 +16,14 @@ jest.mock("react-router-dom", () => ({
 jest.mock("@/App", () => ({ API: "https://api.test" }), { virtual: true });
 jest.mock("@/components/LichessBoard", () => {
   const ReactModule = require("react");
-  return ReactModule.forwardRef(({ fen }, ref) => {
+  return ReactModule.forwardRef((props, ref) => {
+    mockBoardProps = props;
     ReactModule.useImperativeHandle(ref, () => ({
       cancelVariation: jest.fn(),
-      playVariation: jest.fn(),
+      playVariation: mockPlayVariation,
+      setPosition: mockSetBoardPosition,
     }));
-    return <div data-testid="review-board">{fen}</div>;
+    return <div data-testid="review-board">{props.fen}</div>;
   });
 }, { virtual: true });
 jest.mock("@/components/EvalBar", () => () => null, { virtual: true });
@@ -75,6 +80,9 @@ describe("GameDecryptionV5 request and navigation ownership", () => {
     global.IS_REACT_ACT_ENVIRONMENT = true;
     mockSearchParams = new URLSearchParams();
     mockSetSearchParams.mockReset();
+    mockBoardProps = {};
+    mockPlayVariation.mockReset();
+    mockSetBoardPosition.mockReset();
     window.history.replaceState({}, "", "/");
     toast.success.mockReset();
     toast.error.mockReset();
@@ -96,6 +104,135 @@ describe("GameDecryptionV5 request and navigation ownership", () => {
       <GameDecryptionV5 gameId={gameId} userColor="white" />
     ));
   };
+
+  test("community mode does not call personal-game review endpoints", async () => {
+    global.fetch = jest.fn(() => {
+      throw new Error("community mode must not fetch personal review data");
+    });
+    const study = {
+      study_id: "study-1",
+      progress: {},
+      hints: {},
+      reveals: {},
+      chapters: [{
+        event_id: "event-1",
+        role: "turning_point",
+        phase: "middlegame",
+        position: { fen: START, side_to_move: "white" },
+        interaction: {
+          question: "What danger decides the move?",
+          options: [
+            { id: "one", label: "Check the capture." },
+            { id: "two", label: "Ignore the capture." },
+          ],
+          hint_available: true,
+        },
+      }],
+    };
+    await act(async () => root.render(
+      <GameDecryptionV5
+        gameId="study-1"
+        userColor="white"
+        communityStudy={study}
+        communityPrescriptionId="prescription-1"
+      />,
+    ));
+    expect(container.querySelector(
+      "[data-testid='community-game-walkthrough']",
+    )).not.toBeNull();
+    expect(container.textContent).toContain("What danger decides the move?");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test("community learner completes predict, watch, and verified replay", async () => {
+    const study = {
+      study_id: "study-1",
+      progress: {},
+      hints: {},
+      reveals: {},
+      chapters: [{
+        event_id: "event-1",
+        role: "turning_point",
+        phase: "middlegame",
+        position: { fen: START, side_to_move: "white" },
+        interaction: {
+          question: "What danger decides the move?",
+          options: [
+            { id: "safe", label: "Move the queen away." },
+            { id: "unsafe", label: "Leave the queen where it is." },
+          ],
+          hint_available: true,
+        },
+      }],
+    };
+    global.fetch = jest.fn((_url, options = {}) => {
+      const body = JSON.parse(options.body || "{}");
+      if (body.action === "predict") {
+        return Promise.resolve(response({
+          correct: true,
+          correct_option_id: "safe",
+          selected_option_id: "safe",
+          headline: "The queen has no safe defender",
+          explanation: "Moving it now prevents the knight from taking it.",
+          principle: "Before moving, check what can be captured next.",
+          demonstration: { moves_san: ["Bg5", "Nxd5"] },
+          progress: { predicted: true, revealed: true },
+        }));
+      }
+      if (body.action === "watch") {
+        return Promise.resolve(response({
+          progress: { predicted: true, revealed: true, watched: true },
+        }));
+      }
+      if (body.action === "replay") {
+        expect(body.played_move_uci).toBe("c1g5");
+        return Promise.resolve(response({
+          correct: true,
+          progress: {
+            predicted: true,
+            revealed: true,
+            watched: true,
+            replayed: true,
+          },
+        }));
+      }
+      throw new Error(`Unexpected action: ${body.action}`);
+    });
+    mockPlayVariation.mockImplementation((_fen, _moves, options) => {
+      options.onComplete();
+      return true;
+    });
+
+    await act(async () => root.render(
+      <GameDecryptionV5
+        gameId="study-1"
+        userColor="white"
+        communityStudy={study}
+        communityPrescriptionId="prescription-1"
+      />,
+    ));
+    clickButton("Move the queen away.");
+    clickButton("Show me");
+    await flush();
+    expect(container.textContent).toContain("The queen has no safe defender");
+
+    clickButton("Watch the line");
+    await flush();
+    expect(mockPlayVariation).toHaveBeenCalledWith(
+      START,
+      ["Bg5", "Nxd5"],
+      expect.objectContaining({ onComplete: expect.any(Function) }),
+    );
+    clickButton("Let me play the key move");
+    expect(mockBoardProps.interactive).toBe(true);
+    expect(mockBoardProps.viewOnly).toBe(false);
+
+    await act(async () => {
+      await mockBoardProps.onMove({ from: "c1", to: "g5", promotion: null });
+    });
+    await flush();
+    expect(container.textContent).toContain("Finish this study");
+  });
 
   const flush = async () => {
     await act(async () => {

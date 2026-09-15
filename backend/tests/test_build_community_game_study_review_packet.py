@@ -80,3 +80,14 @@ def test_demonstration_must_replay_legally_and_match_its_branch_kind():
             played_san="e4",
             value={"kind": "better_line", "moves_san": ["e5"]},
         )
+
+
+def test_blank_reviewer_response_is_machine_checkable_and_unanswered():
+    response = builder.blank_reviewer_response()
+    assert response["schema_version"] == (
+        "community_game_study.independent_review_response.v1"
+    )
+    assert response["would_assign_to_a_player_in_this_band"] is None
+    assert response["whole_game_story_is_coherent"] is None
+    assert response["repeats_primary_principle_as_separate_chapters"] is None
+    assert response["chapter_verdicts"] == []

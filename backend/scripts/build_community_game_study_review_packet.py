@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import io
@@ -45,13 +46,16 @@ from services.community_game_study_service import (  # noqa: E402
     CommunityGameStudyError,
     SAFE_PROJECTION_VERSION,
     SCHEMA_VERSION as STUDY_SCHEMA_VERSION,
+    principle_identity,
     project_neutral_chapter,
+    public_guided_interaction,
     replay_fingerprint,
+    validate_guided_interaction,
     validate_study,
 )
 from services.game_context_enricher import classify_time_control  # noqa: E402
 from services.game_review_planner import (  # noqa: E402
-    QUALITY_V2_FORMULA,
+    COHERENT_STORY_FORMULA,
     build_shadow_game_teaching_plan,
 )
 from services.game_review_shadow_runtime import (  # noqa: E402
@@ -60,11 +64,14 @@ from services.game_review_shadow_runtime import (  # noqa: E402
 )
 
 
-SCHEMA_VERSION = "community_game_study.neutral_review_packet.v2"
+SCHEMA_VERSION = "community_game_study.neutral_review_packet.v3"
+REVIEW_RESPONSE_SCHEMA_VERSION = (
+    "community_game_study.independent_review_response.v1"
+)
 GENERATED_ON = "2026-09-15"
 TERMS_REVIEWED_AT = "2026-09-15"
 DEFAULT_OUTPUT = BACKEND / (
-    "data/detector_gold/community_game_study_neutral_review_v2.json"
+    "data/detector_gold/community_game_study_neutral_review_v3.json"
 )
 MAX_SOURCE_BYTES_DEFAULT = 16 * 1024 * 1024
 QUALITY_ENV = {
@@ -76,6 +83,19 @@ BEST_RE = re.compile(r"(?:Inaccuracy|Mistake|Blunder)\.\s+(.+?)\s+was best\.")
 
 class PacketBuildError(RuntimeError):
     pass
+
+
+def blank_reviewer_response() -> dict[str, Any]:
+    """Return the frozen, machine-checkable independent-review form."""
+    return {
+        "schema_version": REVIEW_RESPONSE_SCHEMA_VERSION,
+        "would_assign_to_a_player_in_this_band": None,
+        "chapter_verdicts": [],
+        "whole_game_story_is_coherent": None,
+        "repeats_primary_principle_as_separate_chapters": None,
+        "most_memorable_chapter_number": None,
+        "notes": "",
+    }
 
 
 def _sha(value: str) -> str:
@@ -496,18 +516,55 @@ def build_study_candidate(
         features.update(color_features)
         event_rows.update(color_rows)
         errors.extend(color_errors)
+    event_index = {event.event_id: event for event in events}
+    coherent_features = {}
+    interactive_events = []
+    for event in events:
+        context = event_rows[event.event_id]
+        draft_reference = {
+            "event_id": event.event_id,
+            "concept_id": event.concept.concept_id,
+            "quality_id": event.evidence.quality_id,
+            "phase": _phase_for_event(event.event_id, event_rows),
+            "ply": event.move.ply,
+            "move_number": event.move.number,
+            "role": "turning_point",
+            "primary_principle_id": "pending",
+        }
+        try:
+            draft = project_neutral_chapter(
+                event.contract_dict(), draft_reference
+            )
+            draft["demonstration"] = _validated_demonstration(
+                fen_before=str(context["fen_before"]),
+                played_san=str(draft["move_san"]),
+                value=draft.get("demonstration"),
+            )
+            draft["interaction"] = validate_guided_interaction(
+                draft,
+                fen_before=str(context["fen_before"]),
+            )
+        except CommunityGameStudyError as exc:
+            errors.append(f"event_{event.event_id}:interaction:{exc}")
+            continue
+        interactive_events.append(event)
+        coherent_features[event.event_id] = replace(
+            features[event.event_id],
+            phase=draft_reference["phase"],
+            primary_principle_id=principle_identity(draft),
+            primary_family=event.evidence.quality_id,
+        )
     result = build_shadow_game_teaching_plan(
         game_id=anonymous_game_id,
-        events=tuple(events),
-        features=features,
+        events=tuple(interactive_events),
+        features=coherent_features,
         generated_at=datetime(2026, 9, 15, tzinfo=timezone.utc),
-        formula_id=QUALITY_V2_FORMULA,
+        formula_id=COHERENT_STORY_FORMULA,
     )
     if result.plan is None or len(result.plan.chapters) < 2:
         return None, None, errors + [
             f"authorized_chapters_{0 if result.plan is None else len(result.plan.chapters)}"
         ]
-    event_index = {event.event_id: event for event in events}
     refs = []
     neutral = []
     for chapter in result.plan.chapters:
@@ -517,7 +574,12 @@ def build_study_candidate(
             "concept_id": event.concept.concept_id,
             "quality_id": event.evidence.quality_id,
             "phase": _phase_for_event(event.event_id, event_rows),
+            "ply": event.move.ply,
             "move_number": event.move.number,
+            "role": chapter.role.value,
+            "primary_principle_id": coherent_features[
+                event.event_id
+            ].primary_principle_id,
         }
         refs.append(reference)
         projected = project_neutral_chapter(event.contract_dict(), reference)
@@ -527,9 +589,14 @@ def build_study_candidate(
             played_san=str(projected["move_san"]),
             value=projected.get("demonstration"),
         )
+        projected["interaction"] = validate_guided_interaction(
+            projected,
+            fen_before=str(context["fen_before"]),
+        )
         neutral.append(
             {
                 **projected,
+                "story_role": chapter.role.value,
                 "position": {
                     "fen": context["fen_before"],
                     "side_to_move": context["side_to_move"],
@@ -563,7 +630,22 @@ def build_study_candidate(
             "plan_id": result.plan.plan_id,
             "input_fingerprint": result.plan.input_fingerprint,
             "safe_projection_version": SAFE_PROJECTION_VERSION,
+            "story_formula": COHERENT_STORY_FORMULA,
             "chapters": refs,
+        },
+        "evidence": {
+            "events": [
+                event_index[reference["event_id"]].contract_dict()
+                for reference in refs
+            ],
+            "chapter_positions": [
+                {
+                    "event_id": reference["event_id"],
+                    "ply": reference["ply"],
+                    "fen": str(event_rows[reference["event_id"]]["fen_before"]),
+                }
+                for reference in refs
+            ],
         },
         "privacy": {
             "identity_state": "anonymous",
@@ -584,19 +666,17 @@ def build_study_candidate(
         },
         "chapters": [
             {
-                key: value
+                key: (
+                    public_guided_interaction(value)
+                    if key == "interaction"
+                    else value
+                )
                 for key, value in chapter.items()
                 if key not in {"event_id", "concept_id", "quality_id"}
             }
             for chapter in neutral
         ],
-        "reviewer_response": {
-            "would_assign_to_a_player_in_this_band": None,
-            "chapter_verdicts": [],
-            "whole_game_story_is_coherent": None,
-            "most_memorable_chapter_number": None,
-            "notes": "",
-        },
+        "reviewer_response": blank_reviewer_response(),
     }
     return study, review, errors
 
@@ -610,6 +690,7 @@ def build_packet(
     maximum_source_bytes: int,
     fetcher: Callable[[str], str] = fetch_literate_game,
     request_delay_seconds: float = 0.15,
+    admission_sink: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
     if not re.fullmatch(r"[0-9a-f]{64}", release_sha256):
         raise PacketBuildError("release_sha256 must be a lowercase SHA-256")
@@ -652,6 +733,11 @@ def build_packet(
             counters["review_cases"] += 1
             reviews.append(review)
             study_fingerprints.append(study["replay"]["fingerprint"])
+            if admission_sink is not None:
+                admission_sink.append({
+                    "case_id": review["case_id"],
+                    "study": study,
+                })
         if request_delay_seconds:
             time.sleep(request_delay_seconds)
     reviews.sort(key=lambda row: row["case_id"])
@@ -684,7 +770,10 @@ def build_packet(
             "population": "rated standard games with both players 600-1500",
             "rating_rule": "both players share one canonical ChessGuru rating band",
             "evidence_rule": "dense stored evals and at least two 50cp decisions",
-            "review_rule": "two current Caption-authorized neutral chapters",
+            "review_rule": (
+                "two or three distinct-principle Caption-authorized neutral "
+                "chapters selected by coherent_role_then_quality.v1"
+            ),
             "source_order": "official monthly archive order",
             "fetch_limit": fetch_limit,
             "selection_fingerprint_sha256": _sha("|".join(case_ids)),
@@ -701,6 +790,7 @@ def build_packet(
             "source_player_personalization_exposed": False,
         },
         "review_rubric": {
+            "response_schema_version": REVIEW_RESPONSE_SCHEMA_VERSION,
             "chapter_verdict_values": [
                 "correct_and_teachable",
                 "correct_but_not_teachable",
@@ -713,8 +803,21 @@ def build_packet(
                 "the wording is understandable for a 600-1500 player",
                 "the lesson is memorable enough to assign",
                 "the selected chapters form a coherent whole-game walkthrough",
+                "every headline begins with a pattern, geometry or chess idea rather than SAN",
+                "no study repeats one primary principle as separate teaching",
+                "the prediction options are position-specific and the hidden answer agrees with the proof",
                 "no source-player identity or private diagnosis is visible",
             ],
+            "required_chapter_response_fields": {
+                "chapter_index": "zero-based index into this case's chapters",
+                "move_number": "must match the displayed chapter",
+                "move_san": "must match the displayed chapter",
+                "verdict": "one of chapter_verdict_values",
+                "headline_is_pattern_geometry_or_idea_led": "boolean",
+                "demonstration_legally_proves_visible_claim": "boolean",
+                "critical_false_claim": "boolean",
+                "why": "concise independent reason for the verdict",
+            },
         },
         "promotion_boundary": {
             "player_visible_community_studies_allowed": False,
@@ -737,23 +840,53 @@ def main() -> None:
         "--maximum-source-bytes", type=int, default=MAX_SOURCE_BYTES_DEFAULT
     )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--admission-output",
+        type=Path,
+        help=(
+            "Optional sealed anonymous runtime-candidate packet. Do not give "
+            "this answer-bearing artifact to the independent reviewer."
+        ),
+    )
     args = parser.parse_args()
     if args.fetch_limit < 1:
         raise PacketBuildError("fetch_limit must be positive")
+    admissions: list[dict[str, Any]] = []
     packet = build_packet(
         source_path=args.source_zst.resolve(),
         release_id=args.release_id,
         release_sha256=args.release_sha256,
         fetch_limit=args.fetch_limit,
         maximum_source_bytes=args.maximum_source_bytes,
+        admission_sink=admissions,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(packet, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+    if args.admission_output:
+        admission_packet = {
+            "schema_version": "community_game_study.admission_packet.v1",
+            "generated_on": GENERATED_ON,
+            "runtime_exposure": "none",
+            "review_packet_schema_version": SCHEMA_VERSION,
+            "selection_fingerprint_sha256": packet["selection"][
+                "selection_fingerprint_sha256"
+            ],
+            "source": packet["source"],
+            "records": sorted(admissions, key=lambda item: item["case_id"]),
+        }
+        args.admission_output.parent.mkdir(parents=True, exist_ok=True)
+        args.admission_output.write_text(
+            json.dumps(admission_packet, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
     print(json.dumps({
         "output": str(args.output),
+        "admission_output": (
+            str(args.admission_output) if args.admission_output else None
+        ),
         "cases": len(packet["cases"]),
         "measurement": packet["measurement"],
     }, indent=2))

@@ -122,8 +122,15 @@ const LichessBoard = forwardRef(({
     // GameDecryptionV5 can drive board animation through engine PV
     // or trap_line. 2-second step delay, cancel-on-next-setPosition.
     playVariation: (startFen, movesArray, options = {}) => {
-      if (!startFen || !movesArray || movesArray.length === 0) return;
-      const { onStep, onComplete, stepDelayMs = 2000 } = options;
+      const { onStep, onComplete, onError, stepDelayMs = 2000 } = options;
+      const fail = (error) => {
+        if (typeof onError === "function") onError(error);
+        else console.error("LichessBoard.playVariation failed:", error);
+      };
+      if (!startFen || !movesArray || movesArray.length === 0) {
+        fail(new Error("A starting position and at least one move are required."));
+        return false;
+      }
       // Cancel any in-flight playback
       if (variationTimerRef.current) {
         clearTimeout(variationTimerRef.current);
@@ -135,12 +142,13 @@ const LichessBoard = forwardRef(({
         const moves = [];
         for (const moveStr of movesArray) {
           const mv = tempChess.move(moveStr);
-          if (mv) {
-            fens.push(tempChess.fen());
-            moves.push({ from: mv.from, to: mv.to, san: mv.san });
-          }
+          if (!mv) throw new Error(`Illegal variation move: ${moveStr}`);
+          fens.push(tempChess.fen());
+          moves.push({ from: mv.from, to: mv.to, san: mv.san });
         }
-        if (!moves.length || !groundRef.current) return;
+        if (!moves.length || !groundRef.current) {
+          throw new Error("The board is not ready to play this line.");
+        }
         // Snap to the start position
         chessRef.current = new Chess(fens[0]);
         groundRef.current.set({
@@ -168,8 +176,10 @@ const LichessBoard = forwardRef(({
           }
         };
         variationTimerRef.current = setTimeout(playNext, 400);
+        return true;
       } catch (e) {
-        console.error("LichessBoard.playVariation failed:", e);
+        fail(e);
+        return false;
       }
     },
     cancelVariation: () => {
@@ -381,6 +391,7 @@ const LichessBoard = forwardRef(({
                   currentOnMove({
                     from: orig,
                     to: dest,
+                    promotion: move.promotion || null,
                     san: move.san,
                     fen: chessRef.current.fen(),
                     isCapture: move.captured !== undefined,

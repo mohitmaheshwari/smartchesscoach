@@ -14,12 +14,28 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
 from pymongo.errors import DuplicateKeyError
 
 from services.complete_coaching_access import get_complete_coaching_access
+from services.community_game_study_service import (
+    CommunityGameStudyError,
+    candidate_from_study as community_candidate_from_study,
+    load_admitted_selection,
+    load_admitted_study,
+    load_shadow_selection,
+    project_visible_study,
+    record_shadow_evidence,
+    reveal_study_chapter,
+    shadow_enabled as community_shadow_enabled,
+    visible_enabled as community_visible_enabled,
+    visible_for_operability_role as community_visible_for_operability_role,
+    verify_guided_replay_move,
+)
 from services.game_review_contracts import (
     FEATURE_FLAG,
     QUALITY_V2_FEATURE_FLAG,
     personalized_review_quality_v2_enabled,
 )
 from services.game_review_event_adapter import maybe_attach_phase5_review_fields
+from services.phase8_release_evidence import record_phase8_reach_event
+from services.rating_resolver import get_coaching_rating, get_rating_band
 
 
 COLLECTION = "game_review_prescriptions"
@@ -27,6 +43,14 @@ SCHEMA_VERSION = "coach_selected_game_review.v1"
 SELECTOR_VERSION = "focus_then_authorized_richness.v1"
 ACTIVE_STATES = ("recommended", "started")
 FINAL_STATES = ("completed", "dismissed", "superseded")
+TRUSTED_NEXT_ACTION_PREFIXES = (
+    "/game/",
+    "/games",
+    "/home",
+    "/import",
+    "/play-with-coach",
+    "/training",
+)
 
 
 class ReviewPrescriptionError(ValueError):
@@ -35,6 +59,22 @@ class ReviewPrescriptionError(ValueError):
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _trusted_next_action_href(value: Any) -> Optional[str]:
+    """Accept only relative routes owned by the ChessGuru application."""
+    href = str(value or "").strip()
+    if not href.startswith("/") or href.startswith("//"):
+        return None
+    path = href.split("?", 1)[0].split("#", 1)[0]
+    if not any(
+        path == prefix
+        or (prefix.endswith("/") and path.startswith(prefix))
+        or (not prefix.endswith("/") and path.startswith(f"{prefix}/"))
+        for prefix in TRUSTED_NEXT_ACTION_PREFIXES
+    ):
+        return None
+    return href
 
 
 def _iso(value: Any) -> Optional[str]:
@@ -208,6 +248,42 @@ def _public_game(game: Mapping[str, Any]) -> Dict[str, Any]:
 
 
 def public_prescription(document: Mapping[str, Any], candidate: Mapping[str, Any]) -> Dict[str, Any]:
+    if candidate.get("source_kind") == "community":
+        resume = document.get("resume") or {}
+        move_index = int(resume.get("move_index", -1))
+        prescription_id = str(document.get("prescription_id") or "")
+        study_id = str(candidate.get("study_id") or "")
+        return {
+            "prescription_id": prescription_id,
+            "state": str(document.get("state") or "recommended"),
+            "source_kind": "community",
+            "study_id": study_id,
+            "game": {
+                "game_id": study_id,
+                "opponent": "A player near your level",
+                "result": "Study",
+                "opening": "",
+                "platform": "community",
+                "played_at": None,
+            },
+            "reason": {
+                "headline": "A complete game for your current lesson",
+                "body": (
+                    "Someone near your level faced the same kind of decisions. "
+                    "I chose the moments that are worth understanding."
+                ),
+            },
+            "chapters": list(candidate.get("chapters") or []),
+            "takeaway": "Predict each moment, watch the idea, then replay it.",
+            "resume": {
+                "move_index": move_index,
+                "updated_at": _iso(resume.get("updated_at")),
+            },
+            "review_url": (
+                f"/game/{study_id}?prescription={prescription_id}"
+                f"&resume={move_index}&community=1"
+            ),
+        }
     focus_match = bool(candidate.get("focus_match"))
     chapters = list(candidate.get("chapters") or [])
     focus_event_id = str(candidate.get("focus_event_id") or "")
@@ -387,6 +463,55 @@ async def _focus_key(db, user_id: str) -> str:
     ).strip()
 
 
+async def _focus_identity(db, user_id: str) -> Dict[str, str]:
+    from services.focus_bridge import ACTIVE_WEAKNESS_FILTER
+
+    focus = await db.user_active_focus.find_one(
+        {"user_id": user_id, **ACTIVE_WEAKNESS_FILTER},
+        {
+            "_id": 0,
+            "topic_key": 1,
+            "focus_kind": 1,
+            "detector_quality_id": 1,
+        },
+    )
+    if not isinstance(focus, Mapping):
+        return {"key": "", "concept_id": "", "quality_id": ""}
+    kind = str(focus.get("focus_kind") or "").strip()
+    return {
+        "key": str(
+            focus.get("topic_key")
+            or kind
+            or focus.get("detector_quality_id")
+            or ""
+        ).strip(),
+        "concept_id": kind.replace("/", "."),
+        "quality_id": str(focus.get("detector_quality_id") or "").strip(),
+    }
+
+
+async def _community_operability_visible(
+    db,
+    user_id: str,
+    env: Optional[Mapping[str, str]],
+) -> bool:
+    """Apply the first-cohort role restriction after canonical access.
+
+    Admin status only narrows the global visibility switch. It never replaces
+    personalized-review enrollment, the locked target, or the user's baseline.
+    """
+    if not community_visible_enabled(env):
+        return False
+    user = await db.users.find_one(
+        {"user_id": user_id},
+        {"_id": 0, "role": 1},
+    )
+    return community_visible_for_operability_role(
+        (user or {}).get("role"),
+        env,
+    )
+
+
 async def _terminal_game_ids(db, user_id: str) -> list[str]:
     rows = await db[COLLECTION].find(
         {"user_id": user_id, "state": {"$in": list(FINAL_STATES)}},
@@ -402,6 +527,36 @@ async def _candidate_for_document(
     *,
     env: Optional[Mapping[str, str]],
 ) -> Optional[Dict[str, Any]]:
+    if document.get("source_kind") == "community":
+        if not await _community_operability_visible(db, user_id, env):
+            return None
+        study = await load_admitted_study(
+            db, str(document.get("study_id") or "")
+        )
+        if study is None:
+            return None
+        candidate = community_candidate_from_study(
+            study,
+            focus_concept_id=str(document.get("focus_concept_id") or ""),
+            focus_quality_id=str(document.get("focus_quality_id") or ""),
+            rating_band=str(document.get("rating_band") or ""),
+        )
+        if candidate is None:
+            return None
+        if (
+            str(study["plan"]["plan_id"]) != str(document.get("plan_id") or "")
+            or str(study["plan"]["input_fingerprint"])
+            != str(document.get("plan_fingerprint") or "")
+        ):
+            return None
+        public = project_visible_study(study)
+        return {
+            **candidate,
+            "game_id": study["study_id"],
+            "plan_id": study["plan"]["plan_id"],
+            "plan_fingerprint": study["plan"]["input_fingerprint"],
+            "chapters": public["chapters"],
+        }
     candidates = await _load_candidates(
         db,
         user_id,
@@ -498,7 +653,8 @@ async def get_recommendation(
             },
         )
 
-    focus_key = await _focus_key(db, user_id)
+    focus_identity = await _focus_identity(db, user_id)
+    focus_key = focus_identity["key"]
     candidates = await _load_candidates(
         db,
         user_id,
@@ -506,6 +662,61 @@ async def get_recommendation(
         excluded_game_ids=await _terminal_game_ids(db, user_id),
         env=env,
     )
+    community_selection = None
+    if community_shadow_enabled(env):
+        rating_band = get_rating_band(await get_coaching_rating(db, user_id))
+        terminal_studies = await db[COLLECTION].find(
+            {
+                "user_id": user_id,
+                "source_kind": "community",
+                "state": {"$in": list(FINAL_STATES)},
+            },
+            {"_id": 0, "study_id": 1},
+        ).to_list(None)
+        community_selection = await load_shadow_selection(
+            db,
+            focus_concept_id=focus_identity["concept_id"],
+            focus_quality_id=focus_identity["quality_id"],
+            rating_band=rating_band,
+            terminal_study_ids=[
+                str(item.get("study_id") or "") for item in terminal_studies
+            ],
+        )
+        await record_shadow_evidence(
+            db,
+            community_selection,
+            focus_concept_id=focus_identity["concept_id"],
+            focus_quality_id=focus_identity["quality_id"],
+            rating_band=rating_band,
+        )
+        if (
+            not candidates
+            and await _community_operability_visible(db, user_id, env)
+        ):
+            admitted_selection = await load_admitted_selection(
+                db,
+                focus_concept_id=focus_identity["concept_id"],
+                focus_quality_id=focus_identity["quality_id"],
+                rating_band=rating_band,
+                terminal_study_ids=[
+                    str(item.get("study_id") or "")
+                    for item in terminal_studies
+                ],
+            )
+            selected = admitted_selection.get("candidate")
+            if isinstance(selected, Mapping):
+                study = await load_admitted_study(
+                    db, str(selected.get("study_id") or "")
+                )
+                if study is not None:
+                    public = project_visible_study(study)
+                    candidates = [{
+                        **dict(selected),
+                        "game_id": study["study_id"],
+                        "plan_id": study["plan"]["plan_id"],
+                        "plan_fingerprint": study["plan"]["input_fingerprint"],
+                        "chapters": public["chapters"],
+                    }]
     if not candidates:
         return await _with_review_states(db, user_id, {
             "schema_version": SCHEMA_VERSION,
@@ -554,6 +765,15 @@ async def get_recommendation(
         "created_at": now,
         "updated_at": now,
     }
+    if chosen.get("source_kind") == "community":
+        document.update({
+            "source_kind": "community",
+            "study_id": chosen["study_id"],
+            "focus_concept_id": focus_identity["concept_id"],
+            "focus_quality_id": focus_identity["quality_id"],
+            "rating_band": chosen["rating_band"],
+            "interaction_progress": {},
+        })
     try:
         await collection.insert_one(document)
     except DuplicateKeyError:
@@ -613,6 +833,13 @@ async def start_prescription(
         raise ReviewPrescriptionError(
             "review cannot be started from this state"
         )
+    if (
+        document.get("source_kind") == "community"
+        and not await _community_operability_visible(db, user_id, env)
+    ):
+        raise ReviewPrescriptionError(
+            "community study visibility is disabled"
+        )
     now = _now()
     fields = {"state": "started", "updated_at": now}
     if not document.get("started_at"):
@@ -625,6 +852,14 @@ async def start_prescription(
         },
         {"$set": fields},
     )
+    if document.get("source_kind") == "community":
+        await record_phase8_reach_event(
+            db,
+            user_id,
+            step="community_review_started",
+            source_id=prescription_id,
+            metadata={"study_id": str(document.get("study_id") or "")},
+        )
     return await get_recommendation(db, user_id, env=env)
 
 
@@ -724,7 +959,20 @@ async def complete_prescription(
         and existing.get("state") == "completed"
         and existing.get("game_id") == game_id
     ):
-        return await get_recommendation(db, user_id, env=env)
+        next_review = await get_recommendation(db, user_id, env=env)
+        if existing.get("source_kind") == "community":
+            learning = existing.get("completion_learning")
+            if not isinstance(learning, Mapping):
+                raise ReviewPrescriptionError(
+                    "completed community study is missing its learning receipt"
+                )
+            action = existing.get("completion_next_action")
+            next_review = {
+                **next_review,
+                "next_action": dict(action) if isinstance(action, Mapping) else None,
+                "learning": dict(learning),
+            }
+        return next_review
     document = await _owned_active(db, user_id, prescription_id)
     if document.get("game_id") != game_id:
         raise ReviewPrescriptionError(
@@ -734,7 +982,60 @@ async def complete_prescription(
         raise ReviewPrescriptionError(
             "review must be started before completion"
         )
+    learning_receipt = None
+    if document.get("source_kind") == "community":
+        if not await _community_operability_visible(db, user_id, env):
+            raise ReviewPrescriptionError(
+                "community study visibility is disabled"
+            )
+        study = await load_admitted_study(
+            db, str(document.get("study_id") or "")
+        )
+        if study is None:
+            raise ReviewPrescriptionError("community study is no longer current")
+        progress = document.get("interaction_progress") or {}
+        for chapter in study["plan"]["chapters"]:
+            key = hashlib.sha256(chapter["event_id"].encode()).hexdigest()[:20]
+            state = progress.get(key) if isinstance(progress, Mapping) else None
+            if not isinstance(state, Mapping) or not all(
+                state.get(field) is True
+                for field in ("predicted", "revealed", "watched", "replayed")
+            ):
+                raise ReviewPrescriptionError(
+                    "finish each predict, watch and replay step before completion"
+                )
     now = _now()
+    if document.get("source_kind") == "community":
+        from services.review_learning_adapter import (
+            store_community_walkthrough_results,
+        )
+
+        learning_receipt = await store_community_walkthrough_results(
+            db.learning_sessions,
+            user_id=user_id,
+            prescription_id=prescription_id,
+            study=study,
+            progress=progress,
+            occurred_at=now,
+        )
+    completion_learning = (
+        {
+            "assisted_learning_recorded": True,
+            "chapter_results": learning_receipt["chapter_results"],
+            "real_game_application": "not_measured",
+            "retention": "not_measured",
+        }
+        if learning_receipt is not None
+        else None
+    )
+    completion_fields = {
+        "state": "completed",
+        "is_active": False,
+        "completed_at": now,
+        "updated_at": now,
+    }
+    if completion_learning is not None:
+        completion_fields["completion_learning"] = completion_learning
     await db[COLLECTION].update_one(
         {
             "prescription_id": prescription_id,
@@ -742,15 +1043,317 @@ async def complete_prescription(
             "is_active": True,
         },
         {
-            "$set": {
-                "state": "completed",
-                "is_active": False,
-                "completed_at": now,
-                "updated_at": now,
-            }
+            "$set": completion_fields
         },
     )
-    return await get_recommendation(db, user_id, env=env)
+    next_review = await get_recommendation(db, user_id, env=env)
+    if learning_receipt is not None:
+        await record_phase8_reach_event(
+            db,
+            user_id,
+            step="community_review_completed",
+            source_id=prescription_id,
+            metadata={
+                "study_id": str(document.get("study_id") or ""),
+                "chapter_results": int(
+                    learning_receipt.get("chapter_results") or 0
+                ),
+                "changes_transfer_verdict": False,
+            },
+        )
+        next_prescription = next_review.get("prescription")
+        next_action = None
+        next_review_href = (
+            _trusted_next_action_href(next_prescription.get("review_url"))
+            if isinstance(next_prescription, Mapping)
+            else None
+        )
+        if next_review_href:
+            next_action = {
+                "kind": "review",
+                "label": "Review the next game with me",
+                "href": next_review_href,
+                "prescription_id": str(
+                    next_prescription.get("prescription_id") or ""
+                ),
+            }
+        else:
+            empty = next_review.get("empty")
+            primary = (
+                empty.get("primary_action")
+                if isinstance(empty, Mapping)
+                else None
+            )
+            primary_href = (
+                _trusted_next_action_href(primary.get("href"))
+                if isinstance(primary, Mapping)
+                else None
+            )
+            if primary_href:
+                next_action = {
+                    "kind": "coach_action",
+                    "label": str(primary.get("label") or "Continue with me"),
+                    "href": primary_href,
+                }
+        if next_action is not None:
+            await db[COLLECTION].update_one(
+                {
+                    "prescription_id": prescription_id,
+                    "user_id": user_id,
+                    "state": "completed",
+                },
+                {
+                    "$set": {
+                        "completion_next_action": next_action,
+                        "updated_at": _now(),
+                    }
+                },
+            )
+            await record_phase8_reach_event(
+                db,
+                user_id,
+                step="community_review_next_action_linked",
+                source_id=prescription_id,
+                metadata={
+                    "next_action_kind": next_action["kind"],
+                    "next_prescription_id": next_action.get(
+                        "prescription_id", ""
+                    ),
+                },
+            )
+        next_review = {
+            **next_review,
+            "next_action": next_action,
+            "learning": completion_learning,
+        }
+    return next_review
+
+
+async def get_community_study(
+    db,
+    user_id: str,
+    prescription_id: str,
+    *,
+    env: Optional[Mapping[str, str]] = None,
+) -> Dict[str, Any]:
+    await _require_access(db, user_id, env)
+    document = await _owned_active(db, user_id, prescription_id)
+    if document.get("source_kind") != "community":
+        raise ReviewPrescriptionError("prescription is not a community study")
+    if document.get("state") != "started":
+        raise ReviewPrescriptionError("start the study before opening it")
+    if not await _community_operability_visible(db, user_id, env):
+        raise ReviewPrescriptionError("community study visibility is disabled")
+    study = await load_admitted_study(
+        db, str(document.get("study_id") or "")
+    )
+    if study is None:
+        raise ReviewPrescriptionError("community study is no longer current")
+    public = project_visible_study(study)
+    progress = document.get("interaction_progress") or {}
+    visible_progress: Dict[str, Dict[str, bool]] = {}
+    restored_hints: Dict[str, Dict[str, Any]] = {}
+    restored_reveals: Dict[str, Dict[str, Any]] = {}
+    chapter_ids = {
+        chapter["event_id"] for chapter in study["plan"]["chapters"]
+    }
+    for item in progress.values() if isinstance(progress, Mapping) else ():
+        if not isinstance(item, Mapping):
+            continue
+        event_id = str(item.get("event_id") or "")
+        if event_id not in chapter_ids:
+            continue
+        visible_progress[event_id] = {
+            name: item.get(name) is True
+            for name in ("hinted", "predicted", "revealed", "watched", "replayed")
+        }
+        if item.get("hinted") is True:
+            restored_hints[event_id] = reveal_study_chapter(
+                study,
+                event_id=event_id,
+                include_hint=True,
+            )
+        if item.get("revealed") is True:
+            restored_reveals[event_id] = reveal_study_chapter(
+                study,
+                event_id=event_id,
+                selected_option_id=str(item.get("selected_option_id") or ""),
+            )
+    public["progress"] = visible_progress
+    public["hints"] = restored_hints
+    public["reveals"] = restored_reveals
+    public["prescription_id"] = prescription_id
+    return public
+
+
+async def record_community_chapter_action(
+    db,
+    user_id: str,
+    prescription_id: str,
+    *,
+    event_id: str,
+    action: str,
+    selected_option_id: Optional[str] = None,
+    played_move_uci: Optional[str] = None,
+    env: Optional[Mapping[str, str]] = None,
+) -> Dict[str, Any]:
+    """Grade and record one bounded interaction on the server."""
+    if action not in {"hint", "predict", "watch", "replay"}:
+        raise ReviewPrescriptionError("unknown community study action")
+    await _require_access(db, user_id, env)
+    document = await _owned_active(db, user_id, prescription_id)
+    if document.get("source_kind") != "community" or document.get("state") != "started":
+        raise ReviewPrescriptionError("community study is not active")
+    if not await _community_operability_visible(db, user_id, env):
+        raise ReviewPrescriptionError("community study visibility is disabled")
+    study = await load_admitted_study(
+        db, str(document.get("study_id") or "")
+    )
+    if study is None:
+        raise ReviewPrescriptionError("community study is no longer current")
+    if event_id not in {
+        chapter["event_id"] for chapter in study["plan"]["chapters"]
+    }:
+        raise ReviewPrescriptionError("chapter does not belong to this study")
+
+    progress = document.get("interaction_progress") or {}
+    key = hashlib.sha256(event_id.encode()).hexdigest()[:20]
+    current = dict(progress.get(key) or {}) if isinstance(progress, Mapping) else {}
+    now = _now()
+    response: Dict[str, Any] = {"event_id": event_id, "action": action}
+    if action == "hint":
+        response.update(reveal_study_chapter(
+            study, event_id=event_id, include_hint=True
+        ))
+        current["hinted"] = True
+        current.setdefault("hinted_at", now)
+    elif action == "predict":
+        first_prediction = current.get("predicted") is not True
+        answer = (
+            selected_option_id
+            if first_prediction
+            else current.get("selected_option_id")
+        )
+        try:
+            response.update(reveal_study_chapter(
+                study,
+                event_id=event_id,
+                selected_option_id=answer,
+            ))
+        except CommunityGameStudyError as exc:
+            raise ReviewPrescriptionError(str(exc)) from exc
+        if first_prediction:
+            current.update({
+                "predicted": True,
+                "revealed": True,
+                "correct": bool(response["correct"]),
+                "selected_option_id": str(answer),
+            })
+            current.setdefault("predicted_at", now)
+    elif action == "watch":
+        if current.get("revealed") is not True:
+            raise ReviewPrescriptionError("predict before watching the line")
+        current["watched"] = True
+        current.setdefault("watched_at", now)
+    else:
+        if current.get("watched") is not True:
+            raise ReviewPrescriptionError("watch the line before replaying it")
+        try:
+            replay_result = verify_guided_replay_move(
+                study,
+                event_id=event_id,
+                played_move_uci=str(played_move_uci or ""),
+            )
+        except CommunityGameStudyError as exc:
+            raise ReviewPrescriptionError(str(exc)) from exc
+        current["replayed"] = True
+        current["replayed_move_uci"] = replay_result["played_move_uci"]
+        current.setdefault("replayed_at", now)
+        response.update(replay_result)
+    current["event_id"] = event_id
+    await db[COLLECTION].update_one(
+        {
+            "prescription_id": prescription_id,
+            "user_id": user_id,
+            "is_active": True,
+            "state": "started",
+        },
+        {"$set": {f"interaction_progress.{key}": current, "updated_at": now}},
+    )
+    reach_source_id = f"{prescription_id}:{event_id}"
+    reach_steps = {
+        "hint": ("community_review_hint_used",),
+        "predict": (
+            "community_review_predicted",
+            "community_review_revealed",
+        ),
+        "watch": ("community_review_line_watched",),
+        "replay": ("community_review_key_move_replayed",),
+    }
+    steps_to_record = reach_steps[action]
+    if action == "predict" and not first_prediction:
+        steps_to_record = ()
+    for reach_step in steps_to_record:
+        await record_phase8_reach_event(
+            db,
+            user_id,
+            step=reach_step,
+            source_id=reach_source_id,
+            metadata={
+                "prescription_id": prescription_id,
+                "study_id": str(document.get("study_id") or ""),
+                "event_id": event_id,
+            },
+        )
+    response["progress"] = {
+        name: current.get(name) is True
+        for name in ("hinted", "predicted", "revealed", "watched", "replayed")
+    }
+    return response
+
+
+async def follow_community_next_action(
+    db,
+    user_id: str,
+    prescription_id: str,
+    *,
+    env: Optional[Mapping[str, str]] = None,
+) -> Dict[str, Any]:
+    """Record and return the server-authored action after a completed study."""
+    await _require_access(db, user_id, env)
+    document = await db[COLLECTION].find_one(
+        {
+            "prescription_id": prescription_id,
+            "user_id": user_id,
+            "source_kind": "community",
+            "state": "completed",
+        },
+        {"_id": 0, "completion_next_action": 1},
+    )
+    action = (
+        document.get("completion_next_action")
+        if isinstance(document, Mapping)
+        else None
+    )
+    href = (
+        _trusted_next_action_href(action.get("href"))
+        if isinstance(action, Mapping)
+        else None
+    )
+    if not href:
+        raise ReviewPrescriptionError("no linked next action is available")
+    await record_phase8_reach_event(
+        db,
+        user_id,
+        step="community_review_next_action_followed",
+        source_id=prescription_id,
+        metadata={"next_action_kind": str(action.get("kind") or "")},
+    )
+    return {
+        "label": str(action.get("label") or "Continue with me"),
+        "href": href,
+        "kind": str(action.get("kind") or "coach_action"),
+    }
 
 
 __all__ = [
@@ -762,9 +1365,12 @@ __all__ = [
     "complete_prescription",
     "dismiss_prescription",
     "ensure_review_prescription_indexes",
+    "follow_community_next_action",
     "get_recommendation",
+    "get_community_study",
     "public_prescription",
     "rank_candidates",
+    "record_community_chapter_action",
     "save_progress",
     "start_prescription",
 ]

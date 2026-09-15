@@ -17,6 +17,7 @@ jest.mock("./BoardCoordinates", () => () => null);
 
 const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const AFTER_E4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
+const WHITE_PROMOTES = "7k/P7/8/8/8/8/8/7K w - - 0 1";
 
 describe("LichessBoard dynamic controls", () => {
   let container;
@@ -98,5 +99,41 @@ describe("LichessBoard dynamic controls", () => {
     expect(onStep).toHaveBeenCalledTimes(3);
     expect(onComplete).toHaveBeenCalledTimes(1);
     jest.useRealTimers();
+  });
+
+  test("variation playback reports an illegal stored line instead of hanging", async () => {
+    const onComplete = jest.fn();
+    const onError = jest.fn();
+    await act(async () => root.render(
+      <LichessBoard ref={boardApi} fen={START} />
+    ));
+
+    let started;
+    act(() => {
+      started = boardApi.current.playVariation(START, ["e4", "Qa9"], {
+        onComplete,
+        onError,
+      });
+    });
+
+    expect(started).toBe(false);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  test("move callbacks preserve a promotion for server replay verification", async () => {
+    const onMove = jest.fn();
+    await act(async () => root.render(
+      <LichessBoard ref={boardApi} fen={WHITE_PROMOTES} onMove={onMove} />
+    ));
+    const config = mockedChessground.mock.calls[0][1];
+
+    act(() => config.movable.events.after("a7", "a8", {}));
+
+    expect(onMove).toHaveBeenCalledWith(expect.objectContaining({
+      from: "a7",
+      to: "a8",
+      promotion: "q",
+    }));
   });
 });

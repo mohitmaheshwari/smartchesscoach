@@ -3,7 +3,9 @@ from __future__ import annotations
 from copy import deepcopy
 import hashlib
 import json
+from pathlib import Path
 
+import chess
 import pytest
 
 from services.caption_facts import LegalMaterialLossCause, PieceOnSquare
@@ -25,13 +27,19 @@ def _chapter(
     concept_id: str = "piece_safety.destination_safety_exact",
     quality_id: str = QUALITY_ID,
     phase: str = "middlegame",
+    ply: int = 1,
+    role: str = "turning_point",
+    primary_principle_id: str = "piece_safety.check_the_next_capture",
 ):
     return {
         "event_id": event_id,
         "concept_id": concept_id,
         "quality_id": quality_id,
         "phase": phase,
-        "move_number": 14,
+        "ply": ply,
+        "move_number": (ply + 1) // 2,
+        "role": role,
+        "primary_principle_id": primary_principle_id,
     }
 
 
@@ -40,7 +48,12 @@ def _source_event(chapter=None):
     return {
         "schema_version": "personalized_game_review.v1",
         "event_id": chapter["event_id"],
-        "move": {"number": chapter["move_number"], "san": "Rd2"},
+        "move": {
+            "ply": chapter["ply"],
+            "number": chapter["move_number"],
+            "san": "Rd2",
+            "actor": "user",
+        },
         "concept": {"id": chapter["concept_id"]},
         "evidence": {
             "quality_id": chapter["quality_id"],
@@ -157,8 +170,102 @@ def _study(
     chapters=None,
     status: str = "shadow",
 ):
-    moves = ["e2e4", "e7e5", "g1f3", "b8c6"]
+    moves = ["e2e4", "e7e5", "g1f3", "b8c6", "f1b5", "a7a6"]
     initial = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    raw_chapters = deepcopy(
+        chapters
+        or [_chapter(f"{study_id}-1"), _chapter(f"{study_id}-2")]
+    )
+    source_events = []
+    chapter_positions = []
+    board = chess.Board(initial)
+    positions = {}
+    for ply, uci in enumerate(moves, start=1):
+        positions[ply] = board.fen()
+        board.push_uci(uci)
+    cases = [
+        {
+            "ply": 1,
+            "role": "setup",
+            "principle": "endgame.preserve_exact_result",
+            "played": "e4",
+            "cause": {
+                "schema_version": "exact_endgame_cause.v1",
+                "kind": "exact_endgame_result_change",
+                "best_move_san": "Nf3",
+                "outcome_before": "draw",
+                "outcome_after": "loss",
+                "proof": {"authority": "fixture", "version": "v1"},
+            },
+        },
+        {
+            "ply": 3,
+            "role": "turning_point",
+            "principle": "tactics.follow_the_payoff",
+            "played": "Nf3",
+            "cause": {
+                "schema_version": "verified_line_cause.v1",
+                "kind": "verified_stored_line",
+                "lesson_kind": "missed_material_opportunity",
+                "best_move_san": "Bc4",
+                "best_line_san": ["Bc4", "Nc6", "Bxf7+"],
+                "best_captures": [{
+                    "ply": 3,
+                    "actor": "initiator",
+                    "capturing_piece": "bishop",
+                    "captured_piece": "pawn",
+                    "captured_square": "f7",
+                }],
+                "proof": {"authority": "fixture", "version": "v1"},
+            },
+        },
+        {
+            "ply": 5,
+            "role": "consequence",
+            "principle": "calculation.count_every_recapture",
+            "played": "Bb5",
+            "cause": {
+                "schema_version": "verified_line_cause.v1",
+                "kind": "verified_stored_line",
+                "lesson_kind": "exchange_sequence",
+                "best_move_san": "Bc4",
+                "played_line_san": ["Bb5", "a6", "Bxc6", "dxc6"],
+                "proof": {"authority": "fixture", "version": "v1"},
+            },
+        },
+    ]
+    for index, chapter in enumerate(raw_chapters):
+        case = cases[index]
+        chapter.update(
+            ply=case["ply"],
+            move_number=(case["ply"] + 1) // 2,
+            role=case["role"],
+            primary_principle_id=case["principle"],
+        )
+        event = _source_event(chapter)
+        event["move"].update(
+            ply=case["ply"],
+            number=chapter["move_number"],
+            san=case["played"],
+        )
+        cause = dict(case["cause"])
+        fingerprint = hashlib.sha256(
+            json.dumps(cause, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        cause["fingerprint"] = fingerprint
+        event["cause"] = cause
+        event["teaching"] = {
+            "headline": "You found a moment",
+            "caption": "You can learn from this position.",
+            "principle": "You should inspect the board.",
+            "cause_fingerprint": fingerprint,
+        }
+        source_events.append(event)
+        chapter_positions.append({
+            "event_id": chapter["event_id"],
+            "ply": case["ply"],
+            "fen": positions[case["ply"]],
+        })
     return {
         "schema_version": service.SCHEMA_VERSION,
         "admission_policy_version": service.ADMISSION_POLICY_VERSION,
@@ -187,8 +294,12 @@ def _study(
             "plan_id": f"plan-{study_id}",
             "input_fingerprint": _sha(f"plan-{study_id}"),
             "safe_projection_version": service.SAFE_PROJECTION_VERSION,
-            "chapters": chapters
-            or [_chapter(f"{study_id}-1"), _chapter(f"{study_id}-2")],
+            "story_formula": "coherent_role_then_quality.v1",
+            "chapters": raw_chapters,
+        },
+        "evidence": {
+            "events": source_events,
+            "chapter_positions": chapter_positions,
         },
         "privacy": {
             "identity_state": "anonymous",
@@ -249,7 +360,7 @@ def test_valid_study_preserves_input_and_requires_canonical_authority():
         ),
         (
             lambda row: row["plan"].update(chapters=[_chapter("only")]),
-            "needs two chapters",
+            "needs two or three chapters",
         ),
         (
             lambda row: row["plan"]["chapters"][0].update(
@@ -312,7 +423,7 @@ def test_neutral_projection_renders_real_personalized_event_from_typed_cause():
     projected = service.project_neutral_chapter(
         _personalized_typed_source_event(chapter), chapter
     )
-    assert projected["headline"] == "Qxd2 wins the rook on d2"
+    assert projected["headline"] == "The rook on d2 is left unprotected"
     assert projected["explanation"] == (
         "Rd2 allows Qxd2 because the queen on c2 can take the rook on d2. "
         "Rd1 moves that rook out of danger."
@@ -321,6 +432,10 @@ def test_neutral_projection_renders_real_personalized_event_from_typed_cause():
         "kind": "played_refutation",
         "moves_san": ["Rd2", "Qxd2"],
     }
+    assert projected["primary_principle_id"] == (
+        "piece_safety.check_the_next_capture"
+    )
+    assert projected["interaction"]["correct_option_id"] == "capture_next"
     assert "you" not in " ".join(str(value) for value in projected.values()).lower()
 
 
@@ -342,7 +457,7 @@ def test_neutral_projection_names_verified_material_target_in_plain_language():
     projected = service.project_neutral_chapter(
         _personalized_verified_line_event(chapter), chapter
     )
-    assert projected["headline"] == "Rfb8 can win a pawn"
+    assert projected["headline"] == "A loose pawn on b2 could be won"
     assert projected["explanation"] == (
         "Rab8 missed the chance because Rfb8 → Qg3 → Rxb2 ends with the rook "
         "taking the pawn on b2."
@@ -354,6 +469,35 @@ def test_neutral_projection_names_verified_material_target_in_plain_language():
         "kind": "better_line",
         "moves_san": ["Rfb8", "Qg3", "Rxb2"],
     }
+
+
+def test_guided_interaction_is_legal_and_public_projection_hides_answer():
+    chapter = _chapter("event-1")
+    projected = service.project_neutral_chapter(
+        _personalized_typed_source_event(chapter), chapter
+    )
+    validated = service.validate_guided_interaction(
+        projected,
+        fen_before="6k1/8/8/8/8/8/2q5/3R2K1 w - - 0 1",
+    )
+    public = service.public_guided_interaction(validated)
+    assert public["question"] == "What danger should decide the move?"
+    assert public["hint_available"] is True
+    assert "correct_option_id" not in public
+    assert "hint" not in public
+
+
+def test_guided_interaction_fails_closed_on_illegal_demonstration():
+    chapter = _chapter("event-1")
+    projected = service.project_neutral_chapter(
+        _personalized_typed_source_event(chapter), chapter
+    )
+    projected["demonstration"]["moves_san"] = ["Rd2", "Qh4"]
+    with pytest.raises(service.CommunityGameStudyError, match="not legal"):
+        service.validate_guided_interaction(
+            projected,
+            fen_before="6k1/8/8/8/8/8/2q5/3R2K1 w - - 0 1",
+        )
 
 
 def test_focus_match_requires_both_canonical_identities():
@@ -383,7 +527,6 @@ def test_balanced_formula_prefers_focus_then_breadth_then_richness():
                 _chapter("a1", concept_id=other, quality_id=OTHER_QUALITY_ID, phase="opening"),
                 _chapter("a2", concept_id=other, quality_id=OTHER_QUALITY_ID, phase="middlegame"),
                 _chapter("a3", concept_id=other, quality_id=OTHER_QUALITY_ID, phase="endgame"),
-                _chapter("a4", concept_id=other, quality_id=OTHER_QUALITY_ID, phase="endgame"),
             ],
         ),
         _study(
@@ -474,3 +617,149 @@ async def test_database_loader_is_read_only_and_returns_shadow_contract():
             {"_id": 0},
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_visible_selector_queries_only_admitted_studies():
+    calls = []
+
+    class Cursor:
+        async def to_list(self, *, length):
+            assert length is None
+            return [_study(status="admitted")]
+
+    class Collection:
+        def find(self, query, projection):
+            calls.append((query, projection))
+            return Cursor()
+
+    class Database:
+        def __getitem__(self, name):
+            assert name == service.COLLECTION
+            return Collection()
+
+    result = await service.load_admitted_selection(
+        Database(),
+        focus_concept_id="piece_safety.destination_safety_exact",
+        focus_quality_id=QUALITY_ID,
+        rating_band="beginner_low",
+    )
+    assert result["candidate"]["study_id"] == "study-1"
+    assert calls == [
+        (
+            {
+                "status": "admitted",
+                "game.rating_band": "beginner_low",
+            },
+            {"_id": 0},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_player_loader_requires_independently_admitted_status():
+    calls = []
+
+    class Collection:
+        async def find_one(self, query, projection):
+            calls.append((query, projection))
+            return _study(status="shadow")
+
+    class Database:
+        def __getitem__(self, name):
+            assert name == service.COLLECTION
+            return Collection()
+
+    result = await service.load_admitted_study(Database(), "study-1")
+    assert result is None
+    assert calls == [
+        (
+            {"study_id": "study-1", "status": "admitted"},
+            {"_id": 0},
+        )
+    ]
+
+
+def test_visible_study_hides_truth_until_server_grades_the_shown_option():
+    study = _study()
+    public = service.project_visible_study(study)
+    first = public["chapters"][0]
+    serialized = json.dumps(public)
+    assert first["interaction"]["hint_available"] is True
+    assert "correct_option_id" not in serialized
+    assert "demonstration" not in serialized
+    assert "explanation" not in serialized
+    assert '"hint"' not in serialized
+
+    event_id = first["event_id"]
+    answer = service.reveal_study_chapter(
+        study,
+        event_id=event_id,
+        selected_option_id="preserves_result",
+    )
+    assert answer["correct"] is True
+    assert answer["correct_option_id"] == "preserves_result"
+    assert answer["demonstration"] == {
+        "kind": "better_line",
+        "moves_san": ["Nf3"],
+    }
+    assert service.reveal_study_chapter(
+        study,
+        event_id=event_id,
+        include_hint=True,
+    )["hint"]
+
+
+def test_stored_chapter_is_bound_to_replay_position_and_current_principle():
+    wrong_position = _study()
+    wrong_position["evidence"]["chapter_positions"][0]["fen"] = (
+        chess.STARTING_FEN.replace(" w ", " b ")
+    )
+    with pytest.raises(service.CommunityGameStudyError, match="does not match"):
+        service.validate_study(wrong_position)
+
+    wrong_principle = _study()
+    wrong_principle["plan"]["chapters"][0]["primary_principle_id"] = "stale"
+    with pytest.raises(service.CommunityGameStudyError, match="primary principle"):
+        service.validate_study(wrong_principle)
+
+
+def test_visibility_requires_shadow_and_both_flags_default_off_in_compose():
+    assert service.shadow_enabled({}) is False
+    assert service.visible_enabled({service.VISIBLE_FEATURE_FLAG: "true"}) is False
+    assert service.visible_enabled({
+        service.SHADOW_FEATURE_FLAG: "true",
+        service.VISIBLE_FEATURE_FLAG: "true",
+    }) is True
+    compose = (Path(__file__).parents[2] / "docker-compose.yml").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        "COMMUNITY_GAME_STUDY_SHADOW_ENABLED="
+        "${COMMUNITY_GAME_STUDY_SHADOW_ENABLED:-false}"
+    ) in compose
+    assert (
+        "COMMUNITY_GAME_STUDY_VISIBLE_ENABLED="
+        "${COMMUNITY_GAME_STUDY_VISIBLE_ENABLED:-false}"
+    ) in compose
+
+
+def test_visible_operability_cohort_is_admin_only_and_double_gated():
+    both_flags = {
+        service.SHADOW_FEATURE_FLAG: "true",
+        service.VISIBLE_FEATURE_FLAG: "true",
+    }
+    assert service.visible_for_operability_role("admin", both_flags) is True
+    assert service.visible_for_operability_role(
+        "super_admin", both_flags
+    ) is True
+    assert service.visible_for_operability_role("user", both_flags) is False
+    assert service.visible_for_operability_role(None, both_flags) is False
+    assert service.visible_for_operability_role("admin", {
+        service.SHADOW_FEATURE_FLAG: "false",
+        service.VISIBLE_FEATURE_FLAG: "true",
+    }) is False
+    assert service.visible_for_operability_role("admin", {
+        service.SHADOW_FEATURE_FLAG: "true",
+        service.VISIBLE_FEATURE_FLAG: "false",
+    }) is False
