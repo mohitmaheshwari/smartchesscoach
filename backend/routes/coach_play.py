@@ -5891,13 +5891,24 @@ async def evaluate_pending_move(
         move_quality = eval_result.get("move_quality", "good")
         cp_loss_val = eval_result.get("cp_loss", 0)
 
+        # What the engine ACTUALLY said, kept separate from the working value
+        # below. fast_eval now reports "unknown" when the search did not
+        # happen, and that is what the client is told -- CoachPlay paints
+        # moveQuality straight onto the board as an instant label, so calling
+        # an unevaluated move "good" put a tick on a hung queen.
+        reported_quality = eval_result.get("move_quality", "good")
+
         # If eval is invalid (engine failed), DON'T trust move_quality for critical decisions.
         # Only trigger critical from heuristics if a real non-pawn piece is hanging.
         if not eval_is_valid:
-            # Override: don't classify as mistake/blunder without real eval
-            if move_quality in ("mistake", "blunder"):
-                move_quality = "good"  # Downgrade — we can't trust this
-                logger.info(f"[FAST-EVAL] Downgraded {eval_result.get('move_quality')} to good (eval invalid)")
+            # Override: don't classify as mistake/blunder without real eval.
+            # "unknown" is normalised here too, so every branch below keeps the
+            # exact behaviour it had -- the heuristic fallbacks (hung_piece,
+            # missed_threat) are what speak when the engine could not.
+            if move_quality in ("mistake", "blunder", "unknown"):
+                if move_quality != "unknown":
+                    logger.info(f"[FAST-EVAL] Downgraded {eval_result.get('move_quality')} to good (eval invalid)")
+                move_quality = "good"  # internal only — see reported_quality
 
         # ─── UNIFY WITH CRITIQUE TAXONOMY ─────
         # fast_eval classifies purely by cp_loss. But the /v5/interactive-feedback
@@ -6333,7 +6344,7 @@ async def evaluate_pending_move(
                 "openingGuidance": opening_guidance_data,
                 "trapWarning": trap_warning_data,
                 "moveEvaluation": {
-                    "moveQuality": move_quality,
+                    "moveQuality": reported_quality,
                     "cpLoss": cp_loss_val,
                     "bestMove": eval_result.get("best_move"),
                 },
@@ -6414,9 +6425,10 @@ async def evaluate_pending_move(
             "playerProfile": player_profile_data,
             "commentary": commentary,
             "moveEvaluation": {
-                "moveQuality": move_quality,
+                "moveQuality": reported_quality,
                 "cpLoss": eval_result.get("cp_loss", 0),
                 "bestMove": eval_result.get("best_move"),
+                "evalValid": eval_is_valid,
             },
             "coachingMoment": {
                 "messageType": layer,

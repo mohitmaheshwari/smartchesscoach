@@ -3513,7 +3513,12 @@ const CoachPlay = ({ user }) => {
           const evalData = evalRes.ok ? await evalRes.json() : null;
           const cpLoss = evalData?.moveEvaluation?.cpLoss || 0;
           const quality = evalData?.moveEvaluation?.moveQuality || "good";
-          const isBadMove = ["mistake", "blunder"].includes(quality) || cpLoss > 100;
+          // An unfinished search reports "unknown" and a cpLoss of 0. Treating
+          // that as "not a bad move" is the same mistake as labelling it good.
+          const evalUsable = quality !== "unknown"
+            && evalData?.moveEvaluation?.evalValid !== false;
+          const isBadMove = evalUsable
+            && (["mistake", "blunder"].includes(quality) || cpLoss > 100);
 
           console.log("[CoachPlay] Deviation eval:", quality, "cpLoss:", cpLoss, "bad:", isBadMove);
 
@@ -3615,7 +3620,12 @@ const CoachPlay = ({ user }) => {
     console.log("[V2-FLOW] handleUserMove result: autoCommitted=", autoCommitted, "moveQuality=", moveQuality);
 
     // Show board label IMMEDIATELY from evaluate-pending (don't wait for interactive-feedback)
-    if (moveQuality && !unifiedExperience) {
+    // "unknown" means the engine did not finish searching this move. It used
+    // to arrive as "good", so a move we never evaluated got a tick painted on
+    // the board -- on a loaded server that included hung pieces. No verdict is
+    // better than a wrong one; the label fills in from interactive-feedback
+    // when the real evaluation lands.
+    if (moveQuality && moveQuality !== "unknown" && !unifiedExperience) {
       setV5Coaching({ severity: moveQuality, move_san: moveData.san });
       console.log("[V2-BOARD] Instant label from evaluate-pending:", moveData.to, moveQuality);
     }
