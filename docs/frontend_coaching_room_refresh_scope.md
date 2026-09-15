@@ -35,6 +35,15 @@ movement. Board animations and answers retain their existing behavior.
 - Remove oversized page-specific title overrides.
 - Verify compilation and existing frontend behavioral tests.
 - Inspect a rendered preview when the browser runtime is available.
+- Guided-flow continuation approved by Mohit's subsequent “go”: preserve the
+  final lesson verdict/explanation; use the existing curriculum primary action
+  after completion; do not leave a lesson when its pause request fails.
+
+Continuation mockup: “This practice is complete.” followed by the server's final
+move feedback, then “Next with your coach” and the current curriculum card.
+If the plan cannot load: “Your practice is complete, but I couldn't load your
+next step.” [Try again] [Return to your plan]. If pause fails, stay on the board
+with “I couldn't save your place. Please try Continue later again.”
 
 ## 4. Out of scope for the visual pass
 

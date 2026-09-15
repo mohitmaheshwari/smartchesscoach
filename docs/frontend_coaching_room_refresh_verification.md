@@ -44,3 +44,37 @@ duplicate rankings, or imply practice alone proves transfer.
 
 No backend, detector authorization, rollout flag, production data, or deployment
 changed. Claude's ongoing deployment remains separate.
+
+## Guided-flow continuation
+
+Approved in the following user turn (“go”). Existing personalized lesson flow
+extended; no new page or coaching decision source.
+
+- Final response verdict, soundness note and explanation remain visible after
+  completion. Completion itself no longer asserts “You found the idea.”
+- Completion invalidates the old curriculum cache and renders CurriculumPrimary
+  from the current server decision. Disabled/missing decisions fall back to the
+  plan; failed requests offer retry without resubmitting the lesson answer.
+- Failed HTTP and network pause requests keep the student on the board with a
+  retry instruction. Successful pause invalidates the plan cache before leaving.
+- Changing lesson parameters clears the prior session/feedback during loading.
+
+Verification: seven suites, **29 passing tests** (PersonalizedLessonWorkspace,
+CurriculumPrimary, LayoutNotificationEffects, PrescribedTraining route/back/
+emptyPool/clockFocus). Five new cases cover stale-plan refresh with exact route,
+negative final feedback plus plan retry, HTTP pause failure, network pause failure,
+and changing lesson parameters. Existing concept and endgame flows still pass.
+
+Production build exit **0**; same warning categories as above. Synthetic completed
+session rendered through the built `/training` route in headless Edge at 1440x1000
+and 390x844. No horizontal overflow. Next action bottoms at 464px desktop and
+715px mobile. Mobile dark screenshot inspected. This is not live-account E2E;
+the final-response transition is verified by component interaction tests.
+
+Voice review: new copy describes practice completion and navigation only; chess
+explanations still come from the existing server response and moveVerdict. No new
+material claims, notation-led headline, or generated chess teaching path added.
+
+Remaining: production account round-trip after integration/deployment; deeper
+resume persistence and coherence across game review/PWC/Progress. No claim that
+the whole personalized journey has now been redesigned or validated.

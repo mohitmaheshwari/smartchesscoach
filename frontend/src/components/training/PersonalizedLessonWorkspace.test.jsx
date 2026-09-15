@@ -1,6 +1,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import PersonalizedLessonWorkspace from "./PersonalizedLessonWorkspace";
+import { loadPersonalCurriculum, resetPersonalCurriculumRequestsForTests } from "../../lib/personalCurriculum";
 
 const mockNavigate = jest.fn();
 
@@ -72,6 +73,7 @@ describe("PersonalizedLessonWorkspace", () => {
   beforeEach(() => {
     global.IS_REACT_ACT_ENVIRONMENT = true;
     mockNavigate.mockReset();
+    resetPersonalCurriculumRequestsForTests();
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -114,6 +116,104 @@ describe("PersonalizedLessonWorkspace", () => {
       await Promise.resolve();
     });
   };
+
+  const finishLesson = async () => {
+    await act(async () => root.render(<PersonalizedLessonWorkspace contentKind="concept" contentId="piece_safety" />));
+    await settle();
+    await act(async () => container.querySelector('[data-testid="lesson-board"]').click());
+    await settle();
+    const reason = [...container.querySelectorAll('button')].find(b => b.textContent.includes('My pieces stay safe'));
+    await act(async () => reason.click());
+    await settle();
+  };
+
+  test("refreshes a stale plan after completion and follows the coach's exact destination", async () => {
+    const originalFetch = global.fetch;
+    let planRequests = 0;
+    global.fetch = jest.fn((url, options) => {
+      if (url.includes('/personal-curriculum')) {
+        planRequests += 1;
+        return response({ enabled: true, decision: { decision_id: 'after-practice', primary: {
+          title: planRequests === 1 ? 'Old lesson' : 'Try the idea in a game',
+          outcome: 'apply', state: 'can_do_alone', reason: 'Try it without a hint.',
+          destination: { href: '/play-with-coach?evidence_mode=checkpoint' },
+        } } });
+      }
+      return originalFetch(url, options);
+    });
+    await loadPersonalCurriculum('https://api.test/api', undefined, 'training');
+    await finishLesson();
+    expect(planRequests).toBe(2);
+    expect(container.textContent).not.toContain('Old lesson');
+    expect(container.textContent).toContain('Try the idea in a game');
+    expect(container.querySelector('[data-testid="lesson-final-feedback"]').textContent).toContain("That's the move.");
+    const next = [...container.querySelectorAll('button')].find(b => b.textContent.includes('Play a focus game'));
+    await act(async () => next.click());
+    expect(mockNavigate).toHaveBeenCalledWith('/play-with-coach?evidence_mode=checkpoint');
+  });
+
+  test("retains a negative final verdict and retries a failed next-plan request", async () => {
+    const originalFetch = global.fetch;
+    let planRequests = 0;
+    global.fetch = jest.fn((url, options) => {
+      if (url.endsWith('/respond')) return response({ correct: false, complete: true,
+        feedback: 'That move did not solve this position.', highest_earned_state: 'learning', next_item: null });
+      if (url.includes('/personal-curriculum')) {
+        planRequests += 1;
+        return planRequests === 1 ? response({}, false) : response({ enabled: false });
+      }
+      return originalFetch(url, options);
+    });
+    await finishLesson();
+    expect(container.textContent).toContain('Not this one.');
+    expect(container.textContent).toContain('That move did not solve this position.');
+    expect(container.textContent).not.toContain('You found the idea');
+    expect(container.querySelector('[role="alert"]').textContent).toContain("couldn't load your next step");
+    await act(async () => [...container.querySelectorAll('button')].find(b => b.textContent === 'Try again').click());
+    await settle();
+    expect(planRequests).toBe(2);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.querySelector('[data-testid="curriculum-primary-training"]')).toBeNull();
+    expect(global.fetch.mock.calls.filter(([url]) => url.endsWith('/respond'))).toHaveLength(1);
+  });
+
+  test.each(['http', 'network'])("a %s pause failure keeps the student in the lesson; retry saves before leaving", async (failure) => {
+    const originalFetch = global.fetch;
+    let attempts = 0;
+    global.fetch = jest.fn((url, options) => {
+      if (url.endsWith('/pause')) {
+        attempts += 1;
+        if (attempts === 1) return failure === 'http' ? response({}, false) : Promise.reject(new Error('offline'));
+        return response({});
+      }
+      return originalFetch(url, options);
+    });
+    await act(async () => root.render(<PersonalizedLessonWorkspace contentKind="concept" contentId="piece_safety" />));
+    await settle();
+    const pause = [...container.querySelectorAll('button')].find(b => b.textContent.includes('Continue later'));
+    await act(async () => pause.click());
+    await settle();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]').textContent).toContain("couldn't save your place");
+    expect(container.querySelector('[data-testid="lesson-board"]').disabled).toBe(false);
+    await act(async () => pause.click());
+    await settle();
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith('/learn');
+  });
+
+  test("changing lessons clears the completed lesson while the new session loads", async () => {
+    await finishLesson();
+    expect(container.querySelector('[data-testid="lesson-complete"]')).toBeTruthy();
+    let resolveStart;
+    global.fetch.mockImplementation(() => new Promise(resolve => { resolveStart = resolve; }));
+    await act(async () => root.render(<PersonalizedLessonWorkspace contentKind="endgame" contentId="new-lesson" />));
+    expect(container.querySelector('[data-testid="lesson-complete"]')).toBeNull();
+    expect(container.textContent).not.toContain('Good scan.');
+    await act(async () => resolveStart({ ok: true, json: async () => ({ ...session, session_id: 'new-session' }) }));
+    await settle();
+    expect(container.querySelector('[data-testid="lesson-board"]')).toBeTruthy();
+  });
 
   test("accepts the move first, then asks for a reason and reports only proved state", async () => {
     await act(async () => {
@@ -166,7 +266,8 @@ describe("PersonalizedLessonWorkspace", () => {
     expect(JSON.parse(helpCall[1].body).action).toBe("show_on_board");
     expect(JSON.parse(answerCall[1].body).reason_choice).toBe("keeps_piece_safe");
     expect(container.textContent).toContain("Can do alone");
-    expect(container.textContent).toContain("Now I want to see whether the same thought appears");
+    expect(container.textContent).toContain("Your later games will show whether you use the idea on your own");
+    expect(container.textContent).toContain("Good scan.");
     expect(container.textContent).not.toContain("Not measured");
     expect(container.textContent).not.toContain("Reliable");
   });
@@ -287,7 +388,7 @@ describe("PersonalizedLessonWorkspace", () => {
       reason_choice: "wait",
       reason_component_id: "one-reply",
     });
-    expect(container.textContent).toContain("You found the idea");
+    expect(container.textContent).toContain("This practice is complete");
   });
 
   test("asks the server-authored endgame question for the move just played", async () => {
@@ -385,7 +486,7 @@ describe("PersonalizedLessonWorkspace", () => {
       reason_choice: "reach_c4",
       reason_component_id: "endgame:0:c2c3:idea",
     });
-    expect(container.textContent).toContain("You found the idea");
+    expect(container.textContent).toContain("This practice is complete");
   });
 
   test("an off-lesson endgame move is graded immediately without empty choices", async () => {

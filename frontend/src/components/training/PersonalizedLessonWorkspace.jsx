@@ -15,9 +15,11 @@ import {
 import { API } from "../../App";
 import LichessBoard from "../LichessBoard";
 import Layout from "../Layout";
+import CurriculumPrimary from "../curriculum/CurriculumPrimary";
 import {
   curriculumStateLabel,
   invalidatePersonalCurriculum,
+  loadPersonalCurriculum,
 } from "../../lib/personalCurriculum";
 
 const interactionId = (prefix) =>
@@ -103,9 +105,43 @@ export default function PersonalizedLessonWorkspace({
   // re-render cannot wipe them; the board was hardcoded to arrows={[]}.
   const [boardArrows, setBoardArrows] = useState([]);
   const [evidence, setEvidence] = useState(null);
+  const [nextCurriculum, setNextCurriculum] = useState(null);
+  const [nextPlanLoading, setNextPlanLoading] = useState(false);
+  const [nextPlanError, setNextPlanError] = useState(false);
+  const [nextPlanRetry, setNextPlanRetry] = useState(0);
+
+  useEffect(() => {
+    if (session?.status !== "completed") return;
+    let cancelled = false;
+    setNextPlanLoading(true);
+    setNextPlanError(false);
+    setNextCurriculum(null);
+    // Completion changes the coach's decision. Never reuse the pre-lesson card.
+    invalidatePersonalCurriculum();
+    loadPersonalCurriculum(API, user?.user_id, "training")
+      .then((payload) => {
+        if (!cancelled) setNextCurriculum(payload);
+      })
+      .catch(() => {
+        if (!cancelled) setNextPlanError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setNextPlanLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [session?.status, user?.user_id, nextPlanRetry]);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setSession(null);
+    setError(null);
+    setFeedback(null);
+    setHelp(null);
+    setReasonChoice("");
+    setPendingMove(null);
+    setBoardArrows([]);
+    setEvidence(null);
     (async () => {
       try {
         const response = await fetch(`${API}/training/personalized/session/start`, {
@@ -135,15 +171,25 @@ export default function PersonalizedLessonWorkspace({
   }, [contentKind, contentId, reviewMode, variation, mode]);
 
   const pause = async () => {
-    if (session?.session_id) {
-      await fetch(`${API}/training/personalized/session/pause`, {
+    if (busy) return;
+    if (!session?.session_id) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API}/training/personalized/session/pause`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: session.session_id, choice: "pause" }),
-      }).catch(() => null);
+      });
+      if (!response.ok) throw new Error("pause failed");
+      invalidatePersonalCurriculum();
+      navigate("/learn");
+    } catch {
+      setError("I couldn't save your place. Please try Continue later again.");
+    } finally {
+      setBusy(false);
     }
-    navigate("/learn");
   };
 
   const askForHelp = async (action) => {
@@ -359,24 +405,54 @@ export default function PersonalizedLessonWorkspace({
 
   if (session?.status === "completed") {
     const state = session.learner_state?.state || "learning";
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-6 py-10">
-        <div className="w-full max-w-xl text-center">
+    const finalVerdict = moveVerdict(feedback);
+    const hasNextAction = nextCurriculum?.enabled &&
+      nextCurriculum?.decision?.primary?.destination?.href;
+    const completion = (
+      <div className="cg-page" data-testid="lesson-complete">
+        <div className="cg-panel p-6 sm:p-8 max-w-2xl mx-auto">
           <CheckCircle2 className="h-11 w-11 text-emerald-700 mx-auto mb-4" />
           <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-700 font-semibold mb-2">
             {curriculumStateLabel(state)}
           </p>
-          <h1 className="font-heading text-3xl text-foreground mb-3">You found the idea.</h1>
+          <h1 className="font-heading text-3xl text-foreground mb-3">This practice is complete.</h1>
           <p className="text-sm leading-relaxed text-muted-foreground mb-6">
-            Now I want to see whether the same thought appears when nobody tells you this is the lesson.
+            Finishing practice is one step. Your later games will show whether you use the idea on your own.
           </p>
+          {feedback && (
+            <div role="status" className="rounded-xl border border-border bg-background/60 p-4 mb-6" data-testid="lesson-final-feedback">
+              <p className="text-sm font-semibold text-foreground">
+                {finalVerdict?.headline || "I could not check that move here."}
+              </p>
+              {finalVerdict?.soundnessNote && <p className="mt-2 text-sm text-muted-foreground">{finalVerdict.soundnessNote}</p>}
+              {feedback.feedback && <p className="mt-2 text-sm leading-relaxed text-foreground">{feedback.feedback}</p>}
+            </div>
+          )}
           <EvidencePanel session={session} evidence={evidence} onLoadEvidence={loadEvidence} />
-          <button onClick={() => navigate("/learn")} className="cg-primary-action mt-6">
+          <div className="mt-6 border-t border-border pt-6">
+            <p className="cg-eyebrow mb-4">Next with your coach</p>
+            {nextPlanLoading ? (
+              <p role="status" className="text-sm text-muted-foreground">I'm checking your next step…</p>
+            ) : hasNextAction ? (
+              <CurriculumPrimary curriculum={nextCurriculum} surface="training" onNavigate={navigate} showReview={false} />
+            ) : (
+              <div>
+                <p role={nextPlanError ? "alert" : undefined} className="text-sm text-muted-foreground">
+                  {nextPlanError
+                    ? "Your practice is complete, but I couldn't load your next step."
+                    : "Return to your plan to choose what to work on next."}
+                </p>
+                {nextPlanError && <button className="cg-secondary-action mt-3" onClick={() => setNextPlanRetry((value) => value + 1)}>Try again</button>}
+              </div>
+            )}
+          </div>
+          <button onClick={() => navigate("/learn")} className={hasNextAction ? "cg-secondary-action mt-6" : "cg-primary-action mt-6"}>
             Return to your plan
           </button>
         </div>
       </div>
     );
+    return user ? <Layout user={user}>{completion}</Layout> : completion;
   }
 
   const item = session?.current_item;
@@ -398,7 +474,7 @@ export default function PersonalizedLessonWorkspace({
   const workspace = (
     <div className="experience-page experience-lesson-page min-h-screen bg-background">
       <main className="cg-page cg-page--wide">
-        <button onClick={pause} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-7">
+        <button onClick={pause} disabled={busy} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 mb-7">
           <ArrowLeft className="h-4 w-4" /> Continue later
         </button>
         <div className="grid lg:grid-cols-[minmax(0,620px)_minmax(300px,1fr)] gap-8 items-start">
@@ -561,7 +637,7 @@ export default function PersonalizedLessonWorkspace({
                 )}
               </div>
             )}
-            {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
+            {error && <p role="alert" className="text-sm text-red-600 dark:text-red-300 mb-4">{error}</p>}
             {busy && <p className="text-sm text-muted-foreground mb-4">Your coach is checking the move and the reason…</p>}
             <EvidencePanel session={session} evidence={evidence} onLoadEvidence={loadEvidence} />
             <div className="mt-4 flex items-start gap-2 text-[11.5px] leading-relaxed text-muted-foreground">
