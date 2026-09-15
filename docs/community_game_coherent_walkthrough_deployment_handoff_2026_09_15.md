@@ -2,11 +2,11 @@
 
 **Date:** 2026-09-15
 **Owner boundary:** Codex builds and verifies. Claude pushes and deploys.
-**Current release state:** **BLOCKED pending independent v4 review. Do not deploy or run the historical v3 admission sequence in this document.** The exact terminal-checkmate fact passed its separate blinded Caption gate, and a fresh v4 packet now exists, but no v4 study has been independently admitted. Both runtime flags must remain false. The repair state and only valid next sequence are recorded in `docs/community_game_coherent_walkthrough_v3_failure_and_v4_repair_2026_09_15.md`.
+**Current release state:** **v4 quality gates passed; production admission and deployment remain unrun. Do not run the historical v3 sequence in this document.** The exact terminal-checkmate fact and fresh v4 walkthrough packet passed their separate blinded gates. Both runtime flags must remain false through the dark deployment and admission verification. The current evidence and only valid next sequence are recorded in `docs/community_game_coherent_walkthrough_v3_failure_and_v4_repair_2026_09_15.md`.
 
 ## 0. Superseded rollout warning
 
-The v3 source packet is now immutable failed evidence, not a deployment candidate. Sections 3 through 9 below are retained only as the historical plan that the review graded. They must not be executed. There is no admitted v4 study yet. The terminal-checkmate family is Caption-authorized by its separate immutable evidence, but community visibility remains blocked until v4 clears every whole-game gate.
+The v3 source packet is immutable failed evidence, not a deployment candidate. Sections 3 through 9 below are retained only as the historical plan that the review graded and must not be executed. The terminal-checkmate family is Caption-authorized, and v4 cleared every offline whole-game gate. No v4 document has been written to production; community visibility remains blocked until Claude runs and verifies the v4 production dry-run and exact apply plan.
 
 ## 1. What this release changes
 

@@ -192,8 +192,25 @@ Steps 1 through 6 are complete:
 - the public v4 packet contains the exact required packet-level attestation
   fields and exposes neither the answer key nor source identity.
 
-These are structural prechecks, not a whole-game quality pass. Step 7 is the
-current gate: independent review of v4.
+The independent v4 review is now frozen and the sealed offline evaluator passes
+every locked gate:
+
+- reviewed packet SHA-256:
+  `6558d4c2c87ba97a75ff144dd28986f11a827e8ee005a9e2549b53692afbae59`;
+- sealed admission packet SHA-256:
+  `7f118b0cca558eadc4c13d47e54bc3bf4a2463c0671218a32702bc51640b16b6`;
+- zero incorrect or overclaimed chapters and zero critical false claims;
+- 93/93 legal demonstrations and 93/93 pattern-led headlines;
+- 76/93 correct-and-teachable, or 81.72%, above the strict 71.8% floor;
+- 20/39 coherent stories, or 51.28%, above the strict 9.8% floor;
+- 29/39 assignment-worthy studies, or 74.36%, above the strict 48.8% floor;
+- zero studies repeat a primary principle;
+- sealed correct-answer positions remain split 42 at index 0 and 51 at index 1;
+- 12 studies meet the complete admission decision; the other 27 remain Shadow.
+
+Steps 7 and the offline evidence portion of step 8 are complete. The current
+gate is Claude's read-only production dry-run, which must bind these three exact
+packet hashes and report the database apply-plan fingerprint before any write.
 
 ## 5. Stop conditions
 
