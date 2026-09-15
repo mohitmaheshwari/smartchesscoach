@@ -99,6 +99,54 @@ def test_noncritical_cadence_is_at_most_two_in_recent_six():
     assert result["layer"] == "silent"
 
 
+def test_operational_notices_do_not_use_the_teaching_allowance():
+    previous = [
+        {"source": UNIFIED_DECISION_SOURCE, "layer": "advisory",
+         "category": "evaluation_unavailable"} for _ in range(2)
+    ]
+    mild_eval = {"eval_before": 0.2, "eval_after": -1.1, "cp_loss": 130}
+    assert _select(eval_result=mild_eval, coaching_decisions=previous)["layer"] == "advisory"
+
+
+@pytest.mark.asyncio
+async def test_failed_live_search_is_visible_but_never_a_chess_verdict(monkeypatch):
+    monkeypatch.setattr(fast_eval_service, "fast_eval", lambda *_: {
+        "depth": 0, "failure_reason": "search_unavailable",
+    })
+    def forbidden(**kwargs):
+        pytest.fail("Caption must not be attempted without valid evaluation")
+    monkeypatch.setattr(unified, "build_verified_caption", forbidden)
+    result = await evaluate_unified_pending(
+        session_doc={"game_mode": "coach", "current_fen": chess.STARTING_FEN},
+        fen_before=chess.STARTING_FEN, uci="e2e4", user_rating=1200,
+    )
+    assert result["moveEvaluation"]["moveQuality"] == "unknown"
+    assert result["coachingDecision"]["layer"] == "advisory"
+    assert result["coachingDecision"]["category"] == "evaluation_unavailable"
+    assert result["coachingDecision"]["proof"]["caption_verified"] is False
+    assert result["shouldAutoCommit"] is True
+    assert result["_engineEvidence"]["eval_before"] is None
+
+
+@pytest.mark.asyncio
+async def test_black_player_cache_is_never_reused_as_white_score(monkeypatch):
+    board = chess.Board()
+    board.push_san("e4")
+    def evaluate(fen, move, cache):
+        assert cache is None
+        return {"eval_before": 0, "eval_after": 4, "cp_loss": 400,
+                "best_move": "e5", "depth": 12}
+    monkeypatch.setattr(fast_eval_service, "fast_eval", evaluate)
+    monkeypatch.setattr(unified, "build_verified_caption", lambda **_: VERIFIED)
+    result = await evaluate_unified_pending(
+        session_doc={"game_mode": "coach", "current_fen": board.fen(),
+                     "user_color": "black", "evaluations": [{"eval_after": 4}]},
+        fen_before=board.fen(), uci="f7f6", user_rating=1200,
+    )
+    assert result["moveEvaluation"]["moveQuality"] == "blunder"
+    assert result["coachingDecision"]["layer"] == "critical_interrupt"
+
+
 @pytest.mark.asyncio
 async def test_live_evaluation_carries_private_engine_evidence_for_persistence(
     monkeypatch,

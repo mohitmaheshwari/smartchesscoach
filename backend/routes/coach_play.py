@@ -5576,6 +5576,8 @@ async def evaluate_pending_move(
                     "eval_before": engine_evidence.get("eval_before"),
                     "eval_after": engine_evidence.get("eval_after"),
                     "eval_valid": bool(engine_evidence.get("eval_valid")),
+                    "search_evidence": engine_evidence.get("search_evidence"),
+                    "failure_reason": engine_evidence.get("failure_reason"),
                     "caption_verified": bool(
                         (unified_decision.get("proof") or {}).get("caption_verified")
                     ),

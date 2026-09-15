@@ -57,6 +57,28 @@ def build_verified_caption(
         return {"verified": False, "caption": ""}
 
     played_san = board.san(move)
+    search = eval_result.get("search_evidence") or {}
+    pv_played, pv_best = [], []
+    if search:
+        if search.get("fen_before") != board.fen() or search.get("played_uci") != uci:
+            return {"verified": False, "caption": ""}
+        try:
+            for key, output in (("played_pv", pv_played), ("best_pv", pv_best)):
+                replay = board.copy()
+                for index, token in enumerate(search.get(key) or []):
+                    branch_move = chess.Move.from_uci(token)
+                    if branch_move not in replay.legal_moves:
+                        raise ValueError("Illegal stored continuation")
+                    if index == 0:
+                        if key == "played_pv" and branch_move != move:
+                            raise ValueError("Wrong played continuation")
+                        if key == "best_pv" and replay.san(branch_move) != eval_result.get("best_move"):
+                            raise ValueError("Wrong best continuation")
+                    else:
+                        output.append(replay.san(branch_move))
+                    replay.push(branch_move)
+        except ValueError:
+            return {"verified": False, "caption": ""}
     mover_is_white = board.turn == chess.WHITE
     history_san = _history_san(move_history)
     decision = build_move_teaching_decision(
@@ -73,6 +95,8 @@ def build_verified_caption(
             eval_before_cp=round(float(eval_result.get("eval_before", 0)) * 100),
             eval_after_cp=round(float(eval_result.get("eval_after", 0)) * 100),
             cp_loss=abs(int(eval_result.get("cp_loss") or 0)),
+            pv_after_played=pv_played,
+            pv_after_best=pv_best,
             user_rating=int(user_rating or 1200),
             allow_fresh_engine_verification=False,
         ),
@@ -98,7 +122,13 @@ def build_verified_caption(
             or decision.text.rule_name
         ),
         "caption_tier": decision.teaching_meta.caption_tier,
-        "has_teaching_content": bool(decision.teaching_meta.has_teaching_content),
+        # The shared classifier defines MID as concrete chess content and HIGH
+        # as a named concept. TeachingMeta's legacy boolean means HIGH only;
+        # treating it as the admission gate silenced verified captures/defenses.
+        # Keep verification mandatory; LOW/NONE shells remain inadmissible.
+        "has_teaching_content": bool(
+            verified and decision.teaching_meta.caption_tier in {"HIGH", "MID"}
+        ),
         "rule_name": decision.text.rule_name,
         "arrows": decision.visual.arrows,
         "highlight_squares": decision.visual.highlight_squares,
@@ -161,6 +191,7 @@ def select_unified_decision(
     )
     recent_noncritical = sum(
         item.get("layer") == "advisory"
+        and item.get("category") != "evaluation_unavailable"
         for item in unified_history[-NONCRITICAL_WINDOW:]
     )
 
@@ -201,7 +232,7 @@ def select_unified_decision(
     }
 
 
-def _silent_response(move_quality: str = "good") -> Dict[str, Any]:
+def _silent_response(move_quality: str = "unknown") -> Dict[str, Any]:
     return {
         "shouldAutoCommit": True,
         "coachingDecision": {
@@ -250,6 +281,10 @@ def _engine_evidence(
         "eval_after": (
             float(eval_result.get("eval_after", 0)) if eval_valid else None
         ),
+        **({"search_evidence": eval_result["search_evidence"]}
+           if eval_result.get("search_evidence") else {}),
+        **({"failure_reason": eval_result["failure_reason"]}
+           if eval_result.get("failure_reason") else {}),
     }
 
 
@@ -291,15 +326,9 @@ async def evaluate_unified_pending(
     from services.fast_eval_service import fast_eval
     from services.realtime_coaching_feedback import _classify_move_quality
 
-    cached_eval = None
-    evaluations = session_doc.get("evaluations") or []
-    if evaluations:
-        cached_eval = evaluations[-1].get("eval_after")
-        if cached_eval is None:
-            cached_eval = evaluations[-1].get("score")
     loop = asyncio.get_running_loop()
     eval_result = await loop.run_in_executor(
-        None, fast_eval, fen_before, uci, cached_eval
+        None, fast_eval, fen_before, uci, None
     )
     eval_valid = bool(eval_result.get("depth", 0) > 0)
     quality = _classify_move_quality(
@@ -323,6 +352,17 @@ async def evaluate_unified_pending(
             eval_valid=eval_valid,
             move_quality=quality,
         )
+        if not eval_valid:
+            # Operational notice, not a chess claim. Do not let an unavailable
+            # evaluation look like a deliberate decision to withhold coaching.
+            response["coachingDecision"].update({
+                "layer": "advisory",
+                "category": "evaluation_unavailable",
+                "text": "I couldn't check that move. You can keep playing.",
+                "showInTimeline": True,
+                "showInActiveStrip": True,
+                "proof": {"caption_verified": False, "abstained": True},
+            })
         return response
 
     caption = await loop.run_in_executor(

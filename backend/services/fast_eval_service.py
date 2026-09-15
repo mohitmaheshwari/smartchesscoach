@@ -2,14 +2,14 @@
 Fast Eval Service
 ==================
 
-Ultra-fast Stockfish evaluation for pending move assessment.
-Target: P95 < 400ms, P99 < 500ms.
+Bounded Stockfish evaluation for pending move assessment.
+Latency must be measured on the deployment host, not inferred from node counts.
 
 Strategy:
   - Keep Stockfish warm (long-lived process)
-  - 2-pass eval: Pass A (depth 8, ~100ms), Pass B only if risky (~150ms)
-  - Cache eval_before from session
-  - Hard timeout at 400ms
+  - Two searches from the same root, one restricted to the proposed move
+  - Serialized access to the warm engine; no unbound scalar cache
+  - Inherited 800ms budget includes queue and startup; startup may overrun it
   - No LLM, no deep search, no opening lookups
 """
 
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 # ─── WARM ENGINE POOL ─────────────────────────────────────────────
 
-_engine_lock = threading.Lock()
+_engine_lock = threading.RLock()
 _warm_engine: Optional[chess.engine.SimpleEngine] = None
 
 
@@ -59,8 +59,7 @@ def _restart_engine():
 
 # ─── FAST EVAL ────────────────────────────────────────────────────
 
-PASS_A_NODES = 80000   # ~200ms — deeper for accuracy
-PASS_B_NODES = 150000  # ~350ms — confirm serious mistakes
+PASS_A_NODES = 80000   # Inherited per-search node ceiling, not a latency claim
 HARD_TIMEOUT_MS = 800  # Allow more time since we use 1200ms frontend window
 # What we report when the search did not happen. Deliberately NOT "good" --
 # see _timeout_result.
@@ -72,106 +71,116 @@ def fast_eval(
     uci_move: str,
     cached_eval_before: Optional[float] = None,
 ) -> Dict:
-    """
-    2-pass fast evaluation.
+    """Compare unrestricted and forced-move searches on the SAME root.
 
-    Pass A: Quick eval of position after move (depth ~8-10, ~100ms)
-    Pass B: Only if Pass A shows risk, slightly deeper (~150ms)
-
-    Returns:
-        {
-            "eval_before": float,  # centipawns / 100
-            "eval_after": float,
-            "cp_loss": int,  # always positive, from side-to-move perspective
-            "best_move": str,  # SAN
-            "move_quality": str,  # good/inaccuracy/mistake/blunder
-            "depth": int,
-            "nodes": int,
-            "elapsed_ms": float,
-        }
+    The legacy scalar cache has no FEN, POV, units or search provenance. Keep
+    the argument for existing callers, but never use it as evaluation evidence.
+    One transaction owns the shared UCI engine: simultaneous analyse calls can
+    cancel one another even though SimpleEngine itself is thread-safe.
     """
     start = time.monotonic()
-
+    deadline = start + HARD_TIMEOUT_MS / 1000
+    if not _engine_lock.acquire(timeout=HARD_TIMEOUT_MS / 1000):
+        return {**_timeout_result(), "failure_reason": "engine_busy"}
     try:
-        board_before = chess.Board(fen_before)
+        board = chess.Board(fen_before)
         move = chess.Move.from_uci(uci_move)
-
-        if move not in board_before.legal_moves:
-            return _timeout_result(cached_eval_before)
-
-        side_to_move = board_before.turn  # WHITE or BLACK
+        if not board.is_valid() or move not in board.legal_moves:
+            return {**_timeout_result(), "failure_reason": "invalid_position_or_move"}
         engine = _get_engine()
-
-        # ─── EVAL BEFORE (use cache or quick compute) ─────
-        if cached_eval_before is not None:
-            eval_before = cached_eval_before
-        else:
-            eval_before = _quick_eval(engine, board_before, PASS_A_NODES)
-
-        elapsed = (time.monotonic() - start) * 1000
-        if elapsed > HARD_TIMEOUT_MS:
-            # Out of budget BEFORE the move itself was searched. Passing
-            # eval_before as eval_after made cp_loss 0, which classifies as
-            # "good" -- a verdict on a move we never looked at.
-            return _timeout_result(eval_before)
-
-        # ─── EVAL AFTER (position after user's move) ─────
-        board_after = board_before.copy()
-        board_after.push(move)
-
-        eval_after = _quick_eval(engine, board_after, PASS_A_NODES)
-
-        # ─── BEST MOVE ─────
-        best_move_san = ""
-        try:
-            info_best = engine.analyse(board_before, chess.engine.Limit(nodes=PASS_A_NODES))
-            if info_best.get("pv"):
-                best_move_san = board_before.san(info_best["pv"][0])
-        except Exception:
-            pass
-
-        elapsed = (time.monotonic() - start) * 1000
-        if elapsed > HARD_TIMEOUT_MS:
-            return _build_result(eval_before, eval_after, best_move_san, side_to_move, 8, PASS_A_NODES, elapsed)
-
-        # ─── PASS B: Only if risky ─────
-        cp_loss_raw = _compute_cp_loss(eval_before, eval_after, side_to_move)
-
-        if cp_loss_raw >= 80:  # Looks like a mistake — verify deeper
-            eval_after_deep = _quick_eval(engine, board_after, PASS_B_NODES)
-            eval_after = eval_after_deep
-
-            # Re-eval best move deeper too
-            try:
-                info_deep = engine.analyse(board_before, chess.engine.Limit(nodes=PASS_B_NODES))
-                if info_deep.get("pv"):
-                    best_move_san = board_before.san(info_deep["pv"][0])
-            except Exception:
-                pass
-
-        elapsed = (time.monotonic() - start) * 1000
-        return _build_result(eval_before, eval_after, best_move_san, side_to_move, 10, PASS_B_NODES, elapsed)
-
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return {**_timeout_result(), "failure_reason": "search_budget_exhausted"}
+        # Reserve half the remaining budget for each root search. The inherited
+        # node ceiling remains; time is an additional limit, not measured depth.
+        best = _search(engine,
+            board, chess.engine.Limit(nodes=PASS_A_NODES, time=remaining / 2)
+        )
+        _validate_search(board, best)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return {**_timeout_result(), "failure_reason": "search_budget_exhausted"}
+        same_move = best["pv"][0] == move
+        played = best if same_move else _search(
+            engine, board, chess.engine.Limit(nodes=PASS_A_NODES, time=remaining),
+            root_moves=[move],
+        )
+        _validate_search(board, played, move)
+        result = _build_result(
+            best["score"].white().score(mate_score=10000) / 100,
+            played["score"].white().score(mate_score=10000) / 100,
+            board.san(best["pv"][0]), board.turn,
+            min(best["depth"], played["depth"]),
+            best.get("nodes", 0) + (0 if same_move else played.get("nodes", 0)),
+            (time.monotonic() - start) * 1000,
+        )
+        result["search_evidence"] = {
+            "schema_version": "pwc_root_comparison.v1",
+            "fen_before": board.fen(), "played_uci": uci_move,
+            "score_pov": "white", "score_unit": "pawns",
+            "best_depth": best["depth"], "played_depth": played["depth"],
+            "best_pv": [m.uci() for m in best["pv"]],
+            "played_pv": [m.uci() for m in played["pv"]],
+        }
+        return result
     except chess.engine.EngineTerminatedError:
-        logger.warning("Fast eval: engine crashed, restarting")
-        _restart_engine()
-        return _timeout_result(cached_eval_before)
-    except Exception as e:
-        logger.error(f"Fast eval failed: {e}")
-        return _timeout_result(cached_eval_before)
+        # Do not synchronously restart inside a failed request. Next request
+        # can warm a replacement; preserve this request's failed status.
+        global _warm_engine
+        _warm_engine = None
+        return {**_timeout_result(), "failure_reason": "engine_terminated"}
+    except Exception as exc:
+        logger.warning("Fast eval unavailable: %s", type(exc).__name__)
+        return {**_timeout_result(), "failure_reason": "search_unavailable"}
+    finally:
+        _engine_lock.release()
+
+
+def _search(engine, board, limit, **kwargs):
+    """Keep the last exact iteration, not a merged/aborted aspiration bound.
+
+    SimpleEngine.analyse merges UCI info dictionaries. A lower/upperbound key
+    from an earlier update can survive into its returned final score. Consume
+    individual updates so the score, depth, PV and bound belong together.
+    """
+    exact = None
+    with engine.analysis(board, limit, **kwargs) as analysis:
+        for info in analysis:
+            if info.get("score") is None:
+                continue
+            try:
+                _validate_search(board, info, (kwargs.get("root_moves") or [None])[0])
+            except ValueError:
+                continue
+            exact = dict(info)
+    if exact is None:
+        raise ValueError("No completed exact iteration")
+    return exact
+
+
+def _validate_search(board, info, forced_move=None):
+    """Only complete, legal, non-bound scores may drive a move verdict."""
+    if (
+        not info.get("score") or int(info.get("depth") or 0) <= 0
+        or info.get("lowerbound") or info.get("upperbound") or not info.get("pv")
+    ):
+        raise ValueError("Incomplete search evidence")
+    if info["score"].white().score(mate_score=10000) is None:
+        raise ValueError("Missing score")
+    if forced_move is not None and info["pv"][0] != forced_move:
+        raise ValueError("Search is not for the proposed move")
+    replay = board.copy()
+    for move in info["pv"]:
+        if move not in replay.legal_moves:
+            raise ValueError("Illegal principal variation")
+        replay.push(move)
 
 
 def _quick_eval(engine: chess.engine.SimpleEngine, board: chess.Board, nodes: int) -> float:
-    """Get eval in centipawns/100 (from White's perspective)."""
-    try:
-        info = engine.analyse(board, chess.engine.Limit(nodes=nodes))
-        score = info["score"].white()
-        if score.is_mate():
-            return 100.0 if score.mate() > 0 else -100.0
-        cp = score.score()
-        return cp / 100.0 if cp is not None else 0.0
-    except Exception:
-        return 0.0
+    """Compatibility helper. Failure propagates; it is never an equal score."""
+    info = _search(engine, board, chess.engine.Limit(nodes=nodes))
+    _validate_search(board, info)
+    return info["score"].white().score(mate_score=10000) / 100
 
 
 def _compute_cp_loss(eval_before: float, eval_after: float, side_to_move: chess.Color) -> int:

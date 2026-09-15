@@ -65,6 +65,16 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "backend" ]; then
     || die "backend image build failed; backend still on the previous image"
   ok "image built"
 
+  # Exercise real losing positions through the new image BEFORE replacing
+  # production. No HTTP/DB/user sessions: synthetic local engine canary only.
+  # Run with unified OFF too: fast_eval is also used by legacy.
+  step "PWC losing-game engine and caption canary"
+  docker compose run --rm --no-deps \
+    -e RUN_PWC_ENGINE_CANARY=1 -e PYTHONPATH=/app/backend \
+    backend python3 -m pytest tests/test_unified_pwc_real_engine_canary.py -q \
+    || die "PWC losing-game canary failed; running backend was not replaced"
+  ok "losing-game canary passed in candidate image"
+
   docker compose up -d backend analysis-worker \
     || die "backend containers failed to start"
 
