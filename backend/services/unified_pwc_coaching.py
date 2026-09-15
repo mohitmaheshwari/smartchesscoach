@@ -8,10 +8,12 @@ important enough to show without blocking, or better left unsaid.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, Mapping, Sequence
+import logging
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 import chess
 
+logger = logging.getLogger(__name__)
 
 UNIFIED_DECISION_SOURCE = "pwc_unified_v1"
 MAX_CRITICAL_PER_SESSION = 3
@@ -267,6 +269,81 @@ def engine_evidence_for_player(
     return result
 
 
+def _degraded_advisory(
+    board: chess.Board,
+    move: chess.Move,
+    session_doc: Mapping[str, Any],
+    eval_result: Mapping[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Speak from the board when the engine could not speak from search.
+
+    `detect_signals_fast` is pure python-chess and documented to run in under
+    5ms, so this costs nothing on the path where it matters. It only fires on
+    the two signals legacy also trusts without an eval -- a piece left hanging,
+    or a threat ignored. Anything less certain stays quiet, because the point
+    is to stop losing the unmissable ones, not to guess.
+    """
+    try:
+        from services.fast_eval_service import detect_signals_fast
+
+        board_after = board.copy(stack=False)
+        board_after.push(move)
+        user_color = (chess.WHITE
+                      if str(session_doc.get("user_color") or "white") == "white"
+                      else chess.BLACK)
+        signals = detect_signals_fast(
+            board, board_after, user_color, dict(eval_result),
+            session_doc.get("evaluations") or [],
+        )
+    except Exception as exc:
+        logger.warning("[unified] degraded fallback failed: %s", exc)
+        return None
+
+    hung = signals.get("hung_piece")
+    missed = signals.get("missed_threat")
+    if hung:
+        piece = str(hung.get("piece") or "piece")
+        square = str(hung.get("square") or "")
+        where = f" on {square}" if square else ""
+        text = f"Stop. Your {piece}{where} can be taken."
+        concept = "hung_pieces"
+    elif missed:
+        piece = str(missed.get("piece") or "piece")
+        text = f"Check what your opponent is threatening — your {piece} is not safe."
+        concept = "missed_threat"
+    else:
+        return None
+
+    logger.info("[unified] engine unavailable; speaking from board heuristics: %s",
+                concept)
+    response = _silent_response("unknown")
+    response["coachingDecision"] = {
+        "source": UNIFIED_DECISION_SOURCE,
+        # advisory, not critical: the client renders advisory on the
+        # auto-commit path, and we are reasoning from geometry rather than a
+        # completed search, so it should not carry the heaviest weight.
+        "layer": "advisory",
+        "category": "critical_tactic",
+        "severity": "medium",
+        "text": text,
+        "conceptKey": concept,
+        "gamePhase": None,
+        "requiresHold": False,
+        "showInTimeline": True,
+        "showInActiveStrip": True,
+        "degradedEval": True,
+    }
+    response["moveEvaluation"] = {
+        "moveQuality": "unknown",
+        "cpLoss": 0,
+        "bestMove": None,
+    }
+    response["_engineEvidence"] = _engine_evidence(
+        eval_result, eval_valid=False, move_quality="unknown",
+    )
+    return response
+
+
 async def evaluate_unified_pending(
     *,
     session_doc: Mapping[str, Any],
@@ -302,6 +379,25 @@ async def evaluate_unified_pending(
         None, fast_eval, fen_before, uci, cached_eval
     )
     eval_valid = bool(eval_result.get("depth", 0) > 0)
+
+    # depth 0 means fast_eval ran out of its own 800ms budget before it
+    # searched anything -- not that the position is quiet. It is a transient:
+    # three consecutive calls on one position have returned depth [0, 10, 10].
+    # On a contended box the engine takes 900-1400ms, so this fires often, and
+    # every time it did the whole move went silent.
+    #
+    # One retry, because the failure is a race rather than a property of the
+    # position. The engine is a warm singleton, so the retry is another search,
+    # not another process.
+    if not eval_valid:
+        logger.info(
+            "[unified] eval came back at depth 0; retrying once before "
+            "deciding this move is not worth a word"
+        )
+        eval_result = await loop.run_in_executor(
+            None, fast_eval, fen_before, uci, cached_eval
+        )
+        eval_valid = bool(eval_result.get("depth", 0) > 0)
     quality = _classify_move_quality(
         float(eval_result.get("eval_before", 0)),
         float(eval_result.get("eval_after", 0)),
@@ -309,8 +405,22 @@ async def evaluate_unified_pending(
         int(user_rating or session_doc.get("user_rating") or 1200),
     ) if eval_valid else "unknown"
 
-    # Clean moves need no caption construction. This is both quieter and keeps
-    # the live path inside its response budget.
+    # Two different things used to share this exit. Keeping a clean move quiet
+    # is deliberate -- it is quieter and it keeps the live path inside its
+    # response budget. Going quiet because the ENGINE failed is not: it turns
+    # "we could not look" into "there was nothing to see".
+    #
+    # The legacy path never did that. When its eval is invalid it falls back to
+    # board heuristics (coach_play.py, the `not eval_is_valid and
+    # fast_signals.get("hung_piece")` branch) and still speaks. Unified had no
+    # such floor, which is why one real 27-move game produced 14 silent
+    # decisions and zero messages while the same player's legacy games produce
+    # 22 to 38.
+    if not eval_valid:
+        degraded = _degraded_advisory(board, move, session_doc, eval_result)
+        if degraded is not None:
+            return degraded
+
     if quality in {"excellent", "good"} or not eval_valid:
         response = _silent_response(quality)
         response["moveEvaluation"] = {

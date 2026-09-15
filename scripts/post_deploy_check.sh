@@ -77,7 +77,21 @@ else
   say "analysis worker Mongo connectivity" "OK"
 fi
 
-# 8. Public site end-to-end through nginx/TLS
+# 8. THE COACHING CHECK — does the coach actually SPEAK when it should?
+#    Added 2026-09-15 after a release passed this gate and then coached
+#    NOTHING in a real 27-move game (14 of 15 decisions silent, 0 messages).
+#    The old check played e4, saw an engine reply and called it a PASS — but
+#    e4 is a fine move and a coach SHOULD be quiet about it. A coach that goes
+#    mute under collapse survives that check perfectly. This one walks into a
+#    position with a hanging queen and fails the deploy if nothing is said.
+if docker exec -e PYTHONPATH=/app/backend chess-coach-backend      python /app/backend/scripts/pwc_coaching_canary.py 2>&1 | tail -3; then
+  say "coach speaks on a hanging queen" "OK"
+else
+  say "coach speaks on a hanging queen" "FAIL (silent — see output above)"
+  FAIL=1
+fi
+
+# 9. Public site end-to-end through nginx/TLS
 code=$(curl -s -o /dev/null -w '%{http_code}' "https://chessguru.ai/api/health" || echo 000)
 check "public https health" "200" "$code"
 
