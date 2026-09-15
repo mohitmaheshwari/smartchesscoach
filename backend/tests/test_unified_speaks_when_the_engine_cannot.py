@@ -173,6 +173,35 @@ def test_the_degraded_path_stays_silent_when_it_has_nothing_certain():
     assert result["coachingDecision"]["layer"] == "silent"
 
 
+def test_the_coach_never_tells_you_your_own_king_is_in_check_after_your_move():
+    """`is_check()` asks about the SIDE TO MOVE, which is the opponent.
+
+    `_get_move_detail` returned "Your king is now in check." whenever
+    board_after.is_check() was true -- which is exactly when the player has
+    just GIVEN check. It can never mean their own king, because moving into
+    check is illegal, so the line was wrong every single time it fired.
+
+    Caught on the canary position: Qxe5+ is a 596cp blunder, and the coaching
+    read "This move costs you significantly. Your king is now in check."
+    """
+    from routes.coach_play import _get_move_detail
+
+    board = chess.Board(
+        "r1bqkbnr/pppp1ppp/2n5/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 2 3")
+    after = board.copy()
+    after.push(chess.Move.from_uci("h5e5"))   # Qxe5+ -- BLACK is now in check
+
+    assert after.is_check(), "fixture must actually give check"
+    assert after.turn == chess.BLACK, "the opponent is the one in check"
+
+    detail = _get_move_detail(board, after, "white", 596)
+    assert "your king" not in (detail or "").lower(), (
+        f"the player's king is not in check; got {detail!r}"
+    )
+    # It should have fallen through to the real reason: the queen is en prise.
+    assert "queen" in (detail or "").lower() or detail == "", detail
+
+
 # --- the canary that let this reach production ------------------------------
 
 CANARY = BACKEND / "scripts" / "pwc_staging_canary.py"

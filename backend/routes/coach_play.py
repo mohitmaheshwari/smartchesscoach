@@ -6678,9 +6678,17 @@ def _get_move_detail(board_before, board_after, user_color: str, cp_loss: int) -
         color = chess.WHITE if user_color == "white" else chess.BLACK
         opponent = not color
 
-        # Check what opponent can now do
-        if board_after.is_check():
-            return "Your king is now in check."
+        # NOT "your king is now in check". `is_check()` asks whether the SIDE
+        # TO MOVE is in check, and after the player's own move that is the
+        # opponent -- so this fired precisely when the player had just GIVEN
+        # check, and told them the opposite. It can never mean their own king,
+        # because moving into check is illegal.
+        #
+        # Giving check is also not a reason a move is bad, which is the only
+        # thing this function exists to explain. Observed on Qxe5+ (a 596cp
+        # blunder): "This move costs you significantly. Your king is now in
+        # check." Both halves of that were addressed to the wrong king. Fall
+        # through to the real reason instead.
 
         # Check for newly hanging pieces
         for sq in chess.SQUARES:
