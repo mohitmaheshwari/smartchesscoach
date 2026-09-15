@@ -62,6 +62,9 @@ def _restart_engine():
 PASS_A_NODES = 80000   # ~200ms — deeper for accuracy
 PASS_B_NODES = 150000  # ~350ms — confirm serious mistakes
 HARD_TIMEOUT_MS = 800  # Allow more time since we use 1200ms frontend window
+# What we report when the search did not happen. Deliberately NOT "good" --
+# see _timeout_result.
+UNKNOWN_QUALITY = "unknown"
 
 
 def fast_eval(
@@ -107,7 +110,10 @@ def fast_eval(
 
         elapsed = (time.monotonic() - start) * 1000
         if elapsed > HARD_TIMEOUT_MS:
-            return _build_result(eval_before, eval_before, "", side_to_move, 0, 0, elapsed)
+            # Out of budget BEFORE the move itself was searched. Passing
+            # eval_before as eval_after made cp_loss 0, which classifies as
+            # "good" -- a verdict on a move we never looked at.
+            return _timeout_result(eval_before)
 
         # ─── EVAL AFTER (position after user's move) ─────
         board_after = board_before.copy()
@@ -196,7 +202,10 @@ def _build_result(
         "eval_after": round(eval_after, 2),
         "cp_loss": cp_loss,
         "best_move": best_move,
-        "move_quality": _classify_quality(cp_loss),
+        # depth 0 means the search did not happen. A cp_loss of 0 then means
+        # "we compared a position with itself", not "the move was fine".
+        "move_quality": (_classify_quality(cp_loss) if depth > 0
+                         else UNKNOWN_QUALITY),
         "depth": depth,
         "nodes": nodes,
         "elapsed_ms": round(elapsed_ms, 1),
@@ -204,12 +213,24 @@ def _build_result(
 
 
 def _timeout_result(cached_eval: Optional[float] = None) -> Dict:
+    """We did not evaluate the move. Say so; do not say it was fine.
+
+    This used to report move_quality "good". A failed or timed-out search
+    therefore asserted the move was a good one -- and CoachPlay paints that
+    straight onto the board as an instant label. On a loaded box, the player
+    who hung a queen got a green tick, because the one thing we knew was that
+    we knew nothing.
+
+    depth stays 0, which is what callers already test (`eval_is_valid`), so
+    every existing guard behaves exactly as before. The difference is that the
+    label is now honest for anything that reads the quality directly.
+    """
     return {
         "eval_before": cached_eval or 0.0,
         "eval_after": cached_eval or 0.0,
         "cp_loss": 0,
         "best_move": "",
-        "move_quality": "good",
+        "move_quality": UNKNOWN_QUALITY,
         "depth": 0,
         "nodes": 0,
         "elapsed_ms": 999,
