@@ -32,6 +32,7 @@ kind and content_ref for the frontend/today_composer to route correctly.
 
 import json
 import logging
+import re
 from copy import deepcopy
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -525,6 +526,94 @@ def get_skill_node(skill_id: str) -> Optional[Dict]:
     """Return the raw node for a given skill_id, or None."""
     tree = _load_tree()
     return tree.get("skills", {}).get(skill_id)
+
+
+_OPENING_NAME_INDEX: Optional[List] = None
+
+
+def _opening_name_index() -> List:
+    """[(normalized curriculum name, content_ref)] sorted longest-name-first.
+
+    Built from opening_curriculum.json, which is the single source of truth
+    for opening identity (see memory single_source_of_truth). Every opening
+    node in the tree carries `content_ref`, and that value IS the curriculum
+    key, so the curriculum's own `name` is the bridge between what the
+    recognizer reports and what the tree gates on.
+    """
+    global _OPENING_NAME_INDEX
+    if _OPENING_NAME_INDEX is None:
+        idx = []
+        try:
+            with open(_CURRICULUM_PATH, "r", encoding="utf-8") as f:
+                raw = json.load(f)
+            entries = raw.get("openings") or raw
+            if isinstance(entries, dict):
+                for key, node in entries.items():
+                    if not isinstance(node, dict):
+                        continue
+                    name = _norm_opening_name(node.get("name") or "")
+                    if name:
+                        idx.append((name, key))
+        except Exception as e:
+            logger.warning(f"[ENGINE2] opening name index failed: {e}")
+        # Longest first so "Italian Game Two Knights" prefers the most
+        # specific curriculum family that still matches.
+        idx.sort(key=lambda t: len(t[0]), reverse=True)
+        _OPENING_NAME_INDEX = idx
+    return _OPENING_NAME_INDEX
+
+
+def _norm_opening_name(value: str) -> str:
+    """Lowercase, strip punctuation/move-text noise, collapse whitespace.
+
+    The recognizer emits things like "Caro Kann Defense Exchange Variation
+    3...cxd5 4.c3 Nf6"; the curriculum says "Caro-Kann Defense". Both
+    normalize to a form where one prefixes the other.
+    """
+    if not value:
+        return ""
+    v = re.sub(r"[^a-zA-Z0-9]+", " ", str(value)).lower()
+    return re.sub(r"\s+", " ", v).strip()
+
+
+def resolve_opening_skill_ids(opening_name: str) -> List[str]:
+    """Every tree skill_id whose opening family matches `opening_name`.
+
+    Returns [] when nothing matches - callers must not guess.
+
+    WHY THIS EXISTS (2026-09-15): opening attempts were recorded under the
+    recognizer's display name ("Italian Game Two Knights Open") while the
+    tree gates on ids ("opening_italian_white"). The two namespaces never
+    intersected, so `learned_at` stayed None on all 7,792 recorded opening
+    attempts across 65 users, no opening ever graduated, and the whole
+    prerequisite chain below tier 1 was unreachable. Endgames and mates were
+    unaffected because they already recorded canonical ids.
+    """
+    norm = _norm_opening_name(opening_name)
+    if not norm:
+        return []
+    tree = _load_tree()
+
+    def _skills_for(content_ref: str) -> List[str]:
+        return [
+            sid for sid, node in tree.get("skills", {}).items()
+            if node.get("kind") == "opening"
+            and node.get("content_ref") == content_ref
+        ]
+
+    # Longest curriculum name first, but keep walking: the most specific
+    # matching family ("Caro-Kann Defense Advance Variation") may exist in the
+    # curriculum without having its own tree node, in which case the correct
+    # answer is the broader family that does ("Caro-Kann Defense").
+    for name, key in _opening_name_index():
+        if norm == name or norm.startswith(name + " ") or name in norm:
+            found = _skills_for(key)
+            if found:
+                return found
+
+    # Back-compat: the original exact-slug behaviour.
+    slug = norm.replace(" ", "_")
+    return _skills_for(slug) if slug else []
 
 
 def list_skills_by_kind(kind: str) -> List[str]:

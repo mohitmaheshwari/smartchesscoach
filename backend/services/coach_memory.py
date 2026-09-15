@@ -624,14 +624,16 @@ async def update_memory_after_game(
     # "Correct" if game won or drew with decent accuracy; "wrong" if blundered hard;
     # "seen" otherwise (just played it). Promotion to openings_learned happens
     # automatically when 5 seen / 3 correct / no recent failure is met.
-    if opening_played:
-        if game_result == "win" and accuracy >= 70 and blunders == 0:
-            skill_outcome = "correct"
-        elif game_result == "loss" and blunders >= 2:
-            skill_outcome = "wrong"
-        else:
-            skill_outcome = "seen"
-        record_skill_attempt(memory, opening_played, "opening", skill_outcome, now)
+    # 2026-09-15: this used to call
+    #     record_skill_attempt(memory, opening_played, "opening", ...)
+    # with the RECOGNIZER'S DISPLAY NAME ("Italian Game Two Knights Open")
+    # as the skill_id, while the Engine-2 tree gates on ids
+    # ("opening_italian_white"). The namespaces never intersected, so
+    # learned_at stayed None on all 7,792 recorded opening attempts across
+    # 65 users, no opening ever graduated, and every skill below tier 1 was
+    # unreachable. Opening exposure is now recorded once, canonically, by
+    # record_engine2_skills_from_game() below - which resolves the name to
+    # real tree skill_ids via resolve_opening_skill_ids().
     
     # Track loss phase for this opening (helps identify WHERE user struggles)
     if opening_played and game_result == "loss" and loss_phase:
@@ -912,15 +914,24 @@ def record_engine2_skills_from_game(
 
     # ── Opening exposure ──
     if opening_played:
-        opening_slug = _normalize_opening_key(opening_played)
-        from services.engine2_skill_builder import list_skills_by_kind, get_skill_node
-        for sid in list_skills_by_kind("opening"):
-            node = get_skill_node(sid) or {}
-            if node.get("content_ref") != opening_slug:
-                continue
-            # Rating gate
-            if not (node.get("rating_min", 0) <= user_rating <= node.get("rating_max", 9999)):
-                continue
+        from services.engine2_skill_builder import resolve_opening_skill_ids
+        # resolve_opening_skill_ids matches the recognizer's name against the
+        # curriculum family name, so "Caro Kann Defense Exchange Variation
+        # 3...cxd5" resolves to opening_caro_kann_black. The old exact-slug
+        # comparison only ever matched bare family names, which is why
+        # variations - the overwhelming majority - recorded nothing usable.
+        for sid in resolve_opening_skill_ids(opening_played):
+            # NO rating gate here. Recording is a statement of fact: the user
+            # played this opening. Whether we should TEACH it at their rating
+            # is decided later by find_ready_skills(). Gating the fact meant a
+            # correctly-rated 546 player could never accumulate exposure on an
+            # opening banded 1000-1499 that they actually play every game.
+            # Outcome stays "seen" on purpose. A game result plus a broad
+            # accuracy number cannot prove opening KNOWLEDGE - that stance is
+            # locked by test_italian_in_intermediate_range_records_exposure_
+            # not_knowledge. Graduation's `correct` half comes from lesson
+            # attempts (routes/training_advanced.py), not from winning games.
+            # Changing that is a product decision, not a bug fix.
             record_skill_attempt(memory, sid, "opening", "seen", timestamp)
             recorded.append(sid)
 
@@ -1705,6 +1716,10 @@ async def backfill_coach_memory_from_imported_games(db, user_id: str) -> Dict:
         # Get user's rating
         rating_info = await get_user_rating_from_games(db, user_id)
         user_rating = rating_info.get('rating', 1200)
+        # get_user_rating_from_games already tells us whether the number is
+        # real or the hardcoded fallback; that signal used to be discarded.
+        _rating_is_measured = (rating_info.get('source') or 'default') != 'default'
+
 
         # Fetch analyzed games (up to 30 recent ones)
         games_analyzed = 0
@@ -1718,7 +1733,17 @@ async def backfill_coach_memory_from_imported_games(db, user_id: str) -> Dict:
 
         if not analyses:
             # No analyzed games yet - just set initialized flag
-            memory.performance.best_performance_rating = user_rating
+            # 2026-09-15: never seed the baseline from the fabricated 1200
+            # default. best_performance_rating is a MAX (see the guard in
+            # update_memory_after_game), so a seeded 1200 can never be
+            # corrected downward by a real, lower rating - it latches.
+            # Measured: 19 of 69 users were stuck at 1200 while chess.com
+            # /lichess reported their true rating as 120-1065 (median 546).
+            # Consequence: they were rating-gated out of the 0-999
+            # curriculum root (coached_development), which blocks 7 further
+            # skills, and were given harsher move-classification thresholds.
+            if _rating_is_measured:
+                memory.performance.best_performance_rating = user_rating
             await update_memory_after_game(
                 db, user_id,
                 game_result="unknown",
@@ -1761,8 +1786,10 @@ async def backfill_coach_memory_from_imported_games(db, user_id: str) -> Dict:
                 if pattern not in memory.recurring_patterns:
                     memory.recurring_patterns.append(pattern)
 
-        # Set performance baseline
-        memory.performance.best_performance_rating = user_rating
+        # Set performance baseline. Same rule as above: only a MEASURED
+        # rating may seed the max, never the 1200 fallback.
+        if _rating_is_measured:
+            memory.performance.best_performance_rating = user_rating
         memory.performance.games_played = games_analyzed
 
         # If patterns detected, set one as current focus for coaching
