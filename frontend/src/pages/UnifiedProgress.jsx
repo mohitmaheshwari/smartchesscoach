@@ -23,7 +23,7 @@ import {
 import Layout from "@/components/Layout";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
-import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
+import { loadPersonalCurriculum, invalidatePersonalCurriculum } from "@/lib/personalCurriculum";
 import {
   fadeInUp,
   revealOnScroll,
@@ -312,6 +312,8 @@ export default function UnifiedProgress({ user }) {
   const [loading, setLoading] = useState(true);
   const [journey, setJourney] = useState(null);
   const [curriculum, setCurriculum] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     trackCurriculum(ANALYTICS_EVENTS.PROGRESS_VIEWED, {
@@ -322,11 +324,20 @@ export default function UnifiedProgress({ user }) {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    setJourney(null);
+    setCurriculum(null);
     Promise.allSettled([
       loadPersonalCurriculum(API, user?.user_id, "progress"),
       fetch(`${API}/progress/complete-coaching`, {
         credentials: "include",
-      }).then((response) => (response.ok ? response.json() : null)),
+      }).then(async (response) => {
+        if (!response.ok) throw new Error("Progress unavailable");
+        const payload = await response.json();
+        if (!payload || typeof payload.enabled !== "boolean") throw new Error("Invalid progress response");
+        return payload;
+      }),
     ])
       .then(([curriculumResult, journeyResult]) => {
         if (cancelled) return;
@@ -336,6 +347,9 @@ export default function UnifiedProgress({ user }) {
         if (journeyResult.status === "fulfilled") {
           setJourney(journeyResult.value);
         }
+        setLoadError(journeyResult.status === "rejected"
+          ? "progress"
+          : curriculumResult.status === "rejected" ? "curriculum" : null);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -343,7 +357,12 @@ export default function UnifiedProgress({ user }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.user_id]);
+  }, [user?.user_id, retryCount]);
+
+  const retry = () => {
+    invalidatePersonalCurriculum();
+    setRetryCount((count) => count + 1);
+  };
 
   const view = useMemo(
     () => buildProgressView({ journey, curriculum }),
@@ -360,6 +379,24 @@ export default function UnifiedProgress({ user }) {
     );
   }
 
+  if (loadError === "progress") {
+    return (
+      <Layout user={user}>
+        <section className="cg-page" data-testid="progress-unavailable">
+          <div className="cg-hero max-w-2xl mx-auto">
+            <p className="cg-eyebrow">Progress</p>
+            <h1 className="cg-title">I couldn't load your progress.</h1>
+            <p role="alert" className="cg-lede">This is a loading problem, not a judgment about your chess. Please try again.</p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button className="cg-primary-action" onClick={retry}>Try again</button>
+              <button className="cg-secondary-action" onClick={() => navigate('/home')}>Back to your coach</button>
+            </div>
+          </div>
+        </section>
+      </Layout>
+    );
+  }
+
   const before = journey?.evidence_examples?.before || null;
   const recent = journey?.evidence_examples?.recent || null;
   const hasEvidenceBoard = Boolean(before || recent);
@@ -370,13 +407,19 @@ export default function UnifiedProgress({ user }) {
 
   return (
     <Layout user={user}>
-      <motion.main
+      <motion.div
         variants={staggerContainer}
         initial="initial"
         animate="animate"
         className="experience-page experience-progress-page cg-page max-w-[1040px]"
         data-testid="progress-page"
       >
+        {loadError === "curriculum" && (
+          <div role="alert" className="cg-panel mb-5 p-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-foreground">Your game evidence is here, but I couldn't load your current lesson.</p>
+            <button className="cg-secondary-action" onClick={retry}>Try again</button>
+          </div>
+        )}
         <motion.header variants={fadeInUp} className="cg-hero mb-8 md:mb-10">
           <p className="cg-eyebrow">Progress · what is changing in your chess</p>
           <h1 className="cg-title !max-w-[780px]">
@@ -503,7 +546,7 @@ export default function UnifiedProgress({ user }) {
             </button>
           </div>
         </motion.section>
-      </motion.main>
+      </motion.div>
     </Layout>
   );
 }

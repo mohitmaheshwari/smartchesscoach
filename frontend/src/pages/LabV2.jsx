@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from "react";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
+import { invalidatePersonalCurriculum } from "@/lib/personalCurriculum";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import { motion } from "framer-motion";
@@ -921,6 +922,7 @@ const LabV2 = ({ user }) => {
           }
         }
         setReviewSummary(data);
+        invalidatePersonalCurriculum();
         setReviewComplete(true);
       } else {
         const failure = await res.json().catch(() => ({}));

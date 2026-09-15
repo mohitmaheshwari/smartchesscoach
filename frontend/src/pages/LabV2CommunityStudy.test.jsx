@@ -4,6 +4,8 @@ import { createRoot } from "react-dom/client";
 import LabV2 from "./LabV2";
 
 const mockNavigate = jest.fn();
+const mockInvalidate = jest.fn();
+jest.mock("@/lib/personalCurriculum", () => ({ invalidatePersonalCurriculum: () => mockInvalidate() }));
 
 jest.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
@@ -71,6 +73,7 @@ describe("LabV2 community study loading", () => {
   beforeEach(() => {
     global.IS_REACT_ACT_ENVIRONMENT = true;
     mockNavigate.mockReset();
+    mockInvalidate.mockReset();
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -172,12 +175,29 @@ describe("LabV2 community study loading", () => {
       for (let index = 0; index < 12; index += 1) await Promise.resolve();
     });
     expect(container.textContent).toContain("Play with Coach");
+    expect(mockInvalidate).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       container.querySelector("[data-testid='review-next-game-btn']").click();
       for (let index = 0; index < 12; index += 1) await Promise.resolve();
     });
     expect(mockNavigate).toHaveBeenCalledWith("/play-with-coach");
+  });
+
+  test("failed completion keeps the review open and does not invalidate its plan", async () => {
+    global.fetch = jest.fn((url) => Promise.resolve({
+      ok: url.endsWith('/study'),
+      json: async () => url.endsWith('/study') ? study : { detail: 'Could not save review' },
+    }));
+    await act(async () => root.render(<LabV2 user={{ user_id: 'learner-1' }} />));
+    await act(async () => {
+      for (let index = 0; index < 16; index += 1) await Promise.resolve();
+    });
+    await act(async () => container.querySelector('[data-testid="finish-community"]').click());
+    expect(container.querySelector('[data-testid="review-complete-overlay"]')).toBeNull();
+    expect(container.querySelector('[data-testid="community-decryption"]')).toBeTruthy();
+    expect(mockInvalidate).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   test("failed community studies return to Game Review", async () => {

@@ -4,6 +4,7 @@ import UnifiedProgress, { buildProgressView } from "./UnifiedProgress";
 
 const mockNavigate = jest.fn();
 const mockLoadPersonalCurriculum = jest.fn();
+const mockInvalidatePersonalCurriculum = jest.fn();
 
 jest.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
@@ -24,6 +25,7 @@ jest.mock("@/lib/motion", () => ({
 }));
 jest.mock("@/lib/personalCurriculum", () => ({
   loadPersonalCurriculum: (...args) => mockLoadPersonalCurriculum(...args),
+  invalidatePersonalCurriculum: () => mockInvalidatePersonalCurriculum(),
 }));
 
 const curriculum = {
@@ -90,6 +92,7 @@ describe("UnifiedProgress evidence experience", () => {
     global.IS_REACT_ACT_ENVIRONMENT = true;
     mockNavigate.mockReset();
     mockLoadPersonalCurriculum.mockReset();
+    mockInvalidatePersonalCurriculum.mockReset();
     mockLoadPersonalCurriculum.mockResolvedValue(curriculum);
     global.fetch = jest.fn();
     container = document.createElement("div");
@@ -101,6 +104,39 @@ describe("UnifiedProgress evidence experience", () => {
     act(() => root.unmount());
     container.remove();
     delete global.fetch;
+  });
+
+  test.each(['http', 'network', 'malformed'])("%s progress failure is not presented as missing learning evidence and can retry", async (failure) => {
+    if (failure === 'network') global.fetch.mockRejectedValueOnce(new Error('offline'));
+    else global.fetch.mockResolvedValueOnce({ ok: failure !== 'http', json: async () => ({}) });
+    global.fetch.mockResolvedValue({ ok: true, json: async () => journey() });
+    await act(async () => root.render(<UnifiedProgress user={{ user_id: 'user-1' }} />));
+    expect(container.querySelector('[data-testid="progress-unavailable"]')).toBeTruthy();
+    expect(container.textContent).not.toContain('I’m not ready to claim a change yet');
+    expect(container.querySelectorAll('[data-testid="evidence-board"]')).toHaveLength(0);
+    await act(async () => [...container.querySelectorAll('button')].find(b => b.textContent === 'Try again').click());
+    expect(mockInvalidatePersonalCurriculum).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[data-testid="progress-unavailable"]')).toBeNull();
+    expect(container.textContent).toContain('This lesson is beginning to hold in your games.');
+    expect(container.querySelectorAll('[data-testid="evidence-board"]')).toHaveLength(2);
+  });
+
+  test("a curriculum failure preserves available game evidence and offers retry", async () => {
+    mockLoadPersonalCurriculum.mockRejectedValueOnce(new Error('offline'));
+    global.fetch.mockResolvedValue({ ok: true, json: async () => journey() });
+    await act(async () => root.render(<UnifiedProgress user={{ user_id: 'user-1' }} />));
+    expect(container.querySelector('[role="alert"]').textContent).toContain("couldn't load your current lesson");
+    expect(container.querySelectorAll('[data-testid="evidence-board"]')).toHaveLength(2);
+    await act(async () => [...container.querySelectorAll('button')].find(b => b.textContent === 'Try again').click());
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.textContent).toContain('Piece safety');
+  });
+
+  test("a successful disabled response remains an evidence state, not a loading error", async () => {
+    global.fetch.mockResolvedValue({ ok: true, json: async () => ({ enabled: false }) });
+    await act(async () => root.render(<UnifiedProgress user={{ user_id: 'user-1' }} />));
+    expect(container.querySelector('[data-testid="progress-unavailable"]')).toBeNull();
+    expect(container.textContent).toContain('I’m not ready to claim a change yet');
   });
 
   test("leads with later-game proof and shows only exact owned boards", async () => {
