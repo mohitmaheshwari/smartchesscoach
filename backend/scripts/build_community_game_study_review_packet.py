@@ -59,19 +59,20 @@ from services.game_review_planner import (  # noqa: E402
     build_shadow_game_teaching_plan,
 )
 from services.game_review_shadow_runtime import (  # noqa: E402
+    adapt_exact_terminal_event,
     adapt_review_event,
     derive_current_review_observations,
 )
 
 
-SCHEMA_VERSION = "community_game_study.neutral_review_packet.v3"
+SCHEMA_VERSION = "community_game_study.neutral_review_packet.v4"
 REVIEW_RESPONSE_SCHEMA_VERSION = (
     "community_game_study.independent_review_response.v1"
 )
 GENERATED_ON = "2026-09-15"
 TERMS_REVIEWED_AT = "2026-09-15"
 DEFAULT_OUTPUT = BACKEND / (
-    "data/detector_gold/community_game_study_neutral_review_v3.json"
+    "data/detector_gold/community_game_study_neutral_review_v4.json"
 )
 MAX_SOURCE_BYTES_DEFAULT = 16 * 1024 * 1024
 QUALITY_ENV = {
@@ -418,6 +419,7 @@ def _events_for_color(
         san = board.san(move)
         mover_is_white = board.turn == chess.WHITE
         mover_is_user = mover_is_white == user_white
+        observation = observations.get(board.fullmove_number) or {}
         try:
             decision = build_move_teaching_decision(
                 MoveInputs(
@@ -453,7 +455,6 @@ def _events_for_color(
                 move_evaluations=rows,
             )
             if mover_is_user:
-                observation = observations.get(board.fullmove_number) or {}
                 pair = adapt_review_event(
                     decision=decision,
                     observation=observation,
@@ -476,6 +477,30 @@ def _events_for_color(
             errors.append(
                 f"ply_{row['ply']}:{type(exc).__name__}:{str(exc)[:120]}"
             )
+        if mover_is_user:
+            try:
+                terminal_pair = adapt_exact_terminal_event(
+                    fen_before=board.fen(),
+                    played_move=san,
+                    game_id=anonymous_game_id,
+                    ply=int(row["ply"]),
+                    move_number=board.fullmove_number,
+                    phase=str(observation.get("phase") or "endgame"),
+                )
+                if terminal_pair is not None:
+                    terminal_event, terminal_feature = terminal_pair
+                    events.append(terminal_event)
+                    features[terminal_event.event_id] = terminal_feature
+                    event_rows[terminal_event.event_id] = {
+                        "fen_before": board.fen(),
+                        "phase": terminal_feature.phase,
+                        "side_to_move": user_color,
+                    }
+            except Exception as exc:
+                errors.append(
+                    f"ply_{row['ply']}:terminal:{type(exc).__name__}:"
+                    f"{str(exc)[:120]}"
+                )
         board.push(move)
         history.append(san)
     return events, features, event_rows, errors
@@ -806,6 +831,7 @@ def build_packet(
                 "every headline begins with a pattern, geometry or chess idea rather than SAN",
                 "no study repeats one primary principle as separate teaching",
                 "the prediction options are position-specific and the hidden answer agrees with the proof",
+                "the proof-supporting answer does not occupy one fixed option position across the packet",
                 "no source-player identity or private diagnosis is visible",
             ],
             "required_chapter_response_fields": {

@@ -1,0 +1,1834 @@
+{
+  "schema_version": "exact_terminal_checkmate.caption_review_packet.v1",
+  "generated_on": "2026-09-15",
+  "runtime_exposure": "none",
+  "read_only": true,
+  "stockfish_runs": 0,
+  "llm_calls": 0,
+  "database_reads": 0,
+  "database_writes": 0,
+  "quality_id": "review:exact_terminal_checkmate",
+  "proof_version": "exact_terminal_checkmate_fact.v1",
+  "source": {
+    "provider": "lichess_open_database",
+    "license": "CC0-1.0",
+    "release_id": "lichess_db_standard_rated_2026-08",
+    "release_sha256": "6bf6fa8a5dee7bb81d1874ac312160060daf12f18a29dc2740a3bf6f5e5e6248",
+    "bounded_prefix_sha256": "d8e9c900da9dbcd275a84e4fa08097fcca2c164ba183c04f2659929c10c8ab38",
+    "bounded_prefix_bytes": 8388608,
+    "raw_identity_retained": false
+  },
+  "selection": {
+    "candidate_policy": "50 distinct legal played moves whose reconstructed board is checkmate",
+    "control_policy": "20 distinct-source legal no-fires, covering every negative family available in the bounded public population before stable fill",
+    "candidate_count_hidden": 50,
+    "control_count_hidden": 20,
+    "selection_fingerprint_sha256": "636ce0655e1c849a96bca667fc52d1a78b3572abb51a0a315a0aa15db08ad413"
+  },
+  "population": {
+    "control_population:check_with_legal_reply": 3712,
+    "control_population:nonchecking_game_end": 3547,
+    "control_population:ordinary_legal_move": 4424,
+    "control_population:stalemate": 54,
+    "duplicate_games": 10,
+    "exact_checkmate_games": 1829,
+    "games_outside_population": 19263,
+    "games_scanned": 25530,
+    "candidate_fires_available": 1829,
+    "negative_controls_available": 11737,
+    "selected_control_families_hidden": {
+      "check_with_legal_reply": 10,
+      "nonchecking_game_end": 8,
+      "ordinary_legal_move": 1,
+      "stalemate": 1
+    }
+  },
+  "promotion_gate": {
+    "caption_fire_minimum": 50,
+    "true_negative_minimum": 20,
+    "semantic_precision_minimum_pct": 95.0,
+    "wilson_lower_minimum_pct": 85.0,
+    "critical_false_claims_allowed": 0,
+    "independent_review_complete": false,
+    "caption_promotion_gate_passed": false,
+    "status": "shadow"
+  },
+  "review_rubric": {
+    "verdict_values": [
+      "proved_exact_terminal_checkmate",
+      "not_proved",
+      "invalid_case"
+    ],
+    "teaching_verdict_values": [
+      "correct_and_teachable",
+      "correct_but_not_teachable",
+      "incorrect_or_overclaimed"
+    ],
+    "required_checks": [
+      "the displayed move is legal from the displayed FEN",
+      "after the move the opposing king is in check",
+      "the opposing side has exactly zero legal replies",
+      "the position is checkmate rather than stalemate, resignation or timeout",
+      "the proposed copy makes no claim beyond that exact board state",
+      "the wording is understandable and useful for a 600-1500 player",
+      "the demonstration starts with and legally replays the displayed move",
+      "candidate and control membership is not inferred from move notation because check suffixes are removed"
+    ]
+  },
+  "promotion_boundary": {
+    "player_visible_terminal_chapters_allowed": false,
+    "next_decision": "freeze an independent review, reveal sealed membership only after the review is complete, score the Caption gate, then decide promotion"
+  },
+  "cases": [
+    {
+      "case_id": "afc331c7f69c3af024cf1a3a",
+      "review_group": "b112b8cb7e28541709e30484",
+      "rating_band": "beginner_low",
+      "position": {
+        "fen": "2k5/pb6/8/5p2/6p1/7q/7r/3K4 b - - 23 61",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "h3f1",
+        "san_without_check_suffix": "Qf1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qf1 ends the game. The king on d1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "4d0418e4ca91c865713eeb77",
+      "review_group": "0b264ba1b51ad06a7ae66e54",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "Q5Q1/8/1p6/pkp5/8/P2P4/1PPK4/8 w - - 4 48",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "g8e8",
+        "san_without_check_suffix": "Qge8"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qge8 ends the game. The king on b5 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "a0b9fe5e93546496b8589b0e",
+      "review_group": "ab351310062f828df654fb23",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "rkb4r/pp4pp/3b4/1Bp1Q3/3P4/4P3/PP1B1PqP/R3K2R w KQ - 1 17",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "e5d6",
+        "san_without_check_suffix": "Qxd6"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxd6 ends the game. The king on b8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "81c9cd19893182d88b37afb3",
+      "review_group": "cb4c5d359099958cf152dc67",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "6k1/5p1p/6p1/1p6/8/q7/1r6/4K3 b - - 7 41",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "a3a1",
+        "san_without_check_suffix": "Qa1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qa1 ends the game. The king on e1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "d176aa34adb190353ab243a2",
+      "review_group": "deb8af795b59058c899d2d63",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r2qk2r/4bppp/3p1n2/p7/2BQP3/P1N4P/1PP2PP1/R3K2R w KQkq - 1 16",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "c4b5",
+        "san_without_check_suffix": "Bb5"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Bb5 ends the game. The king on e8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "ea09125b41b7c4a600a6eafc",
+      "review_group": "a1e7dfb2d8ef31b94dc7cdc9",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "1k6/7p/K7/P7/8/7r/8/1q4q1 b - - 3 53",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "g1a7",
+        "san_without_check_suffix": "Qa7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qa7 ends the game. The king on a6 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "71497385a9387e2889de5159",
+      "review_group": "c6fb94f131e0e2bb56d172e6",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "r1q1k3/pppb2Q1/4pB1p/3p4/3P3P/2P1PP2/PP6/2K2R1R w - - 5 25",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "g7e7",
+        "san_without_check_suffix": "Qe7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qe7 ends the game. The king on e8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "5d176c8b58b0a279292c7fe4",
+      "review_group": "1b63af07e846bd563356586f",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "r3q2r/p1p1B1p1/1b2p2p/4P3/P1NpQ3/R2P4/5RPP/1k4K1 w - - 4 24",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "e4e1",
+        "san_without_check_suffix": "Qe1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qe1 ends the game. The king on b1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "84988f0ea5ff18ce6e8ebef5",
+      "review_group": "e0621421eb88da634671ce0e",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "4n3/8/1P2P1p1/2k1K3/3p2P1/7P/8/8 w - - 0 49",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "b6b7",
+        "san_without_check_suffix": "b7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "b7 ends the game. The king on c5 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "1c5f00774646a4d79ae13861",
+      "review_group": "77112c82cf25ac90f6f2efed",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "8/8/8/8/8/4n1r1/5k2/7K b - - 65 81",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "g3g2",
+        "san_without_check_suffix": "Rg2"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Rg2 ends the game. The king on h1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "d40e5d2b52b010cbc3d9fbf7",
+      "review_group": "493d847d89d70f5b84f64864",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "7Q/p3nkp1/1p3p2/2pp1n2/3P2P1/2P1qN2/PP4P1/R4K1R b - - 1 22",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "f5g3",
+        "san_without_check_suffix": "Ng3"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Ng3 ends the game. The king on f1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "d6e4cab413659b9e4af2f963",
+      "review_group": "78283f02f81293f72c5ca0a0",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "8/8/8/8/5R2/5ppk/2r5/6K1 b - - 5 80",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "c2c1",
+        "san_without_check_suffix": "Rc1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Rc1 ends the game. The king on g1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "19b6dfa10efddfde7acee610",
+      "review_group": "d760fa8259b119aca2fbef8a",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "r4rk1/ppp2ppp/8/1B1qn3/6b1/2P1P3/PPQ2PP1/RN2K1NR w KQ - 2 15",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "c2h7",
+        "san_without_check_suffix": "Qxh7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxh7 ends the game. The king on g8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "db9c2d6f2a9038d846371f29",
+      "review_group": "18182d512089ee55ee5a9a73",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "1k6/2R5/3Q4/6K1/5P2/8/8/8 w - - 33 75",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "d6d8",
+        "san_without_check_suffix": "Qd8"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qd8 ends the game. The king on b8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "3e548aa9f285c25e45fd7847",
+      "review_group": "6b32be0b21a9f62cde240df1",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r2qk2r/pp3ppp/2nbb3/1N1p4/2pPn3/1P3N1P/B1P2PP1/R1BQR1K1 w kq - 5 15",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "b5d6",
+        "san_without_check_suffix": "Nxd6"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Nxd6 ends the game. The king on e8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "714a10603c9121c939bfd2f9",
+      "review_group": "ac18b1ef95100248bed0e064",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r2k3r/pppb1QRp/2n1p3/4P3/3P4/2P4N/P1qB1P1P/R3K3 w Q - 1 15",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "f7d7",
+        "san_without_check_suffix": "Qxd7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxd7 ends the game. The king on d8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "5efff8971f1c7c055b92c3f1",
+      "review_group": "d186647c85b30d0b57532b42",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "4r1k1/7p/6p1/Qb1pNpB1/P4P2/1P4P1/2r2q1P/4R2K b - - 0 27",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "f2h2",
+        "san_without_check_suffix": "Qxh2"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxh2 ends the game. The king on h1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "3da7bbbc60054359b6f0dd24",
+      "review_group": "4a9a26390f597f592c2dabbf",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "4kbQ1/p2nB1p1/2q2pr1/8/3P3p/1P5N/P4PB1/R3R1K1 b - - 0 28",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "c6g2",
+        "san_without_check_suffix": "Qxg2"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxg2 ends the game. The king on g1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "3c41108257ae35c05ec78d96",
+      "review_group": "2ff91c7d2c25ed3e3a146080",
+      "rating_band": "beginner_low",
+      "position": {
+        "fen": "7k/4Q3/4p1Pp/4P3/p7/P7/2PP1PP1/4R1K1 w - - 1 35",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "e7h7",
+        "san_without_check_suffix": "Qh7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qh7 ends the game. The king on h8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "745f2b7e2c8f96081a9b6ab2",
+      "review_group": "9f33f3675ffc652ac3a5a957",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "5bk1/ppq4p/2p5/7p/4P1n1/7K/PPP5/8 b - - 1 28",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "c7h2",
+        "san_without_check_suffix": "Qh2"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qh2 ends the game. The king on h3 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "9fcf157f95401607aba033ed",
+      "review_group": "083be9b8928f5cc48b808ca3",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "rn2k3/2p1r2p/p4Kp1/6P1/1p5q/1P6/8/8 b q - 3 36",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "h4f4",
+        "san_without_check_suffix": "Qf4"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qf4 ends the game. The king on f6 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "7aee375785055fba3c770fe4",
+      "review_group": "c7d00cf2639cbca95e509221",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r1b1kbnr/ppp2ppp/2n5/3qP3/8/4P3/PP3PPP/RNBQKBNR b KQkq - 0 5",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "d5a5",
+        "san_without_check_suffix": "Qa5"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qa5 ends the game. The king on e1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "06d21fc6496ca1608a6380ca",
+      "review_group": "a4977840f72594ab5a1ea9b7",
+      "rating_band": "beginner_low",
+      "position": {
+        "fen": "8/8/7k/N7/8/8/P4Q2/1K4Q1 w - - 11 60",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "f2h2",
+        "san_without_check_suffix": "Qfh2"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qfh2 ends the game. The king on h6 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "f83bed376dc44f8bea78557f",
+      "review_group": "00c950b5833d9e91e4117485",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "8/1k5p/b1n5/3R4/1pP2B2/1P6/P4PPP/3r1NK1 w - - 5 42",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "d5d1",
+        "san_without_check_suffix": "Rxd1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Rxd1 ends the game. The king on b7 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "8da6ff284bccbd12b5aec278",
+      "review_group": "f84cb2c0afc65abd46a8adba",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r2qr1k1/ppp1bppp/5n2/3p4/3n1Bb1/2NB1N2/PPP2PPP/R2QR1K1 w - - 0 11",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "d3h7",
+        "san_without_check_suffix": "Bxh7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Bxh7 ends the game. The king on g8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "dfffcfeffbe9260cc96cdac3",
+      "review_group": "7c6ab6ef90af45d9fbb7c76a",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "2q3k1/pr1R1Rb1/1p3p1p/2p5/P5Q1/1P6/2P2PPP/6K1 w - - 0 25",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "g4g7",
+        "san_without_check_suffix": "Qxg7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxg7 ends the game. The king on g8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "58375160dcb7b5e2992b3c7d",
+      "review_group": "3ca83391f9097e27d33e3c69",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "rnbqkbnr/pp1p1ppp/2p5/4P3/4P3/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "d8a5",
+        "san_without_check_suffix": "Qa5"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qa5 ends the game. The king on e1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "b88a15a1d0246c7fde16c763",
+      "review_group": "5b7ac1e75a96d4377ca12484",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "6k1/4brpp/3p1p2/B1p2P2/2npP3/1P5P/6PN/5RK1 b - - 0 28",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "c4a5",
+        "san_without_check_suffix": "Nxa5"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Nxa5 ends the game. The king on g1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "2f6213ae312624cefd7189ae",
+      "review_group": "81886042b7a170732cbf8412",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "r4rk1/2p2pp1/1pp1p2p/3pP1q1/1P1P1n2/5P2/2PQNP1P/1R3R1K b - - 3 20",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "g5g2",
+        "san_without_check_suffix": "Qg2"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qg2 ends the game. The king on h1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "90b8a95489ca679f3f3cab2d",
+      "review_group": "7b970805f32a3f03c09baa91",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "8/pb6/k7/7p/4R3/B6r/PPr5/R3K3 b - - 9 37",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "h3h1",
+        "san_without_check_suffix": "Rh1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Rh1 ends the game. The king on e1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "be7aa4362e70c42be932a719",
+      "review_group": "5a7f3a3b0c1556d1341ddaf5",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "8/2k5/8/8/8/1q6/2r5/b2K4 b - - 7 63",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "b3b1",
+        "san_without_check_suffix": "Qb1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qb1 ends the game. The king on d1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "77c48472d8908845cf513012",
+      "review_group": "5661071edf4c4dd8d2b132c6",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "8/pp3kbp/1n2q1p1/3N4/8/8/PP3PPP/3b2K1 b - - 2 28",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "e6e1",
+        "san_without_check_suffix": "Qe1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qe1 ends the game. The king on g1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "1f2b36df089a8e2091c015da",
+      "review_group": "ba081dee6777fa00ab7c3ca5",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r4rk1/pp3pp1/2p5/5b2/5Rn1/2P5/P1q5/K4R2 b - - 1 27",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "c2c3",
+        "san_without_check_suffix": "Qxc3"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxc3 ends the game. The king on a1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "bf923f6b9c3d26c7e7829545",
+      "review_group": "7914db91be7e1038fa9654bf",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r4rk1/p7/1pn3pQ/2p1p3/1PPp4/P2P3P/B4qPK/R3R3 b - - 0 23",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "f2f4",
+        "san_without_check_suffix": "Qf4"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qf4 ends the game. The king on h2 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "bb0b05220e6c9b883cf35573",
+      "review_group": "3f63536758fbbcbfe5b592a6",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r1b1k2r/pp3ppp/2p1p3/4q1B1/1Q6/8/PPP1PPPP/R3KB1R w KQkq - 0 12",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "b4e7",
+        "san_without_check_suffix": "Qe7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qe7 ends the game. The king on e8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "4ba63a162f9cbbebad282d98",
+      "review_group": "0f82164e1b3ca05cab164ecf",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "5r1k/3Q2p1/5r1p/3p4/1P1Pn3/P5qP/2R3P1/6K1 b - - 13 42",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "f6f1",
+        "san_without_check_suffix": "Rf1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Rf1 ends the game. The king on g1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "27a19206bc856dcd6b739138",
+      "review_group": "0d41575f68f8130c2e11218b",
+      "rating_band": "beginner_low",
+      "position": {
+        "fen": "k7/pp5p/1b3Ppn/4Q1K1/2r5/2N2P2/PPP4P/R6R b - - 3 26",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "h6f7",
+        "san_without_check_suffix": "Nf7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Nf7 ends the game. The king on g5 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "157eb52377f16b859cd48d23",
+      "review_group": "4f51dcdbfe7fcb5f1bd19d23",
+      "rating_band": "beginner_low",
+      "position": {
+        "fen": "7k/b7/Pr6/2q2p2/8/8/8/K7 b - - 12 49",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "c5a5",
+        "san_without_check_suffix": "Qa5"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qa5 ends the game. The king on a1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "33848847e4a90cfc541a4678",
+      "review_group": "ba644e1b19901ef07cd45b19",
+      "rating_band": "beginner_low",
+      "position": {
+        "fen": "7q/3pK3/1pk5/1p2B3/2b5/4q3/8/8 b - - 17 59",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "e3e5",
+        "san_without_check_suffix": "Qexe5"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qexe5 ends the game. The king on e7 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "c3a5a5c84266aac394805ad6",
+      "review_group": "17ffa230afcccafc193d52ae",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r1b1k2r/1pp2pp1/p1n1p2p/2Pq4/8/P3PN2/5PPP/RNBQK2R b KQkq - 0 11",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "d5d1",
+        "san_without_check_suffix": "Qxd1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxd1 ends the game. The king on e1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "fd568bd1f58912cc62c3f401",
+      "review_group": "8ffd0f5272544a5ea51c309d",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "6k1/p4ppp/1p6/1P6/1r3PK1/7P/6P1/8 b - - 2 32",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "b4b5",
+        "san_without_check_suffix": "Rxb5"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Rxb5 ends the game. The king on g4 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "17d143ce27351d4e6229d955",
+      "review_group": "fa3c6d45bfbd8150e4db7337",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r5k1/p1p2r2/2pqpB1Q/8/3b4/8/PPP2PPP/R3R1K1 w - - 0 25",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "h6h8",
+        "san_without_check_suffix": "Qh8"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qh8 ends the game. The king on g8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "8900a36342011c5c9b81bbe6",
+      "review_group": "b4a2fd1999ca5c81dfaac07f",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r5k1/pp3ppp/1b6/1P1p4/P1bN4/6P1/4rqBP/Q2R3K b - - 7 25",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "f2g2",
+        "san_without_check_suffix": "Qxg2"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxg2 ends the game. The king on h1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "e3e69a77f1a84e9104b55e85",
+      "review_group": "82df8e4b47df5c2c5f749a67",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r6r/1bp1kpp1/p3p2p/2p1N3/1PP3q1/P2P4/5PPP/R2Q1RK1 b - - 1 18",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "g4g2",
+        "san_without_check_suffix": "Qxg2"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxg2 ends the game. The king on g1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "4db86e41412aa1b299d9c33f",
+      "review_group": "ebf45f26ca464f4513df14f4",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r2k3N/2R5/3B4/3P3p/p2P4/P6P/b4PP1/2R3K1 b - - 0 39",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "a2d5",
+        "san_without_check_suffix": "Bxd5"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Bxd5 ends the game. The king on g1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "ebacf104efa24ff3844387d9",
+      "review_group": "8dbd6d7c544722450fa22665",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r4rk1/6p1/p1q1p2p/1p2P3/3PR1P1/8/P2Q1P1R/3K4 b - - 2 23",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "c6e4",
+        "san_without_check_suffix": "Qxe4"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxe4 ends the game. The king on d1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "ca1473d7226e1b281afbc32e",
+      "review_group": "491389f8753a655af8d60db2",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r1bk4/pppp1Qpp/2n5/4p3/8/3PB2P/B1P3PK/1N5R w - - 1 16",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "f7f8",
+        "san_without_check_suffix": "Qf8"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qf8 ends the game. The king on d8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "303fdf51672d2c353bd62008",
+      "review_group": "7b817b331cc4ae348a158fac",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "rn4k1/1b3pp1/p2r1q1p/1p6/3b4/1BPQ3P/PP3PP1/R1B1R1K1 w - - 0 22",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "e1e8",
+        "san_without_check_suffix": "Re8"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Re8 ends the game. The king on g8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "2de5f852cc88f5cfcca841a5",
+      "review_group": "c4c3e7ede01fbe5101b67ae4",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "5r2/pp6/2p3kp/2P1Rbp1/2P3P1/5PP1/P1P2K1R/8 b - - 0 31",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "f5e6",
+        "san_without_check_suffix": "Be6"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Be6 ends the game. The king on f2 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "168432e92454fb3646297b64",
+      "review_group": "94e466b7cb1db3ab7d995c58",
+      "rating_band": "beginner_low",
+      "position": {
+        "fen": "k2r4/pp4p1/5q1p/8/8/4K3/P5PP/1r6 b - - 1 30",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "b1e1",
+        "san_without_check_suffix": "Re1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Re1 ends the game. The king on e3 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "9e55804a3a9ba4cf5fbc3956",
+      "review_group": "4bc3751ad7dc918917dc2fb3",
+      "rating_band": "beginner_low",
+      "position": {
+        "fen": "8/K1k5/8/8/8/2r5/8/8 b - - 57 92",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "c3a3",
+        "san_without_check_suffix": "Ra3"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Ra3 ends the game. The king on a7 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "a8ba35f0ed5f2c12941c0e7c",
+      "review_group": "2da60bc7ffb371fa6d9d9f52",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "7K/8/7k/8/8/5Q2/6Q1/8 w - - 7 85",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "f3h3",
+        "san_without_check_suffix": "Qfh3"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qfh3 ends the game. The king on h6 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "b2ea81ff2108dd4db23785e8",
+      "review_group": "40a36085017be323f587a113",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "4rkr1/pp3p2/1p2BR1p/4p3/4P3/6P1/PPP2P1P/R5K1 w - - 1 18",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "f6f7",
+        "san_without_check_suffix": "Rxf7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Rxf7 ends the game. The king on f8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "c05e1cab7d5f89ce57ac4265",
+      "review_group": "da86cfc3290ffb2b23e3314e",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "5rk1/5ppp/p2P1q2/2P3P1/P4p1P/5P1K/1r6/2RQR3 b - - 0 32",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "f6f5",
+        "san_without_check_suffix": "Qf5"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qf5 ends the game. The king on h3 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "fc39d01f0bade7a04f1ca6ea",
+      "review_group": "cab9f7623b5f2acdb3363983",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "5rk1/3b2pp/3p1p1P/2p5/5P1K/4q3/8/8 b - - 5 35",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "e3h3",
+        "san_without_check_suffix": "Qh3"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qh3 ends the game. The king on h4 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "885da4c40fc8c432b6781556",
+      "review_group": "16813f147524901554f19d86",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r1bqkbnr/1pp2p1p/p1np2p1/1B2p3/4P3/2P2Q2/PP1P1PPP/RNB1K1NR w KQkq - 0 6",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "b5c6",
+        "san_without_check_suffix": "Bxc6"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Bxc6 ends the game. The king on e8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "c4de3d64c5c0c1d1629a6c36",
+      "review_group": "6ee8bee49ca95f70bfca40ff",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "r4rk1/pb2q2p/4nb2/1pp1p2Q/1P2Pp2/1BP4P/P2N1PP1/R1B2RK1 w - - 0 23",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "b3e6",
+        "san_without_check_suffix": "Bxe6"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Bxe6 ends the game. The king on g8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "bb4e5931dde578a24cc48d20",
+      "review_group": "965c81d69e4672e517650fcc",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "2kr4/1pp5/8/p1bpP2q/5pp1/P1B4P/1PP2P1K/3R2R1 b - - 1 27",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "h5h3",
+        "san_without_check_suffix": "Qxh3"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxh3 ends the game. The king on h2 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "22a297cf03ac448615fa7dcf",
+      "review_group": "c33fdfb7531920b304e8b6ad",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "rn1qkb1r/ppp1pppp/8/4N3/2BPn3/8/PP3PPP/RNBbK2R w KQkq - 0 7",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "c4f7",
+        "san_without_check_suffix": "Bxf7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Bxf7 ends the game. The king on e8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "ab72e33410948b0cf422e1cf",
+      "review_group": "8824f7116ece1a6b3016b4f2",
+      "rating_band": "beginner_low",
+      "position": {
+        "fen": "r5k1/p1p2ppp/2p5/P7/2P5/2q5/6PP/4R1K1 b - - 0 29",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "c3e1",
+        "san_without_check_suffix": "Qxe1"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxe1 ends the game. The king on g1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "5fc41740f8f902fdc91fb26c",
+      "review_group": "6abca1e5295c4676b757c425",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "6r1/7R/4R3/p2b1p2/5Pk1/1P4P1/P4K2/8 w - - 1 32",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "e6h6",
+        "san_without_check_suffix": "Reh6"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Reh6 ends the game. The king on g4 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "73c4fcb657cbc880d2862829",
+      "review_group": "63fc4d45256ae87bdb2473fe",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "rnk3qr/pp2Q1p1/2pP3p/8/3bn2N/3B2BP/PP3PP1/R4RK1 w - - 3 21",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "e7c7",
+        "san_without_check_suffix": "Qc7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qc7 ends the game. The king on c8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "4bad7c4053c8761e0e3c2f77",
+      "review_group": "d7c200ee920f1eed1df92e79",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "f2f3",
+        "san_without_check_suffix": "f3"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "f3 ends the game. The king on e8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "85d0e82813aaa6a85bba64b7",
+      "review_group": "1a0e3487411ec463d296ded2",
+      "rating_band": "intermediate",
+      "position": {
+        "fen": "3r2rk/p6p/2B5/Q2P1p2/1P5K/2P5/P2N2qP/R1B3NR b - - 0 27",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "g2g4",
+        "san_without_check_suffix": "Qg4"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qg4 ends the game. The king on h4 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "bda0565d721aca9d33045763",
+      "review_group": "cbf53b3b083ecfdf9d65b327",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r2qnb1r/p1N1pkp1/1pQ5/4p2p/8/BP2P3/P2P1PPP/R3K1NR w KQ - 1 12",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "c6e6",
+        "san_without_check_suffix": "Qe6"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qe6 ends the game. The king on f7 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "e4e79e4b83ead257daed41ea",
+      "review_group": "000ae512b0939c24216b4cbb",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r1bk1bnr/p1pnpBpp/2p2p2/4N3/4p3/8/PPP2PPP/RNBQK2R w KQ - 0 9",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "e5c6",
+        "san_without_check_suffix": "Nxc6"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Nxc6 ends the game. The king on d8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "c420c401dfc99d44fac006b4",
+      "review_group": "7d0a74d0d16a1aa456df27ea",
+      "rating_band": "beginner_low",
+      "position": {
+        "fen": "3rrk2/1p2qppQ/p1p5/8/5P2/4P3/5KP1/7R w - - 1 28",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "h7h8",
+        "san_without_check_suffix": "Qh8"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qh8 ends the game. The king on f8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "a6ee94a356bd766c0028f3a1",
+      "review_group": "c4dc953430d516f9081ab802",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "r2qkb1r/1b1p1p2/pp2p2p/6pQ/2nN4/2P1P1P1/PP1N2PP/R4RK1 w kq - 0 15",
+        "side_to_move": "white"
+      },
+      "played_move": {
+        "uci": "h5f7",
+        "san_without_check_suffix": "Qxf7"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qxf7 ends the game. The king on e8 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "02f1acae85f875772113402e",
+      "review_group": "26fd17ec4f3f3d59775c7321",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "rn2k2r/ppp3pp/4p3/3q1p2/1b6/3P2P1/PPN1PKBP/R1BQ1R2 b kq - 0 12",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "b4c5",
+        "san_without_check_suffix": "Bc5"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Bc5 ends the game. The king on f2 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    },
+    {
+      "case_id": "e3b4987f27d502e8403d9129",
+      "review_group": "eaf7173e1423248cc1fb4a0a",
+      "rating_band": "beginner_high",
+      "position": {
+        "fen": "2r5/1b2Nkpp/5p2/3p3P/1Pn2n2/P1Q2P2/2P2qP1/3R2RK b - - 4 35",
+        "side_to_move": "black"
+      },
+      "played_move": {
+        "uci": "f2h4",
+        "san_without_check_suffix": "Qh4"
+      },
+      "proposed_player_copy": {
+        "headline": "The king has no legal reply",
+        "explanation": "Qh4 ends the game. The king on h1 is in check, and no legal move can escape, capture the checking piece, or block the check.",
+        "principle": "To confirm checkmate, test all three defenses: move the king, take the checking piece, or block the check."
+      },
+      "reviewer_response": {
+        "schema_version": "exact_terminal_checkmate.independent_review_response.v1",
+        "verdict": null,
+        "teaching_verdict": null,
+        "critical_false_claim": null,
+        "review_note": ""
+      }
+    }
+  ]
+}

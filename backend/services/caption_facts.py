@@ -124,6 +124,8 @@ PIECE_VALUE_CP: Dict[int, int] = {
 LEGAL_MATERIAL_LOSS_CAUSE_VERSION = "legal_material_loss_cause.v2"
 VERIFIED_LINE_CAUSE_VERSION = "verified_line_cause.v1"
 VERIFIED_LINE_CAUSAL_EVIDENCE_VERSION = "verified_line_cause.v2"
+EXACT_TERMINAL_FACT_VERSION = "exact_terminal_checkmate_fact.v1"
+EXACT_TERMINAL_QUALITY_ID = "review:exact_terminal_checkmate"
 TARGET_LINE_CAUSAL_PROOF_VERSION = "target_line_causal_proof.v6"
 TARGET_LINE_CAUSAL_QUALITY_ID = "review:target_line_causal_proof"
 TARGET_LINE_MIN_PAYOFF_CP = PIECE_VALUE_CP[chess.KNIGHT]
@@ -168,6 +170,187 @@ class PieceOnSquare:
 
     def contract_dict(self) -> Dict[str, str]:
         return {"piece": self.piece, "square": self.square}
+
+
+@dataclass(frozen=True)
+class ExactTerminalFact:
+    """A legal played move that leaves the opponent checkmated.
+
+    This is a board fact, not an engine preference and not a forced-mate
+    forecast. It says only what can be reconstructed from the position and
+    played move: the move is legal, the king is checked, and no legal reply
+    remains.
+    """
+
+    position_fingerprint: str
+    move_uci: str
+    move_san: str
+    mover_color: str
+    origin: str
+    destination: str
+    checked_king_square: str
+    checking_pieces: Tuple[PieceOnSquare, ...]
+    terminal_legal_replies: int
+    proof_authority: str = "python_chess.legal_terminal_state"
+    proof_version: str = EXACT_TERMINAL_FACT_VERSION
+
+    def __post_init__(self) -> None:
+        if (
+            len(self.position_fingerprint) != 64
+            or any(
+                character not in "0123456789abcdef"
+                for character in self.position_fingerprint
+            )
+        ):
+            raise ValueError("terminal position fingerprint must be SHA-256")
+        if self.proof_authority != "python_chess.legal_terminal_state":
+            raise ValueError("terminal proof authority is unknown")
+        if self.proof_version != EXACT_TERMINAL_FACT_VERSION:
+            raise ValueError("terminal proof version is unknown")
+        if self.mover_color not in {"white", "black"}:
+            raise ValueError("terminal mover color is invalid")
+        if not self.move_uci or not self.move_san:
+            raise ValueError("terminal move identity is required")
+        try:
+            move = chess.Move.from_uci(self.move_uci)
+        except ValueError as exc:
+            raise ValueError("terminal move UCI is invalid") from exc
+        if chess.square_name(move.from_square) != self.origin:
+            raise ValueError("terminal move origin is inconsistent")
+        if chess.square_name(move.to_square) != self.destination:
+            raise ValueError("terminal move destination is inconsistent")
+        chess.parse_square(self.origin)
+        chess.parse_square(self.destination)
+        chess.parse_square(self.checked_king_square)
+        if not self.checking_pieces:
+            raise ValueError("checkmate must retain at least one checking piece")
+        if self.terminal_legal_replies != 0:
+            raise ValueError("checkmate must have zero legal replies")
+
+    @property
+    def fingerprint(self) -> str:
+        payload = json.dumps(
+            self.contract_dict(include_fingerprint=False),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def contract_dict(self, *, include_fingerprint: bool = True) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "schema_version": self.proof_version,
+            "kind": "exact_terminal_checkmate",
+            "position_fingerprint": self.position_fingerprint,
+            "move_uci": self.move_uci,
+            "move_san": self.move_san,
+            "mover_color": self.mover_color,
+            "origin": self.origin,
+            "destination": self.destination,
+            "checked_king_square": self.checked_king_square,
+            "checking_pieces": [
+                piece.contract_dict() for piece in self.checking_pieces
+            ],
+            "terminal_legal_replies": self.terminal_legal_replies,
+            "proof": {
+                "authority": self.proof_authority,
+                "version": self.proof_version,
+            },
+        }
+        if include_fingerprint:
+            payload["fingerprint"] = self.fingerprint
+        return payload
+
+    @classmethod
+    def from_document(cls, value: Any) -> "ExactTerminalFact":
+        if not isinstance(value, dict):
+            raise ValueError("terminal fact document must be a mapping")
+        if (
+            value.get("schema_version") != EXACT_TERMINAL_FACT_VERSION
+            or value.get("kind") != "exact_terminal_checkmate"
+        ):
+            raise ValueError("terminal fact document version is unknown")
+        proof = value.get("proof")
+        pieces = value.get("checking_pieces")
+        if not isinstance(proof, dict) or not isinstance(pieces, list):
+            raise ValueError("terminal fact proof is incomplete")
+        fact = cls(
+            position_fingerprint=str(value.get("position_fingerprint") or ""),
+            move_uci=str(value.get("move_uci") or ""),
+            move_san=str(value.get("move_san") or ""),
+            mover_color=str(value.get("mover_color") or ""),
+            origin=str(value.get("origin") or ""),
+            destination=str(value.get("destination") or ""),
+            checked_king_square=str(value.get("checked_king_square") or ""),
+            checking_pieces=tuple(
+                PieceOnSquare(
+                    piece=str(item.get("piece") or ""),
+                    square=str(item.get("square") or ""),
+                )
+                for item in pieces
+                if isinstance(item, dict)
+            ),
+            terminal_legal_replies=int(value.get("terminal_legal_replies")),
+            proof_authority=str(proof.get("authority") or ""),
+            proof_version=str(proof.get("version") or ""),
+        )
+        if fact.fingerprint != str(value.get("fingerprint") or ""):
+            raise ValueError("terminal fact fingerprint is stale")
+        return fact
+
+
+def build_exact_terminal_fact(
+    *,
+    fen_before: str,
+    played_move: str,
+) -> Optional[ExactTerminalFact]:
+    """Return exact checkmate facts for one legal played move, else abstain."""
+    try:
+        board = chess.Board(str(fen_before or "").strip())
+        raw = str(played_move or "").strip()
+        if not raw or not board.is_valid():
+            return None
+        try:
+            move = board.parse_san(raw)
+        except ValueError:
+            move = chess.Move.from_uci(raw)
+            if move not in board.legal_moves:
+                return None
+        move_san = board.san(move)
+        mover_color = "white" if board.turn == chess.WHITE else "black"
+        after = board.copy(stack=False)
+        after.push(move)
+    except (AssertionError, ValueError):
+        return None
+    if not after.is_checkmate() or not after.is_check():
+        return None
+    king_square = after.king(after.turn)
+    if king_square is None or after.legal_moves.count() != 0:
+        return None
+    attackers = sorted(after.attackers(not after.turn, king_square))
+    checking_pieces = []
+    for square in attackers:
+        piece = after.piece_at(square)
+        if piece is None:
+            return None
+        checking_pieces.append(
+            PieceOnSquare(
+                piece=PIECE_TYPE_NAMES[piece.piece_type],
+                square=chess.square_name(square),
+            )
+        )
+    return ExactTerminalFact(
+        position_fingerprint=hashlib.sha256(
+            board.fen().encode("utf-8")
+        ).hexdigest(),
+        move_uci=move.uci(),
+        move_san=move_san,
+        mover_color=mover_color,
+        origin=chess.square_name(move.from_square),
+        destination=chess.square_name(move.to_square),
+        checked_king_square=chess.square_name(king_square),
+        checking_pieces=tuple(checking_pieces),
+        terminal_legal_replies=0,
+    )
 
 
 @dataclass(frozen=True)
@@ -978,7 +1161,12 @@ class VerifiedLineCause:
         return payload
 
 
-ReviewTeachingCause = LegalMaterialLossCause | VerifiedLineCause | ExactEndgameCause
+ReviewTeachingCause = (
+    LegalMaterialLossCause
+    | VerifiedLineCause
+    | ExactEndgameCause
+    | ExactTerminalFact
+)
 
 # Phase boundary thresholds (mirrors detect_phase in game_decryption_v5_service)
 _OPENING_MAX_MOVE_HIGH_PIECES = 10  # if piece_count >= 28

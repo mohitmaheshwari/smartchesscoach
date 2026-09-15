@@ -63,6 +63,7 @@ from services.severity import (
     PracticalSeverity,
 )
 from services.caption_facts import (
+    ExactTerminalFact,
     LegalMaterialLossCause,
     ReviewTeachingCause,
     build_legal_material_loss_cause,
@@ -726,6 +727,77 @@ def build_reason_bundle_for_move(
     if quality_id == DESTINATION_SAFETY_QUALITY_ID:
         return build_destination_safety_reason_bundle(fen_before, submitted_move)
     return None
+
+
+def render_exact_terminal_teaching_claim(
+    *,
+    move_san: str,
+    checked_king_square: str,
+) -> Dict[str, Any]:
+    """Render terminal wording without granting it evidentiary authority.
+
+    Product code must call :func:`build_exact_terminal_teaching`, which accepts
+    only a verified ``ExactTerminalFact``.  This narrower renderer exists so a
+    blinded promotion packet can show the identical proposed wording on both
+    positive and negative cases without pretending its controls are facts.
+    """
+    move = str(move_san or "").strip()
+    king = str(checked_king_square or "").strip().lower()
+    if not move:
+        raise ValueError("terminal teaching move is required")
+    chess.parse_square(king)
+    spoken_move = move.rstrip("+#")
+    return {
+        "headline": "The king has no legal reply",
+        "explanation": (
+            f"{spoken_move} ends the game. The king on {king} is in check, and no "
+            "legal move can escape, capture the checking piece, or block "
+            "the check."
+        ),
+        "principle": (
+            "To confirm checkmate, test all three defenses: move the king, "
+            "take the checking piece, or block the check."
+        ),
+        "primary_principle_id": "king_safety.confirm_all_mate_defenses",
+        "demonstration": {
+            "kind": "played_refutation",
+            "moves_san": [move],
+        },
+        "interaction": {
+            "question": "What makes this check the finish?",
+            "options": [
+                {
+                    "id": "no_legal_reply",
+                    "label": (
+                        f"The king on {king} is checked and has no legal reply."
+                    ),
+                },
+                {
+                    "id": "reply_remains",
+                    "label": (
+                        f"The king on {king} can still answer the check "
+                        "with a legal move."
+                    ),
+                },
+            ],
+            "correct_option_id": "no_legal_reply",
+            "hint": (
+                f"After {spoken_move}, try every legal reply for the checked side."
+            ),
+        },
+    }
+
+
+def build_exact_terminal_teaching(
+    fact: ExactTerminalFact,
+) -> Dict[str, Any]:
+    """Author the one neutral lesson licensed by an exact terminal fact."""
+    if not isinstance(fact, ExactTerminalFact):
+        raise TypeError("exact terminal teaching requires ExactTerminalFact")
+    return render_exact_terminal_teaching_claim(
+        move_san=fact.move_san,
+        checked_king_square=fact.checked_king_square,
+    )
 
 
 def build_candidate_comparison(

@@ -12,6 +12,8 @@ from typing import Any, Dict, Mapping, Optional
 
 import chess
 
+from services.deterministic_choice_order import order_deterministic_choices
+
 
 ADAPTER_SCHEMA_VERSION = "personalized_lesson_adapter.v1"
 TACTICAL_PATH = (
@@ -63,15 +65,17 @@ def _reason_choices(
             ("looks_active", "It looks active, even if a piece can be taken."),
         ),
     }[kind]
-    rendered = [{"id": key, "label": label} for key, label in choices]
-    if seed:
-        rendered.sort(
-            key=lambda choice: hashlib.sha256(
-                f"{seed}:{choice['id']}".encode("utf-8")
-            ).hexdigest()
-        )
-    rendered.append({"id": "not_sure", "label": "I am not sure yet."})
-    return rendered
+    rendered = [
+        {"id": key, "label": label}
+        for key, label in (*choices, ("not_sure", "I am not sure yet."))
+    ]
+    if not seed:
+        return rendered
+    return order_deterministic_choices(
+        rendered,
+        seed=seed,
+        trailing_ids=("not_sure",),
+    )
 
 
 def _content_version(value: Mapping[str, Any]) -> str:

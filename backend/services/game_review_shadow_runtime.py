@@ -13,15 +13,21 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import chess
 
-from services.caption_pipeline import MoveTeachingDecision
+from services.caption_pipeline import (
+    MoveTeachingDecision,
+    build_exact_terminal_teaching,
+)
 from services.caption_facts import (
+    EXACT_TERMINAL_QUALITY_ID,
+    ExactTerminalFact,
     HIDDEN_OPPORTUNITY_COMPOSER_VERSION,
     LegalMaterialLossCause,
     VerifiedLineCause,
+    build_exact_terminal_fact,
     build_verified_hidden_opportunity,
 )
 from services.exact_endgame_service import ExactEndgameCause
-from services.detector_quality import QualitySurface, gap_quality_id
+from services.detector_quality import QualitySurface, gap_quality_id, is_authorized
 from services.game_review_contracts import (
     ConceptReference,
     EventActor,
@@ -32,6 +38,7 @@ from services.game_review_contracts import (
     ReviewContractViolation,
     TeachableEvent,
     TeachingReference,
+    VisualReference,
     personalized_review_quality_v2_enabled,
 )
 from services.game_review_event_adapter import (
@@ -46,6 +53,7 @@ from services.game_review_planner import (
 )
 from services.move_observation_deriver import (
     SCHEMA_VERSION,
+    _classify_phase,
     current_deriver_identity,
     derive_observations_for_game,
 )
@@ -62,6 +70,7 @@ SIMPLE_HANG_PATTERN = "piece_safety"
 SIMPLE_HANG_SUBTYPE = "simple_hang"
 VERIFIED_CAUSE_QUALITY_ID = "review:verified_single_game_cause"
 EXACT_ENDGAME_CAUSE_QUALITY_ID = "review:exact_endgame_result_change"
+EXACT_TERMINAL_CONCEPT_ID = "tactic.exact_terminal_checkmate"
 HIDDEN_OPPORTUNITY_SHADOW_VERSION = "hidden_opportunity_shadow_runtime.v1"
 HIDDEN_OPPORTUNITY_CONCEPT_ID = "calculation.verified_stored_line"
 HIDDEN_OPPORTUNITY_STATUSES = frozenset({
@@ -523,6 +532,84 @@ def adapt_verified_cause_event(
         mover_winprob_delta=float(
             decision.teaching_meta.mover_winprob_delta or 0.0
         ),
+    )
+    return event, features
+
+
+def adapt_exact_terminal_event(
+    *,
+    fen_before: str,
+    played_move: str,
+    game_id: str,
+    ply: int,
+    move_number: int,
+    phase: str,
+) -> Optional[Tuple[TeachableEvent, PlannerEventFeatures]]:
+    """Adapt one exact played checkmate only after Caption promotion."""
+    if not is_authorized(EXACT_TERMINAL_QUALITY_ID, QualitySurface.CAPTION):
+        return None
+    fact = build_exact_terminal_fact(
+        fen_before=fen_before,
+        played_move=played_move,
+    )
+    if fact is None:
+        return None
+    authored = build_exact_terminal_teaching(fact)
+    event = TeachableEvent(
+        event_id=(
+            f"{game_id}:{ply}:{EXACT_TERMINAL_CONCEPT_ID}:"
+            f"{EventOutcome.DEMONSTRATED.value}"
+        ),
+        move=MoveReference(
+            ply=ply,
+            number=move_number,
+            san=fact.move_san,
+            actor=EventActor.USER,
+        ),
+        concept=ConceptReference(concept_id=EXACT_TERMINAL_CONCEPT_ID),
+        outcome=EventOutcome.DEMONSTRATED,
+        opportunity=OpportunityEvidence(eligible=False),
+        evidence=EventEvidence(
+            quality_id=EXACT_TERMINAL_QUALITY_ID,
+            source_version=(
+                f"{SHADOW_RUNTIME_VERSION}+{fact.proof_version}"
+            ),
+            provenance=(
+                f"exact_terminal_fact:{fact.fingerprint}",
+                fact.proof_authority,
+            ),
+            final_verified=True,
+        ),
+        teaching=TeachingReference(
+            caption=str(authored["explanation"]),
+            principle=str(authored["principle"]),
+            headline=str(authored["headline"]),
+            cause_fingerprint=fact.fingerprint,
+            visual=VisualReference(
+                arrows=((fact.origin, fact.destination),),
+                highlights=(fact.checked_king_square,),
+            ),
+        ),
+        requested_surface=QualitySurface.CAPTION,
+        cause=fact,
+        practical=None,
+        reflection_eligible=False,
+    )
+    features = PlannerEventFeatures(
+        event_id=event.event_id,
+        was_critical_moment=True,
+        cp_loss=0.0,
+        decisiveness_changed=True,
+        stayed_winning=False,
+        mover_winprob_delta=0.0,
+        phase=(
+            phase
+            if phase in {"opening", "middlegame", "endgame"}
+            else _classify_phase(move_number)
+        ),
+        primary_principle_id=str(authored["primary_principle_id"]),
+        primary_family=EXACT_TERMINAL_QUALITY_ID,
+        terminal=True,
     )
     return event, features
 

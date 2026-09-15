@@ -9,6 +9,7 @@ import pytest
 
 from scripts import admit_reviewed_community_game_studies as admission
 from scripts import build_community_game_study_review_packet as builder
+from services import community_game_study_service as study_service
 
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -27,6 +28,17 @@ def _file_sha(path: Path) -> str:
 def _packet():
     source = json.loads(SOURCE_PATH.read_text(encoding="utf-8"))
     sealed = json.loads(SEALED_PATH.read_text(encoding="utf-8"))
+    source["schema_version"] = builder.SCHEMA_VERSION
+    sealed["review_packet_schema_version"] = builder.SCHEMA_VERSION
+    for record in sealed["records"]:
+        study = record["study"]
+        study["schema_version"] = study_service.SCHEMA_VERSION
+        study["admission_policy_version"] = (
+            study_service.ADMISSION_POLICY_VERSION
+        )
+        study["plan"]["safe_projection_version"] = (
+            study_service.SAFE_PROJECTION_VERSION
+        )
     reviewed = deepcopy(source)
     for case in reviewed["cases"]:
         case["reviewer_response"] = {
@@ -81,6 +93,7 @@ def test_exact_bound_review_passes_and_builds_admitted_documents():
     )
     assert gate["critical_false_claims"] == 0
     assert gate["admitted_studies"] == gate["cases"]
+    assert set(gate["proof_answer_positions"]) == {"0", "1"}
     documents = admission.admission_documents(gate)
     assert len(documents) == gate["cases"]
     assert {document["status"] for document in documents} == {"admitted"}
@@ -123,6 +136,17 @@ def test_teachability_gate_is_a_rate_not_a_raw_count():
     with pytest.raises(
         admission.AdmissionError, match="rate did not beat 71.8"
     ):
+        _evaluate(source, reviewed, sealed)
+
+
+def test_fixed_correct_answer_position_blocks_the_entire_release(monkeypatch):
+    source, reviewed, sealed = _packet()
+    monkeypatch.setattr(
+        admission,
+        "guided_answer_position_indices",
+        lambda study: tuple(0 for _ in study["plan"]["chapters"]),
+    )
+    with pytest.raises(admission.AdmissionError, match="one fixed option position"):
         _evaluate(source, reviewed, sealed)
 
 

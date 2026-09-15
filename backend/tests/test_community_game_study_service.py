@@ -469,6 +469,37 @@ def test_neutral_projection_names_verified_material_target_in_plain_language():
         "kind": "better_line",
         "moves_san": ["Rfb8", "Qg3", "Rxb2"],
     }
+    assert projected["interaction"]["question"] == (
+        "Which idea must happen before the position changes?"
+    )
+    assert all(
+        len(option["label"].split()) > 1
+        for option in projected["interaction"]["options"]
+    )
+    assert all(
+        "b2" in option["label"]
+        for option in projected["interaction"]["options"]
+    )
+
+
+def test_neutral_prediction_answer_position_is_stable_but_not_fixed():
+    answer_positions = set()
+    for number in range(40):
+        chapter = _chapter(f"event-{number}")
+        projected = service.project_neutral_chapter(
+            _personalized_typed_source_event(chapter), chapter
+        )
+        ids = [
+            option["id"] for option in projected["interaction"]["options"]
+        ]
+        answer_positions.add(ids.index("capture_next"))
+        repeated = service.project_neutral_chapter(
+            _personalized_typed_source_event(chapter), chapter
+        )
+        assert repeated["interaction"]["options"] == (
+            projected["interaction"]["options"]
+        )
+    assert answer_positions == {0, 1}
 
 
 def test_guided_interaction_is_legal_and_public_projection_hides_answer():

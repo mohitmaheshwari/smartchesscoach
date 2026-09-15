@@ -12,12 +12,15 @@ import hashlib
 import json
 import os
 import re
-from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
+from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Tuple
 
 import chess
 
 from deterministic_coach_service import RATING_BANDS
+from services.caption_facts import ExactTerminalFact, build_exact_terminal_fact
+from services.caption_pipeline import build_exact_terminal_teaching
 from services.detector_quality import QualitySurface, is_authorized
+from services.deterministic_choice_order import order_deterministic_choices
 from services.destination_safety_detector import (
     CONCEPT_ID as DESTINATION_SAFETY_CONCEPT_ID,
     QUALITY_ID as DESTINATION_SAFETY_QUALITY_ID,
@@ -26,14 +29,14 @@ from services.game_review_contracts import CONTRACT_SCHEMA_VERSION
 from services.game_review_planner import COHERENT_STORY_FORMULA
 
 
-SCHEMA_VERSION = "community_game_study.v2"
+SCHEMA_VERSION = "community_game_study.v3"
 SHADOW_SCHEMA_VERSION = "community_game_study_shadow_selection.v1"
-ADMISSION_POLICY_VERSION = "licensed_neutral_coherent_guided.v2"
+ADMISSION_POLICY_VERSION = "licensed_neutral_coherent_guided.v3"
 SELECTOR_VERSION = "focus_band_breadth_richness.v1"
 COLLECTION = "community_game_studies"
 SHADOW_EVENT_COLLECTION = "community_game_study_shadow_events"
-SAFE_PROJECTION_VERSION = "community_neutral_projection.v3"
-GUIDED_INTERACTION_VERSION = "community_guided_review_interaction.v1"
+SAFE_PROJECTION_VERSION = "community_neutral_projection.v4"
+GUIDED_INTERACTION_VERSION = "community_guided_review_interaction.v2"
 SHADOW_FEATURE_FLAG = "COMMUNITY_GAME_STUDY_SHADOW_ENABLED"
 VISIBLE_FEATURE_FLAG = "COMMUNITY_GAME_STUDY_VISIBLE_ENABLED"
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
@@ -241,6 +244,24 @@ def _neutral_cause_teaching(
     played = _required_text(move.get("san"), "source_event.move.san")
     kind = _required_text(cause.get("kind"), "source_event.cause.kind")
 
+    if kind == "exact_terminal_checkmate":
+        try:
+            authored = build_exact_terminal_teaching(
+                ExactTerminalFact.from_document(dict(cause))
+            )
+        except (TypeError, ValueError) as exc:
+            raise CommunityGameStudyError(
+                "source event exact terminal fact is invalid"
+            ) from exc
+        return (
+            str(authored["headline"]),
+            str(authored["explanation"]),
+            str(authored["principle"]),
+            str(authored["primary_principle_id"]),
+            dict(authored["demonstration"]),
+            dict(authored["interaction"]),
+        )
+
     if kind == "legal_material_loss":
         affected_piece, affected_square = _cause_piece(cause, "affected")
         attacker_piece, attacker_square = _cause_piece(cause, "attacker")
@@ -435,10 +456,22 @@ def _neutral_cause_teaching(
                 "tactics.follow_the_payoff",
                 {"kind": "better_line", "moves_san": line},
                 {
-                    "question": f"Which move starts the gain on {target_square}?",
+                    "question": "Which idea must happen before the position changes?",
                     "options": [
-                        {"id": "better_line", "label": best},
-                        {"id": "played_move", "label": played},
+                        {
+                            "id": "better_line",
+                            "label": (
+                                f"Use {best} now and follow the sequence while "
+                                f"the {target_piece} is still on {target_square}."
+                            ),
+                        },
+                        {
+                            "id": "played_move",
+                            "label": (
+                                f"Play {played} first and return to the "
+                                f"{target_piece} on {target_square} next move."
+                            ),
+                        },
                     ],
                     "correct_option_id": "better_line",
                     "hint": f"Follow {best} until the {target_piece} on {target_square} is taken.",
@@ -468,10 +501,16 @@ def _neutral_cause_teaching(
             "endgame.preserve_exact_result",
             {"kind": "better_line", "moves_san": [best]},
             {
-                "question": f"Which move preserves the {before}?",
+                "question": f"Which plan preserves the {before}?",
                 "options": [
-                    {"id": "preserves_result", "label": best},
-                    {"id": "changes_result", "label": played},
+                    {
+                        "id": "preserves_result",
+                        "label": f"Use {best}; the exact result stays a {before}.",
+                    },
+                    {
+                        "id": "changes_result",
+                        "label": f"Use {played}; the exact result stays the same.",
+                    },
                 ],
                 "correct_option_id": "preserves_result",
                 "hint": f"Compare the exact result after {best} and after {played}.",
@@ -705,7 +744,12 @@ def project_neutral_chapter(
         _SECOND_PERSON.search(value)
         for value in (headline, explanation, principle)
     )
-    if personalized:
+    raw_cause = source_event.get("cause")
+    terminal_cause = bool(
+        isinstance(raw_cause, Mapping)
+        and raw_cause.get("kind") == "exact_terminal_checkmate"
+    )
+    if personalized or terminal_cause:
         cause = _verified_cause(source_event)
         if cause is None:
             raise CommunityGameStudyError(
@@ -719,6 +763,18 @@ def project_neutral_chapter(
             demonstration,
             interaction,
         ) = _neutral_cause_teaching(source_event, cause)
+        if interaction is not None:
+            interaction = {
+                **interaction,
+                "options": order_deterministic_choices(
+                    interaction["options"],
+                    seed=(
+                        f"{source_event['event_id']}:"
+                        f"{cause['fingerprint']}:"
+                        f"{GUIDED_INTERACTION_VERSION}"
+                    ),
+                ),
+            }
     if not explanation or not (headline or principle):
         raise CommunityGameStudyError("source event lacks neutral teaching words")
     for field, value in (
@@ -856,6 +912,28 @@ def _project_stored_chapter(
     *,
     fen_before: str,
 ) -> Dict[str, Any]:
+    raw_cause = source_event.get("cause")
+    if (
+        isinstance(raw_cause, Mapping)
+        and raw_cause.get("kind") == "exact_terminal_checkmate"
+    ):
+        source_move = source_event.get("move")
+        move_san = (
+            str(source_move.get("san") or "")
+            if isinstance(source_move, Mapping)
+            else ""
+        )
+        rederived = build_exact_terminal_fact(
+            fen_before=fen_before,
+            played_move=move_san,
+        )
+        if (
+            rederived is None
+            or rederived.fingerprint != str(raw_cause.get("fingerprint") or "")
+        ):
+            raise CommunityGameStudyError(
+                "terminal cause does not match the exact chapter position"
+            )
     projected = project_neutral_chapter(source_event, chapter_ref)
     if not projected.get("primary_principle_id"):
         projected["primary_principle_id"] = principle_identity(projected)
@@ -1053,6 +1131,41 @@ def project_visible_study(study: Mapping[str, Any]) -> Dict[str, Any]:
         },
         "chapters": chapters,
     }
+
+
+def guided_answer_position_indices(study: Mapping[str, Any]) -> Tuple[int, ...]:
+    """Return sealed correct-answer positions for admission auditing only.
+
+    Player projections never include these indices.  The admission gate uses
+    them across the complete packet to reject an interaction layer whose
+    proof-supporting choice always occupies the same slot.
+    """
+    normalized = validate_study(study)
+    events = {
+        str(item["event_id"]): item for item in normalized["evidence"]["events"]
+    }
+    positions = {
+        str(item["event_id"]): item
+        for item in normalized["evidence"]["chapter_positions"]
+    }
+    result = []
+    for reference in normalized["plan"]["chapters"]:
+        event_id = reference["event_id"]
+        projected = _project_stored_chapter(
+            events[event_id],
+            reference,
+            fen_before=str(positions[event_id]["fen"]),
+        )
+        option_ids = [
+            str(option["id"]) for option in projected["interaction"]["options"]
+        ]
+        correct = str(projected["interaction"]["correct_option_id"])
+        if correct not in option_ids:
+            raise CommunityGameStudyError(
+                "guided interaction answer is not one of its options"
+            )
+        result.append(option_ids.index(correct))
+    return tuple(result)
 
 
 def verify_guided_replay_move(

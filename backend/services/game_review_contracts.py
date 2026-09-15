@@ -21,6 +21,7 @@ from services.detector_quality import (
     is_authorized,
 )
 from services.caption_facts import (
+    ExactTerminalFact,
     LegalMaterialLossCause,
     ReviewTeachingCause,
     VerifiedLineCause,
@@ -479,14 +480,25 @@ class TeachableEvent:
         if not isinstance(self.teaching, TeachingReference):
             raise ReviewContractViolation("teaching must be TeachingReference")
         if self.cause is not None and not isinstance(
-            self.cause, (LegalMaterialLossCause, VerifiedLineCause, ExactEndgameCause)
+            self.cause,
+            (
+                LegalMaterialLossCause,
+                VerifiedLineCause,
+                ExactEndgameCause,
+                ExactTerminalFact,
+            ),
         ):
             raise ReviewContractViolation("cause must be a supported ReviewTeachingCause")
         if self.practical is not None and not isinstance(
             self.practical, PracticalFrame
         ):
             raise ReviewContractViolation("practical must be PracticalFrame")
-        if bool(self.cause) != bool(self.practical):
+        if isinstance(self.cause, ExactTerminalFact):
+            if self.practical is not None:
+                raise ReviewContractViolation(
+                    "exact terminal facts do not carry a mistake frame"
+                )
+        elif bool(self.cause) != bool(self.practical):
             raise ReviewContractViolation(
                 "cause and practical frame must be supplied together"
             )
@@ -540,7 +552,7 @@ class TeachableEvent:
                 raise ReviewContractViolation(
                     "teaching and cause fingerprints disagree"
                 )
-            if (
+            if self.practical is not None and (
                 self.teaching.headline != self.practical.headline
                 or self.teaching.practical_lead != self.practical.lead
             ):
@@ -602,7 +614,8 @@ class TeachableEvent:
         }
         if self.cause is not None:
             payload["cause"] = self.cause.contract_dict()
-            payload["practical"] = self.practical.contract_dict()
+            if self.practical is not None:
+                payload["practical"] = self.practical.contract_dict()
         return payload
 
     def player_dict(self) -> Dict[str, Any]:

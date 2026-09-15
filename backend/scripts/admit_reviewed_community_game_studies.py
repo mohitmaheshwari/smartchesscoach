@@ -12,21 +12,22 @@ Mongo credentials are read only from the container environment.  The default
 mode is read-only:
 
     python backend/scripts/admit_reviewed_community_game_studies.py \
-      --source-review-packet <pending-v3.json> \
-      --reviewed-packet <reviewed-v3.json> \
-      --admission-packet <sealed-v3.json> \
+      --source-review-packet <pending-v4.json> \
+      --reviewed-packet <reviewed-v4.json> \
+      --admission-packet <sealed-v4.json> \
       --expected-source-sha256 <sha>
 
 Apply only the exact plan printed by that run:
 
     python backend/scripts/admit_reviewed_community_game_studies.py ... \
-      --apply --confirm community-game-study-v3-admission \
+      --apply --confirm community-game-study-v4-admission \
       --confirm-plan <plan-fingerprint>
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -51,13 +52,14 @@ from scripts.build_community_game_study_review_packet import (  # noqa: E402
 )
 from services.community_game_study_service import (  # noqa: E402
     COLLECTION,
+    guided_answer_position_indices,
     validate_study,
 )
 
 
 ADMISSION_PACKET_SCHEMA_VERSION = "community_game_study.admission_packet.v1"
 ADMISSION_RECORD_SCHEMA_VERSION = "community_game_study.independent_admission.v1"
-CONFIRMATION = "community-game-study-v3-admission"
+CONFIRMATION = "community-game-study-v4-admission"
 CHAPTER_VERDICTS = frozenset({
     "correct_and_teachable",
     "correct_but_not_teachable",
@@ -285,7 +287,7 @@ def evaluate_packets(
     admission_sha256: str,
     expected_source_sha256: str,
 ) -> Dict[str, Any]:
-    """Validate all bindings and recompute the approved v3 quality gates."""
+    """Validate all bindings and recompute the approved v4 quality gates."""
     if not SHA256.fullmatch(expected_source_sha256):
         raise AdmissionError("expected source SHA-256 is malformed")
     if source_sha256 != expected_source_sha256:
@@ -339,6 +341,7 @@ def evaluate_packets(
     critical = legal = headlines = chapters_total = coherent = assigned = repeated = 0
     validated_studies: Dict[str, Dict[str, Any]] = {}
     study_ids = set()
+    answer_positions: Counter[int] = Counter()
     for case_id in sorted(source_cases):
         decision, verdicts, critical_n, legal_n, headline_n = (
             _validate_case_response(case_id, reviewed_cases[case_id])
@@ -367,6 +370,7 @@ def evaluate_packets(
             raise AdmissionError(f"sealed packet repeats study_id {study_id}")
         study_ids.add(study_id)
         validated_studies[case_id] = normalized
+        answer_positions.update(guided_answer_position_indices(normalized))
 
     denominator = len(decisions)
     teachable_rate = counts["correct_and_teachable"] / chapters_total
@@ -389,6 +393,10 @@ def evaluate_packets(
         failures.append("coherent-story rate did not beat 9.8%")
     if assignment_rate <= ASSIGNMENT_WORTHY_FLOOR:
         failures.append("assignment-worthy rate did not beat 48.8%")
+    if len(answer_positions) < 2:
+        failures.append(
+            "proof-supporting answer occupies one fixed option position"
+        )
     if failures:
         raise AdmissionError("; ".join(failures))
 
@@ -396,7 +404,7 @@ def evaluate_packets(
         decision.case_id for decision in decisions if decision.admit
     )
     return {
-        "schema_version": "community_game_study.review_gate.v1",
+        "schema_version": "community_game_study.review_gate.v2",
         "source_packet_sha256": source_sha256,
         "reviewed_packet_sha256": reviewed_sha256,
         "admission_packet_sha256": admission_sha256,
@@ -427,6 +435,9 @@ def evaluate_packets(
             "rate": round(assignment_rate, 6),
         },
         "repeated_principle_studies": repeated,
+        "proof_answer_positions": {
+            str(index): count for index, count in sorted(answer_positions.items())
+        },
         "admitted_case_ids": admitted_case_ids,
         "admitted_studies": len(admitted_case_ids),
         "validated_studies": validated_studies,
@@ -539,6 +550,7 @@ def build_apply_plan(
                 "coherent_stories",
                 "assignment_worthy",
                 "repeated_principle_studies",
+                "proof_answer_positions",
             )
         },
         "documents": documents,

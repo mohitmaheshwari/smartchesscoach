@@ -2,7 +2,11 @@
 
 **Date:** 2026-09-15
 **Owner boundary:** Codex builds and verifies. Claude pushes and deploys.
-**Current release state:** implementation complete; both runtime flags remain default-off; player visibility is blocked until the independent v3 review and admission dry-run pass.
+**Current release state:** **BLOCKED / SHADOW. Do not deploy or run the v3 admission sequence in this document.** The independent v3 review failed the coherent-story and assignment-worthy gates. Both runtime flags must remain false. The repair state and only valid next sequence are recorded in `docs/community_game_coherent_walkthrough_v3_failure_and_v4_repair_2026_09_15.md`.
+
+## 0. Superseded rollout warning
+
+The v3 source packet is now immutable failed evidence, not a deployment candidate. Sections 3 through 9 below are retained only as the historical plan that the review graded. They must not be executed. There is no admitted v4 packet yet, and the exact terminal-checkmate family remains Shadow pending its separate blinded Caption review.
 
 ## 1. What this release changes
 
