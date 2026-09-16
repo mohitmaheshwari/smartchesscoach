@@ -1,4 +1,8 @@
 from copy import deepcopy
+import time
+
+import chess
+import pytest
 
 from coach_play.v2.contracts import (
     CandidateFocus,
@@ -8,6 +12,7 @@ from coach_play.v2.contracts import (
     CoachingCandidate,
 )
 from coach_play.v2.shadow_conductor import (
+    build_bounded_shadow_packet_from_unified_response,
     SHADOW_POLICIES,
     SHADOW_SCHEMA_VERSION,
     UNIFIED_V1_ADAPTER_VERSION,
@@ -91,6 +96,7 @@ def test_unified_adapter_requires_visible_verified_caption():
     assert candidate is not None
     assert candidate.admitted is True
     assert candidate.focus_relevance == CandidateFocus.PRIMARY
+    assert candidate.novelty == CandidateNovelty.UNKNOWN
 
     assert (
         candidate_from_unified_decision(
@@ -223,3 +229,105 @@ def test_live_response_adapter_is_observational_and_non_mutating():
     candidate = packet["candidates"][0]
     assert candidate["game_phase"] == "deep_endgame"
     assert candidate["evidence"]["source_version"] == UNIFIED_V1_ADAPTER_VERSION
+
+
+def test_exact_curriculum_candidate_competes_with_unified_without_mutating_live():
+    board = chess.Board()
+    for san in ("e4", "e5", "Bc4", "Nc6", "Qh5"):
+        board.push_san(san)
+    live_response = {
+        "shouldAutoCommit": False,
+        "coachingDecision": {
+            "source": "pwc_unified_v1",
+            "layer": "critical_interrupt",
+            "category": "piece_safety",
+            "conceptKey": "loose_piece",
+            "text": "Nf6 leaves the threat unanswered.",
+            "instruction": "Check the opponent's immediate threat first.",
+            "focusMatch": False,
+            "proof": {
+                "caption_verified": True,
+                "rule_name": "verified-threat",
+            },
+        },
+        "visual": {"arrows": [], "highlightSquares": []},
+    }
+    before = deepcopy(live_response)
+
+    packet = build_shadow_packet_from_unified_response(
+        turn_id="5:g8f6",
+        live_response=live_response,
+        engine_evidence={
+            "eval_valid": True,
+            "move_quality": "blunder",
+            "cp_loss": 300,
+            "best_move": "Qe7",
+        },
+        fen_before=board.fen(),
+        uci="g8f6",
+        coaching_context={
+            "primary_focus": {"topic_key": "opening_knowledge"},
+            "supporting_focuses": [],
+        },
+    )
+
+    assert live_response == before
+    assert packet["candidate_count"] == 2
+    assert {candidate["source"] for candidate in packet["candidates"]} == {
+        "pwc_unified_v1",
+        "canonical_curriculum_trap",
+    }
+    curriculum = next(
+        candidate
+        for candidate in packet["candidates"]
+        if candidate["source"] == "canonical_curriculum_trap"
+    )
+    assert curriculum["focus_relevance"] == "primary"
+
+
+@pytest.mark.asyncio
+async def test_bounded_adapter_timeout_keeps_unified_candidate(monkeypatch):
+    from coach_play.v2 import candidate_adapters, shadow_conductor
+
+    live_response = {
+        "coachingDecision": {
+            "source": "pwc_unified_v1",
+            "layer": "advisory",
+            "category": "piece_safety",
+            "conceptKey": "loose_piece",
+            "text": "Your knight on e5 has no defender.",
+            "proof": {
+                "caption_verified": True,
+                "rule_name": "loose-piece",
+            },
+        },
+        "visual": {},
+    }
+
+    def slow_curriculum(**_kwargs):
+        time.sleep(0.05)
+        return ()
+
+    monkeypatch.setattr(
+        candidate_adapters,
+        "curriculum_candidates_from_turn",
+        slow_curriculum,
+    )
+    monkeypatch.setattr(shadow_conductor, "CURRICULUM_SHADOW_BUDGET_MS", 5)
+
+    packet = await build_bounded_shadow_packet_from_unified_response(
+        turn_id="12:e5c4",
+        live_response=live_response,
+        engine_evidence={
+            "eval_valid": True,
+            "move_quality": "mistake",
+            "cp_loss": 180,
+        },
+        fen_before="4k3/8/8/4N3/8/8/8/4K3 w - - 0 1",
+        uci="e5c4",
+    )
+
+    assert packet["candidate_count"] == 1
+    assert packet["candidates"][0]["source"] == "pwc_unified_v1"
+    assert packet["adapter_observations"][0]["status"] == "timed_out"
+    assert packet["adapter_observations"][0]["candidate_count"] == 0

@@ -7,7 +7,8 @@ maps below are experimental candidates, not production thresholds.
 
 from __future__ import annotations
 
-import hashlib
+import asyncio
+import time
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Optional
 
@@ -17,11 +18,13 @@ from .contracts import (
     CandidateTiming,
     CandidateUrgency,
     CoachingCandidate,
+    stable_candidate_id,
 )
 
 SHADOW_SCHEMA_VERSION = "pwc_v2_shadow.v1"
 SHADOW_POLICY_VERSION = "pwc_v2_policy_bakeoff.v1"
 UNIFIED_V1_ADAPTER_VERSION = "pwc_v2_adapter.unified_v1.v1"
+CURRICULUM_SHADOW_BUDGET_MS = 25
 SHADOW_POLICIES = (
     "safety_focus_lexicographic",
     "expected_learning_value",
@@ -41,19 +44,11 @@ _FOCUS_RANK = {
     CandidateFocus.PRIMARY: 3,
 }
 _NOVELTY_RANK = {
+    CandidateNovelty.UNKNOWN: 0,
     CandidateNovelty.REPEATED: 0,
     CandidateNovelty.REINFORCEMENT: 1,
     CandidateNovelty.NEW: 2,
 }
-
-
-def _stable_candidate_id(
-    *, turn_id: str, source: str, concept_key: str, claim: str
-) -> str:
-    digest = hashlib.sha256(
-        f"{turn_id}|{source}|{concept_key}|{claim}".encode("utf-8")
-    ).hexdigest()[:16]
-    return f"pwc2c:{digest}"
 
 
 def candidate_from_unified_decision(
@@ -97,7 +92,7 @@ def candidate_from_unified_decision(
     if not rule_name:
         abstention_reasons.append("caption_rule_missing")
     candidate = CoachingCandidate(
-        candidate_id=_stable_candidate_id(
+        candidate_id=stable_candidate_id(
             turn_id=turn_id,
             source=str(decision.get("source") or "pwc_unified_v1"),
             concept_key=concept_key,
@@ -126,7 +121,9 @@ def candidate_from_unified_decision(
             if decision.get("focusMatch")
             else CandidateFocus.NONE
         ),
-        novelty=CandidateNovelty.NEW,
+        # Unified V1 does not persist a canonical taught-before identity for
+        # this opportunity, so shadow must not claim that the lesson is new.
+        novelty=CandidateNovelty.UNKNOWN,
         assistance_level=assistance_level,
         proof_authority="caption_pipeline",
         proof_references=((rule_name,) if rule_name else ()),
@@ -160,6 +157,7 @@ def build_shadow_packet_from_unified_response(
     fen_before: str,
     uci: str,
     assistance_level: Optional[int] = None,
+    coaching_context: Optional[Mapping[str, Any]] = None,
     created_at: Optional[str] = None,
 ) -> dict[str, Any]:
     """Adapt a live response without mutating or decorating that response."""
@@ -177,10 +175,93 @@ def build_shadow_packet_from_unified_response(
         uci=uci,
         assistance_level=assistance_level,
     )
+    from .candidate_adapters import curriculum_candidates_from_turn
+
+    independent = curriculum_candidates_from_turn(
+        turn_id=turn_id,
+        fen_before=fen_before,
+        played_uci=uci,
+        engine_evidence=engine_evidence,
+        coaching_context=coaching_context,
+        assistance_level=assistance_level,
+    )
     return build_shadow_packet(
-        [candidate] if candidate else [],
+        ([candidate] if candidate else []) + list(independent),
         created_at=created_at,
     )
+
+
+async def build_bounded_shadow_packet_from_unified_response(
+    *,
+    turn_id: str,
+    live_response: Mapping[str, Any],
+    engine_evidence: Mapping[str, Any],
+    fen_before: str,
+    uci: str,
+    assistance_level: Optional[int] = None,
+    coaching_context: Optional[Mapping[str, Any]] = None,
+    created_at: Optional[str] = None,
+) -> dict[str, Any]:
+    """Build shadow evidence without making a player wait for cold indexes.
+
+    The exact-curriculum indexes are expensive once per process and very fast
+    after that. A timed-out thread may finish warming those immutable caches,
+    but its late result is never attached to this turn.
+    """
+    decision = live_response.get("coachingDecision") or {}
+    visual = live_response.get("visual") or {}
+    unified = candidate_from_unified_decision(
+        turn_id=turn_id,
+        decision={
+            **decision,
+            "arrows": list(visual.get("arrows") or []),
+            "highlightSquares": list(visual.get("highlightSquares") or []),
+        },
+        engine_evidence=engine_evidence,
+        fen_before=fen_before,
+        uci=uci,
+        assistance_level=assistance_level,
+    )
+
+    from .candidate_adapters import curriculum_candidates_from_turn
+
+    started = time.perf_counter()
+    status = "completed"
+    try:
+        independent = await asyncio.wait_for(
+            asyncio.to_thread(
+                curriculum_candidates_from_turn,
+                turn_id=turn_id,
+                fen_before=fen_before,
+                played_uci=uci,
+                engine_evidence=engine_evidence,
+                coaching_context=coaching_context,
+                assistance_level=assistance_level,
+            ),
+            timeout=CURRICULUM_SHADOW_BUDGET_MS / 1000,
+        )
+    except TimeoutError:
+        independent = ()
+        status = "timed_out"
+    except Exception as exc:
+        independent = ()
+        status = f"failed:{type(exc).__name__}"
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 2)
+
+    packet = build_shadow_packet(
+        ([unified] if unified else []) + list(independent),
+        created_at=created_at,
+    )
+    packet["adapter_observations"] = [
+        {
+            "adapter": "canonical_curriculum",
+            "status": status,
+            "elapsed_ms": elapsed_ms,
+            "budget_ms": CURRICULUM_SHADOW_BUDGET_MS,
+            "candidate_count": len(independent),
+        }
+    ]
+    return packet
 
 
 def _policy_score(policy: str, candidate: CoachingCandidate) -> tuple[int, ...]:
@@ -284,6 +365,8 @@ __all__ = [
     "SHADOW_POLICY_VERSION",
     "SHADOW_SCHEMA_VERSION",
     "UNIFIED_V1_ADAPTER_VERSION",
+    "CURRICULUM_SHADOW_BUDGET_MS",
+    "build_bounded_shadow_packet_from_unified_response",
     "build_shadow_packet",
     "build_shadow_packet_from_unified_response",
     "candidate_from_unified_decision",

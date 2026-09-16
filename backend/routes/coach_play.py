@@ -5553,15 +5553,16 @@ async def evaluate_pending_move(
             if session_doc.get("pwc_v2_shadow_enabled"):
                 try:
                     from coach_play.v2.shadow_conductor import (
-                        build_shadow_packet_from_unified_response,
+                        build_bounded_shadow_packet_from_unified_response,
                     )
 
-                    v2_shadow_packet = build_shadow_packet_from_unified_response(
+                    v2_shadow_packet = await build_bounded_shadow_packet_from_unified_response(
                         turn_id=move_key,
                         live_response=unified_response,
                         engine_evidence=engine_evidence,
                         fen_before=fen_before,
                         uci=uci,
+                        coaching_context=session_doc.get("coaching_context"),
                         created_at=decision_created_at,
                     )
                 except Exception as shadow_exc:

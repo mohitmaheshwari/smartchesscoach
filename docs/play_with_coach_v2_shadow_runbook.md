@@ -8,6 +8,7 @@
 
 - Pins read-only V2 shadow eligibility when an eligible Unified V1 session starts.
 - Adapts an already verified Unified V1 coaching decision into the proof-carrying V2 candidate contract.
+- Independently adapts exact-position opening, opening-plan, trap, and endgame proofs already owned by the canonical curriculum verifier. The adapter performs no second engine search and owns no curriculum data.
 - Runs all three proposed conductor policies on the same admitted candidate list.
 - Stores the comparison only inside the existing `coaching_decisions` evidence record.
 - Returns exactly the same player response with shadow enabled or disabled.
@@ -17,9 +18,17 @@ It does not expose a V2 experience, choose a conductor, alter a move, generate a
 
 ## Current measurement limit
 
-The first adapter sees only the verified decision already selected by Unified V1. Therefore a packet currently contains zero or one admitted candidate. The report should return `comparison_possible: false` until at least two independently verified source adapters can submit candidates on the same turn.
+Packets can now contain both the verified Unified V1 decision and one or more independently verified exact-position curriculum candidates. This makes real multi-candidate policy comparison possible when a mistaken move occurs at a canonical opening, opening-plan, trap, or endgame decision point.
 
-That result is a correct promotion block, not a reason to pick a policy from intuition. Opening, trap, threat, positive-transfer, positional, endgame, and time adapters still require their own truth-preserving mappings into the shared envelope.
+Coverage is deliberately narrow: a merely similar position, an unmatched engine move, invalid engine evidence, an ambiguous curriculum identity, or an unverified canonical line produces no admitted curriculum candidate. Threat, positive-transfer, positional, and time adapters still require their own truth-preserving mappings. `comparison_possible` remains a measured report outcome, never an assumed release claim.
+
+## Exact-curriculum latency lock
+
+**Decision:** the exact-curriculum adapter receives at most 25 ms on a live turn. If it does not finish, Unified V1 continues unchanged and the packet records `canonical_curriculum:timed_out`.
+
+**Evidence (2026-09-16, local Windows host):** three fresh-process calls took 980.05, 1,039.78, and 1,168.34 ms while building immutable indexes. After warm-up, 100 threaded calls measured p50 1.02 ms, p95 1.26 ms, p99 1.58 ms, and max 4.37 ms. The 25 ms cap gives more than 5.7x headroom over the measured threaded maximum while guaranteeing that cold construction cannot add a one-second delay to the player.
+
+**Rejected caps:** 10 ms offered only about 2.3x headroom over the observed threaded maximum; 50 ms doubled worst-case player delay without recovering cold calls. This is an operational shadow budget, not a chess-quality threshold.
 
 ## Flags
 
@@ -48,7 +57,7 @@ Optional arguments:
 - `--examples N` caps disagreement cases containing candidate evidence.
 - `--output PATH` writes the JSON report to the named internal artifact.
 
-The report reads only `coach_sessions`. It checks that packets are never player-visible, stored counts match contents, every policy is present, each winner belongs to the admitted candidate set, and the disagreement flag matches the recorded winners. It reports source/category coverage, rejections, rating-band coverage, policy winners, and disagreement examples. It always emits `conductor_choice_authorized: false`; human review plus the lock-via-data decision is a separate gate.
+The report reads only `coach_sessions`. It checks that packets are never player-visible, stored counts match contents, every policy is present, each winner belongs to the admitted candidate set, and the disagreement flag matches the recorded winners. It reports source/category coverage, rejections, adapter completions/timeouts, rating-band coverage, policy winners, and disagreement examples. It always emits `conductor_choice_authorized: false`; human review plus the lock-via-data decision is a separate gate.
 
 ## Rollback
 
@@ -58,7 +67,7 @@ Set `PWC_V2_SHADOW_ENABLED=false` and restart the backend. New sessions will not
 
 Before any player-facing V2 work:
 
-1. Add independently verified adapters, beginning with sources that already carry exact position proof.
+1. Collect exact-curriculum shadow evidence and add the next independently verified adapter only from an existing proof owner.
 2. Confirm the report has structurally clean multi-candidate turns across rating bands and game phases.
 3. Review disagreements and hard negatives with a strong human player.
 4. Lock the conductor policy and numeric guardrails from measured evidence.

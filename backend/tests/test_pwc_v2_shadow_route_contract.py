@@ -18,7 +18,8 @@ def test_route_remains_valid_python_and_persists_shadow_out_of_band():
     ast.parse(source)
     body = _evaluate_pending_source()
     assert '"pwc_v2_shadow_enabled": 1' in body
-    assert "build_shadow_packet_from_unified_response" in body
+    assert "await build_bounded_shadow_packet_from_unified_response" in body
+    assert 'coaching_context=session_doc.get("coaching_context")' in body
     assert '{"pwc_v2_shadow": v2_shadow_packet}' in body
     assert "return unified_response" in body
 

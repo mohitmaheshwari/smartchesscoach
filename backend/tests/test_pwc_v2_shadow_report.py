@@ -120,3 +120,25 @@ def test_report_counts_rejections_and_zero_candidate_packets():
         "proof_not_verified": 1,
         "candidate_abstained": 1,
     }
+
+
+def test_report_counts_adapter_timeouts_separately_from_candidate_rejections():
+    packet = _packet(candidates=[], winners={})
+    packet["adapter_observations"] = [
+        {
+            "adapter": "canonical_curriculum",
+            "status": "timed_out",
+            "elapsed_ms": 25.4,
+            "budget_ms": 25,
+            "candidate_count": 0,
+        }
+    ]
+
+    report = summarize_shadow_sessions(
+        [{"coaching_decisions": [{"pwc_v2_shadow": packet}]}]
+    )
+
+    assert report["adapter_statuses"] == {
+        "canonical_curriculum:timed_out": 1,
+    }
+    assert report["rejected_candidates"] == 0

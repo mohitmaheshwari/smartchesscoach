@@ -1,6 +1,7 @@
 from copy import deepcopy
 from types import SimpleNamespace
 
+import chess
 import pytest
 
 import routes.coach_play as coach_play_route
@@ -123,12 +124,12 @@ async def test_shadow_on_and_off_return_the_same_player_payload(monkeypatch):
 async def test_shadow_exception_fails_open_for_live_coaching(monkeypatch):
     from coach_play.v2 import shadow_conductor
 
-    def fail_shadow(**_kwargs):
+    async def fail_shadow(**_kwargs):
         raise RuntimeError("test-only shadow failure")
 
     monkeypatch.setattr(
         shadow_conductor,
-        "build_shadow_packet_from_unified_response",
+        "build_bounded_shadow_packet_from_unified_response",
         fail_shadow,
     )
     response, database = await _run_route(
@@ -141,3 +142,72 @@ async def test_shadow_exception_fails_open_for_live_coaching(monkeypatch):
     assert response == expected
     stored = database.coach_sessions.updates[0][1]["$push"]["coaching_decisions"]
     assert "pwc_v2_shadow" not in stored
+
+
+@pytest.mark.asyncio
+async def test_route_records_exact_curriculum_candidate_without_returning_it(
+    monkeypatch,
+):
+    from coach_play.v2 import shadow_conductor
+
+    monkeypatch.setattr(
+        shadow_conductor,
+        "CURRICULUM_SHADOW_BUDGET_MS",
+        5000,
+    )
+    board = chess.Board()
+    for san in ("e4", "e5", "Bc4", "Nc6", "Qh5"):
+        board.push_san(san)
+    fen = board.fen()
+    session = _session(shadow_enabled=True)
+    session.update(
+        {
+            "current_fen": fen,
+            "coaching_context": {
+                "primary_focus": {"topic_key": "opening_knowledge"},
+                "supporting_focuses": [],
+            },
+        }
+    )
+    database = _DB(session)
+    monkeypatch.setattr(coach_play_route, "db", database)
+    live = _live_response()
+    live["_engineEvidence"].update(
+        {
+            "best_move": "Qe7",
+            "cp_loss": 300,
+        }
+    )
+
+    async def fake_evaluate_unified_pending(**_kwargs):
+        return deepcopy(live)
+
+    monkeypatch.setattr(
+        unified_coaching,
+        "evaluate_unified_pending",
+        fake_evaluate_unified_pending,
+    )
+    response = await coach_play_route.evaluate_pending_move(
+        {
+            "sessionId": "session-1",
+            "fenBefore": fen,
+            "uci": "g8f6",
+            "moveIndexPreview": 5,
+            "userRating": 1200,
+        },
+        SimpleNamespace(user_id="user-1"),
+    )
+
+    expected = deepcopy(live)
+    expected.pop("_engineEvidence")
+    assert response == expected
+    assert "pwc_v2_shadow" not in response
+    packet = database.coach_sessions.updates[0][1]["$push"]["coaching_decisions"][
+        "pwc_v2_shadow"
+    ]
+    assert packet["candidate_count"] == 2
+    assert packet["adapter_observations"][0]["status"] == "completed"
+    assert {candidate["source"] for candidate in packet["candidates"]} == {
+        "pwc_unified_v1",
+        "canonical_curriculum_trap",
+    }

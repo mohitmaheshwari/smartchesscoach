@@ -7,6 +7,7 @@ choosing what to teach are separate jobs.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Mapping, Optional
@@ -35,9 +36,20 @@ class CandidateFocus(str, Enum):
 
 
 class CandidateNovelty(str, Enum):
+    UNKNOWN = "unknown"
     REPEATED = "repeated"
     REINFORCEMENT = "reinforcement"
     NEW = "new"
+
+
+def stable_candidate_id(
+    *, turn_id: str, source: str, concept_key: str, claim: str
+) -> str:
+    """Return the one deterministic identity used by every candidate adapter."""
+    digest = hashlib.sha256(
+        f"{turn_id}|{source}|{concept_key}|{claim}".encode("utf-8")
+    ).hexdigest()[:16]
+    return f"pwc2c:{digest}"
 
 
 @dataclass(frozen=True)
@@ -132,4 +144,5 @@ __all__ = [
     "CandidateTiming",
     "CandidateUrgency",
     "CoachingCandidate",
+    "stable_candidate_id",
 ]

@@ -57,6 +57,7 @@ def summarize_shadow_sessions(
         policy: Counter() for policy in SHADOW_POLICIES
     }
     policy_ties: Counter[str] = Counter()
+    adapter_statuses: Counter[str] = Counter()
 
     for session in sessions:
         session_had_packet = False
@@ -91,6 +92,12 @@ def summarize_shadow_sessions(
             for item in rejected:
                 for reason in item.get("reasons") or []:
                     _increment(rejection_reasons, reason)
+            for observation in packet.get("adapter_observations") or []:
+                if not isinstance(observation, Mapping):
+                    continue
+                adapter = str(observation.get("adapter") or "unknown")
+                status = str(observation.get("status") or "unknown")
+                _increment(adapter_statuses, f"{adapter}:{status}")
 
             violations = []
             if packet.get("schema_version") != SHADOW_SCHEMA_VERSION:
@@ -170,6 +177,7 @@ def summarize_shadow_sessions(
         "candidate_sources": dict(candidate_sources.most_common()),
         "candidate_categories": dict(candidate_categories.most_common()),
         "rejection_reasons": dict(rejection_reasons.most_common()),
+        "adapter_statuses": dict(adapter_statuses.most_common()),
         "packets_by_rating_band": dict(packets_by_rating_band.most_common()),
         "policy_winners": {
             policy: dict(winners.most_common())
