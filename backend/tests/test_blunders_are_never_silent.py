@@ -114,9 +114,27 @@ def test_the_hold_is_still_disabled_so_nobody_re_enables_it_by_accident():
     )
 
 
-def test_the_timeout_budget_is_unchanged():
-    """The fix is what happens ON timeout, not a longer wait for everyone."""
+def test_the_degraded_path_survives_any_budget_change():
+    """Written as "the budget is unchanged", which then changed.
+
+    The original point was that raising the budget must not be used INSTEAD of
+    making the timeout speak -- a longer wait for everyone, papering over one
+    branch. That still holds. But the budget was later raised deliberately, on
+    a measurement rather than a hunch: the engine needs ~1480ms on an idle box
+    while the client waits 3000ms, so 1000ms was giving up a full second
+    before the browser would have.
+
+    So this asserts the thing that actually matters and does not go stale the
+    moment a number is tuned: whatever the budget, the timeout path must still
+    pick a template for a mistake or a blunder rather than returning silent.
+    The exact values are asserted once, with their ordering, in
+    test_a_failed_eval_never_says_good.py.
+    """
     body = _evaluate_pending_body()
-    assert re.search(r"if elapsed_eval > 1000:", body), (
-        "raising the budget would slow every move to paper over one branch"
+    start = body.index("Hard timeout at")
+    segment = body[start:start + 4000]
+    assert "pick_template" in segment, (
+        "a raised budget must not replace the timeout coaching -- if the "
+        "engine still runs out, the move must still get words"
     )
+    assert 'in ("mistake", "blunder")' in segment
