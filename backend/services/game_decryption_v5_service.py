@@ -3787,6 +3787,18 @@ async def generate_game_decryption_v5(
                     caption_principles_violated = caption_facts.get("principles_violated") or []
                     principle_cue = _decision.teaching_meta.principle_cue or ""
                     principle_id_used = caption_facts.get("principle_id_used")
+                    # A board-verified cue names a specific piece; only keep it
+                    # when the caption the PLAYER will read is about that piece.
+                    # The pipeline checks this too, but V5 can replace the
+                    # caption after the decision returns (facts:/distilled:
+                    # rules), so the pipeline's check can pass on text that is
+                    # then discarded — game c7f3400f m12 kept a trapped-knight
+                    # cue on an even-trade caption that way.
+                    _cue_anchor = caption_facts.get("principle_cue_anchor_square")
+                    if principle_cue and _cue_anchor:
+                        if str(_cue_anchor) not in (caption_payload.get("caption") or ""):
+                            principle_cue = ""
+                            principle_id_used = None
                     shape_pattern_record = _decision.shape_pattern_record
                     trap_record = _decision.trap_record
                     _caption_tier = _decision.teaching_meta.caption_tier

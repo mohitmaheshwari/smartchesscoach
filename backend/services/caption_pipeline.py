@@ -5207,6 +5207,11 @@ def build_move_teaching_decision(
                    if isinstance(_n, int) else ".")
             )
             caption_facts["principle_id_used"] = "TAC_TRAPPED_PIECE"
+            # Anchor square, re-checked by the caller against the FINAL
+            # caption. V5 can swap in a distilled/facts caption after this
+            # decision returns (rule facts:opp_trade on game c7f3400f m12),
+            # so the text checked here is not always the text shown.
+            caption_facts["principle_cue_anchor_square"] = _f.get("opp_trapped_square")
         elif (_f.get("opp_reply_exposes_undefended") and _f.get("opp_undefended_piece")
                 and _card_is_about(_f.get("opp_undefended_square"))):
             caption_facts["principle_cue"] = (
@@ -5214,6 +5219,7 @@ def build_move_teaching_decision(
                 "the square you are recapturing on."
             )
             caption_facts["principle_id_used"] = "TAC_HANGING_PIECE"
+            caption_facts["principle_cue_anchor_square"] = _f.get("opp_undefended_square")
 
     # ─── 11b. Board-grounding verifier (Mohit 2026-05-30) ───────────
     # Run Phase 1 of content_correctness_audit on the rendered caption
