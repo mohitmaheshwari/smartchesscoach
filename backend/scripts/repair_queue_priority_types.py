@@ -58,15 +58,38 @@ async def main(apply: bool) -> int:
     print(f"  still pending      : {by_status.get('pending', 0)}"
           f"   <- these are actively jumping the queue")
 
-    if targets and apply:
+    # Legacy PENDING rows carry no priority at all. BSON orders Null below
+    # Numbers, so under a descending sort they land beneath even the repaired
+    # backfill rows (-10) — a bulk backfill would still outrank a real user's
+    # month-old pending game. Give them an explicit 0 so the ladder reads:
+    #
+    #   30..20  new user's first import
+    #   10      live game just finished
+    #    9..5   routine sync
+    #    0      legacy rows already in the queue
+    #  -10      backfill
+    #
+    # Only PENDING rows are touched; no reason to rewrite 15k completed ones.
+    legacy_pending = await db.analysis_queue.count_documents(
+        {"status": "pending", "priority": None}
+    )
+    print(f"legacy pending, no priority : {legacy_pending}   -> set to 0")
+
+    if apply:
         for _id, _old, _ in targets:
             await db.analysis_queue.update_one(
                 {"_id": _id}, {"$set": {"priority": BACKFILL_PRIORITY}}
             )
-        print(f"\n  rewrote {len(targets)} rows to priority={BACKFILL_PRIORITY}")
-    elif targets:
-        print(f"\n  DRY RUN — would set {len(targets)} rows to "
-              f"priority={BACKFILL_PRIORITY}. Re-run with --apply.")
+        if legacy_pending:
+            await db.analysis_queue.update_many(
+                {"status": "pending", "priority": None},
+                {"$set": {"priority": 0}},
+            )
+        print(f"  rewrote {len(targets)} non-numeric rows to {BACKFILL_PRIORITY}")
+        print(f"  set {legacy_pending} legacy pending rows to 0")
+    else:
+        print("  DRY RUN - nothing written. Re-run with --apply.")
+
     return 0
 
 
