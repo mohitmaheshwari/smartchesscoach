@@ -349,8 +349,54 @@ api_router = APIRouter(prefix="/api")
 async def root():
     return {"message": "Smart Chess Coach API", "status": "running"}
 
+# Flags whose state changes what a user is served. Listed explicitly
+# rather than dumping os.environ, so a new secret can never leak here by
+# being added to the environment.
+_HEALTH_REPORTED_FLAGS = (
+    "VERIFIED_CAPTIONS",
+    "DISTILLED_CAPTIONS_ENABLED",
+    "PERSONALIZED_GAME_REVIEW_COACH_ENABLED",
+    "PERSONALIZED_GAME_REVIEW_QUALITY_V2_ENABLED",
+    "PERSONAL_IMPROVEMENT_CYCLE_ENABLED",
+    "PERSONAL_CURRICULUM_ENABLED",
+    "COMPLETE_COACHING_SYSTEM_V1_ENABLED",
+    "COACHING_CONTEXT_V1_ENABLED",
+    "DETECTOR_QUALITY_GATE_ENFORCED",
+    "MASTERY_STRICT_EVIDENCE",
+    "PWC_SKILL_GATE_ENABLED",
+    "PWC_UNIFIED_EXPERIENCE_V1_ENABLED",
+    "PWC_GAP_ENRICHMENT",
+)
+
+
 @api_router.get("/health")
 async def health():
+    """Build identity, so it is always provable which code a user was served.
+
+    Every field here is either a build argument or a module constant — this
+    handler must stay free of DB work so it can be polled during a deploy.
+    Secrets are never included: only the flag names in
+    `_HEALTH_REPORTED_FLAGS` are read, and only their on/off state.
+    """
+    # Imported lazily: a failure to resolve a version must degrade this
+    # endpoint to "unknown", never take the health check itself down.
+    try:
+        from services.game_decryption_v5_service import V5_COACHING_VERSION
+        v5_version = V5_COACHING_VERSION
+    except Exception:
+        v5_version = None
+
+    try:
+        from analysis_worker import (
+            ANALYSIS_ENGINE_VERSION,
+            ANALYSIS_PIPELINE_VERSION,
+        )
+        worker_version = ANALYSIS_PIPELINE_VERSION
+        engine_version = ANALYSIS_ENGINE_VERSION
+    except Exception:
+        worker_version = None
+        engine_version = None
+
     return {
         "status": "healthy",
         "database": "connected",
@@ -359,6 +405,16 @@ async def health():
         # think we shipped. "unknown" until the image is built with
         # --build-arg GIT_COMMIT=$(git rev-parse HEAD) — see Dockerfile.
         "git_commit": os.environ.get("GIT_COMMIT", "unknown"),
+        "build_timestamp": os.environ.get("BUILD_TIMESTAMP", "unknown"),
+        "api_version": app.version,
+        "worker_version": worker_version or "unknown",
+        "engine_version": engine_version or "unknown",
+        "v5_caption_version": v5_version if v5_version is not None else "unknown",
+        "feature_flags": {
+            name: os.environ.get(name)
+            for name in _HEALTH_REPORTED_FLAGS
+            if os.environ.get(name) is not None
+        },
     }
 
 
