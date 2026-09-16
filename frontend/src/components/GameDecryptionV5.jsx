@@ -196,6 +196,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     } else {
       setArrows([]);
     }
+    // The squares the caption is about land on caption_highlight_squares;
+    // `highlight_squares` is a separate, usually-empty channel. Prefer the
+    // caption's own, fall back to the other so nothing regresses.
+    const capHigh =
+      card?.caption_highlight_squares?.length
+        ? card.caption_highlight_squares
+        : card?.highlight_squares;
+    setHighlights(capHigh?.length ? capHigh : []);
   }, []);
   
   // "What were you thinking?" state
@@ -417,10 +425,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     if (idx === -1) { setInitialMoveHandled(true); return; }
     setCurrentMoveIndex(idx);
     setBoardFen(decryptionData[idx].fen_after);
-    applyCaptionArrows(decryptionData[idx]);
-    if (decryptionData[idx].highlight_squares?.length) {
-      setHighlights(decryptionData[idx].highlight_squares);
-    }
+    applyCaptionArrows(decryptionData[idx]);   // also sets highlights
     setInitialMoveHandled(true);
   }, [decryptionData, initialMoveHandled]);
 
@@ -860,12 +865,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setBoardFen(decryptionData[i].fen_after);
 
     const m = decryptionData[i];
-    applyCaptionArrows(m);
-    if (m.highlight_squares?.length) {
-      setHighlights(m.highlight_squares);
-    } else {
-      setHighlights([]);
-    }
+    applyCaptionArrows(m);   // also sets highlights
   }, [decryptionData, currentMoveIndex, applyCaptionArrows]);
 
   const goBackward = useCallback(() => {
@@ -898,11 +898,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setCurrentMoveIndex(i);
     setBoardFen(i === -1 ? START_FEN : decryptionData[i].fen_after);
     
-    if (i >= 0) applyCaptionArrows(decryptionData[i]);
-    if (i >= 0 && decryptionData[i].highlight_squares?.length) {
-      setHighlights(decryptionData[i].highlight_squares);
+    if (i >= 0) {
+      applyCaptionArrows(decryptionData[i]);   // also sets highlights
     } else {
       setHighlights([]);
+      setArrows([]);
     }
   }, [decryptionData, applyCaptionArrows]);
 

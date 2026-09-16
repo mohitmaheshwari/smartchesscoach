@@ -5210,7 +5210,20 @@ def build_move_teaching_decision(
                 if len(_arrows) >= 9:   # keep the board readable
                     break
                 _arrows.append({"from": _cov, "to": _sq, "color": "red"})
-        caption_payload["arrows"] = [a for a in _arrows if a.get("from") and a.get("to")]
+        # Dedupe: a rule may already have drawn the trapping move (b4->a5
+        # showed twice on the b4 card). Keep the first arrow for a given
+        # from/to pair.
+        _seen_pairs = set()
+        _deduped = []
+        for _a in _arrows:
+            if not (_a.get("from") and _a.get("to")):
+                continue
+            _key = (_a["from"], _a["to"])
+            if _key in _seen_pairs:
+                continue
+            _seen_pairs.add(_key)
+            _deduped.append(_a)
+        caption_payload["arrows"] = _deduped
         caption_payload["highlight_squares"] = _high
 
     # ─── Board-verified teaching cue (2026-09-16) ───────────────────
