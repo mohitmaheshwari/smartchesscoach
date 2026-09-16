@@ -9080,6 +9080,22 @@ def _recommended_move_traps_piece(
         return None
 
     victim_color = after.turn                 # the side that must now respond
+
+    # A CHECK makes every piece look trapped. When the recommended move gives
+    # check, the only legal replies are check evasions, so `legal_moves` for
+    # any given piece collapses to nearly nothing and this detector reads that
+    # as "no safe square". Game c7f3400f move 23 shipped as "their queen on d7
+    # then has nowhere safe to go" after the recommended Rxc7+ — the queen in
+    # fact had NINE squares in the real position (a4 b5 c6 d5 d6 e6 e7 e8 f5);
+    # it had one only because Black was in check and Qxc7 was the sole legal
+    # queen move. The recommendation itself was correct (Rxc7+ is the engine's
+    # #1 at depth 18, +800) — the WHY attached to it was an artifact.
+    #
+    # Trapped-ness is a claim about a piece's own mobility, so it can only be
+    # read on a board where the side to move is free to move anything.
+    if after.is_check():
+        return None
+
     attacked = [
         sq for sq in after.attacks(move.to_square)
         if (p := after.piece_at(sq)) is not None
