@@ -52,6 +52,9 @@ services:
       # the combined production app otherwise ignores values present in .env.
       - PWC_UNIFIED_EXPERIENCE_V1_ENABLED=${PWC_UNIFIED_EXPERIENCE_V1_ENABLED:-false}
       - PWC_UNIFIED_EXPERIENCE_V1_ROLES=${PWC_UNIFIED_EXPERIENCE_V1_ROLES:-admin,super_admin}
+      # Read-only policy comparison; this does not expose a V2 runtime.
+      - PWC_V2_SHADOW_ENABLED=${PWC_V2_SHADOW_ENABLED:-false}
+      - PWC_V2_SHADOW_ROLES=${PWC_V2_SHADOW_ROLES:-admin,super_admin}
       # Unified PWC reads the canonical cross-surface focus through this
       # independently fail-closed bridge. Without passing these variables to
       # the combined image, every eligible returning player receives the

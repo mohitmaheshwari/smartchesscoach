@@ -30,13 +30,13 @@ DEV_USER_ID = "user_62852a1b64e7"
 class TestOpeningTheoryJSONService:
     """Tests for the opening_theory_json_service module"""
     
-    def test_get_all_opening_keys_returns_8_openings(self):
-        """Verify all 8 openings are loaded from JSON"""
+    def test_get_all_opening_keys_includes_the_original_deep_openings(self):
+        """The reference expansion must retain the original deep lessons."""
         from services.opening_theory_json_service import get_all_opening_keys
         
         keys = get_all_opening_keys()
         
-        assert len(keys) == 8, f"Expected 8 openings, got {len(keys)}"
+        assert len(keys) >= 8, f"Expected at least 8 openings, got {len(keys)}"
         
         # Verify expected openings are present
         expected_openings = [
@@ -214,6 +214,8 @@ class TestTeachingAPIEndpoints:
     @pytest.fixture(autouse=True)
     def setup(self):
         """Setup test session"""
+        if not BASE_URL:
+            pytest.skip("live teaching API test requires REACT_APP_BACKEND_URL")
         self.session = requests.Session()
         self.session.headers.update({"Content-Type": "application/json"})
         # Use dev login cookie
@@ -367,12 +369,20 @@ class TestOpeningTeachingIntegration:
         # They should be mapped to move indices
         assert isinstance(critical, dict), "critical_positions should be a dict"
     
-    def test_all_8_openings_have_lessons(self):
-        """Verify all 8 openings have at least one lesson available"""
-        from services.opening_theory_json_service import get_all_opening_keys, get_variation_lesson_moves
-        
-        keys = get_all_opening_keys()
-        
+    def test_original_deep_openings_still_have_lessons(self):
+        """Reference-only additions must not weaken the original lessons."""
+        from services.opening_theory_json_service import get_variation_lesson_moves
+
+        keys = [
+            "italian_game",
+            "french_defense",
+            "queens_gambit",
+            "london_system",
+            "sicilian_dragon",
+            "caro_kann",
+            "sicilian_najdorf",
+            "ruy_lopez",
+        ]
         for key in keys:
             lesson = get_variation_lesson_moves(key)  # Default variation
             assert lesson is not None, f"No lesson for {key}"

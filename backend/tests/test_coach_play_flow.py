@@ -12,6 +12,7 @@ import asyncio
 import os
 import sys
 import json
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -20,7 +21,16 @@ load_dotenv()
 
 import httpx
 
-API_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001") + "/api"
+_BACKEND_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
+API_URL = f"{_BACKEND_URL}/api"
+
+pytestmark = [
+    pytest.mark.asyncio,
+    pytest.mark.skipif(
+        not _BACKEND_URL,
+        reason="live PWC E2E requires REACT_APP_BACKEND_URL",
+    ),
+]
 
 
 async def test_full_coach_flow():

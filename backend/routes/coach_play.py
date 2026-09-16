@@ -519,6 +519,10 @@ async def export_coach_session_bundle(
     )
     if session.get("user_id") != user.user_id and not is_reviewer:
         raise HTTPException(status_code=403, detail="Not your session")
+    if not is_reviewer:
+        from coach_play.coach_game_session import public_session_document
+
+        session = public_session_document(session)
 
     # Coach messages — chronological so a debugger reading the bundle
     # can pair each message with the move it commented on.
@@ -630,6 +634,8 @@ async def get_active_coach_sessions(
         {"user_id": user.user_id, "status": "active"},
         {"_id": 0}
     ).sort("created_at", -1).limit(5).to_list(5)
+    from coach_play.coach_game_session import public_session_document
+    sessions = [public_session_document(session) for session in sessions]
     
     return {
         "active_sessions": sessions,
@@ -672,6 +678,8 @@ async def get_coach_play_history(
         },
         {"_id": 0}
     ).sort("created_at", -1).limit(limit).to_list(limit)
+    from coach_play.coach_game_session import public_session_document
+    sessions = [public_session_document(session) for session in sessions]
     
     # Add summary stats
     wins = sum(1 for s in sessions if s.get("result") == "win")
@@ -5513,6 +5521,7 @@ async def evaluate_pending_move(
              "opening_teaching_moves": 1, "opening_teaching_index": 1,
              "behavior_summary": 1, "experience_version": 1, "game_mode": 1,
              "coaching_context": 1, "user_rating": 1, "current_fen": 1,
+             "pwc_v2_shadow_enabled": 1,
              "v5_fired_principles": 1, "v5_fired_state_keys": 1}
         )
         if not session_doc:
@@ -5540,6 +5549,29 @@ async def evaluate_pending_move(
             visible_layer = unified_decision.get("layer") in {
                 "advisory", "critical_interrupt"
             }
+            v2_shadow_packet = None
+            if session_doc.get("pwc_v2_shadow_enabled"):
+                try:
+                    from coach_play.v2.shadow_conductor import (
+                        build_shadow_packet_from_unified_response,
+                    )
+
+                    v2_shadow_packet = build_shadow_packet_from_unified_response(
+                        turn_id=move_key,
+                        live_response=unified_response,
+                        engine_evidence=engine_evidence,
+                        fen_before=fen_before,
+                        uci=uci,
+                        created_at=decision_created_at,
+                    )
+                except Exception as shadow_exc:
+                    # Shadow evidence is observational. It must never change a
+                    # live move, delay a response, or suppress verified V1.
+                    logger.warning(
+                        "[pwc-v2-shadow] comparison failed for %s: %s",
+                        move_key,
+                        shadow_exc,
+                    )
             await db.coach_sessions.update_one(
                 {
                     "session_id": session_id,
@@ -5570,6 +5602,11 @@ async def evaluate_pending_move(
                         "awaiting_choice"
                         if unified_decision.get("layer") == "critical_interrupt"
                         else "delivered" if visible_layer else "silent"
+                    ),
+                    **(
+                        {"pwc_v2_shadow": v2_shadow_packet}
+                        if v2_shadow_packet is not None
+                        else {}
                     ),
                 }}},
             )
@@ -7437,6 +7474,7 @@ async def start_play_with_coach(
 
     from services.pwc_experience import (
         UNIFIED_V1_EXPERIENCE,
+        pwc_v2_shadow_eligible,
         resolve_requested_experience_version,
     )
 
@@ -7453,6 +7491,14 @@ async def start_play_with_coach(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+    # V2 shadow is pinned at session start and is deliberately narrower than
+    # experience eligibility: the first adapter compares only Unified V1's
+    # already-verified decision. It cannot alter the response or admit V2 UI.
+    pwc_v2_shadow_enabled = bool(
+        experience_version == UNIFIED_V1_EXPERIENCE
+        and pwc_v2_shadow_eligible(rollout_user)
+    )
 
     # The unified UI exposes only Coach and Play. Evidence purpose remains an
     # internal learning-state decision rather than a third setup choice.
@@ -7512,6 +7558,7 @@ async def start_play_with_coach(
             game_mode=game_mode,
             evidence_mode=evidence_mode,
             experience_version=experience_version,
+            pwc_v2_shadow_enabled=pwc_v2_shadow_enabled,
         )
 
         if experience_version == UNIFIED_V1_EXPERIENCE:
@@ -7918,7 +7965,7 @@ async def start_play_with_coach(
             elif visible_coaching_context.get("evidence", {}).get("message"):
                 welcome_message = visible_coaching_context["evidence"]["message"]
 
-        session_dict = session.to_dict()
+        session_dict = session.to_public_dict()
         from services.focus_bridge import coaching_session_payload_for_mode
         visible_session_dict = coaching_session_payload_for_mode(
             session_dict, game_mode
@@ -11741,11 +11788,14 @@ async def export_session(session_id: str, user=Depends(get_current_user)):
     from datetime import datetime, timezone
 
     session = await db.coach_sessions.find_one(
-        {"session_id": session_id},
+        {"session_id": session_id, "user_id": user.user_id},
         {"_id": 0}
     )
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    from coach_play.coach_game_session import public_session_document
+    session = public_session_document(session)
 
     user_id = session.get("user_id", "")
 

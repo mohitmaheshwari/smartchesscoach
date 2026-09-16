@@ -123,6 +123,10 @@ services:
       # may opt in only an explicit role or per-user cohort through .env.
       - PWC_UNIFIED_EXPERIENCE_V1_ENABLED=${PWC_UNIFIED_EXPERIENCE_V1_ENABLED:-false}
       - PWC_UNIFIED_EXPERIENCE_V1_ROLES=${PWC_UNIFIED_EXPERIENCE_V1_ROLES:-admin,super_admin}
+      # V2 remains read-only shadow evidence. These flags cannot select a V2
+      # player experience; they only authorize comparison on Unified V1 turns.
+      - PWC_V2_SHADOW_ENABLED=${PWC_V2_SHADOW_ENABLED:-false}
+      - PWC_V2_SHADOW_ROLES=${PWC_V2_SHADOW_ROLES:-admin,super_admin}
       # Verified puzzle cutover fails closed by default. Run the stored-evidence
       # backfill before restarting this release. Neither gate invokes Stockfish;
       # stale or unauthorized rows simply do not serve.

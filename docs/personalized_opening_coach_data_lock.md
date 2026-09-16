@@ -86,4 +86,3 @@ Therefore the safe migration rule is locked as:
 - broad legacy progress remains available to old flows, but is an adapter input only and cannot overwrite canonical evidence.
 
 No production write or migration is authorized by this data lock.
-
