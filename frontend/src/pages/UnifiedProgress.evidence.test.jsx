@@ -324,7 +324,60 @@ describe("buildProgressView", () => {
       journey: { enabled: false, paused: false },
     });
 
-    expect(view.headline).toBe("I’m not ready to claim a change yet.");
-    expect(view.body).toContain("I would only be guessing");
+    expect(view.headline).toBe("I can’t show your progress right now.");
+    expect(view.body).toContain("does not mean you haven’t improved");
+  });
+
+});
+
+describe("Progress unavailable states", () => {
+  let container;
+  let root;
+  beforeEach(() => {
+    global.IS_REACT_ACT_ENVIRONMENT = true;
+    mockNavigate.mockReset();
+    mockLoadPersonalCurriculum.mockReset();
+    mockLoadPersonalCurriculum.mockResolvedValue(curriculum);
+    global.fetch = jest.fn();
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    delete global.fetch;
+  });
+
+  test.each(["baseline_missing", "enrollment_provenance_missing", "not_enrolled", "composition_disabled", "unknown_future_reason"])(
+    "disabled %s never masquerades as missing practice or game evidence", async (reason) => {
+      global.fetch.mockResolvedValue({ ok: true, json: async () => ({ enabled: false, paused: false, reason }) });
+      await act(async () => root.render(<UnifiedProgress user={{ user_id: "student" }} />));
+      expect(container.querySelector('[data-testid="progress-unavailable"]')).not.toBeNull();
+      expect(container.textContent).toContain(reason);
+      expect(container.textContent).not.toContain("Continue my lesson");
+      expect(container.textContent).not.toContain("No game-level proof");
+      expect(container.textContent).not.toContain("Practice recorded");
+      if (reason === "baseline_missing") expect(container.textContent).toContain("tracking setup issue");
+      const games = Array.from(container.querySelectorAll("button"))
+        .find((button) => button.textContent === "See my imported games");
+      act(() => games.click());
+      expect(mockNavigate).toHaveBeenCalledWith("/games");
+    }
+  );
+
+  test.each(["http", "network", "malformed"])("a %s failure is explicit and retry restores real evidence", async (failure) => {
+    if (failure === "network") global.fetch.mockRejectedValueOnce(new Error("offline"));
+    else global.fetch.mockResolvedValueOnce({
+      ok: failure !== "http", json: async () => ({}),
+    });
+    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => journey() });
+    await act(async () => root.render(<UnifiedProgress user={{ user_id: "student" }} />));
+    expect(container.textContent).toContain("Your progress didn’t load.");
+    expect(container.textContent).not.toContain("No game-level proof");
+    await act(async () => Array.from(container.querySelectorAll("button"))
+      .find((button) => button.textContent === "Try again").click());
+    expect(container.querySelector('[data-testid="progress-unavailable"]')).toBeNull();
+    expect(container.querySelector('[data-testid="progress-evidence"]')).not.toBeNull();
   });
 });
