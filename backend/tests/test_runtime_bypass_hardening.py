@@ -80,7 +80,7 @@ class _OpeningProgress:
 
 class _OpeningDb:
     def __init__(self):
-        self.opening_learning_progress = _OpeningProgress()
+        self.user_opening_mastery = _OpeningProgress()
 
 
 def test_browser_opening_completion_records_exposure_not_mastery():
@@ -93,12 +93,15 @@ def test_browser_opening_completion_records_exposure_not_mastery():
         trap_learned="everything",
         practiced=True,
     ))
-    stored = db.opening_learning_progress.document
+    stored = db.user_opening_mastery.document
 
     assert result["evidence_status"] == "seen_only"
-    assert result["mastery_level"] == "unknown"
-    assert stored["mastery_level"] == "unknown"
+    assert result["phase"] == "introduction"
+    assert result["mastery_awarded"] is False
+    assert stored["phase"] == "introduction"
+    assert stored["opening_key"] == "italian_game"
     assert stored["lesson_views"] == 1
+    assert stored["last_lesson_evidence"]["status"] == "seen_only"
     assert "main_line_progress" not in stored
     assert "times_practiced" not in stored
     assert "traps_learned" not in stored

@@ -14,6 +14,7 @@ Stored per user per opening in user_opening_mastery collection.
 """
 
 import logging
+from math import fsum
 from typing import Dict, List, Optional
 from datetime import datetime, timezone
 
@@ -39,6 +40,7 @@ FREEPLAY_TO_MASTERED_ACCURACY = 0.65          # path A per-game floor
 FREEPLAY_TO_MASTERED_GAMES = 3                # path A streak length
 FREEPLAY_TO_MASTERED_EXPERIENCE_GAMES = 10    # path B total game count
 FREEPLAY_TO_MASTERED_EXPERIENCE_ACC = 0.55    # path B average floor
+SOUND_ALTERNATIVE_MAX_CP = 20
 
 
 # ─── MOVE IDEAS — loaded from JSON theory tree ───────────────────
@@ -237,7 +239,12 @@ def _normalize_san_for_accuracy(san):
     return s.lower()
 
 
-def compute_engine_aware_opening_accuracy(v5_data, setup_order, max_user_plies=8):
+def compute_engine_aware_opening_accuracy(
+    v5_data,
+    setup_order,
+    max_user_plies=8,
+    player_color="white",
+):
     """Score user opening moves with engine-aware credit.
 
     Returns (accuracy_float or None, n_user_moves_evaluated).
@@ -248,6 +255,7 @@ def compute_engine_aware_opening_accuracy(v5_data, setup_order, max_user_plies=8
     setup_norm = [_normalize_san_for_accuracy(m) for m in setup_order]
     scores = []
     user_ply = 0
+    color_offset = 0 if str(player_color or "white").lower() == "white" else 1
     for rec in v5_data:
         if not isinstance(rec, dict):
             continue
@@ -256,11 +264,29 @@ def compute_engine_aware_opening_accuracy(v5_data, setup_order, max_user_plies=8
         if rec.get("phase") != "opening":
             break  # we've left the opening phase; stop scoring
         move_san = _normalize_san_for_accuracy(rec.get("move_san") or "")
-        cp_loss = int(rec.get("cp_loss") or 0)
-        expected = setup_norm[user_ply] if user_ply < len(setup_norm) else None
+        raw_cp_loss = rec.get("cp_loss")
+        try:
+            cp_loss = (
+                max(0, int(raw_cp_loss))
+                if raw_cp_loss is not None
+                else None
+            )
+        except (TypeError, ValueError):
+            cp_loss = None
+        # setup_order is a full-ply line (White, Black, White, Black...).
+        # The old code indexed it with the count of user moves, so Black's
+        # first move was compared with White's first move and every later
+        # authored move was shifted as well.
+        expected_index = user_ply * 2 + color_offset
+        expected = setup_norm[expected_index] if expected_index < len(setup_norm) else None
         if expected and move_san == expected:
             score = 1.0
-        elif cp_loss <= 20:
+        elif cp_loss is None:
+            # Missing engine evidence is not proof that a deviation was
+            # sound. Abstain from scoring this move instead of silently
+            # converting unknown into zero loss/full credit.
+            continue
+        elif cp_loss <= SOUND_ALTERNATIVE_MAX_CP:
             score = 1.0
         elif cp_loss <= 60:
             score = 0.7
@@ -351,21 +377,57 @@ async def update_mastery_from_analyzed_game(db, user_id, game_id):
     """
     ga = await db.game_analyses.find_one(
         {"game_id": game_id, "user_id": user_id},
-        {"_id": 0, "decryption_v5_data": 1},
+        {
+            "_id": 0,
+            "decryption_v5_data": 1,
+            "stockfish_analysis.move_evaluations": 1,
+        },
     )
     if not ga:
         return None
-    v5 = ga.get("decryption_v5_data") or []
-    if not v5:
-        return None
     g = await db.games.find_one(
         {"game_id": game_id, "user_id": user_id},
-        {"_id": 0, "opening_key": 1, "opening_name": 1},
+        {
+            "_id": 0,
+            "opening_key": 1,
+            "opening_name": 1,
+            "user_color": 1,
+            "pgn": 1,
+        },
     )
     opening_key = (g or {}).get("opening_key") or _curriculum_key_from_opening_name(
         (g or {}).get("opening_name")
     )
     if not opening_key:
+        return None
+    from services.opening_theory_json_service import resolve_opening_key
+
+    opening_key = resolve_opening_key(opening_key) or opening_key
+    player_color = str((g or {}).get("user_color") or "white").lower()
+    v5 = ga.get("decryption_v5_data") or []
+    if not v5:
+        # Promoted Play-with-Coach games already carry stored Stockfish move
+        # evaluations but may not have a V5 projection yet. Reuse that truth
+        # instead of writing a second, curriculum-exact mastery result.
+        stored_moves = (
+            (ga.get("stockfish_analysis") or {}).get("move_evaluations") or []
+        )
+        v5 = []
+        for rec in stored_moves:
+            if not isinstance(rec, dict):
+                continue
+            if rec.get("is_opponent_move") is True:
+                continue
+            move_number = int(rec.get("move_number") or 0)
+            if move_number and move_number > 8:
+                continue
+            v5.append({
+                "is_user_move": True,
+                "phase": "opening",
+                "move_san": rec.get("move_san") or rec.get("move"),
+                "cp_loss": rec.get("cp_loss"),
+            })
+    if not v5:
         return None
     curr = _load_opening_curriculum()
     opening_data = curr.get(opening_key)
@@ -374,7 +436,11 @@ async def update_mastery_from_analyzed_game(db, user_id, game_id):
     setup_order = opening_data.get("setup_order") or []
     if not setup_order:
         return None
-    accuracy, n_moves = compute_engine_aware_opening_accuracy(v5, setup_order)
+    accuracy, n_moves = compute_engine_aware_opening_accuracy(
+        v5,
+        setup_order,
+        player_color=player_color,
+    )
     if accuracy is None:
         return None
     # Idempotency: skip if this game already contributed.
@@ -383,7 +449,48 @@ async def update_mastery_from_analyzed_game(db, user_id, game_id):
         {"_id": 0, "_accuracy_evaluated_games": 1},
     )
     evaluated = set((current or {}).get("_accuracy_evaluated_games") or [])
+
+    async def _record_branch_evidence():
+        from services.personalized_opening_coach import (
+            personalized_opening_coach_enabled,
+        )
+
+        if not personalized_opening_coach_enabled():
+            return {"recorded": False, "events": 0, "disabled": True}
+        try:
+            from services.opening_branch_evidence import (
+                record_opening_branch_evidence,
+            )
+
+            return await record_opening_branch_evidence(
+                db,
+                user_id,
+                opening_key,
+                player_color,
+                (g or {}).get("pgn") or "",
+                (ga.get("stockfish_analysis") or {}).get("move_evaluations") or [],
+                game_id,
+            )
+        except Exception:
+            logger.exception(
+                "[MASTERY] Branch evidence failed for game %s",
+                game_id,
+            )
+            return None
+
     if game_id in evaluated:
+        # A previous accuracy write may have succeeded before branch evidence
+        # was available. Idempotently repair that independent evidence stream
+        # instead of making the first partial write permanent.
+        branch_result = await _record_branch_evidence()
+        if branch_result and branch_result.get("recorded"):
+            return {
+                "opening_key": opening_key,
+                "accuracy": accuracy,
+                "n_moves_evaluated": n_moves,
+                "branch_evidence": branch_result,
+                "result": None,
+            }
         return None
     # Write via update_mastery_after_game using accuracy_override.
     result = await update_mastery_after_game(
@@ -391,6 +498,7 @@ async def update_mastery_from_analyzed_game(db, user_id, game_id):
         moves_correct=0, moves_total=0,
         accuracy_override=accuracy,
     )
+    branch_result = await _record_branch_evidence()
     # Mark game as evaluated.
     await db.user_opening_mastery.update_one(
         {"user_id": user_id, "opening_key": opening_key},
@@ -400,6 +508,7 @@ async def update_mastery_from_analyzed_game(db, user_id, game_id):
         "opening_key": opening_key,
         "accuracy": accuracy,
         "n_moves_evaluated": n_moves,
+        "branch_evidence": branch_result,
         "result": result,
     }
 
@@ -423,6 +532,11 @@ async def get_opening_mastery(db, user_id: str, opening_key: str) -> Dict:
             "traps_handled": [],
             "traps_fallen_for": [],
             "accuracy_history": [],
+            "practice_attempts": 0,
+            "independent_practice_completions": 0,
+            "assisted_practice_completions": 0,
+            "sound_alternative_completions": 0,
+            "evidence_status": "unverified",
             "last_played": None,
         }
     return doc
@@ -471,10 +585,12 @@ async def update_mastery_after_game(
     all_handled = list(set(current.get("traps_handled", []) + (traps_handled or [])))
     all_fallen = list(set(current.get("traps_fallen_for", []) + (traps_fallen_for or [])))
 
-    # Accuracy history (last 5 games)
+    # Keep enough history for both documented promotion paths. The experience
+    # path requires ten games; retaining five made it mathematically
+    # unreachable.
     acc_history = current.get("accuracy_history", [])
     acc_history.append(round(accuracy, 2))
-    acc_history = acc_history[-5:]
+    acc_history = acc_history[-FREEPLAY_TO_MASTERED_EXPERIENCE_GAMES:]
 
     # Track which branches the user has seen
     branches_seen = list(current.get("branches_seen", []))
@@ -512,6 +628,120 @@ async def update_mastery_after_game(
     return mastery
 
 
+async def record_opening_practice_completion(
+    db,
+    user_id: str,
+    opening_key: str,
+    session_id: str,
+    player_color: str,
+    player_role: str = None,
+    mistakes_count: int = 0,
+    hints_used: int = 0,
+    completion_kind: str = "authored_line",
+) -> Dict:
+    """Persist server-graded practice evidence without awarding mastery.
+
+    A lesson or practice line is rehearsal, not real-game proof. This writer
+    records independent and assisted outcomes separately and never changes
+    phase/games_played/accuracy_history. Session idempotency protects retries
+    and duplicate HTTP responses from inflating the counters.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    color = "black" if str(player_color or "white").lower() == "black" else "white"
+    mistakes = max(0, int(mistakes_count or 0))
+    hints = max(0, int(hints_used or 0))
+    independent = mistakes == 0 and hints == 0
+    evidence_status = (
+        "independent_practice" if independent else "assisted_practice"
+    )
+    role = (
+        "answering_opponent"
+        if str(player_role or "").lower() == "answering_opponent"
+        else "chosen_opening"
+    )
+
+    # Establish the canonical owner before the guarded write. Keeping this
+    # separate avoids an upsert with a negative array predicate creating a
+    # duplicate player-opening row under concurrent completion requests.
+    await db.user_opening_mastery.update_one(
+        {"user_id": user_id, "opening_key": opening_key},
+        {
+            "$setOnInsert": {
+                "user_id": user_id,
+                "opening_key": opening_key,
+                "phase": INTRODUCTION,
+                "games_played": 0,
+                "moves_correct": 0,
+                "moves_total": 0,
+                "traps_encountered": [],
+                "traps_handled": [],
+                "traps_fallen_for": [],
+                "accuracy_history": [],
+                "branches_seen": [],
+                "practice_attempts": 0,
+                "independent_practice_completions": 0,
+                "assisted_practice_completions": 0,
+                "sound_alternative_completions": 0,
+                "white_practice_attempts": 0,
+                "black_practice_attempts": 0,
+                "white_independent_practice_completions": 0,
+                "black_independent_practice_completions": 0,
+                "white_assisted_practice_completions": 0,
+                "black_assisted_practice_completions": 0,
+                "evidence_status": "unverified",
+            }
+        },
+        upsert=True,
+    )
+
+    increments = {
+        "practice_attempts": 1,
+        f"{color}_practice_attempts": 1,
+    }
+    if independent:
+        increments["independent_practice_completions"] = 1
+        increments[f"{color}_independent_practice_completions"] = 1
+    else:
+        increments["assisted_practice_completions"] = 1
+        increments[f"{color}_assisted_practice_completions"] = 1
+    if completion_kind == "sound_alternative":
+        increments["sound_alternative_completions"] = 1
+
+    evidence = {
+        "session_id": session_id,
+        "source": "opening_practice",
+        "status": evidence_status,
+        "completion_kind": completion_kind,
+        "player_color": color,
+        "role": role,
+        "mistakes_count": mistakes,
+        "hints_used": hints,
+        "recorded_at": now,
+    }
+    result = await db.user_opening_mastery.update_one(
+        {
+            "user_id": user_id,
+            "opening_key": opening_key,
+            "_practice_evaluated_sessions": {"$ne": session_id},
+        },
+        {
+            "$inc": increments,
+            "$addToSet": {"_practice_evaluated_sessions": session_id},
+            "$set": {
+                "last_practice_evidence": evidence,
+                "evidence_status": evidence_status,
+                "last_practiced": now,
+            },
+        },
+    )
+    return {
+        "recorded": bool(result.modified_count),
+        "evidence_status": evidence_status,
+        "mastery_awarded": False,
+        "evidence": evidence,
+    }
+
+
 def _compute_phase(current_phase: str, games_played: int, accuracy_history: List[float]) -> str:
     """Determine the teaching phase based on progress."""
     if current_phase == INTRODUCTION:
@@ -532,7 +762,7 @@ def _compute_phase(current_phase: str, games_played: int, accuracy_history: List
             return MASTERED
         # Path B — experience: long history at a moderate average.
         if (len(accuracy_history) >= FREEPLAY_TO_MASTERED_EXPERIENCE_GAMES
-                and (sum(accuracy_history) / len(accuracy_history))
+                and (fsum(accuracy_history) / len(accuracy_history))
                     >= FREEPLAY_TO_MASTERED_EXPERIENCE_ACC):
             return MASTERED
         return FREE_PLAY

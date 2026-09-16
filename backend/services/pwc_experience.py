@@ -15,6 +15,7 @@ from typing import Any, Dict, Mapping
 LEGACY_EXPERIENCE = "legacy"
 UNIFIED_V1_EXPERIENCE = "unified_v1"
 UNIFIED_V1_FEATURE_KEY = "pwc_unified_experience_v1"
+PWC_V2_SHADOW_FEATURE_KEY = "pwc_v2_shadow"
 
 
 def _flag_enabled() -> bool:
@@ -30,6 +31,37 @@ def _rollout_roles() -> set[str]:
         "admin,super_admin",
     )
     return {item.strip().lower() for item in raw.split(",") if item.strip()}
+
+
+def _v2_shadow_flag_enabled() -> bool:
+    return os.environ.get("PWC_V2_SHADOW_ENABLED", "false").lower() == "true"
+
+
+def _v2_shadow_rollout_roles() -> set[str]:
+    raw = os.environ.get("PWC_V2_SHADOW_ROLES", "admin,super_admin")
+    return {item.strip().lower() for item in raw.split(",") if item.strip()}
+
+
+def pwc_v2_shadow_eligible(user_doc: Mapping[str, Any] | None) -> bool:
+    """Admit read-only V2 comparison without changing the live experience.
+
+    This is intentionally separate from ``preferred_experience_version``.
+    Shadow eligibility may record policy comparisons on an existing Unified V1
+    turn, but it can never make the browser request or render a V2 runtime.
+    """
+    if not _v2_shadow_flag_enabled():
+        return False
+
+    user_doc = user_doc or {}
+    feature_flags = user_doc.get("feature_flags") or {}
+    explicit = feature_flags.get(PWC_V2_SHADOW_FEATURE_KEY)
+    if explicit is False:
+        return False
+    if explicit is True:
+        return True
+
+    role = str(user_doc.get("role") or "user").strip().lower()
+    return role in _v2_shadow_rollout_roles()
 
 
 def unified_v1_eligible(user_doc: Mapping[str, Any] | None) -> bool:
@@ -125,8 +157,10 @@ __all__ = [
     "LEGACY_EXPERIENCE",
     "UNIFIED_V1_EXPERIENCE",
     "UNIFIED_V1_FEATURE_KEY",
+    "PWC_V2_SHADOW_FEATURE_KEY",
     "build_experience_config",
     "preferred_experience_version",
     "resolve_requested_experience_version",
+    "pwc_v2_shadow_eligible",
     "unified_v1_eligible",
 ]

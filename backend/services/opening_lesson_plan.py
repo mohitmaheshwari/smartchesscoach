@@ -369,7 +369,12 @@ def _playable(chapter: Dict[str, Any], main_line: List[str]) -> List[Dict[str, A
     return []
 
 
-async def build_lesson_plan(db, user_id: str, opening_key: str) -> Optional[Dict[str, Any]]:
+async def build_lesson_plan(
+    db,
+    user_id: str,
+    opening_key: str,
+    player_color: str = None,
+) -> Optional[Dict[str, Any]]:
     """One ordered thread for this student, with no choices to make first."""
     resolved = resolve_opening_key(opening_key) or opening_key
     opening = get_opening_theory(resolved)
@@ -381,7 +386,11 @@ async def build_lesson_plan(db, user_id: str, opening_key: str) -> Optional[Dict
         try:
             from routes.openings import _compute_opening_mistakes
 
-            mistakes = await _compute_opening_mistakes(user_id, resolved) or []
+            mistakes = await _compute_opening_mistakes(
+                user_id,
+                resolved,
+                player_color=player_color,
+            ) or []
         except Exception:
             # A personal opener is an upgrade. Losing it must never cost the
             # student the lesson.
@@ -434,10 +443,22 @@ async def build_lesson_plan(db, user_id: str, opening_key: str) -> Optional[Dict
     for chapter in chapters:
         chapter["play"] = _playable(chapter, main_line)
 
+    resolved_player_color = str(
+        player_color or opening.get("color") or "white"
+    ).lower()
+    if resolved_player_color not in {"white", "black"}:
+        resolved_player_color = str(opening.get("color") or "white").lower()
+
     return {
         "opening_key": resolved,
         "name": opening.get("name"),
         "color": opening.get("color"),
+        "player_color": resolved_player_color,
+        "player_role": (
+            "chosen_opening"
+            if resolved_player_color == str(opening.get("color") or "white").lower()
+            else "answering_opponent"
+        ),
         "personalised": bool(personal),
         "chapters": chapters,
     }

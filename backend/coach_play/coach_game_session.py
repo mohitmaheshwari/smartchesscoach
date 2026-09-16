@@ -27,6 +27,25 @@ logger = logging.getLogger(__name__)
 STOCKFISH_PATH = "/usr/games/stockfish"
 
 
+def public_session_document(session_payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Remove internal rollout and shadow evidence from a browser payload."""
+    visible = dict(session_payload)
+    visible.pop("pwc_v2_shadow_enabled", None)
+    decisions = visible.get("coaching_decisions")
+    if isinstance(decisions, list):
+        visible["coaching_decisions"] = [
+            {
+                key: value
+                for key, value in decision.items()
+                if key != "pwc_v2_shadow"
+            }
+            if isinstance(decision, dict)
+            else decision
+            for decision in decisions
+        ]
+    return visible
+
+
 class SessionStatus(str, Enum):
     ACTIVE = "active"
     COMPLETED = "completed"
@@ -65,6 +84,9 @@ class CoachGameSession:
     # Stored at session creation so rollout changes cannot switch an active
     # game's interaction controller halfway through.
     experience_version: str = "legacy"
+    # Read-only PWC V2 policy comparison. This never changes the selected
+    # experience or authorizes a player-facing V2 decision.
+    pwc_v2_shadow_enabled: bool = False
     # Evidence intent is separate from presentation mode.  Coach mode is
     # assisted practice; a silent Play-mode game becomes a checkpoint only
     # when the player explicitly selected that purpose.
@@ -197,6 +219,10 @@ class CoachGameSession:
         if self.ended_at:
             data['ended_at'] = self.ended_at.isoformat()
         return data
+
+    def to_public_dict(self) -> Dict:
+        """Serialize browser-safe session state without rollout internals."""
+        return public_session_document(self.to_dict())
     
     @classmethod
     def from_dict(cls, data: Dict) -> 'CoachGameSession':
@@ -243,6 +269,7 @@ async def start_coach_session(
     game_mode: str = "coach",  # "coach" (with captions) | "play" (pure chess)
     evidence_mode: str = None,
     experience_version: str = "legacy",
+    pwc_v2_shadow_enabled: bool = False,
 ) -> CoachGameSession:
     """
     Start a new Play With Coach session.
@@ -538,6 +565,7 @@ async def start_coach_session(
         game_mode=game_mode,  # "coach" (with captions) | "play" (pure chess)
         evidence_mode=effective_evidence_mode,
         experience_version=experience_version,
+        pwc_v2_shadow_enabled=bool(pwc_v2_shadow_enabled),
     )
 
     logger.info(f"[start_coach_session] Created session with game_mode={session.game_mode}")
@@ -721,7 +749,7 @@ async def make_player_move(
         await _save_session(db, session)
         return {
             "success": True,
-            "session": session.to_dict(),
+            "session": session.to_public_dict(),
             "game_over": True,
             "result": result.value,
             "termination_reason": reason,
@@ -751,7 +779,7 @@ async def make_player_move(
     
     return {
         "success": True,
-        "session": session.to_dict(),
+        "session": session.to_public_dict(),
         "coach_move": session.move_history[-1] if session.move_history and session.move_history[-1]["by"] == "coach" else None,
         "game_over": game_over,
         "result": result.value if game_over else None,
@@ -864,7 +892,7 @@ async def get_session_state(
                 }
     
     return {
-        "session": session.to_dict(),
+        "session": session.to_public_dict(),
         "current_fen": session.current_fen,
         "is_player_turn": is_player_turn,
         "legal_moves": [board.san(m) for m in board.legal_moves],
@@ -974,7 +1002,7 @@ async def end_coach_session(
     
     return {
         "success": True,
-        "session": session.to_dict(),
+        "session": session.to_public_dict(),
         "summary": summary,
         "cpr": cpr_result,
         "identity": updated_identity
