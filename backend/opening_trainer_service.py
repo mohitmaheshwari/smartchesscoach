@@ -552,7 +552,12 @@ def detect_opening_from_moves(moves: List[str]) -> Optional[Dict]:
 # USER OPENING ANALYSIS
 # ============================================================================
 
-async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
+async def get_user_opening_stats(
+    db,
+    user_id: str,
+    *,
+    split_by_color: bool = False,
+) -> List[Dict]:
     """
     Get detailed statistics on user's most-played openings.
     Maps ECO codes to proper opening names using eco_openings.json.
@@ -584,20 +589,38 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
     
     for game in games:
         raw_opening = game.get("opening_name") or game.get("opening") or game.get("eco") or "Unknown"
+        if isinstance(raw_opening, dict):
+            raw_opening = (
+                raw_opening.get("name")
+                or raw_opening.get("eco")
+                or "Unknown"
+            )
+        raw_opening = str(raw_opening)
         
         # Convert ECO code to proper opening name
         display_name = get_opening_name_from_eco(raw_opening)
         
-        # Create a normalized key for grouping
+        user_color = str(game.get("user_color") or "white").lower()
+        if user_color not in {"white", "black"}:
+            user_color = "white"
+
+        # Preserve the legacy combined view for existing callers, but let the
+        # personalized coach keep "I play this" separate from "I face this".
+        # The same provider opening name can legitimately occur for both roles.
         opening_key = display_name.lower().replace(" ", "_").replace("-", "_").replace("'", "").replace(":", "")
+        grouping_key = (
+            f"{opening_key}::{user_color}" if split_by_color else opening_key
+        )
         
         # Store the ECO code if it looks like one
         eco_code = raw_opening.upper() if (len(raw_opening) <= 3 and raw_opening[0].isalpha() and raw_opening[1:].isdigit()) else None
         
-        if opening_key not in opening_stats:
-            opening_stats[opening_key] = {
+        if grouping_key not in opening_stats:
+            opening_stats[grouping_key] = {
+                "opening_key": opening_key,
                 "name": display_name,
                 "eco": eco_code,
+                "player_color": user_color if split_by_color else None,
                 "games": 0,
                 "wins": 0,
                 "losses": 0,
@@ -608,14 +631,12 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
                 "accuracy_count": 0  # Track how many games have accuracy data
             }
         
-        stats = opening_stats[opening_key]
+        stats = opening_stats[grouping_key]
         stats["games"] += 1
         if eco_code and not stats["eco"]:
             stats["eco"] = eco_code
         
         result = game.get("result", "").lower()
-        user_color = game.get("user_color", "white")
-        
         if user_color == "white":
             stats["as_white"] += 1
             if result == "win" or result == "1-0":
@@ -652,7 +673,7 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
                 avg_accuracy = 0
             
             # Get opening info from database
-            db_info = OPENINGS_DATABASE.get(key, {})
+            db_info = OPENINGS_DATABASE.get(stats.get("opening_key"), {})
             
             results.append({
                 "key": key,
@@ -666,7 +687,8 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
                 "draws": stats["draws"],
                 "as_white": stats["as_white"],
                 "as_black": stats["as_black"],
-                "has_training_content": key in OPENINGS_DATABASE,
+                "player_color": stats.get("player_color"),
+                "has_training_content": stats.get("opening_key") in OPENINGS_DATABASE,
                 "key_ideas": db_info.get("key_ideas", []),
                 "description": db_info.get("description", ""),
                 "mastery_level": classify_mastery(stats["games"], win_rate, avg_accuracy)
@@ -675,7 +697,10 @@ async def get_user_opening_stats(db, user_id: str) -> List[Dict]:
     # Sort by games played
     results.sort(key=lambda x: -x["games_played"])
     
-    return results[:10]  # Top 10
+    # Existing pages intentionally receive the historical top-ten combined
+    # view. The role-aware coach needs all split records before choosing its
+    # own top recommendations.
+    return results if split_by_color else results[:10]
 
 
 def classify_mastery(games: int, win_rate: float, accuracy: float) -> str:

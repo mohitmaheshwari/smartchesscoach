@@ -325,7 +325,9 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
           });
           setFeedback({
             type: "success",
-            message: data.message || "Congratulations! You've mastered this opening line!"
+            message:
+              data.message ||
+              "Practised. That is evidence of understanding, not mastery yet; I will look for it in a real game."
           });
         } else if (data.correct) {
           // Correct move - update FEN to show user's move immediately
@@ -452,10 +454,17 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
     setLastMove(null);
     
     try {
-      const res = await fetch(`${API}/openings/${openingKey}/practice/start`, {
+      const colorQuery =
+        userColor === "white" || userColor === "black"
+          ? `?player_color=${userColor}`
+          : "";
+      const res = await fetch(
+        `${API}/openings/${openingKey}/practice/start${colorQuery}`,
+        {
         method: "POST",
         credentials: "include"
-      });
+        }
+      );
       if (!ownsRequest()) return;
       
       if (res.ok) {
@@ -510,7 +519,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
     } finally {
       if (ownsRequest()) setLoading(false);
     }
-  }, [openingKey, setupUserMove, invalidateAsyncWork, schedule]);
+  }, [openingKey, userColor, setupUserMove, invalidateAsyncWork, schedule]);
   
   // Get hint
   const getHint = useCallback(async () => {
@@ -520,14 +529,9 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
     setHintCount(prev => prev + 1);
     
     try {
-      const res = await fetch(`${API}/openings/practice/hint`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          session_id: sessionId,
-          hint_level: hintCount + 1
-        })
+      const res = await fetch(`${API}/openings/practice/${sessionId}/hint`, {
+        method: "GET",
+        credentials: "include"
       });
       
       if (res.ok) {
@@ -539,7 +543,7 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
     } catch (err) {
       console.error("Error getting hint:", err);
     }
-  }, [sessionId, hintCount]);
+  }, [sessionId]);
   
   // Reset session
   const resetSession = useCallback(() => {

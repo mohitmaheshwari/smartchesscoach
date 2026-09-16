@@ -2830,8 +2830,11 @@ async def submit_opening_quiz(opening_key: str, request: Request, user: User = D
     score = (correct_count / total * 100) if total > 0 else 0
 
     if score >= 90:
-        mastery_feedback = "Excellent! You've mastered this opening."
-        new_level = "mastered"
+        mastery_feedback = (
+            "Excellent recall in this quiz. I will look for the same decisions "
+            "in a real game before calling the opening mastered."
+        )
+        new_level = "practiced"
     elif score >= 70:
         mastery_feedback = "Good job! Keep practicing the traps."
         new_level = "practiced"

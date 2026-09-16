@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -14,6 +14,7 @@ import Layout from "@/components/Layout";
 import ChessLoader from "@/components/ChessLoader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 
 const KNOWLEDGE_BANDS = [
   {
@@ -34,6 +35,20 @@ const KNOWLEDGE_BANDS = [
 ];
 
 function OpeningCard({ opening, onClick }) {
+  const coachingSummary = (() => {
+    const games = Number(opening.games_played || 0);
+    if (opening.knowledge_band === "know") {
+      return `Across ${games} game${games === 1 ? "" : "s"}, you handled the first twelve moves well. I will look for the next unfamiliar response instead of reteaching the basics.`;
+    }
+    if (opening.knowledge_band === "drill") {
+      return `Across ${games} game${games === 1 ? "" : "s"}, some early decisions are steady and some are not. We will practise the smallest useful fix.`;
+    }
+    if (opening.knowledge_band === "learn") {
+      return `This opening has cost you ground early across ${games} game${games === 1 ? "" : "s"}. I will start with the first recurring decision.`;
+    }
+    return "I need a few more games before I can judge this opening honestly.";
+  })();
+
   return (
     <motion.button
       type="button"
@@ -47,7 +62,7 @@ function OpeningCard({ opening, onClick }) {
         <div>
           <h3 className="font-heading text-base font-semibold text-foreground">{opening.name}</h3>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-            I’ve seen this opening in your games. Let’s make the plan behind it easier to recognise.
+            {coachingSummary}
           </p>
         </div>
         <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
@@ -61,6 +76,16 @@ function OpeningCard({ opening, onClick }) {
         {opening.traps_learned?.length > 0 && (
           <span className="inline-flex items-center gap-1 rounded-full bg-[#FF8066]/10 px-2.5 py-1 text-[10px] font-semibold text-[#B94D37] dark:text-[#FF9B86]">
             <Target className="h-3 w-3" /> You’ve met a trap here
+          </span>
+        )}
+        {Number(opening.independent_practice_completions || 0) > 0 && (
+          <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-800 dark:text-emerald-200">
+            Found without help {opening.independent_practice_completions}x
+          </span>
+        )}
+        {Number(opening.assisted_practice_completions || 0) > 0 && (
+          <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-800 dark:text-amber-200">
+            Practised with help {opening.assisted_practice_completions}x
           </span>
         )}
       </div>
@@ -83,7 +108,14 @@ function RecommendedCard({ opening, onClick }) {
           <Sparkles className="h-4 w-4 text-emerald-800 dark:text-[#B7F34A]" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="font-heading text-base font-semibold">{opening.name}</h3>
+          {opening.focus_title && opening.focus_title !== opening.name && (
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+              {opening.name}
+            </p>
+          )}
+          <h3 className="font-heading text-base font-semibold">
+            {opening.focus_title || opening.name}
+          </h3>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{opening.description}</p>
           {opening.reason && (
             <p className="mt-3 text-xs font-medium leading-relaxed text-emerald-800 dark:text-emerald-200">
@@ -99,6 +131,7 @@ function RecommendedCard({ opening, onClick }) {
 
 export default function OpeningRepertoire({ user }) {
   const navigate = useNavigate();
+  const shownRecommendationRef = useRef(null);
   const [repertoire, setRepertoire] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("white");
@@ -125,9 +158,50 @@ export default function OpeningRepertoire({ user }) {
     fetchRepertoire();
   }, []);
 
-  const openLesson = (opening) => {
+  useEffect(() => {
+    const recommendation = (
+      activeTab === "black"
+        ? repertoire?.recommended_black
+        : repertoire?.recommended_white
+    )?.[0];
+    if (!recommendation) return;
+    const contentId = recommendation.library_key || recommendation.key;
+    if (!contentId) return;
+    const decisionId = `${activeTab}:${contentId}`;
+    if (shownRecommendationRef.current === decisionId) return;
+    shownRecommendationRef.current = decisionId;
+    trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_DECISION_SHOWN, {
+      surface: "opening_repertoire",
+      decision_id: decisionId,
+      decision_source: recommendation.from_your_games ? "player_games" : "new_ground",
+      recommendation_kind: recommendation.focus_title && recommendation.focus_title !== recommendation.name
+        ? "recurring_decision"
+        : "opening_family",
+      content_type: "opening",
+      content_id: contentId,
+      tab: activeTab,
+      is_recommended: true,
+    });
+  }, [activeTab, repertoire]);
+
+  const openLesson = (opening, isRecommended = false) => {
     const key = opening.library_key || opening.key;
-    if (key) navigate(`/openings/${key}`);
+    const playerColor = opening.player_color || activeTab;
+    if (key && isRecommended) {
+      trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_PRIMARY_CLICKED, {
+        surface: "opening_repertoire",
+        decision_id: `${playerColor}:${key}`,
+        decision_source: opening.from_your_games ? "player_games" : "new_ground",
+        recommendation_kind: opening.focus_title && opening.focus_title !== opening.name
+          ? "recurring_decision"
+          : "opening_family",
+        content_type: "opening",
+        content_id: key,
+        tab: playerColor,
+        is_recommended: true,
+      });
+    }
+    if (key) navigate(`/openings/${key}?player_color=${playerColor}`);
   };
 
   if (loading) {
@@ -187,7 +261,7 @@ export default function OpeningRepertoire({ user }) {
                   <p className="cg-eyebrow mb-4">What I’d teach next</p>
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {current.recommendations.map((opening, index) => (
-                      <RecommendedCard key={opening.key || index} opening={opening} onClick={() => openLesson(opening)} />
+                      <RecommendedCard key={opening.key || index} opening={opening} onClick={() => openLesson(opening, true)} />
                     ))}
                   </div>
                 </section>
@@ -268,7 +342,7 @@ export default function OpeningRepertoire({ user }) {
                       type="button"
                       className="group rounded-2xl border border-border bg-card/60 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-emerald-700/25"
                       onClick={() => {
-                        navigate(`/openings/${opening.key}`);
+                        navigate(`/openings/${opening.key}?player_color=${opening.color}`);
                         setShowAllOpenings(false);
                       }}
                     >
