@@ -9112,14 +9112,39 @@ def _recommended_move_traps_piece(
             # Zero moves is a pin or a wall -- a different lesson; stay silent.
             continue
         safe = False
+        # Per-square evidence, so the card can SHOW the trap instead of
+        # asserting it: for every square the piece can still reach, which of
+        # our pieces covers it. Mohit 2026-09-16 — "whenever a piece is
+        # trapped I want arrows to print out all the positions that piece had
+        # and all are attacked by my piece". The detector already played every
+        # destination out; it was keeping only the count and discarding this.
+        escape_evidence: List[Dict[str, Any]] = []
         for m in dests:
             probe = after.copy()
             probe.push(m)
+            covered_by = sorted(
+                chess.square_name(a)
+                for a in after.attackers(not victim_color, m.to_square)
+            )
+            escape_evidence.append({
+                "square": chess.square_name(m.to_square),
+                "covered_by": covered_by,
+            })
             if static_exchange_eval(probe, m.to_square, not victim_color) <= 50:
                 safe = True
                 break
         if safe:
             continue
+
+        # Squares the piece cannot use because its OWN side is standing there.
+        # Those are part of the picture too: on the O-O-O card b7 is blocked by
+        # Black's own bishop, which is why the knight has three squares and not
+        # four.
+        blocked_by_own = sorted(
+            chess.square_name(t)
+            for t in after.attacks(sq)
+            if (op := after.piece_at(t)) is not None and op.color == victim_color
+        )
 
         name = PIECE_TYPE_NAMES.get(piece.piece_type, "piece")
         square = chess.square_name(sq)
@@ -9142,6 +9167,9 @@ def _recommended_move_traps_piece(
             "escape_count": len(dests),
             "on_rim": on_rim,
             "lesson": lesson,
+            "escape_evidence": escape_evidence,
+            "blocked_by_own": blocked_by_own,
+            "attacker_square": chess.square_name(move.to_square),
         }
     return None
 

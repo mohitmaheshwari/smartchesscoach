@@ -177,6 +177,26 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [futureMoveIndex, setFutureMoveIndex] = useState(0);
   const [highlights, setHighlights] = useState([]);
   const [arrows, setArrows] = useState([]);
+
+  // Caption arrows (2026-09-16). The backend has emitted caption_arrows on
+  // every card since the pipeline was written and nothing ever read it. It
+  // carries the trap picture: one arrow from each of our pieces to each
+  // square the trapped piece can still reach, plus the move that springs it,
+  // so the cage is SHOWN instead of described. Same {from,to,color} shape the
+  // plan-analysis path already maps. Falls back to the move arrow when a card
+  // has none, so navigation never leaves a stale trap on the board.
+  const applyCaptionArrows = useCallback((card) => {
+    const capArrows = card?.caption_arrows;
+    if (capArrows?.length) {
+      setArrows(
+        capArrows
+          .filter((a) => a?.from && a?.to)
+          .map((a) => [a.from, a.to, a.color || "red"])
+      );
+    } else {
+      setArrows([]);
+    }
+  }, []);
   
   // "What were you thinking?" state
   const [userThoughts, setUserThoughts] = useState({});
@@ -397,6 +417,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     if (idx === -1) { setInitialMoveHandled(true); return; }
     setCurrentMoveIndex(idx);
     setBoardFen(decryptionData[idx].fen_after);
+    applyCaptionArrows(decryptionData[idx]);
     if (decryptionData[idx].highlight_squares?.length) {
       setHighlights(decryptionData[idx].highlight_squares);
     }
@@ -839,12 +860,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setBoardFen(decryptionData[i].fen_after);
 
     const m = decryptionData[i];
+    applyCaptionArrows(m);
     if (m.highlight_squares?.length) {
       setHighlights(m.highlight_squares);
     } else {
       setHighlights([]);
     }
-  }, [decryptionData, currentMoveIndex]);
+  }, [decryptionData, currentMoveIndex, applyCaptionArrows]);
 
   const goBackward = useCallback(() => {
     if (!decryptionData || currentMoveIndex < 0) return;
@@ -876,12 +898,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setCurrentMoveIndex(i);
     setBoardFen(i === -1 ? START_FEN : decryptionData[i].fen_after);
     
+    if (i >= 0) applyCaptionArrows(decryptionData[i]);
     if (i >= 0 && decryptionData[i].highlight_squares?.length) {
       setHighlights(decryptionData[i].highlight_squares);
     } else {
       setHighlights([]);
     }
-  }, [decryptionData]);
+  }, [decryptionData, applyCaptionArrows]);
 
   const resetFutureView = () => {
     setShowingFutureMoves(false);

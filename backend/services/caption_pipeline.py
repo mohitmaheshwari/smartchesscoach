@@ -5160,6 +5160,59 @@ def build_move_teaching_decision(
         full_move_number=inputs.full_move_number,
     )
 
+    # ─── Trap visualisation on OUR move (2026-09-16) ────────────────
+    # Mohit: "I would like arrows to start showing up when it's our move ...
+    # before b4, show the knight trapping square or other squares ... any
+    # piece that gets trapped should do this."
+    #
+    # The trap was only ever described on the OPPONENT's mistake card, in
+    # words, after the fact. The lesson lands on the move the player actually
+    # makes, so the same detector now runs on OUR played move and the card
+    # SHOWS the cage: one arrow from each of our pieces to each square the
+    # trapped piece can still reach, plus the trapping move itself. Words then
+    # only have to carry what the board cannot show.
+    #
+    # Piece-agnostic by construction — the detector already skips only pawns
+    # and kings, so a trapped queen, rook or bishop draws the same picture.
+    try:
+        from services.caption_facts import (
+            _recommended_move_traps_piece as _rmtp_own,
+        )
+        _own_trap = _rmtp_own(board_before, played_move)
+    except Exception:
+        _own_trap = None
+    if _own_trap:
+        caption_facts["played_move_traps_piece"] = True
+        caption_facts["played_trapped_piece"] = _own_trap["piece"]
+        caption_facts["played_trapped_square"] = _own_trap["square"]
+        caption_facts["played_trapped_escape_count"] = _own_trap["escape_count"]
+        caption_facts["played_trapped_on_rim"] = _own_trap.get("on_rim")
+        caption_facts["played_trapped_evidence"] = _own_trap.get("escape_evidence") or []
+        caption_facts["played_trapped_blocked_by_own"] = _own_trap.get("blocked_by_own") or []
+
+        _arrows = list(caption_payload.get("arrows") or [])
+        _high = list(caption_payload.get("highlight_squares") or [])
+        _target = _own_trap["square"]
+        if _target not in _high:
+            _high.append(_target)
+        # the move that springs the trap
+        _arrows.append({
+            "from": _own_trap.get("attacker_square") or "",
+            "to": _target,
+            "color": "blue",
+        })
+        # every remaining flight square, and who of ours covers it
+        for _ev in (_own_trap.get("escape_evidence") or []):
+            _sq = _ev.get("square")
+            if _sq and _sq not in _high:
+                _high.append(_sq)
+            for _cov in (_ev.get("covered_by") or []):
+                if len(_arrows) >= 9:   # keep the board readable
+                    break
+                _arrows.append({"from": _cov, "to": _sq, "color": "red"})
+        caption_payload["arrows"] = [a for a in _arrows if a.get("from") and a.get("to")]
+        caption_payload["highlight_squares"] = _high
+
     # ─── Board-verified teaching cue (2026-09-16) ───────────────────
     # principle_cue is the amber "how to spot it next time" line the review
     # card renders (GameDecryptionV5.jsx:1784). It has been EMPTY on every
