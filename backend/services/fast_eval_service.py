@@ -49,10 +49,17 @@ def _restart_engine():
     global _warm_engine
     with _engine_lock:
         if _warm_engine:
+            _dead, _warm_engine = _warm_engine, None
             try:
-                _warm_engine.quit()
+                _dead.quit()
             except Exception:
-                pass
+                # Same leak as StockfishEngine.stop(): a wedged engine refuses
+                # to quit and the process is orphaned. close() kills the
+                # transport so it cannot outlive us.
+                try:
+                    _dead.close()
+                except Exception:
+                    logger.warning("fast_eval engine would not close", exc_info=True)
         _warm_engine = None
     return _get_engine()
 

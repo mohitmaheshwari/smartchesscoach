@@ -141,11 +141,33 @@ class StockfishEngine:
             raise
     
     def stop(self):
-        """Stop the Stockfish engine"""
-        if self.engine:
-            self.engine.quit()
-            self.engine = None
-            logger.info("Stockfish engine stopped")
+        """Stop the Stockfish engine, and make sure the PROCESS actually dies.
+
+        quit() sends "quit" and waits for a graceful exit. On a wedged engine
+        it raises — and because the old version cleared self.engine only AFTER
+        the call, the exception propagated with the reference still set and the
+        OS process was orphaned. Measured on prod 2026-09-16: five Stockfish
+        processes alive between 27 minutes and 2h07 at 0.0% CPU while the
+        analysis worker sat idle with an empty queue; earlier the same day one
+        had been alive 11 days. They hold memory and they are what made the box
+        unusable this morning.
+
+        Clear the reference FIRST so no failure path can leak it, then try a
+        graceful quit and fall back to close(), which kills the transport.
+        """
+        engine, self.engine = self.engine, None
+        if engine is None:
+            return
+        try:
+            engine.quit()
+        except Exception:
+            # Wedged or already dead — take the process down rather than
+            # leave it running with nobody holding it.
+            try:
+                engine.close()
+            except Exception:
+                logger.warning("Stockfish engine would not close", exc_info=True)
+        logger.info("Stockfish engine stopped")
     
     def evaluate_position(self, board: chess.Board, depth: int = DEFAULT_DEPTH) -> Tuple[int, Optional[int]]:
         """

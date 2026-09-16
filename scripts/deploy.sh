@@ -65,8 +65,19 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "backend" ]; then
     || die "backend image build failed; backend still on the previous image"
   ok "image built"
 
-  docker compose up -d backend analysis-worker \
-    || die "backend containers failed to start"
+  # Analysis workers scale horizontally. Each worker runs ONE single-threaded
+  # Stockfish and claims jobs with an atomic find_one_and_update, so N workers
+  # analyse N different games in parallel and no individual game's analysis
+  # changes -- unlike raising engine threads or removing searches, which move
+  # the evals. docker-compose.yml already documents that N replicas are
+  # supported; we were running 1 on a 4-vCPU box sitting ~49% idle while one
+  # game took 150s of pure engine time.
+  #
+  # 2 by default: ~2 cores for analysis, the rest left for the API and Mongo.
+  # Override with ANALYSIS_WORKERS=N ./scripts/deploy.sh
+  ANALYSIS_WORKERS="${ANALYSIS_WORKERS:-2}"
+  docker compose up -d --scale analysis-worker="$ANALYSIS_WORKERS" backend analysis-worker || die "backend containers failed to start"
+  ok "analysis workers: $ANALYSIS_WORKERS"
 
   step "backend running the intended commit"
   for _ in $(seq 1 30); do
