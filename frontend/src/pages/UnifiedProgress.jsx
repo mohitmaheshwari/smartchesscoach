@@ -80,16 +80,19 @@ export const buildProgressView = ({ journey, curriculum }) => {
   }
 
   if (!enabled) {
+    const missingHistory = ["baseline_missing", "enrollment_provenance_missing"]
+      .includes(journey?.reason);
     return {
       tone: "waiting",
-      eyebrow: "I’m gathering proof",
-      headline: "I’m not ready to claim a change yet.",
-      body:
-        "I need to see you work through the lesson, then face the same kind of choice in one of your later games. Until both happen, I would only be guessing.",
+      eyebrow: "Progress tracking unavailable",
+      headline: "I can’t show your progress right now.",
+      body: missingHistory
+        ? "The starting record needed for this comparison is missing. This is a tracking setup issue—not a judgment about your chess."
+        : "Progress tracking isn’t available for your account right now. That does not mean you haven’t improved.",
       focusTitle,
       watch:
-        "Practice can show that an idea makes sense. Only a later unassisted game can show that it is becoming part of your chess.",
-      action: { label: primary ? "Continue my lesson" : "Open Learn", href: lessonHref },
+        "You can improve through your own games without completing a lesson here. Connecting that improvement to a particular lesson is a separate question.",
+      action: { label: "See my imported games", href: "/games" },
       steps: {},
     };
   }
@@ -312,6 +315,8 @@ export default function UnifiedProgress({ user }) {
   const [loading, setLoading] = useState(true);
   const [journey, setJourney] = useState(null);
   const [curriculum, setCurriculum] = useState(null);
+  const [loadError, setLoadError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     trackCurriculum(ANALYTICS_EVENTS.PROGRESS_VIEWED, {
@@ -322,11 +327,22 @@ export default function UnifiedProgress({ user }) {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
+    setJourney(null);
+    setCurriculum(null);
     Promise.allSettled([
       loadPersonalCurriculum(API, user?.user_id, "progress"),
       fetch(`${API}/progress/complete-coaching`, {
         credentials: "include",
-      }).then((response) => (response.ok ? response.json() : null)),
+      }).then(async (response) => {
+        if (!response.ok) throw new Error("Progress request failed");
+        const payload = await response.json();
+        if (!payload || typeof payload.enabled !== "boolean") {
+          throw new Error("Invalid progress response");
+        }
+        return payload;
+      }),
     ])
       .then(([curriculumResult, journeyResult]) => {
         if (cancelled) return;
@@ -335,6 +351,8 @@ export default function UnifiedProgress({ user }) {
         }
         if (journeyResult.status === "fulfilled") {
           setJourney(journeyResult.value);
+        } else {
+          setLoadError(true);
         }
       })
       .finally(() => {
@@ -343,7 +361,7 @@ export default function UnifiedProgress({ user }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.user_id]);
+  }, [user?.user_id, retryCount]);
 
   const view = useMemo(
     () => buildProgressView({ journey, curriculum }),
@@ -355,6 +373,46 @@ export default function UnifiedProgress({ user }) {
       <Layout user={user}>
         <div className="grid h-[60vh] place-items-center" aria-label="Loading progress">
           <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (loadError || (!journey?.enabled && !journey?.paused)) {
+    return (
+      <Layout user={user}>
+        <div className="experience-page experience-progress-page cg-page max-w-[1040px]"
+          data-testid="progress-unavailable"
+          data-tracking-reason={loadError ? "load_error" : journey?.reason || ""}>
+          <header className="cg-hero">
+            <p className="cg-eyebrow">Progress · what is changing in your chess</p>
+            <h1 className="cg-title">{loadError ? "Your progress didn’t load." : view.headline}</h1>
+            <p className="cg-lede" role="status">
+              {loadError
+                ? "I couldn’t load your progress. This isn’t evidence that your games or improvement are missing."
+                : view.body}
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              {view.watch}
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              {loadError && (
+                <button type="button" className="cg-primary-action"
+                  onClick={() => setRetryCount((count) => count + 1)}>
+                  Try again
+                </button>
+              )}
+              <button type="button"
+                className={loadError ? "cg-secondary-action" : "cg-primary-action"}
+                onClick={() => navigate("/games")}>
+                See my imported games
+              </button>
+              <button type="button" className="cg-secondary-action"
+                onClick={() => navigate("/import")}>
+                Check my game imports
+              </button>
+            </div>
+          </header>
         </div>
       </Layout>
     );
