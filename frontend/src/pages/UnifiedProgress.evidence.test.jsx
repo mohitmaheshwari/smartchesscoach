@@ -353,8 +353,14 @@ describe("Progress unavailable states", () => {
     "disabled %s never masquerades as missing practice or game evidence", async (reason) => {
       global.fetch.mockResolvedValue({ ok: true, json: async () => ({ enabled: false, paused: false, reason }) });
       await act(async () => root.render(<UnifiedProgress user={{ user_id: "student" }} />));
-      expect(container.querySelector('[data-testid="progress-unavailable"]')).not.toBeNull();
-      expect(container.textContent).toContain(reason);
+      const panel = container.querySelector('[data-testid="progress-unavailable"]');
+      expect(panel).not.toBeNull();
+      // The backend reason stays available for diagnostics, but is never shown to the user.
+      expect(panel.getAttribute("data-tracking-reason")).toBe(reason);
+      expect(container.textContent).not.toContain(reason);
+      // Retrying cannot change a persistent access state, so it must not be offered here.
+      expect(Array.from(container.querySelectorAll("button"))
+        .some((button) => button.textContent === "Try again")).toBe(false);
       expect(container.textContent).not.toContain("Continue my lesson");
       expect(container.textContent).not.toContain("No game-level proof");
       expect(container.textContent).not.toContain("Practice recorded");

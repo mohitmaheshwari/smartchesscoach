@@ -382,7 +382,8 @@ export default function UnifiedProgress({ user }) {
     return (
       <Layout user={user}>
         <div className="experience-page experience-progress-page cg-page max-w-[1040px]"
-          data-testid="progress-unavailable">
+          data-testid="progress-unavailable"
+          data-tracking-reason={loadError ? "load_error" : journey?.reason || ""}>
           <header className="cg-hero">
             <p className="cg-eyebrow">Progress · what is changing in your chess</p>
             <h1 className="cg-title">{loadError ? "Your progress didn’t load." : view.headline}</h1>
@@ -395,11 +396,14 @@ export default function UnifiedProgress({ user }) {
               {view.watch}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <button type="button" className="cg-primary-action"
-                onClick={() => setRetryCount((count) => count + 1)}>
-                Try again
-              </button>
-              <button type="button" className="cg-secondary-action"
+              {loadError && (
+                <button type="button" className="cg-primary-action"
+                  onClick={() => setRetryCount((count) => count + 1)}>
+                  Try again
+                </button>
+              )}
+              <button type="button"
+                className={loadError ? "cg-secondary-action" : "cg-primary-action"}
                 onClick={() => navigate("/games")}>
                 See my imported games
               </button>
@@ -408,12 +412,6 @@ export default function UnifiedProgress({ user }) {
                 Check my game imports
               </button>
             </div>
-            {!loadError && journey?.reason && (
-              <details className="mt-6 text-sm text-muted-foreground">
-                <summary className="cursor-pointer">Tracking status</summary>
-                <p className="mt-2">Status code: <code>{journey.reason}</code></p>
-              </details>
-            )}
           </header>
         </div>
       </Layout>
