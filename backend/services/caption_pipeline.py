@@ -5183,9 +5183,22 @@ def build_move_teaching_decision(
     # to cards where it is not the lesson — observed on a free-rook capture
     # and on an even recapture. Right-or-silent beats a cue that is merely
     # true.
+    # The fact being TRUE is not enough — it must be what THIS card is about.
+    # opp_reply_traps_piece stayed true on the move after the trap was
+    # diagnosed, so an even-trade card ("Bxb4 takes your pawn, but your pawn
+    # can take back") was given "count the squares it can come back to — this
+    # knight had 3". The rendered caption is the evidence that the card is
+    # about that piece: require its square to appear in the text.
+    _rendered_caption = (caption_payload.get("caption") or "")
+
+    def _card_is_about(square: Any) -> bool:
+        sq = str(square or "").strip()
+        return bool(sq) and sq in _rendered_caption
+
     if not (caption_facts.get("principle_cue") or "").strip():
         _f = caption_facts
-        if _f.get("opp_reply_traps_piece") and _f.get("opp_trapped_piece"):
+        if (_f.get("opp_reply_traps_piece") and _f.get("opp_trapped_piece")
+                and _card_is_about(_f.get("opp_trapped_square"))):
             _n = _f.get("opp_trapped_escape_count")
             caption_facts["principle_cue"] = (
                 "Next time: before a piece steps forward, count the squares it "
@@ -5194,7 +5207,8 @@ def build_move_teaching_decision(
                    if isinstance(_n, int) else ".")
             )
             caption_facts["principle_id_used"] = "TAC_TRAPPED_PIECE"
-        elif _f.get("opp_reply_exposes_undefended") and _f.get("opp_undefended_piece"):
+        elif (_f.get("opp_reply_exposes_undefended") and _f.get("opp_undefended_piece")
+                and _card_is_about(_f.get("opp_undefended_square"))):
             caption_facts["principle_cue"] = (
                 "Next time: before you take back, check what is still guarding "
                 "the square you are recapturing on."
