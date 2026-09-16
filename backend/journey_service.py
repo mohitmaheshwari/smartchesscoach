@@ -1025,7 +1025,7 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
     analyzed_count = 0
     imported_count = 0
     
-    for item in games_to_analyze:
+    for _queue_index, item in enumerate(games_to_analyze):
         try:
             game_data = item["game"]
             platform = item["platform"]
@@ -1163,12 +1163,45 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
             try:
                 existing_queue = await db.analysis_queue.find_one({"game_id": game_doc['game_id']})
                 if not existing_queue:
+                    # PRIORITY (2026-09-16). This row used to carry no
+                    # priority at all. The worker sorts
+                    # [("priority", -1), ("queued_at", 1)] and MongoDB sorts a
+                    # missing field as null, which under DESC sorts LAST — so
+                    # a brand-new user's imported games went to the very back
+                    # of the global queue, behind every other job in the
+                    # system including month-old pending rows. Farhan Hassan
+                    # onboarded with 45 games and waited ~1h39m for them at
+                    # ~4.5 min/game; his first review was one of the last
+                    # things to arrive rather than one of the first.
+                    #
+                    # A first sync outranks live games (10) because onboarding
+                    # is the one moment the product has to be fast. Later
+                    # syncs sit at 5: ahead of bulk/backfill, behind a game
+                    # the player just finished and is waiting on.
+                    #
+                    # games_to_analyze is newest-first (see
+                    # select_games_for_analysis, which sorts reverse=True), so
+                    # the index boost makes the most recent games analyse
+                    # first — the player opens their latest game, not their
+                    # oldest.
+                    # A live game (priority 10) is one the player has just
+                    # finished and is waiting on, so a routine background sync
+                    # must stay BELOW it: base 5 with the boost capped at 4
+                    # gives 5..9. A first sync is the exception and outranks
+                    # everything, because onboarding is the one moment the
+                    # product has to feel fast.
+                    if is_first_sync:
+                        _base_priority, _max_boost = 20, 10
+                    else:
+                        _base_priority, _max_boost = 5, 4
+                    _recency_boost = max(0, _max_boost - _queue_index)
                     queue_item = {
                         "game_id": game_doc['game_id'],
                         "user_id": user_id,
                         "pgn": game_doc.get("pgn", ""),
                         "user_color": game_doc.get("user_color", "white"),
                         "status": "pending",
+                        "priority": _base_priority + _recency_boost,
                         "queued_at": datetime.now(timezone.utc).isoformat(),
                         "auto_synced": True
                     }
