@@ -5264,8 +5264,17 @@ def build_move_teaching_decision(
 
     if not (caption_facts.get("principle_cue") or "").strip():
         _f = caption_facts
+        # OUR move trapped something: the caption names the cage and the arrows
+        # draw it, so the cue carries only the geometry that generalises.
+        if _f.get("played_move_traps_piece") and _f.get("played_trapped_piece"):
+            _f = dict(_f)
+            _f["opp_trapped_piece"] = caption_facts.get("played_trapped_piece")
+            _f["opp_trapped_square"] = caption_facts.get("played_trapped_square")
+            _f["opp_trapped_on_rim"] = caption_facts.get("played_trapped_on_rim")
+            _f["opp_reply_traps_piece"] = True
         if (_f.get("opp_reply_traps_piece") and _f.get("opp_trapped_piece")
-                and _card_is_about(_f.get("opp_trapped_square"))):
+                and (caption_facts.get("played_move_traps_piece")
+                     or _card_is_about(_f.get("opp_trapped_square")))):
             # Teach the GEOMETRY, not a counting chore. "Count its escape
             # squares" is bookkeeping — slow, mechanical, and it transfers
             # nothing. What transfers is the shape that MAKES the count small,

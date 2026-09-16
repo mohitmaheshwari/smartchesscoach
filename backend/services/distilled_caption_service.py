@@ -537,6 +537,56 @@ def _passes_verify(inp, cap):
         return True  # verifier unavailable -> don't block
 
 
+def _trap_caption(inp):
+    """A move that traps an enemy piece, said in one short sentence.
+
+    2026-09-16. The card for such a move used to read "b4 is the best move in
+    this position" — true, and worth nothing to a 600. It now names what the
+    move DOES. The caption stays deliberately short because the board is
+    carrying the picture: caption_arrows draws one arrow from each of our
+    pieces to each square the trapped piece can still reach (see
+    caption_pipeline, "Trap visualisation on OUR move"). Words should only
+    carry what the arrows cannot.
+
+    Right-or-silent: the detector plays out every escape square and SEE-scores
+    it, so "every square it can reach is covered" is only ever asserted when
+    that is true of this position. Returns None otherwise.
+    """
+    try:
+        import chess
+        from services.caption_facts import _recommended_move_traps_piece
+        board = chess.Board(inp.fen_before)
+        move = board.parse_san(inp.played_san)
+    except Exception:
+        return None
+    trap = None
+    try:
+        trap = _recommended_move_traps_piece(board, move)
+    except Exception:
+        return None
+    if not trap:
+        return None
+    piece = trap.get("piece") or "piece"
+    square = trap.get("square") or ""
+    if not square:
+        return None
+    blocked = trap.get("blocked_by_own") or []
+    san = inp.played_san
+    if blocked:
+        # Naming the self-block is the part a beginner misses: the piece has
+        # fewer squares than it looks because its OWN side is in the way.
+        caption = (
+            f"{san} traps the {piece} on {square}. Every square it can reach "
+            f"is covered, and its own side blocks {blocked[0]}."
+        )
+    else:
+        caption = (
+            f"{san} traps the {piece} on {square}. Every square it can reach "
+            f"is covered."
+        )
+    return (caption, "facts:traps_piece")
+
+
 def _facts_caption(inp):
     """Why-Now Coach Layer (proof slice): consume the CANONICAL verified facts from
     caption_facts (single-source — do NOT recompute) to produce a POSITION-SPECIFIC
@@ -609,6 +659,11 @@ def try_distilled_caption(inp) -> Optional[Tuple[str, str]]:
             result = _opening_caption(inp)
         # Why-Now proof slice: prefer position-specific facts (names the real
         # defender) over a generic capture template, for non-mistake captures.
+        # A move that cages an enemy piece is the most teachable thing on the
+        # card — more so than "best move in this position" — and the board is
+        # already drawing the cage, so say it plainly and briefly.
+        if result is None and cp < 100:
+            result = _trap_caption(inp)
         if result is None and cp < 100:
             result = _facts_caption(inp)
         if result is None:
