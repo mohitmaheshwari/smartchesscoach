@@ -68,6 +68,7 @@ from typing import Any, Dict, Optional, Tuple
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import pymongo
+from pymongo import UpdateOne
 
 # Provenance tags written to `played_at_source`.
 SRC_PGN_UTC = "pgn_utc_headers"        # exact instant from [Utcdate]+[Utctime]
@@ -170,19 +171,30 @@ def derive(game: Dict[str, Any]) -> Tuple[Optional[datetime], str]:
     """Return (canonical UTC instant, provenance tag) for one game."""
     pgn = game.get("pgn") or ""
 
+    # Both halves must parse. A present-but-malformed time used to fall
+    # through `_combine`'s midnight default, so "[Utctime \"99:99:99\"]"
+    # produced 00:00:00 tagged `pgn_utc_headers` -- a fabricated instant
+    # wearing an exactness label. Caught by
+    # test_malformed_headers_do_not_raise.
     ud, ut = _H_UTCDATE.search(pgn), _H_UTCTIME.search(pgn)
     if ud and ut:
-        dt = _combine(_parse_dotted_date(ud.group(1)), _parse_clock(ut.group(1)))
-        if dt:
-            return dt, SRC_PGN_UTC
+        date_parts = _parse_dotted_date(ud.group(1))
+        clock_parts = _parse_clock(ut.group(1))
+        if date_parts and clock_parts:
+            dt = _combine(date_parts, clock_parts)
+            if dt:
+                return dt, SRC_PGN_UTC
 
     # [Date]+[Time] are only usable when the PGN states the zone is UTC.
     # Without that, the offset is unknown and we do not invent one.
     d, t, tz = _H_DATE.search(pgn), _H_TIME.search(pgn), _H_TZ.search(pgn)
     if d and t and tz and tz.group(1).strip().upper() in ("UTC", "Z", "GMT"):
-        dt = _combine(_parse_dotted_date(d.group(1)), _parse_clock(t.group(1)))
-        if dt:
-            return dt, SRC_PGN_LOCAL
+        date_parts = _parse_dotted_date(d.group(1))
+        clock_parts = _parse_clock(t.group(1))
+        if date_parts and clock_parts:
+            dt = _combine(date_parts, clock_parts)
+            if dt:
+                return dt, SRC_PGN_LOCAL
 
     # Coach games are created live at the end of a session and carry no PGN
     # date headers, so `imported_at` is the moment the game was played to
@@ -206,9 +218,54 @@ def derive(game: Dict[str, Any]) -> Tuple[Optional[datetime], str]:
     return None, SRC_NONE
 
 
-def _fingerprint(counts: Dict[str, int]) -> str:
-    blob = json.dumps(counts, sort_keys=True).encode()
+def _fingerprint(sources: Dict[str, int], disagreements: int) -> str:
+    """Fingerprint the SHAPE of the plan, not its row counts.
+
+    Games keep importing, so a fingerprint over raw counts goes stale within
+    minutes and the operator is trained to expect a refusal and work around
+    it -- which defeats the gate. What must not change between review and
+    apply is the plan's character: which provenance categories exist, whether
+    anything is unrecoverable, and whether any stored value disagrees with
+    its own PGN. Ordinary import drift leaves all three untouched; a genuine
+    change to the data's shape invalidates the plan, which is the point.
+    """
+    shape = {
+        "sources": sorted(sources),
+        "has_unrecoverable": bool(sources.get(SRC_NONE)),
+        "has_disagreements": bool(disagreements),
+    }
+    blob = json.dumps(shape, sort_keys=True).encode()
     return hashlib.sha256(blob).hexdigest()[:16]
+
+
+WRITTEN_FIELDS = ("played_at_utc", "played_at_source", "played_at_raw")
+
+
+def _rollback(db, args) -> int:
+    """Remove exactly the three fields this script adds. Touches nothing else."""
+    q = {"$or": [{f: {"$exists": True}} for f in WRITTEN_FIELDS]}
+    n = db.games.count_documents(q)
+    print(f"rollback: {n} games carry at least one of {WRITTEN_FIELDS}")
+    if not args.apply:
+        print("DRY RUN — nothing removed. Re-run with --rollback --apply.")
+        return 0
+    res = db.games.update_many(q, {"$unset": {f: "" for f in WRITTEN_FIELDS}})
+    print(f"rollback applied: matched={res.matched_count} modified={res.modified_count}")
+    left = db.games.count_documents(q)
+    print(f"games still carrying any of the fields: {left}")
+    return 0 if left == 0 else 1
+
+
+def _write_batches(db, ops, batch: int) -> Tuple[int, int]:
+    """Bulk-write in batches. Returns (matched, modified)."""
+    from pymongo import UpdateOne  # noqa: F401  (imported for the caller's type)
+    matched = modified = 0
+    for i in range(0, len(ops), batch):
+        res = db.games.bulk_write(ops[i:i + batch], ordered=False)
+        matched += res.matched_count
+        modified += res.modified_count
+        print(f"    wrote {min(i + batch, len(ops))}/{len(ops)}", flush=True)
+    return matched, modified
 
 
 def main() -> int:
@@ -218,6 +275,9 @@ def main() -> int:
                     help="write played_at_utc/source/raw (default: dry run only)")
     ap.add_argument("--confirm-plan", default=None,
                     help="fingerprint printed by the dry run; required with --apply")
+    ap.add_argument("--rollback", action="store_true",
+                    help="$unset the three fields this script writes, and nothing else")
+    ap.add_argument("--batch", type=int, default=1000, help="bulk write batch size")
     ap.add_argument("--limit", type=int, default=0, help="sample N games (0 = all)")
     ap.add_argument("--show", type=int, default=8, help="example rows per category")
     args = ap.parse_args()
@@ -225,7 +285,11 @@ def main() -> int:
     client = pymongo.MongoClient(os.environ["MONGO_URL"])
     db = client[os.environ.get("DB_NAME", "chess_coach")]
 
-    proj = {"game_id": 1, "user_id": 1, "pgn": 1, "date_played": 1,
+    if args.rollback:
+        return _rollback(db, args)
+
+    pending_ops = []
+    proj = {"_id": 1, "game_id": 1, "user_id": 1, "pgn": 1, "date_played": 1,
             "platform": 1, "is_analyzed": 1, "played_at_utc": 1,
             "imported_at": 1, "created_at": 1}
     cur = db.games.find({}, proj)
@@ -272,6 +336,16 @@ def main() -> int:
                 unchanged += 1
                 continue
         would_write += 1
+        # Re-running is a no-op for rows already carrying the right value
+        # (counted as `unchanged` above), so this is safe to repeat.
+        pending_ops.append(UpdateOne(
+            {"_id": g["_id"]},
+            {"$set": {
+                "played_at_utc": dt,
+                "played_at_source": source,
+                "played_at_raw": stored_raw,
+            }},
+        ))
 
         stored_dt = parse_stored(stored_raw)
         if dt and stored_dt:
@@ -338,9 +412,7 @@ def main() -> int:
     print(f"  games wrongly in an after-window      : {polluted_games}")
     print(f"  after repair, ordering is by BSON Date: pollution -> 0 by construction")
 
-    counts = {k: v for k, v in by_source.items()}
-    counts["_would_write"] = would_write
-    fp = _fingerprint(counts)
+    fp = _fingerprint(dict(by_source), len(disagreements))
     print(f"\nplan fingerprint: {fp}")
 
     if not args.apply:

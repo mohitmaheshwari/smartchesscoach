@@ -92,41 +92,138 @@ async def background_sync_loop():
         await asyncio.sleep(BACKGROUND_SYNC_INTERVAL_SECONDS)
 
 
+def focus_outcome_render_enabled() -> bool:
+    """Whether a measured outcome may reach the user.
+
+    Default OFF. With it off the loop still measures every active focus and
+    records what it *would* have said in `focus_outcome_shadow`, but never
+    calls `close_focus`, so no focus document changes and nothing renders.
+
+    Why the loop runs before anyone sees it: no focus has ever completed a
+    cycle, so there is no history to choose a terminal-state rule from. The
+    open question -- how many extensions, or how many days, before we tell
+    someone "we could not gather enough comparable games" -- should be
+    answered from the distribution of daily verdicts, not guessed. Shadow
+    mode is how that distribution gets collected without putting a first-ever
+    verdict in front of a user. On 2026-09-16 the live split was 4 improved,
+    6 regressed, 4 stuck, 11 pending and 17 no-data out of 42, so the modal
+    honest message today is "worse or still gathering" -- not a sentence to
+    lead with before the diagnosis itself is personal.
+    """
+    return os.environ.get("FOCUS_OUTCOME_RENDER_ENABLED", "").lower() in (
+        "1", "true", "yes", "on",
+    )
+
+
+def _lock_is_due(lock, now: datetime, now_iso: str) -> bool:
+    """Has this focus's lock expired?
+
+    `locked_until` is a BSON date on most rows and an ISO string on the rest,
+    and Motor hands back BSON dates as NAIVE datetimes. Comparing one of
+    those against an aware `now` raises TypeError, and inside the loop's
+    per-focus try/except that surfaces as a logged warning and a silently
+    skipped focus -- the shadow would collect nothing while looking healthy.
+    A naive/aware mismatch has already broken a deploy on this codebase once.
+    """
+    if not lock:
+        return False
+    if isinstance(lock, datetime):
+        if lock.tzinfo is None:
+            lock = lock.replace(tzinfo=timezone.utc)
+        return lock <= now
+    return str(lock) <= now_iso
+
+
+async def _record_shadow_outcome(f, outcome, now, is_due) -> None:
+    """One row per focus per day: what the loop would have said, unrendered.
+
+    Upserted on (focus_id, observed_on) so a restart or a second pass in the
+    same day overwrites rather than inflating the distribution.
+    """
+    started = f.get("started_at")
+    days_in = None
+    if isinstance(started, datetime):
+        days_in = (now - (started if started.tzinfo
+                          else started.replace(tzinfo=timezone.utc))).days
+    metric = outcome.get("current_metric") or {}
+    await db["focus_outcome_shadow"].update_one(
+        {"focus_id": str(f.get("_id")), "observed_on": now.date().isoformat()},
+        {"$set": {
+            "schema_version": 1,
+            "focus_id": str(f.get("_id")),
+            "user_id": f.get("user_id"),
+            "topic_key": f.get("topic_key"),
+            "cycle_version": f.get("cycle_version"),
+            "observed_at": now,
+            "observed_on": now.date().isoformat(),
+            "days_into_focus": days_in,
+            "is_due": is_due,
+            "resolution": outcome.get("resolution"),
+            "next_action": outcome.get("action"),
+            "delta_pct": outcome.get("delta_pct"),
+            "n_games_since_start": (outcome.get("n_games_since_start")
+                                    or metric.get("n_games_since_start")),
+            "n_decisions": metric.get("n_decisions"),
+            "metric_name": metric.get("name"),
+            "metric_value": metric.get("value"),
+        }},
+        upsert=True,
+    )
+
+
 async def focus_outcome_loop():
     """2026-07-03: Runs daily to check every active focus whose locked_until
     has arrived. Fires check_focus_outcome → close_focus which writes
     resolution=improved/regressed/stuck to the focus doc. HomePage banners
-    key off this."""
+    key off this.
+
+    2026-09-17: when `FOCUS_OUTCOME_RENDER_ENABLED` is off (the default) the
+    loop measures EVERY active weakness focus on each pass, not only those
+    whose lock has expired, and writes the verdict to `focus_outcome_shadow`
+    instead of closing the focus. Evaluating only due focuses would have
+    produced no data for a fortnight -- on 2026-09-17 every active lock was
+    still in the future, the nearest 2 days out. Nothing user-visible changes
+    in this mode.
+    """
     from services.primary_weakness_picker import check_focus_outcome, close_focus, COLLECTION
     from datetime import datetime, timezone
 
     await asyncio.sleep(300)  # wait 5 min after startup before first pass
     while True:
         try:
+            render = focus_outcome_render_enabled()
             now = datetime.now(timezone.utc)
             now_iso = now.isoformat()
             n_processed = 0
             n_improved = 0
             n_regressed = 0
             n_stuck = 0
+            n_shadowed = 0
             # `type` was added to this collection after the first focuses
             # were written, so an equality match on it silently skips every
             # legacy row -- 8 of the 53 active focuses on production, which
             # could therefore never be measured or closed at all. Two $or
             # clauses cannot share one object, hence the explicit $and.
-            async for f in db[COLLECTION].find({
-                "status": "active",
-                "$and": [
-                    {"$or": [{"type": {"$exists": False}},
-                             {"type": "weakness"}]},
-                    {"$or": [
-                        {"locked_until": {"$type": "date", "$lte": now}},
-                        {"locked_until": {"$type": "string", "$lte": now_iso}},
-                    ]},
-                ],
-            }):
+            type_clause = {"$or": [{"type": {"$exists": False}},
+                                   {"type": "weakness"}]}
+            due_clause = {"$or": [
+                {"locked_until": {"$type": "date", "$lte": now}},
+                {"locked_until": {"$type": "string", "$lte": now_iso}},
+            ]}
+            # Shadow mode measures every active focus; render mode keeps the
+            # original due-only selection so nothing closes early.
+            selector = {"status": "active", "$and": [type_clause]}
+            if render:
+                selector["$and"].append(due_clause)
+
+            async for f in db[COLLECTION].find(selector):
                 try:
                     outcome = await check_focus_outcome(db, f)
+                    if not render:
+                        is_due = _lock_is_due(f.get("locked_until"), now, now_iso)
+                        await _record_shadow_outcome(f, outcome, now, is_due)
+                        n_shadowed += 1
+                        continue
                     await close_focus(db, f, outcome)
                     if outcome.get("resolution") == "improved":
                         n_improved += 1
@@ -141,6 +238,11 @@ async def focus_outcome_loop():
                 logger.info(
                     f"focus_outcome_loop: processed {n_processed} focuses "
                     f"(improved={n_improved} regressed={n_regressed} stuck={n_stuck})"
+                )
+            if n_shadowed:
+                logger.info(
+                    f"focus_outcome_loop: SHADOW measured {n_shadowed} focuses "
+                    f"(nothing rendered; FOCUS_OUTCOME_RENDER_ENABLED is off)"
                 )
         except Exception as e:
             logger.error(f"focus_outcome_loop error: {e}")

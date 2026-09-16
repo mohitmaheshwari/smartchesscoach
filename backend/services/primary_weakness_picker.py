@@ -19,11 +19,14 @@ Indexes:
   - (user_id, status) — 1 active per user, fast lookup
   - (locked_until) — cron finds focuses ready for outcome check
 """
+import logging
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 from bson import ObjectId
 
 from services.destination_safety_detector import FACT_VERSION
+
+logger = logging.getLogger(__name__)
 
 COLLECTION = "user_active_focus"
 
@@ -962,20 +965,68 @@ async def _games_split_by_play_date(db, user_id: str, started_at: Any):
     fact -- on production the median game is analysed 19 days after it was
     played and 42% more than 30 days after -- so an `analyzed_at` window counts
     games played *before* the coaching started as evidence *of* the coaching.
-    `games.date_played` is stored as an ISO string, so the bound is stringified
-    to match; comparing it against a datetime silently matches nothing.
+    Splits on `played_at_utc`, a BSON Date written by
+    `scripts/backfill_played_at_utc.py`, NOT on the legacy `date_played`
+    string. `date_played` holds three incompatible shapes -- an ISO
+    timestamp, a chess.com dotted `2026.04.15`, and absent on Play-with-Coach
+    rows -- and ASCII "." (0x2E) sorts above "-" (0x2D), so under a string
+    comparison every dotted value lands after every ISO timestamp regardless
+    of the date it represents. Measured on production 2026-09-16: that put
+    407 games into 15 focuses' "after" windows, and for six users *every*
+    "after" game predated the focus by months.
+
+    The legacy branch below is transitional. Deploying this reader before the
+    backfill has run would otherwise drop un-migrated rows out of both
+    windows silently, so rows without `played_at_utc` are still split the old
+    way and counted, loudly. Once the backfill reports 0 remaining, that
+    branch stops matching anything and can be deleted.
     """
-    started = started_at
-    if isinstance(started, datetime):
-        started = started.isoformat()
-    started = str(started)
+    started_dt = started_at
+    if not isinstance(started_dt, datetime):
+        try:
+            started_dt = datetime.fromisoformat(
+                str(started_at).replace("Z", "+00:00")
+            )
+        except (TypeError, ValueError):
+            started_dt = None
+    if started_dt is not None and started_dt.tzinfo is None:
+        started_dt = started_dt.replace(tzinfo=timezone.utc)
+
     base = {"user_id": user_id, "is_analyzed": True}
-    before = await db.games.distinct(
-        "game_id", dict(base, date_played={"$lt": started})
+    before: list = []
+    after: list = []
+
+    if started_dt is not None:
+        before = await db.games.distinct(
+            "game_id", dict(base, played_at_utc={"$lt": started_dt})
+        )
+        after = await db.games.distinct(
+            "game_id", dict(base, played_at_utc={"$gte": started_dt})
+        )
+
+    unmigrated = await db.games.count_documents(
+        dict(base, played_at_utc={"$exists": False})
     )
-    after = await db.games.distinct(
-        "game_id", dict(base, date_played={"$gte": started})
-    )
+    if unmigrated:
+        logger.warning(
+            "[focus_outcome] %s: %d analysed games have no played_at_utc; "
+            "splitting those by the legacy date_played string, which cannot "
+            "order dotted dates correctly. Run "
+            "scripts/backfill_played_at_utc.py.",
+            user_id, unmigrated,
+        )
+        started_str = started_at
+        if isinstance(started_str, datetime):
+            started_str = started_str.isoformat()
+        started_str = str(started_str)
+        legacy = dict(base, played_at_utc={"$exists": False})
+        before += await db.games.distinct(
+            "game_id", dict(legacy, date_played={"$lt": started_str})
+        )
+        after += await db.games.distinct(
+            "game_id", dict(legacy, date_played={"$gte": started_str})
+        )
+
     return before, after
 
 

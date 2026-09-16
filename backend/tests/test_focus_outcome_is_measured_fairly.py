@@ -30,25 +30,74 @@ from pathlib import Path
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
+from datetime import datetime, timezone
+
 from services import primary_weakness_picker as pwp
+
+
+def _as_dt(value):
+    """Accept a datetime, or a 'YYYY-MM-DD'/ISO string, return aware UTC."""
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 # --- a database that answers with the games and observations we specify ------
 
 class _Games:
-    def __init__(self, played):
-        # played: {game_id: iso date string}
-        self.played = played
+    """Games keyed by the canonical `played_at_utc`.
 
-    async def distinct(self, field, query):
-        bound = query["date_played"]
+    The split moved off the legacy `date_played` string because that field
+    holds three incompatible shapes and ASCII "." sorts above "-", so a
+    chess.com `2026.04.15` compared as later than any ISO timestamp. This
+    fake therefore stores real datetimes and refuses a `date_played` bound,
+    so a regression back to string ordering fails loudly here rather than
+    silently misordering a real user's window.
+
+    `unmigrated` models rows the backfill has not reached yet, which the
+    production code still splits the old way during the transition.
+    """
+
+    def __init__(self, played, unmigrated=None):
+        # played: {game_id: datetime}. Plain "YYYY-MM-DD" strings are
+        # accepted and coerced so the cases below stay readable.
+        self.played = {g: _as_dt(v) for g, v in played.items()}
+        # unmigrated: {game_id: legacy date_played string}
+        self.unmigrated = unmigrated or {}
+
+    @staticmethod
+    def _select(items, bound):
         out = []
-        for game_id, date in self.played.items():
-            if "$lt" in bound and date < bound["$lt"]:
+        for game_id, when in items.items():
+            if "$lt" in bound and when < bound["$lt"]:
                 out.append(game_id)
-            elif "$gte" in bound and date >= bound["$gte"]:
+            elif "$gte" in bound and when >= bound["$gte"]:
                 out.append(game_id)
         return out
+
+    async def distinct(self, field, query):
+        # The legacy branch carries BOTH keys: it is scoped to un-migrated
+        # rows and bounded by the old string. Check it first.
+        if "date_played" in query:
+            assert query.get("played_at_utc") == {"$exists": False}, (
+                "a date_played bound is only legal for un-migrated rows; "
+                "the canonical split must use played_at_utc"
+            )
+            return self._select(self.unmigrated, query["date_played"])
+
+        if "played_at_utc" in query:
+            bound = query["played_at_utc"]
+            if bound == {"$exists": False}:
+                return list(self.unmigrated)
+            return self._select(self.played, bound)
+
+        raise AssertionError(f"unexpected games query: {query}")
+
+    async def count_documents(self, query):
+        if query.get("played_at_utc") == {"$exists": False}:
+            return len(self.unmigrated)
+        return len(self.played)
 
 
 class _Observations:
@@ -240,3 +289,52 @@ def test_a_real_regression_is_reported_as_one(monkeypatch):
     outcome = _run(db, _focus())
     assert outcome["resolution"] == "regressed"
     assert outcome["delta_pct"] == 200.0
+
+
+# --- the ordering defect that made every window untrustworthy ---------------
+
+def test_a_dotted_chesscom_date_does_not_land_in_the_after_window(monkeypatch):
+    """The production defect, pinned.
+
+    `date_played` held ISO timestamps for most games and chess.com's dotted
+    `2026.04.15` for 477 of them. Compared as strings, "." (0x2E) sorts above
+    "-" (0x2D), so every dotted value landed after every ISO timestamp no
+    matter what date it named. On 2026-09-16 that put 407 games into 15
+    focuses' "after" windows; for six users *every* "after" game predated the
+    focus by months, so the loop would have reported a change measured
+    against games played before the coaching started.
+
+    Splitting on a real datetime cannot reproduce it.
+    """
+    _no_subtype_gate(monkeypatch)
+    april = datetime(2026, 4, 15, 5, 45, 33, tzinfo=timezone.utc)   # was "2026.04.15"
+    db = _DB(
+        {"april_game": april,
+         "new1": "2026-07-01", "new2": "2026-07-02", "new3": "2026-07-03"},
+        {"april_game": 40, "new1": 40, "new2": 40, "new3": 40},
+    )
+    before, after = asyncio.run(
+        pwp._games_split_by_play_date(db, "u1", "2026-06-01T00:00:00+00:00")
+    )
+    assert "april_game" in before, "an April game belongs before a June focus"
+    assert "april_game" not in after
+    assert sorted(after) == ["new1", "new2", "new3"]
+
+
+def test_string_ordering_would_have_got_this_wrong():
+    """Guards the claim above rather than trusting the prose."""
+    assert "2026.04.15" > "2026-06-01T00:00:00+00:00"
+
+
+def test_unmigrated_rows_are_still_counted_during_the_transition(monkeypatch):
+    """Deploying the canonical reader before the backfill runs must not make
+    a user's games vanish from both halves of the window."""
+    _no_subtype_gate(monkeypatch)
+    db = _DB({"new1": "2026-07-01", "new2": "2026-07-02"},
+             {"new1": 40, "new2": 40, "legacy_old": 40})
+    db.games.unmigrated = {"legacy_old": "2026-01-01"}
+    before, after = asyncio.run(
+        pwp._games_split_by_play_date(db, "u1", "2026-06-01T00:00:00+00:00")
+    )
+    assert "legacy_old" in before
+    assert sorted(after) == ["new1", "new2"]
