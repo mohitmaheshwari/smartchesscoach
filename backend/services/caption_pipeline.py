@@ -1736,6 +1736,7 @@ def inject_opp_side_narration_facts(
                     caption_facts["opp_trapped_piece"] = _trap["piece"]
                     caption_facts["opp_trapped_square"] = _trap["square"]
                     caption_facts["opp_trapped_escape_count"] = _trap["escape_count"]
+                    caption_facts["opp_trapped_on_rim"] = _trap.get("on_rim")
                     caption_facts["opp_trapped_lesson"] = _trap["lesson"]
             except Exception:
                 pass
@@ -5199,13 +5200,43 @@ def build_move_teaching_decision(
         _f = caption_facts
         if (_f.get("opp_reply_traps_piece") and _f.get("opp_trapped_piece")
                 and _card_is_about(_f.get("opp_trapped_square"))):
-            _n = _f.get("opp_trapped_escape_count")
-            caption_facts["principle_cue"] = (
-                "Next time: before a piece steps forward, count the squares it "
-                "can come back to"
-                + (f" — this {_f['opp_trapped_piece']} had {_n}."
-                   if isinstance(_n, int) else ".")
-            )
+            # Teach the GEOMETRY, not a counting chore. "Count its escape
+            # squares" is bookkeeping — slow, mechanical, and it transfers
+            # nothing. What transfers is the shape that MAKES the count small,
+            # because then you recognise it instead of counting it: a knight
+            # moves in an L and an L needs room on two sides, so the edge of
+            # the board eats half of them.
+            _piece = str(_f.get("opp_trapped_piece") or "piece").lower()
+            _sq = str(_f.get("opp_trapped_square") or "")
+            _rim = bool(_f.get("opp_trapped_on_rim"))
+            _corner = _sq in ("a1", "a8", "h1", "h8")
+            if _piece == "knight" and _corner:
+                _cue = ("A knight moves in an L, and every L needs room on two "
+                        "sides. In the corner only two still fit on the board — "
+                        "a corner knight is nearly always trappable.")
+            elif _piece == "knight" and _rim:
+                _cue = ("A knight moves in an L, and every L needs room on two "
+                        "sides. On the edge half of them run off the board — "
+                        "eight squares become four. That is why rim knights get "
+                        "trapped.")
+            elif _piece == "knight":
+                _cue = ("A knight in the centre has eight L-squares. When they "
+                        "are all covered, something took them away — find what, "
+                        "and the same trap works again.")
+            elif _piece == "queen":
+                _cue = ("A queen is not trapped by the edge — she is trapped by "
+                        "her own pieces blocking the way home. Before she goes "
+                        "deep, look at the retreat, not the target.")
+            elif _piece == "bishop":
+                _cue = ("A bishop only ever sees one colour. Enemy pawns fixed on "
+                        "that colour can take every square it owns at once.")
+            elif _piece == "rook":
+                _cue = ("A rook needs an open file or rank. Parked behind its own "
+                        "pawns it has almost nowhere to run.")
+            else:
+                _cue = ("A piece deep in enemy territory needs a way back — check "
+                        "the retreat squares before the attack ones.")
+            caption_facts["principle_cue"] = _cue
             caption_facts["principle_id_used"] = "TAC_TRAPPED_PIECE"
             # Anchor square, re-checked by the caller against the FINAL
             # caption. V5 can swap in a distilled/facts caption after this
@@ -5215,8 +5246,9 @@ def build_move_teaching_decision(
         elif (_f.get("opp_reply_exposes_undefended") and _f.get("opp_undefended_piece")
                 and _card_is_about(_f.get("opp_undefended_square"))):
             caption_facts["principle_cue"] = (
-                "Next time: before you take back, check what is still guarding "
-                "the square you are recapturing on."
+                "A recapture removes a defender as well as a piece. The square "
+                "that was guarded twice is often guarded once after the trade — "
+                "look at what is left holding it, not at what was taken."
             )
             caption_facts["principle_id_used"] = "TAC_HANGING_PIECE"
             caption_facts["principle_cue_anchor_square"] = _f.get("opp_undefended_square")
