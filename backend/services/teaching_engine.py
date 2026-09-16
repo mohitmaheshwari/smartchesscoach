@@ -1857,6 +1857,52 @@ async def _stage_authored_reason_bundle(
     return staged
 
 
+async def _record_puzzle_solve(db, session, item, correct: bool) -> None:
+    """Write the solve where the position picker can actually see it.
+
+    The picker skips positions you have already solved by reading
+    `puzzle_attempts`:
+
+        solved = db.puzzle_attempts.find({"user_id": ..., "correct": True})
+        own = [p for p in supply if not p["already_solved"]]
+
+    This lesson never wrote there. It recorded into `learning_sessions` and
+    nothing joined the two, so solving a position here could never mark it
+    solved and the same board came back every time. The newest row in
+    `puzzle_attempts` was six weeks older than the newest lesson session, and
+    one account had 88 completed sessions on a single position.
+
+    The id has to be the one the picker matches on -- `str(_id)` of the
+    community_puzzles row, which the item carries as `_puzzle_id`. Recording
+    under any other key would look fixed and change nothing.
+
+    Never raises: failing to record a solve must not fail the answer the
+    player just got right.
+    """
+    if not correct:
+        return
+    puzzle_id = str(item.get("_puzzle_id") or "").strip()
+    user_id = str(session.get("user_id") or "").strip()
+    if not puzzle_id or not user_id:
+        return
+    try:
+        await db.puzzle_attempts.update_one(
+            {"user_id": user_id, "puzzle_id": puzzle_id, "correct": True},
+            {"$setOnInsert": {
+                "user_id": user_id,
+                "puzzle_id": puzzle_id,
+                "correct": True,
+                "source": "personalized_lesson",
+                "session_id": session.get("session_id"),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }},
+            upsert=True,
+        )
+    except Exception as exc:
+        logger.warning("[personalized] could not record solve %s: %s",
+                       puzzle_id, exc)
+
+
 async def process_personalized_move(
     db,
     session_id: str,
@@ -2176,6 +2222,7 @@ async def process_personalized_move(
     except Exception:
         response_move_uci = None
     correct = bool(grade.get("correct"))
+    await _record_puzzle_solve(db, session, item, correct)
     expected_reason = item.get("_expected_reason")
     if expected_reason and not reason_components:
         reasoning_consistent = bool(
