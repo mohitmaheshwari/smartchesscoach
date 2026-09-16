@@ -570,6 +570,28 @@ def _trap_caption(inp):
     square = trap.get("square") or ""
     if not square:
         return None
+
+    # Don't say it twice. b4 traps the knight on a5; Black takes with Bxb4 and
+    # cxb4 re-establishes exactly the same cage, so both cards rendered the
+    # identical sentence back to back. A coach says it once. If our PREVIOUS
+    # move already trapped this same piece on this same square, stay silent
+    # and let the earlier card own the lesson.
+    history = list(getattr(inp, "move_history_san", []) or [])
+    if len(history) >= 2:
+        try:
+            prev_board = chess.Board()
+            for san in history[:-2]:
+                prev_board.push_san(san)
+            prev_move = prev_board.parse_san(history[-2])
+            prev_trap = _recommended_move_traps_piece(prev_board, prev_move)
+            if (prev_trap
+                    and prev_trap.get("square") == square
+                    and prev_trap.get("piece") == piece):
+                return None
+        except Exception:
+            # Unreplayable history: fail open and show the caption rather than
+            # silently dropping a real lesson.
+            pass
     blocked = trap.get("blocked_by_own") or []
     san = inp.played_san
     if blocked:
