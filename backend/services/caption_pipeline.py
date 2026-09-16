@@ -5181,6 +5181,12 @@ def build_move_teaching_decision(
         _own_trap = _rmtp_own(board_before, played_move)
     except Exception:
         _own_trap = None
+    # Arrows must agree with the words. cxb4 rebuilds the same cage as b4, so
+    # the trap facts fire again — but _trap_caption deliberately stays silent
+    # the second time, which left a full trap drawn under a caption about an
+    # even trade. Draw the cage only on the card whose caption is about it.
+    if _own_trap and (caption_payload.get("rule_name") or "") != "facts:traps_piece":
+        _own_trap = None
     if _own_trap:
         caption_facts["played_move_traps_piece"] = True
         caption_facts["played_trapped_piece"] = _own_trap["piece"]
