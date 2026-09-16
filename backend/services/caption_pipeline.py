@@ -5185,8 +5185,28 @@ def build_move_teaching_decision(
     # the trap facts fire again — but _trap_caption deliberately stays silent
     # the second time, which left a full trap drawn under a caption about an
     # even trade. Draw the cage only on the card whose caption is about it.
-    if _own_trap and (caption_payload.get("rule_name") or "") != "facts:traps_piece":
-        _own_trap = None
+    # Arrows must agree with the words, and the words are decided downstream:
+    # the distilled caption (facts:traps_piece) is substituted into the card
+    # AFTER this function returns, so neither caption_payload["rule_name"] nor
+    # its caption text is usable as a gate here — trying both silently deleted
+    # the whole cage. So apply the SAME rule _trap_caption applies, against the
+    # same history, and the two stay in step by construction: if our previous
+    # move already trapped this piece on this square, that card owns the
+    # lesson and this one draws nothing.
+    if _own_trap:
+        _hist = list(inputs.move_history_san or [])
+        if len(_hist) >= 2:
+            try:
+                _pb = chess.Board()
+                for _san in _hist[:-2]:
+                    _pb.push_san(_san)
+                _pm = _pb.parse_san(_hist[-2])
+                _pt = _rmtp_own(_pb, _pm)
+                if (_pt and _pt.get("square") == _own_trap.get("square")
+                        and _pt.get("piece") == _own_trap.get("piece")):
+                    _own_trap = None
+            except Exception:
+                pass
     if _own_trap:
         caption_facts["played_move_traps_piece"] = True
         caption_facts["played_trapped_piece"] = _own_trap["piece"]
