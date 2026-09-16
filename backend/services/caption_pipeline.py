@@ -5094,6 +5094,61 @@ def build_move_teaching_decision(
         )
         principle_id_used = "TAC_FORK_PATTERN"
 
+    # ─── Board-verified teaching cues (2026-09-16) ──────────────────
+    # WHY THIS EXISTS. principle_cue is the amber "how to spot it next
+    # time" line the review card already renders, and it has been EMPTY
+    # on every card since v139 - measured 0% across v139..v159, against
+    # 39% at v135. Cause: every one of the 35 catalog principles is
+    # graded `shadow` (34) or `disabled` (1), so can_influence(.., CAPTION)
+    # is False for all of them and the gated block above can never set a
+    # cue. The gate is right to hold them - their precision was never
+    # audited (see _principles_violated's own docstring) - but the result
+    # was that the teaching surface went silent for 20 versions and the
+    # captions became pure diagnosis: correct about what happened, silent
+    # about how to see it coming.
+    #
+    # These cues do not go through that catalog and assert nothing new.
+    # Each one fires only when a fact the pipeline ALREADY board-verified
+    # to build the caption is present, and each is phrased as a SCAN the
+    # player can run on a position they have never seen - not as a fact
+    # about the world. "Knights fight best near the centre" is a fact;
+    # "count its escape squares before you move" is a scan. Same bypass
+    # the TAC_FORK_PATTERN cue immediately above already uses.
+    if not principle_cue:
+        _f = caption_facts
+        if _f.get("opp_reply_traps_piece") and _f.get("opp_trapped_piece"):
+            _n = _f.get("opp_trapped_escape_count")
+            principle_cue = (
+                "Next time: before a piece steps forward, count the squares it "
+                "can come back to"
+                + (f" — this {_f['opp_trapped_piece']} had {_n}." if isinstance(_n, int) else ".")
+            )
+            principle_id_used = "TAC_TRAPPED_PIECE"
+        elif _f.get("opp_reply_exposes_undefended") and _f.get("opp_undefended_piece"):
+            principle_cue = (
+                "Next time: before you take back, check what is still guarding "
+                "the square you are recapturing on."
+            )
+            principle_id_used = "TAC_HANGING_PIECE"
+        elif _f.get("opp_reply_creates_fork"):
+            principle_cue = (
+                "Next time: after you pick a move, check whether one enemy piece "
+                "can hit two of yours."
+            )
+            principle_id_used = "TAC_FORK_PATTERN"
+        elif _f.get("opp_reply_captures_piece_type"):
+            principle_cue = (
+                "Next time: before a quiet move, play their best capture in your "
+                "head first."
+            )
+            principle_id_used = "TAC_CHECKS_CAPTURES_THREATS"
+        elif _f.get("free_capture_uncontested") or _f.get("hanging_piece_type"):
+            principle_cue = (
+                "Next time: scan for enemy pieces with no defender before you "
+                "plan anything else."
+            )
+            principle_id_used = "TAC_HANGING_PIECE"
+
     if principle_cue:
         caption_facts["principle_cue"] = principle_cue
     if principle_id_used:
