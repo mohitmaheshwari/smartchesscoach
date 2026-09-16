@@ -10,10 +10,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from functools import lru_cache
+import logging
 import re
 from typing import Any, Dict, List, Optional
 
 import chess
+
+logger = logging.getLogger(__name__)
 
 from services.curriculum_content_validator import (
     get_publishable_content_ids,
@@ -354,12 +357,29 @@ def _opening_teaching_reason(entry: dict) -> str:
     win_rate = float(entry.get("win_rate") or 0.0)
     band = entry.get("knowledge_band")
     cp = entry.get("opening_cp_per_move")
+    recurring = entry.get("recurring_mistake") or {}
     if games < _MIN_GAMES_FOR_OPENING_ADVICE or not band or cp is None:
         return ""
 
     played = "You have played this %d times and won %d." % (games, wins)
-    opening_quality = "You lose about %d centipawns a move over the first %d moves." % (
-        round(cp), OPENING_PHASE_PLIES
+    if recurring:
+        count = int(recurring.get("count") or 0)
+        played_move = str(recurring.get("played_san") or "").strip()
+        better_move = str(recurring.get("best_san") or "").strip()
+        move_evidence = (
+            f"You chose {played_move} there; {better_move} was stronger."  # allow-noncentral-caption
+            if played_move and better_move
+            else ""
+        )
+        return (
+            f"{played} The same early decision hurt your position "
+            f"{count} time{'s' if count != 1 else ''}. {move_evidence} "
+            "We will start from that position, not reteach the whole opening."
+        ).strip()
+
+    opening_quality = (
+        f"By move {OPENING_PHASE_PLIES}, your early decisions were "
+        f"{'often putting you under pressure' if band == 'learn' else 'not yet consistent'}."
     )
 
     if band in ("learn", "drill") and win_rate >= 50.0:
@@ -401,6 +421,49 @@ def _opening_teaching_priority(entry: dict) -> tuple:
     return (rank, -cp, -games)
 
 
+def _authored_idea_for_move(opening_key: str, move_san: str) -> Optional[str]:
+    """Read one player-facing idea from the canonical curriculum."""
+    if not opening_key or not move_san:
+        return None
+    from services.opening_theory_json_service import get_all_lesson_move_paths
+
+    wanted = str(move_san).replace("+", "").replace("#", "").casefold()
+    for path in get_all_lesson_move_paths(opening_key):
+        for step in path:
+            candidate = str(step.get("move") or "")
+            if candidate.replace("+", "").replace("#", "").casefold() != wanted:
+                continue
+            idea = str(step.get("explanation") or "").strip()
+            if idea:
+                # The curriculum explanation belongs in body copy; a card
+                # title must stay scannable. Keep only authored words: remove
+                # a repeated SAN prefix, choose its first sentence/clause and
+                # cap the display without inventing a new chess claim.
+                move_prefix = re.escape(
+                    str(move_san).replace("+", "").replace("#", "")
+                )
+                headline = re.sub(
+                    rf"^\s*{move_prefix}\s*[.!?:-]*\s*",
+                    "",
+                    idea,
+                    flags=re.IGNORECASE,
+                ).strip()
+                headline = re.split(r"(?<=[.!?])\s+|\s+[—–]\s+", headline)[0]
+                if len(headline) > 60:
+                    clause = re.split(
+                        r",\s+(?=(?:and|but|before|after|while|so|then)\b)",
+                        headline,
+                        maxsplit=1,
+                        flags=re.IGNORECASE,
+                    )[0]
+                    if len(clause) >= 24:
+                        headline = clause
+                if len(headline) > 96:
+                    headline = headline[:96].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
+                return headline or None
+    return None
+
+
 # Opening-phase cp/move tertiles, taken from 13,909 analysed games rather
 # than chosen: p33 = 23, p66 = 48. Below the first a player knows the
 # opening; above the second they do not.
@@ -409,7 +472,12 @@ _KNOWS_OPENING_CP = 23.0
 _LEARNING_OPENING_CP = 48.0
 
 
-async def get_opening_phase_accuracy(db, user_id: str) -> dict:
+async def get_opening_phase_accuracy(
+    db,
+    user_id: str,
+    *,
+    split_by_color: bool = False,
+) -> dict:
     """Mean cp lost per move over the first moves, per opening.
 
     Whole-game accuracy cannot answer "do I know this opening". A player
@@ -418,10 +486,18 @@ async def get_opening_phase_accuracy(db, user_id: str) -> dict:
     two, so the reduction happens in Mongo -- a game_analyses document
     averages ~190KB and there is no reason to pull them.
     """
+    from opening_trainer_service import get_opening_name_from_eco
+
     game_openings = {}
     async for game in db.games.find(
         {"user_id": user_id, "is_analyzed": True},
-        {"_id": 0, "game_id": 1, "opening": 1, "opening_name": 1},
+        {
+            "_id": 0,
+            "game_id": 1,
+            "opening": 1,
+            "opening_name": 1,
+            "user_color": 1,
+        },
     ):
         name = game.get("opening_name")
         opening = game.get("opening")
@@ -429,8 +505,14 @@ async def get_opening_phase_accuracy(db, user_id: str) -> dict:
             name = opening.get("name") or name
         elif isinstance(opening, str):
             name = name or opening
+        name = get_opening_name_from_eco(name) if name else name
         if name and game.get("game_id"):
-            game_openings[game["game_id"]] = name
+            color = str(game.get("user_color") or "white").lower()
+            if color not in {"white", "black"}:
+                color = "white"
+            game_openings[game["game_id"]] = (
+                (name, color) if split_by_color else name
+            )
     if not game_openings:
         return {}
 
@@ -475,9 +557,20 @@ def opening_knowledge_band(cp_per_move: float) -> str:
 async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
     from opening_trainer_service import get_user_opening_stats
 
-    user_stats = await get_user_opening_stats(db, user_id)
-    opening_phase = await get_opening_phase_accuracy(db, user_id)
-    progress_records = await db.opening_learning_progress.find(
+    user_stats = await get_user_opening_stats(
+        db,
+        user_id,
+        split_by_color=True,
+    )
+    opening_phase = await get_opening_phase_accuracy(
+        db,
+        user_id,
+        split_by_color=True,
+    )
+    # user_opening_mastery is the canonical evidence owner.  The previous
+    # read used opening_learning_progress, which has zero production rows and
+    # made every returning player look new on the active /openings page.
+    progress_records = await db.user_opening_mastery.find(
         {"user_id": user_id}
     ).to_list(100)
     progress_map = {}
@@ -485,6 +578,73 @@ async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
         key = _normalize_opening_key(progress.get("opening_key", ""))
         if key:
             progress_map[key] = progress
+    recurring_mistakes = {}
+    profile_collection = getattr(db, "user_opening_profiles", None)
+    from services.personalized_opening_coach import (
+        personalized_opening_coach_enabled,
+    )
+
+    if profile_collection is not None and personalized_opening_coach_enabled():
+        try:
+            profile = await profile_collection.find_one(
+                {"user_id": user_id},
+                {"_id": 0, "recurring_mistakes": 1},
+            ) or {}
+            raw_mistakes = profile.get("recurring_mistakes") or []
+            evidence_game_ids = {
+                game_id
+                for mistake in raw_mistakes
+                for game_id in (mistake.get("recent_game_ids") or [])
+                if game_id
+            }
+            game_colors = {}
+            if evidence_game_ids:
+                games = await db.games.find(
+                    {
+                        "user_id": user_id,
+                        "game_id": {"$in": list(evidence_game_ids)},
+                    },
+                    {"_id": 0, "game_id": 1, "user_color": 1},
+                ).to_list(len(evidence_game_ids))
+                game_colors = {
+                    game.get("game_id"): str(
+                        game.get("user_color") or "white"
+                    ).lower()
+                    for game in games
+                    if game.get("game_id")
+                }
+            for mistake in raw_mistakes:
+                ids = {
+                    game_id
+                    for game_id in (mistake.get("recent_game_ids") or [])
+                    if game_id
+                }
+                # Old profile rows aggregated both colors. Attach a recurring
+                # mistake to a role only when every cited game is present and
+                # agrees on that role; otherwise abstain instead of guessing.
+                if not ids or not ids.issubset(game_colors):
+                    continue
+                colors = {game_colors[game_id] for game_id in ids}
+                if len(colors) != 1:
+                    continue
+                color = next(iter(colors))
+                if color not in {"white", "black"}:
+                    continue
+                key = match_opening_to_library(
+                    mistake.get("opening_family", "")
+                )
+                if key and (key, color) not in recurring_mistakes:
+                    recurring_mistakes[(key, color)] = {
+                        **mistake,
+                        # This is the role-proven count. The profile's larger
+                        # aggregate count may contain the opposite color.
+                        "count": len(ids),
+                    }
+        except Exception as exc:
+            logger.warning(
+                "[OPENINGS] Recurring-mistake personalization unavailable: %s",
+                exc,
+            )
 
     white_openings: List[Dict[str, Any]] = []
     black_openings: List[Dict[str, Any]] = []
@@ -495,6 +655,11 @@ async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
         if opening_key:
             played_keys.add(opening_key)
         progress = progress_map.get(opening_key, {})
+        player_color = str(stat.get("player_color") or "white").lower()
+        phase_record = opening_phase.get((opening_name, player_color), {})
+        last_practice = progress.get("last_practice_evidence") or {}
+        if last_practice.get("player_color") != player_color:
+            last_practice = None
         entry = {
             "name": opening_name,
             "games_played": stat.get("games_played", 0),
@@ -506,13 +671,13 @@ async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
             "wins": stat.get("wins", 0),
             "as_white": stat.get("as_white", 0),
             "opening_cp_per_move": (
-                opening_phase.get(opening_name, {}).get("cp_per_move")
+                phase_record.get("cp_per_move")
             ),
             "knowledge_band": (
                 opening_knowledge_band(
-                    opening_phase[opening_name]["cp_per_move"]
+                    phase_record["cp_per_move"]
                 )
-                if opening_name in opening_phase
+                if phase_record
                 else None
             ),
             "as_black": stat.get("as_black", 0),
@@ -520,8 +685,25 @@ async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
             "draws": stat.get("draws", 0),
             "in_library": opening_key is not None,
             "library_key": opening_key,
-            "learning_progress": progress.get("main_line_progress", 0),
-            "traps_learned": progress.get("traps_learned", []),
+            "player_color": player_color,
+            "mastery_phase": progress.get("phase", "introduction"),
+            "evidence_status": (
+                last_practice.get("status") if last_practice else "unverified"
+            ),
+            "practice_attempts": progress.get(
+                f"{player_color}_practice_attempts", 0
+            ),
+            "assisted_practice_completions": progress.get(
+                f"{player_color}_assisted_practice_completions", 0
+            ),
+            "independent_practice_completions": progress.get(
+                f"{player_color}_independent_practice_completions", 0
+            ),
+            "last_practice_evidence": last_practice,
+            "traps_learned": progress.get("traps_handled", []),
+            "recurring_mistake": recurring_mistakes.get(
+                (opening_key, player_color)
+            ),
         }
         as_white = int(entry.get("as_white") or 0)
         as_black = int(entry.get("as_black") or 0)
@@ -557,6 +739,16 @@ async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
             "avg_accuracy": entry.get("avg_accuracy"),
             "opening_cp_per_move": entry.get("opening_cp_per_move"),
             "knowledge_band": entry.get("knowledge_band"),
+            "player_color": entry.get("player_color"),
+            "mastery_phase": entry.get("mastery_phase"),
+            "evidence_status": entry.get("evidence_status"),
+            "focus_title": (
+                _authored_idea_for_move(
+                    data.get("canonical_key") or key,
+                    (entry.get("recurring_mistake") or {}).get("best_san"),
+                )
+                or entry.get("name")
+            ),
             "from_your_games": True,
         }
         rec_as_white = int(entry.get("as_white") or 0)
@@ -580,6 +772,7 @@ async def get_user_opening_repertoire(db, user_id: str) -> Dict[str, Any]:
             "name": data["name"],
             "description": data["description"],
             "reason": "New ground. A verified lesson you can practise move by move.",
+            "player_color": data["color"],
             "from_your_games": False,
         })
 
@@ -612,7 +805,7 @@ async def get_opening_lesson(db, user_id: str, opening_key: str) -> Optional[Dic
         None,
     )
 
-    progress = await db.opening_learning_progress.find_one(
+    progress = await db.user_opening_mastery.find_one(
         {"user_id": user_id, "opening_key": {"$in": [opening_key, resolved_key, opening["canonical_key"]]}}
     )
     lesson = {
@@ -620,10 +813,17 @@ async def get_opening_lesson(db, user_id: str, opening_key: str) -> Optional[Dic
         "user_stats": user_opening_stats,
         "user_mistakes": [],
         "learning_progress": {
-            "main_line_progress": progress.get("main_line_progress", 0) if progress else 0,
-            "traps_learned": progress.get("traps_learned", []) if progress else [],
-            "times_practiced": progress.get("times_practiced", 0) if progress else 0,
-            "mastery_level": progress.get("mastery_level", "unknown") if progress else "unknown",
+            "phase": progress.get("phase", "introduction") if progress else "introduction",
+            "evidence_status": progress.get("evidence_status", "unverified") if progress else "unverified",
+            "traps_learned": progress.get("traps_handled", []) if progress else [],
+            "times_practiced": progress.get("practice_attempts", 0) if progress else 0,
+            "independent_completions": progress.get(
+                "independent_practice_completions", 0
+            ) if progress else 0,
+            "assisted_completions": progress.get(
+                "assisted_practice_completions", 0
+            ) if progress else 0,
+            "mastery_awarded_by_practice": False,
         },
     }
 
@@ -644,30 +844,41 @@ async def update_learning_progress(
     resolved_key = _normalize_opening_key(opening_key)
     if not resolved_key:
         return {"mastery_level": "unknown"}
+    canonical_key = OPENING_DATABASE[resolved_key]["canonical_key"]
     now = datetime.now(timezone.utc)
-    await db.opening_learning_progress.update_one(
-        {"user_id": user_id, "opening_key": resolved_key},
+    await db.user_opening_mastery.update_one(
+        {"user_id": user_id, "opening_key": canonical_key},
         {
             "$set": {
                 "last_viewed": now,
-                "evidence_status": "seen_only",
-                "verification_required": True,
+                "last_lesson_evidence": {
+                    "source": "opening_lesson",
+                    "status": "seen_only",
+                    "recorded_at": now,
+                },
             },
             "$inc": {"lesson_views": 1},
             "$setOnInsert": {
                 "user_id": user_id,
-                "opening_key": resolved_key,
+                "opening_key": canonical_key,
                 "created_at": now,
-                "mastery_level": "unknown",
+                "phase": "introduction",
+                "games_played": 0,
+                "moves_correct": 0,
+                "moves_total": 0,
+                "accuracy_history": [],
+                "branches_seen": [],
+                "practice_attempts": 0,
             },
         },
         upsert=True,
     )
-    progress = await db.opening_learning_progress.find_one(
-        {"user_id": user_id, "opening_key": resolved_key}
+    progress = await db.user_opening_mastery.find_one(
+        {"user_id": user_id, "opening_key": canonical_key}
     )
     return {
-        "mastery_level": progress.get("mastery_level", "unknown"),
+        "phase": progress.get("phase", "introduction"),
         "evidence_status": "seen_only",
         "verification_required": True,
+        "mastery_awarded": False,
     }

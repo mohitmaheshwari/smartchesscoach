@@ -37,6 +37,13 @@ const OpeningLesson = () => {
   const { openingKey } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const requestedPlayerColor = (() => {
+    const value = new URLSearchParams(location.search).get("player_color");
+    return value === "black" || value === "white" ? value : null;
+  })();
+  const playerColorQuery = requestedPlayerColor
+    ? `?player_color=${requestedPlayerColor}`
+    : "";
   const boardRef = useRef(null);
   const groundRef = useRef(null);
   const chessRef = useRef(new Chess());
@@ -64,7 +71,7 @@ const OpeningLesson = () => {
   useEffect(() => {
     const fetchLesson = async () => {
       try {
-        const res = await fetch(`${API}/openings/${openingKey}`, {
+        const res = await fetch(`${API}/openings/${openingKey}${playerColorQuery}`, {
           credentials: "include"
         });
         if (res.ok) {
@@ -95,7 +102,7 @@ const OpeningLesson = () => {
       }
     };
     fetchLesson();
-  }, [openingKey, navigate]);
+  }, [openingKey, navigate, playerColorQuery]);
 
   // The order the coach teaches in. Fetched alongside the opening so the
   // page never has to decide what comes first.
@@ -103,9 +110,12 @@ const OpeningLesson = () => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${API}/openings/${openingKey}/lesson-plan`, {
+        const res = await fetch(
+          `${API}/openings/${openingKey}/lesson-plan${playerColorQuery}`,
+          {
           credentials: "include",
-        });
+          }
+        );
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) setPlan(data);
@@ -117,7 +127,7 @@ const OpeningLesson = () => {
     return () => {
       cancelled = true;
     };
-  }, [openingKey]);
+  }, [openingKey, playerColorQuery]);
 
   // Ping Engine 2 once per page visit to register "seen" on the matching
   // opening skill (if the tree has one). Fire-and-forget — don't block UI.
@@ -152,6 +162,8 @@ const OpeningLesson = () => {
   // at the top level (`lesson.color`) and nested (`lesson.opening.color`).
   // The URL key fallback handles explicit `_black` suffixes (`italian_game_black`).
   const resolvedOrientation =
+    lesson?.opening?.player_color ||
+    requestedPlayerColor ||
     lesson?.color ||
     lesson?.opening?.color ||
     (openingKey?.toLowerCase().endsWith("_black") ? "black" : "white");
@@ -270,7 +282,7 @@ const OpeningLesson = () => {
   
   const onTrapComplete = useCallback(() => {
     // Record completion
-    toast.success(`Mastered: ${selectedTrap?.name}!`);
+    toast.success(`Practised: ${selectedTrap?.name}.`);
   }, [selectedTrap]);
 
   // Finishing the thread hands the student straight to practice instead of
@@ -379,7 +391,7 @@ const OpeningLesson = () => {
               <InteractivePractice
                 openingKey={openingKey}
                 openingName={opening.name}
-                userColor={opening.color}
+                userColor={opening.player_color || requestedPlayerColor || opening.color}
               />
             </div>
           )}

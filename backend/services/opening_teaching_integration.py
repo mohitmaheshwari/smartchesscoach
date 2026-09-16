@@ -861,8 +861,11 @@ async def _complete_teaching(db, session_id: str, teaching_data: Dict) -> Dict:
 
     return {
         "complete": True,
-        "message": f"Excellent! You've learned the {lesson_name}!",
-        "summary": teaching_data.get("explanation", "You've mastered this opening concept."),
+        "message": f"Good work. You have practised the {lesson_name}.",
+        "summary": teaching_data.get(
+            "explanation",
+            "Completing a lesson is rehearsal. The real test is finding the idea in a game.",
+        ),
         "key_ideas": teaching_data.get("key_ideas", []),
         "options": [
             {

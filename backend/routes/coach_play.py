@@ -1185,40 +1185,24 @@ async def end_coach_play_session(
         except Exception as e:
             logger.warning(f"Coach puzzle extraction failed: {e}")
 
-        # Update opening mastery after game
+        # Opening-game evidence is written only after engine analysis. The old
+        # path incremented mastery here from exact curriculum matching and the
+        # analysis worker incremented it again from cp-loss evidence, so one
+        # coached game could count twice and sound alternatives were punished.
         try:
             session_for_mastery = await db.coach_sessions.find_one({"session_id": session_id})
             if session_for_mastery:
                 teaching_opening = session_for_mastery.get("opening_to_teach") or session_for_mastery.get("opening_key")
                 if teaching_opening:
-                    from services.opening_mastery_tracker import update_mastery_after_game
-                    mh = session_for_mastery.get("move_history", [])
-                    teaching_moves = session_for_mastery.get("opening_teaching_moves", [])
-
-                    # Count how many teaching moves the user played correctly
-                    correct = 0
-                    total_teaching = 0
-                    for i, tm in enumerate(teaching_moves):
-                        if i >= len(mh):
-                            break
-                        move_entry = mh[i]
-                        played = move_entry.get("move", "") if isinstance(move_entry, dict) else str(move_entry)
-                        # Only count user's moves
-                        is_user = move_entry.get("by") == "player" if isinstance(move_entry, dict) else (i % 2 == 0)
-                        if is_user:
-                            total_teaching += 1
-                            if played.replace("+", "").replace("#", "").lower() == tm.replace("+", "").replace("#", "").lower():
-                                correct += 1
-
-                    if total_teaching > 0:
-                        await update_mastery_after_game(
-                            db, user.user_id, teaching_opening,
-                            moves_correct=correct,
-                            moves_total=total_teaching,
-                        )
-                        logger.info(f"[MASTERY] Updated {teaching_opening}: {correct}/{total_teaching} correct")
+                    await db.coach_sessions.update_one(
+                        {"session_id": session_id, "user_id": user.user_id},
+                        {"$set": {
+                            "opening_mastery_evidence_status": "awaiting_analysis",
+                            "opening_mastery_opening_key": teaching_opening,
+                        }},
+                    )
         except Exception as e:
-            logger.warning(f"Opening mastery update failed: {e}")
+            logger.warning(f"Opening mastery evidence marker failed: {e}")
 
         # Update focus after game (detect root problem, set/update focus)
         try:

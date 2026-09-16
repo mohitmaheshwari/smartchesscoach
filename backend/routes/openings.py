@@ -192,6 +192,7 @@ async def match_opening_to_library_endpoint(opening_name: str, eco: str = None):
 async def get_opening_lesson(
     opening_key: str, 
     variation: str = None,
+    player_color: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """
@@ -258,12 +259,22 @@ async def get_opening_lesson(
             "canonical_source": "backend/data/traps.json",
         })
     
+    requested_player_color = str(player_color or theory.get("color") or "white").lower()
+    if requested_player_color not in {"white", "black"}:
+        raise HTTPException(status_code=422, detail="player_color must be white or black")
+
     lesson_data = {
         "content_id": canonical_key,
         "name": theory.get("name", opening_key.replace("_", " ").title()),
         "eco": ", ".join(theory.get("eco_prefix", [])),
         "description": theory.get("white_plan", "") + " / " + theory.get("black_plan", ""),
         "color": str(theory.get("color") or "white").lower(),
+        "player_color": requested_player_color,
+        "player_role": (
+            "chosen_opening"
+            if requested_player_color == str(theory.get("color") or "white").lower()
+            else "answering_opponent"
+        ),
         "first_moves": theory.get("main_line", [])[:5],
         "main_line": main_line,
         # common_learnings is populated for a minority of openings; fall
@@ -290,7 +301,7 @@ async def get_opening_lesson(
     }
     
     # Add user-specific progress data
-    progress_doc = await db.user_opening_progress.find_one({
+    progress_doc = await db.user_opening_mastery.find_one({
         "user_id": user.user_id,
         "opening_key": {"$in": [
             opening_key,
@@ -301,14 +312,44 @@ async def get_opening_lesson(
 
     user_progress = {}
     if progress_doc:
+        color_prefix = requested_player_color
+        last_practice = progress_doc.get("last_practice_evidence") or {}
+        matching_last_practice = (
+            last_practice
+            if last_practice.get("player_color") == requested_player_color
+            else None
+        )
         user_progress = {
-            "main_line_progress": progress_doc.get("main_line_progress", 0),
-            "traps_learned": progress_doc.get("traps_learned", []),
-            "times_practiced": progress_doc.get("times_practiced", 0),
-            "last_practiced": progress_doc.get("last_practiced")
+            "phase": progress_doc.get("phase", "introduction"),
+            "evidence_status": (
+                matching_last_practice.get("status")
+                if matching_last_practice
+                else "unverified"
+            ),
+            "traps_learned": progress_doc.get("traps_handled", []),
+            "times_practiced": progress_doc.get(
+                f"{color_prefix}_practice_attempts", 0
+            ),
+            "independent_completions": progress_doc.get(
+                f"{color_prefix}_independent_practice_completions", 0
+            ),
+            "assisted_completions": progress_doc.get(
+                f"{color_prefix}_assisted_practice_completions", 0
+            ),
+            "last_practiced": (
+                matching_last_practice.get("recorded_at")
+                if matching_last_practice
+                else None
+            ),
+            "last_practice_evidence": matching_last_practice,
+            "mastery_awarded_by_practice": False,
         }
 
-    user_mistakes = await _compute_opening_mistakes(user.user_id, canonical_key)
+    user_mistakes = await _compute_opening_mistakes(
+        user.user_id,
+        canonical_key,
+        player_color=requested_player_color,
+    )
 
     return {
         "opening": lesson_data,
@@ -321,6 +362,7 @@ async def get_opening_lesson(
 @router.get("/openings/{opening_key}/lesson-plan")
 async def get_opening_lesson_plan(
     opening_key: str,
+    player_color: Optional[str] = None,
     user: User = Depends(get_current_user),
 ):
     """One ordered thread for this student, with nothing to choose first.
@@ -331,13 +373,22 @@ async def get_opening_lesson_plan(
     """
     from services.opening_lesson_plan import build_lesson_plan
 
-    plan = await build_lesson_plan(db, user.user_id, opening_key)
+    plan = await build_lesson_plan(
+        db,
+        user.user_id,
+        opening_key,
+        player_color=player_color,
+    )
     if not plan:
         raise HTTPException(status_code=404, detail="No lesson for this opening")
     return plan
 
 
-async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict]:
+async def _compute_opening_mistakes(
+    user_id: str,
+    opening_key: str,
+    player_color: Optional[str] = None,
+) -> List[Dict]:
     """Authoritative opening-mistake finder.
 
     Policy (what counts as an "opening mistake"):
@@ -375,7 +426,10 @@ async def _compute_opening_mistakes(user_id: str, opening_key: str) -> List[Dict
     if not get_opening_curriculum(opening_key):
         return []
 
-    color_filter = color_for_curriculum_key(opening_key)
+    requested_color = str(player_color or "").lower()
+    if requested_color and requested_color not in {"white", "black"}:
+        return []
+    color_filter = requested_color or color_for_curriculum_key(opening_key)
 
     query = {"user_id": user_id, "is_analyzed": True}
     if color_filter:
@@ -554,9 +608,30 @@ async def update_opening_progress(
 
 # ==================== INTERACTIVE PRACTICE MODE ====================
 
+async def _record_practice_completion(
+    session: Dict,
+    completion_kind: str,
+) -> Dict:
+    """Write one idempotent, non-mastery practice evidence item."""
+    from services.opening_mastery_tracker import record_opening_practice_completion
+
+    return await record_opening_practice_completion(
+        db,
+        session["user_id"],
+        session.get("canonical_opening_key") or session["opening_key"],
+        session["session_id"],
+        session.get("user_color") or "white",
+        player_role=session.get("player_role"),
+        mistakes_count=len(session.get("mistakes_made") or []),
+        hints_used=int(session.get("hints_used") or 0),
+        completion_kind=completion_kind,
+    )
+
+
 @router.post("/openings/{opening_key}/practice/start")
 async def start_practice_session(
     opening_key: str,
+    player_color: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
     """
@@ -579,21 +654,32 @@ async def start_practice_session(
     board = chess.Board()
     
     # Determine who moves first
-    user_color = opening["color"]  # The color the user will play
+    authored_color = str(opening["color"]).lower()
+    user_color = str(player_color or authored_color).lower()
+    if user_color not in {"white", "black"}:
+        raise HTTPException(status_code=422, detail="player_color must be white or black")
+    player_role = (
+        "chosen_opening"
+        if user_color == authored_color
+        else "answering_opponent"
+    )
     
     # Create session
     session = {
         "session_id": session_id,
         "user_id": user.user_id,
         "opening_key": opening_key,
+        "canonical_opening_key": opening.get("canonical_key") or opening_key,
         "opening_name": opening["name"],
         "user_color": user_color,
+        "player_role": player_role,
         "fen": board.fen(),
         "move_history": [],
         "main_line": opening["main_line"],
         "current_main_line_index": 0,
         "status": "active",
         "mistakes_made": [],
+        "hints_used": 0,
         "created_at": datetime.now(timezone.utc)
     }
     
@@ -628,6 +714,7 @@ async def start_practice_session(
         "session_id": session_id,
         "opening_name": opening["name"],
         "user_color": user_color,
+        "player_role": player_role,
         "fen": session["fen"],
         "coach_move": coach_move,
         "coach_explanation": coach_explanation,
@@ -693,15 +780,88 @@ async def make_practice_move(
     
     if not expected_move_data:
         # Practice complete
+        await db.opening_practice_sessions.update_one(
+            {"session_id": request.session_id, "user_id": user.user_id},
+            {"$set": {"status": "completed", "completion_kind": "authored_line"}},
+        )
+        evidence = await _record_practice_completion(session, "authored_line")
         return {
             "valid": True,
             "complete": True,
-            "message": "You've completed the main line! Great job!",
-            "fen": session["fen"]
+            "message": (
+                "Practised independently. You found the plan without help. "
+                "That is evidence of understanding, not mastery yet; "
+                "I will look for it in a real game."
+                if evidence["evidence_status"] == "independent_practice"
+                else "Practised with help. We will test it again later without help."
+            ),
+            "fen": session["fen"],
+            **evidence,
         }
     
     expected_san = expected_move_data["move"]
     is_correct = user_san.replace("+", "").replace("#", "") == expected_san.replace("+", "").replace("#", "")
+
+    # A different move is not automatically wrong. Verify it against the
+    # engine and accept only the data-locked <=20cp sound-alternative band.
+    if not is_correct:
+        from services.opening_mastery_tracker import SOUND_ALTERNATIVE_MAX_CP
+        from services.personalized_opening_coach import (
+            personalized_opening_coach_enabled,
+        )
+        from services.opening_practice_evidence import (
+            evaluate_practice_alternative,
+        )
+
+        alternative = (
+            await evaluate_practice_alternative(board, move)
+            if personalized_opening_coach_enabled()
+            else None
+        )
+        if (
+            alternative
+            and int(alternative.get("cp_loss") or 0)
+                <= SOUND_ALTERNATIVE_MAX_CP
+        ):
+            board.push(move)
+            new_history = session["move_history"] + [{
+                "move": user_san,
+                "uci": move.uci(),
+                "by": "user",
+                "evidence": "sound_alternative",
+            }]
+            await db.opening_practice_sessions.update_one(
+                {"session_id": request.session_id, "user_id": user.user_id},
+                {"$set": {
+                    "fen": board.fen(),
+                    "move_history": new_history,
+                    "status": "completed",
+                    "completion_kind": "sound_alternative",
+                    "engine_cp_loss": alternative["cp_loss"],
+                }},
+            )
+            evidence = await _record_practice_completion(
+                session,
+                "sound_alternative",
+            )
+            reply = (alternative.get("reply_line") or [None])[0]
+            reply_text = f" A likely reply is {reply}." if reply else ""
+            return {
+                "valid": True,
+                "correct": True,
+                "complete": True,
+                "move_quality": "sound_alternative",
+                "fen": board.fen(),
+                "engine_cp_loss": alternative["cp_loss"],
+                "message": (
+                    "That is a sound alternative, so I will not mark it wrong."
+                    f"{reply_text} It leads to a different plan; I will watch "
+                    "for this decision in your real games. In openings, judge "
+                    "a move by the position it creates, not whether it matches "
+                    "one memorised line."
+                ),
+                **evidence,
+            }
     
     if is_correct:
         # Correct move!
@@ -724,17 +884,25 @@ async def make_practice_move(
                     "fen": board.fen(),
                     "move_history": new_history,
                     "current_main_line_index": next_idx,
-                    "status": "completed"
+                    "status": "completed",
+                    "completion_kind": "authored_line",
                 }}
             )
-            
+            evidence = await _record_practice_completion(session, "authored_line")
             return {
                 "valid": True,
                 "correct": True,
                 "complete": True,
                 "fen": board.fen(),
-                "message": "Excellent! You've mastered this opening line!",
-                "explanation": expected_move_data["explanation"]
+                "message": (
+                    "Practised independently. You found the plan without help. "
+                    "That is evidence of understanding, not mastery yet; "
+                    "I will look for it in a real game."
+                    if evidence["evidence_status"] == "independent_practice"
+                    else "Practised with help. We will test it again later without help."
+                ),
+                "explanation": expected_move_data["explanation"],
+                **evidence,
             }
         
         # Play coach's response
@@ -763,9 +931,12 @@ async def make_practice_move(
         if final_idx >= len(main_line):
             await db.opening_practice_sessions.update_one(
                 {"session_id": request.session_id},
-                {"$set": {"status": "completed"}}
+                {"$set": {
+                    "status": "completed",
+                    "completion_kind": "authored_line",
+                }}
             )
-            
+            evidence = await _record_practice_completion(session, "authored_line")
             return {
                 "valid": True,
                 "correct": True,
@@ -774,7 +945,14 @@ async def make_practice_move(
                 "your_move_explanation": expected_move_data["explanation"],
                 "coach_move": coach_move_data["move"],
                 "coach_explanation": coach_move_data["explanation"],
-                "message": "Perfect! You've completed the opening!"
+                "message": (
+                    "Practised independently. You found the plan without help. "
+                    "That is evidence of understanding, not mastery yet; "
+                    "I will look for it in a real game."
+                    if evidence["evidence_status"] == "independent_practice"
+                    else "Practised with help. We will test it again later without help."
+                ),
+                **evidence,
             }
         
         # Get hint for next move
@@ -843,6 +1021,13 @@ async def get_practice_hint(
     
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    # Assistance is server-owned evidence. The browser cannot later describe
+    # this solve as independent after requesting a hint.
+    await db.opening_practice_sessions.update_one(
+        {"session_id": session_id, "user_id": user.user_id, "status": "active"},
+        {"$inc": {"hints_used": 1}},
+    )
     
     main_line = session["main_line"]
     current_idx = session["current_main_line_index"]
@@ -881,7 +1066,8 @@ async def get_practice_hint(
     
     return {
         "hint": hint,
-        "hint_level": min(mistakes_count + 1, 3)
+        "hint_level": min(mistakes_count + 1, 3),
+        "hints_used": int(session.get("hints_used") or 0) + 1,
     }
 
 
