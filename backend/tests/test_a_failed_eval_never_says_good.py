@@ -29,6 +29,7 @@ does not have.
 from __future__ import annotations
 
 import io
+import re
 import sys
 from pathlib import Path
 
@@ -97,6 +98,39 @@ def test_the_internal_normalisation_is_still_there():
     body = body[:body.index("\nasync def ", 10)]
     assert 'if move_quality in ("mistake", "blunder", "unknown"):' in body
     assert "eval_is_valid" in body
+
+
+def test_the_budgets_leave_the_engine_room_to_finish():
+    """The endpoint must not give up before the browser would.
+
+    Measured: DB prelude 65-272ms, engine 907-1410ms, two passes together
+    ~1480ms. The old budgets (800 inside fast_eval, 1000 at the endpoint) were
+    both below that, so the degraded path was the normal path on any move
+    worth analysing. The client races at EVAL_TIMEOUT_MS = 3000, so there was
+    a full second of headroom going unused.
+    """
+    fes = io.open(BACKEND / "services" / "fast_eval_service.py",
+                  encoding="utf-8").read()
+    endpoint = io.open(BACKEND / "routes" / "coach_play.py",
+                       encoding="utf-8").read()
+    flow = BACKEND.parent / "frontend" / "src" / "coachFlow" / "useCoachFlow.js"
+
+    inner = int(re.search(r"HARD_TIMEOUT_MS = (\d+)", fes).group(1))
+    outer = int(re.search(r"if elapsed_eval > (\d+):", endpoint).group(1))
+
+    assert inner >= 1400, f"fast_eval bails before its two passes finish ({inner}ms)"
+    assert outer > inner, (
+        f"the endpoint ({outer}ms) must outlast fast_eval ({inner}ms), or the "
+        "inner search can never complete"
+    )
+    if flow.exists():
+        client = int(re.search(
+            r"EVAL_TIMEOUT_MS = (\d+)",
+            io.open(flow, encoding="utf-8").read()).group(1))
+        assert outer <= client, (
+            f"the endpoint ({outer}ms) must answer before the browser stops "
+            f"waiting ({client}ms)"
+        )
 
 
 def test_the_board_label_is_skipped_when_we_do_not_know():

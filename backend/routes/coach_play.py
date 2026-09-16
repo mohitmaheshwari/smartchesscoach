@@ -5767,8 +5767,15 @@ async def evaluate_pending_move(
 
         elapsed_eval = (_time.monotonic() - start) * 1000
 
-        # Hard timeout check — still return checklist/commentary even on timeout
-        if elapsed_eval > 1000:
+        # Hard timeout check — still return checklist/commentary even on timeout.
+        #
+        # 2000, not 1000. Profiled per stage: the DB prelude is 65-272ms and
+        # the engine is 907-1410ms, so a 1000ms budget was shorter than the
+        # engine's real cost and we bailed to the degraded path on most
+        # blunders. The browser races this against EVAL_TIMEOUT_MS = 3000
+        # (useCoachFlow.js) -- we were giving up a full second before the
+        # client would have.
+        if elapsed_eval > 2000:
             logger.warning(f"[FAST-EVAL] Hard timeout at {elapsed_eval:.0f}ms")
             # Board reading even on timeout
             _timeout_commentary = None

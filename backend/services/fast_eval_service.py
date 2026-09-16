@@ -61,7 +61,14 @@ def _restart_engine():
 
 PASS_A_NODES = 80000   # ~200ms — deeper for accuracy
 PASS_B_NODES = 150000  # ~350ms — confirm serious mistakes
-HARD_TIMEOUT_MS = 800  # Allow more time since we use 1200ms frontend window
+# Measured on an idle box (load 2.6), three consecutive calls on one position:
+# depth=0 at 999ms, then depth=10 at 1489ms and 1475ms. The two passes need
+# ~1480ms together, so an 800ms budget bailed after PASS A on a cold engine
+# and returned depth 0 -- which downstream had to treat as "no verdict".
+# 1500 lets the search it already started actually finish. The client waits
+# 3000ms (EVAL_TIMEOUT_MS in useCoachFlow.js), so this stays well inside what
+# the browser is willing to wait for.
+HARD_TIMEOUT_MS = 1500
 # What we report when the search did not happen. Deliberately NOT "good" --
 # see _timeout_result.
 UNKNOWN_QUALITY = "unknown"
