@@ -505,6 +505,39 @@ pre-focus baseline before it ever fires.
 
 ---
 
+### 17. Phase 8 "games played since enrollment" is zero for every user
+
+`report_phase8_release.py` counts a pilot user's post-enrollment games with
+`{"date_played": {"$gt": enrolled_at}}`, where `enrolled_at` is a datetime.
+`date_played` is a **string** in all 15,935 rows that have it. Under BSON type
+bracketing a datetime never compares against a string, so the query returns
+nothing. Measured 2026-09-16: **all 40 enrolled users return 0.** The report
+does not error — it reports "no games since enrollment" for the entire pilot,
+which then feeds `classify_journey_gap`, so the reason a user shows no transfer
+is decided from a number that is always zero.
+
+Switching the field is not enough. `date_played_iso`, the clean field finding 6
+introduced, is *also* stored as a string (15,256 rows) and is **stale again** —
+newest value 2026-09-11 while games kept importing through 2026-09-16, and
+absent on 940 rows. The one-off backfill was repeated, but the import path
+still does not write it, so it froze a second time exactly as it did at
+2026-08-31.
+
+**The fix.** Make the import path write `date_played_iso` through
+`services/game_dates.py` on every insert, so it stops being a backfill artifact;
+backfill the rows since 2026-09-11; then compare like against like in the report
+(both ISO strings, or store real datetimes and compare datetimes). Verify by
+re-running the count above and asserting it is non-zero for users who have
+demonstrably played since enrollment.
+
+**Re-derive it.** Count, for each user with `phase8_enrolled_at`, games matching
+`{"is_analyzed": True, "date_played": {"$gt": enrolled_at}}`; the finding is that
+the total across all 40 is 0 while those users have played since. Then repeat
+against `date_played_iso` and confirm it is 0 as well, and that
+`max(date_played_iso)` trails `max(imported_at)`.
+
+---
+
 ## Test suite
 
 The branch we deploy from had **7 failing tests** in the caption suite. Nobody
