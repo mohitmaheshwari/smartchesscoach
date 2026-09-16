@@ -5216,29 +5216,50 @@ def build_move_teaching_decision(
         caption_facts["played_trapped_evidence"] = _own_trap.get("escape_evidence") or []
         caption_facts["played_trapped_blocked_by_own"] = _own_trap.get("blocked_by_own") or []
 
-        _arrows = list(caption_payload.get("arrows") or [])
-        _high = list(caption_payload.get("highlight_squares") or [])
+        # THREE colours, three meanings — the picture has to teach, not just
+        # decorate. Mohit on the first version: "it should also create L
+        # arrows, right? like where are knight possible moves". Showing only
+        # our attackers said "these squares are covered" without ever showing
+        # that they ARE the piece's squares, which is the whole lesson.
+        #
+        #   green  b4 -> a5   the move you played, and what it attacks
+        #   yellow a5 -> c6   every square the piece can still reach (its
+        #                     L-shapes, for a knight — the geometry the cue
+        #                     talks about)
+        #   red    d5 -> c6   your piece covering that square
+        #
+        # Ours are prepended so the dedupe keeps OUR colour when an existing
+        # rule already drew the same from/to pair (b4->a5 was rendering red
+        # because a pre-existing arrow won the tie).
+        _trap_arrows = []
         _target = _own_trap["square"]
-        if _target not in _high:
-            _high.append(_target)
-        # the move that springs the trap
-        _arrows.append({
-            "from": _own_trap.get("attacker_square") or "",
-            "to": _target,
-            "color": "blue",
-        })
-        # every remaining flight square, and who of ours covers it
-        for _ev in (_own_trap.get("escape_evidence") or []):
+        _attacker_sq = _own_trap.get("attacker_square") or ""
+        if _attacker_sq:
+            _trap_arrows.append({"from": _attacker_sq, "to": _target, "color": "green"})
+        _evidence = _own_trap.get("escape_evidence") or []
+        # The piece's own moves first: they are the shape, and they are never
+        # dropped by the cap.
+        for _ev in _evidence:
             _sq = _ev.get("square")
+            if _sq:
+                _trap_arrows.append({"from": _target, "to": _sq, "color": "yellow"})
+        # Then who covers each one, filling whatever room is left.
+        _CAP = 14
+        for _ev in _evidence:
+            _sq = _ev.get("square")
+            for _cov in (_ev.get("covered_by") or []):
+                if len(_trap_arrows) >= _CAP:
+                    break
+                _trap_arrows.append({"from": _cov, "to": _sq, "color": "red"})
+
+        _arrows = _trap_arrows + list(caption_payload.get("arrows") or [])
+        _high = list(caption_payload.get("highlight_squares") or [])
+        for _sq in [_target] + [e.get("square") for e in _evidence]:
             if _sq and _sq not in _high:
                 _high.append(_sq)
-            for _cov in (_ev.get("covered_by") or []):
-                if len(_arrows) >= 9:   # keep the board readable
-                    break
-                _arrows.append({"from": _cov, "to": _sq, "color": "red"})
-        # Dedupe: a rule may already have drawn the trapping move (b4->a5
-        # showed twice on the b4 card). Keep the first arrow for a given
-        # from/to pair.
+
+        # Dedupe: a rule may already have drawn the trapping move. First wins,
+        # and ours are first.
         _seen_pairs = set()
         _deduped = []
         for _a in _arrows:
