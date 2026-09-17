@@ -9,6 +9,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { API } from "@/App";
+
+/** Open a read-only view-as session, then land on their home page.
+ *  Shared by the user list and the detail header so the two cannot drift. */
+async function startViewAs(userId) {
+  const res = await fetch(`${API}/admin/users/${userId}/view-as`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (res.ok) {
+    window.location.href = "/home";
+    return;
+  }
+  const body = await res.json().catch(() => ({}));
+  alert(body.detail || "Could not start view-as.");
+}
 import Layout from "@/components/Layout";
 import {
   Loader2, Users, BarChart3, MessageSquareWarning, Search,
@@ -174,6 +189,11 @@ const UsersTab = ({ currentUser }) => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  // The endpoint has always defaulted to 50 and this page never sent a skip,
+  // so only the 50 most recent accounts were reachable without searching by
+  // name. With 128 users that hid most of them.
+  const [skip, setSkip] = useState(0);
+  const PAGE_SIZE = 50;
   const [selectedUser, setSelectedUser] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -187,6 +207,8 @@ const UsersTab = ({ currentUser }) => {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (roleFilter && roleFilter !== "all") params.set("role", roleFilter);
+      params.set("limit", String(PAGE_SIZE));
+      params.set("skip", String(skip));
       const res = await fetch(`${API}/admin/users?${params}`, { credentials: "include" });
       if (res.ok) {
         const d = await res.json();
@@ -196,9 +218,13 @@ const UsersTab = ({ currentUser }) => {
     } finally {
       setLoading(false);
     }
-  }, [search, roleFilter]);
+  }, [search, roleFilter, skip]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  // A new filter means a new result set; staying on page 3 of the old one
+  // shows an empty list and looks like "no users match".
+  useEffect(() => { setSkip(0); }, [search, roleFilter]);
 
   const openDetail = async (userId) => {
     setSelectedUser(userId);
@@ -290,7 +316,11 @@ const UsersTab = ({ currentUser }) => {
         )}
       </div>
 
-      <p className="text-[10px] text-muted-foreground font-mono">{total} users</p>
+      <p className="text-[10px] text-muted-foreground font-mono">
+        {total > 0
+          ? `${Math.min(skip + 1, total)}–${Math.min(skip + PAGE_SIZE, total)} of ${total} users`
+          : "0 users"}
+      </p>
 
       {loading ? <Spinner /> : (
         <div className="space-y-1">
@@ -313,11 +343,57 @@ const UsersTab = ({ currentUser }) => {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <span className="text-[10px] text-muted-foreground font-mono">{u.game_count} games</span>
+                {/* One click from the list. The row itself opens detail, so
+                    this has to stop the click travelling. */}
+                {currentUser?.role === "super_admin"
+                  && u.user_id !== currentUser.user_id
+                  && u.role !== "super_admin" && (
+                  <button
+                    type="button"
+                    title={`View the product as ${u.name || u.email}`}
+                    data-testid="view-as-row-btn"
+                    className="px-2 py-0.5 text-[10px] border rounded-sm font-mono hover:bg-muted transition-colors"
+                    style={{ borderColor: BORDER }}
+                    onClick={(e) => { e.stopPropagation(); startViewAs(u.user_id); }}
+                  >
+                    👁 view as
+                  </button>
+                )}
                 <RoleBadge role={u.role} />
                 <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Paging. Without it only the newest 50 accounts were reachable at
+          all, and nothing on the page said so. */}
+      {total > PAGE_SIZE && (
+        <div className="flex items-center justify-between pt-1">
+          <button
+            type="button"
+            className="px-3 py-1.5 text-xs border rounded-sm font-light disabled:opacity-40 hover:bg-muted transition-colors"
+            style={{ borderColor: BORDER }}
+            data-testid="users-prev-page"
+            disabled={skip === 0 || loading}
+            onClick={() => setSkip((n) => Math.max(0, n - PAGE_SIZE))}
+          >
+            Previous
+          </button>
+          <span className="text-[10px] text-muted-foreground font-mono">
+            page {Math.floor(skip / PAGE_SIZE) + 1} of {Math.ceil(total / PAGE_SIZE)}
+          </span>
+          <button
+            type="button"
+            className="px-3 py-1.5 text-xs border rounded-sm font-light disabled:opacity-40 hover:bg-muted transition-colors"
+            style={{ borderColor: BORDER }}
+            data-testid="users-next-page"
+            disabled={skip + PAGE_SIZE >= total || loading}
+            onClick={() => setSkip((n) => n + PAGE_SIZE)}
+          >
+            Next
+          </button>
         </div>
       )}
 
@@ -441,18 +517,7 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
               className="px-2 py-1 text-xs border rounded-sm font-light hover:bg-muted transition-colors"
               style={{ borderColor: BORDER }}
               data-testid="view-as-btn"
-              onClick={async () => {
-                const res = await fetch(
-                  `${API}/admin/users/${u.user_id}/view-as`,
-                  { method: "POST", credentials: "include" }
-                );
-                if (res.ok) {
-                  window.location.href = "/home";
-                } else {
-                  const body = await res.json().catch(() => ({}));
-                  alert(body.detail || "Could not start view-as.");
-                }
-              }}
+              onClick={() => startViewAs(u.user_id)}
             >
               👁 View as
             </button>
