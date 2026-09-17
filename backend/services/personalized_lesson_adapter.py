@@ -760,7 +760,6 @@ async def _concept_descriptor(
             # are fine" and was then followed by rejecting 24 of them.
             "task_line": spec.task_line,
             "accepts": spec.accepts,
-            "position_difficulty": _position_difficulty(item["fen"]),
             **reason_fields,
             "_help_squares": (
                 [item.get("moved_origin")]
@@ -924,37 +923,6 @@ def _cheapest_attacker_word(board: "chess.Board", move: "chess.Move") -> Optiona
     except Exception:
         return None
 
-
-
-def _position_difficulty(fen: str) -> Optional[Dict[str, int]]:
-    """How many of the legal moves here actually hang something.
-
-    The card used to introduce every position with the same sentence. This
-    is the one true thing we can say about a specific board BEFORE the
-    player moves, without revealing which move is right: how many of their
-    options are traps. It also sizes the task -- 2 of 30 is a careful
-    position, 12 of 30 is a minefield.
-
-    Board-only (static exchange), no engine, so it costs nothing at build
-    time.
-    """
-    try:
-        from services.destination_safety_detector import (
-            grade_destination_safety_candidate,
-        )
-
-        board = chess.Board(fen)
-        legal = list(board.legal_moves)
-        if not legal:
-            return None
-        unsafe = 0
-        for move in legal:
-            verdict = grade_destination_safety_candidate(fen, move.uci())
-            if str(verdict.get("status") or "") == "fail":
-                unsafe += 1
-        return {"legal_moves": len(legal), "unsafe_moves": unsafe}
-    except Exception:
-        return None
 
 
 def _destination_safety_feedback(
