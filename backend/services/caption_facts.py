@@ -9278,6 +9278,31 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
         if move.promotion == chess.QUEEN:
             return "makes a new queen"
         if after.is_check():
+            # A check that ALSO attacks something wins that thing: the check has
+            # to be answered, so the target cannot be defended in time. Naming
+            # only the check teaches the tempo and hides why the tempo is worth
+            # anything -- reported 2026-09-17 on Qa5+, which hits the king down
+            # the a5-e1 diagonal and a defended bishop along the fifth rank.
+            # Branch 2 declines that target on purpose (it is defended, and worth
+            # less than the queen); SEE on the after-board is what proves the
+            # piece actually falls once a second attacker joins.
+            check_target = None
+            for sq in after.attacks(move.to_square):
+                tp = after.piece_at(sq)
+                if not tp or tp.color != enemy or tp.piece_type == chess.KING:
+                    continue
+                see_target = static_exchange_eval(after, sq, mover) or 0
+                if see_target >= 100 and (
+                    check_target is None or see_target > check_target[1]
+                ):
+                    check_target = (sq, see_target, tp.piece_type)
+            if check_target is not None:
+                return (
+                    f"gives check and wins the "
+                    f"{PIECE_TYPE_NAMES.get(check_target[2], 'piece')} on "
+                    f"{chess.square_name(check_target[0])}, because the check "
+                    f"has to be answered first"
+                )
             return "gives check, forcing your opponent to respond"
 
         # 5) PRINCIPLE — castle/center/develop/outpost/rook (transferable idea).

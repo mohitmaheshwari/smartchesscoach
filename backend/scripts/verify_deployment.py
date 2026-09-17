@@ -551,15 +551,58 @@ def check_complete_coaching_journey(
                 base_url.rstrip("/")
                 + "/api/training/personalized/session/respond"
             )
+            # The fixture pins ONE move, but the lesson serves whatever the
+            # community pool picks, so the pinned move goes illegal the moment
+            # the item rotates and the gate fails for a reason that has nothing
+            # to do with the release. Observed 2026-09-16: move "f5e5" against
+            # a served position with nothing on f5, which turned every
+            # deploy.sh run red.
+            #
+            # The pinned move still wins when it is legal, so the intended
+            # position is still exercised. Otherwise derive an answer with the
+            # SAME grader the endpoint uses, which keeps this an end-to-end
+            # test of the real grading path rather than a replay of one string.
+            submitted_move = str(fixture["move"])
+            item_fen = str(((session.get("next_item") or {}).get("fen")) or "")
+            if item_fen:
+                try:
+                    import chess as _chess
+                    from services.destination_safety_detector import (
+                        grade_destination_safety_candidate,
+                    )
+
+                    _board = _chess.Board(item_fen)
+                    _pinned_ok = False
+                    try:
+                        _pinned_ok = (
+                            _chess.Move.from_uci(submitted_move) in _board.legal_moves
+                        )
+                    except ValueError:
+                        _pinned_ok = False
+                    if not _pinned_ok:
+                        for _candidate in _board.legal_moves:
+                            _graded = grade_destination_safety_candidate(
+                                item_fen, _candidate.uci()
+                            )
+                            if str((_graded or {}).get("status")) == "pass":
+                                submitted_move = _candidate.uci()
+                                detail.append(
+                                    "Pinned fixture move is not legal in the served "
+                                    f"position; derived {submitted_move} instead"
+                                )
+                                break
+                except Exception as exc:  # never let the helper fail the gate
+                    detail.append(f"Could not derive a fixture move: {exc}")
+
             interaction_id = (
                 "phase8-deploy-"
                 + hashlib.sha256(
-                    (session_id + str(fixture["move"])).encode("utf-8")
+                    (session_id + submitted_move).encode("utf-8")
                 ).hexdigest()[:24]
             )
             response_payload = {
                 "session_id": session_id,
-                "move": fixture["move"],
+                "move": submitted_move,
                 "interaction_id": interaction_id,
             }
             responded = requests.post(
@@ -576,7 +619,10 @@ def check_complete_coaching_journey(
                 )
             verdict = responded.json()
             if verdict.get("correct") is not True:
-                raise ValueError(f"Fixture move did not receive a correct verdict: {verdict}")
+                raise ValueError(
+                    f"Fixture move {submitted_move} did not receive a correct "
+                    f"verdict in position {item_fen or '(unknown)'}: {verdict}"
+                )
             duplicate = requests.post(
                 respond_url,
                 headers=headers,

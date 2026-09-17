@@ -67,6 +67,7 @@ from services.caption_facts import (
     ReviewTeachingCause,
     build_legal_material_loss_cause,
     build_verified_line_cause,
+    static_exchange_eval,
 )
 from services.exact_endgame_service import (
     ExactEndgameCause,
@@ -4365,6 +4366,136 @@ def _normalize_san_for_match(san: Optional[str]) -> str:
         "!", "").replace("?", "").strip()
 
 
+def _check_attack_arrows(
+    board_before: Optional[chess.Board],
+    best_move_uci: Optional[str],
+) -> List[Dict[str, str]]:
+    """Draw the two-attackers-plus-check picture, or nothing.
+
+    Mohit 2026-09-17, on fb_1c52480b2e9b: "it should draw a line from Qa5 to
+    [the] bishop and our bishop to [the] bishop and a queen checking the king,
+    so it's easy." The words for that move ("gives check and wins the bishop
+    on e5") name the fact; the board is what makes the geometry obvious -- two
+    lines converging on one square, and a third into the king that says why
+    the defender never gets a turn.
+
+    Right-or-silent: every arrow is a legal attack on the after-board, and the
+    target must be SEE-positive, so we never draw a win that is not there. At
+    most four arrows, and only on a move that both checks and wins something,
+    which keeps this rare rather than wallpaper.
+    """
+    if board_before is None or not best_move_uci:
+        return []
+    try:
+        move = chess.Move.from_uci(str(best_move_uci))
+        if move not in board_before.legal_moves:
+            return []
+        mover = board_before.turn
+        after = board_before.copy()
+        after.push(move)
+        if not after.is_check():
+            return []
+        target = None
+        for sq in after.attacks(move.to_square):
+            piece = after.piece_at(sq)
+            if not piece or piece.color == mover or piece.piece_type == chess.KING:
+                continue
+            see = static_exchange_eval(after, sq, mover) or 0
+            if see >= 100 and (target is None or see > target[1]):
+                target = (sq, see)
+        if target is None:
+            return []
+        king_sq = after.king(not mover)
+        if king_sq is None:
+            return []
+        target_sq = target[0]
+        arrows: List[Dict[str, str]] = [{
+            "from": chess.square_name(move.to_square),
+            "to": chess.square_name(target_sq),
+            "color": "green",
+            "teach": True,
+        }]
+        # The attackers that were ALREADY there are the reason the square
+        # tips: one new attacker on an undefended piece is an ordinary
+        # threat, a second attacker on a defended one is what wins it.
+        for sq in sorted(after.attackers(mover, target_sq)):
+            if sq == move.to_square or len(arrows) >= 3:
+                continue
+            arrows.append({
+                "from": chess.square_name(sq),
+                "to": chess.square_name(target_sq),
+                "color": "green",
+                "teach": True,
+            })
+        arrows.append({
+            "from": chess.square_name(move.to_square),
+            "to": chess.square_name(king_sq),
+            "color": "red",
+            "teach": True,
+        })
+        return arrows
+    except Exception:
+        return []
+
+
+def _punishment_arrows(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    *,
+    mover_is_user: bool,
+    cp_loss: int,
+) -> List[Dict[str, str]]:
+    """Show what the opponent takes after a blunder, or nothing.
+
+    Mohit 2026-09-17: "we want to make sure we understand the blunders and
+    mistakes from each game and try to arrow them, so they make sense."
+
+    Measured over 500 games: arrows were drawn on 0% of the 5,039 user-mistake
+    cards, while 7.5% of all cards drew them -- the picture was appearing
+    everywhere except where a player had just lost something. This is the
+    other half of the answer to "what did I miss": the piece that is now
+    takeable, and who takes it.
+
+    Right-or-silent, and deliberately narrow. Only the player's own mistakes
+    (>=100cp), only a target SEE proves is really winnable, and at most three
+    arrows. Drawing the consequence of a move the card has already called a
+    mistake keeps the board and the words talking about the same thing --
+    the agreement v164 had to restore after the trap cage drifted off its
+    caption.
+    """
+    if board_before is None or played_move is None:
+        return []
+    if not mover_is_user or (cp_loss or 0) < 100:
+        return []
+    try:
+        mover = board_before.turn
+        after = board_before.copy()
+        after.push(played_move)
+        victim = None
+        for square, piece in after.piece_map().items():
+            if piece.color != mover or piece.piece_type == chess.KING:
+                continue
+            see = static_exchange_eval(after, square, not mover) or 0
+            if see >= 100 and (victim is None or see > victim[1]):
+                victim = (square, see)
+        if victim is None:
+            return []
+        victim_sq = victim[0]
+        arrows: List[Dict[str, str]] = []
+        for attacker in sorted(after.attackers(not mover, victim_sq)):
+            if len(arrows) >= 3:
+                break
+            arrows.append({
+                "from": chess.square_name(attacker),
+                "to": chess.square_name(victim_sq),
+                "color": "red",
+                "teach": True,
+            })
+        return arrows
+    except Exception:
+        return []
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -6001,8 +6132,40 @@ def build_move_teaching_decision(
     )
     # V5 move_output reads from caption_payload (renderer output),
     # NOT caption_facts. Match that source for zero-diff parity.
+    # Mohit 2026-09-17: "our geometry the way it shows is terrible, it kills
+    # the experience -- remove that, don't delete the code, just stop showing
+    # geometry." The trap picture draws up to _CAP = 14 arrows on one board,
+    # which reads as clutter rather than a lesson. Every arrow the review card
+    # renders passes through here, so this is the one place to hold them back.
+    #
+    # Nothing is deleted: the builders still run and still populate
+    # caption_payload, so the facts, the cap and the dedupe are all intact and
+    # REVIEW_LEGACY_ARROWS=true restores the old picture unchanged. Arrows that
+    # are themselves the lesson opt back in by carrying "teach": True, so a
+    # focused two-or-three arrow picture can ship without reopening the flood.
+    _arrows_out = list(caption_payload.get("arrows") or [])
+    # The one picture that earns its place on the board today: a check that
+    # also piles a second attacker onto a piece. Tagged "teach" so it survives
+    # the suppression below.
+    _teach_arrows = _check_attack_arrows(board_before, inputs.best_move_uci)
+    # One picture per card. The check picture is rarer and more striking, so it
+    # wins when both are available; otherwise show what the blunder gave away.
+    if not _teach_arrows:
+        _teach_arrows = _punishment_arrows(
+            board_before,
+            played_move,
+            mover_is_user=inputs.mover_is_user,
+            cp_loss=inputs.cp_loss,
+        )
+    if _teach_arrows:
+        _existing = {(a.get("from"), a.get("to")) for a in _arrows_out}
+        _arrows_out = [
+            a for a in _teach_arrows if (a["from"], a["to"]) not in _existing
+        ] + _arrows_out
+    if os.environ.get("REVIEW_LEGACY_ARROWS", "false").strip().lower() != "true":
+        _arrows_out = [a for a in _arrows_out if a.get("teach") is True]
     visual = VisualSurface(
-        arrows=caption_payload.get("arrows") or [],
+        arrows=_arrows_out,
         highlight_squares=caption_payload.get("highlight_squares") or [],
     )
     # Mohit 2026-05-31: extract the severity WORD R12 chose for the
