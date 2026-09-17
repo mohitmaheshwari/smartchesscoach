@@ -19,10 +19,12 @@ Why this exists:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Dict, Optional
 
 import chess
+import chess.engine
 
 logger = logging.getLogger(__name__)
 
@@ -63,11 +65,24 @@ def _build_feedback(quality: str, played_san: str, best_san: str) -> str:
     if quality == "mistake":
         return f"{played_san} loses ground. {best_san} was the move."
     if quality == "blunder":
-        return f"{played_san} loses material. {best_san} was the right idea."
+        return f"{played_san} loses ground. {best_san} was stronger."
     return ""
 
 
 async def evaluate_puzzle_move(
+    fen: str,
+    played_uci: str,
+    depth: int = 12,
+    known_best_san: Optional[str] = None,
+) -> Dict:
+    # python-chess and engine startup are synchronous. Keeping them inside
+    # the event loop prevented the caller's wait_for budget from firing.
+    return await asyncio.to_thread(
+        _evaluate_puzzle_move_sync, fen, played_uci, depth, known_best_san
+    )
+
+
+def _evaluate_puzzle_move_sync(
     fen: str,
     played_uci: str,
     depth: int = 12,
@@ -130,16 +145,36 @@ async def evaluate_puzzle_move(
             # Step 1: baseline = engine eval of the current position (this
             # IS the best-play eval by definition — Stockfish assumes top
             # play for the side to move).
-            baseline_eval, _ = engine.evaluate_position(board, depth=depth)
-
-            # Step 2: capture best move (for feedback + exact-match check).
-            best_move, _, _ = engine.get_best_move(board, depth=depth)
+            # One search yields both the baseline and best move. Do not run
+            # the identical root search again just to get the move.
+            info = engine.engine.analyse(board, chess.engine.Limit(depth=depth))
+            pv = info.get("pv") or []
+            if not pv or pv[0] not in board.legal_moves or "score" not in info:
+                raise ValueError("Missing scored legal principal variation")
+            if info.get("depth", 0) < depth or info.get("lowerbound") or info.get("upperbound"):
+                raise ValueError("Incomplete or bounded engine result")
+            baseline_eval = info["score"].white().score(mate_score=10000)
+            best_move = pv[0]
             best_san = board.san(best_move)
             played_san = board.san(played_move)
 
-            # Step 3: push the user's move and evaluate the resulting position.
-            board.push(played_move)
-            user_after_eval, _ = engine.evaluate_position(board, depth=depth)
+            # Only a different candidate needs a second search.
+            if played_move == best_move:
+                user_after_eval = baseline_eval
+            else:
+                # Compare from the same root and point of view. Restricting
+                # the root move also avoids granting the played line an
+                # extra ply relative to the unrestricted search.
+                played_info = engine.engine.analyse(
+                    board, chess.engine.Limit(depth=depth), root_moves=[played_move]
+                )
+                played_pv = played_info.get("pv") or []
+                if (not played_pv or played_pv[0] != played_move
+                        or "score" not in played_info
+                        or played_info.get("depth", 0) < depth
+                        or played_info.get("lowerbound") or played_info.get("upperbound")):
+                    raise ValueError("Incomplete played-move evidence")
+                user_after_eval = played_info["score"].white().score(mate_score=10000)
     except Exception as e:
         logger.warning(f"puzzle move eval failed: {e}")
         return {
@@ -154,9 +189,8 @@ async def evaluate_puzzle_move(
     delta = (baseline_eval - user_after_eval) * sign
     cp_loss = max(0, int(delta))
 
-    is_best_match = played_move == best_move or (
-        known_best_san is not None and played_san == known_best_san
-    )
+    # Stored notation is context, not permission to override fresh evidence.
+    is_best_match = played_move == best_move
     quality = _classify(cp_loss, is_best_match)
     is_best = quality == "best"
     is_acceptable = cp_loss <= GOOD_CP  # best / excellent / good all advance
@@ -167,6 +201,7 @@ async def evaluate_puzzle_move(
         "is_best": is_best,
         "is_acceptable": is_acceptable,
         "best_move_san": best_san,
+        "best_move_uci": best_move.uci(),
         "user_move_san": played_san,
         "feedback": _build_feedback(quality, played_san, best_san),
     }

@@ -875,6 +875,28 @@ _STATE_RANK = {
 }
 
 
+def _current_lesson_item(descriptor, item):
+    """Apply the shared question/grader contract to resumed concept items.
+
+    Historical attempts stay untouched. A new attempt must not inherit an
+    obsolete single-best grader from a serialized piece-safety session.
+    """
+    if not item or descriptor.get("kind") != "concept":
+        return item
+    from services.lesson_question_spec import get_spec
+
+    spec = get_spec(item.get("_question_category") or descriptor.get("id"))
+    if spec is None:
+        return item
+    return {
+        **item,
+        "_question_category": spec.category,
+        "_accepts": spec.accepts,
+        "prompt": spec.question,
+        "task_line": spec.task_line,
+    }
+
+
 def _public_personalized_item(item: Optional[Mapping[str, Any]]):
     if not item:
         return None
@@ -945,6 +967,12 @@ def _public_reasoned_item(
     result = _public_personalized_item(item)
     if result is None:
         return None
+    if item.get("_question_category"):
+        # No generic attitude quiz. The server either authors a proved
+        # position-relative question or grades directly without a reason.
+        result.pop("reason_prompt", None)
+        result.pop("reason_choices", None)
+        result["server_staged_reasoning"] = True
     if _position_relative_reason_enabled(item, eligible):
         result.pop("reason_prompt", None)
         result.pop("reason_choices", None)
@@ -1092,7 +1120,7 @@ def _public_personalized_session(
     descriptor = session.get("descriptor") or {}
     items = descriptor.get("items") or []
     index = int(session.get("current_index") or 0)
-    current = items[index] if index < len(items) else None
+    current = _current_lesson_item(descriptor, items[index]) if index < len(items) else None
     highest = str(session.get("highest_earned_state") or "learning")
     blind = session.get("delivery_mode") == "blind_diagnostic"
     position_relative = bool(
@@ -2000,7 +2028,7 @@ async def process_personalized_move(
             **_public_personalized_session(session, eligible=eligible),
             "complete": True,
         }
-    item = items[index]
+    item = _current_lesson_item(descriptor, items[index])
 
     blind = session.get("delivery_mode") == "blind_diagnostic"
     position_relative = bool(
@@ -2276,9 +2304,14 @@ async def process_personalized_move(
     except Exception:
         response_move_uci = None
     correct = bool(grade.get("correct"))
-    await _record_puzzle_solve(db, session, item, correct)
+    # Diagnostics report target and whole-move quality separately. Ordinary
+    # practice must not advance a move known to have a serious other problem.
+    if not blind and (grade.get("soundness") or {}).get("status") == "serious_problem":
+        correct = False
+    if not grade.get("unmeasured") and (grade.get("soundness") or {}).get("status") != "unmeasured":
+        await _record_puzzle_solve(db, session, item, correct)
     expected_reason = item.get("_expected_reason")
-    if expected_reason and not reason_components:
+    if expected_reason and not reason_components and (reasoned or reason_choice):
         reasoning_consistent = bool(
             reason_choice and reason_choice == expected_reason
         )
@@ -2337,6 +2370,8 @@ async def process_personalized_move(
             "trap": "threat_not_identified",
             "endgame": "endgame_rule_not_applied",
         }.get(lesson_kind, "board_relationship_missed")
+        if grade.get("target_result") == "pass":
+            misconception = "separate_soundness_issue"
         # Lead with the belief that produced the move, then the board fact.
         # The misconception label is deliberately unchanged: this improves
         # what the player is told, not what the evidence model records.
@@ -2365,8 +2400,9 @@ async def process_personalized_move(
         misconception = None
         correction = str(grade.get("feedback") or "")
 
-    evidence_complete = not bool(grade.get("unmeasured")) and not (
-        reasoned and str((grade.get("soundness") or {}).get("status")) not in {
+    reason_unmeasured = bool(expected_reason and not reason_components and not reason_choice)
+    evidence_complete = not reason_unmeasured and not bool(grade.get("unmeasured")) and not (
+        (reasoned or grade.get("soundness")) and str((grade.get("soundness") or {}).get("status")) not in {
         "sound",
         "serious_problem",
         }
@@ -2374,7 +2410,8 @@ async def process_personalized_move(
     evidence_limitations = (
         ()
         if evidence_complete
-        else ("independent_move_soundness_not_verified",)
+        else (("position_reason_not_measured",) if reason_unmeasured
+              else ("independent_move_soundness_not_verified",))
     )
     if not evidence_complete:
         # Keep the target result visible, but never award learning evidence
@@ -2470,6 +2507,12 @@ async def process_personalized_move(
     result = {
         "correct": correct,
         "feedback": correction or grade.get("feedback"),
+        "move_feedback": grade.get("feedback"),
+        "reason_feedback": (
+            correction if correction else
+            str(reason_components[-1].get("feedback") or "") if reason_components
+            else None
+        ),
         "answer_san": grade.get("answer_san") if reveal_answer else None,
         "answer_uci": grade.get("answer_uci") if reveal_answer else None,
         "misconception": misconception,
@@ -2487,7 +2530,11 @@ async def process_personalized_move(
         "next_item": (
             _public_blind_item(items[next_index])
             if blind and next_index < len(items)
-            else _public_personalized_item(items[next_index])
+            else _public_reasoned_item(
+                _current_lesson_item(descriptor, items[next_index]),
+                blind=False,
+                eligible=eligible,
+            )
             if next_index < len(items)
             else None
         ),

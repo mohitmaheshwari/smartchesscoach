@@ -986,6 +986,13 @@ def _destination_safety_feedback(
             % (moved, landing)
         )
 
+    if target_status == "pass" and soundness_status == "unmeasured":
+        return (
+            f"Your {moved} passes the landing-square check on {landing}. "
+            "I could not finish checking the rest of the position, so this "
+            "is not a verdict on the whole move."
+        )
+
     if target_status == "pass":
         return (
             "Your %s is safe on %s, so the piece-safety part is right. "

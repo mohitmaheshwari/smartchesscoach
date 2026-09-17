@@ -10,7 +10,7 @@ jest.mock("react-router-dom", () => ({
 jest.mock("../../App", () => ({ API: "https://api.test/api" }));
 jest.mock("../LichessBoard", () => {
   const React = require("react");
-  return React.forwardRef(({ onMove, interactive }, ref) => {
+  return React.forwardRef(({ onMove, interactive, fen }, ref) => {
     React.useImperativeHandle(ref, () => ({
       highlightSquares: jest.fn(),
       clearArrows: jest.fn(),
@@ -19,6 +19,7 @@ jest.mock("../LichessBoard", () => {
       <button
         type="button"
         data-testid="lesson-board"
+        data-fen={fen}
         disabled={!interactive}
         onClick={() => onMove({ from: "e2", to: "f3" })}
       >
@@ -115,6 +116,41 @@ describe("PersonalizedLessonWorkspace", () => {
     });
   };
 
+  test("holds a successful move and its explanation until Next position, without resubmitting", async () => {
+    const first = { ...session.current_item, server_staged_reasoning: true, reason_choices: undefined };
+    const next = { ...first, item_id: "p2", fen: "8/8/8/8/8/4K3/8/7k w - - 0 1" };
+    let resolveGrade;
+    global.fetch.mockImplementation((url) => {
+      if (url.endsWith("/start")) return response({ ...session, total_items: 2, current_item: first });
+      if (url.endsWith("/respond")) return new Promise((resolve) => { resolveGrade = resolve; });
+      return response({});
+    });
+    await act(async () => root.render(<PersonalizedLessonWorkspace contentKind="concept" contentId="piece_safety" />));
+    await settle();
+    await act(async () => container.querySelector('[data-testid="lesson-board"]').click());
+    await settle();
+    expect(container.textContent).toContain("Your coach is checking");
+    expect(container.querySelector('[data-testid="lesson-board"]').disabled).toBe(true);
+    const playedFen = container.querySelector('[data-testid="lesson-board"]').dataset.fen;
+    expect(playedFen).not.toBe(first.fen);
+    await act(async () => resolveGrade({ ok: true, json: async () => ({
+      correct: true, complete: false, current_index: 1, next_item: next,
+      move_feedback: "Your piece is safe on its new square.",
+      reason_feedback: "Notice the diagonal before moving again.",
+    }) }));
+    await settle();
+    expect(container.querySelector('[data-testid="lesson-board"]').dataset.fen).toBe(playedFen);
+    expect(container.textContent).toContain("Notice the diagonal");
+    expect(container.querySelector('[role="status"] svg')).not.toBeNull();
+    await act(async () => Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Next position"
+    ).click());
+    await settle();
+    expect(container.querySelector('[data-testid="lesson-board"]').dataset.fen).toBe(next.fen);
+    expect(container.querySelector('[data-testid="lesson-board"]').disabled).toBe(false);
+    expect(global.fetch.mock.calls.filter(([url]) => url.endsWith("/respond"))).toHaveLength(1);
+  });
+
   test("accepts the move first, then asks for a reason and reports only proved state", async () => {
     await act(async () => {
       root.render(
@@ -165,6 +201,14 @@ describe("PersonalizedLessonWorkspace", () => {
     const answerCall = global.fetch.mock.calls.find(([url]) => url.endsWith("/respond"));
     expect(JSON.parse(helpCall[1].body).action).toBe("show_on_board");
     expect(JSON.parse(answerCall[1].body).reason_choice).toBe("keeps_piece_safe");
+    expect(container.textContent).toContain("Good scan.");
+    expect(container.textContent).not.toContain("You found the idea");
+    expect(container.querySelector('[data-testid="lesson-board"]').disabled).toBe(true);
+    await act(async () => Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Finish lesson"
+    ).click());
+    await settle();
+    expect(global.fetch.mock.calls.filter(([url]) => url.endsWith("/respond"))).toHaveLength(1);
     expect(container.textContent).toContain("Can do alone");
     expect(container.textContent).toContain("Now I want to see whether the same thought appears");
     expect(container.textContent).not.toContain("Not measured");
@@ -287,6 +331,12 @@ describe("PersonalizedLessonWorkspace", () => {
       reason_choice: "wait",
       reason_component_id: "one-reply",
     });
+    expect(container.textContent).toContain("You checked the whole position.");
+    expect(container.textContent).not.toContain("You found the idea");
+    await act(async () => Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Finish lesson"
+    ).click());
+    await settle();
     expect(container.textContent).toContain("You found the idea");
   });
 
@@ -385,6 +435,12 @@ describe("PersonalizedLessonWorkspace", () => {
       reason_choice: "reach_c4",
       reason_component_id: "endgame:0:c2c3:idea",
     });
+    expect(container.textContent).toContain("Good. Kc3 prepares c4.");
+    expect(container.textContent).not.toContain("You found the idea");
+    await act(async () => Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Finish lesson"
+    ).click());
+    await settle();
     expect(container.textContent).toContain("You found the idea");
   });
 
@@ -436,6 +492,11 @@ describe("PersonalizedLessonWorkspace", () => {
 
     expect(container.textContent).toContain("That move can still win");
     expect(container.textContent).not.toContain("Pick the thought closest");
+    expect(container.querySelector('[data-testid="lesson-board"]').disabled).toBe(true);
+    await act(async () => Array.from(container.querySelectorAll("button")).find(
+      (button) => button.textContent === "Try again"
+    ).click());
+    await settle();
     expect(container.querySelector('[data-testid="lesson-board"]').disabled).toBe(false);
   });
 });

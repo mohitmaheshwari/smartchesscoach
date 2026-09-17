@@ -394,6 +394,37 @@ def test_missing_reason_cannot_claim_independent_proof(monkeypatch):
     assert result["earned_state"] == "learning"
 
 
+def test_safe_destination_with_serious_other_problem_does_not_advance(monkeypatch):
+    _install(monkeypatch)
+
+    async def grade(*args, **kwargs):
+        return {"correct": True, "target_result": "pass",
+                "soundness": {"status": "serious_problem"},
+                "feedback": "Your queen is safe, but the move has another problem.",
+                "grader_version": "test.v1"}
+
+    monkeypatch.setattr("services.personalized_lesson_adapter.grade_personalized_move", grade)
+    db = _DB()
+    _start(db)
+    result = asyncio.run(process_lesson_move(db, "session-1", "e2f3", interaction_id="other-problem"))
+    assert result["target_result"] == "pass"
+    assert result["correct"] is False
+    assert result["current_index"] == 0
+    assert result["complete"] is False
+
+
+def test_resumed_old_piece_safety_item_uses_shared_acceptance_contract():
+    from services.teaching_engine import _current_lesson_item, _public_reasoned_item
+    original = {"item_id": "old", "reason_choices": [{"id": "generic"}]}
+    current = _current_lesson_item({"kind": "concept", "id": "piece_safety"}, original)
+    assert current["_accepts"] == "any_safe"
+    assert "_accepts" not in original
+    public = _public_reasoned_item(current, blind=False, eligible=False)
+    assert public["server_staged_reasoning"] is True
+    assert "reason_choices" not in public
+    assert "_accepts" not in public
+
+
 def test_wrong_transfer_never_reveals_answer(monkeypatch):
     _install(monkeypatch, correct=False)
     db = _DB()
@@ -684,7 +715,11 @@ def test_normal_lesson_asks_exact_questions_only_after_the_move(monkeypatch):
     monkeypatch.setenv("CANDIDATE_LESSON_REASONS_ENABLED", "true")
 
     async def resolve(*args, **kwargs):
-        return _position_relative_lesson_descriptor()
+        descriptor = _position_relative_lesson_descriptor()
+        second = copy.deepcopy(descriptor["items"][0])
+        second["item_id"] = "next-position-relative"
+        descriptor["items"].append(second)
+        return descriptor
 
     async def profile(*args, **kwargs):
         return {"mode": "diagnostic_required", "delivery": {}}
@@ -750,8 +785,11 @@ def test_normal_lesson_asks_exact_questions_only_after_the_move(monkeypatch):
             reason_choice=component.accepted_choice_ids[0],
             reason_component_id=question["question_id"],
         ))
-    assert payload["complete"] is True
+    assert payload["complete"] is False
     assert payload["reasoning_consistent"] is True
+    assert payload["next_item"]["item_id"] == "next-position-relative"
+    assert payload["next_item"]["position_relative_reasoning"] is True
+    assert "reason_choices" not in payload["next_item"]
 
 
 def test_normal_lesson_dynamic_questions_fail_closed_for_stale_detector(monkeypatch):
@@ -774,7 +812,9 @@ def test_normal_lesson_dynamic_questions_fail_closed_for_stale_detector(monkeypa
     db = _DB()
     started = _start(db)
     assert "position_relative_reasoning" not in started["current_item"]
-    assert started["current_item"]["reason_prompt"] == "Static fallback question"
+    assert "reason_prompt" not in started["current_item"]
+    assert "reason_choices" not in started["current_item"]
+    assert started["current_item"]["server_staged_reasoning"] is True
 
 
 def test_key_squares_asks_why_kc3_prepares_c4_without_static_choices(monkeypatch):

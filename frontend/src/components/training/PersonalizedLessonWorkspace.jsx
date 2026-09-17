@@ -220,24 +220,6 @@ export default function PersonalizedLessonWorkspace({
       } else {
         setFeedback(payload);
         setHelp(null);
-        if (payload.complete) invalidatePersonalCurriculum();
-        setSession((currentSession) => ({
-          ...currentSession,
-          status: payload.complete ? "completed" : "active",
-          current_index: payload.current_index,
-          completed_items: payload.current_index,
-          current_item: payload.next_item,
-          stage: payload.next_stage || payload.next_item?.stage || "retain",
-          learner_state: {
-            ...currentSession.learner_state,
-            state: payload.highest_earned_state,
-          },
-          teaching_profile: payload.teaching_profile || currentSession.teaching_profile,
-        }));
-        setPendingMove(null);
-        setReasonChoice("");
-        setBoardArrows([]);
-        setBoardRevision((revision) => revision + 1);
       }
     } catch (moveError) {
       setError(moveError.message);
@@ -286,32 +268,40 @@ export default function PersonalizedLessonWorkspace({
       }
       setFeedback(payload);
       setHelp(null);
-      if (payload.complete) invalidatePersonalCurriculum();
-      setSession((currentSession) => ({
-        ...currentSession,
-        status: payload.complete ? "completed" : "active",
-        current_index: payload.current_index,
-        completed_items: payload.current_index,
-        current_item: payload.next_item,
-        stage: payload.next_stage || payload.next_item?.stage || "retain",
-        learner_state: {
-          ...currentSession.learner_state,
-          state: payload.highest_earned_state,
-        },
-        teaching_profile: payload.teaching_profile || currentSession.teaching_profile,
-      }));
-      setPendingMove(null);
-      setReasonChoice("");
-      setBoardArrows([]);
-      setBoardRevision((revision) => revision + 1);
     } catch (moveError) {
       setError(moveError.message);
-      setPendingMove(null);
       setReasonChoice("");
-      setBoardRevision((revision) => revision + 1);
+      // A staged move still belongs to the server-side question. Keep it
+      // visible so a transient answer failure can be retried coherently.
     } finally {
       setBusy(false);
     }
+  };
+
+  // Keep the attempted board until the student explicitly continues. The
+  // result is already persisted; this must not submit another attempt.
+  const continueAfterFeedback = () => {
+    if (!feedback || busy) return;
+    const payload = feedback;
+    if (payload.complete) invalidatePersonalCurriculum();
+    setSession((currentSession) => ({
+      ...currentSession,
+      status: payload.complete ? "completed" : "active",
+      current_index: payload.current_index ?? currentSession.current_index,
+      completed_items: payload.current_index ?? currentSession.completed_items,
+      current_item: payload.next_item || payload.current_item || currentSession.current_item,
+      stage: payload.next_stage || payload.next_item?.stage || currentSession.stage,
+      learner_state: {
+        ...currentSession.learner_state,
+        state: payload.highest_earned_state || currentSession.learner_state?.state,
+      },
+      teaching_profile: payload.teaching_profile || currentSession.teaching_profile,
+    }));
+    setFeedback(null);
+    setPendingMove(null);
+    setReasonChoice("");
+    setBoardArrows([]);
+    setBoardRevision((revision) => revision + 1);
   };
 
   const chooseDifferentMove = () => {
@@ -389,7 +379,7 @@ export default function PersonalizedLessonWorkspace({
     ? fenAfterMove(item?.fen, pendingMove.san || pendingMove.uci)
     : null;
   const stage = item?.stage || session?.stage || "guide";
-  const isReady = !pendingMove && !busy;
+  const isReady = !pendingMove && !busy && !feedback;
   const preferredHelp = session?.teaching_profile?.delivery?.preferred_help;
   const helpActions = [...HELP_ACTIONS].sort((left, right) => (
     left.id === preferredHelp ? -1 : right.id === preferredHelp ? 1 : 0
@@ -455,14 +445,14 @@ export default function PersonalizedLessonWorkspace({
               </>
             )}
 
-            {!pendingMove ? (
+            {!feedback && (!pendingMove ? (
               <div className="mb-5 rounded-xl border border-border/70 bg-muted/25 p-4">
                 <p className="text-sm font-medium text-foreground">Make the move you would choose.</p>
                 <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                   I’ll ask what you noticed after the piece lands, so your explanation cannot steer the move.
                 </p>
               </div>
-            ) : (
+            ) : reasonChoices.length > 0 ? (
               <fieldset className="mb-5">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs text-muted-foreground">
@@ -503,9 +493,9 @@ export default function PersonalizedLessonWorkspace({
                   ))}
                 </div>
               </fieldset>
-            )}
+            ) : null)}
 
-            <div className="flex flex-wrap gap-2 mb-5" aria-label="Lesson help">
+            {!feedback && <div className="flex flex-wrap gap-2 mb-5" aria-label="Lesson help">
               {helpActions.map(({ id, label, icon: Icon }) => (
                 <button
                   type="button"
@@ -518,8 +508,7 @@ export default function PersonalizedLessonWorkspace({
                   {id === preferredHelp ? " · try this first" : ""}
                 </button>
               ))}
-            </div>
-
+            </div>}
             {help?.message && (
               <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm leading-relaxed text-violet-950 dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-100 mb-4">
                 {help.message}
@@ -527,7 +516,7 @@ export default function PersonalizedLessonWorkspace({
             )}
             {feedback && (
               <div className={`rounded-lg border p-4 text-sm leading-relaxed mb-4 ${
-                feedback.correct
+                feedback.correct && (!feedback.soundness || feedback.soundness.status === "sound")
                   ? "border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
                   : "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
               }`}>
@@ -538,19 +527,28 @@ export default function PersonalizedLessonWorkspace({
                   // answer). moveVerdict reports whichever one replied, and
                   // never lets one borrow the other's claim.
                   const verdict = moveVerdict(feedback);
+                  const destinationOnly = session?.lesson?.kind === "concept"
+                    && session?.lesson?.id === "piece_safety"
+                    && feedback.target_result === "pass";
+                  const headline = destinationOnly
+                    ? "Your move passes the landing-square check."
+                    : verdict?.headline || "I could not check that move here.";
+                  const explanations = [...new Set([
+                    feedback.move_feedback || feedback.feedback || feedback.message,
+                    feedback.reason_feedback,
+                  ].filter(Boolean))];
                   return (
                     <>
-                      <p className="font-medium">
-                        {verdict
-                          ? verdict.headline
-                          : "I could not check that move here."}
+                      <p className="font-medium flex items-center gap-2" role="status">
+                        {feedback.correct && (!feedback.soundness || feedback.soundness.status === "sound") && (
+                          <CheckCircle2 className="h-5 w-5 shrink-0" aria-hidden="true" />
+                        )}
+                        {headline}
                       </p>
                       {verdict?.soundnessNote && (
-                        <p className="mt-1 text-xs opacity-80">{verdict.soundnessNote}</p>
+                        <p className="mt-1 text-xs opacity-80">This move has another problem outside this lesson’s safety check.</p>
                       )}
-                      {feedback.feedback && (
-                        <p className="mt-2">{feedback.feedback}</p>
-                      )}
+                      {explanations.map((text) => <p key={text} className="mt-2">{text}</p>)}
                     </>
                   );
                 })()}
@@ -560,9 +558,12 @@ export default function PersonalizedLessonWorkspace({
                 {!feedback.correct && feedback.answer_san && (
                   <p className="mt-2">Play it on the board, then say what it fixes.</p>
                 )}
-                {!feedback.correct && !feedback.answer_san && (
+                {!feedback.correct && !feedback.answer_san && !feedback.retry_move && (
                   <p className="mt-2">The answer stays hidden on this new position. Use the correction and try again.</p>
                 )}
+                <button type="button" className="cg-primary-action mt-4" onClick={continueAfterFeedback}>
+                  {feedback.complete ? "Finish lesson" : feedback.current_index > session.current_index ? "Next position" : "Try again"}
+                </button>
               </div>
             )}
             {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
