@@ -4438,6 +4438,64 @@ def _check_attack_arrows(
         return []
 
 
+def _punishment_arrows(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    *,
+    mover_is_user: bool,
+    cp_loss: int,
+) -> List[Dict[str, str]]:
+    """Show what the opponent takes after a blunder, or nothing.
+
+    Mohit 2026-09-17: "we want to make sure we understand the blunders and
+    mistakes from each game and try to arrow them, so they make sense."
+
+    Measured over 500 games: arrows were drawn on 0% of the 5,039 user-mistake
+    cards, while 7.5% of all cards drew them -- the picture was appearing
+    everywhere except where a player had just lost something. This is the
+    other half of the answer to "what did I miss": the piece that is now
+    takeable, and who takes it.
+
+    Right-or-silent, and deliberately narrow. Only the player's own mistakes
+    (>=100cp), only a target SEE proves is really winnable, and at most three
+    arrows. Drawing the consequence of a move the card has already called a
+    mistake keeps the board and the words talking about the same thing --
+    the agreement v164 had to restore after the trap cage drifted off its
+    caption.
+    """
+    if board_before is None or played_move is None:
+        return []
+    if not mover_is_user or (cp_loss or 0) < 100:
+        return []
+    try:
+        mover = board_before.turn
+        after = board_before.copy()
+        after.push(played_move)
+        victim = None
+        for square, piece in after.piece_map().items():
+            if piece.color != mover or piece.piece_type == chess.KING:
+                continue
+            see = static_exchange_eval(after, square, not mover) or 0
+            if see >= 100 and (victim is None or see > victim[1]):
+                victim = (square, see)
+        if victim is None:
+            return []
+        victim_sq = victim[0]
+        arrows: List[Dict[str, str]] = []
+        for attacker in sorted(after.attackers(not mover, victim_sq)):
+            if len(arrows) >= 3:
+                break
+            arrows.append({
+                "from": chess.square_name(attacker),
+                "to": chess.square_name(victim_sq),
+                "color": "red",
+                "teach": True,
+            })
+        return arrows
+    except Exception:
+        return []
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -6090,6 +6148,15 @@ def build_move_teaching_decision(
     # also piles a second attacker onto a piece. Tagged "teach" so it survives
     # the suppression below.
     _teach_arrows = _check_attack_arrows(board_before, inputs.best_move_uci)
+    # One picture per card. The check picture is rarer and more striking, so it
+    # wins when both are available; otherwise show what the blunder gave away.
+    if not _teach_arrows:
+        _teach_arrows = _punishment_arrows(
+            board_before,
+            played_move,
+            mover_is_user=inputs.mover_is_user,
+            cp_loss=inputs.cp_loss,
+        )
     if _teach_arrows:
         _existing = {(a.get("from"), a.get("to")) for a in _arrows_out}
         _arrows_out = [
