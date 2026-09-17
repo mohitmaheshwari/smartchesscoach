@@ -59,6 +59,7 @@ export default function AdminGeometryGaps() {
   // Which line is being walked, and how far into it.
   const [line, setLine] = useState(null);
   const [ply, setPly] = useState(0);
+  const [denied, setDenied] = useState(false);
 
   const loadResults = useCallback(async () => {
     try {
@@ -77,12 +78,19 @@ export default function AdminGeometryGaps() {
     setNotes("");
     setLine(null);
     setPly(0);
+    setDenied(false);
     try {
       const qs = cluster ? `?cluster=${encodeURIComponent(cluster)}` : "";
       const res = await fetch(`${API}/admin/geometry-gaps/next${qs}`, {
         credentials: "include",
       });
-      if (res.status === 404) {
+      if (res.status === 403) {
+        // Without this the page renders its shell and then sits empty, which
+        // is the blank-screen failure twice over. Say so instead.
+        setItem(null);
+        setDenied(true);
+        setError("");
+      } else if (res.status === 404) {
         setItem(null);
         setError("Nothing left to rule on in this cluster.");
       } else if (!res.ok) {
@@ -258,6 +266,13 @@ export default function AdminGeometryGaps() {
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Finding a position...
+          </div>
+        ) : denied ? (
+          <div className="rounded-lg border p-6" data-testid="geometry-gaps-denied">
+            <p className="font-medium">You do not have access to this review queue.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Ask Mohit to add your account, then reload this page.
+            </p>
           </div>
         ) : error && !item ? (
           <p className="text-sm text-muted-foreground">{error}</p>

@@ -69,3 +69,10 @@ test("an illegal line truncates instead of corrupting the board", async () => {
   await clickMove("Nxd3");
   expect(boardFen()).toBeTruthy();   // still a legal FEN, not a crash
 });
+
+test("a 403 says so instead of rendering an empty page", async () => {
+  global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 403, json: async () => ({}) });
+  await act(async () => root.render(<AdminGeometryGaps />));
+  expect(container.querySelector('[data-testid="geometry-gaps-denied"]')).not.toBeNull();
+  expect(container.textContent).toContain("do not have access");
+});

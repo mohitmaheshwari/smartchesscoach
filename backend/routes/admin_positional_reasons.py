@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
-from routes.admin import require_admin
+from routes.admin import require_admin, require_geometry_reviewer
 from routes.auth import User
 from services.positional_reason_learning import (
     DISPOSITION_LABELS,
@@ -380,7 +380,7 @@ def _classify_geometry_gap(board, played, best, eval_before) -> str:
 @router.get("/admin/geometry-gaps/next")
 async def next_geometry_gap(
     cluster: Optional[str] = Query(default=None),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_geometry_reviewer),
 ):
     """One mistake with no drawable picture, skipping anything already ruled on."""
     import chess as _chess
@@ -450,7 +450,7 @@ async def next_geometry_gap(
 @router.post("/admin/geometry-gaps")
 async def rule_geometry_gap(
     payload: Dict = Body(...),
-    user: User = Depends(require_admin),
+    user: User = Depends(require_geometry_reviewer),
 ):
     """Record whether a gap is buildable. The verdict is Mohit's, not a model's."""
     fen = str(payload.get("fen") or "").strip()
@@ -481,7 +481,7 @@ async def rule_geometry_gap(
 
 
 @router.get("/admin/geometry-gaps/results")
-async def geometry_gap_results(user: User = Depends(require_admin)):
+async def geometry_gap_results(user: User = Depends(require_geometry_reviewer)):
     """What has been ruled so far, by cluster."""
     rows = await db.geometry_gap_rulings.find({}, {"_id": 0}).to_list(length=None)
     by_cluster: Dict[str, Dict[str, int]] = {}

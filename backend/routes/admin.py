@@ -65,6 +65,40 @@ async def require_admin(user: User = Depends(get_current_user)):
     return user
 
 
+def _geometry_reviewer_emails() -> set:
+    """Reviewers allowed the geometry-gap queue, and nothing else.
+
+    Mohit 2026-09-17, about a new coach: "can you just give him access to this
+    page only and not anything else?" Admin is all-or-nothing across 49
+    endpoints, so adding a coach to _ADMIN_EMAILS would hand over caption
+    authoring, openings and the PWC rollout as well.
+
+    An env var rather than a literal so a reviewer can be added or removed
+    without a code change and a deploy, which is what the note above
+    _ADMIN_EMAILS already recommends for owners.
+    """
+    raw = os.environ.get("GEOMETRY_REVIEWER_EMAILS", "")
+    return {part.strip().lower() for part in raw.split(",") if part.strip()}
+
+
+async def require_geometry_reviewer(user: User = Depends(get_current_user)):
+    """Narrow gate for the geometry-gap review queue ONLY.
+
+    Owners keep access through the ordinary admin path. Everyone else must be
+    named explicitly in GEOMETRY_REVIEWER_EMAILS, which grants exactly three
+    endpoints: read a position, record a verdict, read the tally. It confers
+    nothing on any other admin surface.
+    """
+    email = (getattr(user, "email", None) or "").strip().lower()
+    if user.role in ("super_admin", "admin") and _is_admin_email(email):
+        return user
+    if email and email in _geometry_reviewer_emails():
+        return user
+    raise HTTPException(
+        status_code=403, detail="Geometry review access required"
+    )
+
+
 async def require_super_admin(user: User = Depends(get_current_user)):
     """Super-admin gate — requires super_admin role AND owner email."""
     if user.role != "super_admin":
