@@ -647,6 +647,11 @@ async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:
         "started_at": focus.get("started_at"),
         "locked_until": focus.get("locked_until"),
         "moments_page_topic": focus.get("moments_page_topic") or "piece_safety",
+        # The band the focus was assigned under. Coaching copy needs it:
+        # the same tag does not mean the same thing to a 900 and a 2100,
+        # and the text has to say the right one.
+        "rating_band": focus.get("rating_band"),
+        "rating_used": focus.get("rating_used"),
         "runners_up": focus.get("runners_up") or [],
         "rating_band": focus.get("rating_band"),
         "detector_quality_id": focus.get("detector_quality_id"),

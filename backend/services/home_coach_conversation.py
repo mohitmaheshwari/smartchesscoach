@@ -90,158 +90,140 @@ _IDENTITY_FRAME: Dict[str, str] = {
 _THEORY_OF_WHY: Dict[str, Dict[str, str]] = {
     "piece_safety": {
         "default": (
-            "At first, I thought you moved too fast. I don't think that "
-            "anymore. I think when you find a plan you like, you stop checking "
-            "the rest of the board. You believe it still looks the same. But it "
-            "changes every move. You are not careless. You just believe in "
-            "your plan too much. That is why pieces disappear."
+            "When a plan is going well, the rest of the board usually stops "
+            "getting checked. It keeps changing every move, even when the "
+            "position feels settled. That is where a piece tends to go "
+            "missing."
         ),
         "aggressive": (
-            "At first, I thought you moved too fast. I don't think that "
-            "anymore. I think when you find an attacking plan you like, you "
-            "stop checking the rest of the board. You believe it still looks "
-            "the same. But it changes every move. You are not careless. You "
-            "just believe in your attack too much. That is why pieces "
-            "disappear."
+            "When an attack is running, the rest of the board usually stops "
+            "getting checked. It keeps changing every move, even while you "
+            "are pressing. That is where a piece tends to go missing."
         ),
         "positional": (
-            "At first, I thought you were not paying attention. I don't "
-            "think that anymore. I think you build your position slowly, so "
-            "your mind expects the game to stay calm. Then a sudden capture "
-            "surprises you. You are not careless. You are used to a quieter "
-            "kind of chess. This game can turn fast, even when it feels slow."
+            "In a slow game the board feels settled, so it stops getting "
+            "re-checked every move. Then one capture changes it. A quiet "
+            "position can turn fast, and that is where a piece tends to go "
+            "missing."
         ),
     },
     "king_safety": {
         "default": (
-            "At first, I thought you did not know castling was important. I "
-            "don't think that anymore. I think making a threat feels more fun "
-            "than making your king safe. Castling can feel slow. But it is "
-            "often your best move. This is not a mistake in your skill. It is "
-            "just where your excitement goes first."
+            "Making a threat usually feels more urgent than making the king "
+            "safe, and castling can feel like a slow move. It is often still "
+            "the best one on the board."
         ),
         "aggressive": (
-            "At first, I thought you did not know castling was important. I "
-            "don't think that anymore. I think making a threat feels more fun "
-            "to you than making your king safe. You would rather attack first "
-            "and defend later. That is a real strength in the right position. "
-            "But your own king still needs a safe house early."
+            "Attacking first and defending later is right in some positions. "
+            "The king still needs somewhere safe early, and that is usually "
+            "the move that gets postponed."
         ),
         "positional": (
-            "At first, I thought you forgot about your king. I don't think "
-            "that anymore. I think you like to finish your plan first, and "
-            "castling waits its turn. Slow positions feel safe. But a slow "
-            "position can turn into an attack on your king fast. Castling "
-            "should come first, not last."
+            "When a plan is under way, castling tends to wait its turn. A "
+            "slow position can turn into an attack on your king quickly, and "
+            "by then the king has nowhere to go."
         ),
     },
     "tactical_oversight": {
         "default": (
-            "At first, I thought you could not calculate deep enough. I don't "
-            "think that anymore. I think once a move looks good to you, your "
-            "mind relaxes. Finding a good move feels like the end of the work. "
-            "But the real danger is often one move later. This is a habit, not "
-            "a limit. Habits can change."
+            "Once a move looks good, the search usually stops. Finding a good "
+            "move feels like the end of the work, but the danger is often one "
+            "move later."
         ),
         "aggressive": (
-            "At first, I thought you could not calculate deep enough. I "
-            "don't think that anymore. I think you find one attacking idea "
-            "and play it fast, before checking what comes after. Speed is "
-            "part of your game. But the danger is often one move past where "
-            "you stopped looking."
+            "An attacking idea usually gets played as soon as it is found. "
+            "The danger is often one move past where the search stopped."
         ),
         "positional": (
-            "At first, I thought you could not calculate deep enough. I "
-            "don't think that anymore. I think once a quiet move looks safe "
-            "to you, your mind relaxes completely. Quiet positions feel like "
-            "nothing is happening. But something is always happening one "
-            "move further."
+            "In a quiet position, a safe-looking move usually ends the "
+            "search. Something is still happening one move further on."
         ),
     },
     "missed_tactic": {
         "default": (
-            "At first, I thought you could not see these ideas. I don't think "
-            "that anymore. I think you spend all your attention on your own "
-            "plan. You forget to ask what your opponent wants. You are not "
-            "blind to it. You just are not looking for it yet."
+            "Attention usually goes to your own plan first. The question that "
+            "gets skipped is what the opponent is trying to do."
         ),
         "aggressive": (
-            "At first, I thought you could not see these ideas. I don't "
-            "think that anymore. I think you are so focused on your own "
-            "attack that you forget to check what your opponent is building. "
-            "You are not blind to it. Your attention is just pointed at your "
-            "own plan."
+            "While an attack is running, the opponent's plan usually stops "
+            "getting checked. They are still building it."
         ),
         "positional": (
-            "At first, I thought you could not see these ideas. I don't "
-            "think that anymore. I think in slow positions, you stop "
-            "expecting a sudden tactic at all. Your opponent's plan can hide "
-            "inside a quiet-looking move. You are not blind to it. You just "
-            "are not looking for it yet in positions that feel calm."
+            "In slow positions a sudden tactic stops being expected at all. "
+            "It can hide inside a quiet-looking move."
         ),
     },
     "opening_knowledge": {
         "default": (
-            "At first, I thought you did not like studying openings. I don't "
-            "think that anymore. I think when a position feels new, you trust "
-            "your own idea more than what you already learned. That is not a "
-            "knowledge problem. It is confidence looking in the wrong place."
+            "When a position feels new, your own idea usually wins over the "
+            "line you learned. That costs more in the opening than it does "
+            "later on."
         ),
         "aggressive": (
-            "At first, I thought you did not like studying openings. I "
-            "don't think that anymore. I think you want to reach a sharp "
-            "position fast, even before you fully know the theory. That is "
-            "not a knowledge problem. It is confidence looking for a fight "
-            "too early."
+            "Reaching a sharp position early usually beats finishing the "
+            "theory. The sharp position is harder to play without it."
         ),
         "positional": (
-            "At first, I thought you did not like studying openings. I "
-            "don't think that anymore. I think you trust your own "
-            "understanding of a position more than memorized lines. That is "
-            "not a knowledge problem. It is confidence looking in the wrong "
-            "place, early in the game."
+            "Understanding a position usually feels more reliable than a "
+            "memorised line. Early on, the line is often carrying something "
+            "understanding cannot reach yet."
         ),
     },
     "endgame_technique": {
         "default": (
-            "At first, I thought you got careless at the end of games. I don't "
-            "think that anymore. I think winning makes you relax, because it "
-            "feels like the hard part is over. That relief is normal. But "
-            "staying careful to the very end is the real hard part."
+            "Being winning usually relaxes the attention, because the hard "
+            "part feels over. Staying careful to the last move is the hard "
+            "part."
         ),
         "aggressive": (
-            "At first, I thought you got careless at the end of games. I "
-            "don't think that anymore. I think once the attack is over, your "
-            "focus drops with it. The exciting part feels finished. That "
-            "relief is normal. But the endgame needs the same sharp attention "
-            "the attack did."
+            "When the attack ends, focus usually drops with it. The endgame "
+            "needs the same sharpness the attack had."
         ),
         "positional": (
-            "At first, I thought you got careless at the end of games. I "
-            "don't think that anymore. I think winning slowly makes you "
-            "relax, because the position finally feels safe. That relief is "
-            "normal. But staying careful to the very end is the real hard "
-            "part."
+            "A position that finally feels safe usually relaxes the "
+            "attention. The last few moves still decide it."
         ),
     },
     "threat_awareness": {
         "default": (
-            "At first, I thought you only missed the big threats. I don't "
-            "think that anymore. I think you check your own plan first, and "
-            "the board's danger second — or sometimes not at all. You are "
-            "not careless. You just look at the board in the wrong order."
+            "The board usually gets read in one order: my plan first, their "
+            "danger second. Reversing that order is most of the fix."
         ),
         "aggressive": (
-            "At first, I thought you only missed the big threats. I don't "
-            "think that anymore. I think when you are attacking, you stop "
-            "expecting your opponent to attack back. You are not careless. "
-            "Your attention is just pointed forward, not backward."
+            "While attacking, the opponent usually stops being expected to "
+            "attack back. They are still doing it."
         ),
         "positional": (
-            "At first, I thought you only missed the big threats. I don't "
-            "think that anymore. I think in quiet positions, danger feels "
-            "far away, so you stop scanning for it. You are not careless. "
-            "Quiet positions can still turn dangerous fast."
+            "In quiet positions danger feels far away, so the scan stops. "
+            "Quiet positions still turn fast."
+        ),
+    },
+}
+
+# Where the same tag means a different thing at a different strength, the
+# band wins over the style.
+#
+# `piece_safety` at 1600+ is almost never a piece left hanging for nothing.
+# The picker's own impact table says exactly this -- it weights piece_safety
+# 1.00 for beginners and 0.30 for experts, with the comment "means
+# calculation/tactical errors, NOT dropped pieces". But the gate that decides
+# what we are allowed to coach only clears one detector, so a 2104 gets the
+# beginner topic anyway (measured 2026-09-17: 6 of 52 active focuses sit at
+# advanced or expert). The detection is right -- a piece really was left
+# takeable. The explanation attached to it was written for someone else.
+_THEORY_BY_BAND: Dict[str, Dict[str, str]] = {
+    "piece_safety": {
+        "advanced": (
+            "At your level this is rarely a piece left hanging for nothing. "
+            "It is usually the piece at the end of a line: the calculation "
+            "holds for three moves, and on the fourth something is "
+            "undefended."
+        ),
+        "expert": (
+            "At your strength this almost never means a one-move oversight. "
+            "It is the last move of a calculated line, where the tactics "
+            "resolve and one piece is left undefended. The check that helps "
+            "is at the end of the line, not the start."
         ),
     },
 }
@@ -506,6 +488,14 @@ async def build_home_conversation(db, user_id: str) -> Optional[Dict[str, Any]]:
     variants = _THEORY_OF_WHY.get(topic_key, {})
     style_variant = await _get_style_variant(db, user_id)
     theory = variants.get(style_variant) or variants.get("default")
+    # Strength overrides style. The same tag does not mean the same thing to
+    # a 900 and a 2100, and the picker is currently forced to hand both the
+    # same topic because only one detector is cleared to coach from.
+    band_text = (_THEORY_BY_BAND.get(topic_key) or {}).get(
+        str(focus.get("rating_band") or "")
+    )
+    if band_text:
+        theory = band_text
     tilt_overlay = await _get_tilt_overlay(db, user_id)
     if theory and tilt_overlay:
         theory = theory + tilt_overlay
@@ -536,6 +526,10 @@ async def build_home_conversation(db, user_id: str) -> Optional[Dict[str, Any]]:
         "one_action": action,
         "narrative": narrative,
         "encouragement": "I'll tell you how it looks tomorrow.",
-        "closing_line": "Now go play. I want to see if my theory is right.",
+        # Not "I want to see if my theory is right" -- that promised a
+        # verdict on a belief, and nothing reads the belief back. The
+        # focus outcome IS measured from the games that follow, so this
+        # says the thing that is actually true.
+        "closing_line": "Now go play. That is where this gets measured.",
         "thinking_signature": thinking_signature,
     }
