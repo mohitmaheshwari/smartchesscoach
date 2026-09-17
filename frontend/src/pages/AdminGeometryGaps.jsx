@@ -10,16 +10,22 @@
  * 0%. Everything else lands here instead of being guessed at, because drawing
  * an arrow on a position with no tactical shape is how the clutter started.
  *
- * The verdict is a human one. This page only shows the position and records
- * what Mohit says about it.
+ * Both engine lines are playable on the board, because the punishment line is
+ * usually where the lesson actually lives. Mohit, on a position whose caption
+ * could only say Qxd6 was worse than cxd6: "the punishment line tells us the
+ * problem that we are missing." The line answers it - 24.Nc4 hits the queen on
+ * d6 with tempo - and that is a rule you can carry to the next game.
+ *
+ * The verdict is a human one. This page shows the position and records what
+ * Mohit says about it; it never guesses one.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Chess } from "chess.js";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import LichessBoard from "@/components/LichessBoard";
-import { Loader2, RefreshCw, Copy } from "lucide-react";
+import { Loader2, RefreshCw, Copy, RotateCcw } from "lucide-react";
 
 const CLUSTER_LABEL = {
   quiet_positional_move: "Quiet positional move",
@@ -50,6 +56,9 @@ export default function AdminGeometryGaps() {
   const [results, setResults] = useState(null);
   const [cluster, setCluster] = useState("");
   const [copied, setCopied] = useState(false);
+  // Which line is being walked, and how far into it.
+  const [line, setLine] = useState(null);
+  const [ply, setPly] = useState(0);
 
   const loadResults = useCallback(async () => {
     try {
@@ -66,6 +75,8 @@ export default function AdminGeometryGaps() {
     setLoading(true);
     setError("");
     setNotes("");
+    setLine(null);
+    setPly(0);
     try {
       const qs = cluster ? `?cluster=${encodeURIComponent(cluster)}` : "";
       const res = await fetch(`${API}/admin/geometry-gaps/next${qs}`, {
@@ -110,16 +121,104 @@ export default function AdminGeometryGaps() {
     }
   };
 
-  const arrows = item
-    ? [
-        sanToArrow(item.fen, item.played_san, "red"),
-        sanToArrow(item.fen, item.best_san, "green"),
-      ].filter(Boolean)
-    : [];
+  // A line is the move itself followed by the engine's continuation.
+  const movesFor = useCallback(
+    (which) => {
+      if (!item) return [];
+      return which === "played"
+        ? [item.played_san, ...(item.pv_after_played || [])]
+        : [item.best_san, ...(item.pv_after_best || [])];
+    },
+    [item]
+  );
+
+  // Replay from the original FEN every time rather than mutating a board we
+  // keep around: a single illegal SAN then truncates the line instead of
+  // corrupting every later position.
+  const view = useMemo(() => {
+    const base = { fen: item?.fen || null, arrow: null };
+    if (!item || !line || ply < 1) return base;
+    try {
+      const game = new Chess(item.fen);
+      let last = null;
+      for (const san of movesFor(line).slice(0, ply)) {
+        const made = game.move(san, { sloppy: true });
+        if (!made) break;
+        last = made;
+      }
+      return {
+        fen: game.fen(),
+        arrow: last
+          ? [last.from, last.to, line === "played" ? "red" : "green"]
+          : null,
+      };
+    } catch {
+      return base;
+    }
+  }, [item, line, ply, movesFor]);
+
+  const step = (which, index) => {
+    setLine(which);
+    setPly(index + 1);
+  };
+
+  const arrows = useMemo(() => {
+    if (!item) return [];
+    if (view.arrow) return [view.arrow];
+    return [
+      sanToArrow(item.fen, item.played_san, "red"),
+      sanToArrow(item.fen, item.best_san, "green"),
+    ].filter(Boolean);
+  }, [item, view]);
+
+  const renderLine = (which, label, colorClass) => {
+    const moves = movesFor(which);
+    if (!moves.length) return null;
+    // The position is mid-game, so number from the real move number and keep
+    // Black-to-move lines reading "23...Qxd6" rather than a fake "1.".
+    const startNumber = item.move_number || 1;
+    const blackToMove = item.side_to_move === "black";
+    return (
+      <div className="rounded-lg border p-3">
+        <p className={`text-xs font-semibold uppercase tracking-wide ${colorClass}`}>
+          {label}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {moves.map((san, i) => {
+            const whiteMove = blackToMove ? i % 2 === 1 : i % 2 === 0;
+            const number = startNumber + Math.floor((blackToMove ? i + 1 : i) / 2);
+            const active = line === which && ply === i + 1;
+            return (
+              <span key={`${which}-${i}-${san}`} className="flex items-center">
+                {whiteMove ? (
+                  <span className="mr-1 text-xs text-muted-foreground">
+                    {number}.
+                  </span>
+                ) : i === 0 ? (
+                  <span className="mr-1 text-xs text-muted-foreground">
+                    {number}...
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => step(which, i)}
+                  className={`rounded px-1.5 py-0.5 font-mono text-sm hover:bg-muted ${
+                    active ? "bg-foreground text-background" : ""
+                  }`}
+                >
+                  {san}
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <Layout>
-      <div className="mx-auto w-full max-w-[1040px] px-4 py-8">
+      <div className="mx-auto w-full max-w-[1100px] px-4 py-8">
         <header className="mb-6">
           <p className="text-xs uppercase tracking-widest text-muted-foreground">
             Admin · geometry gaps
@@ -128,9 +227,8 @@ export default function AdminGeometryGaps() {
             Mistakes the board cannot explain yet
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Red is the move that was played. Green is the move the engine
-            preferred. Nothing else is drawn, because nothing else is proven.
-            Tell me whether a picture here is buildable.
+            Click any move to play the line out on the board. The punishment
+            line after the mistake is usually where the real lesson is.
           </p>
         </header>
 
@@ -167,10 +265,22 @@ export default function AdminGeometryGaps() {
           <div className="grid gap-6 md:grid-cols-[minmax(0,420px)_1fr]">
             <div>
               <LichessBoard
-                fen={item.fen}
+                fen={view.fen}
                 orientation={item.side_to_move}
                 arrows={arrows}
               />
+              {line ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLine(null);
+                    setPly(0);
+                  }}
+                  className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+                >
+                  <RotateCcw className="h-3 w-3" /> Back to the position
+                </button>
+              ) : null}
             </div>
             <div className="space-y-4">
               <div className="rounded-lg border p-4">
@@ -208,6 +318,13 @@ export default function AdminGeometryGaps() {
                 </p>
               </div>
 
+              {renderLine(
+                "played",
+                "What happened after the mistake",
+                "text-red-600"
+              )}
+              {renderLine("best", "What the engine wanted", "text-green-600")}
+
               <div>
                 <label className="text-sm font-medium" htmlFor="gap-notes">
                   What should the arrows show here?
@@ -218,7 +335,7 @@ export default function AdminGeometryGaps() {
                   rows={4}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g. draw the line from the rook to the back rank, the king has no escape"
+                  placeholder="e.g. the knight hits the queen with tempo - draw a5 to the queen's square"
                 />
               </div>
 

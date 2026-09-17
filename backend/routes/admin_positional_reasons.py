@@ -431,6 +431,14 @@ async def next_geometry_gap(
                 "eval_before": move.get("eval_before"),
                 "eval_after": move.get("eval_after"),
                 "cluster": kind,
+                # The punishment line IS the lesson. Mohit 2026-09-17: "the
+                # punishment line tells us the problem that we are missing."
+                # On 5rk1/1ppq2p1/3Rp2p/... the caption can only say Qxd6 was
+                # worse than cxd6; the line says why -- 24.Nc4 hits the queen
+                # on d6 with tempo, which is a rule you can carry to the next
+                # game. Stored by the analyser already, so no engine call.
+                "pv_after_played": [str(x) for x in (move.get("pv_after_played") or [])],
+                "pv_after_best": [str(x) for x in (move.get("pv_after_best") or [])],
                 "ruled_count": len(ruled),
             }
     raise HTTPException(
