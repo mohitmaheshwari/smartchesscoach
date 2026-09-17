@@ -29,13 +29,51 @@ import pytest
 BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND))
 
+from services.lesson_question_spec import BY_CATEGORY  # noqa: E402
 from services.personalized_lesson_adapter import _reason_choices  # noqa: E402
 
 KINDS = {
     "opening": "continues_plan",
     "trap": "answers_threat",
-    "concept": "keeps_piece_safe",
 }
+
+# Concept lessons no longer carry their options inside `_reason_choices` --
+# they depend on the category and come from `lesson_question_spec`. The
+# shuffle has to hold for those too, so they are exercised through the same
+# call production makes rather than through a copy kept here.
+# Passed exactly as production passes them -- as ReasonOption records, not
+# flattened to (id, label). Flattening here is what let a real TypeError
+# through: the test passed and the first live call raised.
+CONCEPTS = {
+    category: (spec.expected_reason, spec.reason_options)
+    for category, spec in BY_CATEGORY.items()
+}
+
+
+def _choices(kind, expected, seed, options=None):
+    return _reason_choices(kind, expected_id=expected, seed=seed, options=options)
+
+
+@pytest.mark.parametrize("category", sorted(CONCEPTS))
+def test_a_concept_answer_is_not_always_first(category):
+    expected, options = CONCEPTS[category]
+    positions = [f"{category}-{i}" for i in range(200)]
+    slots = Counter(
+        [c["id"] for c in _choices("concept", expected, p, options)].index(expected)
+        for p in positions
+    )
+    assert slots[0] > 0, "the expected answer never appears first"
+    assert len(slots) > 1, "the expected answer sits in one fixed slot"
+    assert max(slots.values()) < len(positions), f"degenerate: {dict(slots)}"
+
+
+@pytest.mark.parametrize("category", sorted(CONCEPTS))
+def test_a_concept_order_is_stable_for_one_position(category):
+    expected, options = CONCEPTS[category]
+    first = _choices("concept", expected, "puzzle-42", options)
+    for _ in range(5):
+        assert _choices("concept", expected, "puzzle-42", options) == first
+    assert first[-1]["id"] == "not_sure"
 
 
 @pytest.mark.parametrize("kind,expected", sorted(KINDS.items()))

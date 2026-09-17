@@ -79,7 +79,14 @@ test("an empty puzzle pool never fabricates a Socratic question", async () => {
   });
 
   expect(container.textContent).toContain("No puzzle available");
+  // The per-weakness fallback copy, whatever it currently says. Asserting
+  // the old wording would keep passing for the wrong reason once it changes,
+  // which is how a lock goes hollow -- so both the retired string and the
+  // one that replaced it are named here.
   expect(container.textContent).not.toContain("Which of your pieces has no defender?");
+  expect(container.textContent).not.toContain(
+    "Something of yours can be taken here. Find the best move.");
+  expect(container.textContent).not.toContain("Find the move this position asks for.");
   expect(container.textContent).not.toContain("Show the solution");
   expect(container.textContent).not.toContain("Skip this one");
 });

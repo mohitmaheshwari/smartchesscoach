@@ -156,10 +156,17 @@ def _descriptor():
             "prompt": "Which move keeps the piece safe?",
             "reason_prompt": "What did you check?",
             "reason_choices": [
-                {"id": "keeps_piece_safe", "label": "My pieces stay safe."},
-                {"id": "looks_active", "label": "It looks active."},
+                {"id": "checked_landing_square",
+                 "label": "I checked what could capture it once it landed."},
+                {"id": "moved_the_attacked_piece",
+                 "label": "I moved the piece that was already under attack."},
             ],
-            "_expected_reason": "keeps_piece_safe",
+            "_expected_reason": "checked_landing_square",
+            # The reason options and their corrections are per category and
+            # live together in services/lesson_question_spec.py, so the item
+            # has to say which category it is or the follow-up falls back to
+            # the generic wording.
+            "_question_category": "piece_safety",
             "stage": "transfer",
             "source": "verified_practice",
             "source_ref": "p1",
@@ -241,7 +248,7 @@ def test_let_me_try_keeps_independent_credit_and_is_idempotent(monkeypatch):
         "session-1",
         "e2f3",
         interaction_id="move-1",
-        reason_choice="keeps_piece_safe",
+        reason_choice="checked_landing_square",
     ))
     duplicate = asyncio.run(process_lesson_move(
         db,
@@ -266,14 +273,14 @@ def test_flag_on_personalized_answer_uses_generic_shadow_ledger_once(monkeypatch
         "session-1",
         "e2f3",
         interaction_id="stable-move-1",
-        reason_choice="keeps_piece_safe",
+        reason_choice="checked_landing_square",
     ))
     retry = asyncio.run(process_lesson_move(
         db,
         "session-1",
         "e2f3",
         interaction_id="stable-move-1",
-        reason_choice="keeps_piece_safe",
+        reason_choice="checked_landing_square",
     ))
 
     assert first == retry
@@ -302,7 +309,7 @@ def test_personalized_retry_repairs_a_transient_shadow_write_failure(monkeypatch
         "session-1",
         "e2f3",
         interaction_id="repairable-move-1",
-        reason_choice="keeps_piece_safe",
+        reason_choice="checked_landing_square",
     ))
     assert first["complete"] is True
     assert not any(
@@ -315,7 +322,7 @@ def test_personalized_retry_repairs_a_transient_shadow_write_failure(monkeypatch
         "session-1",
         "e2f3",
         interaction_id="repairable-move-1",
-        reason_choice="keeps_piece_safe",
+        reason_choice="checked_landing_square",
     ))
 
     shadow = next(
@@ -342,7 +349,7 @@ def test_board_hint_caps_credit_at_with_help(monkeypatch):
         "session-1",
         "e2f3",
         interaction_id="move-2",
-        reason_choice="keeps_piece_safe",
+        reason_choice="checked_landing_square",
     ))
 
     assert result["earned_state"] == "can_do_with_help"
@@ -361,15 +368,15 @@ def test_server_checked_reason_blocks_lucky_independent_move(monkeypatch):
             "session-1",
             "e2f3",
             interaction_id="move-3",
-            reason_choice="looks_active",
+            reason_choice="moved_the_attacked_piece",
         )
     )
 
     assert result["correct"] is True
     assert result["earned_state"] == "learning"
     assert result["reasoning_consistent"] is False
-    assert result["misconception"] == "activity_before_safety"
-    assert "active-looking move" in result["corrective_action"]
+    assert result["misconception"] == "attacked_is_not_the_same_as_hanging"
+    assert "often defended" in result["corrective_action"]
 
 
 def test_missing_reason_cannot_claim_independent_proof(monkeypatch):
@@ -435,7 +442,7 @@ def test_review_session_uses_answer_hidden_retain_stage(monkeypatch):
         "review-1",
         "e2f3",
         interaction_id="review-answer",
-        reason_choice="keeps_piece_safe",
+        reason_choice="checked_landing_square",
     ))
 
     assert result["earned_state"] == "can_do_alone"
@@ -532,7 +539,7 @@ def test_blind_diagnostic_move_precedes_reason_and_completes_two_positions(monke
         "blind-1",
         "e2f3",
         interaction_id="answer-1",
-        reason_choice="keeps_piece_safe",
+        reason_choice="checked_landing_square",
     ))
     assert first["current_index"] == 1
     assert first["complete"] is False
@@ -550,7 +557,7 @@ def test_blind_diagnostic_move_precedes_reason_and_completes_two_positions(monke
         "blind-1",
         "e2f3",
         interaction_id="answer-2",
-        reason_choice="keeps_piece_safe",
+        reason_choice="checked_landing_square",
     ))
     assert final["complete"] is True
     assert final["diagnostic_result"]["conclusion"] == "controlled_transfer"
@@ -612,7 +619,7 @@ def test_blind_unmeasured_soundness_never_awards_learning_credit(monkeypatch):
         "blind-unmeasured",
         "e2f3",
         interaction_id="answer-u1",
-        reason_choice="keeps_piece_safe",
+        reason_choice="checked_landing_square",
     ))
 
     assert first["target_result"] == "pass"

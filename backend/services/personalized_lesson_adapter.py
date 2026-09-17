@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import chess
 
@@ -32,6 +32,7 @@ def _reason_choices(
     *,
     expected_id: str = "",
     seed: str = "",
+    options: Optional[Sequence[Tuple[str, str]]] = None,
 ) -> list[Dict[str, str]]:
     """Return player-visible reasons while keeping the expected reason private.
 
@@ -48,8 +49,14 @@ def _reason_choices(
 
     "I am not sure yet." stays last. It is an opt-out, not a candidate answer,
     and burying it mid-list invites mis-clicks.
+
+    `options` lets a caller supply the pair directly. Concept lessons do,
+    because the right pair depends on the category being trained and
+    `lesson_question_spec` owns that -- keeping a second copy of the concept
+    options here is how the one hardcoded pair ended up on all seven
+    categories, including the ones it said nothing about.
     """
-    choices = {
+    choices = options if options is not None else {
         "opening": (
             ("continues_plan", "It brings the next piece into my plan."),
             ("wins_now", "It wins a piece or pawn immediately."),
@@ -58,12 +65,22 @@ def _reason_choices(
             ("answers_threat", "It answers the opponent's immediate threat."),
             ("starts_attack", "It starts my own attack first."),
         ),
-        "concept": (
-            ("keeps_piece_safe", "It leaves my pieces protected or able to move."),
-            ("looks_active", "It looks active, even if a piece can be taken."),
-        ),
+        # No "concept" entry on purpose. Concept options depend on the
+        # category being trained and `lesson_question_spec` owns them, so
+        # they arrive through `options`. A copy here would be a second
+        # answer to the same question, which is how one piece-safety pair
+        # ended up printed on all seven categories.
     }[kind]
-    rendered = [{"id": key, "label": label} for key, label in choices]
+    # `options` arrives as ReasonOption records; the two built-in kinds above
+    # are still (id, label) pairs. Accept both rather than making the caller
+    # flatten, which is what hid this: a test that flattened first passed
+    # while the real call raised.
+    rendered = [
+        {"id": choice.id, "label": choice.label}
+        if hasattr(choice, "id")
+        else {"id": choice[0], "label": choice[1]}
+        for choice in choices
+    ]
     if seed:
         rendered.sort(
             key=lambda choice: hashlib.sha256(
@@ -586,6 +603,17 @@ async def _concept_descriptor(
     if not isinstance(pattern, Mapping):
         raise LessonUnavailable("Verified concept lesson not found")
 
+    # The question we print and the rule we grade by come from one record, so
+    # a card cannot ask one thing and be marked by another. See
+    # docs/lesson_question_spec_scope.md.
+    from services.lesson_question_spec import (
+        canonical_category,
+        spec_or_fallback,
+    )
+
+    category = canonical_category(pattern_key)
+    spec = spec_or_fallback(category)
+
     blind_diagnostic = str(params.get("mode") or "") == "blind_diagnostic"
     if blind_diagnostic:
         from services.destination_safety_detector import FACT_VERSION
@@ -700,13 +728,14 @@ async def _concept_descriptor(
             {}
             if blind_diagnostic
             else {
-                "reason_prompt": "What did you check before choosing the move?",
+                "reason_prompt": spec.reason_prompt,
                 "reason_choices": _reason_choices(
                     "concept",
-                    expected_id="keeps_piece_safe",
+                    expected_id=spec.expected_reason,
                     seed=str(item.get("puzzle_id") or item.get("fen") or ""),
+                    options=spec.reason_options,
                 ),
-                "_expected_reason": "keeps_piece_safe",
+                "_expected_reason": spec.expected_reason,
             }
         )
         items.append({
@@ -719,7 +748,12 @@ async def _concept_descriptor(
             "orientation": (
                 "black" if str(item["fen"]).split()[1] == "b" else "white"
             ),
-            "prompt": "Which move keeps every piece safe?",
+            "prompt": spec.question,
+            # How many moves count. The card used to introduce the position
+            # with a count of the unsafe moves, which reads as "the other 25
+            # are fine" and was then followed by rejecting 24 of them.
+            "task_line": spec.task_line,
+            "accepts": spec.accepts,
             "position_difficulty": _position_difficulty(item["fen"]),
             **reason_fields,
             "_help_squares": (
@@ -743,6 +777,12 @@ async def _concept_descriptor(
             # second set of questions into this adapter.
             "_diagnostic_quality_id": item_quality_id,
             "_detector_version": item_detector_version,
+            # The grader reads this rather than inferring the family from
+            # whether the stored row happens to carry a quality_id. Community
+            # rows never do, which is why every one of them fell through to
+            # single-best grading under a question that promised otherwise.
+            "_question_category": category,
+            "_accepts": spec.accepts,
             "_normalized_fen": item.get("normalized_fen") if blind_diagnostic else None,
             "_moved_piece": item.get("moved_piece") if blind_diagnostic else None,
         })
@@ -1024,7 +1064,16 @@ async def grade_personalized_move(
             "answer_uci": result.get("correct_move_uci"),
             "grader_version": "endgame_theory_service.v2",
         }
-    if item.get("_diagnostic_quality_id"):
+    # Two ways in. `_diagnostic_quality_id` is the original one: an own-game
+    # position whose stored row carries the proof. `_accepts == any_safe` is
+    # the second, and it is what makes the card honest -- the printed question
+    # says several moves work, so several moves have to be accepted. Community
+    # rows carry no quality_id, so before this they all fell through to
+    # single-best grading beneath a question promising the opposite.
+    from services.lesson_question_spec import ANY_SAFE
+
+    accepts_any_safe = str(item.get("_accepts") or "") == ANY_SAFE
+    if item.get("_diagnostic_quality_id") or accepts_any_safe:
         from coach_play.coach_blunder_guard import (
             ONE_MOVE_FLOOR_CP,
             material_hung_after,
@@ -1034,7 +1083,10 @@ async def grade_personalized_move(
             grade_destination_safety_candidate,
         )
 
-        if item.get("_diagnostic_quality_id") != QUALITY_ID:
+        # Destination safety is the only any_safe rule we can prove today. A
+        # future any_safe category needs its own detector here, not this one.
+        stored_quality = item.get("_diagnostic_quality_id")
+        if stored_quality and stored_quality != QUALITY_ID:
             return {
                 "correct": False,
                 "target_result": "unmeasured",

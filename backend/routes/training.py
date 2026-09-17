@@ -810,6 +810,22 @@ async def get_prescribed_training_endpoint(
         public_puzzle_payload(puzzle) for puzzle in result.get("puzzles") or []
     ]
 
+    # The question the card prints has to describe what this endpoint will
+    # actually accept, and this one accepts the one stored best move. The page
+    # used to ask a diagnostic question instead ("Which of your pieces has no
+    # defender?") on top of best-move grading, so a truthful answer could
+    # still be marked wrong. See docs/lesson_question_spec_scope.md.
+    try:
+        from services.lesson_question_spec import SINGLE_BEST, spec_or_fallback
+
+        spec = spec_or_fallback(weakness)
+        for puzzle in result["puzzles"]:
+            puzzle.setdefault("question", spec.question_for(SINGLE_BEST))
+            puzzle.setdefault("task_line", spec.task_line_for(SINGLE_BEST))
+    except Exception as _spec_err:
+        # Framing is never worth failing a puzzle fetch over.
+        logger.debug(f"question spec skipped for {weakness}: {_spec_err}")
+
     return result
 
 

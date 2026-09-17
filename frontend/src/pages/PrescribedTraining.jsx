@@ -726,23 +726,36 @@ export default function PrescribedTraining({ user = null }) {
     return "upcoming";
   });
 
-  // Socratic question — use coaching.question if backend provides one, else a
-  // weakness-aware template, else a safe default. Never fake context we don't have.
+  // Socratic question — use coaching.question if backend provides one, else
+  // the spec the backend serves for this category, else a safe default.
+  //
+  // The templates below used to ask a diagnostic question ("Which of your
+  // pieces has no defender?") on a card that grades a single move. The player
+  // answers the question truthfully, plays a move that fits it, and is marked
+  // wrong. The question has to describe what is actually accepted, so the
+  // backend owns it now — services/lesson_question_spec.py — and this is the
+  // fallback for payloads served before it existed.
   const socraticQuestion =
     currentPuzzle?.coaching?.question ||
+    currentPuzzle?.question ||
     (currentPuzzle?.source === "your_game"
       ? "Before you moved — what did you miss?"
       : {
-          piece_safety: "Which of your pieces has no defender?",
-          tactical_oversight: "What tactic is hiding in this position?",
-          missed_tactic: "What tactic is available here?",
-          missed_threat: "What's your opponent threatening?",
-          opponent_threats: "What's your opponent threatening?",
-          calculation_depth: "Look two moves ahead — what happens?",
-          king_safety: "Is your king as safe as it looks?",
-          poor_piece_safety: "Which piece can be taken for free?",
+          piece_safety: "Play a move that leaves nothing of yours hanging.",
+          poor_piece_safety: "Play a move that leaves nothing of yours hanging.",
+          tactical_oversight:
+            "There is a tactic here that is easy to walk straight past. Find it.",
+          missed_tactic: "There is a tactic in this position. Find it.",
+          missed_threat:
+            "Your king is the problem in this position. Find the move that fixes it.",
+          opponent_threats:
+            "Your king is the problem in this position. Find the move that fixes it.",
+          calculation_depth:
+            "One line here runs further than it looks. Find the move that still holds up two moves deep.",
+          king_safety:
+            "Your king is the problem in this position. Find the move that fixes it.",
         }[weakness] ||
-        "Find the best move.");
+        "Find the move this position asks for.");
 
   // Color / side to move — parse from FEN
   const toMoveLabel = (() => {

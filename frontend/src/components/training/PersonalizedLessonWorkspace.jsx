@@ -440,13 +440,17 @@ export default function PersonalizedLessonWorkspace({
             {!pendingMove && (
               <>
                 <p className="text-sm font-medium text-foreground mb-1">{item?.prompt}</p>
+                {/* task_line says how many moves count. It replaced a count
+                    of the unsafe moves ("13 of 38 leave a piece where it can
+                    be taken"), which reads as "the other 25 are fine" on a
+                    card that then accepted exactly one of them. The backend
+                    owns the wording per category — see
+                    services/lesson_question_spec.py. */}
                 <p className="text-xs text-muted-foreground mb-4">
                   {item?.source === "own_game"
                     ? "From one of your own games."
                     : "A new position chosen for the same idea."}
-                  {item?.position_difficulty?.unsafe_moves > 0
-                    ? ` Of the ${item.position_difficulty.legal_moves} moves you can play here, ${item.position_difficulty.unsafe_moves} leave a piece where it can be taken.`
-                    : ""}
+                  {item?.task_line ? ` ${item.task_line}` : ""}
                 </p>
               </>
             )}

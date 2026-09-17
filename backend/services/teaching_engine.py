@@ -1446,6 +1446,65 @@ def _square_of_the_pawn_help(fen: str) -> Optional[Dict[str, Any]]:
     }
 
 
+def _one_question_about_the_board(fen: str) -> dict:
+    """One question the player can answer by looking, that narrows the search.
+
+    "Ask me one question" used to highlight every unsafe destination and say
+    "the marked squares are covered by your opponent -- which of your moves
+    stays off them?". That restates the prompt and hands over the whole answer
+    set in the same breath, and on a 38-move position it still leaves two
+    dozen candidates. A hint that does not narrow anything is not a hint.
+
+    So ask about the piece that is actually loose right now. It has a real
+    answer the player can find on the board ("nothing is defending it"), and
+    finding it is the step that leads to the move. Only when nothing hangs do
+    we fall back to the squares, and then as a question about the opponent's
+    reach rather than a restatement of the task.
+    """
+    try:
+        import chess
+
+        from services.mission_scoreboard import find_hanging_pieces
+
+        board = chess.Board(fen)
+        hanging = find_hanging_pieces(fen, board.turn == chess.WHITE)
+    except Exception:
+        hanging = []
+        board = None
+
+    if hanging:
+        loose = hanging[0]
+        name = str(loose.get("piece_name") or "piece")
+        square = str(loose.get("square") or "")
+        return {
+            "message": (
+                f"Your {name} on {square} is marked. What is defending it "
+                "right now?"
+            ),
+            "arrows": [],
+            "highlight_squares": [square] if square else [],
+        }
+
+    unsafe = _unsafe_destination_squares(fen)
+    if unsafe:
+        return {
+            "message": (
+                "The marked squares are the ones your opponent can reach. "
+                "Which of your pieces would land on one?"
+            ),
+            "arrows": [],
+            "highlight_squares": unsafe,
+        }
+    return {
+        "message": (
+            "Nothing of yours is loose yet. After your move, what is the "
+            "opponent's strongest capture or check?"
+        ),
+        "arrows": [],
+        "highlight_squares": [],
+    }
+
+
 def _unsafe_destination_squares(fen: str) -> list:
     """Squares this player can move to where the piece would be takeable.
 
@@ -1604,19 +1663,8 @@ async def request_personalized_help(
                 "board_concept": square_help["board_concept"],
             }
         else:
-            unsafe = _unsafe_destination_squares(str(item.get("fen") or ""))
-            result = {
-                "action": help_action.value,
-                "message": (
-                    "The marked squares are covered by your opponent. Which of "
-                    "your moves stays off them?"
-                    if unsafe
-                    else "After your move, what is the opponent's strongest "
-                    "capture, check, or direct threat?"
-                ),
-                "arrows": [],
-                "highlight_squares": unsafe,
-            }
+            result = _one_question_about_the_board(str(item.get("fen") or ""))
+            result["action"] = help_action.value
     else:
         result = {
             "action": help_action.value,
@@ -1719,7 +1767,11 @@ async def _append_personalized_shadow_event(
         return False
 
 
-def _belief_lead(lesson_kind: str, reason_choice: Optional[str]) -> str:
+def _belief_lead(
+    lesson_kind: str,
+    reason_choice: Optional[str],
+    category: Optional[str] = None,
+) -> str:
     """Open a wrong-move correction with what the player believed.
 
     The reason is submitted with the move, so by grading time we know
@@ -1733,35 +1785,37 @@ def _belief_lead(lesson_kind: str, reason_choice: Optional[str]) -> str:
     """
     if not reason_choice:
         return ""
-    leads = {
-        "concept": {
-            # Believed the move was safe. The move is the symptom; the
-            # belief is the thing to correct.
-            "keeps_piece_safe": "You chose this because it keeps your pieces safe, so that is the part to fix.",
-            # Knew it was loose and played it anyway.
-            "looks_active": "Activity was the right instinct, but it costs material here.",
-            # Said outright they were guessing -- do not lecture, aim them.
-            "not_sure": "You were not sure, which is worth saying.",
-        },
-    }
-    return leads.get(str(lesson_kind), {}).get(str(reason_choice), "")
+    if str(reason_choice) == "not_sure":
+        # Said outright they were guessing -- do not lecture, aim them.
+        return "You were not sure, which is worth saying."
+    if str(lesson_kind) == "concept":
+        # The options differ per category and their coaching travels with
+        # them, so it cannot be orphaned when the options change.
+        from services.lesson_question_spec import reason_belief_lead
+
+        return reason_belief_lead(category, reason_choice)
+    return ""
 
 
 def _reason_correction(
     lesson_kind: str,
     reason_choice: Optional[str],
+    category: Optional[str] = None,
 ) -> tuple[Optional[str], Optional[str]]:
     if not reason_choice:
         return (
             "reason_not_given",
             "Before the next move, name what you checked on the board.",
         )
+    if str(lesson_kind) == "concept" and str(reason_choice) != "not_sure":
+        # Per-category, and authored beside the option it corrects.
+        from services.lesson_question_spec import reason_correction
+
+        misconception, correction = reason_correction(category, reason_choice)
+        if correction:
+            return (misconception, correction)
     corrections = {
         "concept": {
-            "looks_active": (
-                "activity_before_safety",
-                "An active-looking move is not enough. Check whether every piece you leave behind can be taken.",
-            ),
             "not_sure": (
                 "piece_safety_relationship_unclear",
                 "Start with one question: after your move, which of your pieces can the opponent capture?",
@@ -2286,7 +2340,9 @@ async def process_personalized_move(
         # Lead with the belief that produced the move, then the board fact.
         # The misconception label is deliberately unchanged: this improves
         # what the player is told, not what the evidence model records.
-        lead = _belief_lead(lesson_kind, reason_choice)
+        lead = _belief_lead(
+            lesson_kind, reason_choice, item.get("_question_category")
+        )
         position_fact = str(grade.get("feedback") or "")
         correction = (
             "%s %s" % (lead, position_fact) if lead and position_fact
@@ -2296,6 +2352,7 @@ async def process_personalized_move(
         misconception, correction = _reason_correction(
             lesson_kind,
             reason_choice,
+            item.get("_question_category"),
         )
     else:
         misconception = None
