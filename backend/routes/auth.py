@@ -25,6 +25,8 @@ import json
 import os
 import secrets
 import time
+
+from services import admin_view_as as view_as
 import uuid
 import httpx
 import logging
@@ -257,6 +259,41 @@ def _web_auth_payload(user_doc: dict) -> dict:
     return {"user": user_doc}
 
 # Helper for current user
+async def _resolve_view_as(request: Request, real_user: User) -> Optional[User]:
+    """Swap in the viewed user when a super-admin has a view-as session open.
+
+    Returns None for everybody else, which is almost every request, so the
+    cost on the normal path is one absent cookie.
+
+    The read-only rule is enforced here rather than per-endpoint. Every
+    authenticated route already depends on `get_current_user`, so a new route
+    inherits the block instead of opting into it -- there is nothing for it to
+    forget. See services/admin_view_as.py and docs/admin_view_as_scope.md.
+    """
+    token = request.cookies.get(view_as.COOKIE_NAME)
+    if not token or db is None:
+        return None
+
+    from routes.admin import _is_admin_email
+
+    session = await view_as.resolve(db, token, real_user, _is_admin_email)
+    if not session:
+        return None
+
+    if view_as.is_write(request.method, request.url.path):
+        raise HTTPException(status_code=403, detail=view_as.READ_ONLY_MESSAGE)
+
+    target_doc = await db.users.find_one(
+        {"user_id": session["target_user_id"]}, {"_id": 0}
+    )
+    if not target_doc:
+        return None
+
+    # Carried so /auth/me can report it and the banner cannot be missed.
+    request.state.view_as = session
+    return User(**target_doc)
+
+
 async def get_current_user(request: Request) -> Optional[User]:
     """Authenticate web cookies or explicitly mobile bearer sessions."""
     global db
@@ -284,7 +321,9 @@ async def get_current_user(request: Request) -> Optional[User]:
             
             user_doc = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
             if user_doc:
-                return User(**user_doc)
+                real_user = User(**user_doc)
+                viewed = await _resolve_view_as(request, real_user)
+                return viewed if viewed is not None else real_user
 
     if credential_source is not None:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -803,9 +842,18 @@ async def auth_status():
 
 
 @router.get("/me")
-async def get_me(user: User = Depends(get_current_user)):
-    """Get current user profile"""
-    return user.model_dump()
+async def get_me(request: Request, user: User = Depends(get_current_user)):
+    """Get current user profile.
+
+    While a view-as session is open this is the viewed user, and `viewing_as`
+    says so. The banner reads it, so there is no state in which the admin is
+    looking at somebody else's pages without the page saying whose.
+    """
+    payload = user.model_dump()
+    session = getattr(request.state, "view_as", None)
+    if session:
+        payload["viewing_as"] = session
+    return payload
 
 
 @router.post("/logout")

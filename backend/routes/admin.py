@@ -17,7 +17,7 @@ Endpoints:
 - GET /admin/feedback/download/{filename} - Download exported feedback file
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request, Response
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
 from datetime import datetime, timezone, timedelta
@@ -1699,3 +1699,78 @@ async def admin_outcome_metric(admin: User = Depends(require_admin)):
         "rows": sorted(measured, key=lambda m: -m["improvement_pct"]),
     }
 
+
+
+# ==================== VIEW AS USER ====================
+#
+# Browse the product as one of our users, read-only. Written after an hour
+# spent working out why a user's pages looked empty while sitting next to
+# them -- the answer needed nginx logs and three database queries, none of
+# which is available in the moment. See docs/admin_view_as_scope.md.
+#
+# The write block lives in routes/auth.get_current_user, not here, so that
+# every endpoint inherits it rather than opting in.
+
+from services import admin_view_as as view_as
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for") or ""
+    return (forwarded.split(",")[0].strip() or (request.client.host if request.client else ""))[:64]
+
+
+@router.post("/admin/users/{target_user_id}/view-as")
+async def admin_start_view_as(
+    target_user_id: str,
+    request: Request,
+    response: Response,
+    user: User = Depends(require_super_admin),
+):
+    """Open a read-only view-as session for the calling super admin."""
+    try:
+        session = await view_as.start(
+            db,
+            admin=user,
+            target_user_id=target_user_id,
+            ip=_client_ip(request),
+            user_agent=request.headers.get("user-agent", ""),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    # A SECOND cookie. `session_token` is untouched, so the admin stays
+    # logged in as themselves and exiting can never strand them.
+    response.set_cookie(
+        key=view_as.COOKIE_NAME,
+        value=session.pop("token"),
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=view_as.TTL_MINUTES * 60,
+    )
+    return session
+
+
+@router.delete("/admin/view-as")
+async def admin_end_view_as(request: Request, response: Response):
+    """Close the session and go back to being yourself.
+
+    Deliberately not behind `require_super_admin`: while a session is open,
+    `get_current_user` reports the VIEWED user, who is not an admin, so that
+    gate would lock the admin inside. Holding the token is the only thing
+    needed to end it, and ending it can only ever reduce access.
+    """
+    token = request.cookies.get(view_as.COOKIE_NAME)
+    ended = await view_as.end(db, token)
+    response.delete_cookie(key=view_as.COOKIE_NAME, path="/")
+    return {"ended": ended}
+
+
+@router.get("/admin/view-as/audit")
+async def admin_view_as_audit(
+    limit: int = 50,
+    user: User = Depends(require_super_admin),
+):
+    """Who looked at whom, and when. Ended sessions are kept on purpose."""
+    return {"sessions": await view_as.recent(db, limit=limit)}

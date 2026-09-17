@@ -431,6 +431,32 @@ const UserDetail = ({ data, onBack, onChangeRole, currentUser }) => {
               <option value="super_admin">Super Admin</option>
             </select>
           )}
+          {/* Opens their pages read-only. Not offered for another super
+              admin, which the backend refuses anyway. */}
+          {isSuperAdmin
+            && u.user_id !== currentUser.user_id
+            && u.role !== "super_admin" && (
+            <button
+              type="button"
+              className="px-2 py-1 text-xs border rounded-sm font-light hover:bg-muted transition-colors"
+              style={{ borderColor: BORDER }}
+              data-testid="view-as-btn"
+              onClick={async () => {
+                const res = await fetch(
+                  `${API}/admin/users/${u.user_id}/view-as`,
+                  { method: "POST", credentials: "include" }
+                );
+                if (res.ok) {
+                  window.location.href = "/home";
+                } else {
+                  const body = await res.json().catch(() => ({}));
+                  alert(body.detail || "Could not start view-as.");
+                }
+              }}
+            >
+              👁 View as
+            </button>
+          )}
         </div>
       </div>
 

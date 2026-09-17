@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
+import ViewAsBanner from "@/components/ViewAsBanner";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
@@ -289,6 +290,10 @@ function AppRouter() {
 
   return (
     <div className={`experience-route experience-route-${experienceFamily}`} data-experience-family={experienceFamily}>
+    {/* Above every route on purpose: an admin must never read a page as
+        somebody else and think it is their own account. Renders null for
+        everyone who is not in a view-as session, which is almost everyone. */}
+    <ViewAsBanner />
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
