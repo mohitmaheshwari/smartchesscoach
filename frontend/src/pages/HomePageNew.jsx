@@ -15,6 +15,7 @@ import { API } from "@/App";
 import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
 import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/lib/motion";
 import Layout from "@/components/Layout";
+import HomeLoadingSkeleton from "@/components/HomeLoadingSkeleton";
 import CanonicalFocusRail from "@/components/experience/CanonicalFocusRail";
 import CurriculumHome from "@/components/curriculum/CurriculumHome";
 import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
@@ -257,9 +258,7 @@ export default function HomePageNew({ user }) {
   if (loading || curriculumLoading) {
     return (
       <Layout user={user}>
-        <div className="flex items-center justify-center h-[60vh]">
-          <div className="experience-spinner w-6 h-6 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
-        </div>
+        <HomeLoadingSkeleton />
       </Layout>
     );
   }
