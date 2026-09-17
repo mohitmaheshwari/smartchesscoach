@@ -6001,8 +6001,22 @@ def build_move_teaching_decision(
     )
     # V5 move_output reads from caption_payload (renderer output),
     # NOT caption_facts. Match that source for zero-diff parity.
+    # Mohit 2026-09-17: "our geometry the way it shows is terrible, it kills
+    # the experience -- remove that, don't delete the code, just stop showing
+    # geometry." The trap picture draws up to _CAP = 14 arrows on one board,
+    # which reads as clutter rather than a lesson. Every arrow the review card
+    # renders passes through here, so this is the one place to hold them back.
+    #
+    # Nothing is deleted: the builders still run and still populate
+    # caption_payload, so the facts, the cap and the dedupe are all intact and
+    # REVIEW_LEGACY_ARROWS=true restores the old picture unchanged. Arrows that
+    # are themselves the lesson opt back in by carrying "teach": True, so a
+    # focused two-or-three arrow picture can ship without reopening the flood.
+    _arrows_out = caption_payload.get("arrows") or []
+    if os.environ.get("REVIEW_LEGACY_ARROWS", "false").strip().lower() != "true":
+        _arrows_out = [a for a in _arrows_out if a.get("teach") is True]
     visual = VisualSurface(
-        arrows=caption_payload.get("arrows") or [],
+        arrows=_arrows_out,
         highlight_squares=caption_payload.get("highlight_squares") or [],
     )
     # Mohit 2026-05-31: extract the severity WORD R12 chose for the
