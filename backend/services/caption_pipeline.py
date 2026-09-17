@@ -67,6 +67,7 @@ from services.caption_facts import (
     ReviewTeachingCause,
     build_legal_material_loss_cause,
     build_verified_line_cause,
+    static_exchange_eval,
 )
 from services.exact_endgame_service import (
     ExactEndgameCause,
@@ -4365,6 +4366,78 @@ def _normalize_san_for_match(san: Optional[str]) -> str:
         "!", "").replace("?", "").strip()
 
 
+def _check_attack_arrows(
+    board_before: Optional[chess.Board],
+    best_move_uci: Optional[str],
+) -> List[Dict[str, str]]:
+    """Draw the two-attackers-plus-check picture, or nothing.
+
+    Mohit 2026-09-17, on fb_1c52480b2e9b: "it should draw a line from Qa5 to
+    [the] bishop and our bishop to [the] bishop and a queen checking the king,
+    so it's easy." The words for that move ("gives check and wins the bishop
+    on e5") name the fact; the board is what makes the geometry obvious -- two
+    lines converging on one square, and a third into the king that says why
+    the defender never gets a turn.
+
+    Right-or-silent: every arrow is a legal attack on the after-board, and the
+    target must be SEE-positive, so we never draw a win that is not there. At
+    most four arrows, and only on a move that both checks and wins something,
+    which keeps this rare rather than wallpaper.
+    """
+    if board_before is None or not best_move_uci:
+        return []
+    try:
+        move = chess.Move.from_uci(str(best_move_uci))
+        if move not in board_before.legal_moves:
+            return []
+        mover = board_before.turn
+        after = board_before.copy()
+        after.push(move)
+        if not after.is_check():
+            return []
+        target = None
+        for sq in after.attacks(move.to_square):
+            piece = after.piece_at(sq)
+            if not piece or piece.color == mover or piece.piece_type == chess.KING:
+                continue
+            see = static_exchange_eval(after, sq, mover) or 0
+            if see >= 100 and (target is None or see > target[1]):
+                target = (sq, see)
+        if target is None:
+            return []
+        king_sq = after.king(not mover)
+        if king_sq is None:
+            return []
+        target_sq = target[0]
+        arrows: List[Dict[str, str]] = [{
+            "from": chess.square_name(move.to_square),
+            "to": chess.square_name(target_sq),
+            "color": "green",
+            "teach": True,
+        }]
+        # The attackers that were ALREADY there are the reason the square
+        # tips: one new attacker on an undefended piece is an ordinary
+        # threat, a second attacker on a defended one is what wins it.
+        for sq in sorted(after.attackers(mover, target_sq)):
+            if sq == move.to_square or len(arrows) >= 3:
+                continue
+            arrows.append({
+                "from": chess.square_name(sq),
+                "to": chess.square_name(target_sq),
+                "color": "green",
+                "teach": True,
+            })
+        arrows.append({
+            "from": chess.square_name(move.to_square),
+            "to": chess.square_name(king_sq),
+            "color": "red",
+            "teach": True,
+        })
+        return arrows
+    except Exception:
+        return []
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -6012,7 +6085,16 @@ def build_move_teaching_decision(
     # REVIEW_LEGACY_ARROWS=true restores the old picture unchanged. Arrows that
     # are themselves the lesson opt back in by carrying "teach": True, so a
     # focused two-or-three arrow picture can ship without reopening the flood.
-    _arrows_out = caption_payload.get("arrows") or []
+    _arrows_out = list(caption_payload.get("arrows") or [])
+    # The one picture that earns its place on the board today: a check that
+    # also piles a second attacker onto a piece. Tagged "teach" so it survives
+    # the suppression below.
+    _teach_arrows = _check_attack_arrows(board_before, inputs.best_move_uci)
+    if _teach_arrows:
+        _existing = {(a.get("from"), a.get("to")) for a in _arrows_out}
+        _arrows_out = [
+            a for a in _teach_arrows if (a["from"], a["to"]) not in _existing
+        ] + _arrows_out
     if os.environ.get("REVIEW_LEGACY_ARROWS", "false").strip().lower() != "true":
         _arrows_out = [a for a in _arrows_out if a.get("teach") is True]
     visual = VisualSurface(
