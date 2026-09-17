@@ -502,26 +502,41 @@ const LabV2 = ({ user }) => {
     fetchData();
   }, [gameId, navigate]);
   
-  // Fetch deep strategy (for critical moments detail)
+  // Fetch deep strategy (for critical moments detail).
+  //
+  // One attempt per game, whatever the outcome. This used to list
+  // `loadingDeepStrategy` as a dependency and stop only once `deepStrategy`
+  // was set — which happens only on a 2xx. So any failure re-armed the
+  // effect the instant the `finally` cleared the flag, and it refetched as
+  // fast as the network allowed.
+  //
+  // Measured live on 2026-09-17: 1,061 requests to this endpoint in 129
+  // seconds from a single browser. A loop at that rate pegs the tab, and the
+  // user sees a page that never finishes loading — reported as "no data
+  // anywhere", though the API was answering every other call with 200.
+  const deepStrategyAttemptedFor = useRef(null);
   useEffect(() => {
-    const fetchDeepStrategy = async () => {
-      if (!gameId || deepStrategy || loadingDeepStrategy) return;
-      
+    if (!gameId || deepStrategyAttemptedFor.current === gameId) return;
+    deepStrategyAttemptedFor.current = gameId;
+
+    let cancelled = false;
+    (async () => {
       setLoadingDeepStrategy(true);
       try {
         const res = await fetch(`${API}/lab/${gameId}/deep-strategy`, { credentials: "include" });
-        if (res.ok) {
+        if (res.ok && !cancelled) {
           setDeepStrategy(await res.json());
         }
       } catch (e) {
+        // The page renders without it; this panel is supplementary.
         console.log("Deep strategy not available");
       } finally {
-        setLoadingDeepStrategy(false);
+        if (!cancelled) setLoadingDeepStrategy(false);
       }
-    };
-    
-    fetchDeepStrategy();
-  }, [gameId, deepStrategy, loadingDeepStrategy]);
+    })();
+
+    return () => { cancelled = true; };
+  }, [gameId]);
   
   // Build moves and FENs from game
   useEffect(() => {

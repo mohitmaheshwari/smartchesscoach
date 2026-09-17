@@ -442,32 +442,36 @@ const LabClassic = ({ user }) => {
   })();
 
   // Fetch deep strategy analysis when Strategy tab is selected
+  // One attempt per game, whatever the outcome — the same retry storm that
+  // LabV2 had. `deepStrategy` is only set on a 2xx, so listing
+  // `loadingDeepStrategy` as a dependency meant every failure re-armed the
+  // effect as soon as the `finally` cleared the flag. Measured live on
+  // 2026-09-17 on the sibling page: 1,061 requests in 129 seconds.
+  const deepStrategyAttemptedFor = useRef(null);
   useEffect(() => {
-    const fetchDeepStrategy = async () => {
-      // Load deep strategy for Strategy tab OR when we have critical moves (for Guided Analysis)
-      const shouldLoad = (activeTab === "strategy" || activeTab === "summary") 
-        && !deepStrategy && !loadingDeepStrategy && gameId;
-      
-      if (shouldLoad) {
-        setLoadingDeepStrategy(true);
-        try {
-          const response = await fetch(`${API}/lab/${gameId}/deep-strategy`, {
-            credentials: "include"
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setDeepStrategy(data);
-          }
-        } catch (error) {
-          console.error("Error fetching deep strategy:", error);
-        } finally {
-          setLoadingDeepStrategy(false);
+    const wantsIt = activeTab === "strategy" || activeTab === "summary";
+    if (!gameId || !wantsIt || deepStrategyAttemptedFor.current === gameId) return;
+    deepStrategyAttemptedFor.current = gameId;
+
+    let cancelled = false;
+    (async () => {
+      setLoadingDeepStrategy(true);
+      try {
+        const response = await fetch(`${API}/lab/${gameId}/deep-strategy`, {
+          credentials: "include"
+        });
+        if (response.ok && !cancelled) {
+          setDeepStrategy(await response.json());
         }
+      } catch (error) {
+        console.error("Error fetching deep strategy:", error);
+      } finally {
+        if (!cancelled) setLoadingDeepStrategy(false);
       }
-    };
-    
-    fetchDeepStrategy();
-  }, [activeTab, gameId, deepStrategy, loadingDeepStrategy]);
+    })();
+
+    return () => { cancelled = true; };
+  }, [activeTab, gameId]);
 
   // Fetch Focus Lock state (Step 9.1)
   useEffect(() => {
