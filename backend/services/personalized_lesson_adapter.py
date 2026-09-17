@@ -5,6 +5,7 @@ their existing canonical owners; this adapter stores no lesson copy.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from pathlib import Path
@@ -21,6 +22,11 @@ TACTICAL_PATH = (
     / "tactical_patterns.json"
 )
 TACTICAL_SOURCE = "backend/data/theory/tactical_patterns.json"
+
+# How long the soundness caveat may take before we go without it. Roughly
+# twice the slowest call measured at depth 12 on an idle box, so it fires
+# only under real contention. Correctness never waits on it.
+ENGINE_SOUNDNESS_BUDGET_S = 2.5
 
 
 class LessonUnavailable(ValueError):
@@ -1113,12 +1119,26 @@ async def grade_personalized_move(
         immediate_loss, _ = material_hung_after(board, parsed)
         from services.puzzle_move_evaluator import evaluate_puzzle_move
 
-        engine_grade = await evaluate_puzzle_move(
-            item["fen"],
-            parsed.uci(),
-            depth=14,
-        )
-        if engine_grade.get("quality") == "invalid" or engine_grade.get("error"):
+        # Correctness here does not come from the engine -- it comes from the
+        # destination-safety verdict below, which is board-only and instant.
+        # The engine is asked for one extra thing: whether a safe move still
+        # loses ground for some unrelated reason, which becomes a caveat in
+        # the feedback. So it is bounded, and a slow engine costs the caveat
+        # rather than the answer.
+        #
+        # Measured on the five served positions (idle box): the per-call floor
+        # is ~1.1s of fixed overhead, and depth barely moves it -- depth 12
+        # ran a median 1191ms against depth 14's 1573ms and returned the same
+        # verdict on all five. The budget is set at roughly twice the slowest
+        # observed call so it only fires under real contention.
+        try:
+            engine_grade = await asyncio.wait_for(
+                evaluate_puzzle_move(item["fen"], parsed.uci(), depth=12),
+                timeout=ENGINE_SOUNDNESS_BUDGET_S,
+            )
+        except asyncio.TimeoutError:
+            engine_grade = {}
+        if not engine_grade or engine_grade.get("quality") == "invalid" or engine_grade.get("error"):
             soundness = {"status": "unmeasured", "reason": "engine_unavailable"}
         elif immediate_loss >= ONE_MOVE_FLOOR_CP:
             soundness = {"status": "serious_problem", "reason": "immediate_material_loss"}
