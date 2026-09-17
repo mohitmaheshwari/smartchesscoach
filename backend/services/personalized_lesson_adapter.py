@@ -976,9 +976,14 @@ def _destination_safety_feedback(
         # A correct answer used to get silence and the next position, which
         # is where understanding is least likely to stick. Name what they
         # did, so the habit is what gets remembered rather than the move.
+        # "That is the check worth keeping" meant the habit of checking, but
+        # in chess copy "check" means the king is attacked. Rendered on a
+        # queen move to g4 that gives no check at all, a 1300 reads it as a
+        # claim about the board and it is simply false.
         return (
             "Your %s is safe on %s — nothing your opponent has wins it there. "
-            "That is the check worth keeping." % (moved, landing)
+            "Looking at the landing square first is the habit worth keeping."
+            % (moved, landing)
         )
 
     if target_status == "pass":
