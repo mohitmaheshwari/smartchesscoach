@@ -154,3 +154,66 @@ drift will not invalidate an approved plan; a material change will.
 Does not dedup the 557 duplicate games, add indexes, change the scheduler's
 cadence, send any email, or render anything to a user. Those are separate
 approvals.
+
+---
+
+# EXECUTED — 2026-09-17
+
+Steps 1–6 ran against production with approval. Step 8 (enable rendering)
+remains **not done** and needs separate approval.
+
+## Results per step
+
+| # | Step | Result |
+|---|---|---|
+| 1 | Backup + restore proof | `games` 16,250 docs and `user_active_focus` 275 docs dumped to `/root/ws1a_evidence/` (15 MB + 49 KB, gzipped). Restored into `ws1a_restoretest` and reconciled: **16,250 = 16,250**, **275 = 275**. Scratch DB dropped afterwards. |
+| 2 | Deploy, render flag off | Live at `a3b20180`. `/api/health` confirms `git_commit`, `v5_caption_version: 166`, and **`FOCUS_OUTCOME_RENDER_ENABLED` absent from the flag list**. |
+| 3 | Dry run on the deployed box | 16,251 games, 0 unrecoverable, 0 disagreements, fingerprint **`ea0de5ffc910f857`** — the approved value, unchanged despite row counts moving from 16,224. The shape-based fingerprint did its job. |
+| 4 | Apply | `matched=16251 modified=16251`; **games still without `played_at_utc`: 0**. |
+| 5 | Re-measure | See below. |
+| 6 | Confirm shadowing | `focus_outcome_loop: SHADOW measured 54 focuses (nothing rendered)`. 54 rows in `focus_outcome_shadow`. **`current_metric` written: 0. Focuses resolved improved/regressed/stuck: 0.** |
+
+## Step 5 — what the repair actually changed
+
+Verdicts over the 46 active weakness focuses, same code, before and after the
+backfill:
+
+| | improved | regressed | stuck | measurement_pending | **no_data** | after-window <3 games |
+|---|---|---|---|---|---|---|
+| **Before** | 3 | 7 | 5 | 12 | **19** | 19 |
+| **After** | 1 | 4 | 3 | 11 | **27** | 27 |
+
+**Eight focuses moved into `no_data`.** Those eight users were one flag-flip
+away from a confident improved/regressed/stuck verdict computed from games
+they played *before* their focus began — for six of them, every single game in
+the "after" window predated the focus by months. They now correctly report
+that we have not seen enough of their games yet.
+
+Total verdicts fell from 15 to 8. That is the repair working: fewer claims,
+all of them defensible.
+
+## Pre-apply safety check that fired
+
+The first approved apply attempt **refused to write**: the deployed script
+still returned `APPLY not implemented` and exit 3, because the commit that was
+meant to add the write path had been applied with an unverified
+`str.replace()` that silently did not match. The gate held, no data was
+touched, and the real path was implemented, tested against a 3,000-game
+scratch database (refusal / apply / idempotent re-run / rollback all verified)
+and redeployed before the apply succeeded.
+
+## Open items from this rollout
+
+- **`build_timestamp` reports `"unknown"`.** `Dockerfile.backend` declares
+  `GIT_COMMIT` as a build ARG but not `BUILD_TIMESTAMP`, so the exported value
+  never reaches the image. Cosmetic — `git_commit` already proves which code a
+  user received — and fixable on the next build.
+- **The production repo holds a local merge commit that is not on origin**
+  (`a3b20180`). Its `origin` remote is HTTPS with no credentials, so
+  `git push` fails from the box. Every commit *inside* that merge is already
+  on `origin/working-code`, so nothing is at risk of being lost, but the box
+  cannot publish and its HEAD will keep diverging until the remote is switched
+  to SSH.
+- **Rendering is still off.** The shadow series starts accumulating today at
+  ~54 rows/day. The terminal-state rule should be chosen from that
+  distribution, not guessed.
