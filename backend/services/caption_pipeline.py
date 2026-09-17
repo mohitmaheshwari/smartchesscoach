@@ -67,6 +67,7 @@ from services.caption_facts import (
     ReviewTeachingCause,
     build_legal_material_loss_cause,
     build_verified_line_cause,
+    legally_hanging_pieces,
     static_exchange_eval,
 )
 from services.exact_endgame_service import (
@@ -4479,7 +4480,31 @@ def _punishment_arrows(
             if see >= 100 and (victim is None or see > victim[1]):
                 victim = (square, see)
         if victim is None:
-            return []
+            # SEE skips king recaptures by design, so a piece the king simply
+            # takes reads as perfectly safe -- finding 12 in the correctness
+            # review, and the reason Mohit's Bxf7+ drew nothing: the bishop on
+            # f7 scored 0 because its only attacker was the king on e8.
+            #
+            # legal_exchange_gain DOES play the king's capture out, so fall
+            # back to it when SEE has found nothing. Second pass, never a
+            # replacement: every card SEE already draws is untouched, and this
+            # only adds the ones it was blind to.
+            try:
+                hung = legally_hanging_pieces(after, mover, 100)
+            except ValueError:
+                hung = []
+            if not hung:
+                return []
+            worst = max(hung, key=lambda h: int(h.get("material_loss_cp") or 0))
+            capture_uci = str(worst.get("winning_capture_uci") or "")
+            if len(capture_uci) < 4:
+                return []
+            return [{
+                "from": capture_uci[:2],
+                "to": capture_uci[2:4],
+                "color": "red",
+                "teach": True,
+            }]
         victim_sq = victim[0]
         arrows: List[Dict[str, str]] = []
         for attacker in sorted(after.attackers(not mover, victim_sq)):
