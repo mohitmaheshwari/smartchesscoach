@@ -890,6 +890,30 @@ def authorized_gap_subtypes(pattern: str) -> Tuple[str, ...]:
     )
 
 
+def topic_can_be_planned(pattern: str) -> bool:
+    """Whether a focus on this topic would survive the plan-surface gate.
+
+    The picker asks this before choosing a topic. It used not to, and the
+    two halves disagreed: the ranking would hand someone `threat_awareness`
+    because that is what their games showed, the focus document was written,
+    and then every plan-surface reader refused it because the detector behind
+    it is only graded `shadow`.
+
+    Nothing errored. The user simply had a focus nobody would act on, and the
+    Home page -- which treats "no usable focus" as "I have not seen you play
+    yet" -- told a player with 52 analysed games to go and play a game or two.
+    Measured 2026-09-17: 11 accounts in that state, every one of them with
+    analysed games.
+
+    With enforcement off, everything is plannable and this is a no-op, which
+    matches what `focus_document_is_authorized` does with an unstamped
+    document.
+    """
+    if not enforcement_enabled():
+        return True
+    return bool(authorized_gap_subtypes(pattern))
+
+
 def sanitize_plan_observation(observation: Mapping[str, Any]) -> Dict[str, Any]:
     """Return a plan-safe observation while retaining shadow diagnostics.
 

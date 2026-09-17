@@ -622,18 +622,30 @@ export default function HomePageNew({ user }) {
                   </div>
                 </motion.section>
               )}
+              {/* No conversation can mean two very different things, and
+                  saying the wrong one is how a player with 52 analysed games
+                  got told to go and play a game or two. `hasGames` separates
+                  them: if we have their games, we have seen them play, and
+                  the honest gap is that we have not settled on the one
+                  pattern to work on yet. Their games are still worth opening
+                  in the meantime, so that is where the button goes. */}
               <motion.section variants={fadeInUp} className="mb-12 md:mb-16 max-w-[620px]">
                 <p className="text-[15px] leading-relaxed text-foreground mb-5">
-                  I'm still learning how you play. Play a game or two and I'll start noticing your habits.
+                  {hasGames
+                    ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
+                    : "I'm still learning how you play. Play a game or two and I'll start noticing your habits."}
                 </p>
                 <button
                   onClick={() => {
-                    track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "play_with_coach", has_conversation: false });
-                    navigate("/play-with-coach");
+                    track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, {
+                      cta: hasGames ? "review_games" : "play_with_coach",
+                      has_conversation: false,
+                    });
+                    navigate(hasGames ? "/lab" : "/play-with-coach");
                   }}
                   className="experience-primary h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
                 >
-                  Play with Coach
+                  {hasGames ? "Review your games" : "Play with Coach"}
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />
                 </button>
               </motion.section>

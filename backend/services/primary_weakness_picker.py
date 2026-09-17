@@ -772,9 +772,31 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
             "rating_prior": round(prior, 3),
         })
 
+    # Only topics we can actually act on. The ranking below is about what the
+    # player's games show; this is about what we are allowed to coach from.
+    # Keeping the two apart is how `threat_awareness` came to be somebody's
+    # active focus while every plan-surface reader refused it -- see
+    # services/detector_quality.topic_can_be_planned.
+    #
+    # A topic dropped here is not thrown away silently: it is recorded on the
+    # focus document as `not_plannable` below, so "we saw this and could not
+    # act on it" stays legible to anyone reading the document later.
+    from services.detector_quality import topic_can_be_planned
+
+    plannable, not_plannable = [], []
+    for c in candidates:
+        (plannable if topic_can_be_planned(c["topic"]) else not_plannable).append(c)
+    if not_plannable:
+        logger.info(
+            "picker: %s scored but cannot be planned for %s (detector not "
+            "graded for the plan surface); choosing from %d remaining",
+            ", ".join(sorted({c["topic"] for c in not_plannable})),
+            user_id, len(plannable),
+        )
+
     # Cooldown filter
     fresh = []
-    for c in candidates:
+    for c in plannable:
         if not await _in_cooldown(db, user_id, c["topic"]):
             fresh.append(c)
     if not fresh:
@@ -811,6 +833,14 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
             )["label"],
         }
         for c in fresh[1:4]
+    ]
+    # What the games showed that we are not equipped to coach yet. Kept on the
+    # document because "nothing scored" and "plenty scored but none of it is
+    # plannable" are very different situations to read back later.
+    winner["not_plannable"] = [
+        {"topic": c["topic"], "score": c["score"],
+         "evidence_count": c["evidence_count"]}
+        for c in sorted(not_plannable, key=lambda c: -c["score"])[:4]
     ]
     return winner
 
@@ -891,6 +921,9 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         "subtype_histogram": picked.get("subtype_histogram"),
         "severity_weighted_count": picked.get("severity_weighted_count"),
         "runners_up": picked.get("runners_up", []),
+        # Topics the evidence supported but no graded detector can
+        # act on. Persisted so a thin-looking focus can be explained.
+        "not_plannable": picked.get("not_plannable", []),
         "started_at": now.isoformat(),
         "locked_until": (now + timedelta(days=LOCK_DURATION_DAYS)).isoformat(),
         "baseline_metric": baseline,
