@@ -1,8 +1,12 @@
 # WS1a rollout plan — `played_at_utc` backfill + shadow outcome loop
 
-**Status: awaiting approval. Nothing here has been applied.**
-Production has been read-only throughout: no write, index, dedup, scheduler
-change or deploy.
+**Status: steps 1–6 EXECUTED on 2026-09-17 with approval. See the
+"EXECUTED" section at the end for what actually happened.** Rendering is
+still off and needs a separate approval (step 8).
+
+Sections 1–7 below are the plan as written *before* execution, kept unedited
+so the approval can be audited against what was actually proposed. Their
+numbers are pre-apply figures; the post-apply figures are at the end.
 
 ---
 
