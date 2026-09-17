@@ -425,9 +425,19 @@ def main() -> int:
               "The data changed since the dry run; re-run the dry run.")
         return 2
 
-    print("\nAPPLY not implemented in this revision — approval gate is open, "
-          "but no production write path has been authorised yet.")
-    return 3
+    if args.limit:
+        print("\nREFUSED: --apply with --limit would leave the collection "
+              "half-migrated. Re-run the dry run without --limit.")
+        return 2
+
+    print(f"\nAPPLYING {len(pending_ops)} updates in batches of {args.batch} ...")
+    matched, modified = _write_batches(db, pending_ops, args.batch)
+    print(f"  matched={matched} modified={modified}")
+
+    remaining = db.games.count_documents({"played_at_utc": {"$exists": False}})
+    print(f"  games still without played_at_utc: {remaining}")
+    print("\nRollback if needed: --rollback --apply")
+    return 0 if remaining == 0 else 1
 
 
 if __name__ == "__main__":
