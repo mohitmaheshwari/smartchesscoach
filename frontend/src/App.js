@@ -50,6 +50,7 @@ import AdminAuthoring from "@/pages/AdminAuthoring";
 import AdminCaptionAuthoring from "@/pages/AdminCaptionAuthoring";
 import AdminPositionalReasons from "@/pages/AdminPositionalReasons";
 import AdminReasonJudge from "@/pages/AdminReasonJudge";
+import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
 import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import VerifiedEndgameLesson from "@/pages/VerifiedEndgameLesson";
@@ -488,6 +489,11 @@ function AppRouter() {
       <Route path="/admin/reason-judge" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminReasonJudge user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/admin/geometry-gaps" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminGeometryGaps user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/admin/captions/drafts" element={

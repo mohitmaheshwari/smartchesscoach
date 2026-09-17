@@ -343,3 +343,156 @@ async def judge_results(user: User = Depends(require_admin)):
         elif r.get("winning_model"):
             wins[r["winning_model"]] = wins.get(r["winning_model"], 0) + 1
     return {"judged": len(rows), "wins": wins, "judgements": rows}
+
+
+# ---------------------------------------------------------------------------
+# Geometry gaps — mistakes the board cannot explain yet
+#
+# Mohit 2026-09-17: "if you find any puzzles you don't [know] the answer for in
+# arrow and captions, send them to me and I will tell you if it is buildable."
+#
+# Two board pictures ship today: a check that adds a second attacker, and what
+# a blunder gave away. Together they cover 58.3% of user mistakes (was 0%).
+# The rest are listed here rather than guessed at, because inventing an arrow
+# for a position with no tactical shape is how the clutter started.
+# ---------------------------------------------------------------------------
+
+
+def _classify_geometry_gap(board, played, best, eval_before) -> str:
+    """Why no picture is drawable. Board facts only, no engine."""
+    import chess as _chess
+
+    after_best = board.copy()
+    after_best.push(best)
+    if after_best.is_checkmate():
+        return "best_move_is_mate"
+    if board.is_capture(best):
+        return "best_move_capture_not_priceable"
+    if after_best.is_check():
+        return "best_move_checks_wins_nothing"
+    if board.is_capture(played):
+        return "played_capture_not_punished"
+    if abs(int(eval_before or 0)) > 800:
+        return "already_decided"
+    return "quiet_positional_move"
+
+
+@router.get("/admin/geometry-gaps/next")
+async def next_geometry_gap(
+    cluster: Optional[str] = Query(default=None),
+    user: User = Depends(require_admin),
+):
+    """One mistake with no drawable picture, skipping anything already ruled on."""
+    import chess as _chess
+
+    from services.caption_pipeline import _check_attack_arrows, _punishment_arrows
+
+    ruled = set(await db.geometry_gap_rulings.distinct("fen"))
+    scanned = 0
+    async for doc in db.game_analyses.find(
+        {"stockfish_analysis.move_evaluations.0": {"$exists": True}},
+        {"_id": 0, "game_id": 1, "stockfish_analysis": 1},
+    ):
+        for move in (doc.get("stockfish_analysis") or {}).get("move_evaluations") or []:
+            if move.get("is_opponent_move") or (move.get("cp_loss") or 0) < 150:
+                continue
+            fen = str(move.get("fen_before") or "")
+            best_uci = str(move.get("best_move_uci") or "")
+            played_uci = str(move.get("move_uci") or "")
+            if not fen or not best_uci or not played_uci or fen in ruled:
+                continue
+            try:
+                board = _chess.Board(fen)
+                played = _chess.Move.from_uci(played_uci)
+                best = _chess.Move.from_uci(best_uci)
+                if played not in board.legal_moves or best not in board.legal_moves:
+                    continue
+            except ValueError:
+                continue
+            scanned += 1
+            # Only the ones we genuinely cannot draw.
+            if _check_attack_arrows(board, best_uci):
+                continue
+            if _punishment_arrows(
+                board, played, mover_is_user=True, cp_loss=move.get("cp_loss") or 0
+            ):
+                continue
+            kind = _classify_geometry_gap(board, played, best, move.get("eval_before"))
+            if cluster and kind != cluster:
+                continue
+            return {
+                "game_id": doc.get("game_id"),
+                "fen": fen,
+                "side_to_move": "white" if board.turn else "black",
+                "move_number": move.get("move_number"),
+                "played_san": board.san(played),
+                "best_san": board.san(best),
+                "cp_loss": move.get("cp_loss"),
+                "eval_before": move.get("eval_before"),
+                "eval_after": move.get("eval_after"),
+                "cluster": kind,
+                "ruled_count": len(ruled),
+            }
+    raise HTTPException(
+        status_code=404,
+        detail=f"No undrawable mistake left to rule on (scanned {scanned})",
+    )
+
+
+@router.post("/admin/geometry-gaps")
+async def rule_geometry_gap(
+    payload: Dict = Body(...),
+    user: User = Depends(require_admin),
+):
+    """Record whether a gap is buildable. The verdict is Mohit's, not a model's."""
+    fen = str(payload.get("fen") or "").strip()
+    verdict = str(payload.get("verdict") or "").strip().lower()
+    if not fen:
+        raise HTTPException(status_code=400, detail="fen is required")
+    if verdict not in {"buildable", "not_buildable", "unsure"}:
+        raise HTTPException(status_code=400, detail="unknown verdict")
+    await db.geometry_gap_rulings.update_one(
+        {"fen": fen},
+        {
+            "$set": {
+                "fen": fen,
+                "verdict": verdict,
+                "cluster": payload.get("cluster"),
+                "game_id": payload.get("game_id"),
+                "played_san": payload.get("played_san"),
+                "best_san": payload.get("best_san"),
+                "cp_loss": payload.get("cp_loss"),
+                "notes": str(payload.get("notes") or "")[:2000],
+                "ruled_by": user.user_id,
+                "ruled_at": datetime.now(timezone.utc).isoformat(),
+            }
+        },
+        upsert=True,
+    )
+    return {"ok": True}
+
+
+@router.get("/admin/geometry-gaps/results")
+async def geometry_gap_results(user: User = Depends(require_admin)):
+    """What has been ruled so far, by cluster."""
+    rows = await db.geometry_gap_rulings.find({}, {"_id": 0}).to_list(length=None)
+    by_cluster: Dict[str, Dict[str, int]] = {}
+    for row in rows:
+        bucket = by_cluster.setdefault(str(row.get("cluster") or "unknown"), {})
+        key = str(row.get("verdict") or "unsure")
+        bucket[key] = bucket.get(key, 0) + 1
+    return {
+        "total": len(rows),
+        "by_cluster": by_cluster,
+        "buildable": [
+            {
+                "fen": r.get("fen"),
+                "cluster": r.get("cluster"),
+                "played_san": r.get("played_san"),
+                "best_san": r.get("best_san"),
+                "notes": r.get("notes"),
+            }
+            for r in rows
+            if r.get("verdict") == "buildable"
+        ],
+    }
