@@ -84,6 +84,13 @@ logger = logging.getLogger('analysis_worker')
 POLL_INTERVAL = 2  # Seconds between queue checks
 MAX_RETRIES = 3    # Max retries for failed analysis
 WORKER_ID = f"worker-{os.getpid()}"
+
+# Single source for the two identifiers stamped onto every analysis and
+# reported by /api/health. `engine_version` used to be a bare "P2.4"
+# literal at the write site, so the deployed value could not be read back
+# without grepping the source of the running container.
+ANALYSIS_ENGINE_VERSION = "P2.4"  # Step 6: Intent Recognition Layer
+ANALYSIS_PIPELINE_VERSION = "P2.4"
 JOB_TIMEOUT_MINUTES = 10
 FAILED_RETRY_COOLDOWN_MINUTES = 20  # don't auto-retry a failure until it's this old (avoids tight loops on a live-bugged path)
 FAILED_RETRY_BATCH = 25             # cap auto-retries per sweep (avoids thundering herd on a large backlog)
@@ -1426,7 +1433,7 @@ def process_job(db, job):
             "created_at": datetime.now(timezone.utc),
             "analysis_duration_seconds": elapsed,
             "worker_id": WORKER_ID,
-            "engine_version": "P2.4"  # Step 6: Intent Recognition Layer
+            "engine_version": ANALYSIS_ENGINE_VERSION
         }
 
         # Opening deviation detection (Phase-3 Component 2). Walks the
