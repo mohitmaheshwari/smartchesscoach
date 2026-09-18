@@ -159,6 +159,7 @@ async def backfill_one_game(db, game_doc, analysis_doc, apply: bool):
         decryption_v5_data=v5,
         derived_at=datetime.now(timezone.utc),
         pgn=pgn,
+        opening_deviation=(analysis_doc or {}).get("opening_deviation"),
     )
     if not obs_list:
         return result

@@ -710,8 +710,84 @@ CLASSIFIER_REGISTRY = {
 }
 
 
-def classify(missed_pattern: str, mv, opponent_previous, opp_next) -> Tuple[Optional[str], Optional[str]]:
-    """Main entry point — dispatches to the right classifier."""
+LEFT_BOOK_SUBTYPE = "left_book_for_a_worse_move"
+
+# Leaving book is not a mistake. Measured across 2,500 stored deviations on
+# 2026-09-18: the median one costs 15cp and 62.6% cost under 30cp. Mohit's own
+# d3 Italian leaves theory, recurs 41 times and is perfectly sound. A detector
+# that fired on "you left book" would be scolding people for good moves nearly
+# nine times in ten.
+LEFT_BOOK_MIN_CP_LOSS = 100
+
+
+def _classify_left_book(mv, context) -> Tuple[Optional[str], Optional[str]]:
+    """The one opening claim we can stand behind completely.
+
+    `services/opening_deviation.py` has recorded, on 98.9% of analyses since
+    May, exactly where a player left theory and what the book plays instead.
+    Nothing in the coaching path ever read it -- `classify_opening_knowledge`
+    works from board geometry alone, which is why 81% of opening_knowledge
+    observations are the `unverified_hint` shrug.
+
+    Three conditions, and all three are needed:
+
+    1. this move is the stored deviation,
+    2. it cost at least LEFT_BOOK_MIN_CP_LOSS -- see above,
+    3. the book move is ALSO the engine's best move here.
+
+    Condition 3 is the one that hurts. Of the 494 deviations costing >=100cp,
+    the book move was the engine's top choice in only 181 (36.6%). In the rest,
+    "you should have played the book move" points at a move that is not even
+    the best available -- one real case castled in the Italian for -567cp where
+    the book says c3 and the engine says Bxf7. Naming the book move there would
+    be confident and wrong, which is exactly how king_safety ended up in
+    shadow at 75.4% precision.
+
+    So this fires ~181 times across the whole corpus. That is small, and it is
+    the number of opening claims that are true.
+    """
+    deviation = (context or {}).get("opening_deviation") or {}
+    detail = deviation.get("deviation") or {}
+    if not detail:
+        return (None, None)
+
+    move_number = mv.get("move_number")
+    if move_number is None or move_number != detail.get("user_move_number"):
+        return (None, None)
+
+    cp_loss = mv.get("cp_loss")
+    if not isinstance(cp_loss, (int, float)) or abs(cp_loss) < LEFT_BOOK_MIN_CP_LOSS:
+        return (None, None)
+
+    def _bare(san) -> str:
+        return str(san or "").replace("+", "").replace("#", "").strip()
+
+    book = _bare(detail.get("expected_san"))
+    if not book or book != _bare(mv.get("best_move")):
+        return (None, None)
+
+    severity = "critical" if abs(cp_loss) >= 300 else "moderate"
+    return (LEFT_BOOK_SUBTYPE, severity)
+
+
+def classify(
+    missed_pattern: str,
+    mv,
+    opponent_previous,
+    opp_next,
+    context=None,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Main entry point — dispatches to the right classifier.
+
+    `context` carries game-level facts the per-move classifiers cannot see.
+    Handled here rather than threaded through all nine classifier signatures,
+    since only the opening claim needs it.
+    """
+    if missed_pattern == "opening_knowledge":
+        subtype, severity = _classify_left_book(mv, context)
+        if subtype:
+            return (subtype, severity)
+
     fn = CLASSIFIER_REGISTRY.get(missed_pattern)
     if fn is None:
         return (None, None)

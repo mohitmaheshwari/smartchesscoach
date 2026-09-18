@@ -572,6 +572,7 @@ def derive_observations_for_game(
     decryption_v5_data: Optional[List[Dict[str, Any]]] = None,
     derived_at: Optional[datetime] = None,
     pgn: Optional[str] = None,
+    opening_deviation: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Returns a list of observation dicts (one per user move) for a single game.
 
@@ -712,7 +713,14 @@ def derive_observations_for_game(
             # Dispatch to the multi-tag classifier
             try:
                 from services.cognitive_gap_subtypes import classify as _classify_gap
-                subtype, severity = _classify_gap(missed_pattern, mv, opponent_previous, opp_next)
+                # Game-level facts the per-move view cannot see. Today that is
+                # only the stored opening deviation, which is what lets the
+                # opening claim name the book move instead of guessing from
+                # board geometry.
+                subtype, severity = _classify_gap(
+                    missed_pattern, mv, opponent_previous, opp_next,
+                    context={"opening_deviation": opening_deviation},
+                )
             except Exception:
                 subtype, severity = (None, None)
 

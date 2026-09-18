@@ -173,6 +173,26 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "Requires a different stored best move and at least 100cp consequence.",
         ),
     ),
+    "gap:opening_knowledge:left_book_for_a_worse_move": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref="docs/opening_left_book_evidence_2026_09_18.md",
+        rationale=(
+            "Three stored facts, each checkable against any opening database: "
+            "the move is the recorded first departure from book, it cost at "
+            "least 100cp, and the book continuation is also the stored engine "
+            "best move. Shadow until the reviewed packet exists."
+        ),
+        limitations=(
+            "Leaving book is not itself a mistake: 62.6% of stored deviations "
+            "cost under 30cp, so the cp floor carries the claim.",
+            "The book move is the engine's best in only 36.6% of costly "
+            "deviations; the other 63% are deliberately not named.",
+            "The book is shallow -- median in_book_through_user_move is 0 and "
+            "the maximum observed is 6, so late departures are invisible.",
+            "About 181 fires corpus-wide: enough for Caption review, short of "
+            "the 200 reviewed fires Plan-grade requires.",
+        ),
+    ),
     "tactic:discovered_attack_with_stored_payoff": Authorization(
         grade=QualityGrade.SHADOW,
         evidence_ref="backend/tests/test_discovered_attack_puzzle_proof.py",

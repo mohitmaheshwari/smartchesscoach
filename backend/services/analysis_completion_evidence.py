@@ -139,6 +139,7 @@ def _prepare(
         user_id=user_id,
         user_color=user_color,
         decryption_v5_data=analysis.get("decryption_v5_data"),
+        opening_deviation=analysis.get("opening_deviation"),
     )
     results = application_results_from_observations(
         game_id=game_id,
