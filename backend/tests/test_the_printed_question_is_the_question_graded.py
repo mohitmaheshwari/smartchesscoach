@@ -185,10 +185,16 @@ def test_every_string_a_player_reads_passes_the_coaching_lint():
         "pwc_coaching_lint", str(BACKEND / "scripts" / "pwc_coaching_lint.py")
     ).load_module()
 
+    # Every band, not just the default wording -- a band variant is a string
+    # a player reads, and sourcing the band list from the picker means a band
+    # added there cannot slip past the lint unlinted.
+    from services.primary_weakness_picker import RATING_BANDS
+
     problems = []
     for spec in list(BY_CATEGORY.values()) + [FALLBACK]:
         texts = [spec.question, spec.task_line, spec.reason_prompt,
                  spec.best_move_question]
+        texts += [spec.question_for_band(band) for band in RATING_BANDS]
         for option in spec.reason_options:
             texts += [option.label, option.belief_lead, option.correction]
         for text in texts:
@@ -239,11 +245,22 @@ def test_the_grader_routes_on_the_spec_not_on_a_stored_quality_id():
 
 
 def test_the_adapter_does_not_keep_its_own_copy_of_the_question():
+    """The property is "the spec owns the wording", not one literal line.
+
+    This used to assert `"prompt": spec.question`. The prompt now resolves
+    through `question_for_band` so an expert does not read the beginner
+    sentence, which is the same property one indirection further on — so the
+    check moved rather than relaxed: the spec still owns every word, and no
+    question string may be written in the adapter.
+    """
     src = io.open(
         BACKEND / "services" / "personalized_lesson_adapter.py", encoding="utf-8"
     ).read()
     assert "Which move keeps every piece safe?" not in src
-    assert '"prompt": spec.question' in src
+    assert "question = spec.question_for_band(band)" in src
+    assert '"prompt": question,' in src
+    # No literal question may be authored here — the spec is the only owner.
+    assert "Play a move that" not in src
 
 
 def test_the_workspace_renders_the_task_line_not_a_count():
@@ -292,3 +309,113 @@ def test_describe_is_stable_for_the_admin_surfaces():
         assert entry["accepts"] in (ANY_SAFE, SINGLE_BEST)
         assert entry["expected_reason"] == BY_CATEGORY[category].expected_reason
         assert entry["reason_options"][0]["id"] == entry["expected_reason"]
+
+
+def test_an_expert_is_not_told_to_check_whether_his_piece_hangs():
+    """A 2196 and a 900 were reading the identical sentence.
+
+    Measured 2026-09-18: the strongest and weakest accounts on the platform
+    were both served "Play a move that leaves nothing of yours hanging." The
+    material differs — each gets positions from their own games — but the
+    question did not, and to a 2100 that reads as a product that has not
+    noticed who he is. The picker's own impact table already weights
+    piece_safety 1.00 for a beginner and 0.30 for an expert.
+    """
+    from services.lesson_question_spec import spec_or_fallback
+
+    spec = spec_or_fallback("piece_safety")
+    beginner = spec.question_for_band("beginner")
+    expert = spec.question_for_band("expert")
+    advanced = spec.question_for_band("advanced")
+
+    assert beginner == spec.question
+    assert expert != beginner, "an expert must not read the beginner question"
+    assert advanced != beginner
+    # The expert wording must not reduce it to a one-move oversight, which is
+    # the thing that is almost never their actual error.
+    assert "hanging" not in expert.lower()
+
+
+def test_an_unknown_band_falls_back_rather_than_failing():
+    from services.lesson_question_spec import spec_or_fallback
+
+    spec = spec_or_fallback("piece_safety")
+    for band in (None, "", "unknown", "?"):
+        assert spec.question_for_band(band) == spec.question
+
+
+def test_only_categories_whose_meaning_changes_carry_a_band_variant():
+    """The single_best six all say "find it", which is as true at 900 as 2100."""
+    from services.lesson_question_spec import BY_CATEGORY, spec_or_fallback
+
+    for category, spec in BY_CATEGORY.items():
+        if category == "piece_safety":
+            continue
+        assert spec.question_for_band("expert") == spec.question, category
+
+
+def test_the_descriptor_actually_asks_for_the_band():
+    """A bank nothing reads is the failure this whole file exists to stop."""
+    src = io.open(
+        BACKEND / "services" / "personalized_lesson_adapter.py", encoding="utf-8"
+    ).read()
+    assert "question_for_band(band)" in src
+    assert '"prompt": question,' in src
+    assert "get_coaching_rating" in src
+
+
+def test_a_band_variant_describes_the_grader_it_is_actually_marked_by():
+    """The band may change the wording. It may not change the promise.
+
+    Caught during review of this very change: the first expert wording read
+    "still leaves everything defended once the line plays out", and the
+    grader (`grade_destination_safety_candidate`) checks one thing -- whether
+    the piece you MOVED survives the full exchange on the square it LANDED
+    on, within a 150cp floor.
+
+    So "everything" was wrong (it is one piece), "defended" was wrong (a
+    piece can be safe and undefended), and a wording like "comes out even"
+    would have been wrong the other way, since the floor permits giving a
+    pawn. Every one of those makes the printed question and the grader
+    disagree, which is the single fault this whole file exists to prevent.
+    """
+    from services.destination_safety_detector import SEE_FLOOR_CP
+    from services.lesson_question_spec import BY_CATEGORY, _QUESTION_BY_BAND
+
+    # If the floor moves to 0 the wording below has to be revisited, so tie
+    # the claim to the constant rather than leaving it a stale comment.
+    assert SEE_FLOOR_CP > 100, (
+        "the floor permits losing a pawn; a band variant saying the exchange "
+        "comes out even would over-promise"
+    )
+
+    over_promises = ("everything", "every piece", "all your pieces", "nothing else")
+    for category, by_band in _QUESTION_BY_BAND.items():
+        assert category in BY_CATEGORY, category
+        for band, wording in by_band.items():
+            low = wording.lower()
+            for phrase in over_promises:
+                assert phrase not in low, (
+                    f"{category}/{band}: the grader checks the moved piece on "
+                    f"its landing square, not {phrase!r}"
+                )
+            assert "comes out even" not in low, f"{category}/{band}"
+            # It must still be about where the move lands, like the task line
+            # that accompanies it on the card.
+            assert "lands" in low or "landing" in low, (
+                f"{category}/{band}: destination safety is a claim about the "
+                "square the piece arrives on; say so"
+            )
+
+
+def test_advanced_and_expert_are_not_given_a_distinction_we_cannot_grade():
+    """They share a grader, so they share a sentence.
+
+    Two near-identical strings would read as a difference the product can
+    make and cannot -- the same filler failure as 190 golden_* concept ids
+    sharing one generic text.
+    """
+    from services.lesson_question_spec import spec_or_fallback
+
+    spec = spec_or_fallback("piece_safety")
+    assert spec.question_for_band("advanced") == spec.question_for_band("expert")

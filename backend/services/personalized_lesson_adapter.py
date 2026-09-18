@@ -8,10 +8,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import chess
+
+logger = logging.getLogger(__name__)
 
 
 ADAPTER_SCHEMA_VERSION = "personalized_lesson_adapter.v1"
@@ -620,6 +623,31 @@ async def _concept_descriptor(
     category = canonical_category(pattern_key)
     spec = spec_or_fallback(category)
 
+    # The same tag does not mean the same thing to a 900 and a 2100. Telling a
+    # 2196 to check whether his piece can be taken reads as a product that has
+    # not noticed who he is; the picker's own impact table already weights
+    # piece_safety 1.00 for a beginner and 0.30 for an expert. Resolved here
+    # because the descriptor is the only place that knows both the category
+    # and the player.
+    band = None
+    try:
+        from services.primary_weakness_picker import _classify_band
+        from services.rating_resolver import get_coaching_rating
+
+        band = _classify_band(await get_coaching_rating(db, user_id))
+    except Exception:
+        # Falling back is correct -- `question_for_band(None)` returns the
+        # plain wording, which is right for everyone and merely unflattering
+        # to an expert. But it must not be invisible: a rating lookup that
+        # starts failing would quietly put every strong player back on the
+        # beginner sentence and nothing would say so.
+        logger.warning(
+            "lesson question: could not resolve rating band for %s, "
+            "serving the unbanded wording", user_id, exc_info=True,
+        )
+        band = None
+    question = spec.question_for_band(band)
+
     blind_diagnostic = str(params.get("mode") or "") == "blind_diagnostic"
     if blind_diagnostic:
         from services.destination_safety_detector import FACT_VERSION
@@ -754,7 +782,7 @@ async def _concept_descriptor(
             "orientation": (
                 "black" if str(item["fen"]).split()[1] == "b" else "white"
             ),
-            "prompt": spec.question,
+            "prompt": question,
             # How many moves count. The card used to introduce the position
             # with a count of the unsafe moves, which reads as "the other 25
             # are fine" and was then followed by rejecting 24 of them.

@@ -103,6 +103,15 @@ class QuestionSpec:
     def task_line_for(self, accepts: str) -> str:
         return EXACTLY_ONE if accepts == SINGLE_BEST else self.task_line
 
+    def question_for_band(self, band: object) -> str:
+        """The wording honest for a player of this strength.
+
+        Falls back to the ordinary question for any band we have not written
+        for, which is every band of every single_best category.
+        """
+        by_band = _QUESTION_BY_BAND.get(self.category) or {}
+        return by_band.get(str(band or "")) or self.question
+
 
 _SPECS: Tuple[QuestionSpec, ...] = (
     QuestionSpec(
@@ -336,6 +345,40 @@ _SPECS: Tuple[QuestionSpec, ...] = (
         ),
     ),
 )
+
+# Where the same tag means a different thing at a different strength, the
+# band wins — the same rule the belief bank follows in
+# services/home_coach_conversation._THEORY_BY_BAND.
+#
+# `piece_safety` at 1600+ is almost never a piece left hanging for nothing.
+# Telling a 2196 to check whether his piece can be taken reads as a product
+# that has not noticed who he is, and the picker's own impact table already
+# weights piece_safety 1.00 for a beginner and 0.30 for an expert.
+#
+# Only categories whose MEANING changes with strength belong here. The
+# single_best six all say "find it", which is as true at 900 as at 2100.
+# The wording may change; the criterion may not. `piece_safety` is graded by
+# `grade_destination_safety_candidate`, which passes a move when the piece it
+# moved survives the FULL exchange sequence on the square it landed on, within
+# a 150cp floor. Not "everything is defended" -- one piece, one square. Not
+# "comes out even" -- a pawn may be given. A band variant that promises either
+# is the printed-question-vs-grader fault in a new place.
+#
+# Advanced and expert share one sentence because they share one grader. Two
+# near-identical strings would look like a distinction the product cannot
+# actually make.
+_EXCHANGE_SURVIVES = (
+    "Play a move that does not lose material on the square it lands on, once "
+    "the whole exchange plays out."
+)
+
+_QUESTION_BY_BAND: Mapping[str, Mapping[str, str]] = {
+    "piece_safety": {
+        "advanced": _EXCHANGE_SURVIVES,
+        "expert": _EXCHANGE_SURVIVES,
+    },
+}
+
 
 BY_CATEGORY: Mapping[str, QuestionSpec] = {
     spec.category: spec for spec in _SPECS
