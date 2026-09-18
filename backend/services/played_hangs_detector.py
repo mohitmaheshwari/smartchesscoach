@@ -34,6 +34,12 @@ _PIECE_NAME = {
 }
 
 
+# Stockfish stores a forced mate as 10000 - 10*mate_in, so a loss at or above
+# this is a mate swing rather than material. The bare 9000 appears in five
+# other services; this names it here rather than adding a sixth.
+MATE_SCORE_CP = 9000
+
+
 def _winnable(board: chess.Board, sq: int, color: bool,
               require_legal_capture: bool = False) -> bool:
     """Is the `color` piece on `sq` winnable by the opponent? SEE-lite:
@@ -102,6 +108,7 @@ def detect_played_hangs(
     board_before: chess.Board,
     played_move: chess.Move,
     cp_loss: Optional[int] = None,
+    mate_in_play: bool = False,
 ) -> Optional[Dict]:
     """Return the most valuable piece newly left hanging by `played_move`, or None.
 
@@ -168,8 +175,36 @@ def detect_played_hangs(
             if took - loses >= 0:
                 return None
 
+    # A forced mate on the board is not a material loss, whatever the swing
+    # measured. `cp_loss >= MATE_SCORE_CP` catches most of it and misses the
+    # case that matters: a player who was ALREADY lost walks into mate, so the
+    # delta is small (one real case at 3,449) while the position is mate. The
+    # caller knows -- the review queue has mate_info, the caption path has the
+    # evals -- so it says so rather than being inferred from a subtraction.
+    if mate_in_play:
+        return None
+
     # Apply gates when cp_loss is known.
     if cp_loss is not None:
+        # A mate score is not a material loss. Stockfish stores mate as a huge
+        # centipawn value (10000 - 10*mate_in), so anything at or above 9000
+        # means the game ended or is ending by force -- the same convention
+        # move_classification_service, distilled_caption_service,
+        # mistake_streak_service and position_strategy_analyzer already use.
+        #
+        # Mohit's rule: a bigger loss means a PIECE went rather than a pawn.
+        # Measured over 9,000 user mistakes it holds cleanly -- piece vs pawn
+        # goes 1.1x, 1.5x, 2.2x, 4.0x, 8.1x as the loss grows -- and then
+        # REVERSES above 900, where 47.9% of moves lose no material at all.
+        # Those are mate swings. Testing his rule is what exposed 41 cards
+        # telling a player "your queen on e3 is hanging" when the truth was
+        # "you are getting mated in 6", and one where the player was ALREADY
+        # being mated before the move.
+        #
+        # The mate path has its own voice (analysis_interpreter's mate gate,
+        # and R12's mate branch). This one stays quiet so that one speaks.
+        if cp_loss >= MATE_SCORE_CP:
+            return None
         if cp_loss < 100:
             return None
         if hung_value < 0.5 * min(cp_loss, 900):

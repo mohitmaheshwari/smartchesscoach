@@ -128,3 +128,34 @@ def test_a_capture_that_really_does_lose_material_still_fires():
     assert hang is not None, "queen for a pawn is a hang, not a trade"
     assert hang["square"] == "a7"
     assert hang["piece"] == "queen"
+
+
+def test_a_player_being_mated_is_not_told_a_piece_is_hanging():
+    """Mohit's rule, and the hole testing it opened.
+
+    His rule: a bigger engine loss means a PIECE went, not a pawn. Measured
+    over 9,000 user mistakes it holds cleanly -- piece:pawn runs 1.1x, 1.5x,
+    2.2x, 4.0x, 8.1x as the loss grows -- and then REVERSES above 900, where
+    47.9% of moves lose no material at all. Those are mate swings.
+
+    41 cards said "your queen on e3 is hanging" to a player being mated in 6.
+
+    The gate cannot be the size of the loss: a player who is ALREADY lost
+    walks into mate and the SWING is small while the position is mate (one
+    real case at cp_loss 3,449). So the caller states whether a mate is on
+    the board, and this abstains so the mate path can speak.
+    """
+    # White queen grabs a pawn while Black has mate on the board.
+    board = chess.Board("6k1/5ppp/8/8/8/7q/5PPP/6K1 w - - 0 1")
+    mv = board.parse_san("Kh1")
+    assert detect_played_hangs(board, mv, cp_loss=9500, mate_in_play=True) is None
+    # ...and a huge swing alone is enough even without the flag.
+    assert detect_played_hangs(board, mv, cp_loss=9500) is None
+
+
+def test_a_real_hang_in_a_lost_position_still_fires():
+    """The gate must not mute material loss just because things are grim."""
+    board = chess.Board("r3k3/p7/8/8/8/8/8/Q3K3 w - - 0 1")
+    hang = detect_played_hangs(board, board.parse_san("Qxa7"), cp_loss=800,
+                               mate_in_play=False)
+    assert hang is not None and hang["piece"] == "queen"

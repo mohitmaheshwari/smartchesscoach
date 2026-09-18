@@ -132,7 +132,9 @@ def _produce_simple_hang(move, colour, analysis):
             return None
     except (ValueError, AssertionError):
         return None
-    hang = detect_played_hangs(board, played, move.get("cp_loss"))
+    hang = detect_played_hangs(
+        board, played, move.get("cp_loss"),
+        mate_in_play=bool(move.get("mate_info")))
     if not hang:
         return None
     return (

@@ -9755,7 +9755,14 @@ def extract_facts(
         # the loss. One of those is literally "O-O-O at cp_loss 676 names the
         # pawn on a3" -- the case the docstring cites as the reason the gate
         # exists.
-        _hangs = detect_played_hangs(board_before, played_move, cp_loss)
+        # A mate on the board before or after means the mate path should
+        # speak, not this one. Stockfish stores mate as 10000 - 10*mate_in.
+        _mate_in_play = (
+            (eval_before_cp is not None and abs(int(eval_before_cp)) >= 9000)
+            or (eval_after_cp is not None and abs(int(eval_after_cp)) >= 9000)
+        )
+        _hangs = detect_played_hangs(
+            board_before, played_move, cp_loss, mate_in_play=_mate_in_play)
         if _hangs:
             played_hangs_result = True
             played_hangs_square = _hangs.get("square")
