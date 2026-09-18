@@ -34,15 +34,48 @@ _PIECE_NAME = {
 }
 
 
-def _winnable(board: chess.Board, sq: int, color: bool) -> bool:
+def _winnable(board: chess.Board, sq: int, color: bool,
+              require_legal_capture: bool = False) -> bool:
     """Is the `color` piece on `sq` winnable by the opponent? SEE-lite:
-    attacked, and (undefended OR cheapest attacker cheaper than the piece)."""
+    attacked, and (undefended OR cheapest attacker cheaper than the piece).
+
+    `require_legal_capture` closes the hole that `board.attackers()` is
+    PSEUDO-legal: it lists pieces whose move pattern reaches the square, not
+    pieces that may actually take. A pinned attacker counts, and so does one
+    belonging to a side that is in check and must answer the check first.
+
+    Measured 2026-09-18 on 120 production fires: 13 were provably false
+    (11%), and 9 of those 13 were exactly this -- an attacker that cannot
+    legally capture. At a 95% promotion bar that alone disqualifies the
+    detector, so the review session would have failed after the fact.
+
+    Only safe to pass when the OPPONENT is the side to move, which is true of
+    the after-position and not of the before-position. The before-snapshot
+    stays pseudo-legal on purpose: over-counting what was already hanging can
+    only suppress a fire, never invent one.
+    """
     piece = board.piece_at(sq)
     if not piece or piece.color != color or piece.piece_type == chess.KING:
         return False
     attackers = board.attackers(not color, sq)
     if not attackers:
         return False
+    if require_legal_capture:
+        if not any(move.to_square == sq and board.is_capture(move)
+                   for move in board.legal_moves):
+            return False
+        # And the capture has to actually WIN something. The heuristic below
+        # ("cheapest attacker is cheaper than the piece") ignores how many
+        # defenders stand behind it, so a rook attacked by three pieces and
+        # defended by one read as hanging when the whole exchange comes out
+        # level. Measured on 200 production fires: the full exchange keeps
+        # 193 and drops 7 (4%), and those 7 are the provably-false ones.
+        # Caption grade has no recall floor and a 95% precision floor, so 4%
+        # fewer fires for 4% more precision is the right side of that trade.
+        from services.legal_exchange_verifier import independent_exchange_gain
+
+        if independent_exchange_gain(board, sq) <= 0:
+            return False
     defenders = board.attackers(color, sq)
     if not defenders:
         return True
@@ -54,11 +87,13 @@ def _winnable(board: chess.Board, sq: int, color: bool) -> bool:
     return cheapest_attacker < piece_val
 
 
-def _winnable_squares(board: chess.Board, color: bool) -> Dict[int, chess.Piece]:
+def _winnable_squares(board: chess.Board, color: bool,
+                      require_legal_capture: bool = False) -> Dict[int, chess.Piece]:
     out = {}
     for sq in chess.SQUARES:
         p = board.piece_at(sq)
-        if p and p.color == color and p.piece_type != chess.KING and _winnable(board, sq, color):
+        if (p and p.color == color and p.piece_type != chess.KING
+                and _winnable(board, sq, color, require_legal_capture)):
             out[sq] = p
     return out
 
@@ -91,7 +126,10 @@ def detect_played_hangs(
     board_after.push(played_move)
 
     before = _winnable_squares(board_before, mover)
-    after = _winnable_squares(board_after, mover)
+    # The opponent is to move here, so "can they actually take it" is a
+    # question the board can answer exactly. See _winnable's docstring for why
+    # the before-snapshot deliberately stays pseudo-legal.
+    after = _winnable_squares(board_after, mover, require_legal_capture=True)
 
     # Newly winnable squares (created by the move).
     newly = {sq: pc for sq, pc in after.items() if sq not in before}
@@ -114,11 +152,22 @@ def detect_played_hangs(
         "square": chess.square_name(best_sq),
         "piece": _PIECE_NAME.get(pc.piece_type, "piece"),
         "moved_piece": best_sq == played_move.to_square,
+        "defenders": [chess.square_name(s)
+                      for s in board_after.attackers(mover, best_sq)],
     }
 
 
 def clause_for(hang: Dict) -> str:
-    """The R12 failure-mode clause text (1200-friendly, names the square)."""
+    """The R12 failure-mode clause text (1200-friendly, names the square).
+
+    "No defender" is a claim about the board and has to be checked. It used to
+    be inferred from whether the hung piece was the one that just moved, which
+    is a different question -- a rook on e3 defended by a bishop on g5 was
+    still told it had no defender.
+    """
+    if hang.get("defenders"):
+        return (f"it leaves your {hang['piece']} on {hang['square']} hanging — "
+                "the defenders do not cover it")
     if hang["moved_piece"]:
         return f"it leaves your {hang['piece']} on {hang['square']} hanging — no defender after the move"
     return f"it leaves your {hang['piece']} on {hang['square']} hanging — its defender just moved away"
