@@ -237,8 +237,31 @@ player-facing wording to review against. A ruling certifies the DETECTION; the
 wording gets its own pass when they are wired into
 `build_move_teaching_decision`. The page says so to the reviewer.
 
+**Phase 1 pre-filter — built, measured, and it changed the plan.**
+
+Mohit asked whether a stronger model could approve claims and shorten the
+review. The lock answers it: "Rejected shortcuts" lists
+"implementation-to-implementation agreement" by name, and the permitted
+adjudicators are "human/tablebase/board-verifier". Fork is the proof — it
+matched human-curated Lichess themes on 99.6%/99.7% of two 1,000-puzzle
+samples and stayed in Shadow, because a negative control fired on 304 of 1,000
+puzzles with no fork tag.
+
+So `services/detector_claim_verifier.py` refutes provably-false claims and can
+never approve one. As a time-saver it measured **2%** (6 of 251), below the 5%
+bar. What it found instead:
+
+**`simple_hang` — the detector a review session would have started on — was
+making provably false claims on 11% of its fires.** Nine of thirteen had one
+cause: `board.attackers()` is PSEUDO-legal, so a pinned attacker counted. At a
+95% bar that is disqualifying: the session would have run all 50 rulings,
+landed near 89%, and failed after the fact.
+
+Fixed and deployed (`e2a297d5`). Measured on 120 production fires:
+**11% -> 4% -> 0%.**
+
 **Next: step 3, the review session. Nothing else in this plan moves until it
-happens.**
+happens** — but it is now measuring a detector that can pass.
 
 ---
 
