@@ -272,8 +272,23 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
         if scanned > SCAN_LIMIT or len(found) >= limit:
             break
         game = await db.games.find_one(
-            {"game_id": analysis.get("game_id")}, {"_id": 0, "user_color": 1})
+            {"game_id": analysis.get("game_id")},
+            {"_id": 0, "user_color": 1, "white": 1, "black": 1, "platform": 1,
+             "result": 1, "played_at": 1, "date": 1})
         colour = (game or {}).get("user_color") or "white"
+        # Mohit chose full game context for the reviewing coach (2026-09-18):
+        # usernames, platform and result travel with every claim. No email --
+        # the coach judges the claim, and the account holder is never the
+        # question being asked.
+        context = {
+            "white": (game or {}).get("white"),
+            "black": (game or {}).get("black"),
+            "platform": (game or {}).get("platform"),
+            "result": (game or {}).get("result"),
+            "played_at": str((game or {}).get("played_at")
+                             or (game or {}).get("date") or "") or None,
+            "user_color": colour,
+        }
         for move in (analysis.get("stockfish_analysis") or {}).get(
                 "move_evaluations") or []:
             if move.get("is_opponent_move"):
@@ -295,6 +310,7 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
                 "game_id": analysis.get("game_id"),
                 "claim": claim,
                 "evidence": evidence,
+                "game": context,
             })
             if len(found) >= limit:
                 break
@@ -351,6 +367,13 @@ async def rule_claim(
             "note": str(payload.get("note") or "")[:500],
             "claim": str(payload.get("claim") or "")[:500],
             "ruled_by": user.email,
+            # The login is shared with a reviewing coach by Mohit's choice, so
+            # `ruled_by` alone cannot tell two reviewers apart. This is not
+            # access control -- it is so the promotion packet can say who
+            # judged what, and so one reviewer's calls can be re-examined
+            # without discarding the other's.
+            "reviewer_name": str(payload.get("reviewer_name") or "").strip()[:80]
+                             or None,
             "ruled_at": datetime.now(timezone.utc),
         }},
         upsert=True,
@@ -366,6 +389,10 @@ async def review_results(user: User = Depends(require_admin)):
     for row in rows:
         by_detector.setdefault(row.get("detector"), Counter())[
             row.get("verdict")] += 1
+
+    by_reviewer: Counter = Counter()
+    for row in rows:
+        by_reviewer[row.get("reviewer_name") or row.get("ruled_by") or "?"] += 1
 
     summary = {}
     for detector, counts in by_detector.items():
@@ -385,6 +412,7 @@ async def review_results(user: User = Depends(require_admin)):
         }
     return {
         "summary": summary,
+        "by_reviewer": dict(by_reviewer),
         "wrong_claims": [
             {k: r.get(k) for k in ("detector", "claim", "note", "claim_key")}
             for r in rows if r.get("verdict") == "false"

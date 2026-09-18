@@ -32,12 +32,44 @@ import { Loader2, RefreshCw, Check, X, HelpCircle } from "lucide-react";
 // attack measured 99.2% and 100% on GEOMETRY, which the threshold lock
 // explicitly says is not enough on its own -- these rulings are the evidence
 // it does accept.
+// `claims` is what this detector asserts, in one sentence. It is shown above
+// the cards so a reviewer -- including a chess coach who has never seen this
+// product -- knows what question every card below is answering.
 const DETECTORS = [
-  { id: "simple_hang", label: "Hung a piece", grade: "shadow" },
-  { id: "fork", label: "Missed fork", grade: "shadow" },
-  { id: "discovered_attack", label: "Missed discovered attack", grade: "shadow" },
-  { id: "left_book", label: "Left the book", grade: "shadow" },
-  { id: "allowed_mate", label: "Allowed mate", grade: "shadow" },
+  {
+    id: "simple_hang",
+    label: "Hung a piece",
+    grade: "shadow",
+    claims:
+      "the move left one of their own pieces where the opponent can simply take it",
+  },
+  {
+    id: "fork",
+    label: "Missed fork",
+    grade: "shadow",
+    claims:
+      "a move was available that attacks two pieces at once and wins material, and they played something else",
+  },
+  {
+    id: "discovered_attack",
+    label: "Missed discovered attack",
+    grade: "shadow",
+    claims:
+      "a move was available that unmasks an attack from a piece behind it and wins material, and they played something else",
+  },
+  {
+    id: "left_book",
+    label: "Left the book",
+    grade: "shadow",
+    claims:
+      "they left opening theory here, and the book move was also the engine's best move",
+  },
+  {
+    id: "allowed_mate",
+    label: "Allowed mate",
+    grade: "shadow",
+    claims: "the move they played allows a forced checkmate against them",
+  },
 ];
 
 export default function AdminDetectorReview() {
@@ -46,6 +78,24 @@ export default function AdminDetectorReview() {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [ruled, setRuled] = useState({});
+  // The admin login is shared with a reviewing coach, so the account email
+  // cannot tell two reviewers apart. This is not access control -- it labels
+  // the evidence so the promotion packet can say who judged what.
+  const [reviewer, setReviewer] = useState(() => {
+    try {
+      return localStorage.getItem("detectorReviewer") || "";
+    } catch {
+      return "";
+    }
+  });
+  const setReviewerPersisted = (v) => {
+    setReviewer(v);
+    try {
+      localStorage.setItem("detectorReviewer", v);
+    } catch {
+      /* private window / blocked storage: the field still works this session */
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,12 +136,14 @@ export default function AdminDetectorReview() {
         detector: claim.detector,
         verdict,
         claim: claim.claim,
+        reviewer_name: reviewer,
       }),
     });
     loadResults();
   };
 
   const summary = results?.summary?.[detector];
+  const active = DETECTORS.find((d) => d.id === detector);
 
   return (
     <Layout>
@@ -119,24 +171,55 @@ export default function AdminDetectorReview() {
               they are wired into the caption layer.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reload
-          </Button>
+          <div className="flex items-center gap-2">
+            <input
+              value={reviewer}
+              onChange={(ev) => setReviewerPersisted(ev.target.value)}
+              placeholder="Reviewing as…"
+              className="px-2 py-1.5 text-xs rounded-sm border bg-transparent w-36"
+              aria-label="Your name, recorded with each ruling"
+            />
+            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reload
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {DETECTORS.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => setDetector(d.id)}
-              className={`px-3 py-1.5 text-xs rounded-sm border transition-colors ${
-                detector === d.id ? "bg-muted font-medium" : "hover:bg-muted/50"
-              }`}
-            >
-              {d.label} <span className="opacity-60">· {d.grade}</span>
-            </button>
-          ))}
+          {DETECTORS.map((d) => {
+            const isSelected = detector === d.id;
+            return (
+              <button
+                key={d.id}
+                onClick={() => setDetector(d.id)}
+                aria-pressed={isSelected}
+                className={`px-3 py-1.5 text-xs rounded-sm border transition-colors ${
+                  isSelected
+                    ? "bg-foreground text-background border-foreground font-semibold"
+                    : "border-border text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                {d.label}
+              </button>
+            );
+          })}
         </div>
+
+        {/* Which detector these cards belong to, said once, in words. The
+            selected tab alone was too quiet to answer "are the positions
+            below related to the detector I picked?" */}
+        {active && (
+          <div className="border-l-2 border-foreground/40 pl-3 py-1">
+            <p className="text-sm">
+              Showing what <strong>{active.label}</strong> would say. It claims{" "}
+              {active.claims}.
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Every card below is one real move from a real game where this
+              detector fired. Switch detector above to review a different one.
+            </p>
+          </div>
+        )}
 
         {summary && (
           <div className="border rounded-sm p-3 bg-muted/20 space-y-2">
@@ -178,14 +261,16 @@ export default function AdminDetectorReview() {
 
         {loading && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="w-4 h-4 animate-spin" /> Scanning real games…
+            <Loader2 className="w-4 h-4 animate-spin" /> Scanning real games for{" "}
+            {active?.label?.toLowerCase()}…
           </div>
         )}
 
         {!loading && claims.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No unjudged claims in the scan window. Either everything here is
-            ruled, or this detector fires very sparsely.
+            No unjudged <strong>{active?.label?.toLowerCase()}</strong>{" "}
+            claims left in the scan window. Either you have ruled on them all,
+            or this detector fires very sparsely.
           </p>
         )}
 
@@ -290,10 +375,38 @@ export default function AdminDetectorReview() {
                   )}
                   <div className="flex gap-2">
                     <dt className="text-muted-foreground w-28 shrink-0">
-                      Where
+                      Game
                     </dt>
                     <dd className="text-muted-foreground">
-                      move {e.move_number} of game {c.game_id}
+                      {c.game?.white && c.game?.black ? (
+                        <>
+                          <span
+                            className={
+                              c.game.user_color === "white"
+                                ? "font-medium text-foreground"
+                                : ""
+                            }
+                          >
+                            {c.game.white}
+                          </span>{" "}
+                          vs{" "}
+                          <span
+                            className={
+                              c.game.user_color === "black"
+                                ? "font-medium text-foreground"
+                                : ""
+                            }
+                          >
+                            {c.game.black}
+                          </span>
+                          {c.game.result ? ` · ${c.game.result}` : ""}
+                          {c.game.platform ? ` · ${c.game.platform}` : ""}
+                          {" · move "}
+                          {e.move_number}
+                        </>
+                      ) : (
+                        <>move {e.move_number} of {c.game_id}</>
+                      )}
                     </dd>
                   </div>
                 </dl>
