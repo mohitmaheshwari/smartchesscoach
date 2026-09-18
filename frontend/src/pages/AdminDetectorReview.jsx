@@ -26,12 +26,22 @@ import { Button } from "@/components/ui/button";
 import LichessBoard from "@/components/LichessBoard";
 import { Loader2, RefreshCw, Check, X, HelpCircle } from "lucide-react";
 
+// Ordered by how close each is to the caption bar, so a session that runs
+// out of time has spent it on the detectors most likely to promote.
+// `simple_hang` already documents 96.9% on 260 fires; fork and discovered
+// attack measured 99.2% and 100% on GEOMETRY, which the threshold lock
+// explicitly says is not enough on its own -- these rulings are the evidence
+// it does accept.
 const DETECTORS = [
+  { id: "simple_hang", label: "Hung a piece", grade: "shadow" },
+  { id: "fork", label: "Missed fork", grade: "shadow" },
+  { id: "discovered_attack", label: "Missed discovered attack", grade: "shadow" },
+  { id: "left_book", label: "Left the book", grade: "shadow" },
   { id: "allowed_mate", label: "Allowed mate", grade: "shadow" },
 ];
 
 export default function AdminDetectorReview() {
-  const [detector, setDetector] = useState("allowed_mate");
+  const [detector, setDetector] = useState(DETECTORS[0].id);
   const [claims, setClaims] = useState([]);
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -153,18 +163,40 @@ export default function AdminDetectorReview() {
               {/* view-only: this is a reading surface, not a play surface,
                   and an accidental drag would edit the position under review */}
               <LichessBoard
-                fen={c.evidence?.fen_after || c.evidence?.fen_before}
+                // The backend says which position the claim is ABOUT: "after X your
+                  // piece hangs" wants the position after, a missed fork
+                  // wants the position the fork was available in.
+                  fen={
+                    c.evidence?.review_fen ||
+                    c.evidence?.fen_after ||
+                    c.evidence?.fen_before
+                  }
                 viewOnly={true}
                 interactive={false}
                 disableArrows={true}
               />
               <div className="space-y-2 min-w-0">
                 <p className="text-[15px] text-foreground">{c.claim}</p>
+                {/* Every detector carries different evidence, so this renders
+                    whatever it actually supplied rather than assuming the
+                    allowed-mate shape. A field the detector did not set is
+                    simply absent, not an empty label the reviewer has to
+                    decode. */}
                 <p className="text-[11px] font-mono text-muted-foreground break-all">
-                  played {c.evidence?.played_san} at move{" "}
-                  {c.evidence?.move_number} · mate in{" "}
-                  {c.evidence?.moves_to_mate} ({c.evidence?.plies_to_mate} plies)
-                  · line {(c.evidence?.mating_line || []).join(" ")}
+                  {Object.entries(c.evidence || {})
+                    .filter(
+                      ([k, v]) =>
+                        !["fen_before", "fen_after"].includes(k) &&
+                        v !== null &&
+                        v !== undefined &&
+                        v !== "" &&
+                        !(Array.isArray(v) && v.length === 0)
+                    )
+                    .map(
+                      ([k, v]) =>
+                        `${k} ${Array.isArray(v) ? v.join(" ") : typeof v === "object" ? JSON.stringify(v) : v}`
+                    )
+                    .join(" · ")}
                 </p>
                 <p className="text-[11px] font-mono text-muted-foreground break-all">
                   {c.evidence?.fen_before}

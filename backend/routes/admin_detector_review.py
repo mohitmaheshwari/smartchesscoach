@@ -50,18 +50,158 @@ def set_db(database):
     db = database
 
 
-async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str, Any]]:
-    """Walk real games and render what this detector would say."""
+# ─── The claim producers ────────────────────────────────────────────────
+#
+# One per detector. Each takes a single stored move (plus the game's colour
+# and the analysis, for the two detectors that need wider context) and returns
+# either None or (claim_sentence, evidence_dict).
+#
+# They are deliberately thin adapters over the real detectors rather than
+# reimplementations. A review that judged a copy of a detector would certify
+# the copy, and the grade would be attached to code no player ever runs.
+
+
+def _produce_allowed_mate(move, colour, analysis):
     from services.allowed_mate_detector import detect_allowed_mate, render_claim
 
-    if detector != "allowed_mate":
-        raise HTTPException(status_code=400, detail=f"unknown detector: {detector}")
+    evidence = detect_allowed_mate(move, colour)
+    return (render_claim(evidence), evidence) if evidence else None
+
+
+def _produce_simple_hang(move, colour, analysis):
+    """`played_hangs_detector` -- 96.9% documented on 260 reviewed fires.
+
+    The closest thing we have to a promotable detector, and the one whose
+    review is most worth Mohit's time.
+    """
+    import chess
+
+    from services.played_hangs_detector import clause_for, detect_played_hangs
+
+    fen = move.get("fen_before")
+    uci = move.get("move_uci")
+    if not fen or not uci:
+        return None
+    try:
+        board = chess.Board(fen)
+        played = chess.Move.from_uci(uci)
+        if played not in board.legal_moves:
+            return None
+    except (ValueError, AssertionError):
+        return None
+    hang = detect_played_hangs(board, played, move.get("cp_loss"))
+    if not hang:
+        return None
+    return (
+        f"After {move.get('move')}, {clause_for(hang)}.",
+        {"fen_before": fen, "fen_after": move.get("fen_after"),
+         # The claim is "after X your piece hangs", so show the position it
+         # hangs in.
+         "review_fen": move.get("fen_after") or fen,
+         "played_san": move.get("move"), "move_number": move.get("move_number"),
+         "cp_loss": move.get("cp_loss"), "hung_piece": hang.get("piece"),
+         "hung_square": hang.get("square"),
+         "defender_moved_away": not hang.get("moved_piece")},
+    )
+
+
+def _missed_motif(builder, label):
+    """Shared shape for the two motif proofs.
+
+    Both answer the same question -- did the move the player MISSED create
+    this motif -- so the claim is about the best move, not the played one.
+    """
+
+    def produce(move, colour, analysis):
+        import chess
+
+        fen = move.get("fen_before")
+        played, best = move.get("move"), move.get("best_move")
+        if not fen or not played or not best:
+            return None
+        try:
+            board = chess.Board(fen)
+        except (ValueError, AssertionError):
+            return None
+        bundle = builder(board, played, best, move.get("pv_after_best") or [],
+                         move.get("cp_loss"))
+        if not bundle:
+            return None
+        return (
+            f"You played {played}. {best} was there instead, and it wins "
+            f"material with a {label}.",
+            {"fen_before": fen, "fen_after": move.get("fen_after"),
+             # The claim is about the move that was AVAILABLE, so the reviewer
+             # needs the position it was available in. Showing fen_after would
+             # ask them to judge a fork on a board where it no longer exists.
+             "review_fen": fen,
+             "played_san": played, "best_move": best,
+             "move_number": move.get("move_number"),
+             "cp_loss": move.get("cp_loss"),
+             "pv_after_best": list(move.get("pv_after_best") or [])[:6],
+             "quality_id": getattr(bundle, "quality_id", None),
+             "detector_facts": [
+                 dict(f) for f in getattr(
+                     getattr(bundle, "detector", None), "facts", ()) or ()][:4]},
+        )
+
+    return produce
+
+
+def _produce_left_book(move, colour, analysis):
+    """Needs the analysis-level opening deviation, not just the move."""
+    from services.cognitive_gap_subtypes import _classify_left_book
+
+    context = {"opening_deviation": analysis.get("opening_deviation") or {}}
+    subtype, severity = _classify_left_book(move, context)
+    if not subtype:
+        return None
+    detail = (context["opening_deviation"] or {}).get("deviation") or {}
+    return (
+        f"You played {move.get('move')} here and left the book. "
+        f"{detail.get('expected_san')} is the move, and it is also what the "
+        f"engine plays.",
+        {"fen_before": move.get("fen_before"), "fen_after": move.get("fen_after"),
+         "review_fen": move.get("fen_before"),
+         "played_san": move.get("move"), "book_move": detail.get("expected_san"),
+         "best_move": move.get("best_move"),
+         "move_number": move.get("move_number"),
+         "cp_loss": move.get("cp_loss"), "severity": severity,
+         "opening": detail.get("opening_name")},
+    )
+
+
+def _producers():
+    from services.discovered_attack_puzzle_proof import (
+        build_discovered_attack_proof,
+    )
+    from services.fork_puzzle_proof import build_fork_proof
+
+    return {
+        "allowed_mate": _produce_allowed_mate,
+        "simple_hang": _produce_simple_hang,
+        "left_book": _produce_left_book,
+        "fork": _missed_motif(build_fork_proof, "fork"),
+        "discovered_attack": _missed_motif(
+            build_discovered_attack_proof, "discovered attack"),
+    }
+
+
+async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str, Any]]:
+    """Walk real games and render what this detector would say."""
+    producers = _producers()
+    produce = producers.get(detector)
+    if produce is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown detector: {detector}. "
+                   f"known: {sorted(producers)}")
 
     found: List[Dict[str, Any]] = []
     scanned = 0
     cursor = db.game_analyses.find(
         {"stockfish_analysis.move_evaluations.0": {"$exists": True}},
-        {"_id": 0, "game_id": 1, "user_id": 1,
+        {"_id": 0, "game_id": 1, "user_id": 1, "opening_deviation": 1,
          "stockfish_analysis.move_evaluations": 1},
     )
     async for analysis in cursor:
@@ -75,17 +215,22 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
                 "move_evaluations") or []:
             if move.get("is_opponent_move"):
                 continue
-            evidence = detect_allowed_mate(move, colour)
-            if not evidence:
+            try:
+                produced = produce(move, colour, analysis)
+            except Exception:  # noqa: BLE001
+                # One malformed stored move must not empty the whole queue.
                 continue
-            key = f"{analysis.get('game_id')}:{evidence.get('move_number')}"
+            if not produced:
+                continue
+            claim, evidence = produced
+            key = f"{detector}:{analysis.get('game_id')}:{evidence.get('move_number')}"
             if key in skip_fens:
                 continue
             found.append({
                 "claim_key": key,
                 "detector": detector,
                 "game_id": analysis.get("game_id"),
-                "claim": render_claim(evidence),
+                "claim": claim,
                 "evidence": evidence,
             })
             if len(found) >= limit:
