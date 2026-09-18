@@ -47,6 +47,53 @@ GAP_OPENING_KNOWLEDGE  = "opening_knowledge"
 GAP_ENDGAME_TECHNIQUE  = "endgame_technique"
 
 
+# ─── The mate gate ──────────────────────────────────────────────────────
+# docs/move_classification_from_gold_scope.md S1, amendment 2, signed off
+# 2026-09-18: a move that swings to or from a mate score is about the king or
+# the tactic, never "oversight".
+#
+# This is a module-level function, not inline in _interpret_single_move, for
+# one reason: the backfill that repairs 7,797 already-stored labels has to
+# apply the SAME rule the live path applies. A second copy in a script would
+# be correct on the day it was written and wrong the first time this changed.
+# Live code and backfill both call this.
+
+def mate_gate_label(mate_info: Optional[Dict]) -> Optional[str]:
+    """The cognitive gap a mate swing implies, or None if this is not one.
+
+    Two halves, and the second one had no rule at all before the amendment:
+
+      had mate and lost it   -> missed_tactic   (a forced win let go)
+      walked into a new mate -> king_safety
+
+    "Lost it" allows a 2-move tolerance: mate in 3 becoming mate in 4 is
+    still winning and is not the error being described.
+    """
+    if not mate_info:
+        return None
+
+    def _mate_in(value) -> Optional[int]:
+        """None, or a whole number of moves. Anything else is not a claim.
+
+        A string "3" would otherwise slip past a TypeError guard -- the
+        `after is None` branch short-circuits before anything touches it --
+        and relabel a move on the strength of unparsed data. This runs over
+        7,797 stored rows, so it refuses rather than guesses.
+        """
+        if value is None or isinstance(value, bool):
+            return None
+        return value if isinstance(value, int) else None
+
+    before, after = _mate_in(mate_info.get("before")), _mate_in(mate_info.get("after"))
+    if before is None and after is None:
+        return None
+    if before is not None and (after is None or abs(after) > abs(before) + 2):
+        return GAP_MISSED_TACTIC
+    if after is not None and after < 0 and not (before is not None and before < 0):
+        return GAP_KING_SAFETY
+    return None
+
+
 def _count_non_king_pieces(fen: str) -> int:
     """Piece count on the board excluding kings — used to detect endgame phase."""
     if not fen:
@@ -363,38 +410,15 @@ class AnalysisInterpreter:
         # bucket's average cp_loss reads 7,524 -- those are mate scores, not
         # oversights -- and why 81% of its `generic_oversight` subtype is a
         # mate swing.
-        if mate_info and mate_info.get("before") is not None:
-            # Had mate before but maybe lost it
-            mate_before = mate_info.get("before")
-            mate_after = mate_info.get("after")
-            
-            if mate_before is not None and (mate_after is None or abs(mate_after) > abs(mate_before) + 2):
-                is_critical = True
-                critical_reason = CriticalReason.MISSED_MATE.value
-                # They had a forced win and let it go. That is a missed tactic.
-                # GAP_* strings, not the CognitiveGap enum -- see the note at
-                # the top of this file: the enum carries different values
-                # (hanging_piece_blindness, KING_SAFETY_NEGLECT) and has no
-                # MISSED_TACTIC member at all.
-                cognitive_gap = GAP_MISSED_TACTIC
+        mate_gap = mate_gate_label(mate_info)
+        if mate_gap == GAP_MISSED_TACTIC:
+            is_critical = True
+            critical_reason = CriticalReason.MISSED_MATE.value
+            cognitive_gap = GAP_MISSED_TACTIC
+        elif mate_gap == GAP_KING_SAFETY:
+            is_critical = True
+            cognitive_gap = GAP_KING_SAFETY
 
-        # The other half of the gate: a mate that is now against THEM. Trigger
-        # 2 only fires when a mate existed before, so an allowed mate used to
-        # fall through to whatever the generic gap analysis guessed.
-        if mate_info and mate_info.get("after") is not None:
-            mate_before = mate_info.get("before")
-            mate_after = mate_info.get("after")
-            try:
-                allowed_new_mate = (
-                    mate_after is not None and mate_after < 0
-                    and not (mate_before is not None and mate_before < 0)
-                )
-            except TypeError:
-                allowed_new_mate = False
-            if allowed_new_mate:
-                is_critical = True
-                cognitive_gap = GAP_KING_SAFETY
-        
         # TRIGGER 3: Turning Point (eval swing >= 120)
         if is_turning_point and not is_critical:
             is_critical = True
