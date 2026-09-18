@@ -99,8 +99,15 @@ def _produce_allowed_mate(move, colour, analysis):
     fen = evidence.get("fen_before")
     side, arrow = _orientation_and_arrow(fen, evidence.get("played_san"))
     evidence = dict(evidence)
-    evidence.update({"review_fen": fen, "side_to_move": side, "arrow": arrow,
-                     "arrow_is": "the move played"})
+    evidence.update({
+        "review_fen": fen, "side_to_move": side, "arrow": arrow,
+        "arrow_is": "the move played",
+        "line_fen": fen,
+        # The mate IS the punishment line, so it steps like any other.
+        "pv_after_played": list(evidence.get("mating_line") or [])[:8],
+        "best_move": move.get("best_move"),
+        "pv_after_best": list(move.get("pv_after_best") or [])[:8],
+    })
     return (render_claim(evidence), evidence)
 
 
@@ -134,7 +141,14 @@ def _produce_simple_hang(move, colour, analysis):
          # The claim is "after X your piece hangs", so show the position it
          # hangs in.
          "review_fen": move.get("fen_after") or fen,
-         "played_san": move.get("move"), "move_number": move.get("move_number"),
+         # Both lines, so the reviewer can step the mistake forward AND see
+         # what the engine wanted -- the /admin/geometry-gaps shape.
+         "line_fen": fen,
+         "played_san": move.get("move"),
+         "best_move": move.get("best_move"),
+         "pv_after_played": list(move.get("pv_after_played") or [])[:8],
+         "pv_after_best": list(move.get("pv_after_best") or [])[:8],
+         "move_number": move.get("move_number"),
          "cp_loss": move.get("cp_loss"), "hung_piece": hang.get("piece"),
          "hung_square": hang.get("square"),
          "side_to_move": "white" if board.turn == chess.WHITE else "black",
@@ -189,10 +203,12 @@ def _missed_motif(builder, label):
              # needs the position it was available in. Showing fen_after would
              # ask them to judge a fork on a board where it no longer exists.
              "review_fen": fen,
+             "line_fen": fen,
              "played_san": played, "best_move": best,
              "move_number": move.get("move_number"),
              "cp_loss": move.get("cp_loss"),
-             "pv_after_best": list(move.get("pv_after_best") or [])[:6],
+             "pv_after_played": list(move.get("pv_after_played") or [])[:8],
+             "pv_after_best": list(move.get("pv_after_best") or [])[:8],
              "side_to_move": side,
              "arrow": arrow,
              "arrow_is": f"the {label} that was available",
@@ -224,8 +240,11 @@ def _produce_left_book(move, colour, analysis):
         f"engine plays.",
         {"fen_before": move.get("fen_before"), "fen_after": move.get("fen_after"),
          "review_fen": move.get("fen_before"),
+         "line_fen": move.get("fen_before"),
          "played_san": move.get("move"), "book_move": detail.get("expected_san"),
          "best_move": move.get("best_move"),
+         "pv_after_played": list(move.get("pv_after_played") or [])[:8],
+         "pv_after_best": list(move.get("pv_after_best") or [])[:8],
          "move_number": move.get("move_number"),
          "cp_loss": move.get("cp_loss"), "severity": severity,
          "side_to_move": side, "arrow": arrow,

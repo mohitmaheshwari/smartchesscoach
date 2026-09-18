@@ -24,7 +24,8 @@ import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import LichessBoard from "@/components/LichessBoard";
-import { Loader2, RefreshCw, Check, X, HelpCircle } from "lucide-react";
+import { Chess } from "chess.js";
+import { Loader2, RefreshCw, Check, X, HelpCircle, RotateCcw } from "lucide-react";
 
 // Ordered by how close each is to the caption bar, so a session that runs
 // out of time has spent it on the detectors most likely to promote.
@@ -71,6 +72,40 @@ const DETECTORS = [
     claims: "the move they played allows a forced checkmate against them",
   },
 ];
+
+// Same helpers as /admin/geometry-gaps, deliberately -- Mohit asked for
+// "exactly all those things", and two admin review surfaces that step a line
+// differently is how a reviewer loses their place.
+const sanToArrow = (fen, san, color) => {
+  if (!fen || !san) return null;
+  try {
+    const game = new Chess(fen);
+    const move = game.move(san, { sloppy: true });
+    return move ? [move.from, move.to, color] : null;
+  } catch {
+    return null;
+  }
+};
+
+// Replay from the original FEN every time rather than mutating a board we keep
+// around: one illegal SAN then truncates the line instead of corrupting every
+// later position.
+const replay = (fen, moves, ply) => {
+  const base = { fen, arrow: null };
+  if (!fen || !moves?.length || ply < 1) return base;
+  try {
+    const game = new Chess(fen);
+    let last = null;
+    for (const san of moves.slice(0, ply)) {
+      const made = game.move(san, { sloppy: true });
+      if (!made) break;
+      last = made;
+    }
+    return { fen: game.fen(), last };
+  } catch {
+    return base;
+  }
+};
 
 export default function AdminDetectorReview() {
   const [detector, setDetector] = useState(DETECTORS[0].id);
@@ -145,6 +180,9 @@ export default function AdminDetectorReview() {
   // One card at a time. Fifty rulings by mouse is what makes a review queue
   // get abandoned; this is the difference between a 30-minute job and an hour.
   const [cursor, setCursor] = useState(0);
+  // Which line is being stepped ("played" | "best") and how far into it.
+  const [line, setLine] = useState(null);
+  const [ply, setPly] = useState(0);
 
   const ruleAndAdvance = useCallback(
     (verdict) => {
@@ -152,6 +190,8 @@ export default function AdminDetectorReview() {
       if (!claim || ruled[claim.claim_key]) return;
       rule(claim, verdict);
       setCursor((i) => i + 1);
+      setLine(null);
+      setPly(0);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [claims, cursor, ruled]
@@ -181,6 +221,8 @@ export default function AdminDetectorReview() {
 
   useEffect(() => {
     setCursor(0);
+    setLine(null);
+    setPly(0);
   }, [detector]);
 
   const summary = results?.summary?.[detector];
@@ -383,6 +425,75 @@ export default function AdminDetectorReview() {
         {claims.slice(cursor, cursor + 1).map((c) => {
           const verdict = ruled[c.claim_key];
           const e = c.evidence || {};
+          const lineFen = e.line_fen || e.fen_before || e.review_fen;
+          const movesFor = (which) =>
+            which === "played"
+              ? [e.played_san, ...(e.pv_after_played || [])].filter(Boolean)
+              : [e.best_move || e.book_move, ...(e.pv_after_best || [])].filter(
+                  Boolean
+                );
+          const stepped = replay(lineFen, movesFor(line), ply);
+          // No line selected: show the position the claim is ABOUT. Stepping a
+          // line takes over and shows that instead.
+          const view = line
+            ? stepped
+            : { fen: e.review_fen || e.fen_after || e.fen_before };
+          const arrows = line
+            ? stepped.last
+              ? [[stepped.last.from, stepped.last.to,
+                  line === "played" ? "red" : "green"]]
+              : []
+            : [
+                sanToArrow(lineFen, e.played_san, "red"),
+                sanToArrow(lineFen, e.best_move || e.book_move, "green"),
+              ].filter(Boolean);
+
+          const renderLine = (which, label, colorClass) => {
+            const moves = movesFor(which);
+            if (!moves.length) return null;
+            const startNumber = e.move_number || 1;
+            const blackToMove = e.side_to_move === "black";
+            return (
+              <div className="rounded-sm border p-2">
+                <p className={`text-[10px] font-semibold uppercase tracking-wide ${colorClass}`}>
+                  {label}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-0.5">
+                  {moves.map((san, i) => {
+                    const whiteMove = blackToMove ? i % 2 === 1 : i % 2 === 0;
+                    const number =
+                      startNumber + Math.floor((blackToMove ? i + 1 : i) / 2);
+                    const isActive = line === which && ply === i + 1;
+                    return (
+                      <span key={`${which}-${i}-${san}`} className="flex items-center">
+                        {whiteMove ? (
+                          <span className="mr-0.5 text-[10px] text-muted-foreground">
+                            {number}.
+                          </span>
+                        ) : i === 0 ? (
+                          <span className="mr-0.5 text-[10px] text-muted-foreground">
+                            {number}...
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLine(which);
+                            setPly(i + 1);
+                          }}
+                          className={`rounded px-1 py-0.5 font-mono text-xs hover:bg-muted ${
+                            isActive ? "bg-foreground text-background" : ""
+                          }`}
+                        >
+                          {san}
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          };
           return (
             <div
               key={c.claim_key}
@@ -392,18 +503,35 @@ export default function AdminDetectorReview() {
                 {/* view-only: a reading surface, not a play surface. An
                     accidental drag would edit the position under review. */}
                 <LichessBoard
-                  fen={e.review_fen || e.fen_after || e.fen_before}
+                  fen={view.fen}
                   orientation={e.side_to_move === "black" ? "black" : "white"}
-                  arrows={e.arrow ? [[e.arrow[0], e.arrow[1], "green"]] : []}
-                  circles={(e.highlight || []).map((sq) => [sq, "red"])}
+                  arrows={arrows}
+                  circles={
+                    line ? [] : (e.highlight || []).map((sq) => [sq, "red"])
+                  }
                   viewOnly={true}
                   interactive={false}
                 />
-                <p className="text-[11px] text-muted-foreground text-center">
-                  {e.side_to_move === "black" ? "Black" : "White"} to move
-                  {e.arrow_is ? ` · green arrow = ${e.arrow_is}` : ""}
-                  {e.highlight_is ? ` · circle = ${e.highlight_is}` : ""}
-                </p>
+                {line ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLine(null);
+                      setPly(0);
+                    }}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Back to the position
+                  </button>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground text-center">
+                    {e.side_to_move === "black" ? "Black" : "White"} to move ·{" "}
+                    <span className="text-red-600">red</span> = played ·{" "}
+                    <span className="text-green-600">green</span> = claimed
+                    better
+                    {e.highlight_is ? ` · circle = ${e.highlight_is}` : ""}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-3 min-w-0">
@@ -449,24 +577,6 @@ export default function AdminDetectorReview() {
                         {e.hung_piece} on {e.hung_square}
                         {e.defender_moved_away ? " (defender left)" : ""}
                       </dd>
-                    </div>
-                  )}
-                  {e.pv_after_best?.length > 0 && (
-                    <div className="flex gap-2">
-                      <dt className="text-muted-foreground w-28 shrink-0">
-                        Engine line
-                      </dt>
-                      <dd className="font-medium">
-                        {e.pv_after_best.join(" ")}
-                      </dd>
-                    </div>
-                  )}
-                  {e.mating_line?.length > 0 && (
-                    <div className="flex gap-2">
-                      <dt className="text-muted-foreground w-28 shrink-0">
-                        Mating line
-                      </dt>
-                      <dd className="font-medium">{e.mating_line.join(" ")}</dd>
                     </div>
                   )}
                   {typeof e.cp_loss === "number" && (
@@ -516,6 +626,21 @@ export default function AdminDetectorReview() {
                     </dd>
                   </div>
                 </dl>
+
+                {/* Click any move to walk the board to it -- the same
+                    interaction as /admin/geometry-gaps. */}
+                <div className="space-y-1.5">
+                  {renderLine(
+                    "played",
+                    "What happened after the move",
+                    "text-red-600"
+                  )}
+                  {renderLine(
+                    "best",
+                    "What the engine wanted",
+                    "text-green-600"
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2 pt-1">
                   <Button
