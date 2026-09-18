@@ -9741,7 +9741,21 @@ def extract_facts(
     played_hangs_piece = None
     try:
         from services.played_hangs_detector import detect_played_hangs
-        _hangs = detect_played_hangs(board_before, played_move)
+
+        # cp_loss is NOT optional here. The detector's own docstring says
+        # "Pass cp_loss to apply the gates; omit it to get raw detection
+        # (testing)", and this call -- the one that reaches a player through
+        # R12_blunder -- omitted it, so the gates validated on 2026-06-06
+        # against 105 flagged FENs have never applied to a caption.
+        #
+        # Measured 2026-09-18 over 1,238 hang facts on R12-eligible moves:
+        # 542 (44%) would be dropped by the gates. 332 sit at cp_loss 30-99,
+        # below the threshold the detector was validated at (R12 fires from
+        # 30, the detector wants 100); 220 name a piece too small to explain
+        # the loss. One of those is literally "O-O-O at cp_loss 676 names the
+        # pawn on a3" -- the case the docstring cites as the reason the gate
+        # exists.
+        _hangs = detect_played_hangs(board_before, played_move, cp_loss)
         if _hangs:
             played_hangs_result = True
             played_hangs_square = _hangs.get("square")
