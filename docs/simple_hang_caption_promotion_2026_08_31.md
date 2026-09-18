@@ -103,3 +103,70 @@ VERDICT             PASS
 python backend/scripts/build_simple_hang_caption_packet.py --limit 3000
 python backend/scripts/verify_simple_hang_caption_packet.py   # exits non-zero on any critical failure
 ```
+
+---
+
+## Addendum, 2026-09-18 — the precision figure above measures the wrong thing
+
+Found by Mohit on his second card in `/admin/detector-review`, reading the raw
+evidence for a single claim.
+
+**The claim.** `Bxf3` — "it leaves your bishop on f3 hanging".
+**The board.** Bxf3 takes a **knight** (300cp). `gxf3` takes the bishop back
+(300cp). Net **zero**: a trade, not a hang. The move *is* a mistake, for an
+unrelated reason — `Nxf3+` comes with check, forks the king on g1 and the rook
+on e1, and simultaneously unblocks the f6–a1 diagonal onto an **undefended**
+rook on a1. 180cp of mistake, none of it a hang.
+
+**The scale.** Measured on 890 production fires: **193 (21.7%) were an even
+trade reported as a hang.**
+
+### Why §6 did not catch it
+
+§6 reads: *"260 v16 simple_hang events re-checked with an independently
+implemented SEE (not the product's own function)"*, giving 96.9%.
+
+Both implementations compute a static exchange **on the destination square**.
+Neither subtracts the material the move just captured. So on a recapture they
+agree, and they are both wrong. The threshold lock names this exact failure in
+its *Rejected shortcuts* section:
+
+> implementation-to-implementation agreement: duplicated logic can agree and
+> still be wrong.
+
+And the Plan-grade criteria say what the evidence has to be instead:
+
+> evidence must match the player-facing claim—not merely its geometry.
+
+A SEE re-check answers *"does this square lose material?"* The player-facing
+claim is *"your piece is hanging."* For a recapture those differ, and only the
+second one is what a player reads.
+
+So the 96.9% is **board-geometry agreement**, not reviewed semantic precision.
+The packet is within the letter of "board-verifier adjudication" and fails the
+"must match the player-facing claim" clause.
+
+### What was done
+
+- The defect is fixed (`36f31178`): if the hung piece is the one that just
+  captured, the material it took is priced before calling it hung — the same
+  subtraction `grade_destination_safety_candidate` has always done.
+- Re-measured on the same 890 fires: **696 fires, zero recapture misreads**,
+  519 genuine hangs kept (was 520), all 177 captures that really do lose
+  material kept.
+
+### What is still open
+
+**Caption grade is not withdrawn** — the fix removes the defect, and pulling
+the product's most-used detector on the day it was repaired would cost real
+coverage for no gain. But the evidence underneath it is now known to measure
+geometry, so:
+
+- `simple_hang` goes **back into the human review queue**. Its grade rests on
+  automated agreement, and the lock asks for semantic review that no automated
+  check substitutes for.
+- 50 human rulings post-fix replace §6 as the precision evidence.
+
+Two cards of human review found what 260 automated re-checks did not. That is
+the argument for the queue, and it is also the argument against the shortcut
+this packet took.
