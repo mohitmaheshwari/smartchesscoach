@@ -141,6 +141,33 @@ def detect_played_hangs(
     pc = newly[best_sq]
     hung_value = _PIECE_VALUE[pc.piece_type]
 
+    # A piece that just CAPTURED is not hanging because it gets taken back --
+    # that is a trade. Measured on 890 production fires: 193 (21.7%) were an
+    # even trade reported as a hang. Bxf3 takes a knight, gxf3 takes the
+    # bishop, net zero, and the player was told the bishop hung.
+    #
+    # The cp_loss >= 100 gate below does not catch these, because the move can
+    # be genuinely bad for an unrelated reason -- in the canonical case Bxf3
+    # cost 180cp by missing Nxf3+, which wins a rook. The move was a mistake;
+    # the hang was not why.
+    #
+    # `grade_destination_safety_candidate` already prices this correctly with
+    # `exact_gain - captured_before_reply`. This is the same subtraction, for
+    # the detector that never had it.
+    if best_sq == played_move.to_square:
+        from services.legal_exchange_verifier import (
+            captured_value_cp,
+            independent_exchange_gain,
+            promotion_gain_cp,
+        )
+
+        took = captured_value_cp(board_before, played_move) + promotion_gain_cp(
+            played_move)
+        if took > 0:
+            loses = independent_exchange_gain(board_after, best_sq)
+            if took - loses >= 0:
+                return None
+
     # Apply gates when cp_loss is known.
     if cp_loss is not None:
         if cp_loss < 100:

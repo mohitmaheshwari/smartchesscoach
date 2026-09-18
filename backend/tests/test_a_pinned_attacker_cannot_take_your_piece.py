@@ -88,3 +88,43 @@ def test_a_genuine_hang_still_fires():
 def test_nothing_hanging_reports_nothing():
     board = chess.Board()
     assert detect_played_hangs(board, board.parse_san("e4"), cp_loss=150) is None
+
+
+def test_a_piece_that_just_captured_is_trading_not_hanging():
+    """Mohit found this on his second review card, from the raw evidence.
+
+    Bxf3 takes a knight (300cp); gxf3 takes the bishop back (300cp). Net zero
+    -- a trade. The detector reported "it leaves your bishop on f3 hanging".
+
+    The cp_loss >= 100 gate does not catch it, because the move IS bad for an
+    unrelated reason: Nxf3+ comes with check and the line ends Qxa1, winning a
+    rook. 180cp of mistake, none of it a hang.
+
+    Measured on 890 production fires: 193 (21.7%) were an even trade reported
+    as a hang -- in a detector already at CAPTION grade, i.e. already saying
+    this to players.
+    """
+    board = chess.Board(
+        "r3kb1r/pp3ppp/2p1pq2/4n2b/1P6/P4N1P/2PPBPP1/R1BQR1K1 b kq - 1 13")
+    bxf3 = board.parse_san("Bxf3")
+    assert board.piece_at(bxf3.to_square).piece_type == chess.KNIGHT, (
+        "premise: Bxf3 must be a capture of a knight"
+    )
+    assert detect_played_hangs(board, bxf3, cp_loss=180) is None, (
+        "a bishop that just took a knight and gets recaptured is trading"
+    )
+
+
+def test_a_capture_that_really_does_lose_material_still_fires():
+    """The gate must price the trade, not mute every capture.
+
+    19.9% of fires are captures that genuinely lose material; those are real
+    hangs and have to survive.
+    """
+    # Qxa7?? grabs a pawn and the rook on a8 takes the queen.
+    board = chess.Board("r3k3/p7/8/8/8/8/8/Q3K3 w - - 0 1")
+    qxa7 = board.parse_san("Qxa7")
+    hang = detect_played_hangs(board, qxa7, cp_loss=800)
+    assert hang is not None, "queen for a pawn is a hang, not a trade"
+    assert hang["square"] == "a7"
+    assert hang["piece"] == "queen"
