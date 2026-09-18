@@ -188,10 +188,49 @@ def _missed_motif(builder, label):
             board = chess.Board(fen)
         except (ValueError, AssertionError):
             return None
+        from services.legal_exchange_verifier import independent_exchange_gain
+
+        after = board.copy(stack=False)
+        after.push(board.parse_san(best))
         bundle = builder(board, played, best, move.get("pv_after_best") or [],
                          move.get("cp_loss"))
         if not bundle:
             return None
+        # A bundle is returned even when the independent verifier REJECTED the
+        # payoff -- `verified=False` with empty acceptable_moves. Those are
+        # candidates the detector does not stand behind, and showing them as
+        # claims put 83% of discovered_attack and 65% of fork rubbish into the
+        # queue. Mohit caught two of them by hand before this was found.
+        #
+        # The canonical miss: Bf1 "discovers" the queen onto a knight on d7 --
+        # true geometry, and the knight is defended by the queen on e6 so it
+        # wins nothing. The stored line has the knight simply walking away.
+        # The detector saw all of that and said unverified. The queue did not
+        # ask.
+        if not getattr(getattr(bundle, "verifier", None), "verified", False):
+            return None
+
+        # Second gate, board-only: the target has to be WINNABLE, not merely
+        # attacked. The verifier above proves the ray opens and the stored line
+        # pays off; it does not price the target square itself, and a defended
+        # target survives that. Mohit's first two rejected cards were both this
+        # shape -- a knight on d7 defended by a queen on e6, a knight on d2
+        # defended by a knight on f3 -- where the "discovery" wins nothing.
+        #
+        # Board-verifier adjudication is what the threshold lock permits, so
+        # this is allowed to filter. It only removes; it never promotes.
+        facts = list(getattr(getattr(bundle, "detector", None), "facts", ()) or ())
+        target_name = (facts[0] or {}).get("target_square") if facts else None
+        if target_name:
+            try:
+                target_sq = chess.parse_square(str(target_name))
+            except ValueError:
+                target_sq = None
+            if target_sq is not None:
+                probe = after.copy(stack=False)
+                probe.turn = board.turn      # the side that played the motif
+                if independent_exchange_gain(probe, target_sq) <= 0:
+                    return None
         side, arrow = _orientation_and_arrow(fen, best)
         return (
             # Provisional review wording only, never served to a player --
