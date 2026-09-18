@@ -1,7 +1,9 @@
 # Move Classification From Gold — Scope (plain English)
 
-> Status: **DRAFT — Mohit agreed to approach + "you propose the precedence" (2026-06-11).**
-> Awaiting sign-off on §1 (precedence) before the classifier is changed. The skill
+> Status: **SIGNED OFF 2026-09-18.** Mohit approved §1 with two amendments,
+> recorded below: the engine-hard tier is rating-aware at the top, and
+> `tactical_oversight` is specified rather than dropped. Blocked from
+> 2026-06-11 to 2026-09-18 on this one decision. The skill
 > (`classify-moves-from-gold`) and this scope are tooling/process — they ship no
 > user-facing change; the actual detector edits the skill produces still pass the
 > in-skill gates. Sibling to [[project_user_games_gold_detector_loop]] /
@@ -26,8 +28,20 @@ category whose claim the engine/verifier CONFIRMS; only fall to a positional
 the SAME order — otherwise the match-rate can't converge.
 
 **Engine-hard tier (objectively checkable → outrank positional):**
-1. `piece_safety` — material hangs with no compensation (verifier: material check / engine PV).
-2. `missed_tactic` — engine PV is a forced win the player missed (fork/pin/skewer/mate).
+
+The first two swap by rating band (AMENDMENT 1, approved 2026-09-18). Below
+1600 a player's committed errors are the higher-yield lesson — a hang is
+fixable by a pre-move habit, a missed fork needs pattern recognition they do
+not have yet. At 1600+ the hang is rarely the real error, and the picker's own
+impact table already says so: piece_safety is weighted 1.00 for a beginner and
+**0.30** for an expert. The precedence should not contradict a rating model
+the product already uses.
+
+1. **under 1600:** `piece_safety` — material hangs with no compensation
+   (verifier: material check / engine PV).
+   **1600 and above:** `missed_tactic` — engine PV is a forced win the player
+   missed.
+2. **under 1600:** `missed_tactic`.  **1600 and above:** `piece_safety`.
 3. `king_safety` — engine shows a real attack on an exposed king **WITH queens/pieces on the board** (not endgame).
 4. `endgame_technique` (incl. **king activity**) — queens-off endgame conversion/king error.
 5. `opening_knowledge` — opening phase, deviation from theory (opening-book checkable).
@@ -37,6 +51,37 @@ the SAME order — otherwise the match-rate can't converge.
 7. `tactical_oversight` — saw move 1, missed the reply.
 8. `pawn_structure` — weak pawns / bad break.
 9. `piece_activity` — passive pieces.
+
+**Mate gate (AMENDMENT 2, approved 2026-09-18) — applied BEFORE the tier.**
+
+A move that swings to or from a mate score is about the king or the tactic,
+never "oversight":
+
+- eval after the move is mate against the player → `king_safety` (allowed mate)
+- mate was available before and is gone after → `missed_tactic` (missed mate)
+
+This exists because `tactical_oversight` was measured, 2026-09-18, to be a
+mislabelled mate bucket. Of 500 sampled `generic_oversight` fires:
+
+| what it actually is | share | correct category |
+|---|---|---|
+| mate swing | **81.0%** | king_safety / missed_tactic |
+| hangs a piece | 5.2% | piece_safety |
+| queens-off endgame | 3.6% | endgame_technique |
+| opening phase | 0.6% | opening_knowledge |
+| genuine oversight | **5.2%** | tactical_oversight |
+| under 300cp, no hang | 4.4% | positional tier |
+
+452 of 500 belonged elsewhere. That is also why its average cp_loss reads
+7,524 — mate scores, not oversights.
+
+`tactical_oversight` is therefore **specified, not dropped** (Mohit, 2026-09-18:
+"you got to specify this, I don't like dropping things, they should be
+connected currently with somebody"). It means: **a middlegame move that lost
+>=300cp, with nothing left hanging and no mate involved — the opponent had a
+reply the player did not see.** Its existing named subtypes
+(`overlooked_immediate_reply`, `ignored_forcing_threat`) fit that definition;
+the `generic_oversight` catch-all dissolves into the categories above.
 
 **Phase gates (the structural fix that kills the king bug class):**
 - `king_safety` requires queens/attack present → else, on a king move in a
