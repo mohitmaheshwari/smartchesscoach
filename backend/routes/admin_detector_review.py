@@ -253,6 +253,32 @@ def _produce_left_book(move, colour, analysis):
     )
 
 
+# The quality id each producer's detector is graded under. Without this the
+# page cannot tell an already-promoted detector from a muted one -- and the
+# first version of this queue put `simple_hang` (promoted to CAPTION on
+# 2026-08-31 at 96.9% over 260 fires) and `fork` (also CAPTION) at the TOP of
+# the list, which would have spent most of a review session re-proving work
+# that was already done.
+DETECTOR_QUALITY_IDS = {
+    "simple_hang": "gap:piece_safety:simple_hang",
+    "fork": "tactic:fork_with_stored_payoff",
+    "discovered_attack": "tactic:discovered_attack_with_stored_payoff",
+    "left_book": "gap:opening_knowledge:left_book_for_a_worse_move",
+    "allowed_mate": "gap:king_safety:allowed_mate_exact",
+}
+
+
+def _grade_for(detector: str) -> str:
+    """The grade detector_quality holds today, read live rather than copied."""
+    from services.detector_quality import _AUTHORIZATIONS
+
+    quality_id = DETECTOR_QUALITY_IDS.get(detector)
+    auth = _AUTHORIZATIONS.get(quality_id) if quality_id else None
+    if auth is None:
+        return "shadow"   # _UNKNOWN fails closed, and so do we
+    return str(getattr(auth.grade, "value", auth.grade))
+
+
 def _producers():
     from services.discovered_attack_puzzle_proof import (
         build_discovered_attack_proof,
@@ -437,6 +463,10 @@ async def review_results(user: User = Depends(require_admin)):
             "plan_bar": {"fires": 200, "precision": 95, "recall": 60},
             # Said plainly, so the page never has to work it out itself.
             "remaining": max(0, 50 - judged),
+            "grade": _grade_for(detector),
+            # Caption and plan grades already clear the bar this queue builds
+            # toward, so more caption-grade rulings on them buy nothing.
+            "already_promoted": _grade_for(detector) in ("caption", "plan"),
             "on_track": (
                 None if judged < 5
                 else (100 * counts["true"] / judged) >= 95

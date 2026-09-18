@@ -27,49 +27,41 @@ import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
 import { Loader2, RefreshCw, Check, X, HelpCircle, RotateCcw } from "lucide-react";
 
-// Ordered by how close each is to the caption bar, so a session that runs
-// out of time has spent it on the detectors most likely to promote.
-// `simple_hang` already documents 96.9% on 260 fires; fork and discovered
-// attack measured 99.2% and 100% on GEOMETRY, which the threshold lock
-// explicitly says is not enough on its own -- these rulings are the evidence
-// it does accept.
-// `claims` is what this detector asserts, in one sentence. It is shown above
-// the cards so a reviewer -- including a chess coach who has never seen this
-// product -- knows what question every card below is answering.
+// Ordered MUTED FIRST. The first version of this list led with
+// `simple_hang` and `fork`, both of which were promoted to caption grade
+// weeks ago -- 96.9% over 260 reviewed fires for simple_hang on 2026-08-31.
+// Reviewing them buys nothing at this bar, and they would have eaten most of
+// a session. The live grade comes from detector_quality via /results, so this
+// order is a default and the page marks what is actually already done.
 const DETECTORS = [
+  {
+    id: "discovered_attack",
+    label: "Missed discovered attack",
+    claims:
+      "a move was available that unmasks an attack from a piece behind it and wins material, and they played something else",
+  },
+  {
+    id: "allowed_mate",
+    label: "Allowed mate",
+    claims: "the move they played allows a forced checkmate against them",
+  },
+  {
+    id: "left_book",
+    label: "Left the book",
+    claims:
+      "they left opening theory here, and the book move was also the engine's best move",
+  },
   {
     id: "simple_hang",
     label: "Hung a piece",
-    grade: "shadow",
     claims:
       "the move left one of their own pieces where the opponent can simply take it",
   },
   {
     id: "fork",
     label: "Missed fork",
-    grade: "shadow",
     claims:
       "a move was available that attacks two pieces at once and wins material, and they played something else",
-  },
-  {
-    id: "discovered_attack",
-    label: "Missed discovered attack",
-    grade: "shadow",
-    claims:
-      "a move was available that unmasks an attack from a piece behind it and wins material, and they played something else",
-  },
-  {
-    id: "left_book",
-    label: "Left the book",
-    grade: "shadow",
-    claims:
-      "they left opening theory here, and the book move was also the engine's best move",
-  },
-  {
-    id: "allowed_mate",
-    label: "Allowed mate",
-    grade: "shadow",
-    claims: "the move they played allows a forced checkmate against them",
   },
 ];
 
@@ -321,16 +313,26 @@ export default function AdminDetectorReview() {
                       not started
                     </span>
                   )}
-                  <span className="w-16 text-right">
-                    {done ? "ready" : `${need - judged} left`}
+                  <span className="w-28 text-right">
+                    {st?.already_promoted
+                      ? `already ${st.grade}`
+                      : done
+                      ? "ready"
+                      : `${need - judged} left`}
                   </span>
                 </div>
                 <div className="h-1 bg-muted rounded-full overflow-hidden mt-1.5">
                   <div
                     className={`h-full transition-all ${
-                      done ? "bg-green-600" : "bg-foreground/60"
+                      st?.already_promoted
+                        ? "bg-green-600"
+                        : done
+                        ? "bg-green-600"
+                        : "bg-foreground/60"
                     }`}
-                    style={{ width: `${pct}%` }}
+                    style={{
+                      width: st?.already_promoted ? "100%" : `${pct}%`,
+                    }}
                   />
                 </div>
               </button>
@@ -351,6 +353,14 @@ export default function AdminDetectorReview() {
               Every card below is one real move from a real game where this
               detector fired. Switch detector above to review a different one.
             </p>
+            {summary?.already_promoted && (
+              <p className="text-xs mt-1 text-green-700 dark:text-green-500">
+                This one is already <strong>{summary.grade}</strong> grade and
+                can speak to players. More rulings here buy nothing at this
+                bar — the muted detectors at the top of the list are where the
+                time pays.
+              </p>
+            )}
           </div>
         )}
 
