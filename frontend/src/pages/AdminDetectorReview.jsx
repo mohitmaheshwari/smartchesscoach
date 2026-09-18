@@ -97,18 +97,26 @@ export default function AdminDetectorReview() {
     <Layout>
       <div className="max-w-5xl mx-auto py-6 px-4 space-y-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
+          <div className="max-w-2xl">
             <h1 className="text-xl font-heading">Detector review</h1>
-            <p className="text-sm text-muted-foreground max-w-2xl">
-              What a shadow detector would say, if it were allowed to speak.
-              Ruling here records evidence — it does not put anything in front
-              of a player.
+            <p className="text-sm text-muted-foreground mt-1">
+              Every detector we have built is <strong>muted</strong> — it runs,
+              it produces claims, and none of them reach a player. A detector
+              is only allowed to speak once <strong>you</strong> have read 50
+              of its claims and confirmed at least 95% are true. Not 50 I
+              checked — 50 a person checked. That rule is why this page is the
+              only way any of them get switched on.
             </p>
-            <p className="text-sm text-muted-foreground max-w-2xl mt-1">
-              You are judging whether the <strong>claim is true</strong>, not
-              whether the sentence is well written. Most of these detectors
-              have never spoken, so this wording is provisional; the phrasing
-              gets its own pass when they are wired into the caption layer.
+            <p className="text-sm text-muted-foreground mt-2">
+              For each card: look at the board and answer{" "}
+              <strong>is this statement true?</strong> Nothing you click puts
+              anything in front of a player — it only adds to the count. A
+              claim you mark Wrong is a bug report with a position attached.
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Judge the claim, not the wording. Most of these have never
+              spoken, so the sentence is provisional and gets its own pass when
+              they are wired into the caption layer.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -131,18 +139,40 @@ export default function AdminDetectorReview() {
         </div>
 
         {summary && (
-          <div className="text-xs font-mono border rounded-sm p-3 bg-muted/20">
-            ruled {summary.judged} · true {summary.true} · false {summary.false}
-            {summary.unsure ? ` · unsure ${summary.unsure}` : ""}
-            {summary.precision !== null && (
-              <> · <strong>precision {summary.precision}%</strong></>
-            )}
-            <span className="opacity-60">
-              {"  "}— caption needs {summary.caption_bar.fires} fires at{" "}
-              {summary.caption_bar.precision}%, plan needs{" "}
-              {summary.plan_bar.fires} at {summary.plan_bar.precision}% plus{" "}
-              {summary.plan_bar.recall}% recall
-            </span>
+          <div className="border rounded-sm p-3 bg-muted/20 space-y-2">
+            <div className="flex items-baseline gap-3 flex-wrap text-sm">
+              <span>
+                <strong>{summary.judged}</strong> of{" "}
+                {summary.caption_bar.fires} rulings needed
+              </span>
+              <span className="text-muted-foreground">
+                {summary.true} true · {summary.false} wrong
+                {summary.unsure ? ` · ${summary.unsure} unsure` : ""}
+              </span>
+              {summary.precision !== null && (
+                <span
+                  className={
+                    summary.precision >= summary.caption_bar.precision
+                      ? "text-green-600 dark:text-green-500"
+                      : "text-amber-600 dark:text-amber-500"
+                  }
+                >
+                  running precision <strong>{summary.precision}%</strong> (needs{" "}
+                  {summary.caption_bar.precision}%)
+                </span>
+              )}
+            </div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-foreground/70 transition-all"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    (summary.judged / summary.caption_bar.fires) * 100
+                  )}%`,
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -161,52 +191,113 @@ export default function AdminDetectorReview() {
 
         {claims.map((c) => {
           const verdict = ruled[c.claim_key];
+          const e = c.evidence || {};
           return (
             <div
               key={c.claim_key}
-              className="border rounded-sm p-4 grid gap-4 md:grid-cols-[260px_1fr]"
+              className="border rounded-sm p-4 grid gap-4 md:grid-cols-[280px_1fr]"
             >
-              {/* view-only: this is a reading surface, not a play surface,
-                  and an accidental drag would edit the position under review */}
-              <LichessBoard
-                // The backend says which position the claim is ABOUT: "after X your
-                  // piece hangs" wants the position after, a missed fork
-                  // wants the position the fork was available in.
-                  fen={
-                    c.evidence?.review_fen ||
-                    c.evidence?.fen_after ||
-                    c.evidence?.fen_before
-                  }
-                viewOnly={true}
-                interactive={false}
-                disableArrows={true}
-              />
-              <div className="space-y-2 min-w-0">
-                <p className="text-[15px] text-foreground">{c.claim}</p>
-                {/* Every detector carries different evidence, so this renders
-                    whatever it actually supplied rather than assuming the
-                    allowed-mate shape. A field the detector did not set is
-                    simply absent, not an empty label the reviewer has to
-                    decode. */}
-                <p className="text-[11px] font-mono text-muted-foreground break-all">
-                  {Object.entries(c.evidence || {})
-                    .filter(
-                      ([k, v]) =>
-                        !["fen_before", "fen_after"].includes(k) &&
-                        v !== null &&
-                        v !== undefined &&
-                        v !== "" &&
-                        !(Array.isArray(v) && v.length === 0)
-                    )
-                    .map(
-                      ([k, v]) =>
-                        `${k} ${Array.isArray(v) ? v.join(" ") : typeof v === "object" ? JSON.stringify(v) : v}`
-                    )
-                    .join(" · ")}
+              <div className="space-y-1.5">
+                {/* view-only: a reading surface, not a play surface. An
+                    accidental drag would edit the position under review. */}
+                <LichessBoard
+                  fen={e.review_fen || e.fen_after || e.fen_before}
+                  orientation={e.side_to_move === "black" ? "black" : "white"}
+                  arrows={e.arrow ? [[e.arrow[0], e.arrow[1], "green"]] : []}
+                  circles={(e.highlight || []).map((sq) => [sq, "red"])}
+                  viewOnly={true}
+                  interactive={false}
+                />
+                <p className="text-[11px] text-muted-foreground text-center">
+                  {e.side_to_move === "black" ? "Black" : "White"} to move
+                  {e.arrow_is ? ` · green arrow = ${e.arrow_is}` : ""}
+                  {e.highlight_is ? ` · circle = ${e.highlight_is}` : ""}
                 </p>
-                <p className="text-[11px] font-mono text-muted-foreground break-all">
-                  {c.evidence?.fen_before}
+              </div>
+
+              <div className="space-y-3 min-w-0">
+                <p className="text-[15px] leading-snug text-foreground">
+                  {c.claim}
                 </p>
+
+                {/* Plain language, not the raw keys. The first build printed
+                    `quality_id tactic:discovered_attack_with_stored_payoff ·
+                    detector_facts [object Object]` and the FEN twice, which is
+                    the schema showing through the card. */}
+                <dl className="text-[13px] space-y-0.5">
+                  {e.played_san && (
+                    <div className="flex gap-2">
+                      <dt className="text-muted-foreground w-28 shrink-0">
+                        They played
+                      </dt>
+                      <dd className="font-medium">{e.played_san}</dd>
+                    </div>
+                  )}
+                  {e.best_move && (
+                    <div className="flex gap-2">
+                      <dt className="text-muted-foreground w-28 shrink-0">
+                        Claimed better
+                      </dt>
+                      <dd className="font-medium">{e.best_move}</dd>
+                    </div>
+                  )}
+                  {e.book_move && (
+                    <div className="flex gap-2">
+                      <dt className="text-muted-foreground w-28 shrink-0">
+                        Book move
+                      </dt>
+                      <dd className="font-medium">{e.book_move}</dd>
+                    </div>
+                  )}
+                  {e.hung_piece && (
+                    <div className="flex gap-2">
+                      <dt className="text-muted-foreground w-28 shrink-0">
+                        Said to hang
+                      </dt>
+                      <dd className="font-medium">
+                        {e.hung_piece} on {e.hung_square}
+                        {e.defender_moved_away ? " (defender left)" : ""}
+                      </dd>
+                    </div>
+                  )}
+                  {e.pv_after_best?.length > 0 && (
+                    <div className="flex gap-2">
+                      <dt className="text-muted-foreground w-28 shrink-0">
+                        Engine line
+                      </dt>
+                      <dd className="font-medium">
+                        {e.pv_after_best.join(" ")}
+                      </dd>
+                    </div>
+                  )}
+                  {e.mating_line?.length > 0 && (
+                    <div className="flex gap-2">
+                      <dt className="text-muted-foreground w-28 shrink-0">
+                        Mating line
+                      </dt>
+                      <dd className="font-medium">{e.mating_line.join(" ")}</dd>
+                    </div>
+                  )}
+                  {typeof e.cp_loss === "number" && (
+                    <div className="flex gap-2">
+                      {/* Deliberately NOT rendered as pawns — centipawn loss
+                          is not material. See the pre-commit caption guard. */}
+                      <dt className="text-muted-foreground w-28 shrink-0">
+                        Engine cost
+                      </dt>
+                      <dd className="font-medium">{e.cp_loss} cp</dd>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <dt className="text-muted-foreground w-28 shrink-0">
+                      Where
+                    </dt>
+                    <dd className="text-muted-foreground">
+                      move {e.move_number} of game {c.game_id}
+                    </dd>
+                  </div>
+                </dl>
+
                 <div className="flex items-center gap-2 pt-1">
                   <Button
                     size="sm"
@@ -229,6 +320,14 @@ export default function AdminDetectorReview() {
                   >
                     <HelpCircle className="w-3.5 h-3.5 mr-1" /> Unsure
                   </Button>
+                  <details className="ml-auto">
+                    <summary className="text-[11px] text-muted-foreground cursor-pointer">
+                      raw
+                    </summary>
+                    <pre className="text-[10px] font-mono whitespace-pre-wrap break-all mt-1 max-w-full">
+                      {JSON.stringify(e, null, 1)}
+                    </pre>
+                  </details>
                 </div>
               </div>
             </div>

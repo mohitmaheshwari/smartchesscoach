@@ -61,11 +61,47 @@ def set_db(database):
 # the copy, and the grade would be attached to code no player ever runs.
 
 
+def _orientation_and_arrow(fen, san):
+    """What the reviewer needs to SEE, worked out once, on the server.
+
+    The card was unreadable without these: no indication of whose move it is,
+    and no indication of where the move being claimed actually goes. Mohit,
+    looking at the first build: "this is not very clear to understand the
+    purpose of this page."
+
+    Returns (side_to_move, [from_sq, to_sq]) with the move in UCI squares, or
+    (side, None) when the move cannot be parsed in this position.
+    """
+    import chess
+
+    try:
+        board = chess.Board(str(fen or ""))
+    except (ValueError, AssertionError):
+        return ("white", None)
+    side = "white" if board.turn == chess.WHITE else "black"
+    if not san:
+        return (side, None)
+    try:
+        move = board.parse_san(str(san))
+    except (ValueError, chess.InvalidMoveError, chess.IllegalMoveError,
+            chess.AmbiguousMoveError):
+        return (side, None)
+    return (side, [chess.square_name(move.from_square),
+                   chess.square_name(move.to_square)])
+
+
 def _produce_allowed_mate(move, colour, analysis):
     from services.allowed_mate_detector import detect_allowed_mate, render_claim
 
     evidence = detect_allowed_mate(move, colour)
-    return (render_claim(evidence), evidence) if evidence else None
+    if not evidence:
+        return None
+    fen = evidence.get("fen_before")
+    side, arrow = _orientation_and_arrow(fen, evidence.get("played_san"))
+    evidence = dict(evidence)
+    evidence.update({"review_fen": fen, "side_to_move": side, "arrow": arrow,
+                     "arrow_is": "the move played"})
+    return (render_claim(evidence), evidence)
 
 
 def _produce_simple_hang(move, colour, analysis):
@@ -101,6 +137,9 @@ def _produce_simple_hang(move, colour, analysis):
          "played_san": move.get("move"), "move_number": move.get("move_number"),
          "cp_loss": move.get("cp_loss"), "hung_piece": hang.get("piece"),
          "hung_square": hang.get("square"),
+         "side_to_move": "white" if board.turn == chess.WHITE else "black",
+         "highlight": [hang.get("square")],
+         "highlight_is": "the piece said to be hanging",
          "defender_moved_away": not hang.get("moved_piece")},
     )
 
@@ -139,6 +178,7 @@ def _missed_motif(builder, label):
                          move.get("cp_loss"))
         if not bundle:
             return None
+        side, arrow = _orientation_and_arrow(fen, best)
         return (
             # Provisional review wording only, never served to a player --
             # see the docstring above.
@@ -153,6 +193,9 @@ def _missed_motif(builder, label):
              "move_number": move.get("move_number"),
              "cp_loss": move.get("cp_loss"),
              "pv_after_best": list(move.get("pv_after_best") or [])[:6],
+             "side_to_move": side,
+             "arrow": arrow,
+             "arrow_is": f"the {label} that was available",
              "quality_id": getattr(bundle, "quality_id", None),
              "detector_facts": [
                  dict(f) for f in getattr(
@@ -171,6 +214,8 @@ def _produce_left_book(move, colour, analysis):
     if not subtype:
         return None
     detail = (context["opening_deviation"] or {}).get("deviation") or {}
+    side, arrow = _orientation_and_arrow(
+        move.get("fen_before"), detail.get("expected_san"))
     return (
         # Provisional review wording only, never served to a player -- see
         # _missed_motif's docstring.
@@ -183,6 +228,8 @@ def _produce_left_book(move, colour, analysis):
          "best_move": move.get("best_move"),
          "move_number": move.get("move_number"),
          "cp_loss": move.get("cp_loss"), "severity": severity,
+         "side_to_move": side, "arrow": arrow,
+         "arrow_is": "the book move",
          "opening": detail.get("opening_name")},
     )
 
