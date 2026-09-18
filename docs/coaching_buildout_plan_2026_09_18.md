@@ -200,6 +200,48 @@ lifetime. Revisit when the lesson path carries traffic.
 
 ---
 
+## 6b. Progress, 2026-09-18
+
+**Phase 0 — DONE.** Backfill applied and converged (a re-run dry run reports
+0 remaining). Pattern decay refreshed for 50 users.
+
+| gap | before | after |
+|---|---|---|
+| tactical_oversight | 5,984 | **1,059** (−82%) |
+| missed_tactic | 11,824 | 16,443 |
+| king_safety | 17,248 | 20,925 |
+
+It found two real defects in the gate itself, both caught by reading the dry
+run's example ROWS rather than its totals — the totals looked right at every
+stage:
+
+- `mate_info` is WHITE-relative. The colour-blind gate was wrong on **738 of
+  8,863 fires (8.3%)**: a black player mating in 17 was told he walked into
+  mate; a white player who escaped a mate was told he let a forced win go.
+- `mate_info.after == 0` means checkmate is on the board, i.e. the player
+  DELIVERED mate. Board-verified 400 of 400. Without a guard the backfill
+  would have written "missed_tactic" onto **2,751 checkmates**.
+
+Both are fixed, deployed and regression-locked. The figure quoted in section 2
+(7,797) came from the colour-blind measurement and was never correct.
+
+**Phase 1 queue — DONE, awaiting Mohit.** `/admin/detector-review` now serves
+five detectors instead of one: `simple_hang`, `fork`, `discovered_attack`,
+`left_book`, `allowed_mate`, ordered by proximity to the caption bar.
+Board-sanity-checked on live data: fork 12/12 attack two or more pieces,
+discovered attack 12/12 reveal a real second attacker.
+
+Scope note recorded honestly: `fork_puzzle_proof` and
+`discovered_attack_puzzle_proof` have no claim renderer, so there is no
+player-facing wording to review against. A ruling certifies the DETECTION; the
+wording gets its own pass when they are wired into
+`build_move_teaching_decision`. The page says so to the reviewer.
+
+**Next: step 3, the review session. Nothing else in this plan moves until it
+happens.**
+
+---
+
 ## 7. Sequence
 
 1. **Phase 0 backfill** — me, ready now, no decisions
