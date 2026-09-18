@@ -128,42 +128,92 @@ the player to have asked.
 
 ## 2. What the user sees
 
-**A. You are walking into one** (the warning — the highest-value case):
+A trap card that only names the trap and gives the move is a label and an
+answer, not coaching. Mohit, on the first draft of this document: "i was also
+expecting coaching there, it's missing that."
+
+Every trap card carries four things, in this order:
+
+1. **The pattern** — what shape you walked into, in words, not the move
+2. **Why it works** — the mechanism on this board (`danger`)
+3. **What to do** — the move AND its purpose (`how_to_avoid`, `safe_moves`)
+4. **The rule that transfers** — what to remember a week later, in a different
+   opening (`tactical_theme`), rendered into `principle_cue`
+
+Item 4 is the one that makes it coaching. Without it we have taught one
+position; with it we have taught a habit.
+
+**A. You are walking into one** (the warning — 7% reachable, the best case):
 
 ```
-  Move 5   Bc5
-  ┌────────────────────────────────────────────────────┐
-  │  You're in Fried Liver territory.                  │
-  │                                                    │
-  │  Your f7 square is attacked twice — by the bishop  │
-  │  on c4 and the knight on g5. The punisher plays    │
-  │  Nxf7 next.                                        │
-  │                                                    │
-  │  The way out: d5, blocking the bishop before the   │
-  │  knight can land.                    [board arrows]│
-  └────────────────────────────────────────────────────┘
+  Move 5   Nf6
+  ┌──────────────────────────────────────────────────────────┐
+  │  Two pieces are aimed at one square, and only your king   │
+  │  defends it.                                              │
+  │                                                           │
+  │  The bishop on c4 and the knight on g5 both hit f7. Your  │
+  │  king is the only defender, so two attackers beat one     │
+  │  defender and the square falls.                           │
+  │                                                           │
+  │  Play d5 — it hits the bishop and opens a5 for your       │
+  │  knight, so you break the attack instead of answering it. │
+  │                                                           │
+  │  ── Next time ────────────────────────────────────────    │
+  │  Before you develop, count what attacks f7 and what       │
+  │  defends it. If the attackers outnumber the defenders,    │
+  │  deal with that first.                                    │
+  └──────────────────────────────────────────────────────────┘
+        arrows:  c4 → f7 , g5 → f7   (the two attackers)
 ```
 
-**B. You fell into one** (after the fact):
+**B. You fell into one** (0.8% reachable, worst damage):
 
 ```
   Move 6   dxc3
-  ┌────────────────────────────────────────────────────┐
-  │  This is the Scotch Gambit trap.                   │
-  │                                                    │
-  │  Taking the second pawn lets Bxf7+ drag your king  │
-  │  out: Kxf7, then Qd5+ forks your king and the      │
-  │  bishop on c5.                                     │
-  │                                                    │
-  │  Nf6 kept the game level.                          │
-  └────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────┐
+  │  You took a second pawn while f7 was still loose.         │
+  │                                                           │
+  │  Bxf7+ drags your king out: after Kxf7, Qd5+ forks your   │
+  │  king and the bishop on c5, and you lose castling too.    │
+  │                                                           │
+  │  Nf6 kept the game level — it develops and guards d5, the │
+  │  square the queen needs for the fork.                     │
+  │                                                           │
+  │  ── Next time ────────────────────────────────────────    │
+  │  A free pawn in the opening is usually rent, not income.  │
+  │  Before taking one, ask what it opens toward your king.   │
+  └──────────────────────────────────────────────────────────┘
+        arrows:  c4 → f7 (the sacrifice) , e8 → f7 (the king just takes)
 ```
 
-**C. You set one** (kept from the existing `trap_punisher` rule, unchanged):
+**C. You set one** (kept from the existing `trap_punisher` rule):
 
 > "Nxe5 — you set up the Petroff Marshall Trap."
 
----
+Note what changed between this and the first draft: B used to end "Nf6 kept the
+game level" — a move with no reason, which is the exact failure recorded in
+[[feedback-explain-why-recommended-move-good]]. It now says what Nf6 does and
+why d5 matters.
+
+### The coaching contract, and where it is thin
+
+| Slot | Field | Populated |
+|---|---|---|
+| what happened | `description` | 55/55 |
+| why it works | `danger` | 37/55 (67%) |
+| what to do | `how_to_avoid`, `safe_moves` | 37/55, 22/55 |
+| **the rule that transfers** | **`tactical_theme`** | **2/55 (4%)** |
+| the squares to watch | `key_squares` | 2/55 (4%) |
+
+The first three tiers are largely authored. **The transferable rule is not** —
+`tactical_theme` exists on two traps out of fifty-five. That is precisely the
+line that turns "you lost to the Fried Liver" into "count attackers and
+defenders before developing", and it is the part a 900-rated player carries
+into a game where the opening is different and the shape is the same.
+
+It also has somewhere to go already: the review card renders an amber
+`principle_cue` line, measured EMPTY on 62 of 63 cards in a real game. The slot
+is built and starving, same as the rest of this feature.
 
 ## 3. In scope (V1)
 
@@ -180,6 +230,14 @@ the player to have asked.
 - **One honest decision on the dead loop**: either wire evidence/puzzles/drills,
   or delete the claim from `TRAP_OPENING_WIRING_COMPLETE.md`. A document that
   says LIVE over four empty stages is worse than no document.
+- **The coaching contract above is enforced, not hoped for.** A trap card does
+  not ship without a `danger` and a `how_to_avoid`; the 18 traps missing them
+  are authored or held back. No card asserts a trap and then explains nothing.
+- **`tactical_theme` authored on all 55**, and rendered into `principle_cue`.
+  This is the coaching, and it is the single thinnest field we hold (2/55).
+  Themes are a small closed vocabulary — shared_attack, overloaded_defender,
+  back_rank, king_in_centre, greedy_pawn — so the same line serves every trap
+  that shares a shape, and a player meets it repeatedly across openings.
 
 ## 4. Explicitly out of scope (V1)
 
@@ -202,6 +260,9 @@ Behaviour, not activation:
   engine check, as an automated test, not a one-off script.
 - **The f7 shape detector fires on ≥50 of the 65 measured blunders**, with no
   false fire on a sacrifice the engine approves of.
+- **Every shipped trap card carries all four coaching tiers**, verified by
+  rendering them and reading them — not by counting populated fields.
+  `principle_cue` non-empty on 100% of trap cards, against 1.6% today.
 - **A player who saw a trap warning meets the same trap later and avoids it.**
   This is the only criterion that measures teaching rather than output, and it
   needs the evidence stage — which is why the dead-loop decision is in scope.
