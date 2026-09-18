@@ -140,9 +140,9 @@ def _missed_motif(builder, label):
         if not bundle:
             return None
         return (
-            # allow-noncentral-caption: provisional review wording only,
-            # never served to a player -- see the docstring above.
-            f"You played {played}. {best} was there instead, and it wins "
+            # Provisional review wording only, never served to a player --
+            # see the docstring above.
+            f"You played {played}. {best} was there instead, and it wins "  # allow-noncentral-caption
             f"material with a {label}.",
             {"fen_before": fen, "fen_after": move.get("fen_after"),
              # The claim is about the move that was AVAILABLE, so the reviewer
@@ -172,9 +172,9 @@ def _produce_left_book(move, colour, analysis):
         return None
     detail = (context["opening_deviation"] or {}).get("deviation") or {}
     return (
-        # allow-noncentral-caption: provisional review wording only, never
-        # served to a player -- see _missed_motif's docstring.
-        f"You played {move.get('move')} here and left the book. "
+        # Provisional review wording only, never served to a player -- see
+        # _missed_motif's docstring.
+        f"You played {move.get('move')} here and left the book. "  # allow-noncentral-caption
         f"{detail.get('expected_san')} is the move, and it is also what the "
         f"engine plays.",
         {"fen_before": move.get("fen_before"), "fen_after": move.get("fen_after"),
