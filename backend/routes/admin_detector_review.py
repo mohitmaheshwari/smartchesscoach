@@ -110,6 +110,18 @@ def _missed_motif(builder, label):
 
     Both answer the same question -- did the move the player MISSED create
     this motif -- so the claim is about the best move, not the played one.
+
+    A note on the wording, because the caption guard is right to flag it:
+    `fork_puzzle_proof` and `discovered_attack_puzzle_proof` have no claim
+    renderer at all. They have never spoken, so there is no player-facing
+    sentence to review against, and the threshold lock's "evidence must match
+    the player-facing claim" cannot be satisfied yet by anyone.
+
+    So a ruling here certifies the DETECTION, not the prose -- is it true that
+    the best move forks? The wording review happens when these are wired into
+    `build_move_teaching_decision`, which is where every player-facing caption
+    belongs and where the guard will enforce it. The UI says this in as many
+    words so the reviewer knows which question they are answering.
     """
 
     def produce(move, colour, analysis):
@@ -128,6 +140,8 @@ def _missed_motif(builder, label):
         if not bundle:
             return None
         return (
+            # allow-noncentral-caption: provisional review wording only,
+            # never served to a player -- see the docstring above.
             f"You played {played}. {best} was there instead, and it wins "
             f"material with a {label}.",
             {"fen_before": fen, "fen_after": move.get("fen_after"),
@@ -158,6 +172,8 @@ def _produce_left_book(move, colour, analysis):
         return None
     detail = (context["opening_deviation"] or {}).get("deviation") or {}
     return (
+        # allow-noncentral-caption: provisional review wording only, never
+        # served to a player -- see _missed_motif's docstring.
         f"You played {move.get('move')} here and left the book. "
         f"{detail.get('expected_san')} is the move, and it is also what the "
         f"engine plays.",

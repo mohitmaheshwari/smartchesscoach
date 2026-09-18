@@ -104,6 +104,12 @@ export default function AdminDetectorReview() {
               Ruling here records evidence — it does not put anything in front
               of a player.
             </p>
+            <p className="text-sm text-muted-foreground max-w-2xl mt-1">
+              You are judging whether the <strong>claim is true</strong>, not
+              whether the sentence is well written. Most of these detectors
+              have never spoken, so this wording is provisional; the phrasing
+              gets its own pass when they are wired into the caption layer.
+            </p>
           </div>
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className="w-3.5 h-3.5 mr-1.5" /> Reload
