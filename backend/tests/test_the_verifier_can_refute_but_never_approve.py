@@ -176,12 +176,17 @@ def test_a_real_fork_is_UNDECIDABLE_not_approved():
     is still "a human decides", because the lock's open question is whether
     the fork is the lesson -- not whether the geometry is there.
     """
-    # White knight on e5 to play Nxc6+, hitting the black king on e8 and the
-    # rook on a7 is contrived; use a clean double attack instead.
-    fen = "r3k3/8/8/4N3/8/8/8/4K3 w - - 0 1"
+    # White knight d5 plays Nc7+, hitting the black king on e8 and the rook
+    # on a8 at once. (An earlier draft of this test used Nc6, which forks
+    # nothing here -- the assertion below is what caught that.)
+    fen = "r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1"
     board = chess.Board(fen)
-    assert board.parse_san("Nc6") in board.legal_moves
-    out = v.verify("fork", {"review_fen": fen, "best_move": "Nc6",
+    board.push(board.parse_san("Nc7+"))
+    hit = {chess.square_name(sq) for sq in board.attacks(chess.C7)
+           if (p := board.piece_at(sq)) and p.color == chess.BLACK}
+    assert hit == {"a8", "e8"}, f"premise broken: Nc7+ hits {hit}"
+
+    out = v.verify("fork", {"review_fen": fen, "best_move": "Nc7+",
                             "played_san": "Ke2"})
     assert out.status == v.UNDECIDABLE, (
         "a verified fork must still go to a human; geometry is not the claim"
