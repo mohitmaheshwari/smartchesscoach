@@ -394,6 +394,13 @@ async def review_results(user: User = Depends(require_admin)):
     for row in rows:
         by_reviewer[row.get("reviewer_name") or row.get("ruled_by") or "?"] += 1
 
+    # Every known detector gets a row, including the ones with no rulings yet.
+    # Without this the page cannot show "0 of 50" for the untouched ones, and a
+    # reviewer has no way to see what is left to do -- which is what made the
+    # first version of this page unreadable.
+    for known in _producers():
+        by_detector.setdefault(known, Counter())
+
     summary = {}
     for detector, counts in by_detector.items():
         judged = counts["true"] + counts["false"]
@@ -409,6 +416,12 @@ async def review_results(user: User = Depends(require_admin)):
             # docs/detector_quality_threshold_lock_2026_08_27.md
             "caption_bar": {"fires": 50, "precision": 95},
             "plan_bar": {"fires": 200, "precision": 95, "recall": 60},
+            # Said plainly, so the page never has to work it out itself.
+            "remaining": max(0, 50 - judged),
+            "on_track": (
+                None if judged < 5
+                else (100 * counts["true"] / judged) >= 95
+            ),
         }
     return {
         "summary": summary,

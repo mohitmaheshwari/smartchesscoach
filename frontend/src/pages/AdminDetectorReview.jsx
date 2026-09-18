@@ -142,6 +142,47 @@ export default function AdminDetectorReview() {
     loadResults();
   };
 
+  // One card at a time. Fifty rulings by mouse is what makes a review queue
+  // get abandoned; this is the difference between a 30-minute job and an hour.
+  const [cursor, setCursor] = useState(0);
+
+  const ruleAndAdvance = useCallback(
+    (verdict) => {
+      const claim = claims[cursor];
+      if (!claim || ruled[claim.claim_key]) return;
+      rule(claim, verdict);
+      setCursor((i) => i + 1);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [claims, cursor, ruled]
+  );
+
+  useEffect(() => {
+    const onKey = (ev) => {
+      if (ev.target?.tagName === "INPUT" || ev.metaKey || ev.ctrlKey) return;
+      const key = ev.key.toLowerCase();
+      const verdict =
+        key === "t" ? "true" : key === "w" ? "false" : key === "u" ? "unsure" : null;
+      if (!verdict) return;
+      ev.preventDefault();
+      ruleAndAdvance(verdict);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ruleAndAdvance]);
+
+  // Running off the end of a batch should fetch the next one, not present an
+  // empty screen that looks like the queue is finished.
+  useEffect(() => {
+    if (claims.length && cursor >= claims.length && !loading) {
+      load();
+    }
+  }, [cursor, claims.length, loading, load]);
+
+  useEffect(() => {
+    setCursor(0);
+  }, [detector]);
+
   const summary = results?.summary?.[detector];
   const active = DETECTORS.find((d) => d.id === detector);
 
@@ -151,24 +192,22 @@ export default function AdminDetectorReview() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="max-w-2xl">
             <h1 className="text-xl font-heading">Detector review</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Every detector we have built is <strong>muted</strong> — it runs,
-              it produces claims, and none of them reach a player. A detector
-              is only allowed to speak once <strong>you</strong> have read 50
-              of its claims and confirmed at least 95% are true. Not 50 I
-              checked — 50 a person checked. That rule is why this page is the
-              only way any of them get switched on.
+            <p className="text-sm mt-1">
+              <strong>Your job:</strong> look at each position and say whether
+              the sentence under it is <strong>true</strong>. That is the whole
+              task.
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              For each card: look at the board and answer{" "}
-              <strong>is this statement true?</strong> Nothing you click puts
-              anything in front of a player — it only adds to the count. A
-              claim you mark Wrong is a bug report with a position attached.
+              Fifty rulings switches a detector on. It is muted until then — it
+              cannot say a word to a player, and nothing you click here changes
+              that. Roughly 30 minutes per detector.
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              Judge the claim, not the wording. Most of these have never
-              spoken, so the sentence is provisional and gets its own pass when
-              they are wired into the caption layer.
+              Keys: <kbd className="px-1 border rounded">T</kbd> true ·{" "}
+              <kbd className="px-1 border rounded">W</kbd> wrong ·{" "}
+              <kbd className="px-1 border rounded">U</kbd> unsure. Use Unsure
+              freely — it is thrown out of the maths, so it costs nothing and
+              beats a guess.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -185,21 +224,63 @@ export default function AdminDetectorReview() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="grid gap-1.5">
           {DETECTORS.map((d) => {
             const isSelected = detector === d.id;
+            const st = results?.summary?.[d.id];
+            const judged = st?.judged ?? 0;
+            const need = st?.caption_bar?.fires ?? 50;
+            const pct = Math.min(100, (judged / need) * 100);
+            const done = judged >= need;
             return (
               <button
                 key={d.id}
                 onClick={() => setDetector(d.id)}
                 aria-pressed={isSelected}
-                className={`px-3 py-1.5 text-xs rounded-sm border transition-colors ${
+                className={`text-left px-3 py-2 rounded-sm border transition-colors ${
                   isSelected
-                    ? "bg-foreground text-background border-foreground font-semibold"
-                    : "border-border text-muted-foreground hover:bg-muted/50"
+                    ? "border-foreground bg-muted/40"
+                    : "border-border hover:bg-muted/20"
                 }`}
               >
-                {d.label}
+                <div className="flex items-center gap-3 text-xs">
+                  <span
+                    className={`flex-1 ${isSelected ? "font-semibold" : ""}`}
+                  >
+                    {d.label}
+                  </span>
+                  <span className="font-mono text-muted-foreground">
+                    {judged} / {need}
+                  </span>
+                  {st?.precision !== null && st?.precision !== undefined && (
+                    <span
+                      className={`font-mono w-24 text-right ${
+                        st.on_track === false
+                          ? "text-amber-600 dark:text-amber-500"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {st.precision}%{" "}
+                      {st.on_track === false ? "below bar" : ""}
+                    </span>
+                  )}
+                  {(st?.precision === null || st?.precision === undefined) && (
+                    <span className="w-24 text-right text-muted-foreground">
+                      not started
+                    </span>
+                  )}
+                  <span className="w-16 text-right">
+                    {done ? "ready" : `${need - judged} left`}
+                  </span>
+                </div>
+                <div className="h-1 bg-muted rounded-full overflow-hidden mt-1.5">
+                  <div
+                    className={`h-full transition-all ${
+                      done ? "bg-green-600" : "bg-foreground/60"
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
               </button>
             );
           })}
@@ -268,13 +349,38 @@ export default function AdminDetectorReview() {
 
         {!loading && claims.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No unjudged <strong>{active?.label?.toLowerCase()}</strong>{" "}
-            claims left in the scan window. Either you have ruled on them all,
-            or this detector fires very sparsely.
+            {summary?.remaining === 0 ? (
+              <>
+                <strong>{active?.label}</strong> has its 50 rulings at{" "}
+                {summary.precision}%. {summary.on_track === false
+                  ? "That is below the 95% bar, so the misses are bug reports rather than a promotion."
+                  : "That clears the 95% bar — it is ready to be promoted."}{" "}
+                Pick another detector above.
+              </>
+            ) : (
+              <>
+                No unjudged <strong>{active?.label?.toLowerCase()}</strong>{" "}
+                claims left in the scan window. Either you have ruled on them
+                all, or this detector fires very sparsely.
+              </>
+            )}
           </p>
         )}
 
-        {claims.map((c) => {
+        {claims.length > 0 && cursor < claims.length && (
+          <div className="flex items-baseline justify-between text-xs text-muted-foreground">
+            <span>
+              {summary
+                ? `${summary.judged} ruled · ${summary.remaining} to go before ${active?.label ?? "this detector"} can speak`
+                : `${active?.label ?? "This detector"} — nothing ruled yet`}
+            </span>
+            <span className="font-mono">
+              claim {cursor + 1} of {claims.length} loaded
+            </span>
+          </div>
+        )}
+
+        {claims.slice(cursor, cursor + 1).map((c) => {
           const verdict = ruled[c.claim_key];
           const e = c.evidence || {};
           return (
@@ -417,21 +523,21 @@ export default function AdminDetectorReview() {
                     variant={verdict === "true" ? "default" : "outline"}
                     onClick={() => rule(c, "true")}
                   >
-                    <Check className="w-3.5 h-3.5 mr-1" /> True
+                    <Check className="w-3.5 h-3.5 mr-1" /> True <span className="opacity-50 ml-1">T</span>
                   </Button>
                   <Button
                     size="sm"
                     variant={verdict === "false" ? "destructive" : "outline"}
                     onClick={() => rule(c, "false")}
                   >
-                    <X className="w-3.5 h-3.5 mr-1" /> Wrong
+                    <X className="w-3.5 h-3.5 mr-1" /> Wrong <span className="opacity-50 ml-1">W</span>
                   </Button>
                   <Button
                     size="sm"
                     variant={verdict === "unsure" ? "secondary" : "outline"}
                     onClick={() => rule(c, "unsure")}
                   >
-                    <HelpCircle className="w-3.5 h-3.5 mr-1" /> Unsure
+                    <HelpCircle className="w-3.5 h-3.5 mr-1" /> Unsure <span className="opacity-50 ml-1">U</span>
                   </Button>
                   <details className="ml-auto">
                     <summary className="text-[11px] text-muted-foreground cursor-pointer">
