@@ -105,6 +105,23 @@ def mate_gate_label(
     if before is None and after is None:
         return None
 
+    # Mate in ZERO means checkmate is on the board. Zero carries no sign, so
+    # it cannot be flipped into anyone's frame -- but on a move the PLAYER
+    # made, checkmate on the board afterwards can only mean they delivered it
+    # (you cannot move yourself into being mated). That is the best move of
+    # the game, not a gap.
+    #
+    # Board-verified on production: 400 of 400 sampled `after == 0` moves are
+    # the player playing mate -- Qh1#, Rxf6#, Qxf7#. Without this the gate
+    # labels 2,751 checkmates "missed_tactic": you had mate in 1, and you
+    # played it, and we tell you that you missed a tactic.
+    if after == 0:
+        return None
+    # Checkmate before the move is impossible -- the game would be over and
+    # there would be no move to judge. Treat it as no claim rather than guess.
+    if before == 0:
+        return None
+
     # Into the player's frame: positive now means THIS PLAYER delivers mate.
     sign = -1 if str(user_color or "white").lower().startswith("b") else 1
     before = before * sign if before is not None else None

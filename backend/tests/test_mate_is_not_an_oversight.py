@@ -181,3 +181,28 @@ def test_the_backfill_resolves_each_games_colour():
         encoding="utf-8")
     assert "user_color" in script
     assert "mate_gate_label(" in script
+
+
+def test_playing_the_checkmate_is_not_a_missed_tactic():
+    """Mate in ZERO is checkmate on the board, i.e. the player just won.
+
+    Zero has no sign, so it cannot be flipped into a player's frame -- but on
+    a move the player made, checkmate afterwards can only mean they delivered
+    it, since you cannot move yourself into being mated.
+
+    Board-verified on production: 400 of 400 sampled `after == 0` moves are
+    the player playing mate (Qh1#, Rxf6#, Qxf7#). Without this the gate calls
+    2,751 checkmates "missed_tactic" -- you had mate in 1, you played it, and
+    the product tells you that you missed a tactic. It is the winning move of
+    the game recorded as the mistake of the game.
+    """
+    g = ai.mate_gate_label
+    assert g({"before": 1, "after": 0}, "white") is None     # white played M1
+    assert g({"before": -1, "after": 0}, "black") is None    # black played M1
+    assert g({"before": 3, "after": 0}, "white") is None     # mated early
+    # Checkmate before the move cannot happen; there would be no move to judge.
+    assert g({"before": 0, "after": None}, "white") is None
+
+    # And the neighbouring cases must still fire, so this is not a blanket mute.
+    assert g({"before": 1, "after": None}, "white") == "missed_tactic"
+    assert g({"before": None, "after": -1}, "white") == "king_safety"
