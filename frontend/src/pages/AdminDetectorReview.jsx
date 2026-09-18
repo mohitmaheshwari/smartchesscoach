@@ -113,6 +113,11 @@ export default function AdminDetectorReview() {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [ruled, setRuled] = useState({});
+  // Which card of the loaded batch is in front of the reviewer, and -- when
+  // they are walking a line -- which line and how far in.
+  const [cursor, setCursor] = useState(0);
+  const [line, setLine] = useState(null);
+  const [ply, setPly] = useState(0);
   // The admin login is shared with a reviewing coach, so the account email
   // cannot tell two reviewers apart. This is not access control -- it labels
   // the evidence so the promotion packet can say who judged what.
@@ -135,6 +140,12 @@ export default function AdminDetectorReview() {
   const load = useCallback(async () => {
     setLoading(true);
     setRuled({});
+    // Back to the first card of the new batch. Without this the cursor stays
+    // at 20 while a fresh 20-card batch arrives, the "ran off the end" effect
+    // fires again immediately, and the page reloads forever.
+    setCursor(0);
+    setLine(null);
+    setPly(0);
     try {
       const res = await fetch(
         `${API}/admin/detector-review/batch?detector=${detector}&limit=20`,
@@ -179,16 +190,15 @@ export default function AdminDetectorReview() {
 
   // One card at a time. Fifty rulings by mouse is what makes a review queue
   // get abandoned; this is the difference between a 30-minute job and an hour.
-  const [cursor, setCursor] = useState(0);
-  // Which line is being stepped ("played" | "best") and how far into it.
-  const [line, setLine] = useState(null);
-  const [ply, setPly] = useState(0);
 
   const ruleAndAdvance = useCallback(
     (verdict) => {
       const claim = claims[cursor];
-      if (!claim || ruled[claim.claim_key]) return;
-      rule(claim, verdict);
+      if (!claim) return;
+      // Already ruled (a double-click, or a key pressed twice): do not record
+      // it again, but DO move on. Leaving the reviewer on a card they have
+      // already judged is what makes the page feel broken.
+      if (!ruled[claim.claim_key]) rule(claim, verdict);
       setCursor((i) => i + 1);
       setLine(null);
       setPly(0);
@@ -646,21 +656,21 @@ export default function AdminDetectorReview() {
                   <Button
                     size="sm"
                     variant={verdict === "true" ? "default" : "outline"}
-                    onClick={() => rule(c, "true")}
+                    onClick={() => ruleAndAdvance("true")}
                   >
                     <Check className="w-3.5 h-3.5 mr-1" /> True <span className="opacity-50 ml-1">T</span>
                   </Button>
                   <Button
                     size="sm"
                     variant={verdict === "false" ? "destructive" : "outline"}
-                    onClick={() => rule(c, "false")}
+                    onClick={() => ruleAndAdvance("false")}
                   >
                     <X className="w-3.5 h-3.5 mr-1" /> Wrong <span className="opacity-50 ml-1">W</span>
                   </Button>
                   <Button
                     size="sm"
                     variant={verdict === "unsure" ? "secondary" : "outline"}
-                    onClick={() => rule(c, "unsure")}
+                    onClick={() => ruleAndAdvance("unsure")}
                   >
                     <HelpCircle className="w-3.5 h-3.5 mr-1" /> Unsure <span className="opacity-50 ml-1">U</span>
                   </Button>
