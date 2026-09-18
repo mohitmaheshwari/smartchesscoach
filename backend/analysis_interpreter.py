@@ -350,7 +350,19 @@ class AnalysisInterpreter:
                 gap_evidence = gap_result.get("evidence", "")
                 coaching_focus = gap_result.get("coaching_focus", "")
         
-        # TRIGGER 2: Missed Mate
+        # TRIGGER 2: the mate gate.
+        #
+        # docs/move_classification_from_gold_scope.md S1, amendment 2, signed
+        # off 2026-09-18: a move that swings to or from a mate score is about
+        # the king or the tactic, never "oversight".
+        #
+        # This line used to assign TACTICAL_OVERSIGHT to every missed mate,
+        # which is the single largest source of mislabelling in the product.
+        # Measured across 1,339 stored tactical_oversight moves: 49.4% had
+        # mate and lost it, 4.0% allowed a new mate. It is also why that
+        # bucket's average cp_loss reads 7,524 -- those are mate scores, not
+        # oversights -- and why 81% of its `generic_oversight` subtype is a
+        # mate swing.
         if mate_info and mate_info.get("before") is not None:
             # Had mate before but maybe lost it
             mate_before = mate_info.get("before")
@@ -359,7 +371,29 @@ class AnalysisInterpreter:
             if mate_before is not None and (mate_after is None or abs(mate_after) > abs(mate_before) + 2):
                 is_critical = True
                 critical_reason = CriticalReason.MISSED_MATE.value
-                cognitive_gap = CognitiveGap.TACTICAL_OVERSIGHT.value
+                # They had a forced win and let it go. That is a missed tactic.
+                # GAP_* strings, not the CognitiveGap enum -- see the note at
+                # the top of this file: the enum carries different values
+                # (hanging_piece_blindness, KING_SAFETY_NEGLECT) and has no
+                # MISSED_TACTIC member at all.
+                cognitive_gap = GAP_MISSED_TACTIC
+
+        # The other half of the gate: a mate that is now against THEM. Trigger
+        # 2 only fires when a mate existed before, so an allowed mate used to
+        # fall through to whatever the generic gap analysis guessed.
+        if mate_info and mate_info.get("after") is not None:
+            mate_before = mate_info.get("before")
+            mate_after = mate_info.get("after")
+            try:
+                allowed_new_mate = (
+                    mate_after is not None and mate_after < 0
+                    and not (mate_before is not None and mate_before < 0)
+                )
+            except TypeError:
+                allowed_new_mate = False
+            if allowed_new_mate:
+                is_critical = True
+                cognitive_gap = GAP_KING_SAFETY
         
         # TRIGGER 3: Turning Point (eval swing >= 120)
         if is_turning_point and not is_critical:
