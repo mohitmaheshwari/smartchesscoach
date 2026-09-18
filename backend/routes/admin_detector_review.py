@@ -44,6 +44,11 @@ COLLECTION = "detector_claim_rulings"
 # of moves -- so a small scan window returns nothing and looks broken.
 SCAN_LIMIT = 900
 
+# A motif claim says "it wins material". That has to mean piece-scale, not a
+# pawn left over after trading a bishop for a knight. Measured across the live
+# claim set before choosing it -- see the note at the gate.
+WINNABLE_CP = 200
+
 
 def set_db(database):
     global db
@@ -222,17 +227,37 @@ def _missed_motif(builder, label):
         # Board-verifier adjudication is what the threshold lock permits, so
         # this is allowed to filter. It only removes; it never promotes.
         facts = list(getattr(getattr(bundle, "detector", None), "facts", ()) or ())
-        target_name = (facts[0] or {}).get("target_square") if facts else None
-        if target_name:
-            try:
-                target_sq = chess.parse_square(str(target_name))
-            except ValueError:
-                target_sq = None
-            if target_sq is not None:
-                probe = after.copy(stack=False)
-                probe.turn = board.turn      # the side that played the motif
-                if independent_exchange_gain(probe, target_sq) <= 0:
-                    return None
+        head = (facts[0] or {}) if facts else {}
+        # Two shapes: discovered_attack names one `target_square`, fork carries
+        # a list under `targets`. Reading only the first meant fork skipped
+        # this gate entirely.
+        names = []
+        if head.get("target_square"):
+            names.append(head["target_square"])
+        for t in head.get("targets") or []:
+            names.append(t.get("square") if isinstance(t, dict) else t)
+
+        if names:
+            probe = after.copy(stack=False)
+            probe.turn = board.turn          # the side that played the motif
+            best_gain = None
+            for name in names:
+                try:
+                    sq = chess.parse_square(str(name))
+                except (ValueError, TypeError):
+                    continue
+                gain = independent_exchange_gain(probe, sq)
+                best_gain = gain if best_gain is None else max(best_gain, gain)
+            # WINNABLE_CP, not "> 0". Mohit's Nxh7: the discovery hits a knight
+            # on h6 defended by the g7 pawn, so Bxh6 gxh6 Qxh6 nets +100 -- a
+            # bishop traded for a knight plus a pawn. True, and not what "it
+            # wins material with a discovered attack" tells a player.
+            #
+            # Threshold from the distribution, not from taste: of 11 claims, 8
+            # win the target outright, 2 win 200-299, and exactly 1 sits at
+            # 100. The cut removes that one and keeps all ten.
+            if best_gain is not None and best_gain < WINNABLE_CP:
+                return None
         side, arrow = _orientation_and_arrow(fen, best)
         return (
             # Provisional review wording only, never served to a player --
