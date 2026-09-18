@@ -5,11 +5,12 @@ analysis already in the database still carries whatever the old code wrote, and
 the old code assigned `tactical_oversight` to every missed mate and had no rule
 at all for a mate the player walked into.
 
-Measured on production 2026-09-18, before this ran:
-
-    5,371 moves should read missed_tactic and do not
-    2,426 moves should read king_safety and do not
-    7,797 total, across 55 users
+It also repairs the gate's own first mistake. `mate_info` is WHITE-relative
+(`stockfish_service` returns `score.white()`), and the version shipped this
+morning ignored that. Measured over 8,863 fires, it was wrong on 738 (8.3%):
+a black player mating in 17 was told he had walked into mate, and a white
+player who ESCAPED a mate was told he had let a forced win go. So this joins
+every analysis back to its game's colour and re-derives in the player's frame.
 
 That matters past tidiness. These labels feed the picker, active focus,
 mastery, Progress and every validation run, and `tactical_oversight` (5,984
@@ -27,8 +28,8 @@ day it was written and wrong the first time the rule moved.
 
 Usage (dry run prints the plan and writes nothing):
 
-    docker exec -i chess-coach-backend python backend/scripts/backfill_mate_gate_labels.py
-    docker exec -i chess-coach-backend python backend/scripts/backfill_mate_gate_labels.py --apply
+    docker exec chess-coach-backend python scripts/backfill_mate_gate_labels.py
+    docker exec chess-coach-backend python scripts/backfill_mate_gate_labels.py --apply
 """
 from __future__ import annotations
 
@@ -56,21 +57,38 @@ async def main(apply: bool, recompute: bool) -> None:
     scanned_moves = 0
     examples = []
 
+    # `mate_info` is WHITE-relative (stockfish_service returns `score.white()`).
+    # The gate needs the player's own frame, so every analysis has to be joined
+    # back to its game's colour. Skipping this is not a rounding error: the
+    # colour-blind version of this rule was wrong on 738 of 8,863 fires.
+    colours = {}
+    async for game in db.games.find({}, {"_id": 0, "game_id": 1, "user_color": 1}):
+        colours[game.get("game_id")] = (game.get("user_color") or "white").lower()
+    print(f"resolved colour for {len(colours)} games")
+
     cursor = db.game_analyses.find(
         {"stockfish_analysis.move_evaluations.mate_info": {"$exists": True}},
         {"_id": 1, "game_id": 1, "user_id": 1,
          "stockfish_analysis.move_evaluations": 1},
     )
+    unknown_colour = 0
     async for doc in cursor:
         moves = (doc.get("stockfish_analysis") or {}).get("move_evaluations") or []
         doc_changed = False
+        game_id = doc.get("game_id")
+        if game_id not in colours:
+            # No game row means no colour, and guessing white is exactly the
+            # bug this backfill exists to repair. Skip and report.
+            unknown_colour += 1
+            continue
+        colour = colours[game_id]
         for index, move in enumerate(moves):
             # Opponent moves carry no engine truth of their own; the gate has
             # never applied to them and must not start here.
             if move.get("is_opponent_move"):
                 continue
             scanned_moves += 1
-            want = mate_gate_label(move.get("mate_info"))
+            want = mate_gate_label(move.get("mate_info"), colour)
             if not want:
                 continue
             had = move.get("cognitive_gap")
@@ -81,7 +99,7 @@ async def main(apply: bool, recompute: bool) -> None:
             doc_changed = True
             if len(examples) < 8:
                 examples.append(
-                    f"    {doc.get('game_id')} move#{move.get('move_number')} "
+                    f"    {game_id} move#{move.get('move_number')} {colour:5s} "
                     f"{had} -> {want}  mate_info={move.get('mate_info')}")
             if apply:
                 # Positional write: only the one field the gate decides.
@@ -99,6 +117,8 @@ async def main(apply: bool, recompute: bool) -> None:
 
     total = sum(changes.values())
     print(f"scanned {scanned_moves} user moves carrying mate_info")
+    if unknown_colour:
+        print(f"SKIPPED {unknown_colour} analyses with no game row (colour unknown)")
     print(f"{'APPLIED' if apply else 'WOULD CHANGE'}: {total} labels "
           f"in {touched_docs} analyses across {len(users)} users")
     for transition, count in changes.most_common():

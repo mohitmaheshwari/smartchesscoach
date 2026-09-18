@@ -58,7 +58,9 @@ GAP_ENDGAME_TECHNIQUE  = "endgame_technique"
 # be correct on the day it was written and wrong the first time this changed.
 # Live code and backfill both call this.
 
-def mate_gate_label(mate_info: Optional[Dict]) -> Optional[str]:
+def mate_gate_label(
+    mate_info: Optional[Dict], user_color: str = "white"
+) -> Optional[str]:
     """The cognitive gap a mate swing implies, or None if this is not one.
 
     Two halves, and the second one had no rule at all before the amendment:
@@ -68,6 +70,21 @@ def mate_gate_label(mate_info: Optional[Dict]) -> Optional[str]:
 
     "Lost it" allows a 2-move tolerance: mate in 3 becoming mate in 4 is
     still winning and is not the error being described.
+
+    `user_color` is NOT optional in spirit. `mate_info` comes from
+    `stockfish_service.evaluate_position`, which returns `score.white()` --
+    "positive = white mates, negative = black mates". The first version of
+    this gate ignored that, and measured on production it was wrong on 738 of
+    8,863 fires (8.3%):
+
+      613  a BLACK player with after=-17 is mating in 17, i.e. winning, and
+           was told "you walked into mate"
+      109  a WHITE player with before=-22 was being mated and ESCAPED, and
+           was told "you had a forced win and let it go"
+       16  had mate in 2, now faces mate in 3 -- that is losing a won game,
+           not merely a king-safety lapse
+
+    So everything below works in the PLAYER's frame, never white's.
     """
     if not mate_info:
         return None
@@ -87,10 +104,26 @@ def mate_gate_label(mate_info: Optional[Dict]) -> Optional[str]:
     before, after = _mate_in(mate_info.get("before")), _mate_in(mate_info.get("after"))
     if before is None and after is None:
         return None
-    if before is not None and (after is None or abs(after) > abs(before) + 2):
-        return GAP_MISSED_TACTIC
+
+    # Into the player's frame: positive now means THIS PLAYER delivers mate.
+    sign = -1 if str(user_color or "white").lower().startswith("b") else 1
+    before = before * sign if before is not None else None
+    after = after * sign if after is not None else None
+
+    # They had a forced mate and no longer have a fast one. Checked first:
+    # going from mate-in-2 to mate-in-3-against is losing a won game, and
+    # that is the bigger lesson than the king-safety half would give.
+    if before is not None and before > 0:
+        if after is None or after <= 0 or after > before + 2:
+            return GAP_MISSED_TACTIC
+        return None
+
+    # They now face a mate they were not already facing.
     if after is not None and after < 0 and not (before is not None and before < 0):
         return GAP_KING_SAFETY
+
+    # Everything else, including escaping a mate that was against them --
+    # which is a good move, not a mistake, and used to be labelled one.
     return None
 
 
@@ -322,7 +355,8 @@ class AnalysisInterpreter:
         SHAPE_LOOKAHEAD = 6
         for idx, move in enumerate(move_evaluations):
             future = move_evaluations[idx + 1: idx + 1 + SHAPE_LOOKAHEAD]
-            interpreted_move = self._interpret_single_move(move, future_moves=future)
+            interpreted_move = self._interpret_single_move(
+                move, future_moves=future, user_color=user_color)
             interpreted.append(interpreted_move)
 
         # Second pass: detect patterns across moves
@@ -362,6 +396,7 @@ class AnalysisInterpreter:
         self,
         move: Dict,
         future_moves: Optional[List[Dict]] = None,
+        user_color: str = "white",
     ) -> InterpretedMove:
         """Interpret a single move for behavioral patterns.
 
@@ -410,7 +445,7 @@ class AnalysisInterpreter:
         # bucket's average cp_loss reads 7,524 -- those are mate scores, not
         # oversights -- and why 81% of its `generic_oversight` subtype is a
         # mate swing.
-        mate_gap = mate_gate_label(mate_info)
+        mate_gap = mate_gate_label(mate_info, user_color)
         if mate_gap == GAP_MISSED_TACTIC:
             is_critical = True
             critical_reason = CriticalReason.MISSED_MATE.value

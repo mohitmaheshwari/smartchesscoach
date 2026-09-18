@@ -121,3 +121,63 @@ def test_the_scope_records_this_decision():
              "move_classification_from_gold_scope.md").read_text(encoding="utf-8")
     assert "SIGNED OFF 2026-09-18" in scope
     assert "Mate gate" in scope
+
+
+def test_the_gate_reads_mate_scores_in_the_players_frame_not_whites():
+    """The defect that nearly wrote 7,806 labels, 738 of them wrong.
+
+    `mate_info` comes from `stockfish_service.evaluate_position`, which
+    returns `score.white()` -- "positive = white mates, negative = black
+    mates". The first version of this gate ignored that and was colour-blind.
+    Measured on production over 8,863 fires before the fix:
+
+        613  a BLACK player with after=-17 is mating in 17, and was told
+             "you walked into mate"
+        109  a WHITE player with before=-22 was being mated and ESCAPED,
+             and was told "you had a forced win and let it go"
+         16  had mate in 2, now faces mate in 3 -- losing a won game, which
+             is a missed tactic before it is a king-safety lapse
+
+    Every assertion below is one of those three, in both colours.
+    """
+    g = ai.mate_gate_label
+
+    # Losing your own forced mate, from either side of the board.
+    assert g({"before": 3, "after": None}, "white") == "missed_tactic"
+    assert g({"before": -3, "after": None}, "black") == "missed_tactic"
+
+    # Escaping a mate against you is a GOOD move. It is not a missed tactic.
+    assert g({"before": -3, "after": None}, "white") is None
+    assert g({"before": 3, "after": None}, "black") is None
+
+    # Walking into a mate, from either side.
+    assert g({"before": None, "after": -17}, "white") == "king_safety"
+    assert g({"before": None, "after": 17}, "black") == "king_safety"
+
+    # ...and the same number when it means the player is WINNING.
+    assert g({"before": None, "after": -17}, "black") is None
+    assert g({"before": None, "after": 17}, "white") is None
+
+    # Mate in 2 becoming mate in 3 against you is losing a won game.
+    assert g({"before": 2, "after": -3}, "white") == "missed_tactic"
+
+    # Already being mated before the move is not this move's doing.
+    assert g({"before": -2, "after": -3}, "white") is None
+
+
+def test_the_interpreter_passes_the_colour_down_to_the_gate():
+    """The predicate being correct is worth nothing if the caller drops it."""
+    assert "mate_gate_label(mate_info, user_color)" in SOURCE
+    # _interpret_single_move must both accept the colour and be handed it.
+    signature = SOURCE[SOURCE.index("def _interpret_single_move"):]
+    assert "user_color" in signature[: signature.index(") -> InterpretedMove")]
+    call = SOURCE[SOURCE.index("interpreted_move = self._interpret_single_move"):]
+    assert "user_color=user_color" in call[:160]
+
+
+def test_the_backfill_resolves_each_games_colour():
+    """A backfill that assumed white would reintroduce the same 738 errors."""
+    script = (BACKEND / "scripts" / "backfill_mate_gate_labels.py").read_text(
+        encoding="utf-8")
+    assert "user_color" in script
+    assert "mate_gate_label(" in script
