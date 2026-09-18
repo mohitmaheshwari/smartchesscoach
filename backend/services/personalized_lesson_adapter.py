@@ -1097,6 +1097,9 @@ async def grade_personalized_move(
             return {
                 "correct": False,
                 "target_result": "unmeasured",
+                # See the note on the main return below: without this flag the
+                # teaching engine banks a false wrong answer.
+                "unmeasured": True,
                 "soundness": {"status": "unmeasured", "reason": "unsupported_proof_family"},
                 "feedback": "I cannot verify this position safely yet.",
                 "answer_san": None,
@@ -1109,6 +1112,7 @@ async def grade_personalized_move(
             return {
                 "correct": False,
                 "target_result": "unmeasured",
+                "unmeasured": True,
                 "soundness": {"status": "unmeasured", "reason": "illegal_move"},
                 "feedback": "That move is not legal here.",
                 "answer_san": None,
@@ -1160,6 +1164,25 @@ async def grade_personalized_move(
             "correct": target_status == "pass",
             "target_result": target_status,
             "target_reason": target.get("reason"),
+            # "unmeasured" is not "wrong", and the teaching engine reads this
+            # top-level flag -- not target_result -- to decide whether an
+            # attempt becomes learning evidence. This grader never set it, so
+            # a move it declined to judge was banked against the player's
+            # piece_safety record as a genuine wrong answer while the card
+            # itself showed no verdict and said "I will not judge it".
+            #
+            # That is not rare. `grade_destination_safety_candidate` returns
+            # `piece_not_eligible` for every pawn and king move, which is 37%
+            # / 30% / 60% of the legal moves in an Italian middlegame, an open
+            # Sicilian and a pawn endgame respectively -- castling included.
+            # Each of those satisfies the printed question exactly.
+            #
+            # Prod has only two destination-safety attempts on record and
+            # neither was ungraded, so nothing has to be repaired; this stops
+            # it before the lesson gets traffic. Teaching the grader to judge
+            # pawn moves is the real fix and is a content decision, not this
+            # one.
+            "unmeasured": target_status not in ("pass", "fail"),
             "soundness": soundness,
             "feedback": feedback,
             # The engine already found the better move; returning None here
