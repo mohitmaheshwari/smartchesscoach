@@ -268,6 +268,24 @@ DETECTOR_QUALITY_IDS = {
 }
 
 
+# A grade whose evidence we no longer trust. These stay in the queue even at
+# caption grade, because the grade rests on something the lock rejects.
+#
+# simple_hang: its 96.9% comes from 260 events re-checked with a second SEE
+# implementation. Both compute the exchange ON THE SQUARE and neither subtracts
+# what the move captured, so on a recapture they agree and are both wrong --
+# 21.7% of 890 production fires were trades reported as hangs. The defect is
+# fixed; the EVIDENCE still measures geometry rather than the player-facing
+# claim, which is the distinction the threshold lock draws.
+EVIDENCE_UNDER_REVIEW = {
+    "simple_hang": (
+        "Graded on 260 automated SEE re-checks, which missed that a piece "
+        "which just captured is trading, not hanging. Fixed 2026-09-18; "
+        "needs 50 human rulings to replace that evidence."
+    ),
+}
+
+
 def _grade_for(detector: str) -> str:
     """The grade detector_quality holds today, read live rather than copied."""
     from services.detector_quality import _AUTHORIZATIONS
@@ -465,8 +483,13 @@ async def review_results(user: User = Depends(require_admin)):
             "remaining": max(0, 50 - judged),
             "grade": _grade_for(detector),
             # Caption and plan grades already clear the bar this queue builds
-            # toward, so more caption-grade rulings on them buy nothing.
-            "already_promoted": _grade_for(detector) in ("caption", "plan"),
+            # toward, so more caption-grade rulings on them buy nothing --
+            # UNLESS the evidence behind the grade is known to be unsound.
+            "already_promoted": (
+                _grade_for(detector) in ("caption", "plan")
+                and detector not in EVIDENCE_UNDER_REVIEW
+            ),
+            "evidence_note": EVIDENCE_UNDER_REVIEW.get(detector),
             "on_track": (
                 None if judged < 5
                 else (100 * counts["true"] / judged) >= 95

@@ -361,6 +361,11 @@ export default function AdminDetectorReview() {
                 time pays.
               </p>
             )}
+            {summary?.evidence_note && (
+              <p className="text-xs mt-1 text-amber-700 dark:text-amber-500">
+                <strong>Grade under review.</strong> {summary.evidence_note}
+              </p>
+            )}
           </div>
         )}
 
