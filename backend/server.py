@@ -664,6 +664,11 @@ app.include_router(admin_routes.router, prefix="/api")
 from routes import admin_positional_reasons as admin_positional_reason_routes  # noqa: E402
 admin_positional_reason_routes.set_db(db)
 app.include_router(admin_positional_reason_routes.router, prefix="/api")
+# Read what a shadow detector would actually say, and rule on it. Pre-launch,
+# a claim nobody can see is a claim nobody can fix -- see the module docstring.
+from routes import admin_detector_review as admin_detector_review_routes  # noqa: E402
+admin_detector_review_routes.set_db(db)
+app.include_router(admin_detector_review_routes.router, prefix="/api")
 caption_authoring_routes.set_db(db)
 app.include_router(caption_authoring_routes.router, prefix="/api")
 app.include_router(thinking_routes.router, prefix="/api")

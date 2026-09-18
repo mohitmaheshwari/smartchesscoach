@@ -52,6 +52,7 @@ import AdminCaptionAuthoring from "@/pages/AdminCaptionAuthoring";
 import AdminPositionalReasons from "@/pages/AdminPositionalReasons";
 import AdminReasonJudge from "@/pages/AdminReasonJudge";
 import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
+import AdminDetectorReview from "@/pages/AdminDetectorReview";
 import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import VerifiedEndgameLesson from "@/pages/VerifiedEndgameLesson";
@@ -499,6 +500,13 @@ function AppRouter() {
       <Route path="/admin/geometry-gaps" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminGeometryGaps user={user} />}
+        </ProtectedRoute>
+      } />
+      {/* Read what a shadow detector would say, and rule on it. Pre-launch,
+          a claim nobody can see is a claim nobody can fix. */}
+      <Route path="/admin/detector-review" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminDetectorReview user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/admin/captions/drafts" element={
