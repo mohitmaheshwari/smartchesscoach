@@ -16,8 +16,8 @@ evaluation was a mate score against the player:
 
 So this claims only the last group. It replays `pv_after_played` and requires
 an actual `board.is_checkmate()`. The 343 proven cases in that sample ran to a
-median of 1 ply and a maximum of 3 -- "you played this and it is mate in one"
-is about as checkable as a chess claim gets.
+median of 1 ply and a maximum of 3, which makes the resulting claim about as
+checkable as a chess statement gets.
 
 The 24.3% are not denied, they are left UNKNOWN. Extending them needs a fresh
 engine search per position; at roughly 5,600 positions corpus-wide and ~1.1s
