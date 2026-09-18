@@ -5390,23 +5390,54 @@ def build_move_teaching_decision(
         _trap_arrows = []
         _target = _own_trap["square"]
         _attacker_sq = _own_trap.get("attacker_square") or ""
-        if _attacker_sq:
-            _trap_arrows.append({"from": _attacker_sq, "to": _target, "color": "green"})
         _evidence = _own_trap.get("escape_evidence") or []
-        # The piece's own moves first: they are the shape, and they are never
-        # dropped by the cap.
-        for _ev in _evidence:
-            _sq = _ev.get("square")
-            if _sq:
-                _trap_arrows.append({"from": _target, "to": _sq, "color": "yellow"})
-        # Then who covers each one, filling whatever room is left.
-        _CAP = 14
-        for _ev in _evidence:
-            _sq = _ev.get("square")
-            for _cov in (_ev.get("covered_by") or []):
-                if len(_trap_arrows) >= _CAP:
-                    break
-                _trap_arrows.append({"from": _cov, "to": _sq, "color": "red"})
+
+        # Mohit 2026-09-17 called the geometry "terrible ... it kills the
+        # experience", and the suppression added then dropped every arrow that
+        # was not tagged -- including this cage, which he had ASKED for a day
+        # earlier ("whenever a piece is trapped I want arrows to print out all
+        # the positions that piece had"). The cage was never the problem; it
+        # was ungoverned.
+        #
+        # Measured over 500 games, 241 trapped-piece cards: the cage draws a
+        # median of 4 arrows and 41% draw just 3, but the tail runs to 41. The
+        # victim has exactly ONE escape square on 54% of them, and <=4 on 88%.
+        # So the clutter is a tail, not the shape.
+        #
+        # Above 4 escape squares we ABSTAIN rather than truncate. A cut-off
+        # cage is not a smaller lesson, it is a false one -- it shows "here are
+        # its squares" while hiding some -- and a piece with six flight squares
+        # does not read as trapped anyway. Losing a proof beats showing a
+        # misleading one.
+        _MAX_ESCAPES = 4
+        _CAP = 6
+        if len(_evidence) > _MAX_ESCAPES:
+            _trap_arrows = []
+        else:
+            if _attacker_sq:
+                _trap_arrows.append({
+                    "from": _attacker_sq, "to": _target,
+                    "color": "green", "teach": True,
+                })
+            # The victim's own moves are the shape, so they go before the
+            # coverers and are never squeezed out by them.
+            for _ev in _evidence:
+                _sq = _ev.get("square")
+                if _sq:
+                    _trap_arrows.append({
+                        "from": _target, "to": _sq,
+                        "color": "yellow", "teach": True,
+                    })
+            # Then who covers each one, filling whatever room is left.
+            for _ev in _evidence:
+                _sq = _ev.get("square")
+                for _cov in (_ev.get("covered_by") or []):
+                    if len(_trap_arrows) >= _CAP:
+                        break
+                    _trap_arrows.append({
+                        "from": _cov, "to": _sq,
+                        "color": "red", "teach": True,
+                    })
 
         _arrows = _trap_arrows + list(caption_payload.get("arrows") or [])
         _high = list(caption_payload.get("highlight_squares") or [])
