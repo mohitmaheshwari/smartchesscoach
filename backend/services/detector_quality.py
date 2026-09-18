@@ -173,6 +173,27 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "Requires a different stored best move and at least 100cp consequence.",
         ),
     ),
+    "gap:king_safety:allowed_mate_exact": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref="docs/allowed_mate_evidence_2026_09_18.md",
+        rationale=(
+            "The claim is replayed to an actual board.is_checkmate() from the "
+            "position after the played move, using the stored continuation. "
+            "Moves already lost before the move are excluded, which is two "
+            "thirds of the evaluation-sentinel candidates. Shadow until the "
+            "reviewed packet exists."
+        ),
+        limitations=(
+            "An evaluation sentinel alone proves nothing: 66.5% of candidates "
+            "were already in a mating net before the move.",
+            "Stored PVs run 4-6 moves, so 24.3% of genuine cases cannot be "
+            "proven from storage and are left unknown rather than denied.",
+            "Precise and partial by construction -- caption-grade trade, not "
+            "plan-grade; recall needs the engine extension pass.",
+            "Says nothing about why the player missed it, only that the "
+            "position after their move is a forced mate.",
+        ),
+    ),
     "gap:opening_knowledge:left_book_for_a_worse_move": Authorization(
         grade=QualityGrade.SHADOW,
         evidence_ref="docs/opening_left_book_evidence_2026_09_18.md",
