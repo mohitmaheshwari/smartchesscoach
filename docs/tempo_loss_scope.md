@@ -1,6 +1,7 @@
 # Tempo loss in the opening — scope
 
 Status: DRAFT, awaiting Mohit's sign-off. No code until then.
+The blocking measurement is done — see the funnel. Ready for a yes/no.
 Plain English. 2026-09-19.
 
 ---
@@ -99,10 +100,30 @@ So a third gate is required: **tempo only speaks when no simpler material
 explanation does.** The same precedence the mate gate has over hangs, and that
 `left_book` now has when a move drops a piece.
 
-**First task, before writing the detector:** run `simple_hang`, the motif
-proofs and the mate gate across those 383 and count how many are left. If the
-residue is small the detector is not worth building; if it is most of them, it
-is. That number decides whether this scope proceeds, and I do not have it yet.
+**MEASURED 2026-09-19.** Ran `simple_hang`, both motif proofs and the mate
+gate across all 383:
+
+| what speaks | count |
+|---|---|
+| **RESIDUE — tempo is the best explanation we have** | **290 (75.7%)** |
+| a hung piece speaks instead | 85 (22.2%) |
+| a mate swing speaks instead | 4 (1.0%) |
+| a missed motif speaks instead | 4 (1.0%) |
+
+290 in 600 analyses is roughly one case every other game. **The gate is
+answered: this is worth building.**
+
+One honest caveat on that 290. It means *nothing else we have explains the
+move* — not that tempo is the true cause. A move can be bad for a positional
+reason we do not detect at all (a weakened square, a ruined structure), and
+this would claim it as tempo. That is precisely the causal-attribution gap the
+threshold lock names, and it is why the detector ships to shadow and earns its
+grade through the review queue like every other one. The residue is a
+**candidate** set, not a verified one.
+
+The residue looks right on inspection — `Ng4` twice, `Qf5+` (the early queen
+wandering), `Bf5` — but two or three examples are not evidence, which is a
+lesson from earlier the same day.
 
 ---
 
