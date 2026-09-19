@@ -234,8 +234,36 @@ def _produce_simple_hang(move, colour, analysis):
             if cap is not None and cap.color == board.turn:
                 lost_next += 1
             replay.push(nxt)
-        if gain >= 300 and lost_next:
+        # Does the opponent's OWN continuation actually take the piece?
+        #
+        # Mohit's d6 card: SEE on the square says +300, and the engine's
+        # fourth-choice Qxd6 scores +14 against Rb1 at +112, because Qxd6 is
+        # answered by Qxa1 on the far side of the board. A piece you can take
+        # but should not is not hanging, and no square-level test can see the
+        # refutation.
+        #
+        # Measured on 506 fires: the opponent takes it immediately in 74.7%,
+        # never in 19.8%, later in 5.5%. "Never" is NOT proof the claim is
+        # false -- they may simply have something better -- so this does not
+        # suppress. It routes the claim to a person, which is what confidence
+        # is for.
+        takes_it = None
+        try:
+            probe = chess.Board(str(move.get("fen_after") or ""))
+            for index, san in enumerate(list(move.get("pv_after_played") or [])[:4]):
+                nxt = probe.parse_san(str(san))
+                if nxt.to_square == sq and probe.is_capture(nxt):
+                    takes_it = index + 1
+                    break
+                probe.push(nxt)
+        except Exception:  # noqa: BLE001
+            takes_it = None
+
+        if takes_it == 1 and gain >= 300:
             confidence = CONFIDENCE_CERTAIN
+        elif takes_it is None and move.get("pv_after_played"):
+            # They had the chance and passed. Worth a human look.
+            confidence = CONFIDENCE_UNCERTAIN
         elif not lost_next:
             confidence = CONFIDENCE_UNCERTAIN   # says hanging, nothing was lost
         else:
