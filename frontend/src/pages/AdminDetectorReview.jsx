@@ -19,7 +19,7 @@
  * accumulates the precision figure a promotion packet needs, and
  * detector_quality stays the only authority over what reaches a player.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -130,9 +130,20 @@ export default function AdminDetectorReview() {
     }
   };
 
+  // Guards against an out-of-order batch. Switching detector fires a second
+  // fetch while the first is still in flight, and the SLOWER one used to win:
+  // Mohit ruled a discovered_attack card while the page header said
+  // allowed_mate (2026-09-19). The verdict was still recorded against the
+  // card's own detector, so the data was right and only the label lied -- but
+  // a reviewer cannot judge a claim they think belongs to something else.
+  const requestSeq = useRef(0);
+
   const load = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     setRuled({});
+    // Never show the previous detector's cards under the new one's heading.
+    setClaims([]);
     // Back to the first card of the new batch. Without this the cursor stays
     // at 20 while a fresh 20-card batch arrives, the "ran off the end" effect
     // fires again immediately, and the page reloads forever.
@@ -145,6 +156,10 @@ export default function AdminDetectorReview() {
         { credentials: "include" }
       );
       const body = res.ok ? await res.json() : {};
+      // A batch that arrives after a newer request was made is stale: drop it.
+      if (seq !== requestSeq.current) return;
+      // And never trust the response to be for the detector we are showing.
+      if (body.detector && body.detector !== detector) return;
       setClaims(body.claims || []);
       setScanInfo({
         scanned: body.scanned_analyses,
@@ -152,7 +167,7 @@ export default function AdminDetectorReview() {
         split: body.confidence_split,
       });
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [detector]);
 
@@ -704,6 +719,16 @@ export default function AdminDetectorReview() {
                         <>move {e.move_number} of {c.game_id}</>
                       )}
                     </dd>
+                  </div>
+                  {/* The card says which detector it belongs to, not just the
+                      page heading. Mohit ruled a discovered_attack claim
+                      believing it was allowed_mate (2026-09-19); the stale
+                      batch that caused it is fixed, but a reviewer should
+                      never have to trust the header to know what they are
+                      judging. */}
+                  <div>
+                    <dt className="text-muted-foreground">detector</dt>
+                    <dd className="font-mono text-xs">{c.detector}</dd>
                   </div>
                 </dl>
 
