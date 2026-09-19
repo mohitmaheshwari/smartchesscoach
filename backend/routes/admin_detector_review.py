@@ -267,6 +267,59 @@ def _produce_simple_hang(move, colour, analysis):
     )
 
 
+def _discovered_attack_caption(board, best_move, facts):
+    """A caption a 1200 can act on, built only from board facts.
+
+    The old one -- "Nxf3+ was there instead, and it wins material with a
+    discovered attack" -- named the motif and explained nothing. A player who
+    did not already know what a discovered attack is learns nothing, and one
+    who does still cannot see WHICH piece was blocking WHAT.
+
+    So: name the geometry (your own piece stands in front of your queen), name
+    what it uncovers, say whether the target is defended, and end on the scan
+    that transfers. The motif's name goes last, as a label for a thing they
+    have just been shown -- not as an explanation in itself.
+    """
+    try:
+        mv = board.parse_san(str(best_move))
+    except Exception:  # noqa: BLE001
+        return None
+    attacker_sq = str(facts.get("discovered_attacker_square") or "")
+    target_sq = str(facts.get("target_square") or "")
+    if not attacker_sq or not target_sq:
+        return None
+    blocker = board.piece_at(mv.from_square)
+    attacker = facts.get("discovered_attacker_piece_type")
+    target = facts.get("target_piece_type")
+    if blocker is None or not attacker or not target:
+        return None
+
+    after = board.copy(stack=False)
+    after.push(mv)
+    undefended = not after.attackers(not board.turn, chess.parse_square(target_sq))
+    gives_check = after.is_check()
+
+    # Under the 60-word cap in caption_config.json. The first draft ran 70-76
+    # and would have been cut at a sentence boundary with no ellipsis -- which
+    # eats the LAST sentence, and the last sentence is the principle. The
+    # thing worth keeping would have disappeared silently.
+    blocker_word = chess.piece_name(blocker.piece_type)
+    lead = (f"Your own {blocker_word} on {chess.square_name(mv.from_square)} "
+            f"stands in front of your {attacker} on {attacker_sq}.")
+    middle = (f"{best_move} moves it away"
+              + (" with check" if gives_check else "")
+              + f", and the {attacker} then looks straight at the "
+                f"{target} on {target_sq}"
+              + (" — which nothing defends." if undefended else "."))
+    principle = ("When your own piece blocks your queen, rook or bishop, "
+                 "look at what sits at the far end of that line. "
+                 "That is a discovered attack.")
+    caption = f"{lead} {middle} {principle}"
+    if len(caption.split()) > 60:      # never ship one the renderer would cut
+        caption = f"{lead} {middle}"
+    return caption
+
+
 def _missed_motif(builder, label):
     """Shared shape for the two motif proofs.
 
@@ -391,6 +444,24 @@ def _missed_motif(builder, label):
                     return None
         side, arrow = _orientation_and_arrow(fen, best)
         confidence = _motif_confidence(names, probe, after, board.turn, best_gain)
+        coachable = None
+        if label == "discovered attack":
+            coachable = _discovered_attack_caption(board.copy(), best, head)
+        if coachable:
+            return (coachable, {
+                "review_fen": fen, "line_fen": fen,
+                "fen_before": fen, "fen_after": move.get("fen_after"),
+                "played_san": played, "best_move": best,
+                "move_number": move.get("move_number"),
+                "cp_loss": move.get("cp_loss"),
+                "pv_after_played": list(move.get("pv_after_played") or [])[:8],
+                "pv_after_best": list(move.get("pv_after_best") or [])[:8],
+                "side_to_move": side, "arrow": arrow,
+                "arrow_is": f"the {label} that was available",
+                "confidence": confidence,
+                "quality_id": getattr(bundle, "quality_id", None),
+                "detector_facts": [dict(f) for f in facts][:4],
+            })
         return (
             # Provisional review wording only, never served to a player --
             # see the docstring above.
