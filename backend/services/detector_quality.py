@@ -215,7 +215,17 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "tactic:discovered_attack_with_stored_payoff": Authorization(
-        grade=QualityGrade.CAPTION,
+        # REVERTED to shadow 2026-09-19, hours after promotion, at Mohit's
+        # agreement. The packet said 52 reviewed / 0 wrong. One more hour of
+        # human review produced a FALSE claim -- a "discovered attack" whose
+        # stored line stopped one ply before the opponent recaptured the
+        # queen, recommending a move that loses 100cp. The payoff bug is
+        # fixed and all 49 true fires survive, but two facts stand: the
+        # evidence was overstated twice in one day, and the count is 49
+        # against a bar of 50. Fails closed until 50 clean rulings exist on
+        # the FIXED code. The caption wiring reads this grade, so nothing
+        # renders while it says shadow.
+        grade=QualityGrade.SHADOW,
         evidence_ref="docs/discovered_attack_caption_promotion_2026_09_19.md",
         rationale=(
             "Meets every Caption-grade value in the 2026-08-27 threshold lock, "
