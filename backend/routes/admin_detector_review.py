@@ -320,6 +320,62 @@ def _discovered_attack_caption(board, best_move, facts):
     return caption
 
 
+def _fork_caption(board, best_move, facts):
+    """Same shape as the discovered-attack caption: geometry, then the scan.
+
+    The old one -- "it wins material with a fork" -- named the motif and left
+    the player to find it. Which two pieces? Why can they not both escape?
+    Those are the lesson and they are both board facts.
+    """
+    try:
+        mv = board.parse_san(str(best_move))
+    except Exception:  # noqa: BLE001
+        return None
+    squares = [str(t) for t in (facts.get("targets") or [])]
+    if len(squares) < 2:
+        return None
+    after = board.copy(stack=False)
+    after.push(mv)
+
+    hits = []
+    for name in squares:
+        try:
+            sq = chess.parse_square(name)
+        except (ValueError, TypeError):
+            continue
+        piece = after.piece_at(sq)
+        if piece is None:
+            continue
+        hits.append((chess.piece_name(piece.piece_type), name,
+                     piece.piece_type == chess.KING))
+    if len(hits) < 2:
+        return None
+
+    forker = board.piece_at(mv.from_square)
+    forker_word = chess.piece_name(forker.piece_type) if forker else "piece"
+    king = next((h for h in hits if h[2]), None)
+    other = next((h for h in hits if not h[2]), None)
+
+    if king and other:
+        # The forcing case: the king has to move, so the other one falls.
+        lead = (f"{best_move} hits their king on {king[1]} and the "
+                f"{other[0]} on {other[1]} at the same time.")
+        middle = f"The king has to move, and then the {other[0]} drops."
+        principle = (f"When a {forker_word} lands near their king, check what "
+                     f"else it reaches from that square.")
+    else:
+        a, b_ = hits[0], hits[1]
+        lead = (f"{best_move} attacks the {a[0]} on {a[1]} and the "
+                f"{b_[0]} on {b_[1]} at once.")
+        middle = "Only one of them can get out of the way."
+        principle = ("Before you move, look for a square that touches two of "
+                     "their pieces at the same time.")
+    caption = f"{lead} {middle} {principle}"
+    if len(caption.split()) > 60:
+        caption = f"{lead} {middle}"
+    return caption
+
+
 def _missed_motif(builder, label):
     """Shared shape for the two motif proofs.
 
@@ -447,19 +503,31 @@ def _missed_motif(builder, label):
         coachable = None
         if label == "discovered attack":
             coachable = _discovered_attack_caption(board.copy(), best, head)
+        elif label == "fork":
+            coachable = _fork_caption(board.copy(), best, head)
         if coachable:
             # The caption says "the queen then looks straight at the rook on
             # a1". Until now the board drew the two MOVES and never that line,
             # so the one thing the lesson is about was invisible. Yellow is
             # the coach's-point brush per docs/coach_geometry_arrows_scope.md.
             discovered_line = None
+            extra = []
             try:
                 a_sq = str(head.get("discovered_attacker_square") or "")
                 t_sq = str(head.get("target_square") or "")
                 if a_sq and t_sq:
                     discovered_line = [a_sq, t_sq, "yellow"]
+                    extra = [discovered_line]
+                elif head.get("targets"):
+                    # A fork: draw the landing square onto BOTH targets, which
+                    # is the whole point and was previously invisible.
+                    landing = chess.square_name(
+                        board.parse_san(str(best)).to_square)
+                    extra = [[landing, str(t), "yellow"]
+                             for t in head["targets"]][:3]
             except Exception:  # noqa: BLE001
                 discovered_line = None
+                extra = []
             return (coachable, {
                 "review_fen": fen, "line_fen": fen,
                 "fen_before": fen, "fen_after": move.get("fen_after"),
@@ -470,12 +538,14 @@ def _missed_motif(builder, label):
                 "pv_after_best": list(move.get("pv_after_best") or [])[:8],
                 "side_to_move": side, "arrow": arrow,
                 "arrow_is": f"the {label} that was available",
-                "extra_arrows": [discovered_line] if discovered_line else [],
+                "extra_arrows": extra,
                 "extra_arrows_is": (
-                    f"the line it opens: your "
-                    f"{head.get('discovered_attacker_piece_type')} onto the "
-                    f"{head.get('target_piece_type')}"
-                ) if discovered_line else None,
+                    (f"the line it opens: your "
+                     f"{head.get('discovered_attacker_piece_type')} onto the "
+                     f"{head.get('target_piece_type')}")
+                    if discovered_line
+                    else ("what the move hits — both at once" if extra else None)
+                ),
                 "confidence": confidence,
                 "quality_id": getattr(bundle, "quality_id", None),
                 "detector_facts": [dict(f) for f in facts][:4],
