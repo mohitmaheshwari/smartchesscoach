@@ -499,7 +499,7 @@ def _worst_issue_type(diagnosis: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-async def apply_diagnosis_to_training(db, user_id: str, attempts: List[Dict[str, Any]]) -> Dict[str, Any]:
+async def apply_diagnosis_to_training(db, user_id: str, attempts: List[Dict[str, Any]], *, record_weakness: bool = True) -> Dict[str, Any]:
     """Score the (possibly partial) attempts and feed the worst category into the
     same weakness pipeline game analysis uses. Safe to call repeatedly (a longer
     run just refines the focus). Returns the diagnosis dict.
@@ -518,7 +518,8 @@ async def apply_diagnosis_to_training(db, user_id: str, attempts: List[Dict[str,
 
     cat, subcat = _ISSUE_TO_WEAKNESS.get(worst, ("tactical", "one_move_blunders"))
     try:
-        await update_weakness_tracking(db, user_id, [{"category": cat, "subcategory": subcat}])
+        if record_weakness:
+            await update_weakness_tracking(db, user_id, [{"category": cat, "subcategory": subcat}])
     except Exception as e:  # never let a wiring hiccup break the diagnostic
         logger.warning(f"diagnostic->weakness write failed for {user_id}: {e}")
 
@@ -788,66 +789,40 @@ class DiagnosticGrader:
             return "is checkmate"
         cap = facts.get("captures")
         if cap and facts.get("gives_check"):
-            return f"wins the {cap} with check"
+            return f"captures the {cap} and gives check"
         if cap:
-            return f"wins the {cap}"
+            return f"captures the {cap}"
         if facts.get("gives_check"):
-            return "keeps the pressure on with check"
-        return "was the strongest idea here"
-
-    _UNDERSTOOD_TAIL = {
-        "fork": "that's exactly the fork.",
-        "pin": "the pin made it work.",
-        "skewer": "that's the skewer.",
-        "mate_patterns": "you saw the mate.",
-        "piece_safety": "nothing left hanging.",
-        "threat_response": "threat handled.",
-        "calculation": "you saw the line through.",
-        "opening": "good opening judgment.",
-        "endgame": "clean technique.",
-        "winning_technique": "that keeps the win in hand.",
-    }
+            return "gives check"
+        return "is the move in the verified line"
 
     def _generate_verdict_explanation(
         self, puzzle: Dict[str, Any], user_san: str, solution_san: str,
         verdict: str, *, is_exact: bool, eval_after: int, fen: str,
         solution_uci: str,
     ) -> str:
-        concept = puzzle.get("concept", "")
         facts = self._solution_facts(fen, solution_uci)
         outcome = self._outcome_clause(facts)
 
         if verdict == "UNDERSTOOD":
             if is_exact:
-                tail = self._UNDERSTOOD_TAIL.get(concept, "well spotted.")
-                return f"{solution_san} {outcome} — {tail}"
+                return f"Your move matches the verified line. {solution_san} {outcome}."
             return (
-                f"{user_san} works too — it keeps you on top. "
-                f"Our line was {solution_san}."
+                f"Your {user_san} is also accepted by the stored analysis. "
+                f"You did not need to choose {solution_san} to get this move right."
             )
 
         if verdict == "PARTIAL":
             return (
-                f"{user_san} doesn't give anything big away, but "
-                f"{solution_san} {outcome} — worth a second look."
+                f"The stored analysis prefers {solution_san} to your {user_san}. "
+                f"In that line, {solution_san} {outcome}."
             )
 
-        # MISSING
-        if concept == "threat_response" and _eval_sign(eval_after) < 0:
-            consequence = "the threat is still hanging over you"
-        elif _eval_sign(eval_after) < 0:
-            consequence = "your opponent takes over"
-        elif _eval_sign(eval_after) == 0:
-            consequence = "the advantage is gone"
-        else:
-            consequence = "most of your edge slips away"
-        if facts.get("is_mate"):
-            idea = f"The idea was {solution_san} — checkmate on the spot."
-        elif outcome == "was the strongest idea here":
-            idea = f"The idea was {solution_san}."
-        else:
-            idea = f"The idea was {solution_san} — it {outcome}."
-        return f"{idea} After {user_san}, {consequence}."
+        # A pool theme and an evaluation cannot establish a tactical mechanism,
+        # net material gain, or what the player understood. State only the grade
+        # comparison and immediate board facts until causal proof is available.
+        return (f"The stored analysis rates {solution_san} more highly than your {user_san}. "
+                f"In that line, {solution_san} {outcome}.")
 
 
 # ── consistency gating + difficulty staircase ────────────────────────
@@ -955,22 +930,21 @@ def score_diagnostic_v2(session: Dict[str, Any]) -> Dict[str, Any]:
              if per_concept[c]["level"] == "solid"]
     if headline_gap and solid:
         summary = (
-            f"You handled {solid[0].lower()} well. The clearest place to "
-            f"grow: {CONCEPT_LABEL[headline_gap].lower()} — that's where "
-            f"we'll start."
+            f"You handled the {solid[0].lower()} positions well. "
+            f"Let's take a closer look at {CONCEPT_LABEL[headline_gap].lower()} next."
         )
     elif headline_gap:
         summary = (
-            f"The clearest place to grow: "
-            f"{CONCEPT_LABEL[headline_gap].lower()} — that's where we'll start."
+            f"These answers suggest exploring "
+            f"{CONCEPT_LABEL[headline_gap].lower()} together next."
         )
     elif solid:
         summary = (
-            f"Strong across the board, especially {solid[0].lower()}. "
-            f"A few real games will sharpen the picture."
+            f"You handled these positions well, including {solid[0].lower()}. "
+            f"Your games will help us find what to explore next."
         )
     else:
-        summary = "Mixed across the board. A few real games will sharpen this picture."
+        summary = "I need more examples before suggesting a focus. We can learn more from your games."
 
     return {
         "version": 2,
@@ -1009,7 +983,7 @@ _CONCEPT_TO_FOCUS: Dict[str, str] = {
 }
 
 
-async def apply_diagnosis_v2_to_training(db, user_id: str, session: Dict[str, Any]) -> Dict[str, Any]:
+async def apply_diagnosis_v2_to_training(db, user_id: str, session: Dict[str, Any], *, record_weakness: bool = True) -> Dict[str, Any]:
     """Score a v2 session and feed the headline gap into the same
     weakness pipeline game analysis uses (see v1 wiring notes above)."""
     from player_profile_service import update_weakness_tracking, get_or_create_profile
@@ -1024,7 +998,8 @@ async def apply_diagnosis_v2_to_training(db, user_id: str, session: Dict[str, An
 
     cat, subcat = _CONCEPT_TO_WEAKNESS.get(gap, ("tactical", "one_move_blunders"))
     try:
-        await update_weakness_tracking(db, user_id, [{"category": cat, "subcategory": subcat}])
+        if record_weakness:
+            await update_weakness_tracking(db, user_id, [{"category": cat, "subcategory": subcat}])
     except Exception as e:
         logger.warning(f"diagnostic v2 -> weakness write failed for {user_id}: {e}")
 

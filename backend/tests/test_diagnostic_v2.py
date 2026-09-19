@@ -113,7 +113,7 @@ def test_grading():
     check("exact solution is_exact", r["is_exact"])
     check("exact solution uses frozen truth", r["source"] == "offline_frozen")
     check("exact explanation mentions solution", "Qc5+" in r["explanation"], r["explanation"])
-    check("exact explanation names the fork", "fork" in r["explanation"], r["explanation"])
+    check("pool theme alone does not prove a fork", "fork" not in r["explanation"], r["explanation"])
 
     # UCI input accepted too
     r = g._grade_move_consequence("e7c5", exact_fork)

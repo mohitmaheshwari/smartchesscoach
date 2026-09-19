@@ -40,6 +40,13 @@ const DiagnosticPuzzles = () => {
   const [puzzleNumber, setPuzzleNumber] = useState(1);
   const [verdict, setVerdict] = useState(null); // {verdict, explanation, cp_loss, concept_progress}
   const [diagnosis, setDiagnosis] = useState(null);
+  // Keep the next server payload separate until the learner finishes reading.
+  const [pendingResponse, setPendingResponse] = useState(null);
+  const [playedFen, setPlayedFen] = useState(null);
+  const [attemptError, setAttemptError] = useState(null);
+  const [continuationError, setContinuationError] = useState(null);
+  const feedbackSessionRef = useRef(null);
+  const submissionInFlightRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [conceptProgress, setConceptProgress] = useState({}); // per-concept verdicts
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -76,6 +83,22 @@ const DiagnosticPuzzles = () => {
           return;
         }
         const data = await res.json();
+        feedbackSessionRef.current = data.feedback_protocol === "explicit_v1" ? data.feedback_session : null;
+        if (data.status === "feedback" && data.puzzle && data.feedback) {
+          setPuzzle(data.puzzle);
+          setPuzzleNumber(data.current_index || 1);
+          setPlayedFen(data.played_fen);
+          setPendingResponse(data.feedback);
+          const saved = data.feedback;
+          setVerdict({
+            verdict: saved.step_verdict || saved.verdict || (
+              typeof saved.is_correct === "boolean" ? (saved.is_correct ? "UNDERSTOOD" : "MISSING") : null),
+            explanation: saved.explanation, cp_loss: saved.cp_loss,
+          });
+          if (saved.status === "complete") diagnosisRef.current = saved.diagnosis || { complete: true };
+          setLoading(false);
+          return;
+        }
         if (data.status === "superseded") {
           // User has 10+ analyzed games — diagnostic isn't needed.
           navigateRef.current("/home");
@@ -130,8 +153,8 @@ const DiagnosticPuzzles = () => {
   const answeredRef = useRef(0);
   const reportedRef = useRef(false);
   useEffect(() => {
-    answeredRef.current = Math.max(0, puzzleNumber - 1) + (verdict ? 1 : 0);
-  }, [puzzleNumber, verdict]);
+    answeredRef.current = Math.max(0, puzzleNumber - 1) + (verdict && !pendingResponse?.multi_move ? 1 : 0);
+  }, [puzzleNumber, verdict, pendingResponse]);
   useEffect(() => {
     diagnosisRef.current = diagnosis;
   }, [diagnosis]);
@@ -212,10 +235,14 @@ const DiagnosticPuzzles = () => {
 
   // ── Submit an attempt ──────────────────────────────────────────
   const handleMove = async (moveData) => {
-    if (!puzzle || submitting) return;
+    if (!puzzle || verdict || attemptError || submitting || submissionInFlightRef.current) return;
     const san = moveToSan(puzzle.fen, moveData.from, moveData.to, moveData.promotion);
     if (!san) return;
 
+    submissionInFlightRef.current = true;
+    const playedBoard = new Chess(puzzle.fen);
+    playedBoard.move(san);
+    setPlayedFen(playedBoard.fen());
     setSubmitting(true);
     try {
       const res = await fetch(`${API}/diagnostic/attempt`, {
@@ -225,11 +252,16 @@ const DiagnosticPuzzles = () => {
         body: JSON.stringify({
           puzzle_id: puzzle.puzzle_id,
           user_move_san: san,
+          ...(feedbackSessionRef.current ? {
+            feedback_session: feedbackSessionRef.current, feedback_fen: puzzle.fen,
+          } : {}),
         }),
       });
       if (!res.ok) {
-        setError(`Could not record your answer (${res.status}).`);
-        setSubmitting(false);
+        // A failed response is not a chess verdict and may follow a saved move.
+        setAttemptError(res.status === 409
+          ? "I can't verify this answer right now. This is not a judgment about your move."
+          : "I couldn't confirm whether your answer was saved. Check the saved position before trying again.");
         return;
       }
       const data = await res.json();
@@ -242,14 +274,22 @@ const DiagnosticPuzzles = () => {
       // residency review, the funnel question is "where does commitment
       // break," not "grade every answer." puzzle_number is enough to
       // plot the drop-off curve.
-      track(ANALYTICS_EVENTS.DIAGNOSTIC_PUZZLE_COMPLETED, { puzzle_number: puzzleNumber });
+      if (!data.multi_move) {
+        track(ANALYTICS_EVENTS.DIAGNOSTIC_PUZZLE_COMPLETED, { puzzle_number: puzzleNumber });
+      }
 
       // Show the verdict card so the user gets feedback.
+      // Intermediate V2 steps and legacy answers use different contracts.
+      const moveVerdict = data.step_verdict || data.verdict || (
+        typeof data.is_correct === "boolean"
+          ? (data.is_correct ? "UNDERSTOOD" : "MISSING") : null
+      );
       setVerdict({
-        verdict: data.verdict,
+        verdict: moveVerdict,
         explanation: data.explanation,
         cp_loss: data.cp_loss,
       });
+      setPendingResponse(data);
 
       // Update concept progress
       if (data.concept_progress) {
@@ -258,31 +298,76 @@ const DiagnosticPuzzles = () => {
 
       if (data.status === "complete") {
         track(ANALYTICS_EVENTS.DIAGNOSTIC_COMPLETED, { exited_early: false, puzzle_count: puzzleNumber });
-        // Hold the verdict briefly, then reveal the diagnosis.
-        setTimeout(() => {
-          setDiagnosis(data.diagnosis);
-          setPuzzle(null);
-          setVerdict(null);
-          setSubmitting(false);
-        }, 2000);
+        // Saved completion does not dismiss the last move's feedback.
+        diagnosisRef.current = data.diagnosis || { complete: true };
+      }
+    } catch (e) {
+      setAttemptError("The connection was interrupted. Your answer may have saved; check the saved position before trying again.");
+    } finally {
+      setSubmitting(false);
+      submissionInFlightRef.current = false;
+    }
+  };
+
+  const continueAfterFeedback = async () => {
+    if (!pendingResponse || submissionInFlightRef.current) return;
+    // Do not acknowledge a response that cannot supply the promised next screen.
+    if ((pendingResponse.status === "complete" && !pendingResponse.diagnosis)
+        || (pendingResponse.status !== "complete" && !pendingResponse.puzzle)) {
+      setAttemptError("Your answer was saved, but the next step is unavailable. Check the saved position to continue.");
+      return;
+    }
+    if (pendingResponse.feedback_id) {
+      submissionInFlightRef.current = true;
+      setSubmitting(true);
+      setContinuationError(null);
+      try {
+        const res = await fetch(`${API}/diagnostic/feedback/continue`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
+          body: JSON.stringify({ feedback_id: pendingResponse.feedback_id }),
+        });
+        if (!res.ok) throw new Error("Feedback acknowledgement failed");
+        const saved = await res.json();
+        if (saved.feedback_id !== pendingResponse.feedback_id) throw new Error("Feedback changed");
+      } catch {
+        setContinuationError("I couldn't confirm Continue. Your answer is saved. Please try Continue again.");
+        return;
+      } finally {
+        submissionInFlightRef.current = false;
+        setSubmitting(false);
+      }
+    }
+    if (pendingResponse.status === "complete") {
+      if (!pendingResponse.diagnosis) {
+        setAttemptError("Your answers were saved, but the summary is unavailable. Check the saved position to continue.");
         return;
       }
-
-      // Move to next puzzle after a short reveal.
-      setTimeout(() => {
-        setPuzzle(data.puzzle);
-        setPuzzleNumber(data.puzzle_number);
-        setVerdict(null);
-        setSubmitting(false);
-      }, 2000);
-    } catch (e) {
-      setError("Network error submitting your answer.");
-      setSubmitting(false);
+      setDiagnosis(pendingResponse.diagnosis);
+      setPuzzle(null);
+    } else {
+      if (!pendingResponse.puzzle) {
+        setAttemptError("Your answer was recorded, but the next position is unavailable. Check the saved position to continue.");
+        return;
+      }
+      setPuzzle(pendingResponse.puzzle);
+      setPuzzleNumber(pendingResponse.current_index ?? (
+        (pendingResponse.puzzle_number ?? puzzleNumber) + (pendingResponse.multi_move ? 0 : 1)
+      ));
     }
+    setVerdict(null);
+    setPendingResponse(null);
+    setPlayedFen(null);
   };
 
   // ── Finish early — score whatever's solved and STILL build the profile ──
   const handleExit = async () => {
+    if (submitting || submissionInFlightRef.current) return;
+    if (pendingResponse?.status === "complete") {
+      setShowExitConfirm(false);
+      continueAfterFeedback();
+      return;
+    }
+    setSubmitting(true);
     reportedRef.current = true;  // the explicit path owns the report now
     track(ANALYTICS_EVENTS.DIAGNOSTIC_ABANDONED, { puzzle_number: puzzleNumber });
     try {
@@ -295,11 +380,16 @@ const DiagnosticPuzzles = () => {
         if (data.diagnosis) {
           track(ANALYTICS_EVENTS.DIAGNOSTIC_COMPLETED, { exited_early: true, puzzle_count: puzzleNumber - 1 });
           setDiagnosis(data.diagnosis);
+          setShowExitConfirm(false);
+          setSubmitting(false);
           return;
         }
       }
-    } catch { /* non-fatal */ }
-    navigate("/home");
+    } catch { /* recover below without abandoning the board */ }
+    reportedRef.current = false;
+    setSubmitting(false);
+    setShowExitConfirm(false);
+    setAttemptError("I couldn't finish the session. Check the saved position before continuing.");
   };
 
   // ──────────────────────────────────────────────────────────────
@@ -335,7 +425,7 @@ const DiagnosticPuzzles = () => {
   // Diagnosis screen (after all puzzles)
   // ──────────────────────────────────────────────────────────────
   if (diagnosis) {
-    const { per_concept, headline_gap, summary, rating_estimate } = diagnosis;
+    const { per_concept, headline_gap, summary } = diagnosis;
     const hasReadout = Object.keys(per_concept || {}).length > 0;
 
     // Sort by level: Solid > Developing > Missing
@@ -344,9 +434,9 @@ const DiagnosticPuzzles = () => {
       .sort((a, b) => levelOrder[a[1].level] - levelOrder[b[1].level]);
 
     const levelLabel = {
-      solid: "This already feels familiar",
-      developing: "This is taking shape",
-      missing: "We’ll learn this together",
+      solid: "Handled well in these positions",
+      developing: "Worth another look together",
+      missing: "A possible place to practise",
     };
 
     return (
@@ -358,8 +448,8 @@ const DiagnosticPuzzles = () => {
             </p>
             <h1 className="cg-title">
               {hasReadout
-                ? "Here’s what I understand about your chess."
-                : "I need a little more before I can read your chess."}
+                ? "Here’s a starting point for our coaching."
+                : "Let’s keep discovering what helps you."}
             </h1>
             <p className="cg-lede">
               {summary ||
@@ -367,15 +457,9 @@ const DiagnosticPuzzles = () => {
                   ? ""
                   : "Those positions were not enough for me to say something honest about how you play. Play a game with me and I will build it from your own moves.")}
             </p>
-            {rating_estimate?.low && rating_estimate?.high && (
-              <p className="text-sm text-muted-foreground mt-3">
-                From what I saw, you are playing somewhere around{" "}
-                <span className="text-foreground font-medium">
-                  {rating_estimate.low}–{rating_estimate.high}
-                </span>
-                . It is a starting read, not a verdict.
-              </p>
-            )}
+            <p className="text-sm text-muted-foreground mt-3">
+              These positions are a starting clue, not a rating or proof of what you know. Your games and later attempts will help me adjust.
+            </p>
           </div>
 
           {/* Per-concept breakdown */}
@@ -416,7 +500,7 @@ const DiagnosticPuzzles = () => {
                     Where we’ll start
                   </p>
                   <p className="text-[13px] text-foreground leading-snug">
-                    We’ll begin with {CONCEPT_DISPLAY[headline_gap] || headline_gap}. I chose it because making this idea feel natural will help the rest of your chess become easier to understand.
+                    Let’s explore {CONCEPT_DISPLAY[headline_gap] || headline_gap}. Your answers suggest it is worth a closer look—not that you need every lesson on it.
                   </p>
                 </div>
               </div>
@@ -500,6 +584,7 @@ const DiagnosticPuzzles = () => {
             }}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             data-testid="diagnostic-skip-btn"
+            disabled={submitting || !!attemptError}
           >
             Finish early
           </button>
@@ -511,24 +596,39 @@ const DiagnosticPuzzles = () => {
             <div className="w-full max-w-[560px] aspect-square mx-auto relative">
               <LichessBoard
                 ref={boardRef}
-                fen={puzzle.fen}
+                fen={playedFen || puzzle.fen}
                 orientation={orientation}
-                interactive={!verdict && !submitting}
-                viewOnly={!!verdict || submitting}
+                interactive={!verdict && !submitting && !attemptError}
+                viewOnly={!!verdict || submitting || !!attemptError}
                 onMove={handleMove}
               />
             </div>
           </div>
 
           <div className="lg:w-72">
+            {attemptError && (
+              <div role="alert" className="rounded-lg border border-amber-500/40 bg-card p-4 mb-4">
+                <p className="text-sm text-foreground">{attemptError}</p>
+                <Button className="mt-3" variant="outline" onClick={() => window.location.reload()}>
+                  Check saved position
+                </Button>
+              </div>
+            )}
+            {submitting && !showExitConfirm && !verdict && (
+              <p role="status" className="text-sm text-foreground mb-4">Checking your move…</p>
+            )}
             {verdict ? (
               <div
+                role="status"
+                aria-live="polite"
+                data-testid="diagnostic-feedback"
                 className={`rounded-lg border p-4 ${
                   verdict.verdict === "UNDERSTOOD"
                     ? "border-emerald-500/40 bg-emerald-500/5"
                     : verdict.verdict === "PARTIAL"
                       ? "border-amber-500/40 bg-amber-500/5"
-                      : "border-rose-500/40 bg-rose-500/5"
+                      : verdict.verdict === "MISSING"
+                        ? "border-rose-500/40 bg-rose-500/5" : "border-border bg-card"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-2">
@@ -537,7 +637,7 @@ const DiagnosticPuzzles = () => {
                   ) : verdict.verdict === "PARTIAL" ? (
                     <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
                   ) : (
-                    <AlertCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
+                    <AlertCircle className={`w-5 h-5 flex-shrink-0 ${verdict.verdict === "MISSING" ? "text-rose-500" : "text-muted-foreground"}`} />
                   )}
                   <span
                     className={`text-sm font-semibold ${
@@ -545,19 +645,35 @@ const DiagnosticPuzzles = () => {
                         ? "text-emerald-600"
                         : verdict.verdict === "PARTIAL"
                           ? "text-amber-600"
-                          : "text-rose-600"
+                          : verdict.verdict === "MISSING" ? "text-rose-600" : "text-foreground"
                     }`}
                   >
                     {verdict.verdict === "UNDERSTOOD"
-                      ? "Yes—that idea works"
+                      ? "Yes — your move works here"
                       : verdict.verdict === "PARTIAL"
-                        ? "You found part of it"
-                        : "Let’s look once more"}
+                        ? "There’s a stronger move to consider"
+                        : verdict.verdict === "MISSING" ? "Let’s look once more" : "Your move was recorded"}
                   </span>
                 </div>
                 <p className="text-[13px] text-foreground leading-snug">
                   {verdict.explanation}
                 </p>
+                {continuationError && <p role="alert" className="text-sm text-foreground mt-3">{continuationError}</p>}
+                {pendingResponse?.multi_move?.opponent_reply_san && (
+                  <p className="text-sm text-foreground mt-3">
+                    Next, your opponent plays {pendingResponse.multi_move.opponent_reply_san}. The position isn't finished yet.
+                  </p>
+                )}
+                <Button
+                  className="cg-primary-action mt-4 w-full"
+                  onClick={continueAfterFeedback}
+                  disabled={!!attemptError || submitting}
+                  data-testid="diagnostic-feedback-continue"
+                >
+                  {pendingResponse?.status === "complete" ? "See what we can work on"
+                    : pendingResponse?.multi_move ? "Continue this position" : "Next position"}
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
               </div>
             ) : (
               <div className="rounded-lg border border-border p-4 bg-card">
@@ -586,7 +702,7 @@ const DiagnosticPuzzles = () => {
               Finish the diagnostic?
             </h2>
             <p className="text-[13px] text-muted-foreground leading-relaxed mb-4">
-              I can already begin a plan from what you’ve shown me. A few more positions will help me distinguish an unfamiliar idea from a simple oversight.
+              You can stop here. I’ll keep your saved answers, and we can use more positions or your games to decide what is worth practising.
             </p>
             <div className="flex gap-2">
               <Button
@@ -601,9 +717,10 @@ const DiagnosticPuzzles = () => {
                 variant="outline"
                 className="flex-1"
                 onClick={handleExit}
+                disabled={submitting}
                 data-testid="diagnostic-exit-confirm"
               >
-                Exit anyway
+                Finish for now
               </Button>
             </div>
           </div>

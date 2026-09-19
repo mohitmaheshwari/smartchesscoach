@@ -16,6 +16,8 @@ Endpoints (all under /api/diagnostic, prefixed by api_router in server.py):
 """
 
 import logging
+from copy import deepcopy
+from uuid import uuid4
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
@@ -42,6 +44,7 @@ from services.diagnostic_service import (
     concept_done,
     concept_level,
     apply_diagnosis_v2_to_training,
+    score_diagnostic_v2,
 )
 
 logger = logging.getLogger(__name__)
@@ -64,6 +67,75 @@ def set_db(database):
 class AttemptRequest(BaseModel):
     puzzle_id: str
     user_move_san: str  # e.g. "Nxd3", "O-O", "e8=Q"
+    feedback_session: Optional[str] = None
+    feedback_fen: Optional[str] = None
+
+
+class FeedbackAcknowledgement(BaseModel):
+    feedback_id: str
+
+
+def _feedback_capability(session):
+    return ({"feedback_protocol": "explicit_v1", "feedback_session": session["started_at"]}
+            if session.get("started_at") else {})
+
+
+def _same_feedback_attempt(receipt, req):
+    return receipt and receipt.get("request") == {
+        "puzzle_id": req.puzzle_id, "user_move_san": req.user_move_san,
+        "feedback_session": req.feedback_session, "feedback_fen": req.feedback_fen,
+    }
+
+
+def _feedback_resume(session):
+    receipt = session["pending_feedback"]
+    return {
+        "status": "feedback", **_feedback_capability(session),
+        "current_index": receipt["puzzle_number"],
+        "puzzle": receipt["answered_puzzle"], "played_fen": receipt["played_fen"],
+        "feedback": receipt["response"],
+    }
+
+
+async def _save_attempt_transition(user_id, session, req, update, response, answered_puzzle):
+    """Atomically save feedback with advancement for clients using explicit Continue.
+
+    Older clients retain their response contract. No new chess grading occurs here.
+    A stale tab may neither append an answer twice nor overwrite another answer.
+    """
+    query = {"user_id": user_id, "status": "in_progress"}
+    if req.feedback_session is not None:
+        if req.feedback_session != session.get("started_at") or req.feedback_fen != answered_puzzle["fen"]:
+            raise HTTPException(409, "The position changed. Reload the saved position.")
+        board = chess.Board(answered_puzzle["fen"])
+        board.push_san(req.user_move_san)
+        response = {**response, "feedback_id": uuid4().hex}
+        receipt = {
+            "request": {"puzzle_id": req.puzzle_id, "user_move_san": req.user_move_san,
+                        "feedback_session": req.feedback_session, "feedback_fen": req.feedback_fen},
+            "answered_puzzle": answered_puzzle, "played_fen": board.fen(),
+            "puzzle_number": len(session.get("attempts", [])) + 1,
+            "response": response,
+        }
+        update = deepcopy(update)
+        update.setdefault("$set", {})["pending_feedback"] = receipt
+        update["$set"]["feedback_protocol"] = "explicit_v1"
+        query.update({"started_at": session["started_at"],
+                      "attempts": session.get("attempts", []),
+                      "pending_feedback": None})
+        if session.get("version") == 2:
+            query["current"] = session.get("current")
+        result = await db.diagnostic_sessions.update_one(query, update)
+        if not result.matched_count:
+            saved = await db.diagnostic_sessions.find_one(
+                {"user_id": user_id, "started_at": session["started_at"]}, {"_id": 0})
+            existing = (saved or {}).get("pending_feedback")
+            if _same_feedback_attempt(existing, req):
+                return existing["response"]
+            raise HTTPException(409, "The position changed. Reload the saved position.")
+    else:
+        await db.diagnostic_sessions.update_one(query, update)
+    return response
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -279,6 +351,7 @@ async def _v2_start_session(user_id: str) -> Dict[str, Any]:
     return {
         "status": "in_progress",
         "version": 2,
+        **_feedback_capability({"started_at": now}),
         "current_index": 1,
         "concepts_total": len(CONCEPT_PRIORITY),
         "puzzle": _v2_puzzle_payload(first),
@@ -343,6 +416,12 @@ async def start_diagnostic(user: User = Depends(get_current_user)):
     If the user already has an in_progress session, return the next
     unanswered puzzle from that session instead of creating a new one.
     """
+    # A background import or the final answer must not hide unread feedback.
+    unread = await db.diagnostic_sessions.find_one(
+        {"user_id": user.user_id, "status": {"$in": ["in_progress", "complete"]},
+         "pending_feedback.response.feedback_id": {"$exists": True}}, {"_id": 0})
+    if unread:
+        return _feedback_resume(unread)
     # Already-complete or superseded users get nothing new from /start
     analyzed = await _user_analyzed_game_count(user.user_id)
     if diagnostic_supersedes_after(analyzed):
@@ -363,6 +442,7 @@ async def start_diagnostic(user: User = Depends(get_current_user)):
             return {
                 "status": "in_progress",
                 "version": 2,
+                **_feedback_capability(existing),
                 "current_index": len(existing.get("attempts", [])) + 1,
                 "concepts_total": len(existing.get("concept_order", CONCEPT_PRIORITY)),
                 "puzzle": _v2_puzzle_payload(
@@ -399,6 +479,7 @@ async def start_diagnostic(user: User = Depends(get_current_user)):
                 puzzle["puzzle_id"] = next_id
                 return {
                     "status": "in_progress",
+                    **_feedback_capability(existing),
                     "current_index": attempts_so_far + 1,
                     "total": len(puzzle_ids),
                     "puzzle": _strip_puzzle_solution(puzzle),
@@ -431,6 +512,7 @@ async def start_diagnostic(user: User = Depends(get_current_user)):
 
     return {
         "status": "in_progress",
+        **_feedback_capability({"started_at": now}),
         "current_index": 1,
         "total": len(picks),
         "puzzle": _strip_puzzle_solution(picks[0]),
@@ -491,15 +573,7 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
             opp_reply_san = board.san(opp_mv)
             board.push(opp_mv)
         new_fen = board.fen()
-        await db.diagnostic_sessions.update_one(
-            {"user_id": user_id, "status": "in_progress"},
-            {"$set": {
-                "current.move_idx": move_idx + 1,
-                "current.fen_current": new_fen,
-                "current.step_verdicts": step_verdicts,
-            }},
-        )
-        return {
+        response = {
             "status": "in_progress",
             "puzzle_number": len(session.get("attempts", [])) + 1,
             "concept": concept,
@@ -516,6 +590,11 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
             "adaptive_triggered": False,
             "puzzle": _v2_puzzle_payload(puzzle, fen=new_fen, step=move_idx + 1),
         }
+        return await _save_attempt_transition(user_id, session, req,
+            {"$set": {"current.move_idx": move_idx + 1,
+                      "current.fen_current": new_fen,
+                      "current.step_verdicts": step_verdicts}}, response,
+            _v2_puzzle_payload(puzzle, fen=fen_current, step=move_idx))
 
     # ── puzzle finished: aggregate, record, staircase, gate ──────────
     verdict = _v2_overall_verdict(step_verdicts)
@@ -533,7 +612,7 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
         "attempted_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    progress = session.get("concept_progress", {})
+    progress = deepcopy(session.get("concept_progress", {}))
     opening_tier = session.get("opening_tier") or "mid"
     prog = progress.get(concept) or {
         "verdicts": [], "tiers": [], "tier_current": opening_tier, "done": False,
@@ -585,6 +664,25 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
 
     # ── session complete ─────────────────────────────────────────────
     if not next_puzzle:
+        if req.feedback_session is not None:
+            # Final answer, its feedback and completion are one document write.
+            # On acknowledgement, project only provisional focus, not another
+            # weakness occurrence; acknowledgement itself is not chess evidence.
+            final_session = {**session, **base_update,
+                             "attempts": [*session.get("attempts", []), attempt_doc]}
+            diagnosis = score_diagnostic_v2(final_session)
+            response = {
+                "status": "complete", "puzzle_number": len(final_session["attempts"]),
+                "concept": concept, "verdict": verdict, "explanation": graded["explanation"],
+                "cp_loss": graded["cp_loss"], "best_move_san": graded["solution_san"],
+                "adaptive_triggered": False, "diagnosis": diagnosis,
+            }
+            response = await _save_attempt_transition(user_id, session, req,
+                {"$push": {"attempts": attempt_doc}, "$set": {
+                    **base_update, "status": "complete", "diagnosis": diagnosis,
+                    "completed_at": datetime.now(timezone.utc).isoformat()}}, response,
+                _v2_puzzle_payload(puzzle, fen=fen_current, step=move_idx))
+            return response
         await db.diagnostic_sessions.update_one(
             {"user_id": user_id, "status": "in_progress"},
             {"$push": {"attempts": attempt_doc}, "$set": base_update},
@@ -630,11 +728,7 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
             "step_verdicts": [],
         },
     })
-    await db.diagnostic_sessions.update_one(
-        {"user_id": user_id, "status": "in_progress"},
-        {"$push": {"attempts": attempt_doc}, "$set": base_update},
-    )
-    return {
+    response = {
         "status": "in_progress",
         "puzzle_number": len(session.get("attempts", [])) + 1,
         "concept": concept,
@@ -650,6 +744,9 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
         "current_index": len(session.get("attempts", [])) + 2,
         "puzzle": _v2_puzzle_payload(next_puzzle),
     }
+    return await _save_attempt_transition(user_id, session, req,
+        {"$push": {"attempts": attempt_doc}, "$set": base_update}, response,
+        _v2_puzzle_payload(puzzle, fen=fen_current, step=move_idx))
 
 
 def prog_symbols(prog: Dict[str, Any]) -> List[str]:
@@ -664,12 +761,24 @@ async def record_attempt(
     """Record a puzzle attempt. If this was the last puzzle, score the
     full session and return the diagnosis.
     """
+    if (req.feedback_session is None) != (req.feedback_fen is None):
+        raise HTTPException(400, "Feedback session and position must be supplied together.")
+    unread = await db.diagnostic_sessions.find_one(
+        {"user_id": user.user_id, "status": {"$in": ["in_progress", "complete"]},
+         "pending_feedback.response.feedback_id": {"$exists": True}}, {"_id": 0})
+    if unread:
+        receipt = unread["pending_feedback"]
+        if _same_feedback_attempt(receipt, req):
+            return receipt["response"]
+        raise HTTPException(409, "Read the saved feedback before another move.")
     session = await db.diagnostic_sessions.find_one(
         {"user_id": user.user_id, "status": "in_progress"},
         {"_id": 0},
     )
     if not session:
         raise HTTPException(status_code=404, detail="No active diagnostic session.")
+    if req.feedback_session is not None and req.feedback_session != session.get("started_at"):
+        raise HTTPException(409, "This session changed. Reload the saved position.")
 
     if session.get("version") == 2:
         return await _v2_record_attempt(user.user_id, session, req)
@@ -726,6 +835,28 @@ async def record_attempt(
         "attempted_at": datetime.now(timezone.utc).isoformat(),
     }
 
+    if req.feedback_session is not None:
+        update = {"$push": {"attempts": attempt_doc},
+                  "$set": {"last_activity_at": attempt_doc["attempted_at"]}}
+        response = {"is_correct": is_correct, "best_move_san": graded.get("best_move_san"),
+                    "explanation": graded.get("feedback")}
+        if attempts_so_far + 1 >= len(puzzle_ids):
+            diagnosis = score_diagnostic([*session.get("attempts", []), attempt_doc])
+            update["$set"].update({"status": "complete", "diagnosis": diagnosis,
+                                  "completed_at": attempt_doc["attempted_at"]})
+            response.update({"status": "complete", "diagnosis": diagnosis_view(diagnosis)})
+        else:
+            next_id = puzzle_ids[attempts_so_far + 1]
+            next_puzzle = await db.community_puzzles.find_one(
+                {"_id": _to_objid(next_id)}, {"_id": 0})
+            if next_puzzle:
+                next_puzzle["puzzle_id"] = next_id
+            response.update({"status": "in_progress", "current_index": attempts_so_far + 2,
+                             "total": len(puzzle_ids),
+                             "puzzle": _strip_puzzle_solution(next_puzzle) if next_puzzle else None})
+        answered = _strip_puzzle_solution({**puzzle, "puzzle_id": req.puzzle_id})
+        return await _save_attempt_transition(user.user_id, session, req, update, response, answered)
+
     await db.diagnostic_sessions.update_one(
         {"user_id": user.user_id, "status": "in_progress"},
         {"$push": {"attempts": attempt_doc}, "$set": {"last_activity_at": attempt_doc["attempted_at"]}},
@@ -778,6 +909,46 @@ async def record_attempt(
     }
 
 
+@router.post("/feedback/continue")
+async def acknowledge_feedback(req: FeedbackAcknowledgement, user: User = Depends(get_current_user)):
+    """Acknowledge one saved card. Repeating Continue returns the same result.
+
+    Identity always comes from authentication, never from the request body.
+    The receipt contains only public projections, not the frozen answer map.
+    """
+    session = await db.diagnostic_sessions.find_one(
+        {"user_id": user.user_id, "status": {"$in": ["in_progress", "complete"]},
+         "pending_feedback.response.feedback_id": req.feedback_id}, {"_id": 0})
+    if not session:
+        previous = await db.diagnostic_sessions.find_one(
+            {"user_id": user.user_id, "last_feedback_ack.feedback_id": req.feedback_id}, {"_id": 0})
+        if previous:
+            return previous["last_feedback_ack"]["response"]
+        raise HTTPException(409, "This feedback changed. Reload the saved position.")
+    receipt = session["pending_feedback"]
+    response = receipt["response"]
+    if (response.get("status") == "complete"
+            and not diagnostic_supersedes_after(await _user_analyzed_game_count(user.user_id))):
+        # Profile writing happens after the durable attempt and before clearing
+        # its receipt, so interrupted projection is retryable, never lost.
+        # A delayed acknowledgement must not overwrite a real-game focus.
+        if session.get("version") == 2:
+            await apply_diagnosis_v2_to_training(db, user.user_id, session, record_weakness=False)
+        else:
+            await apply_diagnosis_to_training(db, user.user_id, session.get("attempts", []), record_weakness=False)
+    result = await db.diagnostic_sessions.update_one(
+        {"user_id": user.user_id, "started_at": session["started_at"],
+         "pending_feedback.response.feedback_id": req.feedback_id},
+        {"$unset": {"pending_feedback": ""}, "$set": {
+            "last_feedback_ack": {"feedback_id": req.feedback_id, "response": response}}})
+    if not result.matched_count:
+        previous = await db.diagnostic_sessions.find_one(
+            {"user_id": user.user_id, "last_feedback_ack.feedback_id": req.feedback_id}, {"_id": 0})
+        if not previous:
+            raise HTTPException(409, "This feedback changed. Reload the saved position.")
+    return response
+
+
 @router.post("/exit")
 async def exit_diagnostic(
     user: User = Depends(get_current_user),
@@ -802,11 +973,12 @@ async def exit_diagnostic(
     )
     if not session:
         raise HTTPException(status_code=404, detail="No diagnostic in progress.")
+    projection_options = {"record_weakness": False} if session.get("feedback_protocol") == "explicit_v1" else {}
     if session.get("version") == 2:
-        diagnosis = await apply_diagnosis_v2_to_training(db, user.user_id, session)
+        diagnosis = await apply_diagnosis_v2_to_training(db, user.user_id, session, **projection_options)
     else:
         diagnosis = await apply_diagnosis_to_training(
-            db, user.user_id, session.get("attempts", [])
+            db, user.user_id, session.get("attempts", []), **projection_options
         )
     if checkpoint:
         await db.diagnostic_sessions.update_one(
@@ -828,7 +1000,7 @@ async def exit_diagnostic(
             "completed_at": datetime.now(timezone.utc).isoformat(),
             "diagnosis": diagnosis,
             "exited_early": True,
-        }},
+        }, "$unset": {"pending_feedback": ""}},
     )
     return {
         "status": "complete",
