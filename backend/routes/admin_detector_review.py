@@ -29,6 +29,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+import chess
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from routes.admin import require_admin
@@ -474,6 +475,8 @@ DETECTOR_QUALITY_IDS = {
     "discovered_attack": "tactic:discovered_attack_with_stored_payoff",
     "left_book": "gap:opening_knowledge:left_book_for_a_worse_move",
     "allowed_mate": "gap:king_safety:allowed_mate_exact",
+    # Candidate only -- unregistered, so _grade_for reports shadow.
+    "tempo_loss": None,
 }
 
 
@@ -506,6 +509,177 @@ def _grade_for(detector: str) -> str:
     return str(getattr(auth.grade, "value", auth.grade))
 
 
+# ─── tempo loss in the opening (CANDIDATE, docs/tempo_loss_scope.md) ────
+#
+# Not a registered detector. It exists in this queue only, so Mohit can rule
+# on real cards before anything is built -- he asked to see the 290 rather
+# than sign off on a number.
+#
+# The five gates are the scope's, in order. Gate 5 is the one that matters:
+# tempo may only speak when nothing simpler does. Measured across 383
+# engine-gated candidates: 290 residue, 85 hung pieces, 4 mates, 4 motifs.
+
+HOME_SQUARES = {
+    chess.WHITE: (chess.B1, chess.G1, chess.C1, chess.F1, chess.D1),
+    chess.BLACK: (chess.B8, chess.G8, chess.C8, chess.F8, chess.D8),
+}
+
+
+def _piece_history(analysis, upto_uci, upto_number):
+    """Squares each piece has occupied, replayed from the stored moves.
+
+    Returns (history_by_square, opponent_developments_after) or None.
+    """
+    moves = (analysis.get("stockfish_analysis") or {}).get("move_evaluations") or []
+    history: Dict[int, List[int]] = {}
+    for m in moves:
+        fen, uci = m.get("fen_before"), m.get("move_uci")
+        if not fen or not uci:
+            continue
+        try:
+            board = chess.Board(fen)
+            mv = chess.Move.from_uci(uci)
+            if mv not in board.legal_moves:
+                continue
+        except (ValueError, AssertionError):
+            continue
+        if uci == upto_uci and m.get("move_number") == upto_number:
+            return history
+        # POP the origin and ASSIGN the destination. The first version used
+        # get + setdefault().extend(), which left the history behind on the
+        # square a piece had left and then appended it to whatever moved
+        # through next -- so a queen that went d1->f3->e4->d3 was reported as
+        # "e2 -> g1 -> d1 -> f3 -> e4 -> d3", the first two hops belonging to
+        # other pieces entirely. Verified against the real game before fixing.
+        #
+        # Assigning also discards the captured piece's history on a capture,
+        # which is what should happen.
+        past = history.pop(mv.from_square, [])
+        history[mv.to_square] = past + [mv.from_square]
+    return None
+
+
+def _produce_tempo_loss(move, colour, analysis):
+    if move.get("is_opponent_move"):
+        return None
+    number = move.get("move_number") or 0
+    cp_loss = move.get("cp_loss")
+    fen, uci = move.get("fen_before"), move.get("move_uci")
+    # 1 + 4: opening, and the engine says it actually lost ground.
+    if number > 12 or not fen or not uci:
+        return None
+    if not isinstance(cp_loss, (int, float)) or cp_loss < 100:
+        return None
+    try:
+        board = chess.Board(fen)
+        played = chess.Move.from_uci(uci)
+        if played not in board.legal_moves:
+            return None
+    except (ValueError, AssertionError):
+        return None
+    piece = board.piece_at(played.from_square)
+    # 2: a piece that has already moved this game.
+    if piece is None or piece.piece_type not in (
+            chess.KNIGHT, chess.BISHOP, chess.QUEEN):
+        return None
+    history = _piece_history(analysis, uci, number)
+    if history is None:
+        return None
+    past = history.get(played.from_square) or []
+    if not past:
+        return None
+    # 3: pieces still sitting at home.
+    at_home = [chess.square_name(sq) for sq in HOME_SQUARES[piece.color]
+               if board.piece_at(sq) and board.piece_at(sq).color == piece.color]
+    if len(at_home) < 2:
+        return None
+
+    # 5: nothing simpler explains it.
+    from analysis_interpreter import mate_gate_label
+    from services.played_hangs_detector import detect_played_hangs
+
+    if mate_gate_label(move.get("mate_info"), colour):
+        return None
+    if detect_played_hangs(board.copy(), played, cp_loss,
+                           mate_in_play=bool(move.get("mate_info"))):
+        return None
+    best = move.get("best_move")
+    if best:
+        from services.discovered_attack_puzzle_proof import (
+            build_discovered_attack_proof,
+        )
+        from services.fork_puzzle_proof import build_fork_proof
+
+        for builder in (build_fork_proof, build_discovered_attack_proof):
+            try:
+                bundle = builder(board.copy(), move.get("move"), best,
+                                 move.get("pv_after_best") or [], cp_loss)
+            except Exception:  # noqa: BLE001
+                bundle = None
+            if bundle and getattr(bundle.verifier, "verified", False):
+                return None
+
+    # 6: the engine's answer has to be DEVELOPMENT. Added after looking at
+    # the first eight cards, because five of them were not tempo lessons at
+    # all: the engine wanted the same piece on a better square (Qf5+ -> Qh5+),
+    # or the other knight (Ndxf2 -> Ngxf2), or a rook (Bf5 -> Nxh1).
+    #
+    # Measured over 200 candidates: 51% the engine moves a different
+    # already-developed piece, 26% the SAME piece, and only 23% develops or
+    # castles. Without this gate three quarters of the queue would be a
+    # tempo caption on a move whose lesson is something else entirely.
+    if best:
+        try:
+            best_mv = board.parse_san(str(best))
+        except Exception:  # noqa: BLE001
+            return None
+        if best_mv.from_square == played.from_square:
+            return None          # same piece: the lesson is the square
+        develops = (best_mv.from_square in HOME_SQUARES[piece.color]
+                    or board.is_castling(best_mv))
+        if not develops:
+            return None
+    else:
+        return None
+
+    origin = chess.square_name(played.from_square)
+    came_from = chess.square_name(past[-1])
+    returns = played.to_square in past
+    side, arrow = _orientation_and_arrow(fen, move.get("move"))
+    piece_word = chess.piece_name(piece.piece_type)
+
+    claim = (
+        f"Your {piece_word} was already on {origin} (it came from {came_from}). "  # allow-noncentral-caption
+        f"{move.get('move')} moves it again while {len(at_home)} of your pieces "
+        f"are still on their starting squares"
+        + (f", and it lands back on a square it has already left." if returns
+           else ".")
+        + f" {best} gets another piece into the game instead."
+    )
+    return (claim, {
+        "review_fen": fen,
+        "line_fen": fen,
+        "fen_before": fen,
+        "fen_after": move.get("fen_after"),
+        "played_san": move.get("move"),
+        "best_move": best,
+        "move_number": number,
+        "cp_loss": cp_loss,
+        "side_to_move": side,
+        "arrow": arrow,
+        "arrow_is": "the move played",
+        "piece_path": " -> ".join(
+            chess.square_name(sq) for sq in past + [played.from_square,
+                                                    played.to_square]),
+        "still_at_home": ", ".join(at_home),
+        "returns_to_a_left_square": returns,
+        "pv_after_played": list(move.get("pv_after_played") or [])[:8],
+        "pv_after_best": list(move.get("pv_after_best") or [])[:8],
+        # Every one of these is a judgement call -- that is the whole point.
+        "confidence": CONFIDENCE_UNCERTAIN,
+    })
+
+
 def _producers():
     from services.discovered_attack_puzzle_proof import (
         build_discovered_attack_proof,
@@ -514,6 +688,7 @@ def _producers():
 
     return {
         "allowed_mate": _produce_allowed_mate,
+        "tempo_loss": _produce_tempo_loss,
         "simple_hang": _produce_simple_hang,
         "left_book": _produce_left_book,
         "fork": _missed_motif(build_fork_proof, "fork"),

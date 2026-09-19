@@ -121,9 +121,38 @@ threshold lock names, and it is why the detector ships to shadow and earns its
 grade through the review queue like every other one. The residue is a
 **candidate** set, not a verified one.
 
-The residue looks right on inspection — `Ng4` twice, `Qf5+` (the early queen
-wandering), `Bf5` — but two or three examples are not evidence, which is a
-lesson from earlier the same day.
+**Then I looked at the cards, and three quarters of them were not tempo.**
+
+Mohit asked to see the 290 rather than sign off on a number. Reading the first
+eight showed the residue is not what I claimed:
+
+| card | what the engine wants | is tempo the lesson? |
+|---|---|---|
+| `Ng4` | **O-O** | yes |
+| `Qf5+` | `Qh5+` | no — same piece, better square |
+| `Ndxf2` | `Ngxf2` | no — the other knight |
+| `Bf5` | `Nxh1` | no — missed a rook |
+
+Measured over 200 candidates:
+
+| what the engine's answer is | share |
+|---|---|
+| a different, already-developed piece | 102 (51%) |
+| the SAME piece, better square | 52 (26%) |
+| **develops something / castles** | **46 (23%)** |
+
+So **gate 6**: the engine's answer must be a piece leaving its starting square,
+or castling. Without it three quarters of the queue would carry a tempo caption
+on a move whose lesson is something else. ~67 of the 290 survive — about one
+case in nine games, and every one of them is now actually about tempo:
+
+    Ng4  -> engine wants O-O      knight g8->f6->g4
+    Nb3  -> engine wants Bb5+     knight g1->f3->d4->b3
+    Qd3  -> engine wants Nc3      queen  d1->f3->e4->d3, knight still on b1
+
+The measured 290 was a real number answering the wrong question. The gate I had
+written ("nothing simpler explains it") is not the same as "tempo explains it",
+and only looking at the cards showed the difference.
 
 ---
 
@@ -134,7 +163,10 @@ lesson from earlier the same day.
 3. At least 2 of the player's pieces are still on their starting squares.
 4. **The engine says the move lost >= 100cp.**
 5. **No simpler explanation fires** — no hang, no missed motif, no mate swing.
-6. The caption states only what the board shows: where the piece was, where it
+6. **The engine's preferred move develops a piece or castles.** Not the same
+   piece on a better square, not another developed piece -- a piece coming off
+   its starting square. This is the gate that makes the claim about tempo.
+7. The caption states only what the board shows: where the piece was, where it
    went, where it ended up, and what the opponent developed meanwhile.
 
 The "returned to a square it left" case (27) is a **stronger** variant, not a
