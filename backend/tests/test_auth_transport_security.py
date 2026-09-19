@@ -36,9 +36,20 @@ class FakeCollection:
 
 
 class FakeDB:
-    def __init__(self, sessions, users):
+    def __init__(self, sessions, users, waitlist=None):
         self.user_sessions = FakeCollection(sessions)
         self.users = FakeCollection(users)
+        # Invite-only signup (2026-09-19) reads db["waitlist"]; any other
+        # collection asked for is created empty rather than raising, so this
+        # fake keeps working as new collections appear.
+        self._extra = {"waitlist": FakeCollection(list(waitlist or []))}
+
+    def __getitem__(self, name):
+        if name == "users":
+            return self.users
+        if name == "user_sessions":
+            return self.user_sessions
+        return self._extra.setdefault(name, FakeCollection([]))
 
 
 def make_request(*, cookie=None, bearer=None, oauth_nonce=None, path="/api/auth/me"):
@@ -80,6 +91,15 @@ def auth_db(monkeypatch):
             {"user_id": "web-user", "email": "web@example.test", "name": "Web User"},
             {"user_id": "mobile-user", "email": "mobile@example.test", "name": "Mobile User"},
             {"user_id": auth_routes.DEV_USER_ID, "email": "dev@example.test", "name": "Dev User"},
+        ],
+        # These suites are about TRANSPORT (cookie vs JSON token), not signup
+        # policy. Invite-only now gates account creation, so the two emails
+        # these tests create are seeded as invited — otherwise the tests would
+        # be asserting the gate instead of the thing they were written for.
+        # The gate itself is covered in test_signup_gate.py.
+        waitlist=[
+            {"email": "oauth-player@example.test", "status": "invited"},
+            {"email": "new-player@example.test", "status": "invited"},
         ],
     )
     monkeypatch.setattr(auth_routes, "db", database)

@@ -6,7 +6,7 @@
  * available below as a secondary path.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { API } from "@/App";
@@ -21,6 +21,17 @@ export default function Login() {
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // Invite-only pre-launch: the create-account path is hidden while
+  // signups are closed. Sign-in is untouched — every existing user must
+  // keep working. Defaults CLOSED so a failed fetch cannot open it.
+  // docs/invite_only_signup_scope.md
+  const [signupsOpen, setSignupsOpen] = useState(false);
+  useEffect(() => {
+    fetch(`${API}/signup-status`)
+      .then((r) => r.json())
+      .then((d) => setSignupsOpen(d.signups_open === true))
+      .catch(() => {});
+  }, []);
 
   const postAuthRedirect = () =>
     window.sessionStorage.getItem("post_auth_redirect") || "/dashboard";
@@ -192,7 +203,18 @@ export default function Login() {
         </button>
 
         <div className="mt-8 text-center text-[13px] text-gray-500">
-          {mode === "signin" ? (
+          {mode === "signin" && !signupsOpen ? (
+            <>
+              ChessGuru is invite-only right now.{" "}
+              <button
+                onClick={() => navigate("/invite")}
+                className="text-amber-400 hover:text-amber-300"
+                data-testid="login-request-invite"
+              >
+                Request an invite
+              </button>
+            </>
+          ) : mode === "signin" ? (
             <>
               No account yet?{" "}
               <button

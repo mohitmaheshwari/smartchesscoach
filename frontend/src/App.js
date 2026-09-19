@@ -9,6 +9,8 @@ import "@/App.css";
 // Pages
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
+import RequestInvite from "./pages/RequestInvite";
+import AdminWaitlist from "./pages/AdminWaitlist";
 import Pricing from "@/pages/Pricing";
 import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
@@ -298,6 +300,8 @@ function AppRouter() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      {/* Invite-only pre-launch: landing CTAs and uninvited sign-ins land here. */}
+      <Route path="/invite" element={<RequestInvite />} />
       <Route path="/pricing" element={<Pricing />} />
       {/* Public policy pages — required for Razorpay compliance. */}
       <Route path="/terms" element={<TermsOfService />} />
@@ -495,6 +499,12 @@ function AppRouter() {
       <Route path="/admin/reason-judge" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminReasonJudge user={user} />}
+        </ProtectedRoute>
+      } />
+      {/* Who asked for an invite, and one click to let them in. */}
+      <Route path="/admin/waitlist" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminWaitlist user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/admin/geometry-gaps" element={

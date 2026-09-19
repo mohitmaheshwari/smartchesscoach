@@ -194,16 +194,29 @@ export default function Landing() {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const [devMode, setDevMode] = useState(false);
+  // Invite-only pre-launch. Defaults to CLOSED so a failed status fetch
+  // never accidentally opens signups. docs/invite_only_signup_scope.md
+  const [signupsOpen, setSignupsOpen] = useState(false);
   const [devLoading, setDevLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
 
   useEffect(() => {
     track(ANALYTICS_EVENTS.FUNNEL_LANDING_VIEWED);
     fetch(`${API}/auth/status`).then((response) => response.json()).then((data) => setDevMode(data.dev_mode === true)).catch(() => {});
+    fetch(`${API}/signup-status`).then((response) => response.json()).then((data) => setSignupsOpen(data.signups_open === true)).catch(() => {});
   }, []);
 
   const startPlan = async (source = "hero") => {
     track(ANALYTICS_EVENTS.FUNNEL_LANDING_CTA_CLICKED, { source });
+    // INVITE-ONLY (2026-09-19). While signups are closed every landing CTA
+    // asks for an invite instead of starting Google sign-in. /api/signup-status
+    // is the single source of truth, so flipping SIGNUPS_OPEN=true restores
+    // the original flow with no code change.
+    // docs/invite_only_signup_scope.md
+    if (!signupsOpen) {
+      navigate(`/invite?from=${encodeURIComponent(source)}`);
+      return;
+    }
     window.sessionStorage.setItem("post_auth_redirect", "/welcome");
     const isNative = Capacitor.isNativePlatform();
     const startUrl = `${API}/auth/google/login?redirect_to=${encodeURIComponent("/welcome")}`;
