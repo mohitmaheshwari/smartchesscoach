@@ -162,6 +162,105 @@ def _motif_confidence(names, probe, after, mover, best_gain):
     return CONFIDENCE_UNCERTAIN
 
 
+def _allowed_mate_caption(move, evidence, colour):
+    """Say what the threat WAS and what would have met it, not just the finish.
+
+    "dxc5 allows mate in one. The finish is Qxh2#." is a true sentence that
+    teaches nothing -- Mohit, 2026-09-19: "how you should have saved it, or
+    something better, coachable."
+
+    The teachable fact is in the data already: on 3 of 4 sampled cards the
+    mating piece was ALREADY aiming at the mating square before the move was
+    played. That is not "you allowed mate", it is "the threat was standing
+    there and you looked somewhere else" -- which is a habit a player can fix.
+
+    Every clause below is checked on the board: which piece mates, from where,
+    whether it was aiming there beforehand, whether the best move defends that
+    square, moves the king, or blocks the line.
+    """
+    line = list(evidence.get("mating_line") or [])
+    fen_after, fen_before = evidence.get("fen_after"), evidence.get("fen_before")
+    played, best = evidence.get("played_san"), move.get("best_move")
+    if not line or not fen_after or not fen_before or not played:
+        return None
+    # The MATING move is the last one in the line, not the first. A line like
+    # "Bb7 Nxd4 Qh1#" is a mate in three, and describing Bb7 as the mate
+    # reported the wrong piece on the wrong square -- caught by reading the
+    # rendered cards rather than the code.
+    try:
+        after = chess.Board(str(fen_after))
+        before = chess.Board(str(fen_before))
+        board = after.copy(stack=False)
+        mating = None
+        for index, san in enumerate(line):
+            mv = board.parse_san(str(san))
+            if index == len(line) - 1 or board.gives_check(mv):
+                probe = board.copy(stack=False)
+                probe.push(mv)
+                if probe.is_checkmate():
+                    mating = mv
+                    mating_board = board.copy(stack=False)
+                    break
+            board.push(mv)
+        if mating is None:
+            return None
+    except Exception:  # noqa: BLE001
+        return None
+    piece = mating_board.piece_at(mating.from_square)
+    if piece is None:
+        return None
+    plies = len(line)
+    mate_sq = chess.square_name(mating.to_square)
+    from_sq = chess.square_name(mating.from_square)
+    piece_word = chess.piece_name(piece.piece_type)
+
+    # Was the threat already standing before the move? Only meaningful for a
+    # mate in one -- in a longer line the mating piece may not even be there
+    # yet when the move is played.
+    standing = (plies == 1
+                and before.piece_at(mating.from_square) is not None
+                and mating.to_square in before.attacks(mating.from_square))
+
+    if standing:
+        threat = (f"Their {piece_word} on {from_sq} was already aiming at "
+                  f"{mate_sq}, and {played} looked somewhere else.")
+    elif plies == 1:
+        threat = (f"{played} let their {piece_word} get from {from_sq} to "
+                  f"{mate_sq}, and that is mate.")
+    else:
+        moves_to_mate = (plies + 1) // 2
+        threat = (f"{played} runs into mate in {moves_to_mate}: "
+                  f"{' '.join(str(x) for x in line)}, finishing with their "
+                  f"{piece_word} on {mate_sq}.")
+
+    # What the save does, checked rather than asserted.
+    save = ""
+    if best:
+        try:
+            probe = before.copy(stack=False)
+            best_mv = probe.parse_san(str(best))
+            moved = probe.piece_at(best_mv.from_square)
+            probe.push(best_mv)
+            defends = bool(probe.attackers(before.turn, mating.to_square))
+            if probe.is_castling(best_mv) if hasattr(probe, "is_castling") else False:
+                save = f"{best} gets your king off that line."
+            elif moved is not None and moved.piece_type == chess.KING:
+                save = f"{best} walks the king out of it."
+            elif defends:
+                save = f"{best} covers {mate_sq} instead."
+            else:
+                save = f"{best} was the move."
+        except Exception:  # noqa: BLE001
+            save = f"{best} was the move."
+
+    scan = (f"Before you move, look at what their queen, rook and bishops are "
+            f"pointing at around your king.")
+    caption = " ".join(x for x in (threat, save, scan) if x)
+    if len(caption.split()) > 60:
+        caption = " ".join(x for x in (threat, save) if x)
+    return caption
+
+
 def _produce_allowed_mate(move, colour, analysis):
     from services.allowed_mate_detector import detect_allowed_mate, render_claim
 
@@ -187,7 +286,8 @@ def _produce_allowed_mate(move, colour, analysis):
         "best_move": move.get("best_move"),
         "pv_after_best": list(move.get("pv_after_best") or [])[:8],
     })
-    return (render_claim(evidence), evidence)
+    coachable = _allowed_mate_caption(move, evidence, colour)
+    return (coachable or render_claim(evidence), evidence)
 
 
 def _produce_simple_hang(move, colour, analysis):

@@ -215,16 +215,39 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "tactic:discovered_attack_with_stored_payoff": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="backend/tests/test_discovered_attack_puzzle_proof.py",
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/discovered_attack_caption_promotion_2026_09_19.md",
         rationale=(
-            "A canonical vacated-ray candidate is independently rebuilt as a "
-            "single-blocker line, and the complete legal stored continuation "
-            "must capture that exact target with the uncovered slider."
+            "Meets every Caption-grade value in the 2026-08-27 threshold lock, "
+            "and meets the precision one with HUMAN semantic review rather "
+            "than a second implementation: 52 fires judged one position at a "
+            "time by Mohit in /admin/detector-review, 52 true, 0 wrong, 100% "
+            "precision, 95% Wilson lower bound 93.1% (bar 85). 30 true "
+            "negatives drawn in corpus order from 2,537 engine-flagged "
+            "mistakes (bar 20), and 0 critical false claims across an "
+            "adversarial packet built from the four cases the reviewer could "
+            "not call. Caption-grade sets no recall floor because a caption "
+            "detector may safely stay silent. This is the first detector in "
+            "the product promoted on human review rather than on agreement "
+            "between two implementations -- the shortcut that put simple_hang "
+            "at a false 96.9%."
         ),
         limitations=(
             "Only discovered attacks with the exact stored material payoff are named.",
             "Quiet discoveries and truncated continuations remain generic.",
+            "Caption surface only. Plan-grade still needs 200 reviewed fires "
+            "and >=60% semantic recall, which is not measured at all here.",
+            "The precision sample is skewed HARD, not random: the queue serves "
+            "least-certain first. That can only depress a measured precision, "
+            "never inflate it.",
+            "Negatives and adversarial cases are board-adjudicated, not human "
+            "semantic gold. They supplement the human figure and do not "
+            "substitute for it.",
+            "NOT YET WIRED TO A CAPTION. caption_pipeline and caption_facts do "
+            "not consume this detector -- the grade authorises a caption that "
+            "does not exist yet. Today it reaches users only through "
+            "verified_puzzle_builder. Promotion without that wiring changes "
+            "nothing a player sees.",
         ),
     ),
     "tactic:back_rank_mate_exact": Authorization(
