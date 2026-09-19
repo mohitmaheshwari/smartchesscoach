@@ -448,6 +448,18 @@ def _missed_motif(builder, label):
         if label == "discovered attack":
             coachable = _discovered_attack_caption(board.copy(), best, head)
         if coachable:
+            # The caption says "the queen then looks straight at the rook on
+            # a1". Until now the board drew the two MOVES and never that line,
+            # so the one thing the lesson is about was invisible. Yellow is
+            # the coach's-point brush per docs/coach_geometry_arrows_scope.md.
+            discovered_line = None
+            try:
+                a_sq = str(head.get("discovered_attacker_square") or "")
+                t_sq = str(head.get("target_square") or "")
+                if a_sq and t_sq:
+                    discovered_line = [a_sq, t_sq, "yellow"]
+            except Exception:  # noqa: BLE001
+                discovered_line = None
             return (coachable, {
                 "review_fen": fen, "line_fen": fen,
                 "fen_before": fen, "fen_after": move.get("fen_after"),
@@ -458,6 +470,12 @@ def _missed_motif(builder, label):
                 "pv_after_best": list(move.get("pv_after_best") or [])[:8],
                 "side_to_move": side, "arrow": arrow,
                 "arrow_is": f"the {label} that was available",
+                "extra_arrows": [discovered_line] if discovered_line else [],
+                "extra_arrows_is": (
+                    f"the line it opens: your "
+                    f"{head.get('discovered_attacker_piece_type')} onto the "
+                    f"{head.get('target_piece_type')}"
+                ) if discovered_line else None,
                 "confidence": confidence,
                 "quality_id": getattr(bundle, "quality_id", None),
                 "detector_facts": [dict(f) for f in facts][:4],

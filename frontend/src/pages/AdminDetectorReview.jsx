@@ -503,6 +503,10 @@ export default function AdminDetectorReview() {
             : [
                 sanToArrow(lineFen, e.played_san, "red"),
                 sanToArrow(lineFen, e.best_move || e.book_move, "green"),
+                // The line the move OPENS — the thing the caption is actually
+                // about. Without it the board showed two moves and never the
+                // geometry they create.
+                ...(e.extra_arrows || []),
               ].filter(Boolean);
 
           const renderLine = (which, label, colorClass) => {
@@ -586,6 +590,13 @@ export default function AdminDetectorReview() {
                     <span className="text-red-600">red</span> = played ·{" "}
                     <span className="text-green-600">green</span> = claimed
                     better
+                    {e.extra_arrows_is ? (
+                      <>
+                        {" · "}
+                        <span className="text-amber-600">yellow</span> ={" "}
+                        {e.extra_arrows_is}
+                      </>
+                    ) : null}
                     {e.highlight_is ? ` · circle = ${e.highlight_is}` : ""}
                   </p>
                 )}
