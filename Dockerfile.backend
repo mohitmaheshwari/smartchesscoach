@@ -29,6 +29,25 @@ COPY backend/ ./backend/
 # passed in at build time, not read from inside the container.
 ARG GIT_COMMIT=unknown
 ENV GIT_COMMIT=$GIT_COMMIT
+ARG BUILD_TIMESTAMP=unknown
+ENV BUILD_TIMESTAMP=$BUILD_TIMESTAMP
+
+# A build arg can be forgotten, and on 2026-09-19 it was: production answered
+# git_commit "unknown" and nobody could say what was serving users without
+# opening a shell inside the container. A build arg can also be WRONG -- it is
+# whatever string the operator typed, and nothing checks it against the source
+# actually copied in.
+#
+# This fingerprint is derived from the copied source itself, during the build,
+# so it cannot be omitted and cannot disagree with what shipped. Compare it
+# against `python backend/scripts/source_fingerprint.py` run on any checkout
+# to find out exactly which tree a running container is serving.
+RUN find /app/backend -name '*.py' -type f -print0 \
+    | sort -z \
+    | xargs -0 sha256sum \
+    | sha256sum \
+    | cut -d' ' -f1 > /app/SOURCE_FINGERPRINT \
+    && cat /app/SOURCE_FINGERPRINT
 
 # Set working directory to backend
 WORKDIR /app/backend

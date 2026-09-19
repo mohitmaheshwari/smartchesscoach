@@ -471,6 +471,27 @@ _HEALTH_REPORTED_FLAGS = (
 )
 
 
+_SOURCE_FINGERPRINT_PATH = "/app/SOURCE_FINGERPRINT"
+_source_fingerprint_cache = None  # str once read
+
+
+def _source_fingerprint() -> str:
+    """Read the fingerprint the image build wrote. Cached; never raises.
+
+    Absent on a container whose image predates this, and on anything running
+    the source outside Docker -- both report "unknown", which is honest
+    rather than a failure.
+    """
+    global _source_fingerprint_cache
+    if _source_fingerprint_cache is None:
+        try:
+            with open(_SOURCE_FINGERPRINT_PATH, "r", encoding="utf-8") as handle:
+                _source_fingerprint_cache = handle.read().strip() or "unknown"
+        except Exception:
+            _source_fingerprint_cache = "unknown"
+    return _source_fingerprint_cache
+
+
 @api_router.get("/health")
 async def health():
     """Build identity, so it is always provable which code a user was served.
@@ -508,6 +529,11 @@ async def health():
         # --build-arg GIT_COMMIT=$(git rev-parse HEAD) — see Dockerfile.
         "git_commit": os.environ.get("GIT_COMMIT", "unknown"),
         "build_timestamp": os.environ.get("BUILD_TIMESTAMP", "unknown"),
+        # Derived from the source during the image build, so unlike
+        # git_commit it cannot be forgotten and cannot disagree with what
+        # shipped. `backend/scripts/source_fingerprint.py` recomputes it from
+        # any checkout; equal values mean that checkout is what is running.
+        "source_fingerprint": _source_fingerprint(),
         "api_version": app.version,
         "worker_version": worker_version or "unknown",
         "engine_version": engine_version or "unknown",

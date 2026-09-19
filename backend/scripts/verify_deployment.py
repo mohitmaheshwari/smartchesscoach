@@ -244,13 +244,24 @@ def check_commit_match(
                     "Ordinary for a local container updated with docker cp.",
                 ])
                 return
-            record(name, FAIL, [
+            fingerprint = str((health_json or {}).get("source_fingerprint") or "")
+            detail = [
                 f"Health endpoint exposes: {exposed}",
                 f"{base_url} cannot say which commit it is running, so this "
-                "deploy cannot be verified at all.",
+                "deploy cannot be verified by commit.",
                 "Rebuild with the commit plumbed in:",
                 "  GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build",
-            ])
+            ]
+            if fingerprint and fingerprint.lower() != "unknown":
+                detail += [
+                    "",
+                    "It DOES report a source fingerprint, which is derived from"
+                    " the shipped source and cannot be forgotten:",
+                    f"  {fingerprint}",
+                    "Identify the running tree by comparing that against:",
+                    "  python backend/scripts/source_fingerprint.py",
+                ]
+            record(name, FAIL, detail)
             return
         # Prefer the commit the deploy script just published. Inside the
         # container there is no git checkout, so _local_git_head() always
