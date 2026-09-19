@@ -42,10 +42,14 @@ db = None
 VERDICTS = {"true", "false", "unsure"}
 COLLECTION = "detector_claim_rulings"
 
-# How many analyses to walk before giving up on finding an unjudged fire. The
-# detectors here are sparse by design -- allowed_mate fires on well under 1%
-# of moves -- so a small scan window returns nothing and looks broken.
-SCAN_LIMIT = 900
+# How many analyses to walk before giving up on finding an unjudged fire.
+#
+# This was 900 while the loop did a database round trip per analysis. With the
+# game context preloaded the walk is CPU-bound, so it can cover the whole
+# corpus (15,807 analyses today). 900 was why the page told Mohit "done" on
+# allowed_mate and fork at 36 and 32 rulings: it had run out of the window,
+# not out of claims, and the empty state could not tell him which.
+SCAN_LIMIT = 20000
 
 # A motif claim says "it wins material". That has to mean piece-scale, not a
 # pawn left over after trading a bishop for a knight. Measured across the live
@@ -98,6 +102,65 @@ def _orientation_and_arrow(fen, san):
                    chess.square_name(move.to_square)])
 
 
+# ─── How sure is the BOARD, on its own? ─────────────────────────────────
+#
+# Mohit, after ruling 91 cards: "please only show me positions which you're
+# not sure about, there is no point showing me what you already know are true,
+# that's not my job."
+#
+# He is right, and the queue was built backwards. The gates above can settle a
+# claim mechanically -- is the target winnable, does the line reach mate, can
+# the piece legally be taken -- and then the page spent his afternoon on the
+# ones the gates were MOST certain of.
+#
+# So each claim carries a confidence, and the queue serves the least certain
+# first. What this is NOT: auto-approval. A low-confidence claim is where his
+# judgement adds something the board cannot supply; a high-confidence one is
+# still only board-verified, and the threshold lock is explicit that board
+# verification alone does not promote a detector. It reorders. It never rules.
+#
+# The lock's own sampling rule is about stopping a detector flattering itself
+# by floating EASY cases to the top. This does the opposite, which can only
+# lower a measured precision, never raise it.
+
+CONFIDENCE_CERTAIN = "certain"      # the board settles it; low review value
+CONFIDENCE_LIKELY = "likely"        # settled, but near a boundary
+CONFIDENCE_UNCERTAIN = "uncertain"  # the board cannot answer the real question
+
+_CONFIDENCE_RANK = {
+    CONFIDENCE_UNCERTAIN: 0,
+    CONFIDENCE_LIKELY: 1,
+    CONFIDENCE_CERTAIN: 2,
+}
+
+
+def _motif_confidence(names, probe, after, mover, best_gain):
+    """Certain when the win is unambiguous; uncertain when it is a judgement.
+
+    A target nobody defends, taken for 400cp or more, is not a question worth
+    a person's time. A defended target won by 200 after a trade is exactly the
+    shape Mohit kept marking unsure, and it is where the real question lives:
+    is this the lesson, or just a true sentence?
+    """
+    import chess as _chess
+
+    undefended = 0
+    for name in names:
+        try:
+            sq = _chess.parse_square(str(name))
+        except (ValueError, TypeError):
+            continue
+        if not after.attackers(not mover, sq):
+            undefended += 1
+    if best_gain is None:
+        return CONFIDENCE_UNCERTAIN
+    if undefended and best_gain >= 400:
+        return CONFIDENCE_CERTAIN
+    if best_gain >= 300:
+        return CONFIDENCE_LIKELY
+    return CONFIDENCE_UNCERTAIN
+
+
 def _produce_allowed_mate(move, colour, analysis):
     from services.allowed_mate_detector import detect_allowed_mate, render_claim
 
@@ -107,7 +170,14 @@ def _produce_allowed_mate(move, colour, analysis):
     fen = evidence.get("fen_before")
     side, arrow = _orientation_and_arrow(fen, evidence.get("played_san"))
     evidence = dict(evidence)
+    from services.allowed_mate_detector import _plies_to_mate
+
+    # Certain when the stored line actually reaches checkmate on the board.
+    # A truncated line is not evidence of safety -- it is a question.
+    _proved = _plies_to_mate(str(evidence.get("fen_after") or ""),
+                             list(evidence.get("mating_line") or []))
     evidence.update({
+        "confidence": CONFIDENCE_CERTAIN if _proved else CONFIDENCE_UNCERTAIN,
         "review_fen": fen, "side_to_move": side, "arrow": arrow,
         "arrow_is": "the move played",
         "line_fen": fen,
@@ -145,6 +215,33 @@ def _produce_simple_hang(move, colour, analysis):
         mate_in_play=bool(move.get("mate_info")))
     if not hang:
         return None
+    # Position says hanging; what actually happened next is the other half.
+    # They disagree on a quarter of cases, and that disagreement is the only
+    # interesting question here -- everything else the board already settled.
+    confidence = CONFIDENCE_CERTAIN
+    try:
+        from services.legal_exchange_verifier import independent_exchange_gain
+
+        sq = chess.parse_square(str(hang.get("square")))
+        after_board = chess.Board(str(move.get("fen_after") or ""))
+        gain = independent_exchange_gain(after_board, sq)
+        lost_next = 0
+        replay = chess.Board(str(move.get("fen_after") or ""))
+        for san in list(move.get("pv_after_played") or [])[:4]:
+            nxt = replay.parse_san(str(san))
+            cap = replay.piece_at(nxt.to_square)
+            if cap is not None and cap.color == board.turn:
+                lost_next += 1
+            replay.push(nxt)
+        if gain >= 300 and lost_next:
+            confidence = CONFIDENCE_CERTAIN
+        elif not lost_next:
+            confidence = CONFIDENCE_UNCERTAIN   # says hanging, nothing was lost
+        else:
+            confidence = CONFIDENCE_LIKELY
+    except Exception:  # noqa: BLE001
+        confidence = CONFIDENCE_UNCERTAIN
+
     return (
         f"After {move.get('move')}, {clause_for(hang)}.",
         {"fen_before": fen, "fen_after": move.get("fen_after"),
@@ -161,6 +258,7 @@ def _produce_simple_hang(move, colour, analysis):
          "move_number": move.get("move_number"),
          "cp_loss": move.get("cp_loss"), "hung_piece": hang.get("piece"),
          "hung_square": hang.get("square"),
+         "confidence": confidence,
          "side_to_move": "white" if board.turn == chess.WHITE else "black",
          "highlight": [hang.get("square")],
          "highlight_is": "the piece said to be hanging",
@@ -291,6 +389,7 @@ def _missed_motif(builder, label):
                 if winnable < 2:
                     return None
         side, arrow = _orientation_and_arrow(fen, best)
+        confidence = _motif_confidence(names, probe, after, board.turn, best_gain)
         return (
             # Provisional review wording only, never served to a player --
             # see the docstring above.
@@ -310,6 +409,7 @@ def _missed_motif(builder, label):
              "side_to_move": side,
              "arrow": arrow,
              "arrow_is": f"the {label} that was available",
+             "confidence": confidence,
              "quality_id": getattr(bundle, "quality_id", None),
              "detector_facts": [
                  dict(f) for f in getattr(
@@ -339,6 +439,10 @@ def _produce_left_book(move, colour, analysis):
         {"fen_before": move.get("fen_before"), "fen_after": move.get("fen_after"),
          "review_fen": move.get("fen_before"),
          "line_fen": move.get("fen_before"),
+         # No board fact decides whether "you left the book" is the right
+         # thing to say -- two of the first three sampled were hung knights
+         # dressed as theory. This one is always a human question.
+         "confidence": CONFIDENCE_UNCERTAIN,
          "played_san": move.get("move"), "book_move": detail.get("expected_san"),
          "best_move": move.get("best_move"),
          "pv_after_played": list(move.get("pv_after_played") or [])[:8],
@@ -424,6 +528,18 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
     found: List[Dict[str, Any]] = []
     producer_errors: Counter = Counter()
     scanned = 0
+
+    # One query for every game's context instead of one per analysis. The old
+    # loop did a find_one per analysis, which is what forced SCAN_LIMIT down to
+    # 900 -- and 900 of 15,807 analyses is why the queue told Mohit "done" at
+    # 36 of 50 rulings. ~16k small docs is a couple of MB and one round trip.
+    games_by_id: Dict[str, Dict[str, Any]] = {}
+    async for g in db.games.find(
+        {}, {"_id": 0, "game_id": 1, "user_color": 1, "white": 1, "black": 1,
+             "platform": 1, "result": 1, "played_at": 1, "date": 1},
+    ):
+        games_by_id[g.get("game_id")] = g
+
     cursor = db.game_analyses.find(
         {"stockfish_analysis.move_evaluations.0": {"$exists": True}},
         {"_id": 0, "game_id": 1, "user_id": 1, "opening_deviation": 1,
@@ -433,10 +549,7 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
         scanned += 1
         if scanned > SCAN_LIMIT or len(found) >= limit:
             break
-        game = await db.games.find_one(
-            {"game_id": analysis.get("game_id")},
-            {"_id": 0, "user_color": 1, "white": 1, "black": 1, "platform": 1,
-             "result": 1, "played_at": 1, "date": 1})
+        game = games_by_id.get(analysis.get("game_id"))
         colour = (game or {}).get("user_color") or "white"
         # Mohit chose full game context for the reviewing coach (2026-09-18):
         # usernames, platform and result travel with every claim. No email --
@@ -487,6 +600,14 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
     if producer_errors:
         logger.warning("[detector-review] %s producer errors: %s",
                        detector, dict(producer_errors))
+
+    # Least certain first. The board already settled the confident ones, and
+    # spending a reviewer on those is spending them on the answer we have.
+    # This is a REORDER, not a filter: every claim still reaches the queue,
+    # and a "certain" claim is still only board-verified, which the threshold
+    # lock says does not promote anything by itself.
+    found.sort(key=lambda c: _CONFIDENCE_RANK.get(
+        (c.get("evidence") or {}).get("confidence"), 0))
     return found
 
 
@@ -515,7 +636,22 @@ async def batch_claims(
     """Several at once — reading fifty claims in ten minutes is the point."""
     ruled = set(await db[COLLECTION].distinct(
         "claim_key", {"detector": detector}))
-    return {"detector": detector, "claims": await _fires_for(detector, ruled, limit)}
+    claims = await _fires_for(detector, ruled, limit)
+    buckets = Counter(
+        (c.get("evidence") or {}).get("confidence") or "uncertain"
+        for c in claims)
+    return {
+        "detector": detector,
+        "claims": claims,
+        # So the page can say what it is asking for: the ones the board could
+        # not settle, not everything it found.
+        "confidence_split": dict(buckets),
+        # So the page can say "searched N games" rather than implying the work
+        # is over when the scan window simply ended.
+        "scanned_analyses": min(SCAN_LIMIT, await db.game_analyses.count_documents(
+            {"stockfish_analysis.move_evaluations.0": {"$exists": True}})),
+        "already_ruled": len(ruled),
+    }
 
 
 @router.post("/admin/detector-review")

@@ -102,6 +102,7 @@ const replay = (fen, moves, ply) => {
 export default function AdminDetectorReview() {
   const [detector, setDetector] = useState(DETECTORS[0].id);
   const [claims, setClaims] = useState([]);
+  const [scanInfo, setScanInfo] = useState({});
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [ruled, setRuled] = useState({});
@@ -143,7 +144,13 @@ export default function AdminDetectorReview() {
         `${API}/admin/detector-review/batch?detector=${detector}&limit=20`,
         { credentials: "include" }
       );
-      setClaims(res.ok ? (await res.json()).claims || [] : []);
+      const body = res.ok ? await res.json() : {};
+      setClaims(body.claims || []);
+      setScanInfo({
+        scanned: body.scanned_analyses,
+        ruled: body.already_ruled,
+        split: body.confidence_split,
+      });
     } finally {
       setLoading(false);
     }
@@ -353,6 +360,17 @@ export default function AdminDetectorReview() {
               Every card below is one real move from a real game where this
               detector fired. Switch detector above to review a different one.
             </p>
+            {scanInfo.split && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Least certain first.{" "}
+                <strong>{scanInfo.split.uncertain || 0}</strong> of these the
+                board cannot settle — those are the ones worth your time. The
+                other{" "}
+                {(scanInfo.split.certain || 0) + (scanInfo.split.likely || 0)}{" "}
+                are board-verified already and are here only so nothing is
+                hidden from you.
+              </p>
+            )}
             {summary?.already_promoted && (
               <p className="text-xs mt-1 text-green-700 dark:text-green-500">
                 This one is already <strong>{summary.grade}</strong> grade and
@@ -423,6 +441,20 @@ export default function AdminDetectorReview() {
                   ? "That is below the 95% bar, so the misses are bug reports rather than a promotion."
                   : "That clears the 95% bar — it is ready to be promoted."}{" "}
                 Pick another detector above.
+              </>
+            ) : summary?.judged > 0 ? (
+              <>
+                {/* The queue ran out of window, not out of work. Saying
+                    "no claims left" here read as "you are finished" and
+                    stopped Mohit at 36 of 50. */}
+                I have searched{" "}
+                <strong>{scanInfo.scanned?.toLocaleString() ?? "all"}</strong>{" "}
+                analysed games and found no <em>unjudged</em>{" "}
+                {active?.label?.toLowerCase()} claims beyond the{" "}
+                {summary.judged} you have ruled. This detector fires sparsely —
+                it needs {summary.remaining} more rulings and the corpus does
+                not currently hold them. Tell me and I will widen the search or
+                analyse more games.
               </>
             ) : (
               <>
@@ -560,9 +592,21 @@ export default function AdminDetectorReview() {
               </div>
 
               <div className="space-y-3 min-w-0">
-                <p className="text-[15px] leading-snug text-foreground">
-                  {c.claim}
-                </p>
+                <div className="flex items-start gap-2">
+                  <p className="text-[15px] leading-snug text-foreground flex-1">
+                    {c.claim}
+                  </p>
+                  {e.confidence && e.confidence !== "uncertain" && (
+                    <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-sm border text-muted-foreground">
+                      board says {e.confidence}
+                    </span>
+                  )}
+                  {e.confidence === "uncertain" && (
+                    <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-sm border border-amber-500 text-amber-700 dark:text-amber-500">
+                      needs your call
+                    </span>
+                  )}
+                </div>
 
                 {/* Plain language, not the raw keys. The first build printed
                     `quality_id tactic:discovered_attack_with_stored_payoff ·
