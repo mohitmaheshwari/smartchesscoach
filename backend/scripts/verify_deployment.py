@@ -187,7 +187,25 @@ def _local_git_head() -> str | None:
 # Check 1 — git commit match
 # =====================================================================
 
-def check_commit_match(health_json: dict | None, expect_commit: str | None = None) -> None:
+def _targets_a_local_container(base_url: str | None) -> bool:
+    """Is this a developer's own container rather than a deployment?
+
+    A dev container is usually built once and then updated with `docker cp`,
+    which never passes a build arg, so "unknown" there is ordinary. Against a
+    deployed host it is not ordinary: it means nobody can say which code the
+    users on it are running.
+    """
+    from urllib.parse import urlparse
+
+    host = (urlparse(base_url or "").hostname or "").lower()
+    return host in {"localhost", "127.0.0.1", "::1", "host.docker.internal", ""}
+
+
+def check_commit_match(
+    health_json: dict | None,
+    expect_commit: str | None = None,
+    base_url: str | None = None,
+) -> None:
     name = "1. Git commit match"
 
     commit_keys = [k for k in (health_json or {}) if any(
@@ -196,17 +214,42 @@ def check_commit_match(health_json: dict | None, expect_commit: str | None = Non
 
     if commit_keys:
         exposed = {k: health_json[k] for k in commit_keys}
-        # "unknown" is the Dockerfile's own documented default when the
-        # image was built without --build-arg GIT_COMMIT=... — a real,
-        # distinct state from "wrong commit," not a FAIL. Otherwise a
-        # dev container built via `docker cp` (never gets a build arg)
-        # would falsely report a commit mismatch every time.
-        if all(str(v).strip().lower() in ("unknown", "", "none") for v in exposed.values()):
-            record(name, SKIP, [
+        # Judge identity on the commit fields alone. The key filter above is
+        # deliberately broad, but /api/health gained worker/engine/caption
+        # version fields on 2026-09-17, and those are always populated -- so
+        # `all(... == "unknown")` over every match silently stopped being true
+        # the moment they landed, and an unidentifiable production build went
+        # back to reporting a bland SKIP.
+        identity_keys = [
+            k for k in commit_keys
+            if any(tok in k.lower() for tok in ("commit", "sha"))
+        ]
+        judged = {k: health_json[k] for k in (identity_keys or commit_keys)}
+        # "unknown" is the Dockerfile's own documented default when the image
+        # was built without --build-arg GIT_COMMIT=... — a real, distinct
+        # state from "wrong commit". On a dev container it is ordinary and
+        # stays a SKIP, because `docker cp` never passes a build arg.
+        #
+        # On a deployed host it is a FAIL. 2026-09-19: production answered
+        # "unknown" and the only way to find out what users were actually
+        # running was to ssh in and grep inside the container. A verifier that
+        # skips over that is not verifying the deploy. The whole point of the
+        # field is that nobody should have to do that.
+        if all(str(v).strip().lower() in ("unknown", "", "none") for v in judged.values()):
+            if _targets_a_local_container(base_url):
+                record(name, SKIP, [
+                    f"Health endpoint exposes: {exposed}",
+                    "The endpoint is plumbed but this build never received "
+                    "--build-arg GIT_COMMIT.",
+                    "Ordinary for a local container updated with docker cp.",
+                ])
+                return
+            record(name, FAIL, [
                 f"Health endpoint exposes: {exposed}",
-                "The endpoint is plumbed but this build never received --build-arg GIT_COMMIT.",
-                "Not a mismatch -- deploy with: "
-                "GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build",
+                f"{base_url} cannot say which commit it is running, so this "
+                "deploy cannot be verified at all.",
+                "Rebuild with the commit plumbed in:",
+                "  GIT_COMMIT=$(git rev-parse HEAD) docker compose up -d --build",
             ])
             return
         # Prefer the commit the deploy script just published. Inside the
@@ -906,7 +949,7 @@ async def run(args: argparse.Namespace) -> int:
     health_json = check_health(args.base_url, args.timeout)
     _print_result(RESULTS[-1])
 
-    check_commit_match(health_json, args.expect_commit)
+    check_commit_match(health_json, args.expect_commit, args.base_url)
     _print_result(RESULTS[-1])
 
     check_frontend_marker(args.base_url, args.frontend_marker, args.timeout)

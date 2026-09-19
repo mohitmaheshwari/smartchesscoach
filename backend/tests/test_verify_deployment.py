@@ -327,3 +327,58 @@ def test_journey_check_never_skips_missing_fixture_in_strict_mode():
     )
     assert RESULTS[-1].status == SKIP
     assert _check_key(RESULTS[-1].name) == "journey"
+
+
+# --- "unknown" commit: ordinary locally, a failed deploy remotely ----------
+
+def _commit_result(health, base_url):
+    """Run check 1 in isolation and return its status."""
+    from scripts import verify_deployment as vd
+
+    before = len(vd.RESULTS)
+    vd.check_commit_match(health, None, base_url)
+    return vd.RESULTS[before].status
+
+
+def test_unknown_commit_on_a_deployed_host_fails():
+    """2026-09-19: production answered git_commit "unknown", and the only way
+    to learn what users were running was to ssh in and grep inside the
+    container. A verifier that skips past that is not verifying the deploy."""
+    from scripts import verify_deployment as vd
+
+    status = _commit_result({"git_commit": "unknown"}, "https://chessguru.ai")
+    assert status == vd.FAIL
+
+
+def test_unknown_commit_on_a_local_container_still_skips():
+    """A dev container is updated with docker cp, which never passes a build
+    arg. Failing there would be noise, and that was the original reason for
+    the SKIP."""
+    from scripts import verify_deployment as vd
+
+    for url in (
+        "http://localhost:8002",
+        "http://127.0.0.1:8002",
+        "http://host.docker.internal:8002",
+    ):
+        assert _commit_result({"git_commit": "unknown"}, url) == vd.SKIP
+
+
+def test_a_missing_base_url_is_treated_as_local():
+    """Absent a target, assume the lenient case rather than inventing a
+    failure."""
+    from scripts import verify_deployment as vd
+
+    assert _commit_result({"git_commit": "unknown"}, None) == vd.SKIP
+
+
+def test_a_real_commit_does_not_hit_the_unknown_failure():
+    """The new FAIL branch must only cover the all-unknown case.
+
+    A real commit with nothing to compare against still SKIPs -- inside a
+    container there is no git checkout and no --expect-commit -- and that is
+    the pre-existing behaviour, untouched here."""
+    from scripts import verify_deployment as vd
+
+    status = _commit_result({"git_commit": "a" * 40}, "https://chessguru.ai")
+    assert status != vd.FAIL
