@@ -30,6 +30,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import chess
+
+from services.caption_facts import PIECE_VALUE_CP
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from routes.admin import require_admin
@@ -260,6 +262,10 @@ def _allowed_mate_caption(move, evidence, colour):
     # thing they can already see. What the board cannot show is that it is
     # mate, why the save works, and the habit -- so that is what is left.
     ring = _escape_ring(evidence)
+    try:
+        played_mv_obj = before.parse_san(str(played))
+    except Exception:  # noqa: BLE001
+        played_mv_obj = None
 
     # "Give your king air" is only advice for a king that has ALREADY castled.
     # On a card where the king is still on e8 with the queen and bishop hitting
@@ -351,32 +357,72 @@ def _allowed_mate_caption(move, evidence, colour):
         except Exception:  # noqa: BLE001
             save = f"{best} was the move."
 
-    # The scan names the shape just shown, not a generic once-over.
-    if centre_king:
-        scan = ("A king left in the middle is what makes these work -- castle "
-                "before they line up on it.")
-    elif boxed_in:
-        scan = ("A king with no open square only needs one checker -- give "
-                "yours air before it is needed.")
-    elif named_pair:
-        scan = ("Two pieces aimed at one square by your king is usually mate "
-                "-- check that before you take anything.")
-    else:
-        scan = ("Before you move, check what is already aimed at the squares "
-                "next to your king.")
-
-    # The principle is the only sentence that transfers to a position they
-    # have never seen, so it is the last thing to cut, not the first. The
-    # previous version joined all three and dropped the SCAN when the total
-    # ran past the cap -- which on Mohit's dxc5/Qxh2# card silently deleted
-    # the whole lesson and left a description. Shorten the save instead.
-    caption = " ".join(x for x in (threat, save, scan) if x)
-    if len(caption.split()) > 60 and best:
-        save = f"{best} stops it."
-        caption = " ".join(x for x in (threat, save, scan) if x)
+    # Mohit, 2026-09-19: "caption should only and only provide teaching ...
+    # principles that you don't forget." Everything positional is drawn -- the
+    # attackers in yellow, the squares the king cannot use as red circles, the
+    # save in green. What is left for words is the rule, plus the shortest
+    # possible link saying which habit it is about.
+    rule = _mate_rule(before, played_mv_obj, ring, castled, uncastled_centre,
+                      standing, bool(supporters))
+    # The only fact worth a word: that it is mate, and in how many. Which
+    # pieces, which squares, which exits were shut -- all drawn.
+    caption = f"{played} was {mate_word}. {rule}"
     if len(caption.split()) > 60:
-        caption = " ".join(x for x in (threat, scan) if x)
+        caption = rule
     return caption
+
+
+def _capture_net_cp(board_before, played_mv):
+    """What the capture actually NETS, not merely that it was a capture.
+
+    Mohit, 2026-09-19: "are you sure that position was this, never write
+    something bad or wrong." He was right. The rule fired on is_capture(),
+    which says a piece was taken and nothing about whether anything was won.
+    Measured over every allowed_mate capture in 300 analyses: 5 of 13 win a
+    piece, 6 win only a pawn, and 2 LOSE material -- including Rxb7 at -400,
+    which had been captioned "when you are about to win a piece" while the
+    player was hanging a rook.
+    """
+    if played_mv is None or not board_before.is_capture(played_mv):
+        return None
+    victim = board_before.piece_at(played_mv.to_square)
+    took = PIECE_VALUE_CP.get(victim.piece_type, 100) if victim else 100
+    after = board_before.copy(stack=False)
+    after.push(played_mv)
+    try:
+        from services.legal_exchange_verifier import independent_exchange_gain
+        return took - independent_exchange_gain(after, played_mv.to_square)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _mate_rule(board_before, played_mv, ring, castled, centre, standing, pair):
+    """The one sentence the player should still have next month.
+
+    The board already shows what happened. The caption's whole job is the
+    portable rule -- but a rule is only teaching if THIS position earned it.
+    A bank of generic principles ("develop your pieces") reads like coaching
+    and is filler, which is why each rule below is selected by a board fact
+    and never appended to everything.
+
+    Most-specific first: the most useful rule is the one about the mistake
+    they actually made.
+    """
+    net = _capture_net_cp(board_before, played_mv)
+    # Only say "winning a piece" when a piece is actually being won. A capture
+    # that nets a pawn gets the pawn sentence; one that loses material is not
+    # about greed at all, so it falls through to the king rules below.
+    if net is not None and net >= 200:
+        return "When you are about to win a piece, check your own king first."
+    if net is not None and 0 < net < 200:
+        return "A free pawn is never worth a turn spent away from your king."
+    if centre and pair:
+        return "Castle before they get two pieces pointing at your king."
+    if castled and ring and len(ring.get("own") or []) >= 2:
+        return "Give your king a square to run to before it needs one."
+    if standing:
+        return "Look at what is already aimed at your king before you move."
+    return "Look for attacks on your king before anything else."
 
 
 def _escape_ring(evidence):
