@@ -718,6 +718,9 @@ LEFT_BOOK_SUBTYPE = "left_book_for_a_worse_move"
 # that fired on "you left book" would be scolding people for good moves nearly
 # nine times in ten.
 LEFT_BOOK_MIN_CP_LOSS = 100
+# A move that drops this much material is a blunder, not a book question.
+# A minor piece is 300; 200 is the floor for "you lost a real piece here".
+LEFT_BOOK_HANGS_MATERIAL_CP = 200
 
 
 def _classify_left_book(mv, context) -> Tuple[Optional[str], Optional[str]]:
@@ -765,6 +768,42 @@ def _classify_left_book(mv, context) -> Tuple[Optional[str], Optional[str]]:
     book = _bare(detail.get("expected_san"))
     if not book or book != _bare(mv.get("best_move")):
         return (None, None)
+
+    # If the move simply hangs material, that is the lesson -- not theory.
+    #
+    # Mohit, on a card: "I feel like this is more of a blunder, hanging piece
+    # or something, not left your book." The move was Nxe5 in the Italian: it
+    # takes a pawn, Nxe5 takes the knight back, net -200. Telling a player who
+    # just dropped a knight on move 4 that they should study c3 is the right
+    # sentence about the wrong thing.
+    #
+    # `played_hangs_detector` already fires on exactly these and says "it
+    # leaves your knight on e5 hanging -- no defender after the move", which
+    # is what the player needs. So this one stands down and lets that speak,
+    # the same way the hang detector stands down for the mate path.
+    #
+    # Measured on 18 live left_book claims: 2 (11%) are this shape, and
+    # simple_hang fires on both. The other 16 are genuine book deviations.
+    try:
+        import chess
+
+        from services.legal_exchange_verifier import (
+            captured_value_cp,
+            independent_exchange_gain,
+        )
+
+        board = chess.Board(str(mv.get("fen_before") or ""))
+        played = chess.Move.from_uci(str(mv.get("move_uci") or ""))
+        if played in board.legal_moves:
+            after = board.copy(stack=False)
+            after.push(played)
+            net = (captured_value_cp(board, played)
+                   - independent_exchange_gain(after, played.to_square))
+            if net <= -LEFT_BOOK_HANGS_MATERIAL_CP:
+                return (None, None)
+    except Exception:  # noqa: BLE001
+        # A board we cannot read is not a reason to suppress a real claim.
+        pass
 
     severity = "critical" if abs(cp_loss) >= 300 else "moderate"
     return (LEFT_BOOK_SUBTYPE, severity)
