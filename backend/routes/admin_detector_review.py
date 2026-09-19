@@ -212,7 +212,11 @@ def _allowed_mate_caption(move, evidence, colour):
     plies = len(line)
     mate_sq = chess.square_name(mating.to_square)
     from_sq = chess.square_name(mating.from_square)
-    piece_word = chess.piece_name(piece.piece_type)
+    # A pawn that mates by promoting is not a pawn on that square -- "f1=Q#
+    # finishing with their pawn on f1" describes a piece that no longer exists
+    # by the time it gives mate.
+    piece_word = chess.piece_name(mating.promotion if mating.promotion
+                                  else piece.piece_type)
 
     # Was the threat already standing before the move? Only meaningful for a
     # mate in one -- in a longer line the mating piece may not even be there
@@ -221,43 +225,121 @@ def _allowed_mate_caption(move, evidence, colour):
                 and before.piece_at(mating.from_square) is not None
                 and mating.to_square in before.attacks(mating.from_square))
 
-    if standing:
+    # A mate is rarely one piece. Mohit, 2026-09-19, on dxc5 / Qxh2#: "Queen
+    # and knight are attacking and your king gets checkmated" -- the caption
+    # named only the queen, and the knight on g4 is why Kxh2 is illegal. Name
+    # everything of theirs that bears on the mating square, because the PAIR
+    # is the pattern a player can learn to spot; the queen alone is not.
+    mated = mating_board.copy(stack=False)
+    mated.push(mating)
+    supporters = []
+    for sq in mated.attackers(piece.color, mating.to_square):
+        if sq == mating.to_square:
+            continue
+        sup = mated.piece_at(sq)
+        if sup is None or sup.piece_type == chess.KING:
+            continue
+        supporters.append((chess.piece_name(sup.piece_type), chess.square_name(sq)))
+    supporters.sort()
+
+    mate_word = "mate in one" if plies <= 1 else f"mate in {(plies + 1) // 2}"
+
+    # "beside your king" has to be TRUE, not decorative. A back-rank mate --
+    # Qc8# with the king on e8 -- is two files away, and the caption claimed
+    # it was adjacent. Found by reading rendered cards, not the code.
+    mated_king = mated.king(not piece.color)
+    adjacent = (mated_king is not None
+                and chess.square_distance(mated_king, mating.to_square) <= 1)
+    beside = ", next to your king" if adjacent else ""
+    named_pair = False
+
+    if standing and supporters:
+        named_pair = True
+        sup_word, sup_sq = supporters[0]
+        threat = (f"Their {piece_word} on {from_sq} and {sup_word} on {sup_sq} "
+                  f"were both aimed at {mate_sq}{beside}: the "
+                  f"{piece_word} takes, the {sup_word} guards it, and that is "
+                  f"{mate_word}.")
+    elif standing:
         threat = (f"Their {piece_word} on {from_sq} was already aiming at "
-                  f"{mate_sq}, and {played} looked somewhere else.")
+                  f"{mate_sq} when you played {played} -- {mate_word}.")
     elif plies == 1:
-        threat = (f"{played} let their {piece_word} get from {from_sq} to "
-                  f"{mate_sq}, and that is mate.")
+        where = beside or f" from {from_sq}"
+        threat = (f"{played} lets their {piece_word} reach {mate_sq}{where} "
+                  f"-- {mate_word}.")
     else:
-        moves_to_mate = (plies + 1) // 2
-        threat = (f"{played} runs into mate in {moves_to_mate}: "
-                  f"{' '.join(str(x) for x in line)}, finishing with their "
+        threat = (f"{played} runs into {mate_word}, finishing with their "
                   f"{piece_word} on {mate_sq}.")
 
-    # What the save does, checked rather than asserted.
+    # What the save DOES, established rather than asserted. The old version
+    # said "h3 covers h2 instead" because attackers(h2) was non-empty -- but
+    # that was the KING, which already covered it. h3 works by blocking the
+    # file. Each branch below is a distinct, checkable mechanism, tried in the
+    # order a player would think of them.
     save = ""
     if best:
         try:
             probe = before.copy(stack=False)
             best_mv = probe.parse_san(str(best))
             moved = probe.piece_at(best_mv.from_square)
+            defenders_before = len(before.attackers(before.turn, mating.to_square))
+            # is_castling() must be asked of the board BEFORE the push, or it
+            # is always False and every castle reads as an ordinary king step.
+            best_is_castle = probe.is_castling(best_mv)
             probe.push(best_mv)
-            defends = bool(probe.attackers(before.turn, mating.to_square))
-            if probe.is_castling(best_mv) if hasattr(probe, "is_castling") else False:
-                save = f"{best} gets your king off that line."
-            elif moved is not None and moved.piece_type == chess.KING:
-                save = f"{best} walks the king out of it."
-            elif defends:
-                save = f"{best} covers {mate_sq} instead."
+
+            ray = set()
+            if plies == 1:
+                try:
+                    ray = set(chess.SquareSet.between(mating.from_square,
+                                                      mating.to_square))
+                except Exception:  # noqa: BLE001
+                    ray = set()
+
+            if moved is not None and moved.piece_type == chess.KING:
+                # NOT "off that square" -- the king is never standing on the
+                # square it gets mated on. It is mated NEXT to it.
+                save = (f"{best} tucks your king away from it."
+                        if best_is_castle
+                        else f"{best} steps your king out of it.")
+            elif best_mv.to_square == mating.from_square:
+                save = f"{best} takes the {piece_word} before it gets there."
+            elif best_mv.to_square in ray:
+                line_word = "file"
+                if chess.square_file(mating.from_square) != chess.square_file(mating.to_square):
+                    line_word = ("rank" if chess.square_rank(mating.from_square)
+                                 == chess.square_rank(mating.to_square) else "diagonal")
+                save = (f"{best} blocks the {line_word}, so the {piece_word} "
+                        f"can never reach {mate_sq}.")
+            elif any(best_mv.to_square == sq for _, sq in
+                     [(w, chess.parse_square(q)) for w, q in supporters]):
+                save = f"{best} takes the piece that was guarding {mate_sq}."
+            elif len(probe.attackers(before.turn, mating.to_square)) > defenders_before:
+                save = f"{best} puts another defender on {mate_sq}."
             else:
                 save = f"{best} was the move."
         except Exception:  # noqa: BLE001
             save = f"{best} was the move."
 
-    scan = (f"Before you move, look at what their queen, rook and bishops are "
-            f"pointing at around your king.")
+    # The scan names the shape just shown, not a generic once-over.
+    if named_pair:
+        scan = (f"When two of their pieces point at one square beside your "
+                f"king, answer that first.")
+    else:
+        scan = (f"Before you move, look at what their queen, rook and bishops "
+                f"are pointing at around your king.")
+
+    # The principle is the only sentence that transfers to a position they
+    # have never seen, so it is the last thing to cut, not the first. The
+    # previous version joined all three and dropped the SCAN when the total
+    # ran past the cap -- which on Mohit's dxc5/Qxh2# card silently deleted
+    # the whole lesson and left a description. Shorten the save instead.
     caption = " ".join(x for x in (threat, save, scan) if x)
+    if len(caption.split()) > 60 and best:
+        save = f"{best} stops it."
+        caption = " ".join(x for x in (threat, save, scan) if x)
     if len(caption.split()) > 60:
-        caption = " ".join(x for x in (threat, save) if x)
+        caption = " ".join(x for x in (threat, scan) if x)
     return caption
 
 
