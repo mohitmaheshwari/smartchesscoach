@@ -30,10 +30,22 @@ import sys
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BACKEND_ROOT)
 
+# 'stockfish', 'centipawn' and 'cp loss' were already here; 'engine' and
+# 'computer' belong with them. Mohit, 2026-09-19, on a review card reading
+# "Nxd4 is the move, and it is also what the engine plays": "we should never
+# talk about engine, this makes coach less trustable." A coach that cites a
+# machine is quoting an authority instead of teaching, and a 600-1500 player
+# can neither argue with it nor learn from it.
+#
+# Rendered captions measured clean (0 in 593 strings across 10 games) -- this
+# keeps them that way. Added here rather than as a second check because this
+# list already existed and a parallel one is how rules drift apart.
 BANNED = [
     "zwischenzug", "prophylaxis", "zugzwang", "luft", "outpost",
     "minority attack", "centipawn", "cp loss", "stockfish", "en prise",
     "fianchetto",
+    "engine",
+    "computer",
 ]
 _SNAKE = re.compile(r"\b[a-z]{3,}_[a-z]{3,}\b")
 

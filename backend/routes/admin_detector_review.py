@@ -430,12 +430,19 @@ def _produce_left_book(move, colour, analysis):
     detail = (context["opening_deviation"] or {}).get("deviation") or {}
     side, arrow = _orientation_and_arrow(
         move.get("fen_before"), detail.get("expected_san"))
+    # Never "the engine". Mohit, on this exact card: "we should never talk
+    # about engine, this makes coach less trustable." A coach who cites a
+    # computer is quoting an authority instead of teaching, and a 900-rated
+    # player cannot argue with it or learn from it. The detector's own third
+    # condition IS that the book move and the best move agree -- so the claim
+    # can simply be made, without naming who agrees.
+    #
+    # "Book" also goes: it is club jargon for a 600-1500 audience.
     return (
         # Provisional review wording only, never served to a player -- see
         # _missed_motif's docstring.
-        f"You played {move.get('move')} here and left the book. "  # allow-noncentral-caption
-        f"{detail.get('expected_san')} is the move, and it is also what the "
-        f"engine plays.",
+        f"{move.get('move')} steps outside what is normally played here. "  # allow-noncentral-caption
+        f"{detail.get('expected_san')} is the established move in this position.",
         {"fen_before": move.get("fen_before"), "fen_after": move.get("fen_after"),
          "review_fen": move.get("fen_before"),
          "line_fen": move.get("fen_before"),
