@@ -362,14 +362,50 @@ def _allowed_mate_caption(move, evidence, colour):
     # attackers in yellow, the squares the king cannot use as red circles, the
     # save in green. What is left for words is the rule, plus the shortest
     # possible link saying which habit it is about.
+    _att = [mating.from_square] + [chess.parse_square(q) for _, q in supporters]
     rule = _mate_rule(before, played_mv_obj, ring, castled, uncastled_centre,
-                      standing, bool(supporters))
+                      standing, bool(supporters),
+                      brought=_pieces_brought_to_the_king(before, _att))
     # The only fact worth a word: that it is mate, and in how many. Which
     # pieces, which squares, which exits were shut -- all drawn.
-    caption = f"{played} was {mate_word}. {rule}"
+    caption = f"That was {mate_word}. {rule}"
     if len(caption.split()) > 60:
         caption = rule
     return caption
+
+
+_HOME_SQUARES_BY_TYPE = {
+    chess.WHITE: {chess.QUEEN: (chess.D1,), chess.ROOK: (chess.A1, chess.H1),
+                  chess.BISHOP: (chess.C1, chess.F1),
+                  chess.KNIGHT: (chess.B1, chess.G1)},
+    chess.BLACK: {chess.QUEEN: (chess.D8,), chess.ROOK: (chess.A8, chess.H8),
+                  chess.BISHOP: (chess.C8, chess.F8),
+                  chess.KNIGHT: (chess.B8, chess.G8)},
+}
+
+
+def _pieces_brought_to_the_king(board_before, attacker_squares):
+    """How many of the mating pieces were MANEUVERED there.
+
+    Mohit, 2026-09-19: "it's not dxc5, it's about ignorance of player plan,
+    that's the teaching." He is right and it is checkable. On his card Black
+    played Qh5 and Ng4 -- two pieces walked to the kingside over two moves --
+    while White took a bishop on the other side of the board. The lesson is
+    not the capture, it is that the opponent's moves meant something and
+    nobody asked what.
+
+    A piece still on its starting square was not brought anywhere, so it
+    proves no plan. Counted over 80 cards: 38% have two or more pieces
+    maneuvered to the king, 46% one, 16% none.
+    """
+    brought = 0
+    for sq in attacker_squares:
+        piece = board_before.piece_at(sq)
+        if piece is None or piece.piece_type in (chess.PAWN, chess.KING):
+            continue
+        if sq not in _HOME_SQUARES_BY_TYPE[piece.color].get(piece.piece_type, ()):
+            brought += 1
+    return brought
 
 
 def _capture_net_cp(board_before, played_mv):
@@ -396,7 +432,8 @@ def _capture_net_cp(board_before, played_mv):
         return None
 
 
-def _mate_rule(board_before, played_mv, ring, castled, centre, standing, pair):
+def _mate_rule(board_before, played_mv, ring, castled, centre, standing,
+               pair, brought=0):
     """The one sentence the player should still have next month.
 
     The board already shows what happened. The caption's whole job is the
@@ -408,6 +445,14 @@ def _mate_rule(board_before, played_mv, ring, castled, centre, standing, pair):
     Most-specific first: the most useful rule is the one about the mistake
     they actually made.
     """
+    # The deepest lesson available, so it goes first: they spent moves walking
+    # pieces at your king and you never asked why. Only fires when the board
+    # proves the maneuvering -- two or more attackers off their home squares.
+    if brought >= 2:
+        return ("Those pieces did not arrive by accident -- every move your "
+                "opponent makes is part of a plan. Find theirs before you "
+                "follow your own.")
+
     net = _capture_net_cp(board_before, played_mv)
     # Only say "winning a piece" when a piece is actually being won. A capture
     # that nets a pawn gets the pawn sentence; one that loses material is not
