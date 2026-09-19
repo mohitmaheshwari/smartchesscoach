@@ -9,11 +9,26 @@ import chess
 
 from services.caption_facts import PIECE_VALUE_CP, _discovered_attack_evidence
 from services.concept_detectors.evidence import require_nonnegative_cp_loss
+from services.legal_exchange_verifier import independent_exchange_gain
 from services.stored_line_verifier import parse_legal_move, replay_stored_line
 from services.verified_puzzle_admission import DetectorProof, VerifierProof
 
 
 DISCOVERED_ATTACK_PROOF_VERSION = "discovered_attack_puzzle_proof.v2"
+
+# The discovered target must be WINNABLE, not merely attacked.
+#
+# Mohit ruled "unsure" on Nxh7 (2026-09-19): the discovery hits a knight on h6
+# that the g7 pawn defends, so Bxh6 gxh6 Qxh6 nets +100 -- a bishop for a knight
+# and a pawn. Materially true, and not what "this wins material with a
+# discovered attack" tells a player.
+#
+# Read off the distribution rather than chosen: of 11 claims, 8 won the target
+# outright, 2 won 200-299, and exactly one sat at 100. The cut removes that one.
+#
+# This lives in the detector, not in the review page, so the review queue, the
+# caption path and verified_puzzle_builder cannot drift apart on it.
+DISCOVERY_WINNABLE_CP = 200
 DISCOVERED_ATTACK_QUALITY_ID = "tactic:discovered_attack_with_stored_payoff"
 
 
@@ -104,6 +119,13 @@ def _independent_discovery_payoff(
     if any(after.piece_at(square) for square in between):
         return None
     if slider_square not in after.attackers(us, target_square):
+        return None
+
+    # The checks above prove the ray opens onto the target. They do not price
+    # the target square, and a defended target survives all of them.
+    probe = after.copy(stack=False)
+    probe.turn = us
+    if independent_exchange_gain(probe, target_square) < DISCOVERY_WINNABLE_CP:
         return None
 
     replay = replay_stored_line(board_before, best, continuation)

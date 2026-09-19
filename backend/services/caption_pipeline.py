@@ -1424,6 +1424,52 @@ def inject_user_blunder_detector_facts(
     except Exception:
         pass
 
+    # 15. Missed discovered attack (2026-09-19).
+    #
+    # This is the first detector in the product promoted to caption grade on
+    # HUMAN semantic review -- 49 positions Mohit ruled one at a time with the
+    # board and both lines in front of him, 0 wrong -- rather than on two
+    # implementations agreeing. See
+    # docs/discovered_attack_caption_promotion_2026_09_19.md.
+    #
+    # Detector #12 above (simulate_discovered_attack_vacating_check) is the
+    # narrow cousin: it only fires when the vacating move gives check. This is
+    # the general case, and it carries its own independent payoff verifier.
+    #
+    # Gated on the live grade rather than on a flag, so the caption cannot
+    # outrun its authorization: drop the grade to shadow and this goes silent
+    # with no code change.
+    try:
+        from services.detector_quality import QualityGrade, grade_for
+        from services.discovered_attack_puzzle_proof import (
+            DISCOVERED_ATTACK_QUALITY_ID,
+            build_discovered_attack_proof,
+        )
+
+        if grade_for(DISCOVERED_ATTACK_QUALITY_ID) == QualityGrade.CAPTION:
+            _da_board = chess.Board(fen_before)
+            _da_bundle = build_discovered_attack_proof(
+                _da_board.copy(stack=False),
+                move_san,
+                best_move,
+                pv_after_best or [],
+                cp_loss,
+            )
+            if _da_bundle and getattr(_da_bundle.verifier, "verified", False):
+                _vf = list(getattr(_da_bundle.verifier, "facts", ()) or ())
+                _v = (_vf[0] or {}) if _vf else {}
+                _blocker = _da_board.piece_at(
+                    chess.parse_square(str(_v.get("vacated_square"))))
+                if _v.get("target_square") and _blocker is not None:
+                    caption_facts["missed_discovery_blocker_piece"] = (
+                        chess.piece_name(_blocker.piece_type))
+                    caption_facts["missed_discovery_slider_piece"] = _v.get("slider_piece")
+                    caption_facts["missed_discovery_slider_square"] = _v.get("slider_square")
+                    caption_facts["missed_discovery_target_piece"] = _v.get("target_piece")
+                    caption_facts["missed_discovery_target_square"] = _v.get("target_square")
+    except Exception:
+        pass
+
 
 def inject_em_dash_and_trap_context_facts(
     caption_facts: Dict[str, Any],

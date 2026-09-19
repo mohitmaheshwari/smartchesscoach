@@ -220,9 +220,10 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         rationale=(
             "Meets every Caption-grade value in the 2026-08-27 threshold lock, "
             "and meets the precision one with HUMAN semantic review rather "
-            "than a second implementation: 52 fires judged one position at a "
-            "time by Mohit in /admin/detector-review, 52 true, 0 wrong, 100% "
-            "precision, 95% Wilson lower bound 93.1% (bar 85). 30 true "
+            "than a second implementation: fires judged one position at a "
+            "time by Mohit in /admin/detector-review -- 49 of them on claims "
+            "the code still makes, 49 true, 0 wrong, 100% precision, 95% "
+            "Wilson lower bound 92.7% (bar 85). 30 true "
             "negatives drawn in corpus order from 2,537 engine-flagged "
             "mistakes (bar 20), and 0 critical false claims across an "
             "adversarial packet built from the four cases the reviewer could "
@@ -243,11 +244,19 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "Negatives and adversarial cases are board-adjudicated, not human "
             "semantic gold. They supplement the human figure and do not "
             "substitute for it.",
-            "NOT YET WIRED TO A CAPTION. caption_pipeline and caption_facts do "
-            "not consume this detector -- the grade authorises a caption that "
-            "does not exist yet. Today it reaches users only through "
-            "verified_puzzle_builder. Promotion without that wiring changes "
-            "nothing a player sees.",
+            "REVIEWED FIRES ARE 49, ONE BELOW THE LOCKED BAR OF 50. The "
+            "packet was assembled at 52; replaying all 56 rulings through the "
+            "serving code shows 3 are on claims the payoff verifier now "
+            "rejects, because two gates landed partway through the review. "
+            "Precision is unaffected -- a claim the detector no longer makes "
+            "cannot be wrong -- but the count is short and is recorded rather "
+            "than rounded up, because rounding it up is what put simple_hang "
+            "at a false 96.9%. The grade stands on Mohit's explicit 'we can "
+            "switch it on'; one more ruling closes the formal gap.",
+            "Wired 2026-09-19 as caption_pipeline detector #15, rendering "
+            "through R12_blunder why_user_missed_discovered_attack, gated on "
+            "this grade so dropping it to shadow silences the caption with no "
+            "code change. Also still reaches users via verified_puzzle_builder.",
         ),
     ),
     "tactic:back_rank_mate_exact": Authorization(

@@ -28,15 +28,45 @@ adversarial sets — which the lock permits — and never for the precision figu
 
 | Caption criterion | Required | Measured | Source |
 |---|---|---|---|
-| independently reviewed semantic precision | >=95% | **100%** | 52 human rulings |
-| 95% Wilson precision lower bound | >=85% | **93.1%** | 52/52 |
-| reviewed fires | >=50 | **52** | `detector_claim_rulings` |
+| independently reviewed semantic precision | >=95% | **100%** | 49 human rulings |
+| 95% Wilson precision lower bound | >=85% | **92.7%** | 49/49 |
+| reviewed fires | >=50 | **49 — one short** | `detector_claim_rulings` |
 | true negative / non-opportunity cases | >=20 | **30** | this packet |
 | critical false claims (adversarial) | 0 | **0** | this packet |
 | semantic recall | *no floor* | not measured | Caption sets no recall floor |
 
-52 true, 0 wrong, 4 abstentions. Abstentions are excluded from the denominator
-on purpose: a reviewer declining to call one is not evidence either way.
+56 rulings: 52 true, 0 wrong, 4 abstentions. Abstentions are excluded from the
+denominator on purpose: a reviewer declining to call one is not evidence either way.
+
+## The count against the code as it actually ships: 49, not 52
+
+**Corrected 2026-09-19, after the wiring.** The 52 above is the count at *review*
+time. Two gates were added partway through the review, and replaying all 56
+rulings through the serving code shows **3 of the 52 are on claims the current
+detector no longer makes**:
+
+| claim | played | better | why it is no longer served |
+|---|---|---|---|
+| `game_74fdbd74c468:19` | `d5` | `Nxh3+` | payoff verifier rejects |
+| `game_74fdbd74c468:21` | `Ra6` | `Nxh3+` | payoff verifier rejects |
+| `game_7bdc02d0c35b:29` | `Rxf5` | `exf5` | payoff verifier rejects |
+
+All three clear the winnable gate comfortably (300, 300, 400cp). All three are
+rejected by the *payoff verifier*, because the stored line never shows the
+slider collecting the target — these were `verified=False` candidates served
+before that flag was honoured. They may well be true discovered attacks; the
+stored PVs are truncated, so this is most likely a recall loss, not a
+disagreement with the reviewer.
+
+Precision is unaffected — a claim the detector no longer makes cannot be wrong.
+But the honest scorecard against shipping code is **49 reviewed fires, one below
+the locked bar of 50.**
+
+This is recorded rather than rounded up because rounding it up is exactly the
+move that put `simple_hang` at a false 96.9%. The grade stands on Mohit's
+explicit instruction — *"i am happy with missed discovered attack, it's almost
+100%, we can switch it on"* — and one further ruling closes the formal gap. The
+review queue is live and will serve them.
 
 ---
 
@@ -102,9 +132,27 @@ exactly like a discovered attack. Re-run against the serving path:
 
 ---
 
-## The caption this authorises
+## The caption — now wired (2026-09-19)
 
-The detector has never had a player-facing caption; the grade authorises one.
+No longer hypothetical. `caption_pipeline.inject_user_blunder_detector_facts`
+runs this as detector #15 and `R12_blunder.json` renders it, gated on
+`grade_for(...) == CAPTION` so the caption can never outrun its authorization:
+drop the grade to shadow and it goes silent with no code change.
+
+Rendered on the ruled-true set, through the real injector:
+
+> You played Bxf3. Nxf3+ was stronger, because it steps your knight out of the
+> way of your queen on f6, which is looking straight down that line at their
+> rook on a1.
+
+> You played Qh5+. Nc3 was stronger, because it steps your knight out of the way
+> of your bishop on d3, which is looking straight down that line at their knight
+> on a6.
+
+Fires on **49 of 52** ruled-true positions — the same 49, matching the replay
+exactly.
+
+The earlier draft of this section, kept because the grade authorises it:
 Built only from board facts the detector already holds:
 
 > Your own knight on e5 stands in front of your queen on f6. Nxf3+ moves it
