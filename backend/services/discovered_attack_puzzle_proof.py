@@ -162,6 +162,35 @@ def _independent_discovery_payoff(
         board.push(move)
     if payoff_ply is None:
         return None
+
+    # A stored line can stop MID-EXCHANGE, and then its "gain" is an artifact
+    # of where it was cut rather than a fact about the position.
+    #
+    # Mohit ruled this false on 2026-09-19 and he was right. On
+    # 1rr3k1/4b1p1/1q2p2p/3pPp2/3NnP1P/2RbP1P1/6BK/1qB1R1Q1 the line
+    # Ba3 Nxc3 Rxb1 Qxb1 Qxb1 scores +800 -- and the very next ply is
+    # Rxb1, Nxb1 or Bxb1. The queen is taken back by any of three pieces and
+    # the true net is -100. The detector was recommending a move that loses
+    # material, with a caption calling it a discovered attack that wins some.
+    #
+    # Same shape as simple_hang's recapture bug: material counted at a moment
+    # when the exchange was still in flight.
+    settled = replay.net_material_gain_cp
+    if board.turn != us:
+        last_capture_sq = None
+        walk = board_before.copy(stack=False)
+        for uci in replay.replayed_uci:
+            step = chess.Move.from_uci(uci)
+            if walk.turn == us and walk.is_capture(step):
+                last_capture_sq = step.to_square
+            walk.push(step)
+        if last_capture_sq is not None:
+            occupant = board.piece_at(last_capture_sq)
+            if occupant is not None and occupant.color == us:
+                settled -= independent_exchange_gain(board, last_capture_sq)
+    if settled < PIECE_VALUE_CP[chess.PAWN]:
+        return None
+
     return {
         "slider_piece": chess.piece_name(slider.piece_type),
         "slider_square": chess.square_name(slider_square),
@@ -169,7 +198,8 @@ def _independent_discovery_payoff(
         "target_piece": chess.piece_name(target.piece_type),
         "target_square": chess.square_name(target_square),
         "payoff_ply": payoff_ply,
-        "net_material_gain_cp": replay.net_material_gain_cp,
+        "net_material_gain_cp": settled,
+        "net_material_gain_cp_unsettled": replay.net_material_gain_cp,
         "replayed_uci": replay.replayed_uci,
     }
 
