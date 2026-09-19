@@ -483,8 +483,8 @@
             "correct_move_uci": "h1h4",
             "wrong_example_san": "Rh8",
             "prompt": "White has K on b8, P on b7, R on h1. How do you win?",
-            "idea": "Rh4! places the rook on the 4th rank to later block Black's checks. This is the Bridge.",
-            "on_correct": "Rh4 prepares the bridge. Next: Kc7, and when Black checks from behind, Rb4 blocks everything.",
+            "idea": "Rh4 places the rook on the 4th rank, ready to block checks later. Black's king still guards the squares your king needs, so a check on the d-file has to come first.",
+            "on_correct": "Rh4 puts the rook on the fourth rank. Your king cannot step out yet: Black's king on d7 guards both c7 and c8. Check it away first with Rd4+, and only then is Kc7 available.",
             "on_wrong": "Rh8 doesn't help. You need the Rook on the 4th rank to build the bridge.",
             "rule_reminder": "Step 1: Rook to the 4th rank. Step 2: King steps out. Step 3: Rook blocks the checks."
           },
