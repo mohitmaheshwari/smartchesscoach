@@ -1046,6 +1046,13 @@ DETECTOR_QUALITY_IDS = {
     "discovered_attack": "tactic:discovered_attack_with_stored_payoff",
     "left_book": "gap:opening_knowledge:left_book_for_a_worse_move",
     "allowed_mate": "gap:king_safety:allowed_mate_exact",
+    # The missed-concept branch, 2026-09-19. These four already had detectors
+    # that could only say "applied"; they can now say "missed" and this is
+    # where those claims get judged. See docs/missed_concept_scope.md.
+    "missed_castling": "concept:opening_castling",
+    "missed_development": "concept:coached_development",
+    "missed_center": "concept:opening_center",
+    "missed_king_activity": "concept:endgame_king_centralization",
     # Candidate only -- unregistered, so _grade_for reports shadow.
     "tempo_loss": None,
 }
@@ -1251,6 +1258,103 @@ def _produce_tempo_loss(move, colour, analysis):
     })
 
 
+# The rule each missed concept teaches. Deliberately NOT a description of the
+# position: the board draws the move played in red and the move wanted in
+# green, so the words carry only what a picture cannot -- the habit that
+# transfers to a game the player has not seen yet. Mohit, 2026-09-19:
+# "captions should tell principles that you don't forget."
+_MISSED_CONCEPT_RULES = {
+    "opening_castling": (
+        "Your king was still in the middle. Castling is what makes every "
+        "other plan safe to start."),
+    "coached_development": (
+        "A piece was still sitting on its starting square. Get everyone out "
+        "before you go hunting for a plan."),
+    "opening_center": (
+        "The middle was still open. A pawn there takes squares away from "
+        "every piece they own."),
+    "endgame_king_centralization": (
+        "In an endgame your king is a fighting piece, not something to hide. "
+        "Walk it towards the middle."),
+}
+
+
+def _missed_concept(skill_id: str):
+    """Serve one concept detector's new "you missed this" claims.
+
+    These fire 215 times in 400 games where the same detectors previously
+    produced ZERO negative verdicts, so this is the first time any of them
+    can be judged at all. Shadow grade; a ruling here promotes nothing.
+    """
+    rule = _MISSED_CONCEPT_RULES[skill_id]
+
+    def produce(move, colour, analysis):
+        if move.get("is_opponent_move"):
+            return None
+        fen, uci, best = (move.get("fen_before"), move.get("move_uci"),
+                          move.get("best_move"))
+        cp_loss = move.get("cp_loss")
+        if not fen or not uci or not best:
+            return None
+        from services.concept_detectors.registry import get_detector
+
+        detector = get_detector(skill_id)
+        if detector is None:
+            return None
+        try:
+            board = chess.Board(fen)
+            played = chess.Move.from_uci(str(uci))
+            if played not in board.legal_moves:
+                return None
+        except (ValueError, AssertionError):
+            return None
+        col = chess.WHITE if str(colour).lower().startswith("w") else chess.BLACK
+        import inspect
+
+        kwargs = {}
+        params = inspect.signature(detector).parameters
+        for name, value in (("move_number", move.get("move_number")),
+                            ("best_move_san", str(best)),
+                            ("best_move_uci", move.get("best_move_uci")),
+                            ("cp_loss", cp_loss),
+                            ("mate_info", move.get("mate_info"))):
+            if name in params:
+                kwargs[name] = value
+        try:
+            verdict = detector(board.copy(stack=False), played, col, **kwargs)
+        except Exception:  # noqa: BLE001
+            return None
+        if verdict != "missed":
+            return None
+
+        side, arrow = _orientation_and_arrow(fen, move.get("move"))
+        best_arrow = _orientation_and_arrow(fen, str(best))[1]
+        # Least-certain first, and a marginal loss IS the uncertain case: the
+        # engine preferring d4 to O-O by 107cp does not make castling a
+        # mistake worth a lecture. Those cards go to the top so they are the
+        # ones that get judged.
+        loss = cp_loss if isinstance(cp_loss, (int, float)) else 0
+        confidence = (CONFIDENCE_UNCERTAIN if loss < 150
+                      else CONFIDENCE_LIKELY)
+        return (
+            rule,
+            {"fen_before": fen, "fen_after": move.get("fen_after"),
+             "review_fen": fen, "line_fen": fen,
+             "played_san": move.get("move"), "best_move": str(best),
+             "move_number": move.get("move_number"), "cp_loss": cp_loss,
+             "confidence": confidence,
+             "pv_after_played": list(move.get("pv_after_played") or [])[:8],
+             "pv_after_best": list(move.get("pv_after_best") or [])[:8],
+             "side_to_move": side, "arrow": arrow,
+             "arrow_is": "the move played",
+             "extra_arrows": [[best_arrow[0], best_arrow[1], "green"]]
+                             if best_arrow else [],
+             "extra_arrows_is": "what the engine wanted instead"},
+        )
+
+    return produce
+
+
 def _producers():
     from services.discovered_attack_puzzle_proof import (
         build_discovered_attack_proof,
@@ -1265,6 +1369,10 @@ def _producers():
         "fork": _missed_motif(build_fork_proof, "fork"),
         "discovered_attack": _missed_motif(
             build_discovered_attack_proof, "discovered attack"),
+        "missed_castling": _missed_concept("opening_castling"),
+        "missed_development": _missed_concept("coached_development"),
+        "missed_center": _missed_concept("opening_center"),
+        "missed_king_activity": _missed_concept("endgame_king_centralization"),
     }
 
 

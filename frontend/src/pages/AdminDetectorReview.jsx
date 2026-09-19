@@ -34,6 +34,35 @@ import { Loader2, RefreshCw, Check, X, HelpCircle, RotateCcw } from "lucide-reac
 // a session. The live grade comes from detector_quality via /results, so this
 // order is a default and the page marks what is actually already done.
 const DETECTORS = [
+  // The missed-concept branch, 2026-09-19. These four detectors previously
+  // gated on "the move played WAS the engine's move", so across 400 games
+  // they produced 1,639 "applied" and 0 "missed" -- they could only ever
+  // congratulate. They can now say the concept was missed, and these 215
+  // claims have never been judged by anyone. Listed first for that reason.
+  {
+    id: "missed_development",
+    label: "Missed development",
+    claims:
+      "a piece was still on its starting square, the engine's move was to develop one, and they played something else that lost ground",
+  },
+  {
+    id: "missed_center",
+    label: "Missed the centre",
+    claims:
+      "the engine's move was a central pawn push and they played something else that lost ground",
+  },
+  {
+    id: "missed_castling",
+    label: "Missed castling",
+    claims:
+      "the engine's move was to castle and they played something else that lost ground",
+  },
+  {
+    id: "missed_king_activity",
+    label: "Missed king activity",
+    claims:
+      "an endgame where the engine's move walked the king towards the centre, and they played something else that lost ground",
+  },
   {
     id: "discovered_attack",
     label: "Missed discovered attack",
