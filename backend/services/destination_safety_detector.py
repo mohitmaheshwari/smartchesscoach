@@ -169,22 +169,11 @@ def _neutral_choices(
     false_label: str,
     unsure_label: str,
 ) -> Tuple[Tuple[Any, ...], Tuple[str, ...]]:
-    from services.teaching_reason_contracts import ReasonChoice
+    # Ordering now lives in the contract module so the tactic families share
+    # it instead of copying it. Same inputs, same output.
+    from services.teaching_reason_contracts import build_reason_choices
 
-    correct_first = int(hashlib.sha256(seed.encode("utf-8")).hexdigest(), 16) % 2 == 0
-    ordered = (
-        (("a", correct_label), ("b", false_label))
-        if correct_first
-        else (("a", false_label), ("b", correct_label))
-    )
-    accepted = "a" if correct_first else "b"
-    return (
-        tuple(ReasonChoice(choice_id=key, label=label) for key, label in (
-            *ordered,
-            ("unsure", unsure_label),
-        )),
-        (accepted,),
-    )
+    return build_reason_choices(seed, correct_label, false_label, unsure_label)
 
 
 def _component(

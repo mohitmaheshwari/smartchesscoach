@@ -243,6 +243,50 @@ class TeachingReasonBundle:
         )
 
 
+def build_reason_choices(
+    seed: str,
+    correct_label: str,
+    false_label: str,
+    unsure_label: str = "",
+) -> Tuple[Tuple["ReasonChoice", ...], Tuple[str, ...]]:
+    """Order one true and one false answer deterministically from `seed`.
+
+    Deterministic rather than random so the same position always presents the
+    same way: a player who returns to a position is not re-tested on where the
+    answer moved to.
+
+    `unsure_label` is optional. Piece safety passes one; the tactic families do
+    not, because an "I did not check" option is a self-report about attention
+    rather than an answer about the board, and it cannot be graded against any
+    detector fact. The contract's floor is two choices, so omitting it is
+    legal.
+
+    Lifted out of `destination_safety_detector._neutral_choices` when the fork
+    family needed the same ordering. Behaviour for a three-choice call is
+    unchanged; `test_reason_choice_ordering_is_unchanged` pins that.
+    """
+    import hashlib
+
+    correct_first = int(
+        hashlib.sha256(seed.encode("utf-8")).hexdigest(), 16
+    ) % 2 == 0
+    ordered = (
+        (("a", correct_label), ("b", false_label))
+        if correct_first
+        else (("a", false_label), ("b", correct_label))
+    )
+    accepted = "a" if correct_first else "b"
+    if unsure_label:
+        ordered = (*ordered, ("unsure", unsure_label))
+    return (
+        tuple(
+            ReasonChoice(choice_id=key, label=label)
+            for key, label in ordered
+        ),
+        (accepted,),
+    )
+
+
 __all__ = [
     "REASON_BUNDLE_SCHEMA_VERSION",
     "ReasonChoice",
@@ -250,4 +294,5 @@ __all__ = [
     "ReasonContractViolation",
     "ReasonProof",
     "TeachingReasonBundle",
+    "build_reason_choices",
 ]

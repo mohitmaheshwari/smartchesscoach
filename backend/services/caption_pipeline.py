@@ -719,14 +719,29 @@ def build_reason_bundle_for_move(
     submitted_move: str,
     quality_id: str,
 ):
-    """Dispatch exact reason construction through promoted fact providers."""
+    """Dispatch exact reason construction through promoted fact providers.
+
+    Every provider registered here must already hold a CAPTION-grade
+    authorization in `detector_quality`; this function does not promote
+    anything, it only reaches what review already cleared.
+
+    This dispatched on one id until 2026-09-19, which is why a fork puzzle
+    asked "what attacked your bishop on b4?" -- the fork geometry was proven
+    and authorized, just unreachable from the reason layer.
+    """
     from services.destination_safety_detector import (
         QUALITY_ID as DESTINATION_SAFETY_QUALITY_ID,
         build_destination_safety_reason_bundle,
     )
+    from services.fork_puzzle_proof import (
+        FORK_QUALITY_ID,
+        build_fork_created_reason_bundle,
+    )
 
     if quality_id == DESTINATION_SAFETY_QUALITY_ID:
         return build_destination_safety_reason_bundle(fen_before, submitted_move)
+    if quality_id == FORK_QUALITY_ID:
+        return build_fork_created_reason_bundle(fen_before, submitted_move)
     return None
 
 
