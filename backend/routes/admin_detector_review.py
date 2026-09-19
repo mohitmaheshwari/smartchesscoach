@@ -259,7 +259,36 @@ def _allowed_mate_caption(move, evidence, colour):
     # Naming them again in words spends the reader's attention on the one
     # thing they can already see. What the board cannot show is that it is
     # mate, why the save works, and the habit -- so that is what is left.
-    if standing and supporters:
+    ring = _escape_ring(evidence)
+
+    # "Give your king air" is only advice for a king that has ALREADY castled.
+    # On a card where the king is still on e8 with the queen and bishop hitting
+    # f7, the lesson is CASTLE, and telling the player to make luft is teaching
+    # them the wrong habit. Caught by reading the rendered corpus.
+    home_rank = 0 if mated_king is not None and not piece.color else 7
+    on_home_rank = (mated_king is not None
+                    and chess.square_rank(mated_king) == home_rank)
+    king_file = chess.square_file(mated_king) if mated_king is not None else 4
+    castled = on_home_rank and king_file in (1, 2, 6, 7)
+    uncastled_centre = on_home_rank and king_file in (3, 4)
+
+    boxed_in = bool(ring and len(ring["own"]) >= 2 and castled)
+    centre_king = bool(uncastled_centre and supporters)
+
+    if centre_king:
+        named_pair = True
+        threat = (f"Your king was still in the middle when you played "
+                  f"{played}, with two of their pieces already aimed at "
+                  f"{mate_sq} -- {mate_word}.")
+    elif boxed_in:
+        # The real lesson. Two attackers converging is only mate because the
+        # king had nowhere to run -- and here his OWN pieces took the exits.
+        # The circles say which squares; the words say whose fault they were.
+        named_pair = True
+        threat = (f"Your king had nowhere to go -- your own pieces were "
+                  f"sitting on {len(ring['own'])} of the squares it needed. "
+                  f"That is why {played} was {mate_word}.")
+    elif standing and supporters:
         named_pair = True
         threat = (f"Two of their pieces were already aimed at {mate_sq} when "
                   f"you played {played} -- {mate_word}.")
@@ -323,7 +352,13 @@ def _allowed_mate_caption(move, evidence, colour):
             save = f"{best} was the move."
 
     # The scan names the shape just shown, not a generic once-over.
-    if named_pair:
+    if centre_king:
+        scan = ("A king left in the middle is what makes these work -- castle "
+                "before they line up on it.")
+    elif boxed_in:
+        scan = ("A king with no open square only needs one checker -- give "
+                "yours air before it is needed.")
+    elif named_pair:
         scan = ("Two pieces aimed at one square by your king is usually mate "
                 "-- check that before you take anything.")
     else:
@@ -342,6 +377,42 @@ def _allowed_mate_caption(move, evidence, colour):
     if len(caption.split()) > 60:
         caption = " ".join(x for x in (threat, scan) if x)
     return caption
+
+
+def _escape_ring(evidence):
+    """Which squares the mated king could not use, and why.
+
+    Mohit, 2026-09-19: "mate is when the king has no escape square, right?"
+    The card was drawing the two attackers converging and never the thing that
+    actually makes it mate -- that the king has nowhere to go. On his dxc5 /
+    Qxh2# card THREE of the five squares are blocked by White's own rook and
+    pawns; the queen only had to touch h2.
+
+    Uses services.escape_squares_service, which already owns this calculation
+    for the escape-squares quiz. Not reimplemented here.
+    """
+    try:
+        from services.escape_squares_service import count_king_escape_squares
+        board = chess.Board(str(evidence.get("fen_after") or ""))
+        for san in list(evidence.get("mating_line") or []):
+            mv = board.parse_san(str(san))
+            probe = board.copy(stack=False)
+            probe.push(mv)
+            if probe.is_checkmate():
+                loser = "white" if probe.turn == chess.WHITE else "black"
+                info = count_king_escape_squares(probe.fen(), loser)
+                blocked = list(info.get("blocked_squares") or [])
+                return {
+                    "squares": [b["square"] for b in blocked],
+                    "own": [b["square"] for b in blocked
+                            if b.get("reason") == "own_piece"],
+                    "covered": [b["square"] for b in blocked
+                                if b.get("reason") != "own_piece"],
+                }
+            board.push(mv)
+    except Exception:  # noqa: BLE001
+        return None
+    return None
 
 
 def _mate_arrows(evidence):
@@ -400,6 +471,8 @@ def _produce_allowed_mate(move, colour, analysis):
         "arrow_is": "the move played",
         "extra_arrows": _mate_arrows(evidence)[:4],
         "extra_arrows_is": "what is aiming at the mating square",
+        "highlight": ((_escape_ring(evidence) or {}).get("squares") or [])[:8],
+        "highlight_is": "every square the king cannot use",
         "line_fen": fen,
         # The mate IS the punishment line, so it steps like any other.
         "pv_after_played": list(evidence.get("mating_line") or [])[:8],
