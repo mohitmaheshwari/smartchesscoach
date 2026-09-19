@@ -253,23 +253,24 @@ def _allowed_mate_caption(move, evidence, colour):
     beside = ", next to your king" if adjacent else ""
     named_pair = False
 
+    # Mohit, 2026-09-19: "don't tell something the board is already showing,
+    # that's the purpose of captions." The pieces, their squares and the lines
+    # they point down are DRAWN (extra_arrows in _produce_allowed_mate).
+    # Naming them again in words spends the reader's attention on the one
+    # thing they can already see. What the board cannot show is that it is
+    # mate, why the save works, and the habit -- so that is what is left.
     if standing and supporters:
         named_pair = True
-        sup_word, sup_sq = supporters[0]
-        threat = (f"Their {piece_word} on {from_sq} and {sup_word} on {sup_sq} "
-                  f"were both aimed at {mate_sq}{beside}: the "
-                  f"{piece_word} takes, the {sup_word} guards it, and that is "
-                  f"{mate_word}.")
+        threat = (f"Two of their pieces were already aimed at {mate_sq} when "
+                  f"you played {played} -- {mate_word}.")
     elif standing:
-        threat = (f"Their {piece_word} on {from_sq} was already aiming at "
-                  f"{mate_sq} when you played {played} -- {mate_word}.")
+        threat = (f"Their {piece_word} was already aiming at {mate_sq} when "
+                  f"you played {played} -- {mate_word}.")
     elif plies == 1:
-        where = beside or f" from {from_sq}"
-        threat = (f"{played} lets their {piece_word} reach {mate_sq}{where} "
+        threat = (f"{played} lets their {piece_word} reach {mate_sq}{beside} "
                   f"-- {mate_word}.")
     else:
-        threat = (f"{played} runs into {mate_word}, finishing with their "
-                  f"{piece_word} on {mate_sq}.")
+        threat = f"{played} runs into {mate_word}, ending on {mate_sq}."
 
     # What the save DOES, established rather than asserted. The old version
     # said "h3 covers h2 instead" because attackers(h2) was non-empty -- but
@@ -323,11 +324,11 @@ def _allowed_mate_caption(move, evidence, colour):
 
     # The scan names the shape just shown, not a generic once-over.
     if named_pair:
-        scan = (f"When two of their pieces point at one square beside your "
-                f"king, answer that first.")
+        scan = ("Two pieces aimed at one square by your king is usually mate "
+                "-- check that before you take anything.")
     else:
-        scan = (f"Before you move, look at what their queen, rook and bishops "
-                f"are pointing at around your king.")
+        scan = ("Before you move, check what is already aimed at the squares "
+                "next to your king.")
 
     # The principle is the only sentence that transfers to a position they
     # have never seen, so it is the last thing to cut, not the first. The
@@ -341,6 +342,41 @@ def _allowed_mate_caption(move, evidence, colour):
     if len(caption.split()) > 60:
         caption = " ".join(x for x in (threat, scan) if x)
     return caption
+
+
+def _mate_arrows(evidence):
+    """Draw every piece of theirs that bears on the mating square.
+
+    This is the geometry the caption used to spend thirty words listing. The
+    card drew only the move played, so the mate itself -- the thing the card
+    is about -- was invisible, and the words had to carry it. Drawn, they do
+    not.
+    """
+    arrows = []
+    try:
+        board = chess.Board(str(evidence.get("fen_after") or ""))
+        for san in list(evidence.get("mating_line") or []):
+            mv = board.parse_san(str(san))
+            probe = board.copy(stack=False)
+            probe.push(mv)
+            if probe.is_checkmate():
+                mover = board.turn
+                sq = mv.to_square
+                arrows.append([chess.square_name(mv.from_square),
+                               chess.square_name(sq), "yellow"])
+                for att in probe.attackers(mover, sq):
+                    if att == sq:
+                        continue
+                    pc = probe.piece_at(att)
+                    if pc is None or pc.piece_type == chess.KING:
+                        continue
+                    arrows.append([chess.square_name(att),
+                                   chess.square_name(sq), "yellow"])
+                break
+            board.push(mv)
+    except Exception:  # noqa: BLE001
+        return []
+    return arrows
 
 
 def _produce_allowed_mate(move, colour, analysis):
@@ -362,6 +398,8 @@ def _produce_allowed_mate(move, colour, analysis):
         "confidence": CONFIDENCE_CERTAIN if _proved else CONFIDENCE_UNCERTAIN,
         "review_fen": fen, "side_to_move": side, "arrow": arrow,
         "arrow_is": "the move played",
+        "extra_arrows": _mate_arrows(evidence)[:4],
+        "extra_arrows_is": "what is aiming at the mating square",
         "line_fen": fen,
         # The mate IS the punishment line, so it steps like any other.
         "pv_after_played": list(evidence.get("mating_line") or [])[:8],
