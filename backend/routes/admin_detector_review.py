@@ -24,6 +24,7 @@ Follows the geometry-gaps queue (`/admin/geometry-gaps/next` + POST +
 """
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -32,6 +33,8 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from routes.admin import require_admin
 from routes.auth import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Admin"])
 db = None
@@ -258,6 +261,35 @@ def _missed_motif(builder, label):
             # 100. The cut removes that one and keeps all ten.
             if best_gain is not None and best_gain < WINNABLE_CP:
                 return None
+
+            # A FORK has to be able to win either of two things. Mohit ruled
+            # "unsure" on five fork cards and four were the same shape: two
+            # pieces attacked, one of them defended so it was never loseable.
+            # Nxe5 hitting an undefended rook on f7 and a knight on d7 guarded
+            # three times over is a rook win, not a fork -- and a player told
+            # "you missed a fork", shown a position where the second piece was
+            # never in danger, trusts the next card less.
+            #
+            # The detection is NOT deleted: those moves still win material and
+            # deserve a caption. It is the word "fork" that is unearned, so
+            # they need a plain material-win caption instead. Until that
+            # exists they stay out of a queue that is measuring the fork claim.
+            #
+            # Cost measured before choosing it: 51 claims -> 42 (82% kept).
+            if label == "fork":
+                winnable = 0
+                for name in names:
+                    try:
+                        sq = chess.parse_square(str(name))
+                    except (ValueError, TypeError):
+                        continue
+                    piece = after.piece_at(sq)
+                    if piece is not None and piece.piece_type == chess.KING:
+                        winnable += 1          # a king always has to move
+                    elif independent_exchange_gain(probe, sq) > 0:
+                        winnable += 1
+                if winnable < 2:
+                    return None
         side, arrow = _orientation_and_arrow(fen, best)
         return (
             # Provisional review wording only, never served to a player --
@@ -390,6 +422,7 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
                    f"known: {sorted(producers)}")
 
     found: List[Dict[str, Any]] = []
+    producer_errors: Counter = Counter()
     scanned = 0
     cursor = db.game_analyses.find(
         {"stockfish_analysis.move_evaluations.0": {"$exists": True}},
@@ -424,8 +457,16 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
                 continue
             try:
                 produced = produce(move, colour, analysis)
-            except Exception:  # noqa: BLE001
-                # One malformed stored move must not empty the whole queue.
+            except Exception as exc:  # noqa: BLE001
+                # One malformed stored move must not empty the whole queue --
+                # but a bug in a producer must not hide behind that. A stray
+                # NameError here silently returned ZERO claims for a detector
+                # and read exactly like "the gate filtered everything".
+                producer_errors[type(exc).__name__] += 1
+                if producer_errors[type(exc).__name__] == 1:
+                    logger.warning(
+                        "[detector-review] %s producer raised %s: %s",
+                        detector, type(exc).__name__, exc, exc_info=True)
                 continue
             if not produced:
                 continue
@@ -443,6 +484,9 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
             })
             if len(found) >= limit:
                 break
+    if producer_errors:
+        logger.warning("[detector-review] %s producer errors: %s",
+                       detector, dict(producer_errors))
     return found
 
 
