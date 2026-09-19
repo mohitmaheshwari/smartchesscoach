@@ -689,6 +689,16 @@ async def update_memory_after_game(
     # for the live list; today only endgame_rule_of_square is wired.
     if move_evaluations and user_color:
         try:
+            # The PGN is the only source of the opponent's moves -- see
+            # _history_by_position. Without it opening_play and
+            # trap_detection see half the game and can never match.
+            _pgn = None
+            if game_id:
+                try:
+                    _g = await db.games.find_one({"game_id": game_id}, {"pgn": 1})
+                    _pgn = (_g or {}).get("pgn")
+                except Exception:  # noqa: BLE001
+                    _pgn = None
             record_concept_applications_from_game(
                 memory=memory,
                 move_evaluations=move_evaluations,
@@ -696,6 +706,7 @@ async def update_memory_after_game(
                 timestamp=now,
                 game_id=game_id,
                 opening_name=opening_played,
+                pgn=_pgn,
             )
         except Exception as e:
             logger.debug(f"[CONCEPT_DETECTORS] failed (non-fatal): {e}")
@@ -938,6 +949,49 @@ def record_engine2_skills_from_game(
     return recorded
 
 
+def _history_by_position(pgn: Optional[str]) -> Dict[str, List[str]]:
+    """Map each position in the game to the FULL SAN history reaching it.
+
+    move_evaluations holds ONLY the user's moves -- proven, not assumed: 0 of
+    12,365 entries carry is_opponent_move, the average game has 30.9 entries
+    where its PGN has 58.9, and 0 of 50 games' SAN lists replay legally from
+    the starting position. A history built from it is missing every opponent
+    move.
+
+    That silently starved three working detectors. opening_play cannot walk a
+    book line and trap_detection cannot match traps.json setup_moves (which
+    alternate colours) with half the game, so both recorded ZERO grades in
+    production while returning "applied" on a constructed Italian Game
+    position. Diagnosed 2026-09-19.
+
+    Keyed on the first four FEN fields so a stored fen_before matches
+    regardless of move counters.
+    """
+    if not pgn:
+        return {}
+    out: Dict[str, List[str]] = {}
+    try:
+        import io
+        import chess.pgn
+
+        game = chess.pgn.read_game(io.StringIO(pgn))
+        if game is None:
+            return {}
+        board = game.board()
+        sans: List[str] = []
+        for mv in game.mainline_moves():
+            key = " ".join(board.fen().split()[:4])
+            san = board.san(mv)
+            # History INCLUDING this move -- opening_play requires its last
+            # element to be the move being graded.
+            out.setdefault(key, sans + [san])
+            sans.append(san)
+            board.push(mv)
+    except Exception:  # noqa: BLE001
+        return {}
+    return out
+
+
 def record_concept_applications_from_game(
     memory: CoachMemory,
     move_evaluations: List[Dict[str, Any]],
@@ -945,6 +999,7 @@ def record_concept_applications_from_game(
     timestamp: Optional[str] = None,
     game_id: Optional[str] = None,
     opening_name: Optional[str] = None,
+    pgn: Optional[str] = None,
 ) -> List[tuple]:
     """Run every registered concept detector against this game's USER
     moves. Each `applied` / `missed` grade is persisted via
@@ -997,6 +1052,9 @@ def record_concept_applications_from_game(
     # every move regardless of whose turn it is; only forwarded to the
     # detector runner on the user's own moves (the `continue` below).
     history_san: list = []
+    # The real both-colour history, when the PGN is available. Falls back to
+    # the user-only list so nothing regresses when it is not.
+    history_by_position = _history_by_position(pgn)
     for me in move_evaluations:
         fen_before = me.get("fen_before")
         san = me.get("move") or me.get("move_san")
@@ -1012,7 +1070,8 @@ def record_concept_applications_from_game(
                 board, move, uc,
                 move_number=me.get("move_number"),
                 opening_name=opening_name,
-                move_history_san=list(history_san),
+                move_history_san=history_by_position.get(
+                    " ".join(str(fen_before).split()[:4])) or list(history_san),
                 best_move_san=me.get("best_move_san") or me.get("best_move"),
                 best_move_uci=me.get("best_move_uci"),
             ):
