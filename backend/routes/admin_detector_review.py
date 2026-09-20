@@ -363,9 +363,13 @@ def _allowed_mate_caption(move, evidence, colour):
     # save in green. What is left for words is the rule, plus the shortest
     # possible link saying which habit it is about.
     _att = [mating.from_square] + [chess.parse_square(q) for _, q in supporters]
+    _sealed = 0
+    if mated_king is not None:
+        _sealed = _back_rank_seal(mated, mating, mated_king, not piece.color)
     rule = _mate_rule(before, played_mv_obj, ring, castled, uncastled_centre,
                       standing, bool(supporters),
-                      brought=_pieces_brought_to_the_king(before, _att))
+                      brought=_pieces_brought_to_the_king(before, _att),
+                      back_rank_sealed=_sealed)
     # The only fact worth a word: that it is mate, and in how many. Which
     # pieces, which squares, which exits were shut -- all drawn.
     caption = f"That was {mate_word}. {rule}"
@@ -432,8 +436,48 @@ def _capture_net_cp(board_before, played_mv):
         return None
 
 
+def _back_rank_seal(mated_board, mating_move, king_square, king_color):
+    """How many of the king's escape squares are sealed by its OWN pawns.
+
+    Mohit, 2026-09-20, on a card he had already ruled true: "it is actually a
+    back rank mate issue, which could be a good lesson." He is right, and it
+    is the most teachable shape in the whole allowed_mate queue -- a named
+    pattern every beginner meets, with a fix they can apply on move 10.
+
+    The card in question:
+        8/4r3/1p2Bk2/p2p1P1p/3P4/8/PPPR2PP/1K6 w - - 3 33
+        White is winning +825, plays Bxd5 to take a pawn, and gets
+        Re1+ Rd1 Rxd1# -- king on b1, sealed by its own a2/b2/c2 pawns.
+
+    Returns the count so the caller can require more than one, which is what
+    separates "sealed in" from "happens to have a pawn nearby".
+    """
+    home = 0 if king_color == chess.WHITE else 7
+    if chess.square_rank(king_square) != home:
+        return 0
+    # The mate has to arrive ALONG that rank, from a piece that travels it.
+    lander = mated_board.piece_at(mating_move.to_square)
+    if lander is None or lander.piece_type not in (chess.ROOK, chess.QUEEN):
+        return 0
+    if chess.square_rank(mating_move.to_square) != home:
+        return 0
+    step = 1 if king_color == chess.WHITE else -1
+    sealed = 0
+    for offset in (-1, 0, 1):
+        file_index = chess.square_file(king_square) + offset
+        if not 0 <= file_index <= 7:
+            continue
+        square = chess.square(file_index, home + step)
+        blocker = mated_board.piece_at(square)
+        if (blocker is not None
+                and blocker.color == king_color
+                and blocker.piece_type == chess.PAWN):
+            sealed += 1
+    return sealed
+
+
 def _mate_rule(board_before, played_mv, ring, castled, centre, standing,
-               pair, brought=0):
+               pair, brought=0, back_rank_sealed=0):
     """The one sentence the player should still have next month.
 
     The board already shows what happened. The caption's whole job is the
@@ -445,6 +489,14 @@ def _mate_rule(board_before, played_mv, ring, castled, centre, standing,
     Most-specific first: the most useful rule is the one about the mistake
     they actually made.
     """
+    # A named pattern the player can look up, spot and prevent beats every
+    # generic rule under it -- including "you took a pawn", which is true here
+    # and much less useful than "this is the back-rank mate".
+    if back_rank_sealed >= 2:
+        return ("Your own pawns sealed the first rank and left your king "
+                "nowhere to go -- that is a back-rank mate. Push one early to "
+                "make air, long before a rook gets there.")
+
     # The deepest lesson available, so it goes first: they spent moves walking
     # pieces at your king and you never asked why. Only fires when the board
     # proves the maneuvering -- two or more attackers off their home squares.
