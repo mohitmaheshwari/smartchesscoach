@@ -143,74 +143,82 @@ card. That is the 17.4% defect and the principle-bank filler problem together.
 
 ## 4. The authoring contract for a gold caption
 
-Mohit, on the first draft of these gold captions: "claude needs to back its
-data on stockfish, and always tell the teaching for the gold caption ... your
-captions should just not mention what's on the board, it should mention the
-teaching concept for player to learn."
+Two rounds of correction from Mohit produced this shape.
 
-The first draft failed that. It narrated the position and appended a rule. A
-gold caption inverts it:
+> "your captions should just not mention what's on the board, it should mention
+> the teaching concept for player to learn."
 
-1. **The concept leads.** The first sentence is the idea the player carries
-   into a different opening next week.
-2. **The board is evidence, not subject.** Squares appear only to prove the
-   concept applies here.
-3. **Every factual claim is Stockfish- or board-verified before it is written.**
+> "it should tell something to remember next time and is relatable ... Always
+> look for your pieces should have defended before making any move ... I like
+> 'a piece with no defender is a move for your opponent'."
+
+**A gold caption is two sentences:**
+
+1. **A principle they can remember** — short, relatable, no square names.
+2. **The habit to run next move** — what they physically do before moving.
+
+The principle alone is a proverb and changes nothing at the board. The habit
+alone is a chore with no reason behind it. Together they are coaching.
 
 ```
-   NOT:  "h5 leaves your knight on e4 undefended, and Bxe4 simply takes it."
-   GOLD: "A piece with no defender is a free move for your opponent.
-          Your knight on e4 had none, so h5 handed them Bxe4."
+  PRINCIPLE  A piece with no defender is a free move for your opponent.
+  HABIT      Before every move, look over your own pieces and find the ones
+             nothing is guarding — that's what they'll take while you're
+             busy elsewhere.
 ```
 
-Test: if the concept cannot be stated without the square names, it is a
-position fact, not a concept, and the card teaches nothing a week later.
+Board narration — "h5 leaves your knight on e4 undefended, and Bxe4 takes it" —
+is what the generator already does well. It is not what gold adds. Squares
+appear only where they are unavoidable, and every factual claim is
+Stockfish- or board-verified *before* it is written.
 
-### The five cases, rewritten concept-first
+### The five cases as gold
 
-| Case | Concept taught | Verified by |
-|---|---|---|
-| A `O-O` | An enemy piece parked near your king can be chased by a pawn, and chasing it is a free move | g5 attacks f4; bishop has 5 squares, all retreats |
-| B `h5` | A piece with no defender is a free move for your opponent | Nxf2 Rxf2 Bxd3 = +202; Nxf2 gives no check |
-| C `Kc7` | Some positions are decided before the move you are looking at | Kc7 −1157, b6 −8308 at depth 26 |
-| D `Bxb6+` | A check that wins nothing is slower than taking what is already free | h8 rook: 0 defenders, 1 attacker after Qg7 |
-| E `e5` | A pawn that advances past its own support is a pawn you have given away | dxe5 wins it; Qd2 = +17 |
-
-**A — `O-O`**
-> "An enemy piece sitting on a strong square near your king is usually worth
-> chasing before you finish developing — if a pawn can hit it, you gain a move
-> for free. The bishop on f4 was that piece, and g5 sends it back."
-
-**B — `h5`**
-> "A piece with no defender is a free move for your opponent: every quiet move
-> you make, they can spend taking it. Your knight on e4 had no defender, so h5
-> simply handed them Bxe4. Nxf2 would have won a piece instead."
-
-**C — `Kc7`**
-> "Some positions are already decided, and the move in front of you is not where
-> the game was lost. This endgame was gone by move 36 — nothing here saves it."
+**A — `O-O`** *(chasing an intruder)*
+> An enemy piece camped near your king will not leave on its own, but a pawn can
+> send it home — and that costs you nothing.
+> When one settles in, look for the pawn that can hit it before you get on with
+> your own plans.
 >
-> No recommendation. This is the case the generator cannot express, and it
-> produced b6, seven pawns worse than what was played.
+> *Verified: g5 attacks f4; the bishop has five squares, all retreats.*
 
-**D — `Bxb6+`**
-> "When you are winning, a check that gains nothing is slower than taking what
-> is already free. The rook on h8 had no defender — Qg7 attacks it and wins it
-> outright."
+**B — `h5`** *(the loose piece)*
+> A piece with no defender is a free move for your opponent.
+> Before every move, look over your own pieces and find the ones nothing is
+> guarding — that is what they take while you are busy elsewhere.
+>
+> *Verified: Nxf2 gives no check; Nxf2 Rxf2 Bxd3 = +202, it wins a piece.*
 
-**E — `e5`**
-> "A pawn that advances past its own support is a pawn you have given away.
-> Count its defenders before you push: e5 had none, so dxe5 just took it."
+**C — `Kc7`** *(the game was lost earlier)*
+> Not every lost position was lost on the move in front of you.
+> When nothing you try works, go back and find the last move where something
+> still did — that is the one worth studying.
+>
+> *Verified: Kc7 −1157 vs b6 −8308 at depth 26. No move is recommended here.*
+
+**D — `Bxb6+`** *(free material before check)*
+> When you are already winning, a check that wins nothing just hands the game
+> back a move at a time.
+> Before you check, scan for what is sitting undefended — take that first.
+>
+> *Verified: after Qg7 the h8 rook has zero defenders and one attacker.*
+
+**E — `e5`** *(the unsupported push)*
+> A pawn that moves past its own support is a pawn you have given away.
+> Before you push, count what defends the square it lands on. If the answer is
+> nothing, it is not a push, it is a gift.
+>
+> *Verified: dxe5 wins it; Qd2 = +17.*
 
 ### What this changes about the generator
 
-Three of the five concepts above — loose piece, free material before check,
-unsupported pawn push — are **already detected**. The facts exist in
-`caption_facts`; what is missing is the sentence that names the idea rather
-than the square. That is authoring work against existing detection, not new
-detection.
+Three of these concepts — loose piece, free material before check, unsupported
+push — are **already detected**; the facts sit in `caption_facts` today. What
+is missing is the pair of sentences, not the detection. That is authoring work
+against detectors that already fire, which is exactly where Mohit says the
+product is strong.
 
-The fourth (C) needs something the generator structurally lacks: permission to
+The fourth needs something the generator structurally lacks: permission to
 recommend nothing.
 
 ## 5. Proposal
