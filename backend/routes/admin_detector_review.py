@@ -1199,6 +1199,34 @@ _MISSED_CONCEPT_RULES = {
     "endgame_king_centralization": (
         "In an endgame your king is a fighting piece, not something to hide. "
         "Walk it towards the middle."),
+    # 2026-09-20. Six more endgame concepts opened for review. All are
+    # registered detectors that have never been ruled on, so nobody knows what
+    # they would say. rule_of_square in particular is DISABLED for a reason
+    # worth testing rather than assuming: "the production scan found only five
+    # eligible positions and all five belong to one game". Serving it here is
+    # how that count gets confirmed or refuted.
+    "endgame_opposition": (
+        "Whoever has to move first in a king standoff is the one who gives "
+        "ground. Take the opposition and make them step aside."),
+    "endgame_rule_of_square": (
+        "You can tell at a glance whether a king catches a passed pawn: draw "
+        "the square from the pawn to its promotion rank. Inside it you catch "
+        "it, outside it you do not."),
+    "endgame_create_passed_pawn": (
+        "A pawn nobody can stop is worth more than an extra pawn nobody "
+        "notices. When you have the majority, make one."),
+    "endgame_stop_promotion": (
+        "A pawn one square from queening decides the game on its own. Stop it "
+        "before you improve anything else."),
+    "endgame_lucena": (
+        "With a rook and a pawn on the seventh you build a bridge: the rook "
+        "shields your king so it can step out and the pawn can run."),
+    "endgame_philidor": (
+        "Defending a rook endgame, hold your rook on the third rank until "
+        "their pawn arrives, then check from behind."),
+    "endgame_active_rook": (
+        "A rook sitting behind your own pawns loses endgames. An active rook "
+        "is worth a pawn."),
 }
 
 
@@ -1296,6 +1324,25 @@ def _producers():
         "missed_development": _missed_concept("coached_development"),
         "missed_center": _missed_concept("opening_center"),
         "missed_king_activity": _missed_concept("endgame_king_centralization"),
+        # Pin/skewer is deliberately NOT served here. aligned_tactic_puzzle_proof
+        # is the exact pin/skewer proof and it already works -- 362 positions in
+        # community_training_positions and 159 in community_puzzles carry
+        # tactic:aligned_with_stored_payoff, and that id is already graded
+        # CAPTION, i.e. authorised. Wiring it through _missed_motif produced 0
+        # fires on a 20k-move scan, because this queue asks a different question
+        # (did the move the player MISSED create the motif) from the one the
+        # extraction path asks. Rather than ship a review entry that always
+        # serves nothing, pin/skewer puzzles should come from those 521 already
+        # proven rows -- they need no ruling at all.
+        # Seven endgame concepts, so the endgame half of the diagnostic can be
+        # judged at all. See _MISSED_CONCEPT_RULES for rule_of_square.
+        "missed_opposition": _missed_concept("endgame_opposition"),
+        "missed_rule_of_square": _missed_concept("endgame_rule_of_square"),
+        "missed_passed_pawn": _missed_concept("endgame_create_passed_pawn"),
+        "missed_stop_promotion": _missed_concept("endgame_stop_promotion"),
+        "missed_lucena": _missed_concept("endgame_lucena"),
+        "missed_philidor": _missed_concept("endgame_philidor"),
+        "missed_active_rook": _missed_concept("endgame_active_rook"),
     }
 
 
