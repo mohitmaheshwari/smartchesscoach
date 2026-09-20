@@ -141,22 +141,77 @@ card. That is the 17.4% defect and the principle-bank filler problem together.
 
 ---
 
-## 4. What the gold adds
+## 4. The authoring contract for a gold caption
 
-Not "more words". Three specific things:
+Mohit, on the first draft of these gold captions: "claude needs to back its
+data on stockfish, and always tell the teaching for the gold caption ... your
+captions should just not mention what's on the board, it should mention the
+teaching concept for player to learn."
 
-1. **Every claim is checked.** Case B's "sacrifices your knight" would have
-   been caught by playing the line out — it wins a piece. The generator asserted
-   a mechanism it never verified.
-2. **The recommended move always carries its own why.** "Qd2 was better" becomes
-   "Qd2 keeps the pawn and connects your rooks."
-3. **The last line transfers.** Not "a pawn that pokes an enemy piece wins you
-   time" appended to anything, but a rule tied to *this* mistake that works in a
-   different opening next week.
+The first draft failed that. It narrated the position and appended a rule. A
+gold caption inverts it:
 
-And one thing gold does that the generator cannot yet do at all: **decline**.
-Case C's correct caption recommends nothing. A generator that must always
-produce a better move will always produce b6.
+1. **The concept leads.** The first sentence is the idea the player carries
+   into a different opening next week.
+2. **The board is evidence, not subject.** Squares appear only to prove the
+   concept applies here.
+3. **Every factual claim is Stockfish- or board-verified before it is written.**
+
+```
+   NOT:  "h5 leaves your knight on e4 undefended, and Bxe4 simply takes it."
+   GOLD: "A piece with no defender is a free move for your opponent.
+          Your knight on e4 had none, so h5 handed them Bxe4."
+```
+
+Test: if the concept cannot be stated without the square names, it is a
+position fact, not a concept, and the card teaches nothing a week later.
+
+### The five cases, rewritten concept-first
+
+| Case | Concept taught | Verified by |
+|---|---|---|
+| A `O-O` | An enemy piece parked near your king can be chased by a pawn, and chasing it is a free move | g5 attacks f4; bishop has 5 squares, all retreats |
+| B `h5` | A piece with no defender is a free move for your opponent | Nxf2 Rxf2 Bxd3 = +202; Nxf2 gives no check |
+| C `Kc7` | Some positions are decided before the move you are looking at | Kc7 −1157, b6 −8308 at depth 26 |
+| D `Bxb6+` | A check that wins nothing is slower than taking what is already free | h8 rook: 0 defenders, 1 attacker after Qg7 |
+| E `e5` | A pawn that advances past its own support is a pawn you have given away | dxe5 wins it; Qd2 = +17 |
+
+**A — `O-O`**
+> "An enemy piece sitting on a strong square near your king is usually worth
+> chasing before you finish developing — if a pawn can hit it, you gain a move
+> for free. The bishop on f4 was that piece, and g5 sends it back."
+
+**B — `h5`**
+> "A piece with no defender is a free move for your opponent: every quiet move
+> you make, they can spend taking it. Your knight on e4 had no defender, so h5
+> simply handed them Bxe4. Nxf2 would have won a piece instead."
+
+**C — `Kc7`**
+> "Some positions are already decided, and the move in front of you is not where
+> the game was lost. This endgame was gone by move 36 — nothing here saves it."
+>
+> No recommendation. This is the case the generator cannot express, and it
+> produced b6, seven pawns worse than what was played.
+
+**D — `Bxb6+`**
+> "When you are winning, a check that gains nothing is slower than taking what
+> is already free. The rook on h8 had no defender — Qg7 attacks it and wins it
+> outright."
+
+**E — `e5`**
+> "A pawn that advances past its own support is a pawn you have given away.
+> Count its defenders before you push: e5 had none, so dxe5 just took it."
+
+### What this changes about the generator
+
+Three of the five concepts above — loose piece, free material before check,
+unsupported pawn push — are **already detected**. The facts exist in
+`caption_facts`; what is missing is the sentence that names the idea rather
+than the square. That is authoring work against existing detection, not new
+detection.
+
+The fourth (C) needs something the generator structurally lacks: permission to
+recommend nothing.
 
 ## 5. Proposal
 
