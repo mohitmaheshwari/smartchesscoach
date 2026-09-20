@@ -25,7 +25,7 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
-import { Loader2, RefreshCw, Check, X, HelpCircle, RotateCcw } from "lucide-react";
+import { Loader2, RefreshCw, Check, X, HelpCircle, RotateCcw, Copy } from "lucide-react";
 
 // Ordered MUTED FIRST. The first version of this list led with
 // `simple_hang` and `fork`, both of which were promoted to caption grade
@@ -175,6 +175,80 @@ const SEVERITY_STYLE = {
   blunder: "border-red-700 text-red-800 dark:text-red-400 font-semibold",
 };
 
+// Everything one claim knows, as text you can paste into Claude or ChatGPT.
+// Mohit had been doing this by hand -- "can you give me the FEN so i can pass
+// it to chatgpt" (2026-09-16) -- and a FEN alone makes the other model guess
+// at what we actually claimed. So the block carries the claim, the detector's
+// own description of what it asserts, the board as a diagram (an LLM reads
+// ASCII far better than a FEN), both engine lines, and the cost.
+//
+// It ends in questions rather than a request for a verdict, because the point
+// is a second opinion on the CLAIM and the WORDS, not another vote -- only a
+// human ruling counts toward the threshold lock, and no model may approve a
+// claim (docs/detector_quality_threshold_lock_2026_08_27.md rejects that by
+// name).
+const buildClaudeContext = (c, meta) => {
+  const e = c.evidence || {};
+  const fen = e.fen_before || e.review_fen || "";
+  let board = "";
+  try {
+    board = fen ? new Chess(fen).ascii() : "";
+  } catch {
+    board = "";
+  }
+  const mover = e.side_to_move === "black" ? "Black" : "White";
+  const line = (moves) =>
+    Array.isArray(moves) && moves.length ? moves.join(" ") : null;
+  const cost =
+    typeof e.cp_loss === "number"
+      ? `${e.cp_loss} cp${e.severity_tier ? ` (${e.severity_tier})` : ""}`
+      : e.severity_tier || "not recorded";
+
+  const rows = [
+    ["Detector", c.detector],
+    ["It claims", meta?.claims || "(no description)"],
+    ["Sentence shown to the player", c.claim],
+    ["", ""],
+    ["Position", `${mover} to move, move ${e.move_number ?? "?"}`],
+    ["FEN", fen],
+    ["", ""],
+    ["They played", e.played_san || "?"],
+    ["Engine's move", e.best_move || e.book_move || "?"],
+    ["Cost of the move played", cost],
+    ["Line after the move played", line(e.pv_after_played)],
+    ["Line after the engine's move", line(e.pv_after_best)],
+  ].filter(([k, v]) => k === "" || v);
+
+  const game = c.game || {};
+  const who =
+    game.white && game.black
+      ? `${game.white} vs ${game.black}` +
+        (game.result ? ` (${game.result})` : "") +
+        (game.platform ? ` on ${game.platform}` : "") +
+        `. The player being coached is ${game.user_color || "?"}.`
+      : `game ${c.game_id}`;
+
+  return [
+    "I am checking a chess coaching detector. Below is one real position it",
+    "fired on, and the sentence it would say to the player.",
+    "",
+    ...rows.map(([k, v]) => (k === "" ? "" : `${k}: ${v}`)),
+    "",
+    board,
+    "",
+    `Game: ${who}`,
+    "",
+    "Please answer three things:",
+    "1. Is the claim actually true of this position? Verify it on the board",
+    "   yourself rather than trusting my summary.",
+    "2. If it is true, is it the most useful thing to say about this move, or",
+    "   is the real lesson something else?",
+    "3. The player is rated 600-1500. Would this sentence teach them something",
+    "   they could use in their next game, or does it only describe what the",
+    "   board already shows?",
+  ].join("\n");
+};
+
 // Same helpers as /admin/geometry-gaps, deliberately -- Mohit asked for
 // "exactly all those things", and two admin review surfaces that step a line
 // differently is how a reviewer loses their place.
@@ -220,6 +294,7 @@ export default function AdminDetectorReview() {
   const [captionFaults, setCaptionFaults] = useState([]);
   const [captionRewrite, setCaptionRewrite] = useState("");
   const [captionSent, setCaptionSent] = useState({});
+  const [copied, setCopied] = useState(false);
   const [scanInfo, setScanInfo] = useState({});
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -961,6 +1036,32 @@ export default function AdminDetectorReview() {
                   >
                     {captionSent[c.claim_key] ? "Caption noted" : "Caption…"}
                     <span className="opacity-50 ml-1">C</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title="Copy this whole claim -- board, both engine lines, the cost -- to paste into Claude or ChatGPT"
+                    onClick={async () => {
+                      const text = buildClaudeContext(c, active);
+                      try {
+                        await navigator.clipboard.writeText(text);
+                      } catch {
+                        // Clipboard is blocked without https or a user
+                        // gesture in some browsers. Falling back to a
+                        // textarea beats a button that silently does nothing.
+                        const ta = document.createElement("textarea");
+                        ta.value = text;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                      }
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1500);
+                    }}
+                  >
+                    <Copy className="w-3.5 h-3.5 mr-1" />
+                    {copied ? "Copied" : "Copy for Claude"}
                   </Button>
                   <details className="ml-auto">
                     <summary className="text-[11px] text-muted-foreground cursor-pointer">
