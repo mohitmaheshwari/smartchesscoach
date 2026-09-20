@@ -480,7 +480,15 @@ def _good_caption(inp):
         if abs(getattr(inp, "cp_loss", 0) or 0) > 30:
             return None, None
         st = _subtype(b, mv)
-        if st and TSET.get(st):
+        # A check is not "other". Measured 2026-09-20: with no check branch,
+        # every opponent check fell through to the catch-all, which says the
+        # move "does not really hit anything of yours, so do not worry" -- on a
+        # move that attacks the king. Two of those shipped in a single game
+        # (Qf8+, Qf4+). A check is the one opponent move a beginner MUST read,
+        # so it is tested before every other category.
+        if b.gives_check(mv) and TSET.get("check"):
+            gt = "check"
+        elif st and TSET.get(st):
             gt = st
         elif pc and pc.piece_type == chess.PAWN:
             gt = "pawn"
