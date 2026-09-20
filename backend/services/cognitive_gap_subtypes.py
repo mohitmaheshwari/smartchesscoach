@@ -269,6 +269,20 @@ def _sliding_directions(piece_type):
     return []
 
 
+# For ALIGNMENT, the king is the most valuable thing on the board: a piece
+# standing in front of it is pinned, and the king standing in front of
+# anything is a skewer. _PIECE_VALUES scores the king 0, which is right for
+# material and inverts both motifs here -- a knight pinned to its king scored
+# 300 in front and 0 behind, so it came back "skewer", and a king in front of
+# a rook came back "pin". Every king pin and king skewer was labelled as the
+# other one. detector_quality's shape:skewer entry claims this ordering was
+# corrected; that correction landed in chess_brain/detector_registry.py and
+# never reached this helper. Found 2026-09-20 building the pin/skewer puzzles,
+# by running a position where the pin was proven (the knight had zero legal
+# moves) and getting nothing back.
+_ALIGNMENT_VALUES = dict(_PIECE_VALUES, k=10000)
+
+
 def _check_line_pin_or_skewer(board, from_sq, direction, mover_color):
     """Along `direction` from `from_sq`, find first opp piece; if a MORE valuable
     opp piece is next in line → pin. If LESS valuable → skewer."""
@@ -281,7 +295,7 @@ def _check_line_pin_or_skewer(board, from_sq, direction, mover_color):
         sq = chess.square(f, r)
         p = board.piece_at(sq)
         if p:
-            v = _PIECE_VALUES.get(p.symbol().lower(), 0)
+            v = _ALIGNMENT_VALUES.get(p.symbol().lower(), 0)
             if p.color == mover_color:
                 return None  # blocked
             if first_piece is None:

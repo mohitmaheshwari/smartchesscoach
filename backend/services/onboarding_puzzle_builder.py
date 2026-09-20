@@ -193,6 +193,74 @@ def _forks(board: chess.Board) -> List[chess.Move]:
     return out
 
 
+SLIDER_DIRECTIONS = {
+    chess.BISHOP: ((1, 1), (1, -1), (-1, 1), (-1, -1)),
+    chess.ROOK: ((1, 0), (-1, 0), (0, 1), (0, -1)),
+    chess.QUEEN: ((1, 1), (1, -1), (-1, 1), (-1, -1),
+                  (1, 0), (-1, 0), (0, 1), (0, -1)),
+}
+
+
+def _lines_created(board: chess.Board, move: chess.Move, kind: str):
+    """Moves that create a pin or a skewer, using the geometry helper that
+    already exists in cognitive_gap_subtypes rather than a third copy of it.
+
+    A pin/skewer that hands the slider away is not a tactic, and a line onto
+    two pawns is not worth setting as a puzzle, so both are gated below.
+    """
+    from services.cognitive_gap_subtypes import _check_line_pin_or_skewer
+    from services.legal_exchange_verifier import independent_exchange_gain
+
+    mover = board.turn
+    piece = board.piece_at(move.from_square)
+    if piece is None or piece.piece_type not in SLIDER_DIRECTIONS:
+        return False
+    after = board.copy(stack=False)
+    after.push(move)
+    # The slider has to survive where it lands.
+    if independent_exchange_gain(after, move.to_square) > 0:
+        return False
+    for direction in SLIDER_DIRECTIONS[piece.piece_type]:
+        if _check_line_pin_or_skewer(after, move.to_square, direction,
+                                     mover) != kind:
+            continue
+        # Walk the same line to price what is actually at stake.
+        df, dr = direction
+        f = chess.square_file(move.to_square) + df
+        r = chess.square_rank(move.to_square) + dr
+        seen = []
+        while 0 <= f < 8 and 0 <= r < 8 and len(seen) < 2:
+            sq = chess.square(f, r)
+            occupant = after.piece_at(sq)
+            if occupant is not None:
+                seen.append((sq, occupant))
+            f += df
+            r += dr
+        if len(seen) < 2:
+            continue
+        front, back = seen[0][1], seen[1][1]
+        # Worth a puzzle: the piece we end up winning is a real piece, and the
+        # king counts as the strongest thing to pin against.
+        prize = back if kind == "skewer" else front
+        if prize.piece_type == chess.KING:
+            continue
+        if PIECE_CP.get(prize.piece_type, 0) < PIECE_CP[chess.KNIGHT]:
+            continue
+        if kind == "pin" and back.piece_type != chess.KING and \
+                PIECE_CP.get(back.piece_type, 0) <= PIECE_CP.get(front.piece_type, 0):
+            continue
+        return True
+    return False
+
+
+def _pins(board: chess.Board) -> List[chess.Move]:
+    return [m for m in board.legal_moves if _lines_created(board, m, "pin")]
+
+
+def _skewers(board: chess.Board) -> List[chess.Move]:
+    return [m for m in board.legal_moves if _lines_created(board, m, "skewer")]
+
+
 _FAMILIES: Dict[str, Dict[str, object]] = {
     "mate_in_one": {
         "question": "There is mate in one here. Find it.",
@@ -218,6 +286,21 @@ _FAMILIES: Dict[str, Dict[str, object]] = {
         "finder": _forks,
         "difficulty": 2,
         "explain": "{san} hits two pieces at the same time -- they cannot save both.",
+    },
+    "find_the_pin": {
+        "question": "One move here freezes a piece of theirs -- it cannot move "
+                    "without losing something bigger behind it. Find it.",
+        "finder": _pins,
+        "difficulty": 3,
+        "explain": "{san} pins it: moving it would hand over the piece behind.",
+    },
+    "find_the_skewer": {
+        "question": "One move here hits two pieces standing on the same line. "
+                    "The front one has to move. Find it.",
+        "finder": _skewers,
+        "difficulty": 4,
+        "explain": "{san} attacks the front piece; when it moves, the one "
+                   "behind it is yours.",
     },
 }
 
