@@ -78,6 +78,54 @@ const DETECTORS = [
     claims:
       "an endgame where the engine's move walked the king towards the centre, and they played something else that lost ground",
   },
+  // Seven endgame concepts, 2026-09-20. Same branch, same "could only ever
+  // congratulate" defect, and none of them has ever been ruled on. The
+  // endgame half of the diagnostic cannot be sourced from our own games
+  // until these are judged. rule_of_square is DISABLED on the grounds that
+  // "the production scan found only five eligible positions and all five
+  // belong to one game" -- opening it here is how that gets confirmed.
+  {
+    id: "missed_opposition",
+    label: "Missed the opposition",
+    claims:
+      "a king-and-pawn standoff where the engine's move took the opposition, and they played something else that lost ground",
+  },
+  {
+    id: "missed_passed_pawn",
+    label: "Missed making a passed pawn",
+    claims:
+      "the engine's move turned one of their pawns into a passed pawn, and they played something else that lost ground",
+  },
+  {
+    id: "missed_stop_promotion",
+    label: "Let a pawn through",
+    claims:
+      "the engine's move captured or blockaded an advanced enemy passed pawn, and they played something else that lost ground",
+  },
+  {
+    id: "missed_active_rook",
+    label: "Left the rook passive",
+    claims:
+      "an endgame where the engine's move put a rook on an open file or the seventh rank, and they played something else that lost ground",
+  },
+  {
+    id: "missed_lucena",
+    label: "Missed the Lucena bridge",
+    claims:
+      "a rook-and-pawn ending where the engine's move built the bridge, and they played something else that lost ground",
+  },
+  {
+    id: "missed_philidor",
+    label: "Missed the Philidor defence",
+    claims:
+      "a rook-and-pawn defence where the engine's move held the third rank, and they played something else that lost ground",
+  },
+  {
+    id: "missed_rule_of_square",
+    label: "Missed the square rule",
+    claims:
+      "a king could have caught, or failed to catch, a running passed pawn, and they played something else that lost ground",
+  },
   {
     id: "discovered_attack",
     label: "Missed discovered attack",

@@ -976,6 +976,16 @@ DETECTOR_QUALITY_IDS = {
     "missed_development": "concept:coached_development",
     "missed_center": "concept:opening_center",
     "missed_king_activity": "concept:endgame_king_centralization",
+    # 2026-09-20. Six shadow-grade endgame concepts plus rule_of_square,
+    # which is DISABLED -- read live, so the page shows that rather than
+    # silently reporting shadow through the fail-closed default.
+    "missed_opposition": "concept:endgame_opposition",
+    "missed_rule_of_square": "concept:endgame_rule_of_square",
+    "missed_passed_pawn": "concept:endgame_create_passed_pawn",
+    "missed_stop_promotion": "concept:endgame_stop_promotion",
+    "missed_lucena": "concept:endgame_lucena",
+    "missed_philidor": "concept:endgame_philidor",
+    "missed_active_rook": "concept:endgame_active_rook",
     # Candidate only -- unregistered, so _grade_for reports shadow.
     "tempo_loss": None,
 }
