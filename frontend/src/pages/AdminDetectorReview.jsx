@@ -157,6 +157,20 @@ const DETECTORS = [
   },
 ];
 
+// How bad was the move? cp_loss was always on the card but sat last in the
+// detail list as a bare "139 cp", which does not tell a reviewer whether that
+// is a slip or a disaster (Mohit, 2026-09-20: "i don't know how bad is move").
+// The WORD comes from the backend via services/severity.py -- the one canonical
+// evaluator -- so this page can never disagree with what a caption calls the
+// same move. Here we only choose the colour.
+const SEVERITY_STYLE = {
+  good: "border-muted-foreground/40 text-muted-foreground",
+  inaccuracy: "border-yellow-500 text-yellow-700 dark:text-yellow-500",
+  mistake: "border-orange-500 text-orange-700 dark:text-orange-500",
+  serious: "border-red-500 text-red-700 dark:text-red-500",
+  blunder: "border-red-700 text-red-800 dark:text-red-400 font-semibold",
+};
+
 // Same helpers as /admin/geometry-gaps, deliberately -- Mohit asked for
 // "exactly all those things", and two admin review surfaces that step a line
 // differently is how a reviewer loses their place.
@@ -334,6 +348,7 @@ export default function AdminDetectorReview() {
         component: `detector_review:${claim.detector}`,
         concept_id: claim.detector,
         cp_loss: e.cp_loss,
+        severity_tier: e.severity_tier,
         best_move: e.best_move,
       }),
     });
@@ -785,6 +800,30 @@ export default function AdminDetectorReview() {
                   )}
                 </div>
 
+                {(typeof e.cp_loss === "number" || e.severity_tier) && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[11px] px-2 py-0.5 rounded-sm border ${
+                        SEVERITY_STYLE[e.severity_tier] ||
+                        "border-muted-foreground/40 text-muted-foreground"
+                      }`}
+                    >
+                      {/* Deliberately NOT rendered as pawns -- centipawn loss
+                          is not material. See the pre-commit caption guard. */}
+                      {typeof e.cp_loss === "number" ? `${e.cp_loss} cp` : ""}
+                      {typeof e.cp_loss === "number" && e.severity_tier
+                        ? " · "
+                        : ""}
+                      {e.severity_tier || ""}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {typeof e.cp_loss === "number"
+                        ? "how far this move fell short of the engine's"
+                        : "this move allows a forced mate"}
+                    </span>
+                  </div>
+                )}
+
                 {/* Plain language, not the raw keys. The first build printed
                     `quality_id tactic:discovered_attack_with_stored_payoff ·
                     detector_facts [object Object]` and the FEN twice, which is
@@ -823,16 +862,6 @@ export default function AdminDetectorReview() {
                         {e.hung_piece} on {e.hung_square}
                         {e.defender_moved_away ? " (defender left)" : ""}
                       </dd>
-                    </div>
-                  )}
-                  {typeof e.cp_loss === "number" && (
-                    <div className="flex gap-2">
-                      {/* Deliberately NOT rendered as pawns — centipawn loss
-                          is not material. See the pre-commit caption guard. */}
-                      <dt className="text-muted-foreground w-28 shrink-0">
-                        Engine cost
-                      </dt>
-                      <dd className="font-medium">{e.cp_loss} cp</dd>
                     </div>
                   )}
                   <div className="flex gap-2">

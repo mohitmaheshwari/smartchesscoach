@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional
 import chess
 
 from services.caption_facts import PIECE_VALUE_CP
+from services.severity import MATE_SENTINEL_CP, classify_severity
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from routes.admin import require_admin
@@ -1425,6 +1426,31 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
             if not produced:
                 continue
             claim, evidence = produced
+            # How bad was the move? Every producer already carries cp_loss,
+            # but a raw "139 cp" does not tell a reviewer whether that is a
+            # slip or a disaster -- Mohit, 2026-09-20: "i don't know how bad
+            # is move". Name the tier using the ONE canonical evaluator
+            # (services/severity.py, thresholds Mohit-locked 2026-05-25) so
+            # this page cannot drift from what captions say about the same
+            # move. Deliberately not the rating-aware bands: the reviewer is
+            # judging a claim, not being coached, so the scale must be
+            # absolute and the same on every card.
+            _cp = evidence.get("cp_loss")
+            if isinstance(_cp, (int, float)) and not isinstance(_cp, bool):
+                evidence["severity_tier"] = classify_severity(
+                    int(_cp), mover_is_user=True).tier
+            elif evidence.get("mating_line"):
+                # allowed_mate stores no cp_loss -- 25 of 25 sampled fires had
+                # it as None -- so the badge would be blank on the one detector
+                # where "how bad is it" has the most obvious answer. The tier
+                # is not inferred here: classify_severity already rules
+                # walked_into_mate as blunder, and this producer's gate IS
+                # "the move allows a forced mate". Whether the mate is PROVED
+                # on the board is a separate axis, already carried by the
+                # confidence chip.
+                evidence["severity_tier"] = classify_severity(
+                    0, mover_is_user=True,
+                    user_post_eval_cp=-MATE_SENTINEL_CP).tier
             key = f"{detector}:{analysis.get('game_id')}:{evidence.get('move_number')}"
             if key in skip_fens:
                 continue
