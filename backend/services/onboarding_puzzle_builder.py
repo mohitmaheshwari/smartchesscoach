@@ -339,6 +339,89 @@ def _mate_in_three(board: chess.Board) -> List[chess.Move]:
     return _mate_in_n_first_moves(board, 3)
 
 
+def _back_rank_mates(board: chess.Board) -> List[chess.Move]:
+    """Mate on the back rank where the king is sealed by its OWN pawns.
+
+    A named pattern, which is the whole point -- "there is mate in one" and
+    "this is a back-rank mate" teach different amounts. Reuses back_rank_seal
+    from services.mate_lesson so the puzzle and the game-review caption agree
+    on what a back-rank mate is.
+    """
+    from services.mate_lesson import back_rank_seal
+
+    out = []
+    for move in board.legal_moves:
+        after = board.copy(stack=False)
+        after.push(move)
+        if not after.is_checkmate():
+            continue
+        king = after.king(after.turn)
+        if king is None:
+            continue
+        # AFTER the mate, not before: back_rank_seal looks up the piece
+        # that LANDED on the mating square, and before the move that
+        # square is empty.
+        if back_rank_seal(after, move, king, after.turn) >= 2:
+            out.append(move)
+    return out
+
+
+def _discovered_attacks(board: chess.Board) -> List[chess.Move]:
+    """Moves that step a piece aside and uncover a slider onto something real.
+
+    Reuses _discovered_attack_evidence -- the same geometry the review captions
+    use. The payoff is checked on the BOARD here rather than replayed from a
+    stored engine line: a puzzle has no stored line, and checking directly is
+    what the line-replay version got wrong this morning anyway.
+    """
+    from services.caption_facts import _discovered_attack_evidence
+    from services.legal_exchange_verifier import independent_exchange_gain
+
+    mover = board.turn
+    out = []
+    for move in board.legal_moves:
+        after = board.copy(stack=False)
+        after.push(move)
+        try:
+            evidence = _discovered_attack_evidence(board, after, move)
+        except Exception:  # noqa: BLE001
+            continue
+        if not evidence:
+            continue
+        # The uncovered piece has to be worth taking, and actually takeable.
+        worth_it = False
+        for item in evidence:
+            if int(item.get("target_value_cp") or 0) < PIECE_CP[chess.KNIGHT]:
+                continue
+            try:
+                target = chess.parse_square(str(item.get("target_square")))
+            except (ValueError, TypeError):
+                continue
+            probe = after.copy(stack=False)
+            probe.turn = mover
+            if independent_exchange_gain(probe, target) >= PIECE_CP[chess.KNIGHT]:
+                worth_it = True
+                break
+        if not worth_it:
+            continue
+        # The discovery has to come with CHECK. Without it the opponent simply
+        # moves the attacked piece away and nothing is won -- engine-checked on
+        # 2b2rk1/2p2pp1/prn4p/1p2q3/3pN3/3P1B2/PPPQ1PPP/R3R1K1 w, where Ng3
+        # uncovers the rook onto the queen, is not in the engine's top three,
+        # and the position is level: Black just plays Qf5.
+        #
+        # Third time today a tactic family needed "and they cannot just save
+        # it" -- the fork needed an undefended target, the free piece needed
+        # no recapture, and this needs the tempo.
+        if not after.is_check():
+            continue
+        # And the piece we moved must not simply be lost for doing it.
+        if independent_exchange_gain(after, move.to_square) > 0:
+            continue
+        out.append(move)
+    return out
+
+
 _FAMILIES: Dict[str, Dict[str, object]] = {
     "mate_in_one": {
         "question": "There is mate in one here. Find it.",
@@ -372,6 +455,29 @@ _FAMILIES: Dict[str, Dict[str, object]] = {
         "difficulty": 3,
         "explain": "{san} pins it: moving it would hand over the piece behind.",
     },
+    "back_rank_mate": {
+        "question": "Their king is stuck on the back rank behind its own "
+                    "pawns. Finish it.",
+        "finder": _back_rank_mates,
+        "difficulty": 2,
+        "explain": "{san} mates along the back rank -- their own pawns left "
+                   "the king nowhere to go.",
+    },
+    # find_the_discovered_attack is NOT registered. _discovered_attacks below
+    # is kept because the gating work is sound, but it has no supply: 0 in 60
+    # games once the discovery is required to come with check, and without
+    # that requirement it ships false puzzles (engine-checked -- Ng3 uncovers
+    # a rook onto a queen on
+    # 2b2rk1/2p2pp1/prn4p/1p2q3/3pN3/3P1B2/PPPQ1PPP/R3R1K1 w, is not in the
+    # engine's top three, and Black just plays Qf5).
+    #
+    # There is also an unexplained gap underneath: on a synthetic position
+    # where every precondition holds by hand -- white rook e1, knight leaving
+    # e5 with check, black queen e7, nothing between -- caption_facts.
+    # _discovered_attack_evidence returns no evidence, while returning
+    # evidence correctly on real ruled-true cards. Noted, not chased: an empty
+    # shelf is worse than no shelf, and discovered_attack occurs in 1.8% of
+    # games anyway.
     "mate_in_two": {
         "question": "There is a forced mate in two here. "
                     "What is the first move?",
