@@ -33,6 +33,21 @@ import { Loader2, RefreshCw, Check, X, HelpCircle, RotateCcw } from "lucide-reac
 // Reviewing them buys nothing at this bar, and they would have eaten most of
 // a session. The live grade comes from detector_quality via /results, so this
 // order is a default and the page marks what is actually already done.
+// Why a caption is bad, as distinct from whether the CLAIM is true. Each of
+// these is a fault Mohit named on a real card on 2026-09-19, which is why
+// they are these five and not a generic "was it helpful" scale:
+//   "don't tell something the board is already showing"
+//   "it's not dxc5, it's about ignorance of opponent plan"
+//   "captions should tell principles that you don't forget"
+//   "are you sure that position was this? never write something bad or wrong"
+const CAPTION_FAULTS = [
+  { id: "describes_board", label: "Says what the board already shows" },
+  { id: "wrong_lesson", label: "Right facts, wrong lesson" },
+  { id: "no_principle", label: "No rule you would remember" },
+  { id: "false_claim", label: "A claim in it is untrue" },
+  { id: "jargon_or_long", label: "Jargon, or too long to read" },
+];
+
 const DETECTORS = [
   // The missed-concept branch, 2026-09-19. These four detectors previously
   // gated on "the move played WAS the engine's move", so across 400 games
@@ -131,6 +146,14 @@ const replay = (fen, moves, ply) => {
 export default function AdminDetectorReview() {
   const [detector, setDetector] = useState(DETECTORS[0].id);
   const [claims, setClaims] = useState([]);
+  // Caption feedback is deliberately NOT part of the verdict. A detector can
+  // be dead right and still say it badly, and collapsing the two means the
+  // only way to record a bad caption is to rule the DETECTION wrong -- which
+  // corrupts the precision figure a promotion rests on.
+  const [captionOpen, setCaptionOpen] = useState(false);
+  const [captionFaults, setCaptionFaults] = useState([]);
+  const [captionRewrite, setCaptionRewrite] = useState("");
+  const [captionSent, setCaptionSent] = useState({});
   const [scanInfo, setScanInfo] = useState({});
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -234,6 +257,44 @@ export default function AdminDetectorReview() {
   // One card at a time. Fifty rulings by mouse is what makes a review queue
   // get abandoned; this is the difference between a 30-minute job and an hour.
 
+  // Writes to /feedback/flag -> move_feedback -> /admin/authoring-queue, the
+  // caption pipeline that already exists. A second feedback store for the
+  // same thing is how the openings sprawl started.
+  const sendCaptionFeedback = async (claim) => {
+    const e = claim.evidence || {};
+    const faults = CAPTION_FAULTS.filter((f) => captionFaults.includes(f.id))
+      .map((f) => f.label)
+      .join("; ");
+    const note =
+      [faults, captionRewrite.trim() ? `wants: ${captionRewrite.trim()}` : ""]
+        .filter(Boolean)
+        .join(" -- ") || "caption flagged, no detail given";
+    await fetch(`${API}/feedback/flag`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        source: "detector_review",
+        game_id: claim.game_id,
+        move_number: e.move_number,
+        fen: e.fen_before || e.review_fen,
+        move_san: e.played_san,
+        coaching_text: claim.claim,
+        user_note: note,
+        suggested_caption: captionRewrite.trim() || null,
+        // So the authoring queue can filter to one detector's captions.
+        component: `detector_review:${claim.detector}`,
+        concept_id: claim.detector,
+        cp_loss: e.cp_loss,
+        best_move: e.best_move,
+      }),
+    });
+    setCaptionSent((prev) => ({ ...prev, [claim.claim_key]: true }));
+    setCaptionOpen(false);
+    setCaptionFaults([]);
+    setCaptionRewrite("");
+  };
+
   const ruleAndAdvance = useCallback(
     (verdict) => {
       const claim = claims[cursor];
@@ -254,6 +315,11 @@ export default function AdminDetectorReview() {
     const onKey = (ev) => {
       if (ev.target?.tagName === "INPUT" || ev.metaKey || ev.ctrlKey) return;
       const key = ev.key.toLowerCase();
+      if (key === "c") {
+        ev.preventDefault();
+        setCaptionOpen((open) => !open);
+        return;
+      }
       const verdict =
         key === "t" ? "true" : key === "w" ? "false" : key === "u" ? "unsure" : null;
       if (!verdict) return;
@@ -263,6 +329,14 @@ export default function AdminDetectorReview() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [ruleAndAdvance]);
+
+  // A new card starts with a closed, empty panel -- carrying the previous
+  // card's faults over would attach them to the wrong caption.
+  useEffect(() => {
+    setCaptionOpen(false);
+    setCaptionFaults([]);
+    setCaptionRewrite("");
+  }, [cursor, detector]);
 
   // Running off the end of a batch should fetch the next one, not present an
   // empty screen that looks like the queue is finished.
@@ -798,6 +872,15 @@ export default function AdminDetectorReview() {
                   >
                     <HelpCircle className="w-3.5 h-3.5 mr-1" /> Unsure <span className="opacity-50 ml-1">U</span>
                   </Button>
+                  <Button
+                    size="sm"
+                    variant={captionSent[c.claim_key] ? "secondary" : "ghost"}
+                    onClick={() => setCaptionOpen((open) => !open)}
+                    title="The claim can be true and the caption still bad"
+                  >
+                    {captionSent[c.claim_key] ? "Caption noted" : "Caption…"}
+                    <span className="opacity-50 ml-1">C</span>
+                  </Button>
                   <details className="ml-auto">
                     <summary className="text-[11px] text-muted-foreground cursor-pointer">
                       raw
@@ -807,6 +890,60 @@ export default function AdminDetectorReview() {
                     </pre>
                   </details>
                 </div>
+
+                {/* Separate from the verdict on purpose -- see captionOpen. */}
+                {captionOpen && (
+                  <div className="mt-2 rounded-sm border p-3 space-y-2">
+                    <div className="text-[11px] text-muted-foreground">
+                      What is wrong with the words? Your verdict above is
+                      untouched — a true claim can still read badly.
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CAPTION_FAULTS.map((f) => {
+                        const on = captionFaults.includes(f.id);
+                        return (
+                          <Button
+                            key={f.id}
+                            size="sm"
+                            variant={on ? "default" : "outline"}
+                            className="h-7 text-[11px]"
+                            onClick={() =>
+                              setCaptionFaults((prev) =>
+                                on
+                                  ? prev.filter((x) => x !== f.id)
+                                  : [...prev, f.id]
+                              )
+                            }
+                          >
+                            {f.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <input
+                      className="w-full rounded-sm border px-2 py-1.5 text-xs bg-transparent"
+                      placeholder="What should it have said? (optional — becomes a candidate template)"
+                      value={captionRewrite}
+                      onChange={(ev) => setCaptionRewrite(ev.target.value)}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        disabled={!captionFaults.length && !captionRewrite.trim()}
+                        onClick={() => sendCaptionFeedback(c)}
+                      >
+                        Send to the authoring queue
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setCaptionOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );
