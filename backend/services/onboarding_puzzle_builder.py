@@ -261,6 +261,84 @@ def _skewers(board: chess.Board) -> List[chess.Move]:
     return [m for m in board.legal_moves if _lines_created(board, m, "skewer")]
 
 
+# Searching every reply gets expensive fast, and a position with 40 legal
+# moves is not an onboarding puzzle anyway. These caps keep a bulk scan
+# finishing without changing what counts as a mate.
+MATE_SEARCH_MOVE_CAP = 48
+MATE_IN_THREE_MOVE_CAP = 28
+
+
+def _forces_mate_in(board: chess.Board, moves_left: int) -> bool:
+    """Can the side to move force mate within `moves_left` of their moves?
+
+    Exhaustive and exact -- no engine, no evaluation. `moves_left` counts OUR
+    moves, so 1 is mate-in-one and 2 is mate-in-two.
+    """
+    if moves_left <= 0:
+        return False
+    legal = list(board.legal_moves)
+    if len(legal) > MATE_SEARCH_MOVE_CAP:
+        return False
+    for move in legal:
+        after = board.copy(stack=False)
+        after.push(move)
+        if after.is_checkmate():
+            return True
+        if moves_left == 1:
+            continue
+        if after.is_stalemate() or after.is_insufficient_material():
+            continue
+        # EVERY reply of theirs must still lose. Any escape and this move
+        # does not force anything.
+        replies = list(after.legal_moves)
+        if not replies or len(replies) > MATE_SEARCH_MOVE_CAP:
+            continue
+        if all(_forces_mate_in(
+                (lambda b: (b.push(r), b)[1])(after.copy(stack=False)),
+                moves_left - 1) for r in replies):
+            return True
+    return False
+
+
+def _mate_in_n_first_moves(board: chess.Board, n: int) -> List[chess.Move]:
+    """First moves that force mate in exactly n, and not in fewer.
+
+    "Not in fewer" matters: if a position is mate in one, every mate-in-two
+    line through it is real but the puzzle should say mate in ONE. Otherwise
+    the two families collide and the count we print is wrong.
+    """
+    if _forces_mate_in(board, n - 1):
+        return []
+    out = []
+    for move in board.legal_moves:
+        after = board.copy(stack=False)
+        after.push(move)
+        if after.is_checkmate():
+            continue                     # that is mate in one, a different family
+        if after.is_stalemate() or after.is_insufficient_material():
+            continue
+        replies = list(after.legal_moves)
+        if not replies or len(replies) > MATE_SEARCH_MOVE_CAP:
+            continue
+        if all(_forces_mate_in(
+                (lambda b: (b.push(r), b)[1])(after.copy(stack=False)),
+                n - 1) for r in replies):
+            out.append(move)
+    return out
+
+
+def _mate_in_two(board: chess.Board) -> List[chess.Move]:
+    return _mate_in_n_first_moves(board, 2)
+
+
+def _mate_in_three(board: chess.Board) -> List[chess.Move]:
+    # Three moves deep is a 5-ply search; only attempt it where the position
+    # is already narrow enough for it to finish.
+    if board.legal_moves.count() > MATE_IN_THREE_MOVE_CAP:
+        return []
+    return _mate_in_n_first_moves(board, 3)
+
+
 _FAMILIES: Dict[str, Dict[str, object]] = {
     "mate_in_one": {
         "question": "There is mate in one here. Find it.",
@@ -293,6 +371,20 @@ _FAMILIES: Dict[str, Dict[str, object]] = {
         "finder": _pins,
         "difficulty": 3,
         "explain": "{san} pins it: moving it would hand over the piece behind.",
+    },
+    "mate_in_two": {
+        "question": "There is a forced mate in two here. "
+                    "What is the first move?",
+        "finder": _mate_in_two,
+        "difficulty": 4,
+        "explain": "{san} starts it -- whatever they answer, mate follows.",
+    },
+    "mate_in_three": {
+        "question": "There is a forced mate in three here. "
+                    "What is the first move?",
+        "finder": _mate_in_three,
+        "difficulty": 5,
+        "explain": "{san} starts it -- every defence still loses.",
     },
     "find_the_skewer": {
         "question": "One move here hits two pieces standing on the same line. "
