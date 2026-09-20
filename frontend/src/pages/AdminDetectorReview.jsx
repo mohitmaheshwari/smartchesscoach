@@ -79,52 +79,56 @@ const DETECTORS = [
       "an endgame where the engine's move walked the king towards the centre, and they played something else that lost ground",
   },
   // Seven endgame concepts, 2026-09-20. Same branch, same "could only ever
-  // congratulate" defect, and none of them has ever been ruled on. The
-  // endgame half of the diagnostic cannot be sourced from our own games
-  // until these are judged. rule_of_square is DISABLED on the grounds that
-  // "the production scan found only five eligible positions and all five
-  // belong to one game" -- opening it here is how that gets confirmed.
+  // congratulate" defect, and none of them has ever been ruled on.
+  //
+  // UNLIKE the four above, none of these seven detectors accepts a cp_loss
+  // argument, so none of them checks whether the miss cost anything. The
+  // first full-corpus scan showed what that means: 35 of 40 rule_of_square
+  // fires and 23 of 40 opposition fires were on moves that lost under 100cp.
+  // So the claim here is "the concept was missed", NOT "a mistake was made",
+  // and the descriptions below must not say ground was lost. The severity
+  // badge on each card is what tells the reviewer whether it mattered.
   {
     id: "missed_opposition",
     label: "Missed the opposition",
     claims:
-      "a king-and-pawn standoff where the engine's move took the opposition, and they played something else that lost ground",
+      "a king-and-pawn standoff where the engine's move took the opposition, and they played something else",
   },
   {
     id: "missed_passed_pawn",
     label: "Missed making a passed pawn",
     claims:
-      "the engine's move turned one of their pawns into a passed pawn, and they played something else that lost ground",
+      "the engine's move turned one of their pawns into a passed pawn, and they played something else",
   },
   {
     id: "missed_stop_promotion",
     label: "Let a pawn through",
     claims:
-      "the engine's move captured or blockaded an advanced enemy passed pawn, and they played something else that lost ground",
+      "the engine's move captured or blockaded an advanced enemy passed pawn, and they played something else",
   },
   {
     id: "missed_active_rook",
     label: "Left the rook passive",
     claims:
-      "an endgame where the engine's move put a rook on an open file or the seventh rank, and they played something else that lost ground",
+      "an endgame where the engine's move put a rook on an open file or the seventh rank, and they played something else",
   },
   {
     id: "missed_lucena",
     label: "Missed the Lucena bridge",
     claims:
-      "a rook-and-pawn ending where the engine's move built the bridge, and they played something else that lost ground",
+      "a rook-and-pawn ending where the engine's move built the bridge, and they played something else",
   },
   {
     id: "missed_philidor",
     label: "Missed the Philidor defence",
     claims:
-      "a rook-and-pawn defence where the engine's move held the third rank, and they played something else that lost ground",
+      "a rook-and-pawn defence where the engine's move held the third rank, and they played something else",
   },
   {
     id: "missed_rule_of_square",
     label: "Missed the square rule",
     claims:
-      "a king could have caught, or failed to catch, a running passed pawn, and they played something else that lost ground",
+      "a king could have caught, or failed to catch, a running passed pawn, and they played something else",
   },
   {
     id: "discovered_attack",
