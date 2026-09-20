@@ -1241,6 +1241,104 @@ _MISSED_CONCEPT_RULES = {
 }
 
 
+# Mohit flagged the castling caption four times on 2026-09-20, and all four
+# cards had said the SAME sentence: "Your king was still in the middle.
+# Castling is what makes every other plan safe to start." Four different
+# boards, one line -- the filler problem.
+#
+# His four rewrites each named the concrete danger on THAT board first:
+#   Ng4  m6  "opponent can castle, so f7 doesn't work -- think about their move"
+#   Ng5  m9  "after 8 moves, king is not castled is a red flag"
+#   Qb6  m13 "queen is on open file, your king is uncastled, too risky"
+#   d5   m6  "their queen is out, bishop is developed, castling is top priority"
+#
+# So: name the danger, THEN say castle. Every branch below is checked on the
+# board. Written in short sentences on purpose -- Mohit 2026-09-20, "captions
+# should be very very very easy english".
+def _missed_castling_caption(move, colour, fen, played, best):
+    try:
+        before = chess.Board(str(fen))
+        played_mv = before.parse_san(str(played))
+    except Exception:  # noqa: BLE001
+        return None
+    me = before.turn
+    king = before.king(me)
+    if king is None:
+        return None
+    home = chess.E1 if me == chess.WHITE else chess.E8
+    if king != home:
+        return None          # already moved; this is not a castling lesson
+
+    them = not me
+    # f7 for Black, f2 for White -- the square a bishop on c4/c5 points at,
+    # and the one only the king defends before castling.
+    weak = chess.F2 if me == chess.WHITE else chess.F7
+    attackers = [sq for sq in before.attackers(them, weak)
+                 if before.piece_at(sq).piece_type != chess.PAWN]
+
+    # Their queen off its home square, plus at least one developed minor.
+    q_home = chess.D1 if them == chess.WHITE else chess.D8
+    their_q = next((sq for sq in before.pieces(chess.QUEEN, them)), None)
+    q_out = their_q is not None and their_q != q_home
+    minor_home = ({chess.B1, chess.C1, chess.F1, chess.G1} if them == chess.WHITE
+                  else {chess.B8, chess.C8, chess.F8, chess.G8})
+    minors_out = sum(
+        1 for pt in (chess.KNIGHT, chess.BISHOP)
+        for sq in before.pieces(pt, them) if sq not in minor_home)
+
+    moves_played = max(0, int(move.get("move_number") or 1) - 1)
+
+    # Did the move just made walk a knight or bishop into their half to hit
+    # something that is already defended? That is the "one piece cannot
+    # attack alone" case, and it has to be TRUE, not assumed.
+    mover_piece = before.piece_at(played_mv.from_square)
+    sortie_target = None
+    if mover_piece is not None and mover_piece.piece_type in (chess.KNIGHT, chess.BISHOP):
+        after = before.copy(stack=False)
+        after.push(played_mv)
+        for sq in after.attacks(played_mv.to_square):
+            victim = after.piece_at(sq)
+            if victim is None or victim.color == me:
+                continue
+            if victim.piece_type == chess.KING:
+                continue
+            # defended => the raid achieves nothing
+            if after.attackers(them, sq):
+                sortie_target = chess.square_name(sq)
+                break
+
+    side_word = "e1" if me == chess.WHITE else "e8"
+
+    if sortie_target:
+        return (f"One piece cannot attack on its own. Your {chess.piece_name(mover_piece.piece_type)} "
+                f"hits {sortie_target}, but it is already guarded, so nothing comes of it. "
+                f"Meanwhile your king stays in the middle. Castle first, then look for attacks.")
+    # Only for a KINGSIDE castle. On a card whose best move is O-O-O the king
+    # walks away from f7 and no rook ever covers it, so "castle and the rook
+    # guards it instead" is simply false -- caught by rendering card 6
+    # (Qb6, best O-O-O) rather than by reading this code.
+    kingside = best and str(best).strip() in ("O-O", "0-0")
+    if attackers and kingside:
+        name = chess.piece_name(before.piece_at(attackers[0]).piece_type)
+        # "only the king guards it" has to be checked, not assumed.
+        guards = before.attackers(me, weak)
+        only_king = len(guards) == 1 and king in guards
+        middle = ("Right now only your king guards that square. "
+                  if only_king else "")
+        return (f"Their {name} is aiming at {chess.square_name(weak)}. Your king is still in the "
+                f"middle. {middle}Castle, and the rook guards it instead.")
+    if q_out and minors_out >= 1:
+        return ("Their queen is out and their pieces are developed. Your king is still in the "
+                "middle. That is the moment to castle. Get the king safe before you start a plan.")
+    if best and "O-O-O" in str(best):
+        return ("Your king is still in the middle and your rook has not moved all game. Castling "
+                "long fixes both. The king goes to safety and the rook comes into the game.")
+    if moves_played >= 8:
+        return (f"{moves_played} moves gone and your king is still on {side_word}. That is a red "
+                f"flag. Castle now. Every other plan is safer once the king is away.")
+    return None
+
+
 def _missed_concept(skill_id: str):
     """Serve one concept detector's new "you missed this" claims.
 
@@ -1298,8 +1396,12 @@ def _missed_concept(skill_id: str):
         loss = cp_loss if isinstance(cp_loss, (int, float)) else 0
         confidence = (CONFIDENCE_UNCERTAIN if loss < 150
                       else CONFIDENCE_LIKELY)
+        caption = rule
+        if skill_id == "opening_castling":
+            caption = _missed_castling_caption(
+                move, colour, fen, move.get("move"), best) or rule
         return (
-            rule,
+            caption,
             {"fen_before": fen, "fen_after": move.get("fen_after"),
              "review_fen": fen, "line_fen": fen,
              "played_san": move.get("move"), "best_move": str(best),
