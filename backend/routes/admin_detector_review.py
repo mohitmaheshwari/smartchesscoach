@@ -366,10 +366,20 @@ def _allowed_mate_caption(move, evidence, colour):
     _sealed = 0
     if mated_king is not None:
         _sealed = _back_rank_seal(mated, mating, mated_king, not piece.color)
+
+    # In check, or free to choose? The two get different lessons, and telling
+    # someone they "walked into it" when they were in check and had to move is
+    # the kind of false claim this queue exists to catch.
+    _in_check = before.is_check()
+    _mi = move.get("mate_info") or {}
+    _in_check_with_escape = bool(_in_check and _mi.get("before") is None)
+    _mate_threatened = (not _in_check) and _mate_was_already_threatened(before)
     rule = _mate_rule(before, played_mv_obj, ring, castled, uncastled_centre,
                       standing, bool(supporters),
                       brought=_pieces_brought_to_the_king(before, _att),
-                      back_rank_sealed=_sealed)
+                      back_rank_sealed=_sealed,
+                      mate_threatened=_mate_threatened,
+                      in_check_with_escape=_in_check_with_escape)
     # The only fact worth a word: that it is mate, and in how many. Which
     # pieces, which squares, which exits were shut -- all drawn.
     caption = f"That was {mate_word}. {rule}"
@@ -436,6 +446,32 @@ def _capture_net_cp(board_before, played_mv):
         return None
 
 
+def _mate_was_already_threatened(board_before):
+    """Could the OPPONENT have mated immediately, before our move?
+
+    Measured 2026-09-20 across the generic-fallback bucket: 54 of 255 cards
+    are this shape -- mate already sitting on the board and the player went
+    off and did something else. It is the sharpest version of the
+    opponent's-plan lesson, because the threat is not "pieces are gathering",
+    it is "mate is available right now", and it is provable in one ply.
+
+    Flipping the turn is safe here: the caller has already established the
+    player is NOT in check, so handing the move to the opponent describes a
+    real threat rather than an illegal position.
+    """
+    try:
+        probe = board_before.copy(stack=False)
+        probe.turn = not board_before.turn
+        for mv in probe.legal_moves:
+            after = probe.copy(stack=False)
+            after.push(mv)
+            if after.is_checkmate():
+                return True
+    except Exception:  # noqa: BLE001
+        return False
+    return False
+
+
 def _back_rank_seal(mated_board, mating_move, king_square, king_color):
     """How many of the king's escape squares are sealed by its OWN pawns.
 
@@ -477,7 +513,8 @@ def _back_rank_seal(mated_board, mating_move, king_square, king_color):
 
 
 def _mate_rule(board_before, played_mv, ring, castled, centre, standing,
-               pair, brought=0, back_rank_sealed=0):
+               pair, brought=0, back_rank_sealed=0,
+               mate_threatened=False, in_check_with_escape=False):
     """The one sentence the player should still have next month.
 
     The board already shows what happened. The caption's whole job is the
@@ -489,21 +526,45 @@ def _mate_rule(board_before, played_mv, ring, castled, centre, standing,
     Most-specific first: the most useful rule is the one about the mistake
     they actually made.
     """
-    # A named pattern the player can look up, spot and prevent beats every
-    # generic rule under it -- including "you took a pawn", which is true here
-    # and much less useful than "this is the back-rank mate".
+    # The ORDER is the product here, so it is written down rather than left
+    # to whoever edits next:
+    #   1. a named pattern the player can look up, recognise and prevent
+    #   2. situations where a generic lesson would be unfair or simply false
+    #   3. the habit behind the mistake
+    #   4. today's symptom
+    #
+    # 1. Back-rank is the most actionable thing in this whole queue: a named
+    # pattern every beginner meets, with a fix they can apply on move 10.
     if back_rank_sealed >= 2:
         return ("Your own pawns sealed the first rank and left your king "
                 "nowhere to go -- that is a back-rank mate. Push one early to "
                 "make air, long before a rook gets there.")
 
-    # The deepest lesson available, so it goes first: they spent moves walking
-    # pieces at your king and you never asked why. Only fires when the board
-    # proves the maneuvering -- two or more attackers off their home squares.
+    # 2. Being IN CHECK is its own situation, and a rule about openings or
+    # greed does not belong on a card where the player had one job. Gated on
+    # mate_info.before being empty, which is the engine saying the position
+    # was not yet a forced mate -- so a survivable answer existed. Without
+    # this gate the card blames someone for a move they were forced to make.
+    if in_check_with_escape:
+        return ("You were in check and a way out existed. In check, play each "
+                "legal answer out to the end -- the first move that stops the "
+                "check is not always the one that survives.")
+
+    # 3. Mohit chose this framing explicitly on the dxc5/Qxh2# card: "it's
+    # about ignorance of opponent plan, that's the teaching". So where the
+    # board proves they walked pieces over AND mate was available, the plan
+    # lesson wins -- that is the habit; the mate threat is only its symptom.
+    # Adding the rule below had silently taken that card over.
     if brought >= 2:
         return ("Those pieces did not arrive by accident -- every move your "
                 "opponent makes is part of a plan. Find theirs before you "
                 "follow your own.")
+
+    # 4. Not "pieces are gathering" but "they could have mated you that move".
+    if mate_threatened:
+        return ("Mate was already on the board before you moved, and you "
+                "played elsewhere. Before your own plan, ask what they can do "
+                "to your king right now.")
 
     net = _capture_net_cp(board_before, played_mv)
     # Only say "winning a piece" when a piece is actually being won. A capture
