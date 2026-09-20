@@ -222,6 +222,85 @@ reads as filler when it appears six times in a game.
 And one of them recommends nothing at all, which the generator cannot currently
 express.
 
+## 4b. The rule: say what it MEANS, in very easy English
+
+Mohit: "language is too fancy, can it be very very very easy english ... i have
+a knight sitting at corner, so that for caption becomes my inactive piece,
+because it has no control on the attack happening ... the board doesn't tell
+that for everybody."
+
+That is the whole rule. The board shows a **fact**. The caption gives the
+**meaning**. A beginner can see the knight is on a3; nobody tells them it is not
+in the game.
+
+| The board shows (fact) | The caption must say (meaning) |
+|---|---|
+| knight on a3 | it is far from the fight and cannot get there |
+| two attackers, one defender on e5 | he has more men on that square, so the pawn just goes |
+| bishop on f4 next to your king | it is sitting there for free until you push it away |
+| your knight aims at f2 | you already have a piece on his weakest square |
+| rook on h8 with nothing behind it | he can take it and nothing takes back |
+
+And the words stay small. Short sentences. No "prophylaxis", no "tempo", no
+"rim", no "worst-placed piece".
+
+### Real shipping captions, rewritten
+
+**`Na3` — the knight on the edge (Mohit's own example)**
+
+> NOW: "Na3 parks the knight on the rim (a3) — knights attack fewer squares from
+> the edge. Play Nd7 — it develops a piece."
+
+> BETTER: "Your knight is in the corner. The game is on the other side of the
+> board and it cannot get there in time. A knight in the middle touches eight
+> squares. In the corner it touches two."
+
+**`e5` — two attackers, one defender**
+
+> NOW: "e5 is a mistake — it drops the pawn after dxe5. Qd2 was better. When two
+> opening moves look equal, prefer the one that keeps your worst-placed piece
+> useful."
+
+> BETTER: "He had two men looking at e5. You had one. When he has more men on a
+> square, the pawn you push there just goes."
+
+**`O-O` — the bishop you never asked to leave**
+
+> NOW: "O-O is a major blunder. g5 was better — it attacks the bishop on f4,
+> forcing it to move. A pawn that pokes an enemy piece wins you time."
+
+> BETTER: "His bishop was sitting right next to your king. One pawn push sends
+> it away and he has to spend a move moving it. You castled and let it stay."
+
+**`h5` — a piece already pointing at the weak square**
+
+> NOW: "h5 lets Bxe4 win your knight on e4. Nxf2 was better — it sacrifices your
+> knight to break open the pawn shield in front of their king."
+> *(also false: the knight has two defenders, and Nxf2 wins material)*
+
+> BETTER: "Your knight was already looking at f2. That is the weakest square he
+> has — only his king guards it. You played a pawn out on the side instead, and
+> the chance was gone."
+
+**`Bxb6+` — the check that wins nothing**
+
+> NOW: "Bxb6+ is an inaccuracy. Qg7 was better — it attacks the rook on h8. it
+> wins the rook."
+
+> BETTER: "You gave a check. He moved his king and nothing changed. His rook on
+> h8 had nobody guarding it — that was the piece to go after."
+
+### Why this is not just board description
+
+The facts are on the board. The *meaning* is not:
+
+- that a knight on a3 cannot reach a fight on the kingside
+- that "more men on a square" decides who wins it
+- that f2 and f7 are weak because only the king defends them
+
+A 1900 reads all of that off the position. A 900 does not — which is why the
+move was played. Saying it plainly is the teaching.
+
 ## 5. Proposal
 
 1. **Fix the false-why class first** (Case B). A wrong mechanism is worse than
