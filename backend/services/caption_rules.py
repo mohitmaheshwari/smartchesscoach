@@ -106,6 +106,24 @@ def _r01_render(f):
     # refuting reply (pv_after_played[0]). Lets the floor NAME the threat
     # ("Qd2 lets Qxf2+ in") instead of the generic "position turns against
     # you". Verified by narrator_claim_verifier._check_allows. 2026-06-25.
+    # Which lesson this mate should teach. Decided by services/mate_lesson,
+    # the same module /admin/detector-review asks, so a position cannot be
+    # explained one way to a reviewer and another way to the player. The
+    # wording lives in R01_mate.json; selection lives in its select_variant.
+    if ev.get("transition") == "allowed" and f.get("mover_is_user"):
+        try:
+            from services.mate_lesson import lesson_from_caption_facts
+            _lesson = lesson_from_caption_facts({
+                "fen_before": f.get("fen_before"),
+                "played_san": facts["played_san"],
+                "pv_after_played": f.get("pv_after_played"),
+                "mate_info": f.get("mate_info"),
+            })
+            if _lesson:
+                facts["mate_lesson"] = _lesson
+        except Exception:  # noqa: BLE001
+            pass
+
     _pvp = f.get("pv_after_played") or []
     if (
         ev.get("transition") == "allowed"
