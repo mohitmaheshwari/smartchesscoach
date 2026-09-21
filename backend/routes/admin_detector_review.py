@@ -1659,8 +1659,157 @@ async def _stored_claims(detector: str, skip_fens: set,
     return out
 
 
+
+# ── Lichess-sourced review queues ────────────────────────────────────────
+#
+# Mohit, 2026-09-21: the detector-review page is where he can actually SEE a
+# position, so the twenty pin/trapped cases belong here rather than in a
+# separate artifact.
+#
+# These do not come from our games. They walk `lichess_puzzles`, whose themes
+# are the closest thing we have to labelled truth, and they deliberately serve
+# what the detector does NOT fire on -- the opposite of every other queue on
+# this page. The question being asked is not "is this claim true" but "what IS
+# the motif", because three attempts to fix each detector by tuning gates were
+# measured and reverted:
+#
+#   pin      12.5% recall where the SAME builder scores 72.2% on skewer. It
+#            requires the pinning piece to capture the pinned piece, which is
+#            a skewer's story.
+#   trapped  "attacked with no safe square" fires on ~75% of ALL tactical
+#            puzzles, so it cannot carry the motif alone.
+LICHESS_QUEUES = {
+    "lichess_pin": {
+        "theme": "pin",
+        "serve": "declined",
+        "question": (
+            "Is this a PIN lesson? If it is, what makes the pin pay off "
+            "here — we currently demand that the pinning piece capture the "
+            "pinned piece, and that is wrong."
+        ),
+        "arrow_is": "the move Lichess says is the solution",
+    },
+    "lichess_trapped": {
+        "theme": "trappedPiece",
+        "serve": "all",
+        "question": (
+            "What makes this a TRAPPED PIECE rather than a piece that is "
+            "merely attacked? That is the ingredient our detector is missing."
+        ),
+        "arrow_is": "the move Lichess says is the solution",
+    },
+}
+
+
+async def _lichess_fires(detector: str, skip_fens: set, limit: int):
+    """Serve Lichess positions for a motif the detector cannot yet name."""
+    import chess
+
+    spec = LICHESS_QUEUES[detector]
+    found = []
+    scanned = 0
+    cursor = db.lichess_puzzles.find(
+        {"themes": spec["theme"], "rating": {"$gte": 600, "$lte": 1500}},
+        {"_id": 0, "puzzle_id": 1, "fen": 1, "moves": 1, "rating": 1,
+         "themes": 1, "game_url": 1},
+    ).limit(1200)
+
+    async for puzzle in cursor:
+        if len(found) >= limit:
+            break
+        scanned += 1
+        moves = puzzle.get("moves") or []
+        if len(moves) < 2 or not puzzle.get("fen"):
+            continue
+        # A Lichess row's `fen` is the position BEFORE the opponent's move;
+        # moves[0] IS that move and moves[1] is the solution. Serving the
+        # stored fen shows the wrong position with the reviewer on the wrong
+        # colour, and it fails silently because that position is legal.
+        try:
+            board = chess.Board(puzzle["fen"])
+            setup = chess.Move.from_uci(moves[0])
+            if setup not in board.legal_moves:
+                continue
+            board.push(setup)
+            solution = chess.Move.from_uci(moves[1])
+            if solution not in board.legal_moves:
+                continue
+            best_san = board.san(solution)
+        except (ValueError, AssertionError, KeyError):
+            continue
+
+        line, probe = [], board.copy(stack=False)
+        for uci in moves[1:]:
+            try:
+                mv = chess.Move.from_uci(uci)
+            except ValueError:
+                break
+            if mv not in probe.legal_moves:
+                break
+            line.append(probe.san(mv))
+            probe.push(mv)
+
+        played_san = next(
+            (board.san(m) for m in board.legal_moves if m != solution), None)
+        if not played_san:
+            continue
+
+        if spec["serve"] == "declined":
+            from services.aligned_tactic_puzzle_proof import (
+                build_aligned_tactic_proof,
+            )
+            try:
+                bundle = build_aligned_tactic_proof(
+                    board.copy(stack=False), played_san, best_san,
+                    line[1:], 250)
+                if bundle and getattr(
+                        getattr(bundle, "verifier", None), "verified", False):
+                    continue          # it already fires; nothing to ask
+            except Exception:  # noqa: BLE001
+                pass
+
+        key = f"{detector}:{puzzle['puzzle_id']}"
+        if key in skip_fens:
+            continue
+
+        fen_here = board.fen()
+        side, arrow = _orientation_and_arrow(fen_here, best_san)
+        found.append({
+            "claim_key": key,
+            "detector": detector,
+            "game_id": puzzle["puzzle_id"],
+            "claim": spec["question"],
+            "evidence": {
+                "review_fen": fen_here, "line_fen": fen_here,
+                "fen_before": fen_here,
+                "played_san": None, "best_move": best_san,
+                "move_number": None, "cp_loss": None,
+                "pv_after_played": [],
+                "pv_after_best": line[1:9],
+                "side_to_move": side, "arrow": arrow,
+                "arrow_is": spec["arrow_is"],
+                "extra_arrows": [], "extra_arrows_is": None,
+                "confidence": "unknown",
+                "lichess_themes": sorted(puzzle.get("themes") or []),
+                "lichess_rating": puzzle.get("rating"),
+                "lichess_url": (
+                    "https://lichess.org/training/" + str(puzzle["puzzle_id"])),
+                "solution_line": " ".join(line[:6]),
+            },
+            "game": {
+                "white": None, "black": None, "platform": "lichess",
+                "result": None, "played_at": None,
+                "user_color": side,
+            },
+        })
+    return found
+
+
 async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str, Any]]:
     """Walk real games and render what this detector would say."""
+    if detector in LICHESS_QUEUES:
+        return await _lichess_fires(detector, skip_fens, limit)
+
     producers = _producers()
     produce = producers.get(detector)
     if produce is None:

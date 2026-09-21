@@ -49,6 +49,25 @@ const CAPTION_FAULTS = [
 ];
 
 const DETECTORS = [
+  // Lichess-sourced, 2026-09-21. UNLIKE every other queue here, these do not
+  // ask "is this claim true" -- they serve positions the detector CANNOT yet
+  // name, and ask what the motif actually is. Pin scores 12.5% where the same
+  // builder scores 72.2% on skewer; "attacked with no safe square" fires on
+  // ~75% of all tactical puzzles. Three gate-tuning fixes for each were
+  // measured and reverted, so the next move needs a chess answer, not another
+  // threshold.
+  {
+    id: "lichess_pin",
+    label: "Pin — what is the payoff?",
+    claims:
+      "a Lichess pin puzzle our detector declined. Is it a pin lesson, and if so what makes the pin pay off? We wrongly demand that the pinning piece capture the pinned piece",
+  },
+  {
+    id: "lichess_trapped",
+    label: "Trapped piece — what is the motif?",
+    claims:
+      "a Lichess trapped-piece puzzle. What separates this from a piece that is merely attacked? That is the ingredient our detector is missing",
+  },
   // The missed-concept branch, 2026-09-19. These four detectors previously
   // gated on "the move played WAS the engine's move", so across 400 games
   // they produced 1,639 "applied" and 0 "missed" -- they could only ever
