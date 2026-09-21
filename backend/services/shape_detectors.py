@@ -1158,7 +1158,12 @@ def detect_tired_defender(board: chess.Board) -> List[Dict]:
     return out
 
 
-def detect_remove_the_guard(board: chess.Board) -> List[Dict]:
+def detect_remove_the_guard(
+    board: chess.Board,
+    *,
+    executing_move: Optional[chess.Move] = None,
+    allow_sacrifice: bool = False,
+) -> List[Dict]:
     """Enemy piece X defends a valuable enemy target Y. We can capture X with
     winning SEE; once X is gone, Y is undefended (or insufficiently defended).
 
@@ -1166,20 +1171,40 @@ def detect_remove_the_guard(board: chess.Board) -> List[Dict]:
       - Y must be value >= knight.
       - We must have an attacker on Y already (otherwise capturing X is pointless).
       - 'Sufficiently defended' = removing X leaves zero defenders on Y.
+
+    The keyword arguments exist for callers that hold a stored line and can
+    therefore settle, on the board, what this static scan can only guess at.
+    Every default keeps the historic behaviour, so callers that pass nothing
+    get exactly the same list they always did.
+
+      executing_move
+          Score only captures that land on this move's destination, and
+          report this move rather than the cheapest-attacker guess.
+      allow_sacrifice
+          Keep candidates whose capture of the guard loses the exchange.
+          The classic removal sacrifices for the guard and collects on the
+          target afterwards, so SEE on the guard is the wrong question;
+          only a caller that settles the whole line may ask it this way.
     """
     us = _own_color(board)
     them = not us
     out: List[Dict] = []
-    for x_sq in chess.SQUARES:
+    scan = (
+        (executing_move.to_square,)
+        if executing_move is not None
+        else chess.SQUARES
+    )
+    for x_sq in scan:
         x = board.piece_at(x_sq)
         if not x or x.color != them:
             continue
         # Can we win X via SEE?
         if not board.attackers(us, x_sq):
             continue
-        see = static_exchange_eval(board, x_sq, us)
-        if see < 0:
-            continue
+        if not allow_sacrifice:
+            see = static_exchange_eval(board, x_sq, us)
+            if see < 0:
+                continue
         # Targets X defends.
         for y_sq in chess.SQUARES:
             if y_sq == x_sq:
@@ -1198,14 +1223,19 @@ def detect_remove_the_guard(board: chess.Board) -> List[Dict]:
             # We must already attack Y.
             if not board.attackers(us, y_sq):
                 continue
-            # Choose the cheapest attacker of X as the executing move.
-            atks = sorted(board.attackers(us, x_sq),
-                          key=lambda s: PIECE_VALUE_CP.get(board.piece_at(s).piece_type, 0)
-                          if board.piece_at(s) else 99)
-            mv = chess.Move(atks[0], x_sq)
+            if executing_move is not None:
+                mv = executing_move
+                mover = mv.from_square
+            else:
+                # Choose the cheapest attacker of X as the executing move.
+                atks = sorted(board.attackers(us, x_sq),
+                              key=lambda s: PIECE_VALUE_CP.get(board.piece_at(s).piece_type, 0)
+                              if board.piece_at(s) else 99)
+                mover = atks[0]
+                mv = chess.Move(mover, x_sq)
             if mv not in board.legal_moves:
                 continue
-            out.append(_ev("remove_the_guard", mover=atks[0], targets=[x_sq, y_sq],
+            out.append(_ev("remove_the_guard", mover=mover, targets=[x_sq, y_sq],
                            executing_move=mv,
                            evidence=f"{chess.piece_name(x.piece_type)} on {chess.square_name(x_sq)} sole guard of {chess.square_name(y_sq)}"))
     return out

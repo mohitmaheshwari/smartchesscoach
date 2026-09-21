@@ -119,32 +119,41 @@ def build_removal_defender_proof(
 
     matches = [
         item
-        for item in detect_remove_the_guard(board_before)
+        for item in detect_remove_the_guard(
+            board_before,
+            executing_move=best,
+            allow_sacrifice=True,
+        )
         if item.get("executing_move") == best.uci()
         and len(item.get("targets") or ()) >= 2
     ]
     if not matches:
         return None
     candidate = matches[0]
-    try:
-        defender_square = chess.parse_square(candidate["targets"][0])
-        target_square = chess.parse_square(candidate["targets"][1])
-    except (ValueError, KeyError, IndexError, TypeError):
-        return None
-    independent = _independent_removal(
-        board_before,
-        best,
-        defender_square,
-        target_square,
-        pv_after_best,
-    )
+    independent = None
+    for item in matches:
+        try:
+            defender_square = chess.parse_square(item["targets"][0])
+            target_square = chess.parse_square(item["targets"][1])
+        except (ValueError, KeyError, IndexError, TypeError):
+            continue
+        independent = _independent_removal(
+            board_before,
+            best,
+            defender_square,
+            target_square,
+            pv_after_best,
+        )
+        if independent is not None:
+            candidate = item
+            break
     concept_id = "tactic.removal_of_defender"
     detector = DetectorProof(
         concept_id=concept_id,
         family="tactics",
         detector_id="shape:remove_the_guard",
         detector_version=REMOVAL_PROOF_VERSION,
-        calculation_id="canonical_sole_guard_scan",
+        calculation_id="guard_scan_for_the_stored_capture",
         facts=(candidate,),
         acceptable_moves=(best.uci(),),
         counterfactual={
