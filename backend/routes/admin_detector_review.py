@@ -611,10 +611,10 @@ def _discovered_attack_caption(board, best_move, facts):
     did not already know what a discovered attack is learns nothing, and one
     who does still cannot see WHICH piece was blocking WHAT.
 
-    So: name the geometry (your own piece stands in front of your queen), name
-    what it uncovers, say whether the target is defended, and end on the scan
-    that transfers. The motif's name goes last, as a label for a thing they
-    have just been shown -- not as an explanation in itself.
+    So: say what the move wins, then close on the scan that transfers -- the
+    thing they can look for on their own board next game. The motif's NAME
+    never appears. A player who can run the scan does not need the word, and
+    a player who cannot is not helped by it.
     """
     try:
         mv = board.parse_san(str(best_move))
@@ -635,55 +635,118 @@ def _discovered_attack_caption(board, best_move, facts):
     undefended = not after.attackers(not board.turn, chess.parse_square(target_sq))
     gives_check = after.is_check()
 
-    # Under the 60-word cap in caption_config.json. The first draft ran 70-76
-    # and would have been cut at a sentence boundary with no ellipsis -- which
-    # eats the LAST sentence, and the last sentence is the principle. The
-    # thing worth keeping would have disappeared silently.
-    # Mohit, 2026-09-21, flagging this caption from the review queue:
-    # "attacking 2 pieces at once". He is right, and it is not an edge case.
+    # Mohit, 2026-09-21, on the version that closed with "that is what a
+    # discovered attack really is": "look for what to look at, something the
+    # user can find it out later". A definition is not findable. The closing
+    # line has to be the SCAN they can run on their own board next game, and
+    # it is worded identically in all three shapes on purpose -- recognition
+    # is the whole point.
     #
-    # On 1b3k2/pB4pb/5r2/4n3/5p1N/P6P/1Pr2PP1/1R3RKN b, Rc7 attacks the bishop
-    # on b7 AND steps off the diagonal so the h7 bishop hits the rook on b1.
-    # Engine-checked: Rc7 is the top move and the line is Rc7 Ba8 Bxb1 --
-    # White saves one and loses the other. The caption was explaining the
-    # plumbing (what stands in front of what) and missing the point.
-    #
-    # Measured over the 197 indexed claims: in 155 of them (79%) the MOVING
-    # piece also attacks something worth a knight or more. So two-threats is
-    # the main shape, not a special case, and it leads.
-    direct_targets = []
+    # Measured over the 197 indexed claims, the shapes are:
+    #   44.2%  the moving piece also hits a piece -> a real double attack
+    #   34.5%  the moving piece gives check       -> the check answers first
+    #   21.3%  neither: the uncovered line is the whole threat
+    # The previous version collapsed the first two, so it said "it attacks
+    # their king" on a third of the cards -- wrong-sounding, and redundant
+    # with its own "and gives check".
+    # "Two threats, and they can only answer one" is only true if the second
+    # threat is one they HAVE to answer. Measured over the 87 cards that had
+    # the moving piece hitting something: 33% undefended, 47% defended but
+    # winning material anyway, and 19.5% defended and not winning -- where
+    # the sentence was simply false. Those fall through to the check or
+    # single-threat wording instead of overclaiming.
+    mover = after.piece_at(mv.to_square)
+    struck_sq = None
+    struck = None
+    best_value = 0
     for square in after.attacks(mv.to_square):
         occupant = after.piece_at(square)
         if occupant is None or occupant.color == board.turn:
             continue
-        if (occupant.piece_type == chess.KING
-                or PIECE_VALUE_CP.get(occupant.piece_type, 0)
-                >= PIECE_VALUE_CP[chess.KNIGHT]):
-            direct_targets.append(occupant)
+        if occupant.piece_type == chess.KING:
+            continue
+        value = PIECE_VALUE_CP.get(occupant.piece_type, 0)
+        if value < PIECE_VALUE_CP[chess.KNIGHT]:
+            continue
+        defended = after.attackers(not board.turn, square)
+        mover_value = PIECE_VALUE_CP.get(
+            mover.piece_type, 0) if mover else 0
+        if defended and value <= mover_value:
+            continue          # they can just recapture: not a threat
+        if value > best_value:
+            best_value = value
+            struck_sq = chess.square_name(square)
+            struck = chess.piece_name(occupant.piece_type)
 
-    if direct_targets:
-        # The geometry is drawn; the words carry why it wins.
-        lead = (f"{best_move} makes two threats at once"
-                + (" and gives check" if gives_check else "")
-                + f" -- it attacks their {chess.piece_name(direct_targets[0].piece_type)}, "
-                  f"and moving off that line lets your {attacker} hit the "
-                  f"{target}.")
-        principle = ("They can only answer one. That is what a discovered "
-                     "attack really is -- a double attack, where the piece "
-                     "that moves and the piece it uncovers each hit "
-                     "something.")
+    blocker_word = chess.piece_name(blocker.piece_type)
+    blocker_sq = chess.square_name(mv.from_square)
+
+    def _labels(*named):
+        """Name a square only when a piece word would appear twice.
+
+        "attacks their bishop ... clears the way for your bishop to hit the
+        rook" is unreadable, and it is not rare: the two bishops, or an
+        attacker and target of the same type, collide on 51 of the 197
+        claims. Everywhere else the arrows already say which piece, so a
+        square would just be noise.
+        """
+        counts = {}
+        for word, _ in named:
+            if word:
+                counts[word] = counts.get(word, 0) + 1
+        return [f"{word} on {sq}" if word and counts.get(word, 0) > 1 and sq
+                else word for word, sq in named]
+
+    scan = ("Look for your own pieces standing in front of your queen, rook "
+            "or bishop.")
+
+    if struck:
+        struck_l, attacker_l, target_l = _labels(
+            (struck, struck_sq), (attacker, attacker_sq), (target, target_sq))
+        core = (f"{best_move} attacks their {struck_l}, and clears the way "
+                f"for your {attacker_l} to hit the {target_l}")
+        tail = " Two threats, and they can only answer one."
+        principles = [f"{scan} That piece can move anywhere, so send it where "
+                      "it makes a threat of its own.",
+                      f"{scan} Move it somewhere it also makes a threat."]
+    elif gives_check:
+        # "They have to answer the check" is always true. "So the target
+        # falls" is NOT -- an interposition can sometimes block both lines at
+        # once -- so the caption stops at the true half.
+        attacker_l, target_l = _labels((attacker, attacker_sq),
+                                       (target, target_sq))
+        core = (f"{best_move} gives check, and clears the way for your "
+                f"{attacker_l} to hit the {target_l}")
+        tail = (" They have to answer the check before they can deal with "
+                "anything else.")
+        principles = [f"{scan} Moving one with check is the strongest version "
+                      "-- a check has to be met right now.",
+                      f"{scan} Best of all is moving it with check."]
     else:
-        blocker_word = chess.piece_name(blocker.piece_type)
-        lead = (f"Your own {blocker_word} was the only thing standing between "
-                f"your {attacker} and their {target}"
-                + (", which nothing defends." if undefended else "."))
-        principle = ("When one of your own pieces blocks a queen, rook or "
-                     "bishop, look at what sits at the far end of that line. "
-                     "That is a discovered attack.")
+        blocker_l, attacker_l, target_l = _labels(
+            (blocker_word, blocker_sq), (attacker, attacker_sq),
+            (target, target_sq))
+        core = (f"Only your own {blocker_l} stood between your {attacker_l} "
+                f"and their {target_l}")
+        tail = f" {best_move} clears it."
+        principles = [f"{scan} Move one and the piece behind it starts "
+                      "attacking without ever moving itself.",
+                      f"{scan} Move one and the piece behind it attacks "
+                      "without moving."]
 
-    caption = f"{lead} {principle}"
-    if len(caption.split()) > 60:      # never ship one the renderer would cut
-        caption = lead
+    undefended_clause = ", which nothing defends" if undefended else ""
+
+    # The cap in caption_config.json is 60 words and truncation cuts at a
+    # sentence boundary with no ellipsis -- so an over-long caption loses its
+    # LAST sentence, which is the principle. The old fallback here was
+    # `caption = lead`, which deleted the principle deliberately. Invert it:
+    # shed the optional clause first, then the longer wording of the
+    # principle. The scan survives every path.
+    for clause in (undefended_clause, ""):
+        for principle in principles:
+            caption = f"{core}{clause}.{tail} {principle}"
+            if len(caption.split()) <= 60:
+                return caption
     return caption
 
 
