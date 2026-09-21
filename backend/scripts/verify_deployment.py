@@ -588,53 +588,84 @@ def check_complete_coaching_journey(
                     f"{responded.text[:200]}"
                 )
             verdict = responded.json()
+            retried = False
             if verdict.get("correct") is not True:
-                # Derive an answer with the SAME grader the endpoint uses, so
-                # this stays an end-to-end test of the real grading path rather
-                # than a replay of one hardcoded string.
-                item_fen = str(((verdict.get("next_item") or {}).get("fen")) or "")
-                retried = False
-                if item_fen:
-                    try:
-                        import chess as _chess
-                        from services.destination_safety_detector import (
-                            grade_destination_safety_candidate,
-                        )
-
-                        _board = _chess.Board(item_fen)
-                        for _candidate in _board.legal_moves:
-                            _graded = grade_destination_safety_candidate(
-                                item_fen, _candidate.uci()
-                            )
-                            if str((_graded or {}).get("status")) != "pass":
-                                continue
-                            submitted_move = _candidate.uci()
-                            retry = requests.post(
-                                respond_url,
-                                headers=headers,
-                                cookies=cookies,
-                                json={
-                                    "session_id": session_id,
-                                    "move": submitted_move,
-                                    "interaction_id": (
-                                        "phase8-deploy-"
-                                        + hashlib.sha256(
-                                            (session_id + submitted_move).encode("utf-8")
-                                        ).hexdigest()[:24]
-                                    ),
-                                },
-                                timeout=timeout,
-                            )
-                            if retry.status_code == 200:
-                                verdict = retry.json()
-                                retried = True
-                                detail.append(
-                                    "Pinned fixture move was not legal in the served "
-                                    f"position; derived {submitted_move}"
-                                )
+                # The fixture pins ONE move, but the lesson serves whatever
+                # the community pool picks, so the pinned move goes stale on
+                # its own and turns every deploy red for a reason that has
+                # nothing to do with the release. Observed twice: "f5e5"
+                # against a position with nothing on f5 (2026-09-16), then
+                # "h8g8" (2026-09-21).
+                #
+                # The previous repair re-derived a move with
+                # grade_destination_safety_candidate, under a comment
+                # claiming it was "the SAME grader the endpoint uses". It is
+                # not. On 2026-09-21 that grader offered h8g8 because the
+                # rook is safe there, while the endpoint wanted exd4 and
+                # replied "your rook is safe on g8, so the piece-safety part
+                # is right -- this move gives something else away". Two
+                # graders, one printed question. A gate has to be graded by
+                # the thing it is gating.
+                #
+                # So: ask the server. The verdict names its own answer for
+                # the position it actually served.
+                for _ in range(3):
+                    item_fen = str(((verdict.get("next_item") or {}).get("fen")) or "")
+                    answer_uci = str(verdict.get("answer_uci") or "")
+                    if answer_uci:
+                        submitted_move = answer_uci
+                    else:
+                        # The pinned move was ILLEGAL in the served position,
+                        # and the server will not name an answer for a move it
+                        # could not even play -- it replies "That move is not
+                        # legal here" with answer_uci=None. So play any legal
+                        # move first, purely to obtain a real grading, which
+                        # does name the answer. Measured 2026-09-21: this is
+                        # why reading answer_uci alone still failed.
+                        if not item_fen:
                             break
-                    except Exception as exc:  # never let the helper mask the real failure
-                        detail.append(f"Could not derive a fixture move: {exc}")
+                        try:
+                            import chess as _chess
+                            _legal = next(iter(_chess.Board(item_fen).legal_moves), None)
+                        except Exception as exc:
+                            detail.append(f"Could not read the served position: {exc}")
+                            break
+                        if _legal is None:
+                            break
+                        submitted_move = _legal.uci()
+                    interaction_id = (
+                        "phase8-deploy-"
+                        + hashlib.sha256(
+                            (session_id + submitted_move).encode("utf-8")
+                        ).hexdigest()[:24]
+                    )
+                    # Rebound so the idempotency and evidence checks below
+                    # assert against the submission that actually counted.
+                    # The earlier version left them pointing at the stale
+                    # pinned move, so even a successful retry failed the
+                    # duplicate comparison.
+                    response_payload = {
+                        "session_id": session_id,
+                        "move": submitted_move,
+                        "interaction_id": interaction_id,
+                    }
+                    retry = requests.post(
+                        respond_url,
+                        headers=headers,
+                        cookies=cookies,
+                        json=response_payload,
+                        timeout=timeout,
+                    )
+                    if retry.status_code != 200:
+                        break
+                    verdict = retry.json()
+                    retried = True
+                    if verdict.get("correct") is True:
+                        detail.append(
+                            "Pinned fixture move was stale for the served "
+                            f"position; used the server's own answer {submitted_move}"
+                        )
+                        break
                 if verdict.get("correct") is not True:
                     raise ValueError(
                         f"Fixture move {submitted_move} did not receive a correct "
