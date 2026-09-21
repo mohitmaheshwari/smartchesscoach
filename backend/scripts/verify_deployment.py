@@ -529,7 +529,27 @@ def check_complete_coaching_journey(
         ):
             raise ValueError("Lesson start did not preserve the Home content identity")
 
-        if session.get("status") == "completed":
+        # A session whose single item is already answered reports
+        # status="active" with current_item=None and completed_items=1, so
+        # keying the completed-branch off `status` alone sent the gate into
+        # the respond flow with no question to answer. It then submitted the
+        # pinned move into the void, got "That move is not legal here", and
+        # failed with position "(unknown)". Measured 2026-09-21.
+        #
+        # Distinguish "already done" from "served nothing at all": the first
+        # is fine and is proven from persisted evidence, the second is a real
+        # breakage (an empty pool) and must stay loud. Passing on stale
+        # evidence when the pool has gone empty would be the opposite and
+        # worse failure -- a gate that can no longer go red.
+        served_nothing = not (session.get("current_item") or session.get("next_item"))
+        completed_items = int(session.get("completed_items") or 0)
+        if served_nothing and completed_items == 0:
+            raise ValueError(
+                "Lesson session served no item and has completed none -- "
+                "the practice pool for this skill is empty"
+            )
+
+        if session.get("status") == "completed" or served_nothing:
             evidence_url = (
                 base_url.rstrip("/")
                 + f"/api/training/personalized/session/{session_id}/evidence"

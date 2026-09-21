@@ -843,7 +843,21 @@ async def process_pic_piece_safety_move(
         "current_index": next_index,
         "updated_at": now,
     }
-    if complete:
+    if complete or exhausted:
+        # `exhausted` matters on its own. A learner who answers the FINAL
+        # item WRONG advances past the end but does not satisfy `complete`,
+        # which requires `correct` -- so the session stayed "active" with
+        # nothing left to serve. start_lesson resumes "active"/"paused", so
+        # it handed that empty session back on every request forever and the
+        # learner could never get another position for that skill. Getting
+        # the last one wrong is the ordinary case for a learner, so this
+        # bricked precisely the people the lesson exists for. Found
+        # 2026-09-21 on the deploy gate's own account, which had been stuck
+        # this way since a stale fixture move submitted an illegal answer.
+        #
+        # The RESPONSE's `complete` stays tied to `correct`, so the
+        # lesson_completed reach metric is not inflated by failures; only
+        # the stored status closes.
         update_set.update({"status": "completed", "completed_at": now})
     write = await db.learning_sessions.update_one(
         {
@@ -2441,9 +2455,8 @@ async def process_personalized_move(
     )
 
     next_index = index + 1 if (correct or blind or unmeasured) else index
-    complete = bool(next_index >= len(items)) if blind else bool(
-        correct and next_index >= len(items)
-    )
+    exhausted = bool(next_index >= len(items))
+    complete = exhausted if blind else bool(correct and exhausted)
     reveal_answer = bool(not correct and stage_value == "guide")
     next_profile = session.get("teaching_profile") or {}
     if misconception:
