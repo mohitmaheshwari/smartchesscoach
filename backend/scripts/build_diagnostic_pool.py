@@ -358,6 +358,7 @@ async def build_pool(db, depth: int, dry_run: bool) -> List[Dict[str, Any]]:
             min_user_moves = cfg.get("min_user_moves", 1)
             for tier_name, tier_rating, lo, hi in TIERS:
                 accepted = 0
+                logger.info(f"  {concept} / {tier_name} ...")
                 for theme in cfg["themes"]:
                     if accepted >= ACCEPT_PER_TIER:
                         break
@@ -506,6 +507,15 @@ async def main():
     db = client[db_name]
 
     n_lichess = await db.lichess_puzzles.estimated_document_count()
+    # The candidate query filters on themes + rating and then sorts by
+    # nb_plays. With only the single-field indexes that shipped, Mongo does a
+    # blocking in-memory sort over 4.1M rows -- the first run of this script
+    # after the pool was widened sat at 0.06% CPU, waiting on Mongo rather
+    # than running the engine at all. Equality, then Sort, then Range.
+    await db.lichess_puzzles.create_index(
+        [("themes", 1), ("nb_plays", -1), ("rating", 1)],
+        name="themes_nbplays_rating")
+
     logger.info(f"lichess_puzzles: ~{n_lichess} rows | depth={args.depth} "
                 f"| dry_run={args.dry_run}\n")
     if n_lichess == 0:
