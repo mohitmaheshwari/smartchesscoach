@@ -360,6 +360,110 @@ def _payoff_pin_confines_front(
     }
 
 
+def _payoff_pin_blocks_defence(
+    board_before: chess.Board,
+    best: chess.Move,
+    replay: Any,
+    alignment: Dict[str, Any],
+) -> Optional[dict]:
+    """Payoff B: the pinned piece is not allowed to defend.
+
+    Payoffs A and C both end with a capture on the pinning line. A pin
+    can also pay off without anything on that line moving at all: the
+    pin switches a defender off. The initiator lands on a square the
+    pinned piece guards, and the recapture is illegal because taking
+    would expose the king standing behind it.
+
+    Legality itself is the proof. The recapture is pseudo-legal and not
+    legal, which for a pinned piece can only mean the pin, and the
+    landing square must have no other legal recapture at all, so the pin
+    is the reason the move works rather than a shape that happens to be
+    on the board.
+
+    The shape is FjK5u (8/p4kpp/5p2/2Qb4/3P4/P3q2P/P5P1/1R5K b,
+    Qxh3+ Kg1 Qxg2#): the bishop on d5 pins the g2 pawn to the king on
+    h1, g2 is the only guard of h3, so gxh3 is illegal and mate follows.
+    Only the created-alignment case is claimed here, because the caption
+    for this concept says the best move lined the pieces up, and that
+    sentence is false of a pin that was already on the board.
+    """
+    if alignment["kind"] != "pin":
+        return None
+    attacker_square = alignment["attacker_square"]
+    front = alignment["front_square"]
+    rear = alignment["rear_square"]
+    board = board_before.copy(stack=False)
+    initiator = board.turn
+    attacker_identity = None
+    front_identity = None
+    for index, uci in enumerate(replay.replayed_uci):
+        move = chess.Move.from_uci(uci)
+        mover = board.turn
+        board.push(move)
+        if index == 0:
+            attacker = board.piece_at(attacker_square)
+            front_piece = board.piece_at(front)
+            rear_piece = board.piece_at(rear)
+            if attacker is None or front_piece is None or rear_piece is None:
+                return None
+            if rear_piece.piece_type != chess.KING:
+                return None
+            if board.king(front_piece.color) != rear:
+                return None
+            attacker_identity = (attacker.piece_type, attacker.color)
+            front_identity = (front_piece.piece_type, front_piece.color)
+        if mover != initiator:
+            continue
+        landing = move.to_square
+        opponent = board.turn
+        if board.king(opponent) != rear:
+            continue
+        standing_front = board.piece_at(front)
+        standing_attacker = board.piece_at(attacker_square)
+        if (
+            standing_front is None
+            or (standing_front.piece_type, standing_front.color)
+            != front_identity
+            or standing_attacker is None
+            or (standing_attacker.piece_type, standing_attacker.color)
+            != attacker_identity
+        ):
+            return None
+        if front not in board.attackers(opponent, landing):
+            continue
+        if not board.is_pinned(opponent, front):
+            continue
+        if any(reply.to_square == landing for reply in board.legal_moves):
+            continue
+        recapture = chess.Move(front, landing)
+        if (
+            standing_front.piece_type == chess.PAWN
+            and chess.square_rank(landing) in (0, 7)
+        ):
+            recapture = chess.Move(front, landing, promotion=chess.QUEEN)
+        if not board.is_pseudo_legal(recapture):
+            continue
+        if board.is_legal(recapture):
+            continue
+        return {
+            "kind": "pin",
+            "creation_mode": (
+                "direct"
+                if attacker_square == best.to_square
+                else "discovered"
+            ),
+            "attacker_piece": chess.piece_name(attacker_identity[0]),
+            "attacker_square": chess.square_name(attacker_square),
+            "front_piece": chess.piece_name(front_identity[0]),
+            "front_square": chess.square_name(front),
+            "rear_piece": chess.piece_name(chess.KING),
+            "rear_square": chess.square_name(rear),
+            "net_material_gain_cp": replay.net_material_gain_cp,
+            "replayed_uci": replay.replayed_uci,
+        }
+    return None
+
+
 def _stored_payoff(
     board_before: chess.Board,
     best: chess.Move,
@@ -372,10 +476,10 @@ def _stored_payoff(
         return None
     if not _consequence_is_proved(replay, board_before.turn):
         return None
-    return _payoff_uses_alignment(
-        board_before, best, replay, alignment
-    ) or _payoff_pin_confines_front(
-        board_before, best, replay, alignment
+    return (
+        _payoff_uses_alignment(board_before, best, replay, alignment)
+        or _payoff_pin_confines_front(board_before, best, replay, alignment)
+        or _payoff_pin_blocks_defence(board_before, best, replay, alignment)
     )
 
 
