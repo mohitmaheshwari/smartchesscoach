@@ -494,10 +494,10 @@ const DiagnosticPuzzles = () => {
         <div className="flex items-baseline justify-between mb-5">
           <div>
             <p className="cg-eyebrow !mb-1">
-              Let me watch how you think
+              {puzzle?.concept_label || "Let me watch how you think"}
             </p>
             <h1 className="text-xl font-serif font-medium text-foreground mt-0.5">
-              What would you play here?
+              {puzzle?.question || "What would you play here?"}
             </h1>
           </div>
           <button

@@ -574,6 +574,82 @@ CONCEPT_PRIORITY: List[str] = [
     "winning_technique",
 ]
 
+# Mohit, looking at the live diagnostic: "it asks me this, i thought it would
+# ask me something like find this, or find that exact thing, at least to know
+# what i really know."
+#
+# Every puzzle printed the same line -- "What would you play here?" -- even
+# though the payload already carried the concept. The pool docs know they are
+# a fork or a back-rank mate; the screen just never said so.
+#
+# The questions themselves are NOT rewritten here. They are the ones already
+# authored in services/onboarding_puzzle_builder.py, pulled by family, so the
+# two surfaces cannot drift into two different ways of asking the same thing.
+#
+# Worth being explicit about the trade, because it is a real one: naming the
+# motif tells the player what kind of move to look for, so this measures
+# whether they can EXECUTE a pattern rather than whether they SPOT it
+# unprompted. For a 600-1500 player that is the more useful reading -- "what
+# would you play" mostly separates strong from weak and says little about
+# where to coach them -- but it is a choice, and it can be reversed by
+# dropping the question from the payload.
+_CONCEPT_QUESTION_FAMILY: Dict[str, str] = {
+    "fork": "find_the_fork",
+    "pin": "find_the_pin",
+    "skewer": "find_the_skewer",
+}
+
+# Where the theme on the individual puzzle says more than its concept does.
+_THEME_QUESTION_FAMILY: Dict[str, str] = {
+    "mateIn1": "mate_in_one",
+    "backRankMate": "back_rank_mate",
+    "mateIn2": "mate_in_two",
+    "mateIn3": "mate_in_three",
+    "hangingPiece": "take_the_free_piece",
+}
+
+# Concepts with no authored family. Deliberately claim only what the theme
+# guarantees -- "you are winning, convert it" would be a lie on a puzzle that
+# only holds a draw.
+_CONCEPT_QUESTION_FALLBACK: Dict[str, str] = {
+    "discovered_attack": (
+        "One move here opens an attack from a piece that does not move "
+        "itself. Find it."),
+    "threat_response": (
+        "They are threatening something. Find the move that deals with it."),
+    "piece_safety": "One of these pieces is in danger. Find the best move.",
+    "mate_patterns": "There is a mate here. Find the move that starts it.",
+    "calculation": "One line here wins by force. Find the first move.",
+    "opening": "An opening position. Find the strongest move.",
+    "endgame": "An endgame. Find the strongest move.",
+    "winning_technique": (
+        "You are better here. Find the move that makes it count."),
+}
+
+
+def question_for(concept: str, themes: Optional[List[str]] = None) -> str:
+    """The line printed above the board, per puzzle."""
+    family = None
+    for theme in (themes or []):
+        if theme in _THEME_QUESTION_FAMILY:
+            family = _THEME_QUESTION_FAMILY[theme]
+            break
+    if family is None:
+        family = _CONCEPT_QUESTION_FAMILY.get(concept)
+    if family:
+        try:
+            from services.onboarding_puzzle_builder import _FAMILIES
+
+            spec = _FAMILIES.get(family) or {}
+            authored = spec.get("question")
+            if authored:
+                return str(authored)
+        except Exception:  # noqa: BLE001
+            pass
+    return _CONCEPT_QUESTION_FALLBACK.get(
+        concept, "What would you play here?")
+
+
 CONCEPT_LABEL: Dict[str, str] = {
     "threat_response": "Answering threats",
     "piece_safety": "Keeping pieces safe",
