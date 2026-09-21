@@ -165,9 +165,29 @@ def test_every_move_carries_coaching_and_no_dataclass_repr():
     c = build_continuation(LUCENA, "Re4")
     assert c.moves
     for m in c.moves:
-        assert m.coaching, f"ply {m.ply} ({m.san}) has no coaching"
         assert "TextSurface" not in m.coaching
         assert "rule_name" not in m.coaching
+    # Every BEAT speaks. Connective moves after the last decisive beat are
+    # deliberately silent -- the central pipeline is a review captioner and
+    # produced "Look at what it attacks now" three times running there.
+    for m in c.moves:
+        if m.beat:
+            assert m.coaching, f"beat ply {m.ply} ({m.san}) has no coaching"
+    assert c.moves[0].coaching
+    assert c.moves[-1].coaching, "the finish must always speak"
+
+
+@needs_engine
+def test_the_shuffling_moves_before_the_finish_stay_quiet():
+    """Filler reads worse than silence, and the board still moves."""
+    c = build_continuation(LUCENA, "Re4")
+    beats = [m.ply for m in c.moves if m.beat]
+    assert len(beats) >= 2
+    last_decisive = beats[-2]
+    quiet = [m for m in c.moves if not m.beat and m.ply > last_decisive]
+    assert quiet, "this line should have connective moves after the last beat"
+    for m in quiet:
+        assert m.coaching == ""
 
 
 @needs_engine

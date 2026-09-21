@@ -360,6 +360,11 @@ def build_continuation(
             # Second pass. Captioning only after the whole line exists is what
             # lets a beat say "the last check" -- during generation there is no
             # way to know which check is the last one.
+            beat_plies = [r["ply"] for r in raw if r["beat"]]
+            # The last beat before the finish. Moves after it are connective
+            # tissue; the finish itself is a beat and still speaks.
+            decisive = [p for p in beat_plies if p < (beat_plies[-1] if beat_plies else 0)]
+            last_beat_ply = decisive[-1] if decisive else -1
             check_plies = [r["ply"] for r in raw if r["beat"] == BEAT_CHECK]
             last_check_ply = check_plies[-1] if check_plies else None
             check_index = 0
@@ -371,6 +376,14 @@ def build_continuation(
                     )
                     if r["beat"] == BEAT_CHECK:
                         check_index += 1
+                elif r["ply"] > last_beat_ply:
+                    # Past the last thing worth naming. The central pipeline
+                    # is a game-review captioner and does not know it is in a
+                    # lesson, so on the shuffling moves between the decisive
+                    # capture and the promotion it produced filler -- "Look at
+                    # what it attacks now" three times in a row. Silence reads
+                    # better than filler, and the board still moves.
+                    coaching = ""
                 else:
                     coaching = _central_caption(
                         engine, r["snapshot"], r["move"], r["san"],
