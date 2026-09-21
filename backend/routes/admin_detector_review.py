@@ -697,31 +697,42 @@ def _discovered_attack_caption(board, best_move, facts):
         return [f"{word} on {sq}" if word and counts.get(word, 0) > 1 and sq
                 else word for word, sq in named]
 
-    scan = ("Look for your own pieces standing in front of your queen, rook "
-            "or bishop.")
+    # Mohit again, same day: "it is not giving me a good lesson on how to
+    # find these puzzles". Right, and the reason is specific -- the previous
+    # closing line described a SHAPE ("your own piece standing in front of
+    # your queen, rook or bishop") and that shape is everywhere. A knight in
+    # front of a rook happens in every game. A thousand hits, no filter, so
+    # it is not a procedure anyone can run.
+    #
+    # The findable thing is a habit, not a shape: when you trace what your
+    # bishop or rook hits, your eye STOPS at your own piece. That is the bug
+    # in how people look. Keep going past it and check the far end -- that is
+    # rare enough to be worth checking, and it is the trigger.
+    #
+    # Two lengths so the 60-word cap sheds the second half, never the habit.
+    scan = ("Look along your queen, rook and bishop lines, and do not stop "
+            "at your own pieces.")
+    scan_long = (f"{scan} If one of theirs is at the far end, the piece in "
+                 "the way is free to move.")
+    scan_short = f"{scan} What sits at the far end is the target."
 
     if struck:
         struck_l, attacker_l, target_l = _labels(
             (struck, struck_sq), (attacker, attacker_sq), (target, target_sq))
-        core = (f"{best_move} attacks their {struck_l}, and clears the way "
-                f"for your {attacker_l} to hit the {target_l}")
+        core = (f"{best_move} attacks their {struck_l}, and frees your "
+                f"{attacker_l} to hit the {target_l}")
         tail = " Two threats, and they can only answer one."
-        principles = [f"{scan} That piece can move anywhere, so send it where "
-                      "it makes a threat of its own.",
-                      f"{scan} Move it somewhere it also makes a threat."]
+        principles = [scan_long, scan_short]
     elif gives_check:
         # "They have to answer the check" is always true. "So the target
         # falls" is NOT -- an interposition can sometimes block both lines at
         # once -- so the caption stops at the true half.
         attacker_l, target_l = _labels((attacker, attacker_sq),
                                        (target, target_sq))
-        core = (f"{best_move} gives check, and clears the way for your "
-                f"{attacker_l} to hit the {target_l}")
-        tail = (" They have to answer the check before they can deal with "
-                "anything else.")
-        principles = [f"{scan} Moving one with check is the strongest version "
-                      "-- a check has to be met right now.",
-                      f"{scan} Best of all is moving it with check."]
+        core = (f"{best_move} gives check, and frees your {attacker_l} to "
+                f"hit the {target_l}")
+        tail = " The check has to be answered first."
+        principles = [scan_long, scan_short]
     else:
         blocker_l, attacker_l, target_l = _labels(
             (blocker_word, blocker_sq), (attacker, attacker_sq),
@@ -729,10 +740,7 @@ def _discovered_attack_caption(board, best_move, facts):
         core = (f"Only your own {blocker_l} stood between your {attacker_l} "
                 f"and their {target_l}")
         tail = f" {best_move} clears it."
-        principles = [f"{scan} Move one and the piece behind it starts "
-                      "attacking without ever moving itself.",
-                      f"{scan} Move one and the piece behind it attacks "
-                      "without moving."]
+        principles = [scan_long, scan_short]
 
     undefended_clause = ", which nothing defends" if undefended else ""
 
