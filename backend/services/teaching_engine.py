@@ -843,21 +843,7 @@ async def process_pic_piece_safety_move(
         "current_index": next_index,
         "updated_at": now,
     }
-    if complete or exhausted:
-        # `exhausted` matters on its own. A learner who answers the FINAL
-        # item WRONG advances past the end but does not satisfy `complete`,
-        # which requires `correct` -- so the session stayed "active" with
-        # nothing left to serve. start_lesson resumes "active"/"paused", so
-        # it handed that empty session back on every request forever and the
-        # learner could never get another position for that skill. Getting
-        # the last one wrong is the ordinary case for a learner, so this
-        # bricked precisely the people the lesson exists for. Found
-        # 2026-09-21 on the deploy gate's own account, which had been stuck
-        # this way since a stale fixture move submitted an illegal answer.
-        #
-        # The RESPONSE's `complete` stays tied to `correct`, so the
-        # lesson_completed reach metric is not inflated by failures; only
-        # the stored status closes.
+    if complete:
         update_set.update({"status": "completed", "completed_at": now})
     write = await db.learning_sessions.update_one(
         {
@@ -2597,6 +2583,28 @@ async def process_personalized_move(
             update_set["diagnostic_result"] = result.get("diagnostic_result")
         if games_at_completion is not None:
             update_set["analyzed_games_at_completion"] = games_at_completion
+    elif exhausted:
+        # The session has nothing left to serve but did not satisfy
+        # `complete`, which requires `correct`. That happens whenever the
+        # index advances without a correct answer:
+        #
+        #     next_index = index + 1 if (correct or blind or unmeasured)
+        #
+        # so an UNMEASURED attempt -- an illegal move, for instance --
+        # walks off the end of the item list while `complete` stays False.
+        # The session then sat at status "active" with current_item None,
+        # and because start_lesson resumes "active"/"paused" it handed that
+        # empty session back on every request forever, leaving the learner
+        # with no way to get another position for the skill.
+        #
+        # Found 2026-09-21: the deploy gate's own account had been stuck
+        # this way, and a fresh session bricked again within one run.
+        # Only the stored status closes here -- the response's `complete`
+        # stays tied to `correct`, so the lesson_completed reach metric is
+        # not inflated by failures, and none of the completion bookkeeping
+        # above (diagnostic_result, analyzed_games_at_completion) is
+        # fabricated for a session that did not actually complete.
+        update_set.update({"status": "completed", "completed_at": now})
     write = await db.learning_sessions.update_one(
         {
             "_id": session["_id"],
