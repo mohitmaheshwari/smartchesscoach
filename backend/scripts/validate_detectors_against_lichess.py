@@ -109,19 +109,36 @@ def _fires_discovered(board, played_san, best_san, pv):
 
 
 def _fires_back_rank(board, played_san, best_san, pv):
+    """Walk the WHOLE solution line looking for the mate.
+
+    The first version demanded that the solution move itself be mate, but
+    Lichess tags mateIn2 and mateIn3 puzzles `backRankMate` too -- the mate
+    arrives two or three moves later. That probe was measuring my own
+    impatience, not the detector.
+    """
     from services.mate_lesson import back_rank_seal
+
     probe = board.copy(stack=False)
     try:
-        mv = probe.parse_san(best_san)
+        probe.push(probe.parse_san(best_san))
     except Exception:  # noqa: BLE001
         return False
-    probe.push(mv)
-    if not probe.is_checkmate():
-        return False
-    king = probe.king(probe.turn)
-    if king is None:
-        return False
-    return back_rank_seal(probe, mv, king, probe.turn) >= 2
+    if probe.is_checkmate():
+        mv = probe.move_stack[-1]
+        king = probe.king(probe.turn)
+        return king is not None and back_rank_seal(
+            probe, mv, king, probe.turn) >= 2
+    for san in pv:
+        try:
+            mv = probe.parse_san(san)
+        except Exception:  # noqa: BLE001
+            return False
+        probe.push(mv)
+        if probe.is_checkmate():
+            king = probe.king(probe.turn)
+            return king is not None and back_rank_seal(
+                probe, mv, king, probe.turn) >= 2
+    return False
 
 
 # theme -> (our detector, a short label)

@@ -5045,7 +5045,20 @@ def _discovered_attack_evidence(
                 # the slider is taken before it can execute the discovery.
                 # From d7ce40cf corpus: #14 Kf1 was emitting "uncovers
                 # rook hitting e8" while black's Rxe1+ was right there.
-                opp_attackers_on_slider = board_after.attackers(opp_color, slider_sq)
+                # attackers() is geometric: it does not know the opponent is
+                # in CHECK and must answer that first. Measured against
+                # Lichess's discoveredAttack puzzles, 149 of 367 misses
+                # (40.6%) were exactly this -- the discovering move gives
+                # check, the slider "looks attacked", and the gate threw away
+                # a real discovery the opponent had no time to punish. Same
+                # class of bug as the pseudo-legal attackers() that made
+                # simple_hang call pinned attackers a threat.
+                #
+                # Ask whether they can LEGALLY take it instead.
+                opp_attackers_on_slider = [
+                    mv.from_square for mv in board_after.legal_moves
+                    if mv.to_square == slider_sq and board_after.is_capture(mv)
+                ]
                 if opp_attackers_on_slider:
                     opp_see_on_slider = static_exchange_eval(
                         board_after, slider_sq, opp_color
