@@ -46,6 +46,31 @@ different team's implementation over millions of solver-tested positions,
 which is far stronger than our own second copy — but it is not human
 semantic gold, and the promotion lock still distinguishes the two.
 
+## Rule 2 — play the line before you measure
+
+Push the moves and look at the board. Ask what the move CREATES, not only
+what already exists.
+
+This rule exists because the same error appeared three times in one session:
+
+  - `9OVqg`: I asked "is anything pinned?" of the position BEFORE the
+    solution and reported that half of Lichess's `pin` puzzles contain no
+    pin. `Rf5` is what creates the pin. Measured correctly it is 84.7%,
+    not 50.2%. Mohit found it in seconds by playing the move.
+  - fork: only `best_move` was tested; 130 of 300 misses had the fork two
+    to four plies later in the same stored line.
+  - a verifier measured 34.5% because it tested a stricter claim I had
+    invented rather than the claim the caption makes to the player.
+
+A measurement over a corpus only answers the question you already knew to
+ask. It cannot tell you what a motif IS. Two positions examined properly
+beat a thousand counted with the wrong probe — two of Mohit's rulings
+overturned claims a 1000-puzzle run had "confirmed".
+
+Concretely, before any measurement: push the solution and print the board;
+check the position after the move as well as before; walk the whole stored
+line, not just its first move.
+
 ## The loop
 
 1. **Sample.** Pull N puzzles carrying the theme, rated 600-1500 (the
