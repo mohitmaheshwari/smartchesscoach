@@ -1,4 +1,18 @@
-"""Causal trapped-own-piece proof with independent escape enumeration."""
+"""Both sides of trapped-piece truth, each with independent escape proof.
+
+A trapped piece has two faces and they are not the same claim:
+
+* the MISTAKE side -- "your move trapped your OWN piece" -- which is
+  `build_trapped_piece_proof`, unchanged and still the thing that fires on
+  real games; and
+* the OPPORTUNITY side -- "this move traps the OPPONENT's piece" -- which is
+  `build_trapped_piece_opportunity_proof`, the thing a player is asked to find
+  and what Lichess means by its `trappedPiece` theme.
+
+Scoring the first against the second is a category error, not a bug report:
+the mistake side returns 0.4% on that theme because the theme asks about the
+other colour, one ply later.
+"""
 
 from __future__ import annotations
 
