@@ -77,8 +77,8 @@ MATE_CP_BASE = 10000
 
 DISCRIMINATIVE_THEMES = {
     "hangingPiece", "defensiveMove", "fork", "pin", "skewer",
-    "mateIn1", "mateIn2", "backRankMate", "exposedKing",
-    "pawnEndgame", "rookEndgame", "opening",
+    "mateIn1", "mateIn2", "mateIn3", "backRankMate", "exposedKing",
+    "pawnEndgame", "rookEndgame", "opening", "discoveredAttack",
 }
 
 CONCEPTS: Dict[str, Dict[str, Any]] = {
@@ -97,12 +97,17 @@ CONCEPTS: Dict[str, Dict[str, Any]] = {
     "fork": {"themes": ["fork"], "disc": ["fork"]},
     "pin": {"themes": ["pin"], "disc": ["pin"]},
     "skewer": {"themes": ["skewer"], "disc": ["skewer"]},
+    # Asked for by name. Measured supply in lichess_puzzles after the quality
+    # gates: 182 low / 500+ mid / 500+ high, so it is not a thin concept.
+    "discovered_attack": {
+        "themes": ["discoveredAttack"], "disc": ["discoveredAttack"],
+    },
     "calculation": {
         # multi-move walk concept — needs >=2 user moves in the solution.
         # allow_empty_disc: a pure "short"/"crushing" line with NO named
         # tactic is exactly what a calculation probe wants.
-        "themes": ["mateIn2", "short", "crushing"],
-        "disc": ["mateIn2"],
+        "themes": ["mateIn2", "mateIn3", "short", "crushing"],
+        "disc": ["mateIn2", "mateIn3"],
         "allow_empty_disc": True,
         "min_user_moves": 2,
     },
@@ -138,8 +143,14 @@ MIN_POPULARITY = 90
 MIN_NB_PLAYS = 1000
 MAX_RATING_DEV = 80
 MULTIPV_GAP_CP = 150       # best must beat 2nd-best by this much (or be mate)
-CANDIDATES_PER_TIER = 50   # how many gated candidates to pull before engine pass
-ACCEPT_PER_TIER = 2        # 1 primary + 1 reserve
+# The pool held 60 rows: 10 concepts x 3 tiers x 2, and only ONE of those two
+# was a primary. _v2_pick_puzzle takes primaries before reserves, so every
+# user met the same first puzzle in every concept, and the staircase had
+# nowhere to climb. Supply is not the constraint -- the gated Lichess counts
+# are 39-500+ per theme per tier -- it was just never asked for.
+CANDIDATES_PER_TIER = 300  # gated candidates to pull before the engine pass
+ACCEPT_PER_TIER = 12       # per concept x tier
+PRIMARY_PER_TIER = 8       # the rest become reserve
 
 
 def _score_to_cp(score: chess.engine.PovScore, pov: chess.Color) -> (int, Optional[int]):
@@ -418,7 +429,7 @@ async def build_pool(db, depth: int, dry_run: bool) -> List[Dict[str, Any]]:
                             "tier_rating": tier_rating,
                             "multipv": gate["multipv"],
                             "eval_before": gate["eval_before"],
-                            "reserve": accepted >= 1,  # first accept = primary
+                            "reserve": accepted >= PRIMARY_PER_TIER,
                             "themes": themes,
                             "popularity": raw.get("popularity"),
                             "nb_plays": raw.get("nb_plays"),

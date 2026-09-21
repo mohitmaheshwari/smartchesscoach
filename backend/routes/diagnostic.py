@@ -155,17 +155,31 @@ async def _v2_pool_ready() -> bool:
 async def _v2_pick_puzzle(concept: str, tier: str, used_ids: List[str]) -> Optional[Dict[str, Any]]:
     """Pick an unused pool puzzle for (concept, tier). Prefers the exact
     tier (primary before reserve), then falls back to adjacent tiers."""
+    # $sample, not find_one. find_one returns natural order, so when the pool
+    # only had one primary per (concept, tier) every user met the same puzzle
+    # -- and deepening the pool would have changed nothing without this,
+    # because doc #1 would still always win.
     for t in _TIER_FALLBACK.get(tier, ["mid", "high", "low"]):
         for reserve in (False, True):
-            doc = await db.diagnostic_pool.find_one(
-                {
-                    "concept": concept,
-                    "tier": t,
-                    "reserve": reserve,
-                    "puzzle_id": {"$nin": used_ids or []},
-                },
-                {"_id": 0},
-            )
+            match = {
+                "concept": concept,
+                "tier": t,
+                "reserve": reserve,
+                "puzzle_id": {"$nin": used_ids or []},
+            }
+            try:
+                picked = await db.diagnostic_pool.aggregate([
+                    {"$match": match},
+                    {"$sample": {"size": 1}},
+                    {"$project": {"_id": 0}},
+                ]).to_list(1)
+            except Exception:  # noqa: BLE001
+                picked = None
+            if picked:
+                return picked[0]
+            # $sample can be unavailable on some deployments; never let the
+            # diagnostic go empty because of the sampler.
+            doc = await db.diagnostic_pool.find_one(match, {"_id": 0})
             if doc:
                 return doc
     return None

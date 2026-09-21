@@ -562,6 +562,12 @@ CONCEPT_PRIORITY: List[str] = [
     "fork",
     "pin",
     "skewer",
+    # Mohit asked for this one by name: "we also have the detector which is
+    # also shipped for discovered attack, add some from that". The Lichess
+    # source carries 182/500+/500+ gated puzzles at low/mid/high, so it is
+    # the only genuinely missing concept -- backRankMate already sits inside
+    # mate_patterns and mateIn2 inside calculation.
+    "discovered_attack",
     "calculation",
     "opening",
     "endgame",
@@ -573,6 +579,7 @@ CONCEPT_LABEL: Dict[str, str] = {
     "piece_safety": "Keeping pieces safe",
     "mate_patterns": "Spotting checkmates",
     "fork": "Forks",
+    "discovered_attack": "Discovered attacks",
     "pin": "Pins",
     "skewer": "Skewers",
     "calculation": "Calculating a few moves ahead",
@@ -797,6 +804,7 @@ class DiagnosticGrader:
 
     _UNDERSTOOD_TAIL = {
         "fork": "that's exactly the fork.",
+        "discovered_attack": "the attack came from the piece that stayed.",
         "pin": "the pin made it work.",
         "skewer": "that's the skewer.",
         "mate_patterns": "you saw the mate.",
@@ -990,6 +998,7 @@ _CONCEPT_TO_WEAKNESS: Dict[str, tuple] = {
     "piece_safety": ("tactical", "one_move_blunders"),
     "mate_patterns": ("tactical", "one_move_blunders"),
     "fork": ("tactical", "fork_misses"),
+    "discovered_attack": ("tactical", "fork_misses"),
     "pin": ("tactical", "fork_misses"),
     "skewer": ("tactical", "fork_misses"),
     "calculation": ("tactical", "one_move_blunders"),
@@ -1003,6 +1012,7 @@ _CONCEPT_TO_FOCUS: Dict[str, str] = {
     "piece_safety": "hanging_piece",
     "mate_patterns": "tactical_error",
     "fork": "missed_fork",
+    "discovered_attack": "missed_fork",
     "pin": "missed_fork",
     "skewer": "missed_fork",
     "calculation": "tactical_error",
