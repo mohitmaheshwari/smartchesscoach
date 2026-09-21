@@ -668,6 +668,13 @@ def _discovered_attack_caption(board, best_move, facts):
         value = PIECE_VALUE_CP.get(occupant.piece_type, 0)
         if value < PIECE_VALUE_CP[chess.KNIGHT]:
             continue
+        if chess.square_name(square) == target_sq:
+            # The moving piece and the uncovered line hit the SAME piece.
+            # That is one target, not two, and "they can only answer one"
+            # would be plainly false. Found by printing the longest rendered
+            # card: "Ne2+ attacks their queen on c1, and frees your queen on
+            # c7 to hit the queen on c1."
+            continue
         defended = after.attackers(not board.turn, square)
         mover_value = PIECE_VALUE_CP.get(
             mover.piece_type, 0) if mover else 0
@@ -697,24 +704,41 @@ def _discovered_attack_caption(board, best_move, facts):
         return [f"{word} on {sq}" if word and counts.get(word, 0) > 1 and sq
                 else word for word, sq in named]
 
-    # Mohit again, same day: "it is not giving me a good lesson on how to
-    # find these puzzles". Right, and the reason is specific -- the previous
-    # closing line described a SHAPE ("your own piece standing in front of
-    # your queen, rook or bishop") and that shape is everywhere. A knight in
-    # front of a rook happens in every game. A thousand hits, no filter, so
-    # it is not a procedure anyone can run.
+    # Mohit, third pass on the same caption, and this one replaces my search
+    # with a better one: "look for their major pieces and see if any down the
+    # line are attacking ... that's what opponent also misses, as he sees the
+    # current threat".
     #
-    # The findable thing is a habit, not a shape: when you trace what your
-    # bishop or rook hits, your eye STOPS at your own piece. That is the bug
-    # in how people look. Keep going past it and check the far end -- that is
-    # rare enough to be worth checking, and it is the trigger.
+    # He is right on both halves.
     #
-    # Two lengths so the 60-word cap sheds the second half, never the habit.
-    scan = ("Look along your queen, rook and bishop lines, and do not stop "
-            "at your own pieces.")
-    scan_long = (f"{scan} If one of theirs is at the far end, the piece in "
-                 "the way is free to move.")
-    scan_short = f"{scan} What sits at the far end is the target."
+    # DIRECTION. My version scanned outward from your own long pieces, which
+    # means tracing every line of every one of them -- measured on these 197
+    # positions, 3.9 own queen/rook/bishops at 4-8 lines each, so 20-30 lines,
+    # nearly all pointing at nothing. Searching backward from their valuable
+    # pieces is 2.6 anchors. Same motif, about a tenth of the work, because
+    # you start from the scarce end.
+    #
+    # WHY IT WORKS. The half I did not have at all. A discovered attack gets
+    # through because the defender is watching the threat in front of them --
+    # that is what makes a hidden line pay, and it is the reason to bother
+    # looking. It also explains why the player in these games missed it.
+    #
+    # "Start WITH their queen and rooks" is deliberate, not a narrowing:
+    # measured over the 197, the uncovered line lands on a queen or rook 56.3%
+    # of the time and on a knight or bishop 43.7%. A rule that said "look at
+    # their major pieces" would contradict its own card on nearly half of
+    # them, where the lead names a knight. "Start with" is a priority order
+    # and stays true on every card.
+    scan_long = ("Start with their queen and rooks, and ask what of yours is "
+                 "aimed at them, even through your own pieces. That is what "
+                 "people miss -- they watch the threat in front of them.")
+    # The tight cards get a shorter WHY, never a missing one. Dropping it
+    # outright cost 27 of 197 the only sentence that says why to bother.
+    scan_short = ("Start with their queen and rooks, and ask what of yours is "
+                  "aimed at them, even through your own pieces. People miss "
+                  "it -- they watch the threat in front.")
+    scan_min = ("Start with their queen and rooks, and ask what of yours is "
+                "aimed at them, even through your own pieces.")
 
     if struck:
         struck_l, attacker_l, target_l = _labels(
@@ -722,7 +746,7 @@ def _discovered_attack_caption(board, best_move, facts):
         core = (f"{best_move} attacks their {struck_l}, and frees your "
                 f"{attacker_l} to hit the {target_l}")
         tail = " Two threats, and they can only answer one."
-        principles = [scan_long, scan_short]
+        principles = [scan_long, scan_short, scan_min]
     elif gives_check:
         # "They have to answer the check" is always true. "So the target
         # falls" is NOT -- an interposition can sometimes block both lines at
@@ -732,7 +756,7 @@ def _discovered_attack_caption(board, best_move, facts):
         core = (f"{best_move} gives check, and frees your {attacker_l} to "
                 f"hit the {target_l}")
         tail = " The check has to be answered first."
-        principles = [scan_long, scan_short]
+        principles = [scan_long, scan_short, scan_min]
     else:
         blocker_l, attacker_l, target_l = _labels(
             (blocker_word, blocker_sq), (attacker, attacker_sq),
@@ -740,7 +764,7 @@ def _discovered_attack_caption(board, best_move, facts):
         core = (f"Only your own {blocker_l} stood between your {attacker_l} "
                 f"and their {target_l}")
         tail = f" {best_move} clears it."
-        principles = [scan_long, scan_short]
+        principles = [scan_long, scan_short, scan_min]
 
     undefended_clause = ", which nothing defends" if undefended else ""
 
