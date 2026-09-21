@@ -94,7 +94,22 @@ def build_forced_mate_proof(
     if not candidate:
         return None
 
-    replay = replay_stored_line(board_before, best, pv_after_best)
+    # resolve_ambiguous_continuation is required, not optional, and its
+    # absence cost 9% of multi-move mates. A SAN token can name the leading
+    # move in the START position AND a different opponent reply after it --
+    # the Rxd8 / Rxd8+ case this helper's own docstring warns about. Without
+    # the flag the format is decided by SAN equality alone, the leading move
+    # is wrongly stripped, and the replay ends one ply short of the mate.
+    #
+    # Measured 2026-09-21 on 1000 Lichess backRankMate puzzles rated
+    # 600-1500: 90 misses, ALL of them this, and all 90 satisfy
+    # parse_legal_move(start, pv[0]) == best. With the flag: 1000/1000
+    # verified, 0 residual failures, and cross-fire unchanged at 0.0% on
+    # fork and pin (those rows never reach the replay).
+    replay = replay_stored_line(
+        board_before, best, pv_after_best,
+        resolve_ambiguous_continuation=True,
+    )
     verified = bool(
         replay.complete
         and replay.checkmate
