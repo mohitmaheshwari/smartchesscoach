@@ -41,6 +41,10 @@ const DiagnosticPuzzles = () => {
   // The answer used to appear and then the board swapped 2s later with no
   // way to move on sooner. The payload is parked here so the reveal can be
   // ended early by the player instead of only waited out.
+  // What the board is actually showing: the player's move, once made,
+  // until the next puzzle replaces it.
+  const [playedFen, setPlayedFen] = useState(null);
+  const [playedSquares, setPlayedSquares] = useState(null);
   const pendingNextRef = useRef(null);
   const advanceTimerRef = useRef(null);
   const [puzzleNumber, setPuzzleNumber] = useState(1);
@@ -213,11 +217,16 @@ const DiagnosticPuzzles = () => {
   };
 
   // ── Convert chessground move to SAN ────────────────────────────
-  const moveToSan = (fen, from, to, promotion) => {
+  // Returns the SAN *and* the position it produces. The FEN used to be
+  // computed here and thrown away, which is why the board never moved: the
+  // player dropped a rook on d2, the request went out, and the rook stayed
+  // where it was until the whole puzzle was replaced.
+  const playMove = (fen, from, to, promotion) => {
     try {
       const board = new Chess(fen);
       const result = board.move({ from, to, promotion: promotion || "q" });
-      return result ? result.san : null;
+      if (!result) return null;
+      return { san: result.san, fenAfter: board.fen(), from, to };
     } catch {
       return null;
     }
@@ -238,6 +247,8 @@ const DiagnosticPuzzles = () => {
       setPuzzleNumber(pending.data.puzzle_number);
     }
     setVerdict(null);
+    setPlayedFen(null);
+    setPlayedSquares(null);
     setSubmitting(false);
   };
 
@@ -247,9 +258,14 @@ const DiagnosticPuzzles = () => {
 
   const handleMove = async (moveData) => {
     if (!puzzle || submitting) return;
-    const san = moveToSan(puzzle.fen, moveData.from, moveData.to, moveData.promotion);
-    if (!san) return;
+    const played = playMove(puzzle.fen, moveData.from, moveData.to, moveData.promotion);
+    if (!played) return;
+    const san = played.san;
 
+    // Show it at once. Waiting for the verdict to come back would make the
+    // board lag the player's own hand by a round trip.
+    setPlayedFen(played.fenAfter);
+    setPlayedSquares([played.from, played.to]);
     setSubmitting(true);
     try {
       const res = await fetch(`${API}/diagnostic/attempt`, {
@@ -544,7 +560,8 @@ const DiagnosticPuzzles = () => {
               className="w-full max-w-[560px] aspect-square mx-auto relative">
               <LichessBoard
                 ref={boardRef}
-                fen={puzzle.fen}
+                fen={playedFen || puzzle.fen}
+                lastMove={playedSquares}
                 orientation={orientation}
                 interactive={!verdict && !submitting}
                 viewOnly={!!verdict || submitting}
