@@ -27,7 +27,7 @@ from services.lesson_continuation import (  # noqa: E402
     BEAT_PROMOTION_MATE,
     BEAT_ROOK_TO_SHIELD_RANK,
     _beat_coaching,
-    _shield_rank,
+    shield_rank_for,
     _stockfish_path,
     build_continuation,
     detect_beat,
@@ -60,9 +60,44 @@ def test_a_rook_move_along_the_fourth_rank_is_not_a_fresh_beat():
     assert detect_beat(before, move, after, learner) is None
 
 
-def test_shield_rank_is_the_fourth_for_white_and_fifth_for_black():
-    assert _shield_rank(chess.WHITE) == 3   # 0-indexed rank 4
-    assert _shield_rank(chess.BLACK) == 4   # 0-indexed rank 5
+def test_the_shield_rank_comes_from_the_pawn_not_a_constant():
+    """"The fourth rank" is Lucena's rule and only holds because Lucena has a
+    pawn one square from promoting with its own king in front."""
+    board = chess.Board(LUCENA)
+    assert shield_rank_for(board, chess.WHITE) == 3   # 0-indexed rank 4
+
+    # Mirrored: Black pawn on the 2nd, own king in front -> rank 5.
+    mirrored = chess.Board("4r3/8/8/8/8/8/3p1K2/3k4 b - - 0 1")
+    assert shield_rank_for(mirrored, chess.BLACK) == 4
+
+
+def test_no_shield_rank_without_a_pawn_near_promotion():
+    """Philidor has no advanced pawn, and the rule does not apply there."""
+    philidor = chess.Board("8/8/8/3k4/8/8/r7/3K1R2 w - - 0 1")
+    assert shield_rank_for(philidor, chess.WHITE) is None
+
+
+def test_no_shield_rank_when_the_king_is_not_in_front_of_the_pawn():
+    board = chess.Board("8/3P4/8/8/8/8/r7/3K1R2 w - - 0 1")
+    assert shield_rank_for(board, chess.WHITE) is None
+
+
+def test_the_shield_beat_does_not_fire_on_philidor():
+    """It did. Ra5+ on philidor[0] was captioned "it is not attacking
+    anything yet" -- on a move that gives check, in a lesson about a
+    different technique entirely."""
+    fen = "8/8/8/3k4/8/8/r7/3K1R2 w - - 0 1"
+    before, move, after, learner = _apply(fen, "Rf5+")
+    assert detect_beat(before, move, after, learner) != BEAT_ROOK_TO_SHIELD_RANK
+
+
+def test_the_shield_beat_does_not_fire_on_a_checking_move():
+    """Preparing and attacking are different claims."""
+    board = chess.Board(LUCENA)
+    assert shield_rank_for(board, chess.WHITE) == 3
+    before, move, after, learner = _apply(LUCENA, "Re4")
+    assert detect_beat(before, move, after, learner) == BEAT_ROOK_TO_SHIELD_RANK
+    assert not after.is_check()
 
 
 def test_a_defender_check_is_a_beat():
