@@ -472,7 +472,7 @@
     "lessons": {
       "lucena": {
         "name": "Shield the King from Checks (Lucena)",
-        "rule": "Put your Rook on the fourth rank, move the King out, then use the Rook as a shield against checks.",
+        "rule": "You know it is this position when three things are true: your pawn is one square from promoting, your own King is stuck in front of it, and the enemy Rook keeps checking you from the side. Your King cannot step aside, because the checks never stop. The answer is to give the King a shield: put your Rook on the fourth rank first, walk the King out, and when the check comes, the Rook steps in front of it.",
         "description": "When your pawn is one step from promotion and the enemy Rook checks from the side, build a shield: your Rook blocks the checks so the King can escape.",
         "positions": [
           {
