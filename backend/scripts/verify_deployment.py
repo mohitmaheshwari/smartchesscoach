@@ -581,8 +581,34 @@ def check_complete_coaching_journey(
             # The start response does not expose the served position, but the
             # respond verdict does, so the retry below reads the FEN the server
             # itself just reported rather than guessing at the payload shape.
+            # NEVER submit a move that is illegal in the served position.
+            # A legal-but-wrong answer leaves current_index alone, so the
+            # session survives and can be answered again. An ILLEGAL move is
+            # scored "unmeasured", and
+            #
+            #     next_index = index + 1 if (correct or blind or unmeasured)
+            #
+            # advances past the end of a one-item lesson, exhausting the
+            # session on the very first submission. The pinned fixture move
+            # goes stale whenever the community pool rotates the item, so
+            # submitting it blindly burned the gate's own fixture on every
+            # run and left nothing to retry against.
+            item_fen = str(((session.get("current_item") or {}).get("fen")) or "")
             submitted_move = str(fixture["move"])
-            item_fen = ""
+            if item_fen:
+                try:
+                    import chess as _chess
+                    _board = _chess.Board(item_fen)
+                    if _chess.Move.from_uci(submitted_move) not in _board.legal_moves:
+                        _legal = next(iter(_board.legal_moves), None)
+                        if _legal is not None:
+                            detail.append(
+                                f"Pinned fixture move {submitted_move} is not legal in "
+                                f"the served position; probing with {_legal.uci()}"
+                            )
+                            submitted_move = _legal.uci()
+                except Exception as exc:
+                    detail.append(f"Could not validate the fixture move: {exc}")
 
             interaction_id = (
                 "phase8-deploy-"
@@ -610,60 +636,60 @@ def check_complete_coaching_journey(
             verdict = responded.json()
             retried = False
             if verdict.get("correct") is not True:
-                # The fixture pins ONE move, but the lesson serves whatever
-                # the community pool picks, so the pinned move goes stale on
-                # its own and turns every deploy red for a reason that has
-                # nothing to do with the release. Observed twice: "f5e5"
-                # against a position with nothing on f5 (2026-09-16), then
-                # "h8g8" (2026-09-21).
+                # Finding the accepted move is genuinely awkward, and both
+                # previous repairs got it wrong, so this states the whole
+                # shape of the problem:
                 #
-                # The previous repair re-derived a move with
-                # grade_destination_safety_candidate, under a comment
-                # claiming it was "the SAME grader the endpoint uses". It is
-                # not. On 2026-09-21 that grader offered h8g8 because the
-                # rook is safe there, while the endpoint wanted exd4 and
-                # replied "your rook is safe on g8, so the piece-safety part
-                # is right -- this move gives something else away". Two
-                # graders, one printed question. A gate has to be graded by
-                # the thing it is gating.
+                #  * The fixture pins ONE move but the pool rotates the item,
+                #    so the pinned move goes stale on its own ("f5e5" with
+                #    nothing on f5, then "h8g8", then illegal again).
+                #  * Re-deriving it with grade_destination_safety_candidate
+                #    used a DIFFERENT grader from the endpoint's; it offered
+                #    h8g8 while the endpoint wanted exd4.
+                #  * `answer_uci` is only populated at the "guide" stage
+                #    (reveal_answer = not correct and stage == "guide"), so
+                #    reading it works at one stage and returns None at the
+                #    next.
                 #
-                # So: ask the server. The verdict names its own answer for
-                # the position it actually served.
-                for _ in range(3):
-                    item_fen = str(((verdict.get("next_item") or {}).get("fen")) or "")
-                    answer_uci = str(verdict.get("answer_uci") or "")
-                    if answer_uci:
-                        submitted_move = answer_uci
-                    else:
-                        # The pinned move was ILLEGAL in the served position,
-                        # and the server will not name an answer for a move it
-                        # could not even play -- it replies "That move is not
-                        # legal here" with answer_uci=None. So play any legal
-                        # move first, purely to obtain a real grading, which
-                        # does name the answer. Measured 2026-09-21: this is
-                        # why reading answer_uci alone still failed.
-                        if not item_fen:
-                            break
-                        try:
-                            import chess as _chess
-                            _legal = next(iter(_chess.Board(item_fen).legal_moves), None)
-                        except Exception as exc:
-                            detail.append(f"Could not read the served position: {exc}")
-                            break
-                        if _legal is None:
-                            break
-                        submitted_move = _legal.uci()
+                # What is always true is that the endpoint itself can say
+                # yes or no. So ask it, over the legal moves, until it says
+                # yes. One grader, no second implementation to drift, and it
+                # keeps this an end-to-end test of the real grading path.
+                #
+                # Safe to iterate: a legal-but-wrong answer leaves
+                # current_index alone, so the session is not consumed. Only
+                # an "unmeasured" attempt advances it, which is why the
+                # pinned move is validated for legality before submission.
+                item_fen = item_fen or str(
+                    ((verdict.get("next_item") or {}).get("fen")) or ""
+                )
+                candidates = []
+                hinted = str(verdict.get("answer_uci") or "")
+                if hinted:
+                    candidates.append(hinted)   # the guide stage tells us outright
+                if item_fen:
+                    try:
+                        import chess as _chess
+                        candidates.extend(
+                            m.uci() for m in _chess.Board(item_fen).legal_moves
+                        )
+                    except Exception as exc:
+                        detail.append(f"Could not read the served position: {exc}")
+                seen_candidates = set()
+                for candidate in candidates:
+                    if candidate in seen_candidates or candidate == submitted_move:
+                        continue
+                    seen_candidates.add(candidate)
+                    submitted_move = candidate
                     interaction_id = (
                         "phase8-deploy-"
                         + hashlib.sha256(
                             (session_id + submitted_move).encode("utf-8")
                         ).hexdigest()[:24]
                     )
-                    # Rebound so the idempotency and evidence checks below
-                    # assert against the submission that actually counted.
-                    # The earlier version left them pointing at the stale
-                    # pinned move, so even a successful retry failed the
-                    # duplicate comparison.
+                    # Rebound so the idempotency and evidence assertions
+                    # below check the submission that actually counted; the
+                    # earlier version left them on the stale pinned move.
                     response_payload = {
                         "session_id": session_id,
                         "move": submitted_move,
@@ -683,14 +709,15 @@ def check_complete_coaching_journey(
                     if verdict.get("correct") is True:
                         detail.append(
                             "Pinned fixture move was stale for the served "
-                            f"position; used the server's own answer {submitted_move}"
+                            f"position; the endpoint accepted {submitted_move}"
                         )
                         break
                 if verdict.get("correct") is not True:
                     raise ValueError(
-                        f"Fixture move {submitted_move} did not receive a correct "
-                        f"verdict in position {item_fen or '(unknown)'} "
-                        f"(retried={retried}): {verdict}"
+                        f"No legal move was accepted in position "
+                        f"{item_fen or '(unknown)'} after trying "
+                        f"{len(seen_candidates)} candidate(s) (retried={retried}): "
+                        f"{str(verdict)[:400]}"
                     )
             duplicate = requests.post(
                 respond_url,
