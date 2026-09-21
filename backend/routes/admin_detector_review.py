@@ -604,30 +604,34 @@ def _produce_simple_hang(move, colour, analysis):
 
 
 def _discovered_attack_caption(board, best_move, facts, played=None):
-    """Say why the player's eye went somewhere else, not what the board shows.
+    """Teach the attack, not the position, and never the defence.
 
-    Mohit: "we in these captions are only telling what's on the board, why
-    users missed this, not that."
+    Mohit, killing my previous version outright: "it is an attack and you are
+    sounding like a defence, even if my knight was not in attack, it was
+    still the best move, because it gives me an opportunity to create a
+    discovered attack."
 
-    That is the whole defect. Every earlier version opened by narrating the
-    position -- "Qb5 attacks their bishop on c5, and frees your bishop on g2
-    to hit the rook" -- which is exactly what the two arrows already draw.
-    The one thing the board cannot show is why the player did not see it, and
-    that is the only part worth spending words on.
+    He is right and the error was causal, not verbal. I had measured that in
+    47% of these positions the piece that must move was already under attack,
+    and turned that into the reason -- "your move was about saving it". It is
+    not the reason. The engine picks the move because it creates the attack;
+    the piece being attacked is incidental, and true or not the move is best.
+    Leading with it makes an attacking idea read as damage control.
 
-    The cause is derivable, not guessed. Measured over the 197 indexed claims:
+    What actually makes the motif strong, in his words: the attack comes from
+    a piece that did NOT move. That is also exactly why it is missed by both
+    sides -- people judge a move by what the moved piece does on its new
+    square, and here the value is in what it stopped blocking. One sentence
+    covers the player's miss and the opponent's.
 
-       48.7%  the piece that had to move was ALREADY under attack
-       20.3%  nothing obviously pulling the eye
-       15.7%  they FOUND it -- opened the line, then chose a worse square
-        9.1%  busy taking something
-        6.1%  busy saving a different piece
+    And the second half: the piece that moves can attack something too, so
+    the opponent has two attacks and one move to answer them.
 
-    The 15.7% matter most for trust: those players did not miss a discovered
-    attack at all. They opened the line and picked the weaker square, so
-    "look for lines through your own pieces" is advice they had already
-    taken, and a caption that said it would be telling them to do the thing
-    they just did.
+    So the shapes here are attacking shapes, not diagnoses of the position:
+      - the mover attacks something too   -> two attacks, they answer one
+      - the mover gives check             -> the check has to come first
+      - the mover attacks nothing         -> the pure discovery
+      - they already opened the line      -> right idea, idle square
     """
     try:
         mv = board.parse_san(str(best_move))
@@ -648,98 +652,92 @@ def _discovered_attack_caption(board, best_move, facts, played=None):
     me = board.turn
     blocker_word = chess.piece_name(blocker.piece_type)
     gives_check = after.is_check()
-    with_check = " with check" if gives_check else ""
 
-    # What the discovery is worth saying about, in one clause. The arrows
-    # draw the line; this only has to name its two ends.
-    opens = f"opens your {attacker} onto their {target}"
+    # The lesson, identical everywhere, because it is the same lesson: a move
+    # is not only what the piece does where it lands.
+    LESSON = ("Ask what a move stops blocking, not just where it lands.")
 
-    played_mv = None
+    # Does the moving piece ALSO hit something they cannot simply take back?
+    # Same gate as before: distinct from the uncovered target, and either
+    # undefended or worth more than the piece attacking it -- otherwise "two
+    # attacks" is a threat they answer by recapturing.
+    mover = after.piece_at(mv.to_square)
+    struck = None
+    best_value = 0
+    for square in after.attacks(mv.to_square):
+        occupant = after.piece_at(square)
+        if occupant is None or occupant.color == me:
+            continue
+        if occupant.piece_type == chess.KING:
+            continue
+        if chess.square_name(square) == target_sq:
+            continue          # one target hit twice is not two attacks
+        value = PIECE_VALUE_CP.get(occupant.piece_type, 0)
+        if value < PIECE_VALUE_CP[chess.KNIGHT]:
+            continue
+        mover_value = PIECE_VALUE_CP.get(mover.piece_type, 0) if mover else 0
+        if after.attackers(not me, square) and value <= mover_value:
+            continue
+        if value > best_value:
+            best_value = value
+            struck = chess.piece_name(occupant.piece_type)
+
+    # ---- They already opened the line, on an idle square -------------------
+    # Not a miss of the motif: they found it. The error is that the piece
+    # which left did nothing on the way, which is Mohit's second half.
     if played:
         try:
             played_mv = board.parse_san(str(played))
         except Exception:  # noqa: BLE001
             played_mv = None
+        if played_mv is not None and played_mv.from_square == mv.from_square:
+            probe = board.copy(stack=False)
+            probe.push(played_mv)
+            try:
+                already = chess.parse_square(attacker_sq) in probe.attackers(
+                    me, chess.parse_square(target_sq))
+            except ValueError:
+                already = False
+            if already:
+                if board.is_capture(mv):
+                    edge = "takes material on the way"
+                elif gives_check:
+                    edge = "leaves with check"
+                elif struck:
+                    edge = f"attacks their {struck} as it goes"
+                else:
+                    edge = "does more on the way out"
+                return (f"You did open the line -- your {attacker} hit their "
+                        f"{target} either way. The {blocker_word} just left "
+                        f"on a quiet square. {best_move} opens the same line "
+                        f"and {edge}. When you open a line, make the "
+                        "piece that leaves attack something too.")
 
-    # ---- 1. They FOUND it and picked a worse square (15.7%) ----------------
-    if played_mv is not None and played_mv.from_square == mv.from_square:
-        probe = board.copy(stack=False)
-        probe.push(played_mv)
-        try:
-            already_open = chess.parse_square(attacker_sq) in probe.attackers(
-                me, chess.parse_square(target_sq))
-        except ValueError:
-            already_open = False
-        if already_open:
-            # Measured across these 31: 11 capture on the way out, 9 leave
-            # with check, 8 hit a second piece, 3 have no edge the board
-            # shows. The last 3 get wording that does not invent one.
-            extra_hit = None
-            for square in after.attacks(mv.to_square):
-                occupant = after.piece_at(square)
-                if (occupant and occupant.color != me
-                        and occupant.piece_type != chess.KING
-                        and chess.square_name(square) != target_sq
-                        and PIECE_VALUE_CP.get(occupant.piece_type, 0)
-                        >= PIECE_VALUE_CP[chess.KNIGHT]):
-                    extra_hit = chess.piece_name(occupant.piece_type)
-                    break
-            if board.is_capture(mv):
-                edge = f"{best_move} takes material on the way out{with_check}"
-            elif gives_check:
-                edge = f"{best_move} leaves with check"
-            elif extra_hit:
-                edge = f"{best_move} hits their {extra_hit} as it goes"
-            else:
-                edge = f"{best_move} does more with the same idea"
-            return (f"You did open the line -- your {attacker} hit their "
-                    f"{target} either way. The miss was which square you "
-                    f"sent it to: {edge}. When you open a line, the piece "
-                    "that leaves should do damage too.")
+    # ---- Two attacks from one move ----------------------------------------
+    if struck:
+        return (f"{best_move} attacks their {struck}, and the {attacker} "
+                f"behind it now hits their {target}. Two attacks from one "
+                "move, and they can only answer one. The second one comes "
+                f"from a piece that never moved. {LESSON}")
 
-    # ---- 2. The piece that had to move was already attacked (48.7%) -------
-    # The best lesson in the whole set. The player is asking "how do I save
-    # this?" when the board is asking "where should it go?" -- and the answer
-    # to the second question was free.
-    if board.is_attacked_by(not me, mv.from_square):
-        if blocker.piece_type == chess.KING:
-            # 3 cards where the "blocker" is the king, which means the player
-            # was in check. "Ask where it should go" is the wrong lesson when
-            # the move is forced -- but WHICH square is still a free choice,
-            # and that is the lesson.
-            return (f"You were in check, so the king had to move and it felt "
-                    f"like no choice at all. {best_move} was one of the legal "
-                    f"squares, and it {opens}. Even a forced king move is "
-                    "still a choice of square.")
-        return (f"Your {blocker_word} was under attack, so your move was "
-                f"about saving it. {best_move} moves it{with_check} and "
-                f"{opens}. When a piece of yours is attacked, do not only ask "
-                "how to save it -- ask where it should go.")
+    # ---- The mover checks; the check has to be dealt with first ------------
+    if gives_check:
+        return (f"{best_move} gives check, and the {attacker} behind it now "
+                f"hits their {target}. They have to answer the check first. "
+                "The threat they did not see comes from a piece that never "
+                f"moved. {LESSON}")
 
-    # ---- 3. Busy taking something (9.1%) ----------------------------------
-    if played_mv is not None and board.is_capture(played_mv):
-        # "taking something", not "taking a piece": board.is_capture() counts
-        # pawn captures, and to this audience "a piece" reads as not-a-pawn.
-        return (f"You were busy taking something, and a capture is the easiest "
-                f"thing on the board to see. {best_move} was bigger -- it "
-                f"{opens}{with_check}. Before you take something, check what "
-                "your own pieces are already aimed at.")
-
-    # ---- 4. Busy saving a different piece (6.1%) --------------------------
-    if played_mv is not None and board.is_attacked_by(not me,
-                                                      played_mv.from_square):
-        return (f"You were saving a piece that was under attack, and that "
-                f"took the whole move. {best_move} {opens}{with_check}. When "
-                "you answer a threat, look for the answer that makes a threat "
-                "of its own.")
-
-    # ---- 5. Nothing was pulling the eye (20.3%) ---------------------------
-    # Only here is the search itself the diagnosis, so only here is it the
-    # lesson. Mohit's framing, kept verbatim: start from the scarce end.
-    return (f"Nothing was forcing your eye anywhere, and the line was hidden "
-            f"behind your own {blocker_word}. {best_move} {opens}"
-            f"{with_check}. Start with their queen and rooks and ask what of "
-            "yours is aimed at them, even through your own pieces.")
+    # ---- The pure discovery: all of the value is in the piece that stayed --
+    # NOT "attacks nothing by itself". Three of these are Nxe4 and Ncxd4 --
+    # captures. The mover can also be attacking a defended piece of equal
+    # value, which is no threat but is certainly an attack. Asserting where
+    # the threat comes FROM is true in every case and is the lesson anyway.
+    mover_word = chess.piece_name(mover.piece_type) if mover else blocker_word
+    return (f"The threat after {best_move} is not the {mover_word} that "
+            f"moved -- it is the {attacker} behind it, now hitting their "
+            f"{target}. That is what makes these hard to meet: the danger "
+            "comes from the piece that stayed still, so nobody is watching "
+            f"it. {LESSON}")
 
 
 def _fork_caption(board, best_move, facts):
