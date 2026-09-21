@@ -367,7 +367,8 @@ def _allowed_mate_caption(move, evidence, colour):
     # player-facing caption path reads too. This route used to decide both,
     # which is why back-rank captions Mohit had approved never showed up on a
     # game review: two caption paths describing one position.
-    from services.mate_lesson import lesson_text, mate_lesson_id
+    from services.mate_lesson import (escape_square_note, lesson_text,
+                                      mate_lesson_id)
 
     _att = [mating.from_square] + [chess.parse_square(q) for _, q in supporters]
     lesson = mate_lesson_id(
@@ -388,10 +389,22 @@ def _allowed_mate_caption(move, evidence, colour):
     rule = lesson_text(lesson) or ""
     # The only fact worth a word: that it is mate, and in how many. Which
     # pieces, which squares, which exits were shut -- all drawn.
-    caption = f"That was {mate_word}. {rule}"
-    if len(caption.split()) > 60:
-        caption = rule
-    return caption
+    #
+    # Plus the count Mohit asked for twice. The old fallback here was
+    # `caption = rule`, which drops whatever was added most recently -- the
+    # same trap that ate the discovered-attack principle this morning. So the
+    # note sheds its habit clause before it sheds itself.
+    note = escape_square_note(before)
+    candidates = [f"That was {mate_word}. {rule}"]
+    if note:
+        candidates = [f"That was {mate_word}. {note[0]} {rule}",
+                      f"That was {mate_word}. {note[1]} {rule}",
+                      f"{note[1]} {rule}",
+                      f"That was {mate_word}. {rule}"]
+    for caption in candidates:
+        if len(caption.split()) <= 60:
+            return caption
+    return rule
 
 
 def _escape_ring(evidence):

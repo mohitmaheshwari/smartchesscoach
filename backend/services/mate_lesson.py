@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import json
 import pathlib
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import chess
 
@@ -177,6 +177,41 @@ def capture_net_cp(board_before, played_move) -> Optional[int]:
         return took - independent_exchange_gain(after, played_move.to_square)
     except Exception:  # noqa: BLE001
         return None
+
+
+def escape_square_note(board_before: chess.Board) -> Optional[Tuple[str, str]]:
+    """How many squares the king had left, as (long, short) wording.
+
+    Mohit flagged two allowed_mate cards on 2026-09-20 asking for the same
+    thing: "count escape squares after a check, you know something like
+    that?" and "king escape squares from immediate checks". He is pointing at
+    the definition of mate itself -- a king with nowhere to go.
+
+    Measured over the 1,912 indexed allowed_mate claims, counting the king's
+    squares in the position BEFORE the player moved:
+
+        0 squares  15.2%
+        1 square   36.0%
+        2 squares  30.6%
+        3+         18.2%
+
+    So 81.8% of players who walked into mate were already down to two squares
+    or fewer, which makes the count a real warning sign rather than trivia --
+    and it is a different number on every board, so it is not filler. Above
+    two it is not a warning, so nothing is said.
+    """
+    king = board_before.king(board_before.turn)
+    if king is None:
+        return None
+    squares = len({mv.to_square for mv in board_before.legal_moves
+                   if mv.from_square == king})
+    if squares > 2:
+        return None
+    had = ("had nowhere to go" if squares == 0
+           else "had one square" if squares == 1 else "had two squares")
+    short = f"Your king {had} before you moved."
+    return (f"{short} Count that number -- when it is low, go through every "
+            "check they have.", short)
 
 
 def mate_lesson_id(

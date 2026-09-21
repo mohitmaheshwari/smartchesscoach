@@ -326,7 +326,7 @@
     "opp_already_lost_pN": "{played_san} cannot stop your mate in {ply}. Calculate every check to the end.",
     "opp_already_lost": "{played_san} cannot stop your forced win. Calculate every check to the end.",
     "user_allows_back_rank": "Your own pawns sealed the first rank and left your king nowhere to go -- that is a back-rank mate. Push one early to make air, long before a rook gets there.",
-    "user_allows_in_check": "You were in check and a way out existed. In check, play each legal answer out to the end -- the first move that stops the check is not always the one that survives.",
+    "user_allows_in_check": "You were in check and a way out existed. The first move that stops a check is not always the one that survives -- play each one out.",
     "user_allows_opponent_plan": "Those pieces did not arrive by accident -- every move your opponent makes is part of a plan. Find theirs before you follow your own.",
     "user_allows_mate_threatened": "Mate was already on the board before you moved, and you played elsewhere. Before your own plan, ask what they can do to your king right now.",
     "user_allows_win_a_piece": "When you are about to win a piece, check your own king first.",
