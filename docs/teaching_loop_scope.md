@@ -88,10 +88,14 @@ record of having taught is an unbounded counter with no per-event time.
 Two consequences:
 
 - **No before/after cut.** There is no boundary to measure across.
-- **No opportunity denominator at the teaching boundary.** A concept can
-  look mastered because it stopped coming up. `user_pattern_events` already
-  carries `opportunity` per move, so the denominator exists — it just cannot
-  be split into before-we-taught-it and after.
+- **No denominator at the teaching boundary.** A concept can look mastered
+  because it stopped coming up. The denominator does exist — but it is
+  `outcome`, not the `opportunity` flag. Measured 2026-09-21: `opportunity`
+  is present on only **7,723 of 121,651 rows (6.3%)**, because it was added
+  recently (`12c50da0`). `outcome` is on 100%: 72,643 `hit`, 48,948 `miss`,
+  60 `unknown`. Every row is an occasion where the concept came up and the
+  user either got it right or did not, which is the denominator we want. It
+  simply cannot be split into before-we-taught-it and after.
 
 ### Why a new collection, and not an existing one
 
@@ -170,7 +174,9 @@ against a real destination instead of in the abstract.
   of a stored card must not double-count
 - `concept_mastery_tracker` reads `first_taught_at` and additionally writes
   `opportunities_before` / `violations_before` / `opportunities_after` /
-  `violations_after`, sourced from `user_pattern_events.opportunity`
+  `violations_after`, with the denominator taken as
+  `user_pattern_events.outcome in {hit, miss}` — **not** the `opportunity`
+  flag, which is only on 6.3% of rows
 - Delete `services/mastery_gate_service.py` and its two comment references
 - Backfill: `first_taught_at` cannot be reconstructed, because the counter
   has no history. Existing rows get `first_taught_at: null` and are excluded
@@ -199,8 +205,8 @@ falsifiable on Mohit's own account, without a single new user:
    `concept_taught_events` row. Verified by re-rendering one game twice and
    asserting the row count does not change.
 2. For a concept taught 10 or more games ago, the tracker returns a
-   before/after rate over `user_pattern_events.opportunity`, with both
-   denominators greater than zero.
+   before/after rate over `user_pattern_events.outcome in {hit, miss}`, with
+   at least 10 events on the **after** side (see Q3, now answered).
 3. `mastery_gate_service.py` is gone and the deploy gate stays green.
 4. Zero change to any rendered caption — diffed through the real render path
    (`generate_game_decryption_v5`), not by reading the code.
@@ -225,18 +231,37 @@ number. Not live.
 - *Unblocking step:* measure renders per game on each surface before
   deciding.
 
-**Q3. What is the minimum opportunity count before a before/after rate is
-shown to anyone?**
+**Q3. What is the minimum event count before a before/after rate is shown
+to anyone? — ANSWERED 2026-09-21, still needs Mohit's lock.**
 
-- *Why unresolved:* picking it now would violate the standing rule against
-  choosing a threshold before seeing the distribution.
-- *Unblocking step:* histogram `opportunity` counts per (user, concept) over
-  the existing ~121k `user_pattern_events` rows. Cheap. Do it before locking.
+Histogram over all 121,651 `user_pattern_events` rows, grouped by
+(user_id, concept_id) — 371 pairs:
+
+```
+  min=1   p25=3   p50=11   p75=58   p90=425   max=13087
+
+  pairs with >=  5 events:  245  (66.0%)
+  pairs with >= 10 events:  192  (51.8%)
+  pairs with >= 20 events:  150  (40.4%)
+  pairs with >= 30 events:  135  (36.4%)
+  pairs with >= 50 events:  107  (28.8%)
+```
+
+**Recommendation: 10, applied to the AFTER side only, not to the total.**
+The median pair sits at 11, so 10 keeps about half the pairs while still
+being enough events for a rate to mean anything. Applying it to the total
+would be wrong: a pair with 40 events that was taught last week has ~2
+events after the boundary, and a rate over 2 events is noise wearing a
+percentage sign. The gate is "at least 10 events since we taught it."
+
+Caveat on this distribution: the pair counts are heavily skewed (max
+13,087), so the mid-percentiles are the honest part of it and the tail is
+one or two users. Worth re-running once more accounts have analyzed games.
 
 ## 7. Pre-code requirements
 
 - [ ] Mohit signs off on this document
-- [ ] Q3 histogram run, threshold locked via `/lock-via-data`
+- [x] Q3 histogram run (2026-09-21). Threshold **10 on the after side** proposed — needs Mohit's lock
 - [ ] Q1 and Q2 answered
 - [ ] Confirm no consumer treats `user_concept_understanding.shown_count` as
       a proxy for teaching events. `routes/coach.py:2180` sums it — check
@@ -256,5 +281,6 @@ All verified on `origin/working-code` @ `83d2cc1b`, 2026-09-21.
 | `shown_count` is load-bearing | `game_decryption_v5_service.py:3569`, `v5_learning_tracker.py:296` |
 | `user_pattern_events` cannot host taught rows | `pattern_event_logger.py:203-211` — one outcome per `(user, game, move, concept)` |
 | `taught_events` is not an existing concept | 0 refs, against 29 / 113 / 62 for the three real collections |
-| `opportunity` denominator exists | `pattern_event_logger.build_event` writes `"opportunity": bool(...)` |
+| `opportunity` is NOT a usable denominator | present on 7,723 of 121,651 rows (6.3%); added recently in `12c50da0` |
+| `outcome` IS the usable denominator | on 100% of rows: 72,643 `hit` / 48,948 `miss` / 60 `unknown` |
 | mastery runs per analyzed game | `analysis_worker.py` calls `update_user_mastery_for_game` |
