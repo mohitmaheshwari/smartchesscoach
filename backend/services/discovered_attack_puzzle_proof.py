@@ -366,6 +366,20 @@ def _initiator_plies(
         return plies
     initiator = board_before.turn
     line = list(replay.replayed_uci)
+    # Hand the best move the SAME line, written unambiguously.
+    #
+    # A stored continuation may or may not repeat the leading move, and a SAN
+    # token can read as both -- `stored_line_verifier` names Rxd8 / Rxd8+ as
+    # the case. Its cheap normalizer guesses; the resolving one tries both
+    # readings and keeps the one that is legal all the way through. The walk
+    # above already asked the resolving one, so passing the raw tokens on to
+    # the payoff made the proof re-ask the cheap one and lose lines the walk
+    # had just replayed in full. 19 of the 48 remaining "shape present,
+    # payoff refused" misses on 600 puzzles were exactly that, with the
+    # no-flag replay stopping dead on ply 1 of a line the flagged replay
+    # completed. Nothing is loosened -- it is the same stored line, and the
+    # raw tokens still stand when the resolving replay cannot complete.
+    plies[0] = (board_before.copy(stack=False), best, tuple(line[1:]), 0)
     board = board_before.copy(stack=False)
     for index, uci in enumerate(line):
         try:
