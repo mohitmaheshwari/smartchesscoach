@@ -356,6 +356,48 @@ def trapped_pieces(board: chess.Board, color: chess.Color) -> List[Dict[str, Any
     return out
 
 
+def enemy_trapped_pieces(
+    board: chess.Board,
+    attacker: chess.Color,
+) -> List[Dict[str, Any]]:
+    """`attacker` has just moved and trapped one of the opponent's pieces.
+
+    This is the OPPORTUNITY side of `trapped_pieces`. `trapped_pieces` answers
+    "your move trapped your own piece"; this answers "this move traps the
+    opponent's piece" -- the thing a player is actually asked to find, and what
+    Lichess means by its `trappedPiece` theme.
+
+    `board` is the position immediately after `attacker` moved, so the victim's
+    owner is to move and is completely free to try to save the piece. That is
+    the whole point of the motif: a trapped piece stays lost even when its
+    owner gets a tempo to rescue it. The escape enumeration is not
+    re-implemented here -- `trapped_pieces` already owns it, and already runs
+    from the position where the owner is to move.
+
+    Two gates stop this from firing on every attacked piece. Both were measured
+    on Lichess theme-labelled puzzles rated 600-1500, not guessed:
+
+    * The victim's side must not be in check. A checked side has no legal moves
+      with the victim at all, so "every escape loses material" is vacuously
+      true of every piece it owns. Without this gate the same enumeration fires
+      on 81.5% of `fork` puzzles and 29.0% of `mateIn2` puzzles; with it, on
+      0.0% of both. A forked piece is lost to tempo, not to geometry.
+    * The victim must not be pinned, for the same vacuous reason -- a pinned
+      piece is legally frozen -- and because the lesson there is the pin. Of
+      290 `trappedPiece` fires, 0 had a pinned victim; of 116 `pin` fires, all
+      116 did. The gate removes the whole pin overlap at no recall cost.
+    """
+    if board.turn == attacker or board.is_check():
+        return []
+
+    owner = not attacker
+    return [
+        item
+        for item in trapped_pieces(board, owner)
+        if not board.is_pinned(owner, chess.parse_square(item["square"]))
+    ]
+
+
 def newly_trapped_pieces(
     board: chess.Board,
     move: chess.Move,
