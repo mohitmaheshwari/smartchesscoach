@@ -17,6 +17,7 @@ from services.chess_brain.detector_registry import detect_back_rank
 from services.concept_detectors.evidence import require_nonnegative_cp_loss
 from services.stored_line_verifier import parse_legal_move
 from services.verified_puzzle_admission import DetectorProof, VerifierProof
+from services.mate_lesson import back_rank_seal
 
 
 BACK_RANK_MATE_PROOF_VERSION = "back_rank_mate_puzzle_proof.v1"
@@ -63,7 +64,25 @@ def _independent_back_rank_mate(
     ):
         return None
 
+    # The motif is the king trapped by ITS OWN PAWNS. Everything above is
+    # satisfied by any rook or queen mate delivered along the home rank,
+    # including one where the king's escape squares are covered by ENEMY
+    # pieces -- a fine mate, but not this lesson.
+    #
+    # Measured 2026-09-21 on 1000 Lichess mateIn1 puzzles: the verifier
+    # fired 205 times, and only 82 of those (40%) had the king sealed by
+    # its own pawns. 123 fires were rank mates wearing the wrong name, and
+    # a caption saying "your own pawns trapped your king" would have been
+    # wrong 60% of the time it spoke.
+    #
+    # back_rank_seal already tests exactly this and already lives in
+    # services/mate_lesson.py. It was simply never called from here.
+    seal = back_rank_seal(after, best, king_square, after.turn)
+    if seal < 2:
+        return None
+
     return {
+        "own_pawns_sealing_king": seal,
         "mating_piece": chess.piece_name(checker.piece_type),
         "mating_square": chess.square_name(best.to_square),
         "king_square": chess.square_name(king_square),
