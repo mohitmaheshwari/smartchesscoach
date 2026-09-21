@@ -136,14 +136,41 @@ BEAT_PROMOTION_MATE = "promotion_mate"
 BEAT_MATE = "mate"
 
 
-def _shield_rank(colour: bool) -> int:
-    """The rank a rook is sent to in order to block checks later.
+def shield_rank_for(board: chess.Board, colour: bool) -> Optional[int]:
+    """The rank a rook is sent to so it can block a check later -- or None.
 
-    Rank 4 for White, rank 5 for Black (0-indexed 3 and 4). This is the
-    lesson's own instruction -- "put your Rook on the fourth rank" -- expressed
-    as a square, not as an opinion about the move.
+    NOT a constant. "Put your rook on the fourth rank" is Lucena's rule, and it
+    only holds because Lucena has a pawn one square from promoting: the king
+    walks down to the fifth and the rook interposes one rank below it. Take the
+    pawn away and the number means nothing.
+
+    Hardcoding rank 4 made this fire on Philidor, which has no advanced pawn at
+    all and sends its rook elsewhere for an entirely different reason -- and the
+    lesson then told the player that their CHECKING move "is not attacking
+    anything yet".
+
+    So the rank is derived from the pawn, and this returns None unless the
+    position actually has the shape the rule describes.
     """
-    return 3 if colour == chess.WHITE else 4
+    pawns = [
+        sq for sq in board.pieces(chess.PAWN, colour)
+        if chess.square_rank(sq) == (6 if colour == chess.WHITE else 1)
+    ]
+    king = board.king(colour)
+    if not pawns or king is None:
+        return None
+    for pawn in pawns:
+        in_front = (
+            chess.square_file(king) == chess.square_file(pawn)
+            and chess.square_rank(king)
+            == chess.square_rank(pawn) + (1 if colour == chess.WHITE else -1)
+        )
+        if in_front:
+            return (
+                chess.square_rank(pawn) - 3 if colour == chess.WHITE
+                else chess.square_rank(pawn) + 3
+            )
+    return None
 
 
 def detect_beat(
@@ -176,12 +203,17 @@ def detect_beat(
     ):
         return BEAT_CAPTURED_CHECKER
 
+    shield = shield_rank_for(board_before, learner_colour)
     if (
-        mover == learner_colour
+        shield is not None
+        and mover == learner_colour
         and piece is not None
         and piece.piece_type == chess.ROOK
-        and chess.square_rank(move.to_square) == _shield_rank(learner_colour)
-        and chess.square_rank(move.from_square) != _shield_rank(learner_colour)
+        and chess.square_rank(move.to_square) == shield
+        and chess.square_rank(move.from_square) != shield
+        # A move that gives check is doing something now, not preparing. The
+        # line "it is not attacking anything yet" was printed on Ra5+.
+        and not board_after.is_check()
     ):
         return BEAT_ROOK_TO_SHIELD_RANK
 
