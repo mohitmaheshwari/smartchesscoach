@@ -20,6 +20,7 @@ import ClickableCaption from "@/components/ClickableCaption";
 import TruthHeadline from "@/components/TruthHeadline";
 import PlayerDecryption from "@/components/PlayerDecryption";
 import PatternEvidence from "@/components/PatternEvidence";
+import ConceptTestCard from "@/components/ConceptTestCard";
 import GameMoments from "@/components/GameMoments";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -857,6 +858,30 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     }
   };
 
+  // ── The proof step (docs/teaching_loop_scope.md) ────────────────────
+  // He has walked the whole review, so the teaching is done and it is fair
+  // to ask him to prove it.
+  const reviewFinished = Boolean(
+    decryptionData?.length && currentMoveIndex >= decryptionData.length - 1
+  );
+
+  // The concept this game actually taught. Measured across 12,911 games,
+  // 95% surface exactly one, so taking the first taught concept is the
+  // normal case rather than a simplification. Prefer one the coach flagged
+  // for acknowledgment; that is the concept the review led with.
+  const testableConcept = useMemo(() => {
+    if (!decryptionData?.length) return null;
+    const flagged = decryptionData.find(
+      (m) => m.needs_acknowledgment && (m.concept_id || m.plan?.concept_id)
+    );
+    const source = flagged || decryptionData.find((m) => m.plan?.concept_id);
+    if (!source) return null;
+    return {
+      concept_id: source.concept_id || source.plan?.concept_id,
+      transferable_learning: source.plan?.transferable_learning || "",
+    };
+  }, [decryptionData]);
+
   const goForward = useCallback(() => {
     if (!decryptionData || currentMoveIndex >= decryptionData.length - 1) return;
     resetFutureView();
@@ -1500,6 +1525,17 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             openingAnalysis={coachReview?.opening_analysis}
             patternContext={coachReview?.pattern_context}
             onPlayBestLine={onPlayBestLine}
+          />
+        )}
+
+        {/* The proof step. Appears once he has walked the whole review.
+            Measured over 12,911 games, 95% surface exactly ONE concept, so
+            this is one card and one test, not a pile of them.
+            docs/teaching_loop_scope.md */}
+        {reviewFinished && testableConcept && (
+          <ConceptTestCard
+            conceptId={testableConcept.concept_id}
+            conceptText={testableConcept.transferable_learning}
           />
         )}
 
