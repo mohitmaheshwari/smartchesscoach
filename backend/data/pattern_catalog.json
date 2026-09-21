@@ -291,6 +291,13 @@
       ],
       "alias_of_record": "coach_memory.learning.skills",
       "why_this_concept": "Converting an advantage is endgame technique: push the passed pawn, activate the king, keep the rook active. One record, so the group is the honest answer -- narrowing it to a single concept would invent detail the record does not carry."
+    },
+    "missed_fork": {
+      "human_name": "Fork you could have played",
+      "short_description": "A move that attacks two pieces at once, with any piece — most often a knight.",
+      "family": "Forks",
+      "example_fen": null,
+      "canonical_concept_id": "TAC_FORK_PATTERN"
     }
   }
 }

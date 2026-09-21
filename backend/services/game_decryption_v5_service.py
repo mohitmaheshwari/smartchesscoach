@@ -4026,6 +4026,66 @@ async def generate_game_decryption_v5(
                             fen_before=fen_before,
                             detector_versions={"v5_coaching": V5_COACHING_VERSION},
                         ))
+                    # 2026-09-22 — the LAST WIRE for forks. Deliberately
+                    # NOT a V5_COACHING_VERSION bump: this writes EVENTS,
+                    # not captions, so forcing every stored review to
+                    # re-render would buy nothing. Existing games pick
+                    # these up on re-analysis.
+                    #
+                    # resolve_pattern_ids only ever emits a fork from
+                    # `queen_fork_sub_kind`, which is set by
+                    # simulate_queen_fork_with_check: queen only, and only
+                    # with check. Measured against 2,500 Lichess `fork`
+                    # puzzles rated 600-1500, that is 26.4% of forks --
+                    # knight forks alone are 42% and were invisible to
+                    # coaching entirely. user_pattern_events held 3,850
+                    # queen_fork and 4,925 queen_fork_capture_with_check
+                    # rows and ZERO knight, rook, bishop or pawn forks, so a
+                    # player who never spots a knight fork produced no
+                    # signal at all.
+                    #
+                    # build_fork_proof has covered all five piece types with
+                    # independent payoff verification the whole time; it was
+                    # wired to the admin review page and nothing else. This
+                    # is the wire, not a new detector.
+                    #
+                    # Emitted only when no queen_fork id already fired, so
+                    # the same move is never counted as two missed forks.
+                    if not any(str(_p).startswith("queen_fork")
+                               for _p in _pattern_ids):
+                        try:
+                            import chess as _chess
+                            from services.fork_puzzle_proof import (
+                                build_fork_proof,
+                            )
+                            _bundle = build_fork_proof(
+                                _chess.Board(fen_before), move_san, best_move,
+                                list(pv_after_best or []), cp_loss or 0,
+                            )
+                            if _bundle and getattr(
+                                    getattr(_bundle, "verifier", None),
+                                    "verified", False):
+                                pattern_miss_events.append(build_event(
+                                    user_id=user_id,
+                                    game_id=game_id or "",
+                                    move_number=full_move_number,
+                                    move_san=move_san,
+                                    best_move_san=best_move,
+                                    pattern_id="missed_fork",
+                                    outcome="miss",
+                                    cp_loss=cp_loss or 0,
+                                    fen_before=fen_before,
+                                    detector_versions={
+                                        "v5_coaching": V5_COACHING_VERSION,
+                                        "fork_proof": getattr(
+                                            _bundle, "quality_id", None),
+                                    },
+                                ))
+                        except Exception as _fork_exc:
+                            logger.info(
+                                f"[pattern_events] fork proof failed "
+                                f"m{full_move_number} {move_san}: {_fork_exc}"
+                            )
                 except Exception as _patt_exc:
                     logger.info(
                         f"[pattern_events] collect failed m{full_move_number} "
