@@ -378,6 +378,28 @@ async def start_diagnostic(
 
         if (user.role in ("super_admin", "admin")
                 and _is_admin_email(getattr(user, "email", None))):
+            # Score before abandoning. The first version of this just flipped
+            # the status, which threw away every answer in the session --
+            # Mohit retook the diagnostic and a 20-puzzle run produced no
+            # diagnosis at all. That is the exact defect /exit?checkpoint=true
+            # was written to fix ("34 of 40 production sessions sat stranded
+            # in_progress holding 104 answered puzzles"), reintroduced by a
+            # convenience flag.
+            stale = await db.diagnostic_sessions.find_one(
+                {"user_id": user.user_id, "status": "in_progress"},
+                {"_id": 0},
+            )
+            if stale and (stale.get("attempts") or []):
+                try:
+                    if stale.get("version") == 2:
+                        await apply_diagnosis_v2_to_training(
+                            db, user.user_id, stale)
+                    else:
+                        await apply_diagnosis_to_training(
+                            db, user.user_id, stale.get("attempts", []))
+                except Exception:  # noqa: BLE001
+                    logger.exception(
+                        "force-retake: scoring the previous session failed")
             await db.diagnostic_sessions.update_many(
                 {"user_id": user.user_id, "status": "in_progress"},
                 {"$set": {"status": "abandoned"}},
