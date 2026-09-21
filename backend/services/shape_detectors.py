@@ -453,6 +453,51 @@ def detect_rook_fork(board: chess.Board) -> List[Dict]:
     return out
 
 
+def detect_queen_fork(board: chess.Board) -> List[Dict]:
+    """Own queen has (or could move to) a square hitting >=2 enemy pieces.
+
+    THIS DID NOT EXIST until 2026-09-21, and it is the single biggest hole in
+    our tactical coverage. Measured against Lichess's theme-labelled puzzles:
+    of 700 positions Lichess calls a fork, 217 are queen forks and
+    build_fork_proof found ZERO of them -- 191 of those have two or more
+    valuable targets by our OWN definition. _FORK_DETECTORS was
+    (knight, bishop, rook, pawn) and nobody noticed the queen was absent,
+    because until there was a labelled corpus there was nothing to notice it
+    against.
+
+    Same shape as detect_rook_fork; the only difference is that a queen walks
+    both ray sets. Blockers are respected by _slider_rays_from, pins by
+    legal_moves, and the >=knight-or-king target filter lives in
+    _fork_from_destination -- so a queen "forking" two pawns is not emitted.
+    """
+    us = _own_color(board)
+    dirs = _ORTHO_DIRS + _DIAG_DIRS
+    out: List[Dict] = []
+    for q_sq in board.pieces(chess.QUEEN, us):
+        rays_now = _slider_rays_from(board, q_sq, dirs)
+        forked = _fork_from_destination(board, q_sq, q_sq, rays_now)
+        if forked is not None:
+            out.append(_ev("queen_fork", mover=q_sq, targets=forked,
+                           executing_move=None,
+                           evidence=(f"queen on {chess.square_name(q_sq)} hits "
+                                     f"{len(forked)} pieces")))
+            continue
+        for dest in _legal_destinations(board, q_sq):
+            rays_from_dest = _slider_rays_from(board, dest, dirs,
+                                               ignore_square=q_sq)
+            forked = _fork_from_destination(board, q_sq, dest, rays_from_dest)
+            if forked is None:
+                continue
+            mv = chess.Move(q_sq, dest)
+            if mv not in board.legal_moves:
+                continue
+            out.append(_ev("queen_fork", mover=q_sq, targets=forked,
+                           executing_move=mv,
+                           evidence=(f"queen to {chess.square_name(dest)} hits "
+                                     f"{len(forked)} pieces")))
+    return out
+
+
 def detect_pawn_fork(board: chess.Board) -> List[Dict]:
     """Own pawn has (or could push to) a square from which it attacks
     two enemy pieces of value >= knight simultaneously.
