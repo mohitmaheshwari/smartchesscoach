@@ -1394,10 +1394,32 @@ def _missed_castling_caption(move, colour, fen, played, best):
 
     side_word = "e1" if me == chess.WHITE else "e8"
 
+    # Mohit's note 2: "After 8 moves, king is not castled is a red flag."
+    # True on 68% of these boards, but only 14.8% ever said so, because the
+    # move count was the LAST fallback. It is a supporting fact, not a lead --
+    # opening 68% of captions with it would just be new filler -- so it rides
+    # along inside the sentence that already names the king.
+    still = (f"Your king is still in the middle after {moves_played} moves."
+             if moves_played >= 8 else "Your king is still in the middle.")
+
+    # Mohit's note 3: "queen is on open file, your king is uncastled, too
+    # risky". There was no branch for this at all. The king here is always on
+    # e1/e8 (checked above), so the file is always the e-file: no own e-pawn
+    # means it is at least half-open with the king still sitting on it.
+    # Present on 40.2% of the 778 indexed boards.
+    own_e = [sq for sq in before.pieces(chess.PAWN, me)
+             if chess.square_file(sq) == chess.square_file(king)]
+    their_e = [sq for sq in before.pieces(chess.PAWN, them)
+               if chess.square_file(sq) == chess.square_file(king)]
+    heavy_on_file = [sq for pt in (chess.ROOK, chess.QUEEN)
+                     for sq in before.pieces(pt, them)
+                     if chess.square_file(sq) == chess.square_file(king)]
+
     if sortie_target:
         return (f"One piece cannot attack on its own. Your {chess.piece_name(mover_piece.piece_type)} "
                 f"hits {sortie_target}, but it is already guarded, so nothing comes of it. "
-                f"Meanwhile your king stays in the middle. Castle first, then look for attacks.")
+                f"Meanwhile {still[0].lower()}{still[1:]} "
+                "Castle first, then look for attacks.")
     # Only for a KINGSIDE castle. On a card whose best move is O-O-O the king
     # walks away from f7 and no rook ever covers it, so "castle and the rook
     # guards it instead" is simply false -- caught by rendering card 6
@@ -1410,18 +1432,53 @@ def _missed_castling_caption(move, colour, fen, played, best):
         only_king = len(guards) == 1 and king in guards
         middle = ("Right now only your king guards that square. "
                   if only_king else "")
-        return (f"Their {name} is aiming at {chess.square_name(weak)}. Your king is still in the "
-                f"middle. {middle}Castle, and the rook guards it instead.")
+        return (f"Their {name} is aiming at {chess.square_name(weak)}. "
+                f"{still} {middle}Castle, and the rook guards it instead.")
+    if not own_e:
+        if heavy_on_file:
+            heavy = chess.piece_name(
+                before.piece_at(heavy_on_file[0]).piece_type)
+            return (f"Their {heavy} is already on the same file as your king, "
+                    f"and you have no pawn left in front of it. {still} "
+                    "Castle before that file does any damage.")
+        shut = "open" if not their_e else "half open"
+        return (f"You have no pawn in front of your king any more, so that "
+                f"file is {shut} right at it. {still} Castle now, and get "
+                "off the file before anything arrives on it.")
     if q_out and minors_out >= 1:
-        return ("Their queen is out and their pieces are developed. Your king is still in the "
-                "middle. That is the moment to castle. Get the king safe before you start a plan.")
+        return ("Their queen is out and their pieces are developed. "
+                f"{still} That is the moment to castle. Get the king safe "
+                "before you start a plan.")
     if best and "O-O-O" in str(best):
         return ("Your king is still in the middle and your rook has not moved all game. Castling "
                 "long fixes both. The king goes to safety and the rook comes into the game.")
     if moves_played >= 8:
         return (f"{moves_played} moves gone and your king is still on {side_word}. That is a red "
                 f"flag. Castle now. Every other plan is safer once the king is away.")
-    return None
+    # 71 of 778 cards fell through every branch and said nothing at all.
+    # Silence is the one thing a coaching surface may not do.
+    #
+    # The first draft of this fallback said "nothing is attacking your king
+    # yet" -- false on 7 of them, e.g. a black queen on g5 already covering
+    # d2 next to the white king. So the squares around the king get checked,
+    # and when one of them IS covered that is a better caption than the quiet
+    # one anyway.
+    zone = [sq for sq in chess.SQUARES
+            if chess.square_distance(sq, king) == 1
+            and before.is_attacked_by(them, sq)]
+    if zone:
+        hitter = next((chess.piece_name(before.piece_at(a).piece_type)
+                       for sq in zone for a in before.attackers(them, sq)
+                       if before.piece_at(a)
+                       and before.piece_at(a).piece_type != chess.PAWN), None)
+        if hitter:
+            return (f"Their {hitter} already covers "
+                    f"{chess.square_name(zone[0])}, right next to your king. "
+                    f"{still} Castle, and move the king off the squares they "
+                    "are watching.")
+    return (f"Nothing is attacking your king yet, and that is exactly when "
+            f"castling is cheap. {still} Play it now, before the position "
+            "sharpens.")
 
 
 def _missed_concept(skill_id: str):
