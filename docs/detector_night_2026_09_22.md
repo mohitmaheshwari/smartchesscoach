@@ -15,6 +15,8 @@ code, not the agents' reports — two of them turned out to need that.
 |---|---|---|---|
 | **trappedPiece** | 0.4% | **96.6%** | 0.0% / 0.3% |
 | **capturingDefender** | 34.9% | **72.8%** | 0.3% / 0.3% |
+| **discoveredCheck** | 0.6% | **92.8%** | 0.0% / 0.3% |
+| **discoveredAttack** | 54.0% | **82.9%** | 0.0% / 0.3% |
 | **pin** | 12.5% | **32.2%** | 2.0% / 0.0% |
 | backRankMate | 91.0% | **100.0%** | 0.0% / 0.0% |
 | fork | 66.8% | **79.8%** | 1.7% / — |
@@ -33,7 +35,11 @@ code, not the agents' reports — two of them turned out to need that.
 | clearance | **83.0%** | 6.3% / 1.3% |
 | defensiveMove | **61.9%** | 0.0% / 2.7% |
 
-Coverage went from **4 measurable detectors to 14**.
+Coverage went from **4 measurable detectors to 16**.
+
+`discoveredCheck` was effectively a new capability: 0.6% before, because the
+proof only ever looked at the best move and only ever priced material, and a
+king is worth 0 cp to every winnable-target gate.
 
 ---
 
@@ -55,6 +61,14 @@ precision when they conflict, so here is where each one stops and why.
   empty-square targets — declined because it raised cross-fire on *both*
   controls, and one of the new fires would teach "remove the guard" where the
   lesson is a knight fork.
+- **discoveredAttack 82.9%.** A third of the residue is explicit rulings of
+  yours from 2026-09-19 (target not winnable, target fled, gain below a pawn);
+  another third needs `DISCOVERY_WINNABLE_CP` below 200, which would undo the
+  Nxh7 threshold you read off the distribution. A further ~2.8 points sits in
+  `caption_facts._discovered_attack_evidence`, whose mutual-line SEE gate
+  discards a real discovery — outside the file that agent was scoped to, and
+  duplicating the ray scan would give the detector two disagreeing shape
+  sources.
 - **advancedPawn** fires on 100% and *proves a payoff* on 83.6%. The gap is
   positions where the pawn never queens and the advance wins material instead.
   That claim belongs to the fork and free-piece proofs; admitting it here would
@@ -76,6 +90,14 @@ at 73.3% cross-fire. Gating on "the owner is not in check" takes both controls
 to 0.0%. The same vacuity covered pinned victims: 0 of 290 trapped fires had a
 pinned victim, 116 of 116 pin fires did — a perfect separator at zero recall
 cost.
+
+**Walking the line was the single biggest lever, three times over.** Fork
+66.8% -> 79.8%, discoveredAttack 54.0% -> 82.9%, discoveredCheck 0.6% ->
+92.8% — all by running the same unchanged shape scan at every initiator ply
+of the stored line instead of only at `best_move`. The ply histogram makes
+it plain: of discoveredCheck's 928 fires, **268 land at ply 2 or later** and
+were simply invisible before. No gate was loosened for any of it, which is
+why cross-fire did not move.
 
 **capturingDefender was reading two conditions on the wrong board.** The
 target's second defender is routinely the piece that *recaptures the guard*,
