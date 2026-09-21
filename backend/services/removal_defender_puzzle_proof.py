@@ -7,14 +7,14 @@ from typing import Any, Optional, Sequence
 
 import chess
 
-from services.caption_facts import PIECE_VALUE_CP
+from services.caption_facts import PIECE_VALUE_CP, static_exchange_eval
 from services.concept_detectors.evidence import require_nonnegative_cp_loss
 from services.shape_detectors import detect_remove_the_guard
 from services.stored_line_verifier import parse_legal_move, replay_stored_line
 from services.verified_puzzle_admission import DetectorProof, VerifierProof
 
 
-REMOVAL_PROOF_VERSION = "removal_defender_puzzle_proof.v2"
+REMOVAL_PROOF_VERSION = "removal_defender_puzzle_proof.v3"
 REMOVAL_QUALITY_ID = "tactic:remove_defender_with_stored_payoff"
 
 
@@ -32,6 +32,22 @@ def _independent_removal(
     target_square: int,
     continuation: Sequence[Any],
 ) -> Optional[dict]:
+    """Settle the removal on the board, at the ply the target is taken.
+
+    The claim this proves is the one the coach makes: *that piece was
+    guarding this one; take the guard and the target falls*. Every
+    condition below is therefore read either on the position before the
+    capture or on the position at the moment the target is taken --
+    never on the position before the move for a fact the move creates.
+
+    Two conditions used to be read too early and were wrong for it. A
+    second defender of the target is routinely the piece that recaptures
+    the guard, so it is gone by the payoff. And the attack on the target
+    is often opened BY that recapture, so demanding it in advance threw
+    the line away. What replaces both is a single exchange reading on the
+    payoff position, plus the requirement that removing the guard is what
+    made that exchange work.
+    """
     us = board_before.turn
     them = not us
     defender = board_before.piece_at(defender_square)
@@ -46,20 +62,10 @@ def _independent_removal(
         or PIECE_VALUE_CP.get(target.piece_type, 0) < PIECE_VALUE_CP[chess.KNIGHT]
     ):
         return None
-    defenders = set(board_before.attackers(them, target_square))
-    if defenders != {defender_square}:
+    defenders_before = frozenset(board_before.attackers(them, target_square))
+    if defender_square not in defenders_before:
         return None
-    if not board_before.attackers(us, target_square):
-        return None
-
-    after = board_before.copy(stack=False)
-    after.push(best)
-    remaining_defenders = tuple(sorted(
-        chess.square_name(square)
-        for square in after.attackers(them, target_square)
-    ))
-    if remaining_defenders:
-        return None
+    exchange_before_cp = static_exchange_eval(board_before, target_square, us)
 
     replay = replay_stored_line(
         board_before,
@@ -70,7 +76,7 @@ def _independent_removal(
     if not replay.complete or replay.net_material_gain_cp < PIECE_VALUE_CP[chess.PAWN]:
         return None
     board = board_before.copy(stack=False)
-    target_captured = False
+    payoff: Optional[dict] = None
     target_identity = (target.piece_type, target.color)
     for index, uci in enumerate(replay.replayed_uci):
         move = chess.Move.from_uci(uci)
@@ -87,9 +93,41 @@ def _independent_removal(
                 board.piece_at(target_square).color,
             ) == target_identity
         ):
-            target_captured = True
+            defenders_at_payoff = frozenset(
+                board.attackers(them, target_square)
+            )
+            exchange_at_payoff_cp = static_exchange_eval(
+                board, target_square, us
+            )
+            # One piece clears the guard, another collects. When the
+            # capturing piece walks on to take the target itself,
+            # nothing was "removed" for anybody: that is a two-move
+            # grab, and it is where this proof used to stray into
+            # fork positions.
+            collected_by_the_same_piece = move.from_square == best.to_square
+            if (
+                defender_square not in defenders_at_payoff
+                and not collected_by_the_same_piece
+                and exchange_at_payoff_cp >= 0
+                and exchange_at_payoff_cp >= exchange_before_cp
+            ):
+                payoff = {
+                    "payoff_ply": index,
+                    "payoff_move_uci": uci,
+                    "defenders_before": tuple(sorted(
+                        chess.square_name(square)
+                        for square in defenders_before
+                    )),
+                    "defenders_at_payoff": tuple(sorted(
+                        chess.square_name(square)
+                        for square in defenders_at_payoff
+                    )),
+                    "exchange_before_cp": exchange_before_cp,
+                    "exchange_at_payoff_cp": exchange_at_payoff_cp,
+                }
+            break
         board.push(move)
-    if not target_captured:
+    if payoff is None:
         return None
     return {
         "defender_piece": chess.piece_name(defender.piece_type),
@@ -98,6 +136,7 @@ def _independent_removal(
         "target_square": chess.square_name(target_square),
         "net_material_gain_cp": replay.net_material_gain_cp,
         "replayed_uci": replay.replayed_uci,
+        **payoff,
     }
 
 
@@ -123,6 +162,8 @@ def build_removal_defender_proof(
             board_before,
             executing_move=best,
             allow_sacrifice=True,
+            require_sole_guard=False,
+            require_existing_attacker=False,
         )
         if item.get("executing_move") == best.uci()
         and len(item.get("targets") or ()) >= 2
@@ -164,9 +205,9 @@ def build_removal_defender_proof(
     )
     verifier = VerifierProof(
         concept_id=concept_id,
-        verifier_id="independent_defender_set_and_target_replay",
+        verifier_id="payoff_ply_defender_set_and_exchange",
         verifier_version=REMOVAL_PROOF_VERSION,
-        calculation_id="fresh_attackers_after_capture_plus_target_capture",
+        calculation_id="defenders_and_exchange_read_at_the_payoff_ply",
         verified=independent is not None,
         acceptable_moves=(best.uci(),) if independent else (),
         facts=(independent,) if independent else (),

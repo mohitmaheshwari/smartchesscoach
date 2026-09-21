@@ -1163,6 +1163,8 @@ def detect_remove_the_guard(
     *,
     executing_move: Optional[chess.Move] = None,
     allow_sacrifice: bool = False,
+    require_sole_guard: bool = True,
+    require_existing_attacker: bool = True,
 ) -> List[Dict]:
     """Enemy piece X defends a valuable enemy target Y. We can capture X with
     winning SEE; once X is gone, Y is undefended (or insufficiently defended).
@@ -1185,6 +1187,11 @@ def detect_remove_the_guard(
           The classic removal sacrifices for the guard and collects on the
           target afterwards, so SEE on the guard is the wrong question;
           only a caller that settles the whole line may ask it this way.
+      require_sole_guard / require_existing_attacker
+          Relax the two "measured before the move" conditions. A forced
+          recapture routinely removes the second defender or opens the line
+          that attacks the target, so both can be false here and true by
+          the time the target is taken.
     """
     us = _own_color(board)
     them = not us
@@ -1218,10 +1225,10 @@ def detect_remove_the_guard(
                 continue
             # Count other defenders of Y (excluding X).
             other_defenders = board.attackers(them, y_sq) - chess.SquareSet([x_sq])
-            if len(other_defenders) > 0:
+            if require_sole_guard and len(other_defenders) > 0:
                 continue
             # We must already attack Y.
-            if not board.attackers(us, y_sq):
+            if require_existing_attacker and not board.attackers(us, y_sq):
                 continue
             if executing_move is not None:
                 mv = executing_move
@@ -1235,9 +1242,12 @@ def detect_remove_the_guard(
                 mv = chess.Move(mover, x_sq)
             if mv not in board.legal_moves:
                 continue
+            guard_note = (
+                "sole guard" if not other_defenders else "guard"
+            )
             out.append(_ev("remove_the_guard", mover=mover, targets=[x_sq, y_sq],
                            executing_move=mv,
-                           evidence=f"{chess.piece_name(x.piece_type)} on {chess.square_name(x_sq)} sole guard of {chess.square_name(y_sq)}"))
+                           evidence=f"{chess.piece_name(x.piece_type)} on {chess.square_name(x_sq)} {guard_note} of {chess.square_name(y_sq)}"))
     return out
 
 

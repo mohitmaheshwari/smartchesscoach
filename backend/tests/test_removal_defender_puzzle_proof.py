@@ -86,3 +86,68 @@ def test_removal_proof_has_no_runtime_engine_llm_or_network_dependency():
         "requests.",
     )
     assert not any(token in source for token in forbidden)
+
+
+# Positions below are Lichess puzzles carrying the `capturingDefender`
+# theme, replayed here the way the site stores them: the FEN above is
+# already the solver's turn, the stored line is the solution.
+
+
+def test_sacrificing_for_the_guard_is_still_a_removal():
+    """Rxc5 loses the exchange on c5 and that is the whole point.
+
+    The knight on c5 is the only piece guarding the bishop on b7, and
+    the b6 pawn that recaptures is the piece blocking the queen's path
+    to b7. Both facts only settle after the recapture, so nothing read
+    before the move can see them.
+    """
+    proof = build_removal_defender_proof(
+        chess.Board("r4rk1/1bp2pb1/1p3qpp/p1nPp3/P3P3/1Q3N2/3N1PPP/1BR2RK1 w - - 2 22"),
+        "Rc2",
+        "Rxc5",
+        ("bxc5", "Qxb7"),
+        300,
+    )
+    assert proof is not None and proof.verifier.verified
+    facts = proof.verifier.facts[0]
+    assert facts["defender_square"] == "c5"
+    assert facts["target_square"] == "b7"
+
+
+def test_recapture_may_remove_the_targets_second_defender():
+    """d7 has two defenders: the f6 knight and the d8 queen.
+
+    Taking the knight pulls the queen to f6 to recapture, so by the
+    time Rxd7 lands the bishop has nobody left.
+    """
+    proof = build_removal_defender_proof(
+        chess.Board("r2q1rk1/pppb1ppp/1b3n2/4B3/2Q5/2N5/PPP3PP/2KR1B1R w - - 1 13"),
+        "Bd4",
+        "Bxf6",
+        ("Qxf6", "Rxd7"),
+        300,
+    )
+    assert proof is not None and proof.verifier.verified
+    facts = proof.verifier.facts[0]
+    assert facts["defender_square"] == "f6"
+    assert facts["target_square"] == "d7"
+    assert facts["defenders_before"] == ("d8", "f6")
+    assert facts["defenders_at_payoff"] == ()
+
+
+def test_one_piece_taking_twice_is_a_grab_not_a_removal():
+    """Qxb2 then Qxc3 is the same queen helping herself.
+
+    The b2 pawn did guard the knight, so every other condition holds.
+    Naming this a removal is what used to put the proof on Lichess
+    `fork` positions, so the collecting piece must be a different one.
+    """
+    proof = build_removal_defender_proof(
+        chess.Board("rqr5/5ppk/p3p2p/8/7P/2N1BB2/PP3PP1/R3K2R b KQ - 0 21"),
+        "Qb4",
+        "Qxb2",
+        ("O-O", "Qxc3"),
+        300,
+    )
+    assert proof is not None
+    assert proof.verifier.verified is False
