@@ -1,0 +1,118 @@
+{
+  "audit": "endgame_loose_pawn_attack_plan_promotion",
+  "candidate_claim": "In an endgame (at most 12 non-pawn pieces), the engine's best move is by a non-pawn piece that either captures an undefended enemy pawn or lands on a square attacking one.",
+  "quality_id": "gap:endgame_technique:endgame_loose_pawn_attack",
+  "read_only": true,
+  "production_data_exported": false,
+  "stockfish_rerun": false,
+  "verifier_independence": "The verifier in backend/scripts/build_promotion_packets_2026_09_21.py is written from the stated claim and does not import services/shape_detectors.py. Agreement is two implementations agreeing; disagreement is the finding.",
+  "population": {
+    "stored_fires_total": 5973,
+    "distinct_players": 58,
+    "distinct_games": 4104,
+    "observations_scanned_for_opportunities": 4475,
+    "independent_positive_opportunities_found": 1200
+  },
+  "review": {
+    "reviewed_fires": 200,
+    "true_fires": 200,
+    "semantic_precision_pct": 100.0,
+    "wilson_lower_pct": 97.37,
+    "wilson_lower_pct_z1_96": 98.12,
+    "wilson_note": "The packet that passed on 2026-09-01 reports 98.12 for 200/200, which is z=1.96. wilson_lower_pct here uses a stricter z=2.326; wilson_lower_pct_z1_96 is the like-for-like comparison.",
+    "reviewed_opportunities": 200,
+    "opportunity_hits": 91,
+    "semantic_recall_pct": 45.5,
+    "adversarial_cases": 60,
+    "candidate_fires_in_true_negatives": 0,
+    "distinct_review_games": 197,
+    "distinct_review_players": 37
+  },
+  "precision_failures_sample": [],
+  "adversarial_sample": [
+    {
+      "game_id": "coach_e845ef3d-dc4",
+      "move_number": 4,
+      "claim_holds": false,
+      "reason": "not an endgame (16 non-pawn pieces)",
+      "detector_fired_anyway": false
+    },
+    {
+      "game_id": "82838bde-03dd-4496-9cd2-01629f0075b6",
+      "move_number": 12,
+      "claim_holds": false,
+      "reason": "not an endgame (16 non-pawn pieces)",
+      "detector_fired_anyway": false
+    },
+    {
+      "game_id": "f400b63f-34da-414c-b885-590a02493612",
+      "move_number": 21,
+      "claim_holds": false,
+      "reason": "no undefended enemy pawn captured or attacked",
+      "detector_fired_anyway": false
+    },
+    {
+      "game_id": "f400b63f-34da-414c-b885-590a02493612",
+      "move_number": 25,
+      "claim_holds": false,
+      "reason": "no undefended enemy pawn captured or attacked",
+      "detector_fired_anyway": false
+    },
+    {
+      "game_id": "3e46c361-a85d-4295-a1b2-d738ce847a63",
+      "move_number": 14,
+      "claim_holds": false,
+      "reason": "not an endgame (14 non-pawn pieces)",
+      "detector_fired_anyway": false
+    },
+    {
+      "game_id": "3e46c361-a85d-4295-a1b2-d738ce847a63",
+      "move_number": 31,
+      "claim_holds": false,
+      "reason": "best move is not by a non-pawn piece",
+      "detector_fired_anyway": false
+    },
+    {
+      "game_id": "3e46c361-a85d-4295-a1b2-d738ce847a63",
+      "move_number": 32,
+      "claim_holds": false,
+      "reason": "no undefended enemy pawn captured or attacked",
+      "detector_fired_anyway": false
+    },
+    {
+      "game_id": "3b8af11d-31c9-4e7c-9f40-c9f2f25d81be",
+      "move_number": 5,
+      "claim_holds": false,
+      "reason": "not an endgame (16 non-pawn pieces)",
+      "detector_fired_anyway": false
+    },
+    {
+      "game_id": "3b8af11d-31c9-4e7c-9f40-c9f2f25d81be",
+      "move_number": 7,
+      "claim_holds": false,
+      "reason": "not an endgame (16 non-pawn pieces)",
+      "detector_fired_anyway": false
+    },
+    {
+      "game_id": "3b8af11d-31c9-4e7c-9f40-c9f2f25d81be",
+      "move_number": 9,
+      "claim_holds": false,
+      "reason": "not an endgame (16 non-pawn pieces)",
+      "detector_fired_anyway": false
+    }
+  ],
+  "recall_interpretation": "Recall is a LOWER BOUND on the detector's quality, not an upper bound on its coverage. The independent verifier models the caption's claim only; the shipped detector additionally requires the moved piece to SURVIVE on the engine's square (_mover_dies_on_destination). Positions where the claim holds but the piece is immediately lost satisfy the verifier and are correctly declined by the detector, and they count against recall here. Checked separately: 27.5% of analysed moves already carry more than one concept (max 8), so this figure is not depressed by single-label storage.",
+  "limitations": [
+    "chess.Board.attackers() is PSEUDO-legal: a pinned defender still counts as defending, so 'undefended' is conservative. This can suppress real fires (costing recall) but does not invent them.",
+    "Recall is measured over stored mistakes only, so opportunities in positions never analysed are out of scope.",
+    "No human has eyeballed these positions; this is machine verification of a board claim, and it is not a substitute for the reviewed judgement the promotion requires."
+  ],
+  "packet": {
+    "seed": "20260921-detector-promotion-v1",
+    "fingerprint_sha256": "e053e2715411fd6506280b30e238e926fa33b193bcaed81438d65c2b32fda435",
+    "case_details_retained_on_database_host": true
+  },
+  "plan_promotion_gate_passed": null,
+  "generated_at_utc": "2026-09-21T14:22:46.105801+00:00",
+  "schema_version": "detector_plan_promotion.v1"
+}
