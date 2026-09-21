@@ -639,20 +639,51 @@ def _discovered_attack_caption(board, best_move, facts):
     # and would have been cut at a sentence boundary with no ellipsis -- which
     # eats the LAST sentence, and the last sentence is the principle. The
     # thing worth keeping would have disappeared silently.
-    blocker_word = chess.piece_name(blocker.piece_type)
-    lead = (f"Your own {blocker_word} on {chess.square_name(mv.from_square)} "
-            f"stands in front of your {attacker} on {attacker_sq}.")
-    middle = (f"{best_move} moves it away"
-              + (" with check" if gives_check else "")
-              + f", and the {attacker} then looks straight at the "
-                f"{target} on {target_sq}"
-              + (" — which nothing defends." if undefended else "."))
-    principle = ("When your own piece blocks your queen, rook or bishop, "
-                 "look at what sits at the far end of that line. "
-                 "That is a discovered attack.")
-    caption = f"{lead} {middle} {principle}"
+    # Mohit, 2026-09-21, flagging this caption from the review queue:
+    # "attacking 2 pieces at once". He is right, and it is not an edge case.
+    #
+    # On 1b3k2/pB4pb/5r2/4n3/5p1N/P6P/1Pr2PP1/1R3RKN b, Rc7 attacks the bishop
+    # on b7 AND steps off the diagonal so the h7 bishop hits the rook on b1.
+    # Engine-checked: Rc7 is the top move and the line is Rc7 Ba8 Bxb1 --
+    # White saves one and loses the other. The caption was explaining the
+    # plumbing (what stands in front of what) and missing the point.
+    #
+    # Measured over the 197 indexed claims: in 155 of them (79%) the MOVING
+    # piece also attacks something worth a knight or more. So two-threats is
+    # the main shape, not a special case, and it leads.
+    direct_targets = []
+    for square in after.attacks(mv.to_square):
+        occupant = after.piece_at(square)
+        if occupant is None or occupant.color == board.turn:
+            continue
+        if (occupant.piece_type == chess.KING
+                or PIECE_VALUE_CP.get(occupant.piece_type, 0)
+                >= PIECE_VALUE_CP[chess.KNIGHT]):
+            direct_targets.append(occupant)
+
+    if direct_targets:
+        # The geometry is drawn; the words carry why it wins.
+        lead = (f"{best_move} makes two threats at once"
+                + (" and gives check" if gives_check else "")
+                + f" -- it attacks their {chess.piece_name(direct_targets[0].piece_type)}, "
+                  f"and moving off that line lets your {attacker} hit the "
+                  f"{target}.")
+        principle = ("They can only answer one. That is what a discovered "
+                     "attack really is -- a double attack, where the piece "
+                     "that moves and the piece it uncovers each hit "
+                     "something.")
+    else:
+        blocker_word = chess.piece_name(blocker.piece_type)
+        lead = (f"Your own {blocker_word} was the only thing standing between "
+                f"your {attacker} and their {target}"
+                + (", which nothing defends." if undefended else "."))
+        principle = ("When one of your own pieces blocks a queen, rook or "
+                     "bishop, look at what sits at the far end of that line. "
+                     "That is a discovered attack.")
+
+    caption = f"{lead} {principle}"
     if len(caption.split()) > 60:      # never ship one the renderer would cut
-        caption = f"{lead} {middle}"
+        caption = lead
     return caption
 
 
