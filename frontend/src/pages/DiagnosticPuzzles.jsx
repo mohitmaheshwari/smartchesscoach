@@ -43,6 +43,7 @@ const DiagnosticPuzzles = () => {
   // ended early by the player instead of only waited out.
   // What the board is actually showing: the player's move, once made,
   // until the next puzzle replaces it.
+  const [floorStop, setFloorStop] = useState(false);
   const [playedFen, setPlayedFen] = useState(null);
   const [playedSquares, setPlayedSquares] = useState(null);
   const pendingNextRef = useRef(null);
@@ -240,6 +241,7 @@ const DiagnosticPuzzles = () => {
     advanceTimerRef.current = null;
     pendingNextRef.current = null;
     if (pending.type === "complete") {
+      setFloorStop(!!pending.data.floor_stop);
       setDiagnosis(pending.data.diagnosis);
       setPuzzle(null);
     } else {
@@ -419,6 +421,15 @@ const DiagnosticPuzzles = () => {
                 ? "Here’s what I understand about your chess."
                 : "I need a little more before I can read your chess."}
             </h1>
+            {/* A floor stop is a finished diagnostic, not a failed one. It
+                says so plainly, because the alternative reading -- "it gave
+                up on me" -- is the one a player arrives at unaided. */}
+            {floorStop && (
+              <p className="text-sm text-muted-foreground mb-3">
+                I stopped early. I have what I need: we start from the
+                fundamentals, and that is a normal place to start.
+              </p>
+            )}
             <p className="cg-lede">
               {summary ||
                 (hasReadout

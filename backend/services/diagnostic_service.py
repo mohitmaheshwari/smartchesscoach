@@ -940,6 +940,45 @@ class DiagnosticGrader:
 # ── consistency gating + difficulty staircase ────────────────────────
 
 
+# How many DIFFERENT concepts a player must miss at the lowest tier, with no
+# low-tier pass anywhere, before the diagnostic stops asking.
+#
+# THIS NUMBER IS NOT DATA-DERIVED. It is a starting value. The honest reason:
+# there are 15 v2 sessions on record from 11 users, median length 2 answers,
+# and only 5 of them contain even two low-tier misses. That is enough to see
+# the shape of the drop-off and nowhere near enough to fit a threshold to.
+# Every floor stop is recorded on the session (`floor_stop`) so the number can
+# be corrected from real runs instead of argued about.
+FLOOR_MISS_CONCEPTS = 3
+
+
+def floor_reached(concept_progress: Optional[Dict[str, Any]]) -> tuple:
+    """(stop, concepts_missed_at_the_floor).
+
+    The pool bottoms out at 800. A player missing the lowest tier in three
+    different concepts, having never passed one, is below that floor -- and
+    every further low-tier puzzle confirms something already known while the
+    discouragement keeps accruing. Information per puzzle has gone to roughly
+    zero; the cost has not.
+
+    A single low-tier pass anywhere cancels it. Someone who solves a low fork
+    and then misses three low mates is not below the floor, they have a gap,
+    and a gap is the thing the diagnostic exists to find.
+    """
+    missed: List[str] = []
+    for name, prog in (concept_progress or {}).items():
+        verdicts = (prog or {}).get("verdicts") or []
+        tiers = (prog or {}).get("tiers") or []
+        for verdict, tier in zip(verdicts, tiers):
+            if tier != "low":
+                continue
+            if verdict == "UNDERSTOOD":
+                return False, []
+            if verdict == "MISSING" and name not in missed:
+                missed.append(name)
+    return len(missed) >= FLOOR_MISS_CONCEPTS, missed
+
+
 def next_tier(tier: str, verdict: str) -> str:
     """UNDERSTOOD → up a tier, MISSING → down, PARTIAL → repeat."""
     if verdict == "UNDERSTOOD":

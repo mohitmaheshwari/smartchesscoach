@@ -41,6 +41,8 @@ from services.diagnostic_service import (
     UnverifiedDiagnosticMove,
     next_tier,
     concept_done,
+    floor_reached,
+    FLOOR_MISS_CONCEPTS,
     concept_level,
     apply_diagnosis_v2_to_training,
 )
@@ -627,7 +629,22 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
             prog["done"] = True
             prog["level"] = concept_level(prog["verdicts"])
             done, adaptive = True, False
-    if done and not next_puzzle:
+    # ── the floor rule ───────────────────────────────────────────────
+    # Missing the lowest tier in FLOOR_MISS_CONCEPTS different concepts with
+    # no low-tier pass anywhere means this player is below the pool's floor.
+    # Walking the remaining concepts asks another dozen questions whose
+    # answers are already known, which is the demoralising half of a
+    # diagnostic and the least informative.
+    #
+    # Applied only at a concept boundary, so nobody is cut off mid-idea, and
+    # it leaves next_puzzle as None so the existing session-complete branch
+    # scores and returns exactly as it would normally -- a floor stop is a
+    # finished diagnostic with a real read, not an abort.
+    floor_stop, floor_concepts = (False, [])
+    if done:
+        floor_stop, floor_concepts = floor_reached(progress)
+
+    if done and not next_puzzle and not floor_stop:
         while concept_index + 1 < len(concept_order) and not next_puzzle:
             concept_index += 1
             next_concept = concept_order[concept_index]
@@ -646,6 +663,14 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
         # later costs nothing and loses no information.
         "last_activity_at": datetime.now(timezone.utc).isoformat(),
     }
+    if floor_stop:
+        # Instrumentation, so FLOOR_MISS_CONCEPTS can be corrected from real
+        # runs rather than defended from first principles.
+        base_update["floor_stop"] = {
+            "concepts": floor_concepts,
+            "after_answers": len(session.get("attempts", [])) + 1,
+            "threshold": FLOOR_MISS_CONCEPTS,
+        }
 
     # ── session complete ─────────────────────────────────────────────
     if not next_puzzle:
@@ -679,6 +704,7 @@ async def _v2_record_attempt(user_id: str, session: Dict[str, Any], req: Attempt
             },
             "adaptive_triggered": False,
             "diagnosis": diagnosis,
+            "floor_stop": bool(floor_stop),
         }
 
     # ── more puzzles: persist and serve the next one ─────────────────
