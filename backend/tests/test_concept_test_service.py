@@ -1,0 +1,281 @@
+"""Concept test — proof, not impressions.
+
+docs/teaching_loop_scope.md
+
+The load-bearing test here is `test_clean_streak_alone_never_promotes`:
+that is the bug this whole feature exists to close.
+"""
+
+import os
+import sys
+
+import chess
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from services.concept_test_service import (  # noqa: E402
+    STATE_MASTERED,
+    STATE_MONITORING,
+    STATE_SHOWN,
+    STATE_TESTED_FAILED,
+    STATE_UNDERSTOOD,
+    _apply_state_transition,
+    _lichess_positions,
+    build_concept_test,
+    canonical_concept,
+    grade_concept_test,
+    may_promote_to_mastered,
+    should_offer_test,
+)
+
+
+# ── the ordering bug ──────────────────────────────────────────────────────
+
+class TestPromotionRequiresProof:
+    """A clean streak is monitoring evidence, never a route to understood."""
+
+    @pytest.mark.parametrize("state", [None, STATE_SHOWN, STATE_TESTED_FAILED])
+    def test_clean_streak_alone_never_promotes(self, state):
+        # THE regression. Before 2026-09-21 a 3-game clean streak set
+        # acknowledged=True and stamped mastered_at, so a concept could be
+        # "mastered" because it stopped coming up, not because it was learnt.
+        assert may_promote_to_mastered(state, streak_clean=3, streak_required=3) is False
+        # Even an absurd streak must not rescue an unproven concept.
+        assert may_promote_to_mastered(state, streak_clean=999, streak_required=3) is False
+
+    @pytest.mark.parametrize("state", [STATE_UNDERSTOOD, STATE_MONITORING])
+    def test_proven_concept_promotes_at_threshold(self, state):
+        assert may_promote_to_mastered(state, 3, 3) is True
+        assert may_promote_to_mastered(state, 4, 3) is True
+
+    @pytest.mark.parametrize("state", [STATE_UNDERSTOOD, STATE_MONITORING])
+    def test_proven_but_short_streak_does_not_promote(self, state):
+        assert may_promote_to_mastered(state, 2, 3) is False
+
+    def test_already_mastered_does_not_re_promote(self):
+        assert may_promote_to_mastered(STATE_MASTERED, 99, 3) is False
+
+
+# ── the Lichess convention that would silently break every puzzle ─────────
+
+class _Cursor:
+    def __init__(self, docs):
+        self._docs = docs
+
+    def sort(self, *a, **k):
+        return self
+
+    def limit(self, *a, **k):
+        return self
+
+    def __aiter__(self):
+        async def gen():
+            for d in self._docs:
+                yield d
+        return gen()
+
+
+class _Collection:
+    def __init__(self, docs=None):
+        self.docs = list(docs or [])
+        self.written = []
+
+    def find(self, query=None, projection=None):
+        return _Cursor(self.docs)
+
+    async def find_one(self, query, projection=None):
+        return self.docs[0] if self.docs else None
+
+    async def insert_one(self, doc):
+        self.written.append(doc)
+        self.docs.append(doc)
+        return type("R", (), {"inserted_id": "x"})()
+
+    async def update_one(self, query, update, upsert=False):
+        self.written.append({"query": query, "update": update})
+        return type("R", (), {"modified_count": 1})()
+
+
+class _DB:
+    def __init__(self, **collections):
+        for name, coll in collections.items():
+            setattr(self, name, coll)
+
+    def __getattr__(self, name):
+        coll = _Collection()
+        setattr(self, name, coll)
+        return coll
+
+
+#: A REAL row, pulled from the production corpus (puzzle 00AdI) rather than
+#: hand-written — an invented FEN silently encoded an illegal move on the
+#: first attempt. The stored FEN is WHITE to move; moves[0] is white's Kh3,
+#: so the solver is BLACK and sees the position after it. Answer is Rd3+.
+LICHESS_ROW = {
+    "puzzle_id": "00AdI",
+    "fen": "3r4/4kp1p/1PQ1p1p1/p3b3/1p2P2P/1P6/6PK/8 w - - 1 36",
+    "moves": ["h2h3", "d8d3"],
+    "rating": 1264,
+    "themes": ["crushing", "discoveredAttack", "discoveredCheck",
+               "endgame", "long", "master"],
+    "popularity": 97,
+}
+
+
+class TestLichessConvention:
+    @pytest.mark.asyncio
+    async def test_served_position_is_after_the_opponent_move(self):
+        # Serving the stored FEN as-is shows the wrong position with the
+        # user on the wrong colour — and fails silently, because that
+        # position is perfectly legal.
+        db = _DB(lichess_puzzles=_Collection([LICHESS_ROW]))
+        out = await _lichess_positions(db, "TAC_DISCOVERED_PATTERN", 1264, 5, set())
+        assert len(out) == 1
+        served = out[0]
+
+        assert served["fen"] != LICHESS_ROW["fen"], "stored fen served raw"
+
+        expected = chess.Board(LICHESS_ROW["fen"])
+        expected.push(chess.Move.from_uci(LICHESS_ROW["moves"][0]))
+        assert served["fen"] == expected.fen()
+
+        # The side to move flipped: the opponent moved, now it is the user.
+        assert served["side_to_move"] == "black"
+        assert chess.Board(LICHESS_ROW["fen"]).turn is chess.WHITE
+
+    @pytest.mark.asyncio
+    async def test_answer_is_moves_index_one_and_is_legal(self):
+        db = _DB(lichess_puzzles=_Collection([LICHESS_ROW]))
+        served = (await _lichess_positions(db, "TAC_DISCOVERED_PATTERN", 1264, 5, set()))[0]
+        assert served["solution_uci"] == LICHESS_ROW["moves"][1]
+        board = chess.Board(served["fen"])
+        assert chess.Move.from_uci(served["solution_uci"]) in board.legal_moves
+        assert served["solution_san"] == "Rd3+"
+
+    @pytest.mark.asyncio
+    async def test_unmapped_positional_concept_gets_no_lichess_positions(self):
+        # There is no Lichess theme for "you moved a piece that was already
+        # doing a job". Returning something here would serve a confident,
+        # irrelevant puzzle — worse than returning nothing.
+        db = _DB(lichess_puzzles=_Collection([LICHESS_ROW]))
+        assert await _lichess_positions(db, "same_piece_better_square", 1264, 5, set()) == []
+
+
+# ── state transitions ─────────────────────────────────────────────────────
+
+class TestStateTransitions:
+    @pytest.mark.asyncio
+    async def test_failing_lands_in_tested_failed_and_clears_acknowledged(self):
+        db = _DB()
+        state = await _apply_state_transition(
+            db, "u1", "queen_fork", passed=False, promotes=False,
+        )
+        assert state == STATE_TESTED_FAILED
+        written = db.user_concept_understanding.written[-1]["update"]["$set"]
+        assert written["acknowledged"] is False
+
+    @pytest.mark.asyncio
+    async def test_calibrated_pass_enters_monitoring(self):
+        db = _DB()
+        state = await _apply_state_transition(
+            db, "u1", "queen_fork", passed=True, promotes=True,
+        )
+        assert state == STATE_MONITORING
+        written = db.user_concept_understanding.written[-1]["update"]["$set"]
+        assert written["acknowledged"] is True
+        # The monitoring streak starts fresh at the moment of proof.
+        assert written["streak_clean"] == 0
+
+    @pytest.mark.asyncio
+    async def test_uncalibrated_pass_is_recorded_but_does_not_promote(self):
+        # He passed, and we tell him so. But we do not yet know what a
+        # passing score means on uncalibrated positions, so the state
+        # machine holds until the first cohort is reviewed.
+        db = _DB()
+        state = await _apply_state_transition(
+            db, "u1", "same_piece_better_square", passed=True, promotes=False,
+        )
+        assert state == STATE_SHOWN
+        written = db.user_concept_understanding.written[-1]["update"]["$set"]
+        assert "acknowledged" not in written
+        assert "last_test_passed_unpromoted_at" in written
+
+
+# ── offering ──────────────────────────────────────────────────────────────
+
+class TestOffering:
+    @pytest.mark.asyncio
+    async def test_offered_when_never_seen(self):
+        db = _DB(user_concept_understanding=_Collection([]))
+        assert await should_offer_test(db, "u1", "queen_fork") is True
+
+    @pytest.mark.asyncio
+    async def test_not_offered_once_proven(self):
+        db = _DB(user_concept_understanding=_Collection([{"state": STATE_MONITORING}]))
+        assert await should_offer_test(db, "u1", "queen_fork") is False
+
+    @pytest.mark.asyncio
+    async def test_stops_asking_after_two_declines(self):
+        # "Not now" is a first-class answer, not a failure — but we do not
+        # nag. Two declines and we stop offering.
+        db = _DB(user_concept_understanding=_Collection(
+            [{"state": STATE_SHOWN, "tests_declined": 2}]))
+        assert await should_offer_test(db, "u1", "queen_fork") is False
+
+
+# ── aliases ───────────────────────────────────────────────────────────────
+
+def test_opening_prefixed_duplicates_fold_into_their_siblings():
+    # 2 and 4 in-band positions respectively — too thin to test on their
+    # own, and they mean the same thing as the concepts they mirror.
+    assert canonical_concept("OP_KNIGHT_ON_RIM") == "knight_on_rim"
+    assert canonical_concept("OP_SAME_PIECE_TWICE") == "same_piece_better_square"
+    assert canonical_concept("queen_fork") == "queen_fork"
+
+
+# ── the mapping ───────────────────────────────────────────────────────────
+
+class TestThemeMapping:
+    def test_tactical_detector_concepts_reach_lichess(self):
+        from services.coaching_puzzle_service import WEAKNESS_TO_PUZZLE_THEMES
+        for concept, expected in [
+            ("queen_fork", "fork"),
+            ("TAC_FORK_PATTERN", "fork"),
+            ("TAC_DISCOVERED_PATTERN", "discoveredAttack"),
+            ("clearance_then_check", "clearance"),
+            ("trap_punishment", "trappedPiece"),
+            ("stop_opp_pawn", "advancedPawn"),
+            ("king_pawn_lifted", "exposedKing"),
+        ]:
+            assert expected in WEAKNESS_TO_PUZZLE_THEMES.get(concept, []), concept
+
+    def test_positional_concepts_are_deliberately_absent(self):
+        # Lichess puzzles are tactical. Mapping these to a near-enough
+        # theme would serve a confident, irrelevant puzzle.
+        from services.coaching_puzzle_service import WEAKNESS_TO_PUZZLE_THEMES
+        for concept in [
+            "same_piece_better_square", "knight_outpost", "pawn_kicks_piece",
+            "attack_with_tempo", "knight_on_rim", "un_developing",
+            "blocked_own_pawn",
+        ]:
+            assert concept not in WEAKNESS_TO_PUZZLE_THEMES, concept
+
+
+# ── the answer must not ship to the browser ───────────────────────────────
+
+class TestSolutionsStaySeverSide:
+    @pytest.mark.asyncio
+    async def test_payload_carries_no_solution(self):
+        db = _DB(
+            lichess_puzzles=_Collection([LICHESS_ROW]),
+            concept_test_results=_Collection([]),
+        )
+        out = await build_concept_test(db, "u1", "TAC_DISCOVERED_PATTERN", rating=1264)
+        assert out["available"] is True
+        for pos in out["positions"]:
+            assert "solution_uci" not in pos
+            assert "solution_san" not in pos
+        # ...but it is stored, so grading has something to check against.
+        stored = db.concept_tests.written[-1]
+        assert stored["positions"][0]["solution_uci"] == LICHESS_ROW["moves"][1]

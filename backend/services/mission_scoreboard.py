@@ -381,7 +381,7 @@ def rebuild_scoreboard_from_history(
     snapshot when a session actually ends, which nothing did before
     (mission_scoreboard was computed live every request but only ever
     attached to the outgoing response, never written back to
-    db.coach_sessions — so check_mastery_gate always read the
+    db.coach_sessions — so the mastery reader always read the
     zeroed initial value regardless of how the game actually went).
     """
     if not base_scoreboard or not base_scoreboard.get("focus_topic"):

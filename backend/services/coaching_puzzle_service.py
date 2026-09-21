@@ -76,6 +76,43 @@ WEAKNESS_TO_PUZZLE_THEMES = {
                            "queenEndgame", "knightEndgame", "bishopEndgame",
                            "queenRookEndgame"],
     "opening_knowledge":  ["opening"],
+
+    # ── Fine-grained DETECTOR concept ids (user_pattern_events.concept_id) ──
+    # Added 2026-09-21 for the concept test (docs/teaching_loop_scope.md).
+    # Before this, none of the detector concepts reached Lichess at all —
+    # the mapping only spoke the coarse cognitive_gap vocabulary, so a test
+    # on "queen_fork" had no calibrated pool to draw from.
+    #
+    # Only concepts with an HONEST theme match are listed. The positional
+    # ones are deliberately absent (see the block below) — a wrong theme is
+    # worse than no theme, because it serves a confident, irrelevant puzzle.
+    "queen_fork":                    ["fork"],
+    "queen_fork_capture_with_check": ["fork"],
+    "TAC_FORK_PATTERN":              ["fork"],
+    "TAC_DISCOVERED_PATTERN":        ["discoveredAttack"],
+    "discovered_vacating_check":     ["discoveredCheck", "discoveredAttack"],
+    "clearance_then_check":          ["clearance"],
+    "clearance_for_attack":          ["clearance"],
+    "trap_punishment":               ["trappedPiece"],
+    "active_defense":                ["defensiveMove"],
+    "defensive_pawn_push":           ["defensiveMove"],
+    "stop_opp_pawn":                 ["advancedPawn", "defensiveMove"],
+    "king_pawn_lifted":              ["exposedKing", "kingsideAttack"],
+    "endgame_loose_pawn_attack":     ["hangingPiece", "pawnEndgame", "endgame"],
+    "endgame_loose_pawn_capture":    ["hangingPiece", "endgame"],
+
+    # These detector concepts are POSITIONAL and have no Lichess theme,
+    # because Lichess puzzles are tactical. They are intentionally absent
+    # so the picker falls through to own-game / user_pattern_events
+    # positions, which are the only source that has them at all:
+    #   same_piece_better_square (8,927 misses — the most-missed of all)
+    #   knight_outpost           (5,160)
+    #   pawn_kicks_piece         (4,558)
+    #   attack_with_tempo        (1,265)
+    #   knight_on_rim, un_developing, blocked_own_pawn
+    #   OP_KNIGHT_ON_RIM / OP_SAME_PIECE_TWICE (opening-prefixed duplicates
+    #     of knight_on_rim / same_piece_better_square; fold into those)
+
     # piece_activity, pawn_structure, time_pressure — no clean Lichess
     # theme support, intentionally absent. Picker falls back to community
     # puzzles or own-game positions for these.

@@ -8227,7 +8227,7 @@ async def make_coach_play_move(
                 update_fields["unified_journey.completion_result"] = result
 
             # 2026-07-24: persist a final mission_scoreboard snapshot so
-            # mastery_gate_service (which reads it from storage) sees the
+            # mastery readers (which read it from storage) see the
             # real handled/missed counts instead of the session's initial
             # all-zero placeholder. The scoreboard was already being computed
             # correctly, live, every request — but only ever attached to the

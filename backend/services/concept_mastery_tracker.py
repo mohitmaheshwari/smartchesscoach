@@ -39,6 +39,12 @@ from typing import Any, Dict, Iterable, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
+from services.concept_test_service import (
+    STATE_MASTERED,
+    STATE_SHOWN,
+    may_promote_to_mastered,
+)
+
 
 # ─── Configuration ──────────────────────────────────────────────────
 # Default consecutive clean games to consider a concept mastered.
@@ -362,7 +368,7 @@ async def update_user_mastery_for_game(
         {"user_id": user_id},
         {"_id": 1, "concept_id": 1, "streak_clean": 1, "streak_required": 1,
          "acknowledged": 1, "last_evaluated_game_id": 1, "clean_games_total": 1,
-         "violations_total": 1},
+         "violations_total": 1, "state": 1},
     )
     now = _iso_now()
     async for cu in cursor:
@@ -384,6 +390,9 @@ async def update_user_mastery_for_game(
                     "$set": {
                         "streak_clean": 0,
                         "acknowledged": False,
+                        # A violation in a real game un-proves the concept:
+                        # back to SHOWN, and he must pass the test again.
+                        "state": STATE_SHOWN,
                         "last_violation_at": now,
                         "last_evaluated_game_id": game_id,
                         "updated_at": now,
@@ -400,11 +409,18 @@ async def update_user_mastery_for_game(
                 "last_evaluated_game_id": game_id,
                 "updated_at": now,
             }
-            mastered_now = (
-                new_streak >= required and not cu.get("acknowledged")
+            # 2026-09-21 — the clean streak is MONITORING evidence, not a
+            # way to reach "understood". Before this, a concept reached
+            # acknowledged (and then mastered_at) off a 3-game streak alone,
+            # so the system could not tell "he learned it" from "it stopped
+            # coming up". Promotion now requires that he passed the concept
+            # test first. docs/teaching_loop_scope.md
+            mastered_now = may_promote_to_mastered(
+                cu.get("state"), new_streak, required,
             )
             if mastered_now:
                 update_set["acknowledged"] = True
+                update_set["state"] = STATE_MASTERED
                 update_set["mastered_at"] = now
             await db.user_concept_understanding.update_one(
                 {"_id": cu["_id"]},
