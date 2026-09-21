@@ -61,7 +61,12 @@ def _independent_removal(
     if remaining_defenders:
         return None
 
-    replay = replay_stored_line(board_before, best, continuation)
+    replay = replay_stored_line(
+        board_before,
+        best,
+        continuation,
+        resolve_ambiguous_continuation=True,
+    )
     if not replay.complete or replay.net_material_gain_cp < PIECE_VALUE_CP[chess.PAWN]:
         return None
     board = board_before.copy(stack=False)
