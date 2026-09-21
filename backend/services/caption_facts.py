@@ -5045,7 +5045,20 @@ def _discovered_attack_evidence(
                 # the slider is taken before it can execute the discovery.
                 # From d7ce40cf corpus: #14 Kf1 was emitting "uncovers
                 # rook hitting e8" while black's Rxe1+ was right there.
-                opp_attackers_on_slider = board_after.attackers(opp_color, slider_sq)
+                # attackers() is geometric: it does not know the opponent is
+                # in CHECK and must answer that first. Measured against
+                # Lichess's discoveredAttack puzzles, 149 of 367 misses
+                # (40.6%) were exactly this -- the discovering move gives
+                # check, the slider "looks attacked", and the gate threw away
+                # a real discovery the opponent had no time to punish. Same
+                # class of bug as the pseudo-legal attackers() that made
+                # simple_hang call pinned attackers a threat.
+                #
+                # Ask whether they can LEGALLY take it instead.
+                opp_attackers_on_slider = [
+                    mv.from_square for mv in board_after.legal_moves
+                    if mv.to_square == slider_sq and board_after.is_capture(mv)
+                ]
                 if opp_attackers_on_slider:
                     opp_see_on_slider = static_exchange_eval(
                         board_after, slider_sq, opp_color
@@ -8898,13 +8911,31 @@ def _classify_move_principle(board: chess.Board, move: Optional[chess.Move]) -> 
     return None
 
 
+# Mohit 2026-09-20: "language is too fancy, can it be very very very easy
+# english ... i have a knight sitting at corner, so that for caption becomes my
+# inactive piece, because it has no control on the attack happening ... the
+# board doesn't tell that for everybody."
+#
+# Each of these is the WHY clause on a recommended move: "Bd3 was better -- it
+# {phrase}". The old wording named the rule ("develops a piece", "takes the
+# center") instead of saying what the move DOES for the player. A 900 does not
+# know what developing is; that is why they did not do it. So each phrase now
+# states the effect on the board in small words.
+#
+# "outpost" was already flagged as banned jargon here; the same objection
+# applies to develop, center and open file, which were left in.
 _REC_PRINCIPLE_PHRASE = {
-    "center": "takes the center",
-    "develop": "develops a piece",
-    "castle": "gets your king to safety",
-    "rook_open_file": "takes the open file",
-    # "outpost" is banned jargon (600-1500 audience) — describe it plainly.
-    "outpost": "posts a knight on a strong square the opponent can't challenge",
+    # NOT "puts a pawn ..." -- _classify_move_principle returns "center" for a
+    # PAWN, KNIGHT or BISHOP landing on a centre square, so naming the piece
+    # type would be false two thirds of the time. "moves into the middle" is
+    # true for all three and avoids calling a pawn a piece.
+    "center": "moves into the middle, where it takes squares away from his pieces",
+    "develop": "brings a new piece into the game",
+    "castle": "tucks your king away from the middle",
+    # NOT "a line with no pawns" -- the classifier only checks that none of the
+    # player's OWN pawns sit on that file; enemy pawns may still be there.
+    "rook_open_file": "puts your rook on a line where none of your own pawns are in the way",
+    "outpost": "puts your knight on a square where no pawn can chase it away",
 }
 
 

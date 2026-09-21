@@ -527,6 +527,7 @@ app.include_router(api_router)
 
 # --- Existing route modules (already extracted) ---
 from routes import auth as auth_routes
+from routes import waitlist as waitlist_routes
 from routes import feedback as feedback_routes
 from routes import games as games_routes
 from routes import lab as lab_routes
@@ -573,6 +574,7 @@ from routes import behavior_study as behavior_study_routes
 
 # Existing modules
 auth_routes.set_db(db)
+waitlist_routes.set_db(db)
 feedback_routes.set_db(db)
 games_routes.set_db(db)
 lab_routes.set_db(db)
@@ -637,6 +639,7 @@ behavior_study_routes.set_db(db)
 
 # Existing route modules
 app.include_router(auth_routes.router, prefix="/api")
+app.include_router(waitlist_routes.router, prefix="/api")
 app.include_router(feedback_routes.router, prefix="/api")
 app.include_router(games_routes.router, prefix="/api")
 app.include_router(lab_routes.router, prefix="/api")

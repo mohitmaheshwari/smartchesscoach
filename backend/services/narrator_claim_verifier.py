@@ -660,6 +660,46 @@ def _check_mate(
         # Direction and the supporting branch were checked above. Captions such
         # as "misses mate in 2" do not claim that the first move itself mates.
         return violations
+    # When the OPPONENT is the one mating, the mating line is theirs -- it is
+    # pv_after_played, not our best move. This branch used to assume any mate
+    # mention on a user move meant "our best move mates", so it rejected
+    # "Bxd5 allows mate in 2." with "claims checkmate but c3 is not mate" and
+    # every allowed-mate caption got replaced by the safe floor. Found
+    # 2026-09-20 by running a KNOWN-GOOD control caption through the verifier
+    # and watching it fail. The proof requirement is unchanged: the stored
+    # line still has to reach an actual checkmate on the board.
+    opponent_mates = (claimed_transition in {"allowed", "already_lost"}
+                      or transition in {"allowed", "already_lost"})
+    if opponent_mates:
+        # FAIL CLOSED. The first version of this returned "no violation" when
+        # the stored line was empty or unparseable, and 6,632 captions passed
+        # while their line never reached mate. A verifier that cannot prove a
+        # claim must reject it, not wave it through.
+        unproven = [{
+            "check": "mate",
+            "detail": ("claims the opponent mates, but the stored line does "
+                       "not reach checkmate"),
+        }]
+        pv = list(facts.get("pv_after_played") or [])
+        if not pv:
+            return violations + unproven
+        try:
+            # pv_after_played begins AFTER our move, so the played move has to
+            # go on the board first. Replaying it from fen_before was rejecting
+            # true claims -- and only "worked" earlier because the exception
+            # fell through to a pass.
+            b = chess.Board(facts["fen_before"])
+            played = facts.get("move_san")
+            if played:
+                b.push_san(str(played))
+            for san in pv[:12]:
+                b.push_san(str(san))
+                if b.is_checkmate():
+                    return violations
+        except Exception:  # noqa: BLE001
+            return violations + unproven
+        return violations + unproven
+
     try:
         b = chess.Board(facts["fen_before"])
         if facts.get("is_user_move"):

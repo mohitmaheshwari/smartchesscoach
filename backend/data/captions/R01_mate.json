@@ -9,41 +9,293 @@
     "delivered_on_this_move": "true when this move is checkmate",
     "mover_delivers": "true when the side that just moved retains the forced mate",
     "mover_is_user": "true if the user just moved",
-    "mate_already_on_board": "true when the opponent still forces mate after the mover's best defense"
+    "mate_already_on_board": "true when the opponent still forces mate after the mover's best defense",
+    "mate_lesson": "Which lesson this mate-allowing move should teach, decided by services/mate_lesson.mate_lesson_id from board facts alone. One of back_rank, in_check, opponent_plan, mate_threatened, win_a_piece, free_pawn, castle, give_air, scan. The ORDER lives in that module and the WORDS live here, so neither the game review nor /admin/detector-review writes prose of its own."
   },
-  "requires": ["played_san"],
+  "requires": [
+    "played_san"
+  ],
   "select_variant": [
-    {"when": {"mate_transition": "delivered"}, "variant": "delivered"},
-
-    {"when": {"mate_transition": "missed", "mover_is_user": true, "ply": 1, "best_move_san": "present"}, "variant": "user_misses_mate_p1"},
-    {"when": {"mate_transition": "missed", "mover_is_user": true, "ply": "present", "best_move_san": "present"}, "variant": "user_misses_mate_pN"},
-    {"when": {"mate_transition": "missed", "mover_is_user": true, "best_move_san": "present"}, "variant": "user_misses_mate_no_count"},
-    {"when": {"mate_transition": "missed", "mover_is_user": true}, "variant": "user_misses_mate_bare"},
-    {"when": {"mate_transition": "missed", "mover_is_user": false, "ply": 1}, "variant": "opp_misses_mate_p1"},
-    {"when": {"mate_transition": "missed", "mover_is_user": false, "ply": "present"}, "variant": "opp_misses_mate_pN"},
-    {"when": {"mate_transition": "missed", "mover_is_user": false}, "variant": "opp_misses_mate_no_count"},
-
-    {"when": {"mate_transition": "preserved", "mover_is_user": true, "ply": 1}, "variant": "user_forces_p1"},
-    {"when": {"mate_transition": "preserved", "mover_is_user": true, "ply": "present"}, "variant": "user_forces_pN"},
-    {"when": {"mate_transition": "preserved", "mover_is_user": true}, "variant": "user_forces_noplycount"},
-    {"when": {"mate_transition": "preserved", "mover_is_user": false, "ply": 1}, "variant": "opp_forces_p1"},
-    {"when": {"mate_transition": "preserved", "mover_is_user": false, "ply": "present"}, "variant": "opp_forces_pN"},
-    {"when": {"mate_transition": "preserved", "mover_is_user": false}, "variant": "opp_forces_noplycount"},
-
-    {"when": {"mate_transition": "allowed", "mover_is_user": false, "ply": 1}, "variant": "mate_on_for_user_p1"},
-    {"when": {"mate_transition": "allowed", "mover_is_user": false, "ply": "present"}, "variant": "mate_on_for_user_pN"},
-    {"when": {"mate_transition": "allowed", "mover_is_user": false}, "variant": "mate_on_for_user_bare"},
-    {"when": {"mate_transition": "allowed", "mover_is_user": true, "ply": 1}, "variant": "user_allows_p1"},
-    {"when": {"mate_transition": "allowed", "mover_is_user": true, "ply": "present"}, "variant": "user_allows_pN"},
-    {"when": {"mate_transition": "allowed", "mover_is_user": true, "threat_move": "present"}, "variant": "user_allows_pv"},
-    {"when": {"mate_transition": "allowed", "mover_is_user": true}, "variant": "user_allows_bare"},
-
-    {"when": {"mate_transition": "already_lost", "mover_is_user": true, "ply": 1}, "variant": "user_already_lost_p1"},
-    {"when": {"mate_transition": "already_lost", "mover_is_user": true, "ply": "present"}, "variant": "user_already_lost_pN"},
-    {"when": {"mate_transition": "already_lost", "mover_is_user": true}, "variant": "user_already_lost"},
-    {"when": {"mate_transition": "already_lost", "mover_is_user": false, "ply": 1}, "variant": "opp_already_lost_p1"},
-    {"when": {"mate_transition": "already_lost", "mover_is_user": false, "ply": "present"}, "variant": "opp_already_lost_pN"},
-    {"when": {"mate_transition": "already_lost", "mover_is_user": false}, "variant": "opp_already_lost"}
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "mate_lesson": "back_rank"
+      },
+      "variant": "user_allows_back_rank"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "mate_lesson": "in_check"
+      },
+      "variant": "user_allows_in_check"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "mate_lesson": "opponent_plan"
+      },
+      "variant": "user_allows_opponent_plan"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "mate_lesson": "mate_threatened"
+      },
+      "variant": "user_allows_mate_threatened"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "mate_lesson": "win_a_piece"
+      },
+      "variant": "user_allows_win_a_piece"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "mate_lesson": "free_pawn"
+      },
+      "variant": "user_allows_free_pawn"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "mate_lesson": "castle"
+      },
+      "variant": "user_allows_castle"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "mate_lesson": "give_air"
+      },
+      "variant": "user_allows_give_air"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "mate_lesson": "scan"
+      },
+      "variant": "user_allows_scan"
+    },
+    {
+      "when": {
+        "mate_transition": "delivered"
+      },
+      "variant": "delivered"
+    },
+    {
+      "when": {
+        "mate_transition": "missed",
+        "mover_is_user": true,
+        "ply": 1,
+        "best_move_san": "present"
+      },
+      "variant": "user_misses_mate_p1"
+    },
+    {
+      "when": {
+        "mate_transition": "missed",
+        "mover_is_user": true,
+        "ply": "present",
+        "best_move_san": "present"
+      },
+      "variant": "user_misses_mate_pN"
+    },
+    {
+      "when": {
+        "mate_transition": "missed",
+        "mover_is_user": true,
+        "best_move_san": "present"
+      },
+      "variant": "user_misses_mate_no_count"
+    },
+    {
+      "when": {
+        "mate_transition": "missed",
+        "mover_is_user": true
+      },
+      "variant": "user_misses_mate_bare"
+    },
+    {
+      "when": {
+        "mate_transition": "missed",
+        "mover_is_user": false,
+        "ply": 1
+      },
+      "variant": "opp_misses_mate_p1"
+    },
+    {
+      "when": {
+        "mate_transition": "missed",
+        "mover_is_user": false,
+        "ply": "present"
+      },
+      "variant": "opp_misses_mate_pN"
+    },
+    {
+      "when": {
+        "mate_transition": "missed",
+        "mover_is_user": false
+      },
+      "variant": "opp_misses_mate_no_count"
+    },
+    {
+      "when": {
+        "mate_transition": "preserved",
+        "mover_is_user": true,
+        "ply": 1
+      },
+      "variant": "user_forces_p1"
+    },
+    {
+      "when": {
+        "mate_transition": "preserved",
+        "mover_is_user": true,
+        "ply": "present"
+      },
+      "variant": "user_forces_pN"
+    },
+    {
+      "when": {
+        "mate_transition": "preserved",
+        "mover_is_user": true
+      },
+      "variant": "user_forces_noplycount"
+    },
+    {
+      "when": {
+        "mate_transition": "preserved",
+        "mover_is_user": false,
+        "ply": 1
+      },
+      "variant": "opp_forces_p1"
+    },
+    {
+      "when": {
+        "mate_transition": "preserved",
+        "mover_is_user": false,
+        "ply": "present"
+      },
+      "variant": "opp_forces_pN"
+    },
+    {
+      "when": {
+        "mate_transition": "preserved",
+        "mover_is_user": false
+      },
+      "variant": "opp_forces_noplycount"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": false,
+        "ply": 1
+      },
+      "variant": "mate_on_for_user_p1"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": false,
+        "ply": "present"
+      },
+      "variant": "mate_on_for_user_pN"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": false
+      },
+      "variant": "mate_on_for_user_bare"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "ply": 1
+      },
+      "variant": "user_allows_p1"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "ply": "present"
+      },
+      "variant": "user_allows_pN"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true,
+        "threat_move": "present"
+      },
+      "variant": "user_allows_pv"
+    },
+    {
+      "when": {
+        "mate_transition": "allowed",
+        "mover_is_user": true
+      },
+      "variant": "user_allows_bare"
+    },
+    {
+      "when": {
+        "mate_transition": "already_lost",
+        "mover_is_user": true,
+        "ply": 1
+      },
+      "variant": "user_already_lost_p1"
+    },
+    {
+      "when": {
+        "mate_transition": "already_lost",
+        "mover_is_user": true,
+        "ply": "present"
+      },
+      "variant": "user_already_lost_pN"
+    },
+    {
+      "when": {
+        "mate_transition": "already_lost",
+        "mover_is_user": true
+      },
+      "variant": "user_already_lost"
+    },
+    {
+      "when": {
+        "mate_transition": "already_lost",
+        "mover_is_user": false,
+        "ply": 1
+      },
+      "variant": "opp_already_lost_p1"
+    },
+    {
+      "when": {
+        "mate_transition": "already_lost",
+        "mover_is_user": false,
+        "ply": "present"
+      },
+      "variant": "opp_already_lost_pN"
+    },
+    {
+      "when": {
+        "mate_transition": "already_lost",
+        "mover_is_user": false
+      },
+      "variant": "opp_already_lost"
+    }
   ],
   "variants": {
     "delivered": "{played_san}. Checkmate. When the king is exposed, calculate every check to the end.",
@@ -72,6 +324,15 @@
     "user_already_lost": "{played_san} cannot stop the forced win already on the board. Make them prove every move.",
     "opp_already_lost_p1": "{played_san} cannot stop your mate next move. Calculate every check to the end.",
     "opp_already_lost_pN": "{played_san} cannot stop your mate in {ply}. Calculate every check to the end.",
-    "opp_already_lost": "{played_san} cannot stop your forced win. Calculate every check to the end."
+    "opp_already_lost": "{played_san} cannot stop your forced win. Calculate every check to the end.",
+    "user_allows_back_rank": "Your own pawns sealed the first rank and left your king nowhere to go -- that is a back-rank mate. Push one early to make air, long before a rook gets there.",
+    "user_allows_in_check": "You were in check and a way out existed. In check, play each legal answer out to the end -- the first move that stops the check is not always the one that survives.",
+    "user_allows_opponent_plan": "Those pieces did not arrive by accident -- every move your opponent makes is part of a plan. Find theirs before you follow your own.",
+    "user_allows_mate_threatened": "Mate was already on the board before you moved, and you played elsewhere. Before your own plan, ask what they can do to your king right now.",
+    "user_allows_win_a_piece": "When you are about to win a piece, check your own king first.",
+    "user_allows_free_pawn": "A free pawn is never worth a turn spent away from your king.",
+    "user_allows_castle": "Castle before they get two pieces pointing at your king.",
+    "user_allows_give_air": "Give your king a square to run to before it needs one.",
+    "user_allows_scan": "Look at what is already aimed at your king before you move."
   }
 }

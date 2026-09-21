@@ -13,6 +13,8 @@ Handles:
 
 from fastapi import APIRouter, HTTPException, Request, Response, Depends, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse
+
+from services.signup_gate import signup_allowed
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone, timedelta
@@ -482,6 +484,16 @@ async def google_callback(code: str, response: Response, request: Request, state
                 }}
             )
         else:
+            # INVITE-ONLY (2026-09-19). Creation is gated; authentication is
+            # not. existing_user above matched on email, so every current user
+            # still signs in -- only a brand-new email reaches this branch.
+            # docs/invite_only_signup_scope.md
+            if not await signup_allowed(db, email):
+                logger.info(f"[INVITE-ONLY] blocked new signup for {email}")
+                _fe = frontend_url or os.environ.get('FRONTEND_URL', 'http://localhost:3000').strip()
+                bounce = RedirectResponse(url=f"{_fe.rstrip('/')}/invite?status=not_invited")
+                _delete_oauth_state_cookie(bounce)
+                return bounce
             user_doc = {
                 "user_id": user_id,
                 "email": email,
@@ -643,6 +655,13 @@ async def create_session(request: Request, response: Response):
             }}
         )
     else:
+        # INVITE-ONLY (2026-09-19): same gate as the other creation paths.
+        if not await signup_allowed(db, data["email"]):
+            logger.info(f"[INVITE-ONLY] blocked session signup for {data['email']}")
+            raise HTTPException(
+                status_code=403,
+                detail="ChessGuru is invite-only right now. Request an invite at chessguru.ai.",
+            )
         user_doc = {
             "user_id": user_id,
             "email": data["email"],
@@ -792,6 +811,15 @@ async def register(req: RegisterRequest, response: Response):
 
     name = (req.name or "").strip() or email.split("@")[0]
     user_id = f"user_{uuid.uuid4().hex[:12]}"
+
+    # INVITE-ONLY (2026-09-19): password signup is closed unless the email was
+    # invited from the waitlist. docs/invite_only_signup_scope.md
+    if not await signup_allowed(db, email):
+        logger.info(f"[INVITE-ONLY] blocked registration for {email}")
+        raise HTTPException(
+            status_code=403,
+            detail="ChessGuru is invite-only right now. Request an invite and we will be in touch.",
+        )
 
     user_doc = {
         "user_id": user_id,
@@ -975,6 +1003,16 @@ async def mobile_google_auth(request: MobileAuthRequest):
                 }}
             )
         else:
+            # INVITE-ONLY (2026-09-19). Creation is gated; authentication is
+            # not. existing_user above matched on email, so every current user
+            # still signs in -- only a brand-new email reaches this branch.
+            # docs/invite_only_signup_scope.md
+            if not await signup_allowed(db, email):
+                logger.info(f"[INVITE-ONLY] blocked new mobile signup for {email}")
+                raise HTTPException(
+                    status_code=403,
+                    detail="ChessGuru is invite-only right now. Request an invite at chessguru.ai.",
+                )
             user_doc = {
                 "user_id": user_id,
                 "email": email,

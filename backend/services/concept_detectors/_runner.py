@@ -60,6 +60,12 @@ _EXTRA_KWARGS = (
     "move_history_san",
     "best_move_san",
     "best_move_uci",
+    # 2026-09-19: the missed-concept branch needs to know the move was a real
+    # mistake and that nothing bigger (a mate, a hung piece) outranks the
+    # lesson. Forwarded only to detectors that declare them, like every other
+    # extra above.
+    "cp_loss",
+    "mate_info",
 )
 
 
@@ -81,6 +87,8 @@ def run_detectors_for_move(
     move_history_san: Optional[List[str]] = None,
     best_move_san: Optional[str] = None,
     best_move_uci: Optional[str] = None,
+    cp_loss: Optional[int] = None,
+    mate_info: Optional[dict] = None,
     include_shadow: bool = False,
 ) -> List[Tuple[str, str]]:
     """Run every registered detector against a move.
@@ -117,6 +125,10 @@ def run_detectors_for_move(
                 kwargs["best_move_san"] = best_move_san
             if "best_move_uci" in accepted:
                 kwargs["best_move_uci"] = best_move_uci
+            if "cp_loss" in accepted:
+                kwargs["cp_loss"] = cp_loss
+            if "mate_info" in accepted:
+                kwargs["mate_info"] = mate_info
             verdict = detector(board_before, move, user_color, **kwargs)
         except Exception:
             # Detector bugs must not poison the move pipeline.

@@ -14,6 +14,7 @@ from services.shape_detectors import (
     detect_knight_fork,
     detect_pawn_fork,
     detect_rook_fork,
+    detect_queen_fork,
 )
 from services.stored_line_verifier import parse_legal_move, replay_stored_line
 from services.verified_puzzle_admission import DetectorProof, VerifierProof
@@ -25,6 +26,7 @@ _FORK_DETECTORS = (
     detect_knight_fork,
     detect_bishop_fork,
     detect_rook_fork,
+    detect_queen_fork,
     detect_pawn_fork,
 )
 

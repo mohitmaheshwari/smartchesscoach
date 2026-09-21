@@ -25,7 +25,7 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
-import { Loader2, RefreshCw, Check, X, HelpCircle, RotateCcw } from "lucide-react";
+import { Loader2, RefreshCw, Check, X, HelpCircle, RotateCcw, Copy } from "lucide-react";
 
 // Ordered MUTED FIRST. The first version of this list led with
 // `simple_hang` and `fork`, both of which were promoted to caption grade
@@ -33,7 +33,103 @@ import { Loader2, RefreshCw, Check, X, HelpCircle, RotateCcw } from "lucide-reac
 // Reviewing them buys nothing at this bar, and they would have eaten most of
 // a session. The live grade comes from detector_quality via /results, so this
 // order is a default and the page marks what is actually already done.
+// Why a caption is bad, as distinct from whether the CLAIM is true. Each of
+// these is a fault Mohit named on a real card on 2026-09-19, which is why
+// they are these five and not a generic "was it helpful" scale:
+//   "don't tell something the board is already showing"
+//   "it's not dxc5, it's about ignorance of opponent plan"
+//   "captions should tell principles that you don't forget"
+//   "are you sure that position was this? never write something bad or wrong"
+const CAPTION_FAULTS = [
+  { id: "describes_board", label: "Says what the board already shows" },
+  { id: "wrong_lesson", label: "Right facts, wrong lesson" },
+  { id: "no_principle", label: "No rule you would remember" },
+  { id: "false_claim", label: "A claim in it is untrue" },
+  { id: "jargon_or_long", label: "Jargon, or too long to read" },
+];
+
 const DETECTORS = [
+  // The missed-concept branch, 2026-09-19. These four detectors previously
+  // gated on "the move played WAS the engine's move", so across 400 games
+  // they produced 1,639 "applied" and 0 "missed" -- they could only ever
+  // congratulate. They can now say the concept was missed, and these 215
+  // claims have never been judged by anyone. Listed first for that reason.
+  {
+    id: "missed_development",
+    label: "Missed development",
+    claims:
+      "a piece was still on its starting square, the engine's move was to develop one, and they played something else that lost ground",
+  },
+  {
+    id: "missed_center",
+    label: "Missed the centre",
+    claims:
+      "the engine's move was a central pawn push and they played something else that lost ground",
+  },
+  {
+    id: "missed_castling",
+    label: "Missed castling",
+    claims:
+      "the engine's move was to castle and they played something else that lost ground",
+  },
+  {
+    id: "missed_king_activity",
+    label: "Missed king activity",
+    claims:
+      "an endgame where the engine's move walked the king towards the centre, and they played something else that lost ground",
+  },
+  // Seven endgame concepts, 2026-09-20. Same branch, same "could only ever
+  // congratulate" defect, and none of them has ever been ruled on.
+  //
+  // UNLIKE the four above, none of these seven detectors accepts a cp_loss
+  // argument, so none of them checks whether the miss cost anything. The
+  // first full-corpus scan showed what that means: 35 of 40 rule_of_square
+  // fires and 23 of 40 opposition fires were on moves that lost under 100cp.
+  // So the claim here is "the concept was missed", NOT "a mistake was made",
+  // and the descriptions below must not say ground was lost. The severity
+  // badge on each card is what tells the reviewer whether it mattered.
+  {
+    id: "missed_opposition",
+    label: "Missed the opposition",
+    claims:
+      "a king-and-pawn standoff where the engine's move took the opposition, and they played something else",
+  },
+  {
+    id: "missed_passed_pawn",
+    label: "Missed making a passed pawn",
+    claims:
+      "the engine's move turned one of their pawns into a passed pawn, and they played something else",
+  },
+  {
+    id: "missed_stop_promotion",
+    label: "Let a pawn through",
+    claims:
+      "the engine's move captured or blockaded an advanced enemy passed pawn, and they played something else",
+  },
+  {
+    id: "missed_active_rook",
+    label: "Left the rook passive",
+    claims:
+      "an endgame where the engine's move put a rook on an open file or the seventh rank, and they played something else",
+  },
+  {
+    id: "missed_lucena",
+    label: "Missed the Lucena bridge",
+    claims:
+      "a rook-and-pawn ending where the engine's move built the bridge, and they played something else",
+  },
+  {
+    id: "missed_philidor",
+    label: "Missed the Philidor defence",
+    claims:
+      "a rook-and-pawn defence where the engine's move held the third rank, and they played something else",
+  },
+  {
+    id: "missed_rule_of_square",
+    label: "Missed the square rule",
+    claims:
+      "a king could have caught, or failed to catch, a running passed pawn, and they played something else",
+  },
   {
     id: "discovered_attack",
     label: "Missed discovered attack",
@@ -64,6 +160,94 @@ const DETECTORS = [
       "a move was available that attacks two pieces at once and wins material, and they played something else",
   },
 ];
+
+// How bad was the move? cp_loss was always on the card but sat last in the
+// detail list as a bare "139 cp", which does not tell a reviewer whether that
+// is a slip or a disaster (Mohit, 2026-09-20: "i don't know how bad is move").
+// The WORD comes from the backend via services/severity.py -- the one canonical
+// evaluator -- so this page can never disagree with what a caption calls the
+// same move. Here we only choose the colour.
+const SEVERITY_STYLE = {
+  good: "border-muted-foreground/40 text-muted-foreground",
+  inaccuracy: "border-yellow-500 text-yellow-700 dark:text-yellow-500",
+  mistake: "border-orange-500 text-orange-700 dark:text-orange-500",
+  serious: "border-red-500 text-red-700 dark:text-red-500",
+  blunder: "border-red-700 text-red-800 dark:text-red-400 font-semibold",
+};
+
+// Everything one claim knows, as text you can paste into Claude or ChatGPT.
+// Mohit had been doing this by hand -- "can you give me the FEN so i can pass
+// it to chatgpt" (2026-09-16) -- and a FEN alone makes the other model guess
+// at what we actually claimed. So the block carries the claim, the detector's
+// own description of what it asserts, the board as a diagram (an LLM reads
+// ASCII far better than a FEN), both engine lines, and the cost.
+//
+// It ends in questions rather than a request for a verdict, because the point
+// is a second opinion on the CLAIM and the WORDS, not another vote -- only a
+// human ruling counts toward the threshold lock, and no model may approve a
+// claim (docs/detector_quality_threshold_lock_2026_08_27.md rejects that by
+// name).
+const buildClaudeContext = (c, meta) => {
+  const e = c.evidence || {};
+  const fen = e.fen_before || e.review_fen || "";
+  let board = "";
+  try {
+    board = fen ? new Chess(fen).ascii() : "";
+  } catch {
+    board = "";
+  }
+  const mover = e.side_to_move === "black" ? "Black" : "White";
+  const line = (moves) =>
+    Array.isArray(moves) && moves.length ? moves.join(" ") : null;
+  const cost =
+    typeof e.cp_loss === "number"
+      ? `${e.cp_loss} cp${e.severity_tier ? ` (${e.severity_tier})` : ""}`
+      : e.severity_tier || "not recorded";
+
+  const rows = [
+    ["Detector", c.detector],
+    ["It claims", meta?.claims || "(no description)"],
+    ["Sentence shown to the player", c.claim],
+    ["", ""],
+    ["Position", `${mover} to move, move ${e.move_number ?? "?"}`],
+    ["FEN", fen],
+    ["", ""],
+    ["They played", e.played_san || "?"],
+    ["Engine's move", e.best_move || e.book_move || "?"],
+    ["Cost of the move played", cost],
+    ["Line after the move played", line(e.pv_after_played)],
+    ["Line after the engine's move", line(e.pv_after_best)],
+  ].filter(([k, v]) => k === "" || v);
+
+  const game = c.game || {};
+  const who =
+    game.white && game.black
+      ? `${game.white} vs ${game.black}` +
+        (game.result ? ` (${game.result})` : "") +
+        (game.platform ? ` on ${game.platform}` : "") +
+        `. The player being coached is ${game.user_color || "?"}.`
+      : `game ${c.game_id}`;
+
+  return [
+    "I am checking a chess coaching detector. Below is one real position it",
+    "fired on, and the sentence it would say to the player.",
+    "",
+    ...rows.map(([k, v]) => (k === "" ? "" : `${k}: ${v}`)),
+    "",
+    board,
+    "",
+    `Game: ${who}`,
+    "",
+    "Please answer three things:",
+    "1. Is the claim actually true of this position? Verify it on the board",
+    "   yourself rather than trusting my summary.",
+    "2. If it is true, is it the most useful thing to say about this move, or",
+    "   is the real lesson something else?",
+    "3. The player is rated 600-1500. Would this sentence teach them something",
+    "   they could use in their next game, or does it only describe what the",
+    "   board already shows?",
+  ].join("\n");
+};
 
 // Same helpers as /admin/geometry-gaps, deliberately -- Mohit asked for
 // "exactly all those things", and two admin review surfaces that step a line
@@ -102,6 +286,15 @@ const replay = (fen, moves, ply) => {
 export default function AdminDetectorReview() {
   const [detector, setDetector] = useState(DETECTORS[0].id);
   const [claims, setClaims] = useState([]);
+  // Caption feedback is deliberately NOT part of the verdict. A detector can
+  // be dead right and still say it badly, and collapsing the two means the
+  // only way to record a bad caption is to rule the DETECTION wrong -- which
+  // corrupts the precision figure a promotion rests on.
+  const [captionOpen, setCaptionOpen] = useState(false);
+  const [captionFaults, setCaptionFaults] = useState([]);
+  const [captionRewrite, setCaptionRewrite] = useState("");
+  const [captionSent, setCaptionSent] = useState({});
+  const [copied, setCopied] = useState(false);
   const [scanInfo, setScanInfo] = useState({});
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -205,6 +398,45 @@ export default function AdminDetectorReview() {
   // One card at a time. Fifty rulings by mouse is what makes a review queue
   // get abandoned; this is the difference between a 30-minute job and an hour.
 
+  // Writes to /feedback/flag -> move_feedback -> /admin/authoring-queue, the
+  // caption pipeline that already exists. A second feedback store for the
+  // same thing is how the openings sprawl started.
+  const sendCaptionFeedback = async (claim) => {
+    const e = claim.evidence || {};
+    const faults = CAPTION_FAULTS.filter((f) => captionFaults.includes(f.id))
+      .map((f) => f.label)
+      .join("; ");
+    const note =
+      [faults, captionRewrite.trim() ? `wants: ${captionRewrite.trim()}` : ""]
+        .filter(Boolean)
+        .join(" -- ") || "caption flagged, no detail given";
+    await fetch(`${API}/feedback/flag`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        source: "detector_review",
+        game_id: claim.game_id,
+        move_number: e.move_number,
+        fen: e.fen_before || e.review_fen,
+        move_san: e.played_san,
+        coaching_text: claim.claim,
+        user_note: note,
+        suggested_caption: captionRewrite.trim() || null,
+        // So the authoring queue can filter to one detector's captions.
+        component: `detector_review:${claim.detector}`,
+        concept_id: claim.detector,
+        cp_loss: e.cp_loss,
+        severity_tier: e.severity_tier,
+        best_move: e.best_move,
+      }),
+    });
+    setCaptionSent((prev) => ({ ...prev, [claim.claim_key]: true }));
+    setCaptionOpen(false);
+    setCaptionFaults([]);
+    setCaptionRewrite("");
+  };
+
   const ruleAndAdvance = useCallback(
     (verdict) => {
       const claim = claims[cursor];
@@ -225,6 +457,11 @@ export default function AdminDetectorReview() {
     const onKey = (ev) => {
       if (ev.target?.tagName === "INPUT" || ev.metaKey || ev.ctrlKey) return;
       const key = ev.key.toLowerCase();
+      if (key === "c") {
+        ev.preventDefault();
+        setCaptionOpen((open) => !open);
+        return;
+      }
       const verdict =
         key === "t" ? "true" : key === "w" ? "false" : key === "u" ? "unsure" : null;
       if (!verdict) return;
@@ -234,6 +471,14 @@ export default function AdminDetectorReview() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [ruleAndAdvance]);
+
+  // A new card starts with a closed, empty panel -- carrying the previous
+  // card's faults over would attach them to the wrong caption.
+  useEffect(() => {
+    setCaptionOpen(false);
+    setCaptionFaults([]);
+    setCaptionRewrite("");
+  }, [cursor, detector]);
 
   // Running off the end of a batch should fetch the next one, not present an
   // empty screen that looks like the queue is finished.
@@ -634,6 +879,30 @@ export default function AdminDetectorReview() {
                   )}
                 </div>
 
+                {(typeof e.cp_loss === "number" || e.severity_tier) && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[11px] px-2 py-0.5 rounded-sm border ${
+                        SEVERITY_STYLE[e.severity_tier] ||
+                        "border-muted-foreground/40 text-muted-foreground"
+                      }`}
+                    >
+                      {/* Deliberately NOT rendered as pawns -- centipawn loss
+                          is not material. See the pre-commit caption guard. */}
+                      {typeof e.cp_loss === "number" ? `${e.cp_loss} cp` : ""}
+                      {typeof e.cp_loss === "number" && e.severity_tier
+                        ? " · "
+                        : ""}
+                      {e.severity_tier || ""}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {typeof e.cp_loss === "number"
+                        ? "how far this move fell short of the engine's"
+                        : "this move allows a forced mate"}
+                    </span>
+                  </div>
+                )}
+
                 {/* Plain language, not the raw keys. The first build printed
                     `quality_id tactic:discovered_attack_with_stored_payoff ·
                     detector_facts [object Object]` and the FEN twice, which is
@@ -672,16 +941,6 @@ export default function AdminDetectorReview() {
                         {e.hung_piece} on {e.hung_square}
                         {e.defender_moved_away ? " (defender left)" : ""}
                       </dd>
-                    </div>
-                  )}
-                  {typeof e.cp_loss === "number" && (
-                    <div className="flex gap-2">
-                      {/* Deliberately NOT rendered as pawns — centipawn loss
-                          is not material. See the pre-commit caption guard. */}
-                      <dt className="text-muted-foreground w-28 shrink-0">
-                        Engine cost
-                      </dt>
-                      <dd className="font-medium">{e.cp_loss} cp</dd>
                     </div>
                   )}
                   <div className="flex gap-2">
@@ -769,6 +1028,41 @@ export default function AdminDetectorReview() {
                   >
                     <HelpCircle className="w-3.5 h-3.5 mr-1" /> Unsure <span className="opacity-50 ml-1">U</span>
                   </Button>
+                  <Button
+                    size="sm"
+                    variant={captionSent[c.claim_key] ? "secondary" : "ghost"}
+                    onClick={() => setCaptionOpen((open) => !open)}
+                    title="The claim can be true and the caption still bad"
+                  >
+                    {captionSent[c.claim_key] ? "Caption noted" : "Caption…"}
+                    <span className="opacity-50 ml-1">C</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title="Copy this whole claim -- board, both engine lines, the cost -- to paste into Claude or ChatGPT"
+                    onClick={async () => {
+                      const text = buildClaudeContext(c, active);
+                      try {
+                        await navigator.clipboard.writeText(text);
+                      } catch {
+                        // Clipboard is blocked without https or a user
+                        // gesture in some browsers. Falling back to a
+                        // textarea beats a button that silently does nothing.
+                        const ta = document.createElement("textarea");
+                        ta.value = text;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                      }
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1500);
+                    }}
+                  >
+                    <Copy className="w-3.5 h-3.5 mr-1" />
+                    {copied ? "Copied" : "Copy for Claude"}
+                  </Button>
                   <details className="ml-auto">
                     <summary className="text-[11px] text-muted-foreground cursor-pointer">
                       raw
@@ -778,6 +1072,60 @@ export default function AdminDetectorReview() {
                     </pre>
                   </details>
                 </div>
+
+                {/* Separate from the verdict on purpose -- see captionOpen. */}
+                {captionOpen && (
+                  <div className="mt-2 rounded-sm border p-3 space-y-2">
+                    <div className="text-[11px] text-muted-foreground">
+                      What is wrong with the words? Your verdict above is
+                      untouched — a true claim can still read badly.
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {CAPTION_FAULTS.map((f) => {
+                        const on = captionFaults.includes(f.id);
+                        return (
+                          <Button
+                            key={f.id}
+                            size="sm"
+                            variant={on ? "default" : "outline"}
+                            className="h-7 text-[11px]"
+                            onClick={() =>
+                              setCaptionFaults((prev) =>
+                                on
+                                  ? prev.filter((x) => x !== f.id)
+                                  : [...prev, f.id]
+                              )
+                            }
+                          >
+                            {f.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <input
+                      className="w-full rounded-sm border px-2 py-1.5 text-xs bg-transparent"
+                      placeholder="What should it have said? (optional — becomes a candidate template)"
+                      value={captionRewrite}
+                      onChange={(ev) => setCaptionRewrite(ev.target.value)}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        disabled={!captionFaults.length && !captionRewrite.trim()}
+                        onClick={() => sendCaptionFeedback(c)}
+                      >
+                        Send to the authoring queue
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setCaptionOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );

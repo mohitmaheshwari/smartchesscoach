@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional
 import chess
 
 from services.caption_facts import PIECE_VALUE_CP
+from services.severity import MATE_SENTINEL_CP, classify_severity
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from routes.admin import require_admin
@@ -362,112 +363,35 @@ def _allowed_mate_caption(move, evidence, colour):
     # attackers in yellow, the squares the king cannot use as red circles, the
     # save in green. What is left for words is the rule, plus the shortest
     # possible link saying which habit it is about.
+    # The lesson AND its words both come from services/mate_lesson, which the
+    # player-facing caption path reads too. This route used to decide both,
+    # which is why back-rank captions Mohit had approved never showed up on a
+    # game review: two caption paths describing one position.
+    from services.mate_lesson import lesson_text, mate_lesson_id
+
     _att = [mating.from_square] + [chess.parse_square(q) for _, q in supporters]
-    rule = _mate_rule(before, played_mv_obj, ring, castled, uncastled_centre,
-                      standing, bool(supporters),
-                      brought=_pieces_brought_to_the_king(before, _att))
+    lesson = mate_lesson_id(
+        before,
+        played_mv_obj,
+        mated_board=mated,
+        mating_move=mating,
+        mated_king=mated_king,
+        mated_king_color=(not piece.color),
+        attacker_squares=_att,
+        own_blocked_escapes=len((ring or {}).get("own") or []),
+        king_is_castled=castled,
+        king_in_centre=uncastled_centre,
+        attackers_were_standing=standing,
+        has_supporters=bool(supporters),
+        mate_info=move.get("mate_info"),
+    )
+    rule = lesson_text(lesson) or ""
     # The only fact worth a word: that it is mate, and in how many. Which
     # pieces, which squares, which exits were shut -- all drawn.
     caption = f"That was {mate_word}. {rule}"
     if len(caption.split()) > 60:
         caption = rule
     return caption
-
-
-_HOME_SQUARES_BY_TYPE = {
-    chess.WHITE: {chess.QUEEN: (chess.D1,), chess.ROOK: (chess.A1, chess.H1),
-                  chess.BISHOP: (chess.C1, chess.F1),
-                  chess.KNIGHT: (chess.B1, chess.G1)},
-    chess.BLACK: {chess.QUEEN: (chess.D8,), chess.ROOK: (chess.A8, chess.H8),
-                  chess.BISHOP: (chess.C8, chess.F8),
-                  chess.KNIGHT: (chess.B8, chess.G8)},
-}
-
-
-def _pieces_brought_to_the_king(board_before, attacker_squares):
-    """How many of the mating pieces were MANEUVERED there.
-
-    Mohit, 2026-09-19: "it's not dxc5, it's about ignorance of player plan,
-    that's the teaching." He is right and it is checkable. On his card Black
-    played Qh5 and Ng4 -- two pieces walked to the kingside over two moves --
-    while White took a bishop on the other side of the board. The lesson is
-    not the capture, it is that the opponent's moves meant something and
-    nobody asked what.
-
-    A piece still on its starting square was not brought anywhere, so it
-    proves no plan. Counted over 80 cards: 38% have two or more pieces
-    maneuvered to the king, 46% one, 16% none.
-    """
-    brought = 0
-    for sq in attacker_squares:
-        piece = board_before.piece_at(sq)
-        if piece is None or piece.piece_type in (chess.PAWN, chess.KING):
-            continue
-        if sq not in _HOME_SQUARES_BY_TYPE[piece.color].get(piece.piece_type, ()):
-            brought += 1
-    return brought
-
-
-def _capture_net_cp(board_before, played_mv):
-    """What the capture actually NETS, not merely that it was a capture.
-
-    Mohit, 2026-09-19: "are you sure that position was this, never write
-    something bad or wrong." He was right. The rule fired on is_capture(),
-    which says a piece was taken and nothing about whether anything was won.
-    Measured over every allowed_mate capture in 300 analyses: 5 of 13 win a
-    piece, 6 win only a pawn, and 2 LOSE material -- including Rxb7 at -400,
-    which had been captioned "when you are about to win a piece" while the
-    player was hanging a rook.
-    """
-    if played_mv is None or not board_before.is_capture(played_mv):
-        return None
-    victim = board_before.piece_at(played_mv.to_square)
-    took = PIECE_VALUE_CP.get(victim.piece_type, 100) if victim else 100
-    after = board_before.copy(stack=False)
-    after.push(played_mv)
-    try:
-        from services.legal_exchange_verifier import independent_exchange_gain
-        return took - independent_exchange_gain(after, played_mv.to_square)
-    except Exception:  # noqa: BLE001
-        return None
-
-
-def _mate_rule(board_before, played_mv, ring, castled, centre, standing,
-               pair, brought=0):
-    """The one sentence the player should still have next month.
-
-    The board already shows what happened. The caption's whole job is the
-    portable rule -- but a rule is only teaching if THIS position earned it.
-    A bank of generic principles ("develop your pieces") reads like coaching
-    and is filler, which is why each rule below is selected by a board fact
-    and never appended to everything.
-
-    Most-specific first: the most useful rule is the one about the mistake
-    they actually made.
-    """
-    # The deepest lesson available, so it goes first: they spent moves walking
-    # pieces at your king and you never asked why. Only fires when the board
-    # proves the maneuvering -- two or more attackers off their home squares.
-    if brought >= 2:
-        return ("Those pieces did not arrive by accident -- every move your "
-                "opponent makes is part of a plan. Find theirs before you "
-                "follow your own.")
-
-    net = _capture_net_cp(board_before, played_mv)
-    # Only say "winning a piece" when a piece is actually being won. A capture
-    # that nets a pawn gets the pawn sentence; one that loses material is not
-    # about greed at all, so it falls through to the king rules below.
-    if net is not None and net >= 200:
-        return "When you are about to win a piece, check your own king first."
-    if net is not None and 0 < net < 200:
-        return "A free pawn is never worth a turn spent away from your king."
-    if centre and pair:
-        return "Castle before they get two pieces pointing at your king."
-    if castled and ring and len(ring.get("own") or []) >= 2:
-        return "Give your king a square to run to before it needs one."
-    if standing:
-        return "Look at what is already aimed at your king before you move."
-    return "Look for attacks on your king before anything else."
 
 
 def _escape_ring(evidence):
@@ -679,18 +603,31 @@ def _produce_simple_hang(move, colour, analysis):
     )
 
 
-def _discovered_attack_caption(board, best_move, facts):
-    """A caption a 1200 can act on, built only from board facts.
+def _discovered_attack_caption(board, best_move, facts, played=None):
+    """Say why the player's eye went somewhere else, not what the board shows.
 
-    The old one -- "Nxf3+ was there instead, and it wins material with a
-    discovered attack" -- named the motif and explained nothing. A player who
-    did not already know what a discovered attack is learns nothing, and one
-    who does still cannot see WHICH piece was blocking WHAT.
+    Mohit: "we in these captions are only telling what's on the board, why
+    users missed this, not that."
 
-    So: name the geometry (your own piece stands in front of your queen), name
-    what it uncovers, say whether the target is defended, and end on the scan
-    that transfers. The motif's name goes last, as a label for a thing they
-    have just been shown -- not as an explanation in itself.
+    That is the whole defect. Every earlier version opened by narrating the
+    position -- "Qb5 attacks their bishop on c5, and frees your bishop on g2
+    to hit the rook" -- which is exactly what the two arrows already draw.
+    The one thing the board cannot show is why the player did not see it, and
+    that is the only part worth spending words on.
+
+    The cause is derivable, not guessed. Measured over the 197 indexed claims:
+
+       48.7%  the piece that had to move was ALREADY under attack
+       20.3%  nothing obviously pulling the eye
+       15.7%  they FOUND it -- opened the line, then chose a worse square
+        9.1%  busy taking something
+        6.1%  busy saving a different piece
+
+    The 15.7% matter most for trust: those players did not miss a discovered
+    attack at all. They opened the line and picked the weaker square, so
+    "look for lines through your own pieces" is advice they had already
+    taken, and a caption that said it would be telling them to do the thing
+    they just did.
     """
     try:
         mv = board.parse_san(str(best_move))
@@ -708,28 +645,101 @@ def _discovered_attack_caption(board, best_move, facts):
 
     after = board.copy(stack=False)
     after.push(mv)
-    undefended = not after.attackers(not board.turn, chess.parse_square(target_sq))
-    gives_check = after.is_check()
-
-    # Under the 60-word cap in caption_config.json. The first draft ran 70-76
-    # and would have been cut at a sentence boundary with no ellipsis -- which
-    # eats the LAST sentence, and the last sentence is the principle. The
-    # thing worth keeping would have disappeared silently.
+    me = board.turn
     blocker_word = chess.piece_name(blocker.piece_type)
-    lead = (f"Your own {blocker_word} on {chess.square_name(mv.from_square)} "
-            f"stands in front of your {attacker} on {attacker_sq}.")
-    middle = (f"{best_move} moves it away"
-              + (" with check" if gives_check else "")
-              + f", and the {attacker} then looks straight at the "
-                f"{target} on {target_sq}"
-              + (" — which nothing defends." if undefended else "."))
-    principle = ("When your own piece blocks your queen, rook or bishop, "
-                 "look at what sits at the far end of that line. "
-                 "That is a discovered attack.")
-    caption = f"{lead} {middle} {principle}"
-    if len(caption.split()) > 60:      # never ship one the renderer would cut
-        caption = f"{lead} {middle}"
-    return caption
+    gives_check = after.is_check()
+    with_check = " with check" if gives_check else ""
+
+    # What the discovery is worth saying about, in one clause. The arrows
+    # draw the line; this only has to name its two ends.
+    opens = f"opens your {attacker} onto their {target}"
+
+    played_mv = None
+    if played:
+        try:
+            played_mv = board.parse_san(str(played))
+        except Exception:  # noqa: BLE001
+            played_mv = None
+
+    # ---- 1. They FOUND it and picked a worse square (15.7%) ----------------
+    if played_mv is not None and played_mv.from_square == mv.from_square:
+        probe = board.copy(stack=False)
+        probe.push(played_mv)
+        try:
+            already_open = chess.parse_square(attacker_sq) in probe.attackers(
+                me, chess.parse_square(target_sq))
+        except ValueError:
+            already_open = False
+        if already_open:
+            # Measured across these 31: 11 capture on the way out, 9 leave
+            # with check, 8 hit a second piece, 3 have no edge the board
+            # shows. The last 3 get wording that does not invent one.
+            extra_hit = None
+            for square in after.attacks(mv.to_square):
+                occupant = after.piece_at(square)
+                if (occupant and occupant.color != me
+                        and occupant.piece_type != chess.KING
+                        and chess.square_name(square) != target_sq
+                        and PIECE_VALUE_CP.get(occupant.piece_type, 0)
+                        >= PIECE_VALUE_CP[chess.KNIGHT]):
+                    extra_hit = chess.piece_name(occupant.piece_type)
+                    break
+            if board.is_capture(mv):
+                edge = f"{best_move} takes material on the way out{with_check}"
+            elif gives_check:
+                edge = f"{best_move} leaves with check"
+            elif extra_hit:
+                edge = f"{best_move} hits their {extra_hit} as it goes"
+            else:
+                edge = f"{best_move} does more with the same idea"
+            return (f"You did open the line -- your {attacker} hit their "
+                    f"{target} either way. The miss was which square you "
+                    f"sent it to: {edge}. When you open a line, the piece "
+                    "that leaves should do damage too.")
+
+    # ---- 2. The piece that had to move was already attacked (48.7%) -------
+    # The best lesson in the whole set. The player is asking "how do I save
+    # this?" when the board is asking "where should it go?" -- and the answer
+    # to the second question was free.
+    if board.is_attacked_by(not me, mv.from_square):
+        if blocker.piece_type == chess.KING:
+            # 3 cards where the "blocker" is the king, which means the player
+            # was in check. "Ask where it should go" is the wrong lesson when
+            # the move is forced -- but WHICH square is still a free choice,
+            # and that is the lesson.
+            return (f"You were in check, so the king had to move and it felt "
+                    f"like no choice at all. {best_move} was one of the legal "
+                    f"squares, and it {opens}. Even a forced king move is "
+                    "still a choice of square.")
+        return (f"Your {blocker_word} was under attack, so your move was "
+                f"about saving it. {best_move} moves it{with_check} and "
+                f"{opens}. When a piece of yours is attacked, do not only ask "
+                "how to save it -- ask where it should go.")
+
+    # ---- 3. Busy taking something (9.1%) ----------------------------------
+    if played_mv is not None and board.is_capture(played_mv):
+        # "taking something", not "taking a piece": board.is_capture() counts
+        # pawn captures, and to this audience "a piece" reads as not-a-pawn.
+        return (f"You were busy taking something, and a capture is the easiest "
+                f"thing on the board to see. {best_move} was bigger -- it "
+                f"{opens}{with_check}. Before you take something, check what "
+                "your own pieces are already aimed at.")
+
+    # ---- 4. Busy saving a different piece (6.1%) --------------------------
+    if played_mv is not None and board.is_attacked_by(not me,
+                                                      played_mv.from_square):
+        return (f"You were saving a piece that was under attack, and that "
+                f"took the whole move. {best_move} {opens}{with_check}. When "
+                "you answer a threat, look for the answer that makes a threat "
+                "of its own.")
+
+    # ---- 5. Nothing was pulling the eye (20.3%) ---------------------------
+    # Only here is the search itself the diagnosis, so only here is it the
+    # lesson. Mohit's framing, kept verbatim: start from the scarce end.
+    return (f"Nothing was forcing your eye anywhere, and the line was hidden "
+            f"behind your own {blocker_word}. {best_move} {opens}"
+            f"{with_check}. Start with their queen and rooks and ask what of "
+            "yours is aimed at them, even through your own pieces.")
 
 
 def _fork_caption(board, best_move, facts):
@@ -914,7 +924,8 @@ def _missed_motif(builder, label):
         confidence = _motif_confidence(names, probe, after, board.turn, best_gain)
         coachable = None
         if label == "discovered attack":
-            coachable = _discovered_attack_caption(board.copy(), best, head)
+            coachable = _discovered_attack_caption(board.copy(), best, head,
+                                                   played)
         elif label == "fork":
             coachable = _fork_caption(board.copy(), best, head)
         if coachable:
@@ -1046,6 +1057,23 @@ DETECTOR_QUALITY_IDS = {
     "discovered_attack": "tactic:discovered_attack_with_stored_payoff",
     "left_book": "gap:opening_knowledge:left_book_for_a_worse_move",
     "allowed_mate": "gap:king_safety:allowed_mate_exact",
+    # The missed-concept branch, 2026-09-19. These four already had detectors
+    # that could only say "applied"; they can now say "missed" and this is
+    # where those claims get judged. See docs/missed_concept_scope.md.
+    "missed_castling": "concept:opening_castling",
+    "missed_development": "concept:coached_development",
+    "missed_center": "concept:opening_center",
+    "missed_king_activity": "concept:endgame_king_centralization",
+    # 2026-09-20. Six shadow-grade endgame concepts plus rule_of_square,
+    # which is DISABLED -- read live, so the page shows that rather than
+    # silently reporting shadow through the fail-closed default.
+    "missed_opposition": "concept:endgame_opposition",
+    "missed_rule_of_square": "concept:endgame_rule_of_square",
+    "missed_passed_pawn": "concept:endgame_create_passed_pawn",
+    "missed_stop_promotion": "concept:endgame_stop_promotion",
+    "missed_lucena": "concept:endgame_lucena",
+    "missed_philidor": "concept:endgame_philidor",
+    "missed_active_rook": "concept:endgame_active_rook",
     # Candidate only -- unregistered, so _grade_for reports shadow.
     "tempo_loss": None,
 }
@@ -1251,6 +1279,233 @@ def _produce_tempo_loss(move, colour, analysis):
     })
 
 
+# The rule each missed concept teaches. Deliberately NOT a description of the
+# position: the board draws the move played in red and the move wanted in
+# green, so the words carry only what a picture cannot -- the habit that
+# transfers to a game the player has not seen yet. Mohit, 2026-09-19:
+# "captions should tell principles that you don't forget."
+_MISSED_CONCEPT_RULES = {
+    "opening_castling": (
+        "Your king was still in the middle. Castling is what makes every "
+        "other plan safe to start."),
+    "coached_development": (
+        "A piece was still sitting on its starting square. Get everyone out "
+        "before you go hunting for a plan."),
+    "opening_center": (
+        "The middle was still open. A pawn there takes squares away from "
+        "every piece they own."),
+    "endgame_king_centralization": (
+        "In an endgame your king is a fighting piece, not something to hide. "
+        "Walk it towards the middle."),
+    # 2026-09-20. Six more endgame concepts opened for review. All are
+    # registered detectors that have never been ruled on, so nobody knows what
+    # they would say. rule_of_square in particular is DISABLED for a reason
+    # worth testing rather than assuming: "the production scan found only five
+    # eligible positions and all five belong to one game". Serving it here is
+    # how that count gets confirmed or refuted.
+    "endgame_opposition": (
+        "Whoever has to move first in a king standoff is the one who gives "
+        "ground. Take the opposition and make them step aside."),
+    "endgame_rule_of_square": (
+        "You can tell at a glance whether a king catches a passed pawn: draw "
+        "the square from the pawn to its promotion rank. Inside it you catch "
+        "it, outside it you do not."),
+    "endgame_create_passed_pawn": (
+        "A pawn nobody can stop is worth more than an extra pawn nobody "
+        "notices. When you have the majority, make one."),
+    "endgame_stop_promotion": (
+        "A pawn one square from queening decides the game on its own. Stop it "
+        "before you improve anything else."),
+    "endgame_lucena": (
+        "With a rook and a pawn on the seventh you build a bridge: the rook "
+        "shields your king so it can step out and the pawn can run."),
+    "endgame_philidor": (
+        "Defending a rook endgame, hold your rook on the third rank until "
+        "their pawn arrives, then check from behind."),
+    "endgame_active_rook": (
+        "A rook sitting behind your own pawns loses endgames. An active rook "
+        "is worth a pawn."),
+}
+
+
+# Mohit flagged the castling caption four times on 2026-09-20, and all four
+# cards had said the SAME sentence: "Your king was still in the middle.
+# Castling is what makes every other plan safe to start." Four different
+# boards, one line -- the filler problem.
+#
+# His four rewrites each named the concrete danger on THAT board first:
+#   Ng4  m6  "opponent can castle, so f7 doesn't work -- think about their move"
+#   Ng5  m9  "after 8 moves, king is not castled is a red flag"
+#   Qb6  m13 "queen is on open file, your king is uncastled, too risky"
+#   d5   m6  "their queen is out, bishop is developed, castling is top priority"
+#
+# So: name the danger, THEN say castle. Every branch below is checked on the
+# board. Written in short sentences on purpose -- Mohit 2026-09-20, "captions
+# should be very very very easy english".
+def _missed_castling_caption(move, colour, fen, played, best):
+    try:
+        before = chess.Board(str(fen))
+        played_mv = before.parse_san(str(played))
+    except Exception:  # noqa: BLE001
+        return None
+    me = before.turn
+    king = before.king(me)
+    if king is None:
+        return None
+    home = chess.E1 if me == chess.WHITE else chess.E8
+    if king != home:
+        return None          # already moved; this is not a castling lesson
+
+    them = not me
+    # f7 for Black, f2 for White -- the square a bishop on c4/c5 points at,
+    # and the one only the king defends before castling.
+    weak = chess.F2 if me == chess.WHITE else chess.F7
+    attackers = [sq for sq in before.attackers(them, weak)
+                 if before.piece_at(sq).piece_type != chess.PAWN]
+
+    # Their queen off its home square, plus at least one developed minor.
+    q_home = chess.D1 if them == chess.WHITE else chess.D8
+    their_q = next((sq for sq in before.pieces(chess.QUEEN, them)), None)
+    q_out = their_q is not None and their_q != q_home
+    minor_home = ({chess.B1, chess.C1, chess.F1, chess.G1} if them == chess.WHITE
+                  else {chess.B8, chess.C8, chess.F8, chess.G8})
+    minors_out = sum(
+        1 for pt in (chess.KNIGHT, chess.BISHOP)
+        for sq in before.pieces(pt, them) if sq not in minor_home)
+
+    moves_played = max(0, int(move.get("move_number") or 1) - 1)
+
+    # Did the move just made walk a knight or bishop into their half to hit
+    # something that is already defended? That is the "one piece cannot
+    # attack alone" case, and it has to be TRUE, not assumed.
+    mover_piece = before.piece_at(played_mv.from_square)
+    sortie_target = None
+    if mover_piece is not None and mover_piece.piece_type in (chess.KNIGHT, chess.BISHOP):
+        after = before.copy(stack=False)
+        after.push(played_mv)
+        for sq in after.attacks(played_mv.to_square):
+            victim = after.piece_at(sq)
+            if victim is None or victim.color == me:
+                continue
+            if victim.piece_type == chess.KING:
+                continue
+            # defended => the raid achieves nothing
+            if after.attackers(them, sq):
+                sortie_target = chess.square_name(sq)
+                break
+
+    side_word = "e1" if me == chess.WHITE else "e8"
+
+    if sortie_target:
+        return (f"One piece cannot attack on its own. Your {chess.piece_name(mover_piece.piece_type)} "
+                f"hits {sortie_target}, but it is already guarded, so nothing comes of it. "
+                f"Meanwhile your king stays in the middle. Castle first, then look for attacks.")
+    # Only for a KINGSIDE castle. On a card whose best move is O-O-O the king
+    # walks away from f7 and no rook ever covers it, so "castle and the rook
+    # guards it instead" is simply false -- caught by rendering card 6
+    # (Qb6, best O-O-O) rather than by reading this code.
+    kingside = best and str(best).strip() in ("O-O", "0-0")
+    if attackers and kingside:
+        name = chess.piece_name(before.piece_at(attackers[0]).piece_type)
+        # "only the king guards it" has to be checked, not assumed.
+        guards = before.attackers(me, weak)
+        only_king = len(guards) == 1 and king in guards
+        middle = ("Right now only your king guards that square. "
+                  if only_king else "")
+        return (f"Their {name} is aiming at {chess.square_name(weak)}. Your king is still in the "
+                f"middle. {middle}Castle, and the rook guards it instead.")
+    if q_out and minors_out >= 1:
+        return ("Their queen is out and their pieces are developed. Your king is still in the "
+                "middle. That is the moment to castle. Get the king safe before you start a plan.")
+    if best and "O-O-O" in str(best):
+        return ("Your king is still in the middle and your rook has not moved all game. Castling "
+                "long fixes both. The king goes to safety and the rook comes into the game.")
+    if moves_played >= 8:
+        return (f"{moves_played} moves gone and your king is still on {side_word}. That is a red "
+                f"flag. Castle now. Every other plan is safer once the king is away.")
+    return None
+
+
+def _missed_concept(skill_id: str):
+    """Serve one concept detector's new "you missed this" claims.
+
+    These fire 215 times in 400 games where the same detectors previously
+    produced ZERO negative verdicts, so this is the first time any of them
+    can be judged at all. Shadow grade; a ruling here promotes nothing.
+    """
+    rule = _MISSED_CONCEPT_RULES[skill_id]
+
+    def produce(move, colour, analysis):
+        if move.get("is_opponent_move"):
+            return None
+        fen, uci, best = (move.get("fen_before"), move.get("move_uci"),
+                          move.get("best_move"))
+        cp_loss = move.get("cp_loss")
+        if not fen or not uci or not best:
+            return None
+        from services.concept_detectors.registry import get_detector
+
+        detector = get_detector(skill_id)
+        if detector is None:
+            return None
+        try:
+            board = chess.Board(fen)
+            played = chess.Move.from_uci(str(uci))
+            if played not in board.legal_moves:
+                return None
+        except (ValueError, AssertionError):
+            return None
+        col = chess.WHITE if str(colour).lower().startswith("w") else chess.BLACK
+        import inspect
+
+        kwargs = {}
+        params = inspect.signature(detector).parameters
+        for name, value in (("move_number", move.get("move_number")),
+                            ("best_move_san", str(best)),
+                            ("best_move_uci", move.get("best_move_uci")),
+                            ("cp_loss", cp_loss),
+                            ("mate_info", move.get("mate_info"))):
+            if name in params:
+                kwargs[name] = value
+        try:
+            verdict = detector(board.copy(stack=False), played, col, **kwargs)
+        except Exception:  # noqa: BLE001
+            return None
+        if verdict != "missed":
+            return None
+
+        side, arrow = _orientation_and_arrow(fen, move.get("move"))
+        best_arrow = _orientation_and_arrow(fen, str(best))[1]
+        # Least-certain first, and a marginal loss IS the uncertain case: the
+        # engine preferring d4 to O-O by 107cp does not make castling a
+        # mistake worth a lecture. Those cards go to the top so they are the
+        # ones that get judged.
+        loss = cp_loss if isinstance(cp_loss, (int, float)) else 0
+        confidence = (CONFIDENCE_UNCERTAIN if loss < 150
+                      else CONFIDENCE_LIKELY)
+        caption = rule
+        if skill_id == "opening_castling":
+            caption = _missed_castling_caption(
+                move, colour, fen, move.get("move"), best) or rule
+        return (
+            caption,
+            {"fen_before": fen, "fen_after": move.get("fen_after"),
+             "review_fen": fen, "line_fen": fen,
+             "played_san": move.get("move"), "best_move": str(best),
+             "move_number": move.get("move_number"), "cp_loss": cp_loss,
+             "confidence": confidence,
+             "pv_after_played": list(move.get("pv_after_played") or [])[:8],
+             "pv_after_best": list(move.get("pv_after_best") or [])[:8],
+             "side_to_move": side, "arrow": arrow,
+             "arrow_is": "the move played",
+             "extra_arrows": [[best_arrow[0], best_arrow[1], "green"]]
+                             if best_arrow else [],
+             "extra_arrows_is": "what the engine wanted instead"},
+        )
+
+    return produce
+
+
 def _producers():
     from services.discovered_attack_puzzle_proof import (
         build_discovered_attack_proof,
@@ -1265,7 +1520,75 @@ def _producers():
         "fork": _missed_motif(build_fork_proof, "fork"),
         "discovered_attack": _missed_motif(
             build_discovered_attack_proof, "discovered attack"),
+        "missed_castling": _missed_concept("opening_castling"),
+        "missed_development": _missed_concept("coached_development"),
+        "missed_center": _missed_concept("opening_center"),
+        "missed_king_activity": _missed_concept("endgame_king_centralization"),
+        # Pin/skewer is deliberately NOT served here. aligned_tactic_puzzle_proof
+        # is the exact pin/skewer proof and it already works -- 362 positions in
+        # community_training_positions and 159 in community_puzzles carry
+        # tactic:aligned_with_stored_payoff, and that id is already graded
+        # CAPTION, i.e. authorised. Wiring it through _missed_motif produced 0
+        # fires on a 20k-move scan, because this queue asks a different question
+        # (did the move the player MISSED create the motif) from the one the
+        # extraction path asks. Rather than ship a review entry that always
+        # serves nothing, pin/skewer puzzles should come from those 521 already
+        # proven rows -- they need no ruling at all.
+        # Seven endgame concepts, so the endgame half of the diagnostic can be
+        # judged at all. See _MISSED_CONCEPT_RULES for rule_of_square.
+        "missed_opposition": _missed_concept("endgame_opposition"),
+        "missed_rule_of_square": _missed_concept("endgame_rule_of_square"),
+        "missed_passed_pawn": _missed_concept("endgame_create_passed_pawn"),
+        "missed_stop_promotion": _missed_concept("endgame_stop_promotion"),
+        "missed_lucena": _missed_concept("endgame_lucena"),
+        "missed_philidor": _missed_concept("endgame_philidor"),
+        "missed_active_rook": _missed_concept("endgame_active_rook"),
     }
+
+
+CLAIMS_COLLECTION = "detector_claims"
+
+
+async def _stored_claims(detector: str, skip_fens: set,
+                         limit: int) -> List[Dict[str, Any]]:
+    """Serve precomputed claims, or [] when none have been built yet.
+
+    The page used to re-derive every claim on every load -- up to 20,000
+    analyses, proof builders on every mistake move -- and for a detector
+    firing on 1.8% of games that is ~1,000 games before the first screenful.
+    nginx gives up at 60s: three 504s in today's log (discovered_attack twice,
+    fork once), which is why the page told Mohit there was nothing left to
+    review while twenty cards were waiting.
+
+    Claims are a function of (corpus, detector), and neither moves while
+    someone reads a card. Build them with scripts/build_detector_claims.py.
+    """
+    if db is None:
+        return []
+    try:
+        rows = await db[CLAIMS_COLLECTION].find(
+            {"detector": detector}, {"_id": 0}).limit(limit * 6).to_list(limit * 6)
+    except Exception:  # noqa: BLE001
+        return []
+    out: List[Dict[str, Any]] = []
+    for row in rows:
+        if row.get("claim_key") in skip_fens:
+            continue
+        out.append({
+            "claim_key": row.get("claim_key"),
+            "detector": detector,
+            "game_id": row.get("game_id"),
+            "claim": row.get("claim"),
+            "evidence": row.get("evidence") or {},
+            "game": row.get("game"),
+        })
+        if len(out) >= limit:
+            break
+    # Least-certain first, same order the live scan uses: a reviewer should
+    # meet the cards the board cannot settle, not fifty obvious ones.
+    out.sort(key=lambda c: _CONFIDENCE_RANK.get(
+        (c.get("evidence") or {}).get("confidence"), 0))
+    return out
 
 
 async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str, Any]]:
@@ -1337,6 +1660,31 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
             if not produced:
                 continue
             claim, evidence = produced
+            # How bad was the move? Every producer already carries cp_loss,
+            # but a raw "139 cp" does not tell a reviewer whether that is a
+            # slip or a disaster -- Mohit, 2026-09-20: "i don't know how bad
+            # is move". Name the tier using the ONE canonical evaluator
+            # (services/severity.py, thresholds Mohit-locked 2026-05-25) so
+            # this page cannot drift from what captions say about the same
+            # move. Deliberately not the rating-aware bands: the reviewer is
+            # judging a claim, not being coached, so the scale must be
+            # absolute and the same on every card.
+            _cp = evidence.get("cp_loss")
+            if isinstance(_cp, (int, float)) and not isinstance(_cp, bool):
+                evidence["severity_tier"] = classify_severity(
+                    int(_cp), mover_is_user=True).tier
+            elif evidence.get("mating_line"):
+                # allowed_mate stores no cp_loss -- 25 of 25 sampled fires had
+                # it as None -- so the badge would be blank on the one detector
+                # where "how bad is it" has the most obvious answer. The tier
+                # is not inferred here: classify_severity already rules
+                # walked_into_mate as blunder, and this producer's gate IS
+                # "the move allows a forced mate". Whether the mate is PROVED
+                # on the board is a separate axis, already carried by the
+                # confidence chip.
+                evidence["severity_tier"] = classify_severity(
+                    0, mover_is_user=True,
+                    user_post_eval_cp=-MATE_SENTINEL_CP).tier
             key = f"{detector}:{analysis.get('game_id')}:{evidence.get('move_number')}"
             if key in skip_fens:
                 continue
@@ -1389,13 +1737,20 @@ async def batch_claims(
     """Several at once — reading fifty claims in ten minutes is the point."""
     ruled = set(await db[COLLECTION].distinct(
         "claim_key", {"detector": detector}))
-    claims = await _fires_for(detector, ruled, limit)
+    # Precomputed first; fall back to the live scan when nothing is built yet,
+    # so a detector added after the last build still works.
+    claims = await _stored_claims(detector, ruled, limit)
+    served_from = "index"
+    if not claims:
+        claims = await _fires_for(detector, ruled, limit)
+        served_from = "live scan"
     buckets = Counter(
         (c.get("evidence") or {}).get("confidence") or "uncertain"
         for c in claims)
     return {
         "detector": detector,
         "claims": claims,
+        "served_from": served_from,
         # So the page can say what it is asking for: the ones the board could
         # not settle, not everything it found.
         "confidence_split": dict(buckets),
