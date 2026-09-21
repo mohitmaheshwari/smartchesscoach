@@ -18,6 +18,7 @@ import ChessLoader from "@/components/ChessLoader";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const CONCEPT_DISPLAY = {
   piece_safety: "Piece Safety",
@@ -37,6 +38,11 @@ const DiagnosticPuzzles = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [puzzle, setPuzzle] = useState(null);
+  // The answer used to appear and then the board swapped 2s later with no
+  // way to move on sooner. The payload is parked here so the reveal can be
+  // ended early by the player instead of only waited out.
+  const pendingNextRef = useRef(null);
+  const advanceTimerRef = useRef(null);
   const [puzzleNumber, setPuzzleNumber] = useState(1);
   const [verdict, setVerdict] = useState(null); // {verdict, explanation, cp_loss, concept_progress}
   const [diagnosis, setDiagnosis] = useState(null);
@@ -218,6 +224,27 @@ const DiagnosticPuzzles = () => {
   };
 
   // ── Submit an attempt ──────────────────────────────────────────
+  const applyPending = () => {
+    const pending = pendingNextRef.current;
+    if (!pending) return;
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+    advanceTimerRef.current = null;
+    pendingNextRef.current = null;
+    if (pending.type === "complete") {
+      setDiagnosis(pending.data.diagnosis);
+      setPuzzle(null);
+    } else {
+      setPuzzle(pending.data.puzzle);
+      setPuzzleNumber(pending.data.puzzle_number);
+    }
+    setVerdict(null);
+    setSubmitting(false);
+  };
+
+  useEffect(() => () => {
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+  }, []);
+
   const handleMove = async (moveData) => {
     if (!puzzle || submitting) return;
     const san = moveToSan(puzzle.fen, moveData.from, moveData.to, moveData.promotion);
@@ -265,23 +292,15 @@ const DiagnosticPuzzles = () => {
 
       if (data.status === "complete") {
         track(ANALYTICS_EVENTS.DIAGNOSTIC_COMPLETED, { exited_early: false, puzzle_count: puzzleNumber });
-        // Hold the verdict briefly, then reveal the diagnosis.
-        setTimeout(() => {
-          setDiagnosis(data.diagnosis);
-          setPuzzle(null);
-          setVerdict(null);
-          setSubmitting(false);
-        }, 2000);
+        // Hold the verdict, then reveal the diagnosis.
+        pendingNextRef.current = { type: "complete", data };
+        advanceTimerRef.current = setTimeout(applyPending, 2400);
         return;
       }
 
-      // Move to next puzzle after a short reveal.
-      setTimeout(() => {
-        setPuzzle(data.puzzle);
-        setPuzzleNumber(data.puzzle_number);
-        setVerdict(null);
-        setSubmitting(false);
-      }, 2000);
+      // Move to the next puzzle after the reveal, or as soon as they ask.
+      pendingNextRef.current = { type: "next", data };
+      advanceTimerRef.current = setTimeout(applyPending, 2400);
     } catch (e) {
       setError("Network error submitting your answer.");
       setSubmitting(false);
@@ -515,7 +534,14 @@ const DiagnosticPuzzles = () => {
         {/* Board + side info */}
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1">
-            <div className="w-full max-w-[560px] aspect-square mx-auto relative">
+            {/* Keyed on the puzzle so a new position fades in rather than
+                the pieces silently rearranging under the cursor. */}
+            <motion.div
+              key={puzzle.puzzle_id || puzzleNumber}
+              initial={{ opacity: 0, scale: 0.985 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="w-full max-w-[560px] aspect-square mx-auto relative">
               <LichessBoard
                 ref={boardRef}
                 fen={puzzle.fen}
@@ -524,12 +550,56 @@ const DiagnosticPuzzles = () => {
                 viewOnly={!!verdict || submitting}
                 onMove={handleMove}
               />
-            </div>
+
+              {/* The answer lands where the eyes already are. The sidebar
+                  card still carries the reasoning; this is only the yes/no,
+                  so it reads before the sentence is read. */}
+              <AnimatePresence>
+                {verdict && (
+                  <motion.div
+                    key={`verdict-${puzzleNumber}`}
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0, transition: { duration: 0.18 } }}
+                  >
+                    <motion.div
+                      className={`flex items-center gap-2.5 rounded-full px-5 py-3 shadow-lg backdrop-blur-sm border ${
+                        verdict.verdict === "UNDERSTOOD"
+                          ? "bg-emerald-500/95 border-emerald-300 text-white"
+                          : verdict.verdict === "PARTIAL"
+                            ? "bg-amber-500/95 border-amber-300 text-white"
+                            : "bg-rose-500/95 border-rose-300 text-white"
+                      }`}
+                      initial={{ scale: 0.6, opacity: 0, y: 8 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      transition={{ type: "spring", stiffness: 420, damping: 24 }}
+                    >
+                      {verdict.verdict === "UNDERSTOOD" ? (
+                        <CheckCircle2 className="w-6 h-6" />
+                      ) : (
+                        <AlertCircle className="w-6 h-6" />
+                      )}
+                      <span className="text-[15px] font-semibold tracking-tight">
+                        {verdict.verdict === "UNDERSTOOD"
+                          ? "Correct"
+                          : verdict.verdict === "PARTIAL"
+                            ? "Partly"
+                            : "Not this one"}
+                      </span>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
           </div>
 
           <div className="lg:w-72">
             {verdict ? (
-              <div
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: 0.12 }}
                 className={`rounded-lg border p-4 ${
                   verdict.verdict === "UNDERSTOOD"
                     ? "border-emerald-500/40 bg-emerald-500/5"
@@ -565,7 +635,17 @@ const DiagnosticPuzzles = () => {
                 <p className="text-[13px] text-foreground leading-snug">
                   {verdict.explanation}
                 </p>
-              </div>
+                {/* The reveal is 2.4s. Reading speed is not uniform, so it
+                    can be ended early rather than sat through. */}
+                <button
+                  type="button"
+                  onClick={applyPending}
+                  className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Next
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </motion.div>
             ) : (
               <div className="rounded-lg border border-border p-4 bg-card">
                 <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-2">
