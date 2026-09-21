@@ -322,10 +322,17 @@ the only thing that has these concepts at all).
 - **`concept_mastery_tracker` stops promoting to `acknowledged`.** Its clean
   streak now advances `monitoring → mastered` only, and only for concepts
   already in `understood`/`monitoring`.
-- **Backfill:** the 1,035 rows that already carry `mastered_at` were
-  promoted without proof. They migrate to `monitoring`, **not** `mastered` —
-  they keep their streak evidence but must pass a test to be called
-  understood. No invented test results.
+- **Backfill:** rows promoted under the old streak-only rule migrate to
+  `monitoring`, **not** `mastered` — they keep their streak evidence but
+  must pass a test to be called understood. No invented test results.
+  Measured on the dry run: **1,078 -> monitoring, 3,139 -> shown.**
+  The rule is "does it carry streak evidence", not "was it stamped":
+  reading the dry-run rows found 42 concepts on a clean streak past the
+  bar — one at 165 clean games — that were never stamped, because the old
+  promotion condition also required `not acknowledged`. That is an
+  artefact of old bookkeeping, not a judgement about the player, so they
+  are treated the same. (`streak_required` is `None` on all 4,217 rows, so
+  the tracker default of 3 applies throughout.)
 
 ## 5. Explicitly out of scope (V1)
 
@@ -356,8 +363,8 @@ All falsifiable on Mohit's own account, with no new users:
    bug, and it should ship with a regression test.
 3. A user who passes enters `monitoring`, and a later violation in a real
    game returns him to `shown`.
-4. The 1,035 pre-existing `mastered_at` rows land in `monitoring`, and the
-   count of rows in `mastered` after migration is **0**.
+4. The pre-existing promoted rows (1,078 on the dry run) land in
+   `monitoring`, and the count of rows in `mastered` after migration is **0**.
 5. Zero change to any rendered caption, diffed through the real render path
    (`generate_game_decryption_v5`).
 
@@ -453,4 +460,4 @@ Verified 2026-09-21 against `origin/working-code` and the prod dataset.
 | Lichess covers ~54% of miss volume | ~14 of 23 concepts map to a theme; the 2 most-missed (`same_piece_better_square` 8,927, `knight_outpost` 5,160) are positional and have none |
 | `mastery_gate_service` is dead | grep: 2 hits, both comments |
 | PWC is not worth instrumenting in V1 | 683 of 121,748 pattern events (0.6%); 83 of 3,429 PWC moves carry `concept_used` |
-| 1,035 rows already carry `mastered_at` | promoted under the old streak-only rule, hence the migration in §4 |
+| 1,036 rows carry `mastered_at`/`acknowledged`, +42 more carry an unstamped streak | all promoted (or promotable) under the old streak-only rule; 1,078 migrate to `monitoring`, 3,139 to `shown` |

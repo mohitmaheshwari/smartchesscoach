@@ -37,6 +37,32 @@ from services.concept_test_service import (  # noqa: E402
 )
 
 
+#: streak_required is None on every existing row, so the tracker's default
+#: applies throughout.
+DEFAULT_STREAK_REQUIRED = 3
+
+
+def _has_streak_evidence(row) -> bool:
+    """Does this row carry real evidence, of any kind, short of proof?
+
+    Deliberately wider than "was it stamped". Reading the dry-run rows
+    showed 42 concepts sitting on a clean streak well past the bar -- one
+    at 165 clean games -- that were never stamped, because the old
+    promotion condition also required `not acknowledged` and the stamp
+    depended on which code path happened to touch the row.
+
+    Those rows hold exactly the same KIND of evidence as a stamped one:
+    a clean streak, which the tracker only counts in games where the
+    concept was actually present. Sorting them differently would be an
+    artefact of old bookkeeping, not a judgement about the player. Neither
+    kind is proof, so both land in `monitoring` and both must pass a test.
+    """
+    if row.get("mastered_at") or row.get("acknowledged"):
+        return True
+    required = int(row.get("streak_required") or DEFAULT_STREAK_REQUIRED)
+    return int(row.get("streak_clean") or 0) >= required
+
+
 async def main(apply: bool) -> int:
     client = AsyncIOMotorClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
     db = client[os.environ.get("DB_NAME", "test_database")]
@@ -53,11 +79,11 @@ async def main(apply: bool) -> int:
     cursor = coll.find(
         {"state": {"$exists": False}},
         {"_id": 1, "concept_id": 1, "user_id": 1, "mastered_at": 1,
-         "acknowledged": 1, "streak_clean": 1, "clean_games_total": 1},
+         "acknowledged": 1, "streak_clean": 1, "clean_games_total": 1,
+         "streak_required": 1},
     )
     async for row in cursor:
-        proven_before = bool(row.get("mastered_at")) or bool(row.get("acknowledged"))
-        target = STATE_MONITORING if proven_before else STATE_SHOWN
+        target = STATE_MONITORING if _has_streak_evidence(row) else STATE_SHOWN
         plan[target] += 1
         if len(samples[target]) < 5:
             samples[target].append(
@@ -86,7 +112,8 @@ async def main(apply: bool) -> int:
     for target, query in (
         (STATE_MONITORING, {"state": {"$exists": False},
                             "$or": [{"mastered_at": {"$nin": [None, ""]}},
-                                    {"acknowledged": True}]}),
+                                    {"acknowledged": True},
+                                    {"streak_clean": {"$gte": DEFAULT_STREAK_REQUIRED}}]}),
         (STATE_SHOWN, {"state": {"$exists": False}}),
     ):
         res = await coll.update_many(query, {"$set": {"state": target}})
