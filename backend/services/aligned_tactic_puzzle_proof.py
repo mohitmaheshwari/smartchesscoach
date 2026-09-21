@@ -13,7 +13,7 @@ from services.stored_line_verifier import parse_legal_move, replay_stored_line
 from services.verified_puzzle_admission import DetectorProof, VerifierProof
 
 
-ALIGNED_PROOF_VERSION = "aligned_tactic_puzzle_proof.v3"
+ALIGNED_PROOF_VERSION = "aligned_tactic_puzzle_proof.v4"
 ALIGNED_QUALITY_ID = "tactic:aligned_with_stored_payoff"
 _DIAGONALS = ((1, 1), (1, -1), (-1, 1), (-1, -1))
 _ORTHOGONALS = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -154,16 +154,29 @@ def _candidate_delta(
     )
 
 
+def _consequence_is_proved(
+    replay: Any,
+    initiator: chess.Color,
+) -> bool:
+    """A tactic pays off in material OR in mate.
+
+    Demanding a pawn of net material threw away every line whose payoff
+    was checkmate, where the material ledger is beside the point: the
+    pinned defender could not leave the line, so the mating move could
+    not be answered.
+    """
+    if replay.checkmate and replay.checkmating_color == initiator:
+        return True
+    return replay.net_material_gain_cp >= PIECE_VALUE_CP[chess.PAWN]
+
+
 def _payoff_uses_alignment(
     board_before: chess.Board,
     best: chess.Move,
-    continuation: Sequence[Any],
+    replay: Any,
     alignment: Dict[str, Any],
 ) -> Optional[dict]:
-    replay = replay_stored_line(board_before, best, continuation)
-    if not replay.complete or replay.net_material_gain_cp < PIECE_VALUE_CP[chess.PAWN]:
-        return None
-
+    """Payoff A: the attacker captures the target the alignment exposed."""
     board = board_before.copy(stack=False)
     initiator = board.turn
     front = alignment["front_square"]
@@ -256,6 +269,116 @@ def _payoff_uses_alignment(
     }
 
 
+def _payoff_pin_confines_front(
+    board_before: chess.Board,
+    best: chess.Move,
+    replay: Any,
+    alignment: Dict[str, Any],
+) -> Optional[dict]:
+    """Payoff C: the pin confines the front piece, and it is deflected.
+
+    Payoff A is the skewer story — create the line, then capture along
+    it. A pin can pay off without the pinning piece ever capturing:
+    when the rear piece is the king the pin is absolute, so the front
+    piece's only legal moves lie on the pinning ray, and the single
+    capture that ray allows is the pinning piece itself. Taking it is
+    the only way out of the line, and it drags the front piece off
+    whatever else it was doing.
+    """
+    if alignment["kind"] != "pin":
+        return None
+    board = board_before.copy(stack=False)
+    initiator = board.turn
+    attacker_square = alignment["attacker_square"]
+    front = alignment["front_square"]
+    rear = alignment["rear_square"]
+    attacker_identity = None
+    front_identity = None
+    rear_identity = None
+    deflected = False
+    for index, uci in enumerate(replay.replayed_uci):
+        move = chess.Move.from_uci(uci)
+        mover = board.turn
+        if index == 0:
+            board.push(move)
+            attacker = board.piece_at(attacker_square)
+            front_piece = board.piece_at(front)
+            rear_piece = board.piece_at(rear)
+            if attacker is None or front_piece is None or rear_piece is None:
+                return None
+            if rear_piece.piece_type != chess.KING:
+                return None
+            if not board.is_pinned(front_piece.color, front):
+                return None
+            attacker_identity = (attacker.piece_type, attacker.color)
+            front_identity = (front_piece.piece_type, front_piece.color)
+            rear_identity = (rear_piece.piece_type, rear_piece.color)
+            continue
+        if not deflected:
+            standing_attacker = board.piece_at(attacker_square)
+            mover_piece = board.piece_at(move.from_square)
+            if (
+                mover != initiator
+                and move.from_square == front
+                and move.to_square == attacker_square
+                and board.is_capture(move)
+                and mover_piece is not None
+                and (mover_piece.piece_type, mover_piece.color)
+                == front_identity
+                and standing_attacker is not None
+                and (
+                    standing_attacker.piece_type,
+                    standing_attacker.color,
+                ) == attacker_identity
+                and board.is_pinned(mover_piece.color, front)
+            ):
+                deflected = True
+                board.push(move)
+                continue
+            if move.from_square in (attacker_square, front, rear):
+                return None
+            if move.to_square in (attacker_square, front, rear):
+                return None
+        board.push(move)
+    if not deflected:
+        return None
+    return {
+        "kind": alignment["kind"],
+        "creation_mode": (
+            "direct"
+            if alignment["attacker_square"] == best.to_square
+            else "discovered"
+        ),
+        "attacker_piece": chess.piece_name(attacker_identity[0]),
+        "attacker_square": chess.square_name(attacker_square),
+        "front_piece": chess.piece_name(front_identity[0]),
+        "front_square": chess.square_name(front),
+        "rear_piece": chess.piece_name(rear_identity[0]),
+        "rear_square": chess.square_name(rear),
+        "net_material_gain_cp": replay.net_material_gain_cp,
+        "replayed_uci": replay.replayed_uci,
+    }
+
+
+def _stored_payoff(
+    board_before: chess.Board,
+    best: chess.Move,
+    continuation: Sequence[Any],
+    alignment: Dict[str, Any],
+) -> Optional[dict]:
+    """Replay the stored line once and try every payoff model on it."""
+    replay = replay_stored_line(board_before, best, continuation)
+    if not replay.complete:
+        return None
+    if not _consequence_is_proved(replay, board_before.turn):
+        return None
+    return _payoff_uses_alignment(
+        board_before, best, replay, alignment
+    ) or _payoff_pin_confines_front(
+        board_before, best, replay, alignment
+    )
+
+
 def build_aligned_tactic_proof(
     board_before: chess.Board,
     played_move: str,
@@ -292,7 +415,7 @@ def build_aligned_tactic_proof(
     ):
         independent_alignment = None
     payoff = (
-        _payoff_uses_alignment(
+        _stored_payoff(
             board_before, best, pv_after_best, independent_alignment
         )
         if independent_alignment
