@@ -294,6 +294,22 @@ const DiagnosticPuzzles = () => {
       // plot the drop-off curve.
       track(ANALYTICS_EVENTS.DIAGNOSTIC_PUZZLE_COMPLETED, { puzzle_number: puzzleNumber });
 
+      // A multi-move line that is still going: the server sends
+      // verdict:null (the puzzle is not finished) and puts the real result
+      // in step_verdict. Rendering verdict:null hit the final else branch
+      // and announced "Not this one" on a CORRECT first move of a mate in
+      // two -- judging a puzzle that had not been answered yet.
+      //
+      // Mohit: "it should not say anything on move 1, if it is right." So
+      // nothing is said. The board plays their move and the opponent's
+      // reply, which is the only feedback a half-finished line has earned.
+      if (data.status === "in_progress") {
+        if (data.concept_progress) setConceptProgress(data.concept_progress);
+        pendingNextRef.current = { type: "next", data };
+        advanceTimerRef.current = setTimeout(applyPending, 1000);
+        return;
+      }
+
       // Show the verdict card so the user gets feedback.
       setVerdict({
         verdict: data.verdict,
@@ -534,6 +550,11 @@ const DiagnosticPuzzles = () => {
             <h1 className="text-xl font-serif font-medium text-foreground mt-0.5">
               {puzzle?.question || "What would you play here?"}
             </h1>
+            {puzzle?.multi_move && puzzle?.total_steps > 1 && (
+              <p className="text-[12px] text-muted-foreground mt-1">
+                Move {puzzle.step} of {puzzle.total_steps}
+              </p>
+            )}
           </div>
           <button
             onClick={() => {
