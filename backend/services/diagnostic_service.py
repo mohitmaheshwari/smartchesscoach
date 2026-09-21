@@ -620,7 +620,10 @@ _CONCEPT_QUESTION_FALLBACK: Dict[str, str] = {
     "piece_safety": "One of these pieces is in danger. Find the best move.",
     "mate_patterns": "There is a mate here. Find the move that starts it.",
     "calculation": "One line here wins by force. Find the first move.",
-    "opening": "An opening position. Find the strongest move.",
+    # Not "opening principles": these are tactics that happen early, so the
+    # question claims only that much. A principles test is not what a
+    # deflection on move 9 can support.
+    "opening": "Still the opening. Find the strongest move.",
     "endgame": "An endgame. Find the strongest move.",
     "winning_technique": (
         "You are better here. Find the move that makes it count."),
@@ -659,7 +662,7 @@ CONCEPT_LABEL: Dict[str, str] = {
     "pin": "Pins",
     "skewer": "Skewers",
     "calculation": "Calculating a few moves ahead",
-    "opening": "Opening principles",
+    "opening": "Opening play",
     "endgame": "Endgame technique",
     "winning_technique": "Converting a winning position",
 }
@@ -887,7 +890,7 @@ class DiagnosticGrader:
         "piece_safety": "nothing left hanging.",
         "threat_response": "threat handled.",
         "calculation": "you saw the line through.",
-        "opening": "good opening judgment.",
+        "opening": "you found it early.",
         "endgame": "clean technique.",
         "winning_technique": "that keeps the win in hand.",
     }
@@ -1078,7 +1081,13 @@ _CONCEPT_TO_WEAKNESS: Dict[str, tuple] = {
     "pin": ("tactical", "fork_misses"),
     "skewer": ("tactical", "fork_misses"),
     "calculation": ("tactical", "one_move_blunders"),
-    "opening": ("opening_principles", "neglecting_development"),
+    # WAS ("opening_principles", "neglecting_development"). Missing a
+    # deflection on move 9 is not evidence that a player neglects
+    # development -- the puzzle never asked them to develop anything, so
+    # that mapping put a diagnosis in front of users that the position did
+    # not support. Real opening-principle coverage needs authored
+    # positions, not a tactics corpus filtered by phase.
+    "opening": ("tactical", "one_move_blunders"),
     "endgame": ("tactical", "one_move_blunders"),
     "winning_technique": ("tactical", "one_move_blunders"),
 }

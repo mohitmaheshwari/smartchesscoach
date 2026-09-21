@@ -111,7 +111,21 @@ CONCEPTS: Dict[str, Dict[str, Any]] = {
         "allow_empty_disc": True,
         "min_user_moves": 2,
     },
-    "opening": {"themes": ["opening"], "disc": ["opening"]},
+    # Lichess's "opening" is a PHASE tag, not a principle tag: it means the
+    # puzzle happened early, not that it tests development or the centre.
+    # Measured on the 36 that shipped, the themes were short / crushing /
+    # deflection / attackingF2F7 -- tactics to a one. Median move 10, max 18,
+    # and 28% had both kings already off their home squares, which is why
+    # Mohit looked at one and said "it doesn't look like an opening at all".
+    #
+    # This cannot make them test opening PRINCIPLES -- that needs authored
+    # positions, not a tactics corpus -- but it can stop us showing a
+    # middlegame under an opening heading. Gated supply after the filter is
+    # 148/335/340 per tier against the 12 needed.
+    "opening": {
+        "themes": ["opening"], "disc": ["opening"],
+        "max_fullmove": 10, "require_king_home": True,
+    },
     "endgame": {
         "themes": ["pawnEndgame", "rookEndgame"],
         "disc": ["pawnEndgame", "rookEndgame"],
@@ -346,7 +360,8 @@ def _freeze_step_grades(
     return frozen_steps
 
 
-async def build_pool(db, depth: int, dry_run: bool) -> List[Dict[str, Any]]:
+async def build_pool(db, depth: int, dry_run: bool,
+                     only: Optional[str] = None) -> List[Dict[str, Any]]:
     curated: List[Dict[str, Any]] = []
     used_ids: set = set()
     engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
@@ -355,6 +370,8 @@ async def build_pool(db, depth: int, dry_run: bool) -> List[Dict[str, Any]]:
 
     try:
         for concept, cfg in CONCEPTS.items():
+            if only and concept != only:
+                continue
             min_user_moves = cfg.get("min_user_moves", 1)
             for tier_name, tier_rating, lo, hi in TIERS:
                 accepted = 0
@@ -379,6 +396,19 @@ async def build_pool(db, depth: int, dry_run: bool) -> List[Dict[str, Any]]:
                         pid = raw.get("puzzle_id")
                         if not pid or pid in used_ids:
                             continue
+                        max_fullmove = cfg.get("max_fullmove")
+                        if max_fullmove or cfg.get("require_king_home"):
+                            try:
+                                probe_board = chess.Board(raw["fen"])
+                            except Exception:  # noqa: BLE001
+                                continue
+                            if (max_fullmove
+                                    and probe_board.fullmove_number > max_fullmove):
+                                continue
+                            if cfg.get("require_king_home") and not (
+                                    probe_board.king(chess.WHITE) == chess.E1
+                                    or probe_board.king(chess.BLACK) == chess.E8):
+                                continue
                         themes = raw.get("themes") or []
                         if not _is_pure(themes, cfg):
                             continue
@@ -456,7 +486,10 @@ async def build_pool(db, depth: int, dry_run: bool) -> List[Dict[str, Any]]:
     logger.info(f"\nEngine calls: {engine_calls}")
 
     if not dry_run:
-        await db.diagnostic_pool.delete_many({})
+        # A whole-pool wipe for a one-concept fix would throw away 40 minutes
+        # of engine work on the other ten.
+        await db.diagnostic_pool.delete_many(
+            {"concept": only} if only else {})
         if curated:
             await db.diagnostic_pool.insert_many(
                 [dict(d) for d in curated]  # insert_many mutates (_id) — keep copies
@@ -497,6 +530,8 @@ async def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--depth", type=int, default=16,
                         help="engine depth for the multipv gate (default 16)")
+    parser.add_argument("--concept",
+                        help="rebuild only this concept, leaving the rest")
     parser.add_argument("--dry-run", action="store_true",
                         help="curate + summarize without writing to Mongo")
     args = parser.parse_args()
@@ -522,8 +557,11 @@ async def main():
         logger.error("lichess_puzzles is empty — nothing to curate from.")
         sys.exit(1)
 
-    curated = await build_pool(db, depth=args.depth, dry_run=args.dry_run)
-    ok = summarize(curated)
+    curated = await build_pool(db, depth=args.depth, dry_run=args.dry_run,
+                               only=args.concept)
+    # A single-concept run only curates that concept, so the whole-pool
+    # assertion would fail on the ten it never looked at.
+    ok = summarize(curated) if not args.concept else bool(curated)
     if not args.dry_run:
         logger.info(f"\nWrote {len(curated)} docs to diagnostic_pool "
                     f"(db={db_name}).")
