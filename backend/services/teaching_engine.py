@@ -2523,6 +2523,24 @@ async def process_personalized_move(
         for action in requested_help
     )
     result["substantive_help"] = substantive_help
+
+    # Play the idea out. Answering correctly used to jump straight to the next
+    # position, so the move the learner had just been asked for meant nothing --
+    # they never saw the pawn promote. Only on a correct answer, only when the
+    # engine could produce and verify a line, and never fatal: a failure here
+    # leaves the lesson behaving exactly as it did before.
+    result["continuation"] = None
+    if correct and item.get("fen") and grade.get("answer_san"):
+        try:
+            from services.lesson_continuation import build_continuation
+
+            walkthrough = build_continuation(
+                item["fen"], grade["answer_san"]
+            )
+            if walkthrough.moves:
+                result["continuation"] = walkthrough.public_dict()
+        except Exception as exc:
+            logger.warning("continuation unavailable: %s", exc)
     if blind and complete:
         prior_attempts = []
         for prior_event in session.get("events") or []:

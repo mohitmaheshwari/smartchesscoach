@@ -91,6 +91,10 @@ export default function PersonalizedLessonWorkspace({
   const navigate = useNavigate();
   const boardRef = useRef(null);
   const [session, setSession] = useState(null);
+  // The walkthrough plays the idea out after a correct answer, so the move
+  // the learner was asked for actually resolves into something. Advancing
+  // to the next position is held back until they finish or skip it.
+  const [walkthrough, setWalkthrough] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -287,6 +291,9 @@ export default function PersonalizedLessonWorkspace({
       setFeedback(payload);
       setHelp(null);
       if (payload.complete) invalidatePersonalCurriculum();
+      if (payload.correct && payload.continuation?.moves?.length) {
+        setWalkthrough({ ...payload.continuation, index: 0 });
+      }
       setSession((currentSession) => ({
         ...currentSession,
         status: payload.complete ? "completed" : "active",
@@ -407,7 +414,7 @@ export default function PersonalizedLessonWorkspace({
               <LichessBoard
                 ref={boardRef}
                 key={`${item.item_id}-${boardRevision}`}
-                fen={stagedFen || item.fen}
+                fen={walkthrough?.moves?.[walkthrough.index]?.fen_after || stagedFen || item.fen}
                 orientation={item.orientation || "white"}
                 onMove={stageMove}
                 interactive={isReady}
@@ -422,6 +429,52 @@ export default function PersonalizedLessonWorkspace({
           </div>
 
           <aside className="cg-panel p-5 md:p-6">
+            {walkthrough ? (
+              <div data-testid="lesson-walkthrough">
+                <p className="cg-eyebrow mb-2">Watch how it finishes</p>
+                <h1 className="font-heading text-2xl leading-tight tracking-[-0.03em] text-foreground mb-1">
+                  {walkthrough.moves[walkthrough.index].san}
+                </h1>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Move {walkthrough.index + 1} of {walkthrough.moves.length}
+                  {walkthrough.moves[walkthrough.index].mover_is_learner ? " — you" : " — your opponent"}
+                </p>
+                <p className="text-sm leading-relaxed text-foreground mb-5">
+                  {walkthrough.moves[walkthrough.index].coaching}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {walkthrough.index < walkthrough.moves.length - 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        className="cg-btn cg-btn--primary"
+                        onClick={() =>
+                          setWalkthrough((w) => ({ ...w, index: w.index + 1 }))
+                        }
+                      >
+                        Next move
+                      </button>
+                      <button
+                        type="button"
+                        className="cg-btn"
+                        onClick={() => setWalkthrough(null)}
+                      >
+                        Skip
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="cg-btn cg-btn--primary"
+                      onClick={() => setWalkthrough(null)}
+                    >
+                      Continue
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+            <>
             <p className="cg-eyebrow mb-2">
               {STAGE_LABELS[stage] || "Work through the position"}
             </p>
@@ -572,6 +625,8 @@ export default function PersonalizedLessonWorkspace({
               <HelpCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
               I’ll use this help for today’s lesson only. You can choose a different kind of help whenever you need it.
             </div>
+            </>
+            )}
           </aside>
         </div>
       </main>
