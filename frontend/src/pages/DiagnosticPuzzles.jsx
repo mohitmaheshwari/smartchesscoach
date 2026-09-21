@@ -61,7 +61,14 @@ const DiagnosticPuzzles = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API}/diagnostic/start`, {
+        // /diagnostic?force=1 lets an owner account retake it from scratch.
+        // The backend ignores the flag for everyone else.
+        const forceRetake =
+          new URLSearchParams(window.location.search).get("force");
+        const startUrl = forceRetake
+          ? `${API}/diagnostic/start?force=true`
+          : `${API}/diagnostic/start`;
+        const res = await fetch(startUrl, {
           method: "POST",
           credentials: "include",
         });

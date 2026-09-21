@@ -351,15 +351,41 @@ async def get_status(user: User = Depends(get_current_user)):
 
 
 @router.post("/start")
-async def start_diagnostic(user: User = Depends(get_current_user)):
+async def start_diagnostic(
+    force: bool = Query(default=False),
+    user: User = Depends(get_current_user),
+):
     """Start (or resume) a diagnostic session.
 
     If the user already has an in_progress session, return the next
     unanswered puzzle from that session instead of creating a new one.
+
+    `force` exists because Mohit could not test the diagnostic on his own
+    account: it is superseded at >=10 analyzed games by design, so /start
+    returned "superseded" and the person who has to judge the feature could
+    never see it. force skips that check and abandons any session in flight,
+    so a retake always starts clean.
+
+    Gated to the same owner emails as /admin, reusing that list rather than
+    forking a second copy of it, and it only ever touches the caller's own
+    session. For anyone else it is silently ignored rather than refused --
+    a stray ?force=1 in a URL should do nothing, not error.
     """
+    if force:
+        from routes.admin import _is_admin_email
+
+        if (user.role in ("super_admin", "admin")
+                and _is_admin_email(getattr(user, "email", None))):
+            await db.diagnostic_sessions.update_many(
+                {"user_id": user.user_id, "status": "in_progress"},
+                {"$set": {"status": "abandoned"}},
+            )
+        else:
+            force = False
+
     # Already-complete or superseded users get nothing new from /start
     analyzed = await _user_analyzed_game_count(user.user_id)
-    if diagnostic_supersedes_after(analyzed):
+    if not force and diagnostic_supersedes_after(analyzed):
         return {"status": "superseded", "message": "Real game data has taken over."}
 
     existing = await db.diagnostic_sessions.find_one(
