@@ -170,8 +170,11 @@ against a real destination instead of in the abstract.
   alongside — not replacing — the `shown_count` increment
 - `surface` distinguishes `review` / `pwc` / `puzzle`, so a later question
   can ask which surface actually teaches
-- Idempotent per `(user_id, concept_id, game_id, move_number)` — a re-render
-  of a stored card must not double-count
+- Idempotent per `(user_id, concept_id, game_id)` — **not** per move. A
+  game surfaces one concept 95% of the time but ~3 miss events; keying on
+  the move would write 3 rows for one lesson, and re-opening the review
+  would write more. `move_number` and `fen_before` are still stored, from
+  the first occurrence, as the pointer back to where it was taught
 - `concept_mastery_tracker` reads `first_taught_at` and additionally writes
   `opportunities_before` / `violations_before` / `opportunities_after` /
   `violations_after`, with the denominator taken as
@@ -216,20 +219,62 @@ number. Not live.
 
 ## 6. Open questions
 
-**Q1. Does a teaching render count when the user never scrolled to it?**
+**Q1. Does a teaching render count when the user never scrolled to it? —
+ANSWERED 2026-09-21. Recommendation: log at build time, no frontend work.**
 
-- *Why unresolved:* the write fires at render time on the server. A card
-  that is built but never looked at would count as taught.
-- *Unblocking step:* Mohit's call. The cheapest honest answer is to write it
-  anyway and add a `viewed_at` later, since the alternative is a client
-  round-trip.
+The worry was that a review builds many cards and the user reads a few, so
+build-time logging would record teaching that never happened. Measured over
+12,911 games, distinct missed concepts per game:
 
-**Q2. Should PWC teaching write the same row in V1?**
+```
+  min=1   p25=1   p50=1   p75=1   p90=1   max=9
 
-- *Why unresolved:* PWC teaches live and far more often. It could swamp the
-  review signal, and the two probably deserve different mastery weights.
-- *Unblocking step:* measure renders per game on each surface before
-  deciding.
+  games surfacing >= 1 distinct concept: 12,911 (100%)
+  games surfacing >= 2 distinct concepts:   672   (5%)
+  games surfacing >= 3 distinct concepts:   419   (3%)
+```
+
+**95% of games surface exactly one concept.** The over-count risk is real in
+principle and negligible in fact — there is almost never a second concept to
+get wrong about. Build-time logging is accurate enough, and it costs one line
+instead of a frontend round-trip.
+
+This also explains the unbounded counter. A game has ~3 miss *events* (p50)
+that collapse to *1* concept, and re-opening a review re-increments. Hence
+499,997 increments across 16,199 games — about 31 per game for what is
+really one lesson.
+
+**Consequent change to the idempotency key** (§3): one taught row per
+`(user_id, concept_id, game_id)`, **not** per move. The question this data
+answers is *when did we first teach this*, and the move is incidental. At
+the measured distribution that is ~1 row per analysed game, against 31
+counter increments today.
+
+**Q2. Should PWC teaching write the same row in V1? — ANSWERED 2026-09-21.
+Recommendation: NO.**
+
+The original worry was that PWC would swamp the review signal. Measured, it
+is the opposite — PWC is a rounding error:
+
+```
+  analysed games            16,199      PWC sessions            488
+  review teaching-renders  499,997      PWC coach_messages    1,054  (2.2/session)
+  user_pattern_events      121,748      from PWC games          683  (0.6%)
+  move_observations        520,365      from PWC games        3,429
+                                        ...with concept_used     83  (2.4% of those)
+```
+
+Two reasons to leave it out of V1, both measured:
+
+1. **It buys 0.6% more teaching records** for a second write site in a
+   different subsystem.
+2. **PWC barely produces concept-linked teaching today.** Only 83 of 3,429
+   PWC moves carry a `concept_used`, because `PWC_GAP_ENRICHMENT` is default
+   OFF. Wiring the log there now would log almost nothing.
+
+`surface` stays in the schema so PWC can be added later without a migration.
+Revisit when `PWC_GAP_ENRICHMENT` is on and the concept-linked share is
+material.
 
 **Q3. What is the minimum event count before a before/after rate is shown
 to anyone? — ANSWERED 2026-09-21, still needs Mohit's lock.**
