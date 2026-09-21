@@ -242,6 +242,31 @@ existing service already anticipates this: its own comment says
 theme support, intentionally absent. Picker falls back to community puzzles
 or own-game positions."
 
+### What the Lichess work actually is — and is not
+
+There is **no analysis work**. No Stockfish, no solving, no categorising.
+Every row already ships the position, the solution line, the themes and a
+calibrated rating.
+
+The only gap is vocabulary: our detectors say `knight_outpost`, Lichess says
+`hangingPiece`, and neither list contains the other's words. The fix is
+~14 lines added to a dict that already exists.
+
+**One implementation detail that would silently break every puzzle.**
+Verified on 3 random rows, 2026-09-21: the stored `fen` is the position
+*before* the opponent's move, and `moves[0]` is that opponent move.
+
+```
+  puzzle bo68W   fen side to move: white
+                 moves[0] = g5e4 (Ne4)      <- opponent's move, play it yourself
+                 -> now black to move       <- THIS is what the user sees
+                 moves[1] = e5f3 (Nf3+)     <- the answer to grade against
+```
+
+Serving the stored FEN as-is shows the wrong position with the user on the
+wrong colour, on every puzzle. The server must push `moves[0]` before
+serving, and grade against `moves[1]`.
+
 **So the design is two pools with a defined precedence, not a choice:**
 Lichess first where a theme exists (calibrated, enormous), and
 `user_pattern_events` for the positional remainder (uncalibrated, but it is
