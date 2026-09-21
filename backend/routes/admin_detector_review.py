@@ -1459,6 +1459,51 @@ def _producers():
     }
 
 
+CLAIMS_COLLECTION = "detector_claims"
+
+
+async def _stored_claims(detector: str, skip_fens: set,
+                         limit: int) -> List[Dict[str, Any]]:
+    """Serve precomputed claims, or [] when none have been built yet.
+
+    The page used to re-derive every claim on every load -- up to 20,000
+    analyses, proof builders on every mistake move -- and for a detector
+    firing on 1.8% of games that is ~1,000 games before the first screenful.
+    nginx gives up at 60s: three 504s in today's log (discovered_attack twice,
+    fork once), which is why the page told Mohit there was nothing left to
+    review while twenty cards were waiting.
+
+    Claims are a function of (corpus, detector), and neither moves while
+    someone reads a card. Build them with scripts/build_detector_claims.py.
+    """
+    if db is None:
+        return []
+    try:
+        rows = await db[CLAIMS_COLLECTION].find(
+            {"detector": detector}, {"_id": 0}).limit(limit * 6).to_list(limit * 6)
+    except Exception:  # noqa: BLE001
+        return []
+    out: List[Dict[str, Any]] = []
+    for row in rows:
+        if row.get("claim_key") in skip_fens:
+            continue
+        out.append({
+            "claim_key": row.get("claim_key"),
+            "detector": detector,
+            "game_id": row.get("game_id"),
+            "claim": row.get("claim"),
+            "evidence": row.get("evidence") or {},
+            "game": row.get("game"),
+        })
+        if len(out) >= limit:
+            break
+    # Least-certain first, same order the live scan uses: a reviewer should
+    # meet the cards the board cannot settle, not fifty obvious ones.
+    out.sort(key=lambda c: _CONFIDENCE_RANK.get(
+        (c.get("evidence") or {}).get("confidence"), 0))
+    return out
+
+
 async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str, Any]]:
     """Walk real games and render what this detector would say."""
     producers = _producers()
@@ -1605,13 +1650,20 @@ async def batch_claims(
     """Several at once — reading fifty claims in ten minutes is the point."""
     ruled = set(await db[COLLECTION].distinct(
         "claim_key", {"detector": detector}))
-    claims = await _fires_for(detector, ruled, limit)
+    # Precomputed first; fall back to the live scan when nothing is built yet,
+    # so a detector added after the last build still works.
+    claims = await _stored_claims(detector, ruled, limit)
+    served_from = "index"
+    if not claims:
+        claims = await _fires_for(detector, ruled, limit)
+        served_from = "live scan"
     buckets = Counter(
         (c.get("evidence") or {}).get("confidence") or "uncertain"
         for c in claims)
     return {
         "detector": detector,
         "claims": claims,
+        "served_from": served_from,
         # So the page can say what it is asking for: the ones the board could
         # not settle, not everything it found.
         "confidence_split": dict(buckets),
