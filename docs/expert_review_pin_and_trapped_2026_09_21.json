@@ -1,0 +1,166 @@
+{
+  "pin_we_declined": [
+    {
+      "puzzle": "003S3",
+      "rating": 1380,
+      "see_the_board": "https://lichess.org/training/003S3",
+      "solution": "Ne6+ Kg8 Nxc7",
+      "question": "Is this a PIN lesson? If yes, what makes the pin pay off here?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "005Bm",
+      "rating": 1394,
+      "see_the_board": "https://lichess.org/training/005Bm",
+      "solution": "Ng6+ Kg8 Qh8#",
+      "question": "Is this a PIN lesson? If yes, what makes the pin pay off here?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "009BH",
+      "rating": 1493,
+      "see_the_board": "https://lichess.org/training/009BH",
+      "solution": "Qh6+ Kg8 Qxg7#",
+      "question": "Is this a PIN lesson? If yes, what makes the pin pay off here?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00M1q",
+      "rating": 1438,
+      "see_the_board": "https://lichess.org/training/00M1q",
+      "solution": "Qh7+ Kf7 Rf3 Qxf3 gxf3",
+      "question": "Is this a PIN lesson? If yes, what makes the pin pay off here?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00Tdk",
+      "rating": 1029,
+      "see_the_board": "https://lichess.org/training/00Tdk",
+      "solution": "Nf3+ Kh1 Nxd2",
+      "question": "Is this a PIN lesson? If yes, what makes the pin pay off here?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00W5B",
+      "rating": 1402,
+      "see_the_board": "https://lichess.org/training/00W5B",
+      "solution": "Rxd5 Rxd5 Bb3 Kf8 Bxd5",
+      "question": "Is this a PIN lesson? If yes, what makes the pin pay off here?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00WG3",
+      "rating": 1044,
+      "see_the_board": "https://lichess.org/training/00WG3",
+      "solution": "Rxd1 Rxf7 Nd6+ Kc7 Nxf7",
+      "question": "Is this a PIN lesson? If yes, what makes the pin pay off here?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00XL2",
+      "rating": 1054,
+      "see_the_board": "https://lichess.org/training/00XL2",
+      "solution": "Nf3+ Kh1 Nxd4",
+      "question": "Is this a PIN lesson? If yes, what makes the pin pay off here?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00YbZ",
+      "rating": 1346,
+      "see_the_board": "https://lichess.org/training/00YbZ",
+      "solution": "Rxh4+ Kg1 Qe1#",
+      "question": "Is this a PIN lesson? If yes, what makes the pin pay off here?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00ZSd",
+      "rating": 1254,
+      "see_the_board": "https://lichess.org/training/00ZSd",
+      "solution": "Rxh3+ Kg1 Bxd4+ Rxd4 Qxd4+",
+      "question": "Is this a PIN lesson? If yes, what makes the pin pay off here?",
+      "your_answer": ""
+    }
+  ],
+  "trapped_what_is_the_motif": [
+    {
+      "puzzle": "009FP",
+      "rating": 1385,
+      "see_the_board": "https://lichess.org/training/009FP",
+      "solution": "Bg5 Qxg5 Qxg5",
+      "question": "What makes this a TRAPPED PIECE and not just an attacked piece?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00AhO",
+      "rating": 1275,
+      "see_the_board": "https://lichess.org/training/00AhO",
+      "solution": "Bb7 Qa7 Ra8 Qxa8+ Bxa8",
+      "question": "What makes this a TRAPPED PIECE and not just an attacked piece?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00BM8",
+      "rating": 1469,
+      "see_the_board": "https://lichess.org/training/00BM8",
+      "solution": "Nb1 Qxa4 Qxa4",
+      "question": "What makes this a TRAPPED PIECE and not just an attacked piece?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00YeV",
+      "rating": 1394,
+      "see_the_board": "https://lichess.org/training/00YeV",
+      "solution": "Bg5 Qg6 Nh4 h6 Nxg6",
+      "question": "What makes this a TRAPPED PIECE and not just an attacked piece?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "00ZWf",
+      "rating": 1382,
+      "see_the_board": "https://lichess.org/training/00ZWf",
+      "solution": "Bd6 Qxd6 Qxd6",
+      "question": "What makes this a TRAPPED PIECE and not just an attacked piece?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "01Bmi",
+      "rating": 1039,
+      "see_the_board": "https://lichess.org/training/01Bmi",
+      "solution": "Bxb2 Qb3 Bxa1",
+      "question": "What makes this a TRAPPED PIECE and not just an attacked piece?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "01Lo7",
+      "rating": 1185,
+      "see_the_board": "https://lichess.org/training/01Lo7",
+      "solution": "Bh5 Qxh5 Rxh5",
+      "question": "What makes this a TRAPPED PIECE and not just an attacked piece?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "01V4g",
+      "rating": 1292,
+      "see_the_board": "https://lichess.org/training/01V4g",
+      "solution": "b4 Qb5 Bxb5",
+      "question": "What makes this a TRAPPED PIECE and not just an attacked piece?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "01xk5",
+      "rating": 1077,
+      "see_the_board": "https://lichess.org/training/01xk5",
+      "solution": "Ra1 Qxa1 Rxa1",
+      "question": "What makes this a TRAPPED PIECE and not just an attacked piece?",
+      "your_answer": ""
+    },
+    {
+      "puzzle": "01zU8",
+      "rating": 1275,
+      "see_the_board": "https://lichess.org/training/01zU8",
+      "solution": "Nxe4 dxe4 c4 Bxc4 bxc4",
+      "question": "What makes this a TRAPPED PIECE and not just an attacked piece?",
+      "your_answer": ""
+    }
+  ]
+}
