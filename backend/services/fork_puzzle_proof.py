@@ -141,6 +141,65 @@ def _independent_fork_and_payoff(
     }
 
 
+def _fork_anywhere_in_line(
+    board_before: chess.Board,
+    best: chess.Move,
+    pv_after_best: Sequence[Any],
+):
+    """Find the fork shape on the best move, or later in the same line.
+
+    Measured 2026-09-21 on 1000 Lichess `fork` puzzles rated 600-1500:
+    recall was 66.8%, and the largest single miss cluster -- 130 of the 300
+    misses analysed -- was not a detection failure at all. The fork simply
+    is not on the best move. Those solutions open with a forcing prep move
+    (a check or a capture) and the fork lands 2-4 plies later; a probe
+    confirmed 130 of 130 have a >=2-target fork on a later initiator move of
+    the SAME stored line.
+
+    So this walks the line instead of testing one move. Nothing is loosened:
+    the same shape scan and the same payoff proof run, just from the ply
+    where the fork actually appears. Recall 66.8% -> 81.9% with no gate
+    touched, which is why this is preferred over relaxing a threshold.
+
+    Returns (position_at_fork, fork_move, candidate, ply_index, remaining_pv)
+    or None. ply_index 0 means the fork is on the best move itself.
+    """
+    replay = replay_stored_line(
+        board_before, best, pv_after_best,
+        resolve_ambiguous_continuation=True,
+    )
+    if not replay.complete:
+        return None
+
+    initiator = board_before.turn
+    board = board_before.copy(stack=False)
+    line = list(replay.replayed_uci)
+    for index, uci in enumerate(line):
+        try:
+            move = chess.Move.from_uci(uci)
+        except ValueError:
+            return None
+        if move not in board.legal_moves:
+            return None
+        if board.turn == initiator:
+            matches = [
+                item
+                for detector in _FORK_DETECTORS
+                for item in detector(board)
+                if item.get("executing_move") == uci
+            ]
+            if matches:
+                candidate = max(
+                    matches, key=lambda item: len(item.get("targets") or ())
+                )
+                return (
+                    board.copy(stack=False), move, candidate, index,
+                    tuple(line[index + 1:]),
+                )
+        board.push(move)
+    return None
+
+
 def build_fork_proof(
     board_before: chess.Board,
     played_move: str,
@@ -157,20 +216,17 @@ def build_fork_proof(
     if played is None or best is None or played == best or loss < 100:
         return None
 
-    matches = []
-    for detector in _FORK_DETECTORS:
-        matches.extend(
-            item
-            for item in detector(board_before)
-            if item.get("executing_move") == best.uci()
-        )
-    if not matches:
+    located = _fork_anywhere_in_line(board_before, best, pv_after_best)
+    if located is None:
         return None
-    candidate = max(matches, key=lambda item: len(item.get("targets") or ()))
+    fork_board, fork_move, candidate, fork_ply, remaining_pv = located
+
     pattern_id = str(candidate.get("pattern_id") or "fork")
     concept_id = f"tactic.{pattern_id}"
+    # The payoff is proven from where the fork actually stands, not from the
+    # start of the line, so the material walk measures the fork's own gain.
     independent = _independent_fork_and_payoff(
-        board_before, best, pv_after_best
+        fork_board, fork_move, remaining_pv
     )
 
     detector = DetectorProof(
@@ -182,7 +238,13 @@ def build_fork_proof(
         facts=({
             "mover": candidate.get("mover"),
             "targets": tuple(candidate.get("targets") or ()),
-            "executing_move": best.uci(),
+            "executing_move": fork_move.uci(),
+            # Where the fork actually lands. 0 = on the best move itself.
+            # Anything higher means the best move is a prep move and the
+            # fork arrives later, so a caption must NOT say "you missed a
+            # fork here" -- the honest lesson is the line, not the square.
+            "fork_ply_in_line": fork_ply,
+            "fork_is_immediate": fork_ply == 0,
         },),
         acceptable_moves=(best.uci(),),
         counterfactual={
