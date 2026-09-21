@@ -603,18 +603,31 @@ def _produce_simple_hang(move, colour, analysis):
     )
 
 
-def _discovered_attack_caption(board, best_move, facts):
-    """A caption a 1200 can act on, built only from board facts.
+def _discovered_attack_caption(board, best_move, facts, played=None):
+    """Say why the player's eye went somewhere else, not what the board shows.
 
-    The old one -- "Nxf3+ was there instead, and it wins material with a
-    discovered attack" -- named the motif and explained nothing. A player who
-    did not already know what a discovered attack is learns nothing, and one
-    who does still cannot see WHICH piece was blocking WHAT.
+    Mohit: "we in these captions are only telling what's on the board, why
+    users missed this, not that."
 
-    So: say what the move wins, then close on the scan that transfers -- the
-    thing they can look for on their own board next game. The motif's NAME
-    never appears. A player who can run the scan does not need the word, and
-    a player who cannot is not helped by it.
+    That is the whole defect. Every earlier version opened by narrating the
+    position -- "Qb5 attacks their bishop on c5, and frees your bishop on g2
+    to hit the rook" -- which is exactly what the two arrows already draw.
+    The one thing the board cannot show is why the player did not see it, and
+    that is the only part worth spending words on.
+
+    The cause is derivable, not guessed. Measured over the 197 indexed claims:
+
+       48.7%  the piece that had to move was ALREADY under attack
+       20.3%  nothing obviously pulling the eye
+       15.7%  they FOUND it -- opened the line, then chose a worse square
+        9.1%  busy taking something
+        6.1%  busy saving a different piece
+
+    The 15.7% matter most for trust: those players did not miss a discovered
+    attack at all. They opened the line and picked the weaker square, so
+    "look for lines through your own pieces" is advice they had already
+    taken, and a caption that said it would be telling them to do the thing
+    they just did.
     """
     try:
         mv = board.parse_san(str(best_move))
@@ -632,154 +645,101 @@ def _discovered_attack_caption(board, best_move, facts):
 
     after = board.copy(stack=False)
     after.push(mv)
-    undefended = not after.attackers(not board.turn, chess.parse_square(target_sq))
-    gives_check = after.is_check()
-
-    # Mohit, 2026-09-21, on the version that closed with "that is what a
-    # discovered attack really is": "look for what to look at, something the
-    # user can find it out later". A definition is not findable. The closing
-    # line has to be the SCAN they can run on their own board next game, and
-    # it is worded identically in all three shapes on purpose -- recognition
-    # is the whole point.
-    #
-    # Measured over the 197 indexed claims, the shapes are:
-    #   44.2%  the moving piece also hits a piece -> a real double attack
-    #   34.5%  the moving piece gives check       -> the check answers first
-    #   21.3%  neither: the uncovered line is the whole threat
-    # The previous version collapsed the first two, so it said "it attacks
-    # their king" on a third of the cards -- wrong-sounding, and redundant
-    # with its own "and gives check".
-    # "Two threats, and they can only answer one" is only true if the second
-    # threat is one they HAVE to answer. Measured over the 87 cards that had
-    # the moving piece hitting something: 33% undefended, 47% defended but
-    # winning material anyway, and 19.5% defended and not winning -- where
-    # the sentence was simply false. Those fall through to the check or
-    # single-threat wording instead of overclaiming.
-    mover = after.piece_at(mv.to_square)
-    struck_sq = None
-    struck = None
-    best_value = 0
-    for square in after.attacks(mv.to_square):
-        occupant = after.piece_at(square)
-        if occupant is None or occupant.color == board.turn:
-            continue
-        if occupant.piece_type == chess.KING:
-            continue
-        value = PIECE_VALUE_CP.get(occupant.piece_type, 0)
-        if value < PIECE_VALUE_CP[chess.KNIGHT]:
-            continue
-        if chess.square_name(square) == target_sq:
-            # The moving piece and the uncovered line hit the SAME piece.
-            # That is one target, not two, and "they can only answer one"
-            # would be plainly false. Found by printing the longest rendered
-            # card: "Ne2+ attacks their queen on c1, and frees your queen on
-            # c7 to hit the queen on c1."
-            continue
-        defended = after.attackers(not board.turn, square)
-        mover_value = PIECE_VALUE_CP.get(
-            mover.piece_type, 0) if mover else 0
-        if defended and value <= mover_value:
-            continue          # they can just recapture: not a threat
-        if value > best_value:
-            best_value = value
-            struck_sq = chess.square_name(square)
-            struck = chess.piece_name(occupant.piece_type)
-
+    me = board.turn
     blocker_word = chess.piece_name(blocker.piece_type)
-    blocker_sq = chess.square_name(mv.from_square)
+    gives_check = after.is_check()
+    with_check = " with check" if gives_check else ""
 
-    def _labels(*named):
-        """Name a square only when a piece word would appear twice.
+    # What the discovery is worth saying about, in one clause. The arrows
+    # draw the line; this only has to name its two ends.
+    opens = f"opens your {attacker} onto their {target}"
 
-        "attacks their bishop ... clears the way for your bishop to hit the
-        rook" is unreadable, and it is not rare: the two bishops, or an
-        attacker and target of the same type, collide on 51 of the 197
-        claims. Everywhere else the arrows already say which piece, so a
-        square would just be noise.
-        """
-        counts = {}
-        for word, _ in named:
-            if word:
-                counts[word] = counts.get(word, 0) + 1
-        return [f"{word} on {sq}" if word and counts.get(word, 0) > 1 and sq
-                else word for word, sq in named]
+    played_mv = None
+    if played:
+        try:
+            played_mv = board.parse_san(str(played))
+        except Exception:  # noqa: BLE001
+            played_mv = None
 
-    # Mohit, third pass on the same caption, and this one replaces my search
-    # with a better one: "look for their major pieces and see if any down the
-    # line are attacking ... that's what opponent also misses, as he sees the
-    # current threat".
-    #
-    # He is right on both halves.
-    #
-    # DIRECTION. My version scanned outward from your own long pieces, which
-    # means tracing every line of every one of them -- measured on these 197
-    # positions, 3.9 own queen/rook/bishops at 4-8 lines each, so 20-30 lines,
-    # nearly all pointing at nothing. Searching backward from their valuable
-    # pieces is 2.6 anchors. Same motif, about a tenth of the work, because
-    # you start from the scarce end.
-    #
-    # WHY IT WORKS. The half I did not have at all. A discovered attack gets
-    # through because the defender is watching the threat in front of them --
-    # that is what makes a hidden line pay, and it is the reason to bother
-    # looking. It also explains why the player in these games missed it.
-    #
-    # "Start WITH their queen and rooks" is deliberate, not a narrowing:
-    # measured over the 197, the uncovered line lands on a queen or rook 56.3%
-    # of the time and on a knight or bishop 43.7%. A rule that said "look at
-    # their major pieces" would contradict its own card on nearly half of
-    # them, where the lead names a knight. "Start with" is a priority order
-    # and stays true on every card.
-    scan_long = ("Start with their queen and rooks, and ask what of yours is "
-                 "aimed at them, even through your own pieces. That is what "
-                 "people miss -- they watch the threat in front of them.")
-    # The tight cards get a shorter WHY, never a missing one. Dropping it
-    # outright cost 27 of 197 the only sentence that says why to bother.
-    scan_short = ("Start with their queen and rooks, and ask what of yours is "
-                  "aimed at them, even through your own pieces. People miss "
-                  "it -- they watch the threat in front.")
-    scan_min = ("Start with their queen and rooks, and ask what of yours is "
-                "aimed at them, even through your own pieces.")
+    # ---- 1. They FOUND it and picked a worse square (15.7%) ----------------
+    if played_mv is not None and played_mv.from_square == mv.from_square:
+        probe = board.copy(stack=False)
+        probe.push(played_mv)
+        try:
+            already_open = chess.parse_square(attacker_sq) in probe.attackers(
+                me, chess.parse_square(target_sq))
+        except ValueError:
+            already_open = False
+        if already_open:
+            # Measured across these 31: 11 capture on the way out, 9 leave
+            # with check, 8 hit a second piece, 3 have no edge the board
+            # shows. The last 3 get wording that does not invent one.
+            extra_hit = None
+            for square in after.attacks(mv.to_square):
+                occupant = after.piece_at(square)
+                if (occupant and occupant.color != me
+                        and occupant.piece_type != chess.KING
+                        and chess.square_name(square) != target_sq
+                        and PIECE_VALUE_CP.get(occupant.piece_type, 0)
+                        >= PIECE_VALUE_CP[chess.KNIGHT]):
+                    extra_hit = chess.piece_name(occupant.piece_type)
+                    break
+            if board.is_capture(mv):
+                edge = f"{best_move} takes material on the way out{with_check}"
+            elif gives_check:
+                edge = f"{best_move} leaves with check"
+            elif extra_hit:
+                edge = f"{best_move} hits their {extra_hit} as it goes"
+            else:
+                edge = f"{best_move} does more with the same idea"
+            return (f"You did open the line -- your {attacker} hit their "
+                    f"{target} either way. The miss was which square you "
+                    f"sent it to: {edge}. When you open a line, the piece "
+                    "that leaves should do damage too.")
 
-    if struck:
-        struck_l, attacker_l, target_l = _labels(
-            (struck, struck_sq), (attacker, attacker_sq), (target, target_sq))
-        core = (f"{best_move} attacks their {struck_l}, and frees your "
-                f"{attacker_l} to hit the {target_l}")
-        tail = " Two threats, and they can only answer one."
-        principles = [scan_long, scan_short, scan_min]
-    elif gives_check:
-        # "They have to answer the check" is always true. "So the target
-        # falls" is NOT -- an interposition can sometimes block both lines at
-        # once -- so the caption stops at the true half.
-        attacker_l, target_l = _labels((attacker, attacker_sq),
-                                       (target, target_sq))
-        core = (f"{best_move} gives check, and frees your {attacker_l} to "
-                f"hit the {target_l}")
-        tail = " The check has to be answered first."
-        principles = [scan_long, scan_short, scan_min]
-    else:
-        blocker_l, attacker_l, target_l = _labels(
-            (blocker_word, blocker_sq), (attacker, attacker_sq),
-            (target, target_sq))
-        core = (f"Only your own {blocker_l} stood between your {attacker_l} "
-                f"and their {target_l}")
-        tail = f" {best_move} clears it."
-        principles = [scan_long, scan_short, scan_min]
+    # ---- 2. The piece that had to move was already attacked (48.7%) -------
+    # The best lesson in the whole set. The player is asking "how do I save
+    # this?" when the board is asking "where should it go?" -- and the answer
+    # to the second question was free.
+    if board.is_attacked_by(not me, mv.from_square):
+        if blocker.piece_type == chess.KING:
+            # 3 cards where the "blocker" is the king, which means the player
+            # was in check. "Ask where it should go" is the wrong lesson when
+            # the move is forced -- but WHICH square is still a free choice,
+            # and that is the lesson.
+            return (f"You were in check, so the king had to move and it felt "
+                    f"like no choice at all. {best_move} was one of the legal "
+                    f"squares, and it {opens}. Even a forced king move is "
+                    "still a choice of square.")
+        return (f"Your {blocker_word} was under attack, so your move was "
+                f"about saving it. {best_move} moves it{with_check} and "
+                f"{opens}. When a piece of yours is attacked, do not only ask "
+                "how to save it -- ask where it should go.")
 
-    undefended_clause = ", which nothing defends" if undefended else ""
+    # ---- 3. Busy taking something (9.1%) ----------------------------------
+    if played_mv is not None and board.is_capture(played_mv):
+        # "taking something", not "taking a piece": board.is_capture() counts
+        # pawn captures, and to this audience "a piece" reads as not-a-pawn.
+        return (f"You were busy taking something, and a capture is the easiest "
+                f"thing on the board to see. {best_move} was bigger -- it "
+                f"{opens}{with_check}. Before you take something, check what "
+                "your own pieces are already aimed at.")
 
-    # The cap in caption_config.json is 60 words and truncation cuts at a
-    # sentence boundary with no ellipsis -- so an over-long caption loses its
-    # LAST sentence, which is the principle. The old fallback here was
-    # `caption = lead`, which deleted the principle deliberately. Invert it:
-    # shed the optional clause first, then the longer wording of the
-    # principle. The scan survives every path.
-    for clause in (undefended_clause, ""):
-        for principle in principles:
-            caption = f"{core}{clause}.{tail} {principle}"
-            if len(caption.split()) <= 60:
-                return caption
-    return caption
+    # ---- 4. Busy saving a different piece (6.1%) --------------------------
+    if played_mv is not None and board.is_attacked_by(not me,
+                                                      played_mv.from_square):
+        return (f"You were saving a piece that was under attack, and that "
+                f"took the whole move. {best_move} {opens}{with_check}. When "
+                "you answer a threat, look for the answer that makes a threat "
+                "of its own.")
+
+    # ---- 5. Nothing was pulling the eye (20.3%) ---------------------------
+    # Only here is the search itself the diagnosis, so only here is it the
+    # lesson. Mohit's framing, kept verbatim: start from the scarce end.
+    return (f"Nothing was forcing your eye anywhere, and the line was hidden "
+            f"behind your own {blocker_word}. {best_move} {opens}"
+            f"{with_check}. Start with their queen and rooks and ask what of "
+            "yours is aimed at them, even through your own pieces.")
 
 
 def _fork_caption(board, best_move, facts):
@@ -964,7 +924,8 @@ def _missed_motif(builder, label):
         confidence = _motif_confidence(names, probe, after, board.turn, best_gain)
         coachable = None
         if label == "discovered attack":
-            coachable = _discovered_attack_caption(board.copy(), best, head)
+            coachable = _discovered_attack_caption(board.copy(), best, head,
+                                                   played)
         elif label == "fork":
             coachable = _fork_caption(board.copy(), best, head)
         if coachable:
