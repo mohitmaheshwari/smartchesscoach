@@ -428,7 +428,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setBoardFen(decryptionData[idx].fen_after);
     applyCaptionArrows(decryptionData[idx]);   // also sets highlights
     setInitialMoveHandled(true);
-  }, [decryptionData, initialMoveHandled]);
+    // applyCaptionArrows is useCallback(..., []) so its identity never
+    // changes; listing it is a runtime no-op, and the effect's first line
+    // returns once initialMoveHandled is set, so it still runs exactly
+    // once. The file's other two call sites already list it.
+  }, [decryptionData, initialMoveHandled, applyCaptionArrows]);
 
   // v78.3 — cancel in-flight playback when the user navigates moves.
   useEffect(() => {
