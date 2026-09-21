@@ -261,13 +261,52 @@ Not live.
 
 ## 7. Open questions
 
-**Q1. What score counts as a pass?** 4/5 is the obvious guess, and a guess
-is exactly what the standing rule forbids. `user_pattern_events` misses are
-by definition positions people got *wrong*, so they may be far harder than a
-fair test.
-*Unblocking step:* histogram `solve_rate` on the overlapping
-`community_training_positions` rows before locking. **This one genuinely
-blocks the build.**
+**Q1. What score counts as a pass? — INVESTIGATED 2026-09-21. The
+threshold CANNOT be locked before launch, and the build is not blocked by
+that, provided it is config-driven.**
+
+There is no distribution to lock against. Measured:
+
+```
+  community_training_positions : 44,982 rows,  65 with any attempt
+  community_puzzles            : 27,687 rows,   0 with any attempt
+  puzzle_attempts (real grades):    426 total, 57.3% correct
+```
+
+426 graded attempts, spread across the *coarse* 7-value vocabulary, cannot
+set a pass mark for a test that runs on 23 fine-grained concepts. Picking
+4/5 from that would be precisely the thing the standing rule forbids.
+
+**One signal worth noting, not a lock:** the real solve rate across all
+graded attempts is 57.3%. If positions sit near that difficulty, five of
+them yield ~2.9 correct for a competent user — so **4/5 is probably too
+harsh**, and would fail people who do understand the concept. Worth
+remembering when the real data arrives.
+
+**What removes the blocker: control difficulty by construction instead of
+by observed solve rate.** `cp_loss` on the miss row is a difficulty proxy
+available today — a mistake that cost 800cp is far more obvious than one
+that cost 120cp:
+
+```
+  cp_loss on 48,994 miss rows:  p25=138  p50=205  p75=392  p90=8,591
+
+    100-200cp   23,855  (49%)     500-1000cp   3,680  (8%)
+    200-300cp    8,629  (18%)      1000cp+     5,539  (11%)
+    300-500cp    7,291  (15%)
+```
+
+Selecting the 5 test positions from the **200–500cp band** holds difficulty
+roughly constant across concepts, and still leaves ≥5 positions for **21 of
+23** concepts. The two that fall short — `OP_SAME_PIECE_TWICE` (2) and
+`OP_KNIGHT_ON_RIM` (4) — are opening-prefixed duplicates of
+`same_piece_better_square` and `knight_on_rim` and should fold into their
+siblings rather than be tested separately.
+
+**Recommendation:** ship the pass mark as a config value, never a constant;
+band the positions at 200–500cp; review the first real cohort's score
+distribution before any promotion to `understood` is trusted. Until that
+review, test results are recorded but the state machine does not promote.
 
 **Q2. Should the 5 positions include his own games, or only other people's?**
 His own are more meaningful, but he has already seen the answer in review,
@@ -284,7 +323,9 @@ reintroduces the bug in §3.
 ## 8. Pre-code requirements
 
 - [ ] Mohit signs off on this document
-- [ ] Q1 locked via `/lock-via-data` — hard blocker
+- [x] Q1 investigated (2026-09-21): cannot be locked pre-launch; no
+      distribution exists. Unblocked by making the pass mark config-driven
+      and banding positions at 200-500cp. **Lock it after the first cohort.**
 - [ ] Q2 and Q3 ruled on
 - [ ] Confirm the four `acknowledged` readers behave correctly during the
       `state` transition (`v5_learning_tracker.py:236,283`,
