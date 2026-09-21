@@ -1574,6 +1574,91 @@ def _missed_concept(skill_id: str):
     return produce
 
 
+def _new_proof(module_name: str, func_name: str, label: str):
+    """Producer for the 2026-09-22 proof modules.
+
+    These do NOT carry `target_square` or `targets` in their facts the way
+    fork and discovered_attack do -- each names its own geometry
+    (`vacated_square`, `sacrifice_square`, `severed_defender`, ...). Passing
+    them through `_missed_motif` looked like reuse and was not: `names` came
+    back empty, the winnable-target block that binds `probe` never ran, and
+    the confidence call raised UnboundLocalError 455 times on attraction
+    alone. Measured, not guessed -- the queue returned nothing at all.
+
+    So this asks each proof only what every proof answers: did your
+    independent verifier accept this position? The reviewer judges the
+    claim; the facts are shown as-is beside it.
+    """
+
+    def produce(move, colour, analysis):
+        import importlib
+        import chess
+
+        fen = move.get("fen_before")
+        played, best = move.get("move"), move.get("best_move")
+        if not fen or not played or not best:
+            return None
+        try:
+            board = chess.Board(fen)
+            board.parse_san(best)          # stored best_move is sometimes illegal
+        except (ValueError, AssertionError, KeyError):
+            return None
+        try:
+            mod = importlib.import_module(f"services.{module_name}")
+            bundle = getattr(mod, func_name)(
+                board.copy(stack=False), played, best,
+                list(move.get("pv_after_best") or []), move.get("cp_loss"),
+            )
+        except Exception:  # noqa: BLE001 - one bad position must not empty the queue
+            return None
+        if not bundle:
+            return None
+        if not getattr(getattr(bundle, "verifier", None), "verified", False):
+            # Unverified bundles are candidates the proof does not stand
+            # behind. Showing them put 65% rubbish into the fork queue once.
+            return None
+
+        facts = list(getattr(getattr(bundle, "detector", None), "facts", ()) or ())
+        head = (facts[0] or {}) if facts else {}
+        side, arrow = _orientation_and_arrow(fen, best)
+        return (
+            f"the engine's move is a {label} the player missed",
+            {
+                "review_fen": fen, "line_fen": fen, "fen_before": fen,
+                "fen_after": move.get("fen_after"),
+                "played_san": played, "best_move": best,
+                "move_number": move.get("move_number"),
+                "cp_loss": move.get("cp_loss"),
+                "pv_after_played": list(move.get("pv_after_played") or [])[:8],
+                "pv_after_best": list(move.get("pv_after_best") or [])[:8],
+                "side_to_move": side, "arrow": arrow,
+                "arrow_is": f"the {label} that was available",
+                "extra_arrows": [], "extra_arrows_is": None,
+                "confidence": "unknown",
+                "quality_id": getattr(bundle, "quality_id", None),
+                "detector_facts": [dict(f) for f in facts][:4],
+                "motif_geometry": {k: v for k, v in head.items()
+                                   if isinstance(v, (str, int, float, bool))},
+            },
+        )
+
+    return produce
+
+
+def _lazy(module_name: str, func_name: str):
+    """Import a proof builder on first call.
+
+    These modules are new and self-contained; importing them at module scope
+    would make an unrelated failure in any one of them take down the whole
+    review route.
+    """
+    def call(*args, **kwargs):
+        import importlib
+        mod = importlib.import_module(f"services.{module_name}")
+        return getattr(mod, func_name)(*args, **kwargs)
+    return call
+
+
 def _producers():
     from services.discovered_attack_puzzle_proof import (
         build_discovered_attack_proof,
@@ -1586,6 +1671,30 @@ def _producers():
         "simple_hang": _produce_simple_hang,
         "left_book": _produce_left_book,
         "fork": _missed_motif(build_fork_proof, "fork"),
+        # 2026-09-22 — seven proofs built and measured against Lichess in one
+        # night, none of which anyone could SEE. They are standalone modules
+        # like fork_puzzle_proof was, so the same wrapper serves them and the
+        # board, arrows and verdict flow work unchanged.
+        #
+        # Recall / cross-fire on mateIn2 / cross-fire on fork, all measured on
+        # 1000 Lichess puzzles of the theme at rating 600-1500:
+        #   deflection    91.5%  1.3%  0.7%
+        #   attraction    89.6%  0.0%  0.0%
+        #   advancedPawn  83.6%  0.0%  0.0%   (fires 100%, payoff proved 83.6%)
+        #   defensiveMove 61.9%  0.0%  2.7%
+        #   clearance     83.0%  6.3%  1.3%
+        #   xRayAttack    99.0%  2.3%  0.3%
+        #   interference  99.5%  3.0%  1.0%
+        #
+        # None is graded in _AUTHORIZATIONS, so nothing here can reach a
+        # player. This queue is how the evidence for that grading gets made.
+        "deflection": _new_proof("deflection_puzzle_proof", "build_deflection_proof", "deflection"),
+        "attraction": _new_proof("attraction_puzzle_proof", "build_attraction_proof", "attraction"),
+        "advanced_pawn": _new_proof("advanced_pawn_puzzle_proof", "build_advanced_pawn_proof", "advanced pawn"),
+        "defensive_move": _new_proof("defensive_move_puzzle_proof", "build_defensive_move_proof", "defensive move"),
+        "clearance_general": _new_proof("clearance_puzzle_proof", "build_clearance_proof", "clearance"),
+        "xray_attack": _new_proof("xray_attack_puzzle_proof", "build_xray_attack_proof", "x-ray attack"),
+        "interference": _new_proof("interference_puzzle_proof", "build_interference_proof", "interference"),
         "discovered_attack": _missed_motif(
             build_discovered_attack_proof, "discovered attack"),
         "missed_castling": _missed_concept("opening_castling"),

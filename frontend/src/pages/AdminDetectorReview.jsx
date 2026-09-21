@@ -49,6 +49,53 @@ const CAPTION_FAULTS = [
 ];
 
 const DETECTORS = [
+  // Built and measured against Lichess overnight 2026-09-22, none of them
+  // graded in _AUTHORIZATIONS yet, so nothing here can reach a player. This
+  // queue is how the evidence for grading them gets made. The percentages
+  // are recall on 1000 Lichess puzzles of that theme at rating 600-1500.
+  {
+    id: "deflection",
+    label: "Deflection — 91.5%",
+    claims:
+      "the best move forces a piece off the job it was doing — guarding a square, a piece, or a promotion square — and the line then collects what it abandoned",
+  },
+  {
+    id: "attraction",
+    label: "Attraction — 89.6%",
+    claims:
+      "the best move forces an enemy piece onto a square where a later move punishes it, usually by sacrificing to drag the king there",
+  },
+  {
+    id: "interference",
+    label: "Interference — 99.5%",
+    claims:
+      "a piece arrives between an enemy defender and what it was guarding, the defence dies, and the line collects",
+  },
+  {
+    id: "xray_attack",
+    label: "X-ray attack — 99.0%",
+    claims:
+      "a slider attacks through an enemy piece to something valuable behind it, and later actually lands on the far square",
+  },
+  {
+    id: "clearance_general",
+    label: "Clearance — 83.0%",
+    claims:
+      "a friendly piece steps out of the way and a later friendly move, illegal before, becomes legal the instant that square empties",
+  },
+  {
+    id: "advanced_pawn",
+    label: "Advanced pawn — 83.6%",
+    claims:
+      "a pawn deep in enemy territory queens, or cannot be stopped from queening, and the line drives it home",
+  },
+  {
+    id: "defensive_move",
+    label: "Defensive move — 61.9%",
+    claims:
+      "the quiet move that holds — answering a check, a threat to material, or a pawn about to promote. The payoff is a loss avoided, not material won",
+  },
+
   // Lichess-sourced, 2026-09-21. UNLIKE every other queue here, these do not
   // ask "is this claim true" -- they serve positions the detector CANNOT yet
   // name, and ask what the motif actually is. Pin scores 12.5% where the same
