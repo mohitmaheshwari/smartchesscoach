@@ -334,6 +334,26 @@ the only thing that has these concepts at all).
   are treated the same. (`streak_required` is `None` on all 4,217 rows, so
   the tracker default of 3 applies throughout.)
 
+### Post-deploy correction, 2026-09-21
+
+Caught on the live system minutes after the backfill, by counting how many
+rows the tracker *could* promote on their next clean game. The answer was
+**532**, and none of them had taken a test.
+
+Cause: the migration put 1,078 legacy rows into `monitoring` so their
+streak history was not thrown away — but `monitoring` is a PROVEN state,
+so a promotion rule that checked only the state treated them as already
+proven. The very first observable effect of this feature would have been
+the exact bug it was built to close.
+
+Fix, in code rather than data surgery: `may_promote_to_mastered` now reads
+`tests_passed` explicitly instead of inferring proof from where a row
+happens to sit. Legacy rows keep both their state and their streak
+history, and simply cannot reach `mastered` until they pass a test.
+Re-measured on live data: **532 -> 0**.
+
+Regression test: `test_proven_state_without_a_passed_test_never_promotes`.
+
 ## 5. Explicitly out of scope (V1)
 
 - Any change to how captions are written or which concept is picked

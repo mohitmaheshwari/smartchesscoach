@@ -368,7 +368,7 @@ async def update_user_mastery_for_game(
         {"user_id": user_id},
         {"_id": 1, "concept_id": 1, "streak_clean": 1, "streak_required": 1,
          "acknowledged": 1, "last_evaluated_game_id": 1, "clean_games_total": 1,
-         "violations_total": 1, "state": 1},
+         "violations_total": 1, "state": 1, "tests_passed": 1},
     )
     now = _iso_now()
     async for cu in cursor:
@@ -417,6 +417,7 @@ async def update_user_mastery_for_game(
             # test first. docs/teaching_loop_scope.md
             mastered_now = may_promote_to_mastered(
                 cu.get("state"), new_streak, required,
+                tests_passed=cu.get("tests_passed") or 0,
             )
             if mastered_now:
                 update_set["acknowledged"] = True

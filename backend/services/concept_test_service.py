@@ -96,7 +96,13 @@ def canonical_concept(concept_id: str) -> str:
     return CONCEPT_ALIASES.get(concept_id, concept_id)
 
 
-def may_promote_to_mastered(state: Optional[str], streak_clean: int, streak_required: int) -> bool:
+def may_promote_to_mastered(
+    state: Optional[str],
+    streak_clean: int,
+    streak_required: int,
+    *,
+    tests_passed: int = 0,
+) -> bool:
     """The single place that decides whether a clean streak earns mastery.
 
     The rule this encodes, and the bug it closes: a clean streak is
@@ -104,10 +110,21 @@ def may_promote_to_mastered(state: Optional[str], streak_clean: int, streak_requ
     2026-09-21 the tracker promoted on the streak alone, so a concept could
     reach mastered without the user demonstrating anything — it had merely
     stopped coming up. Proof comes first; the streak only confirms it holds.
+
+    `tests_passed` is the load-bearing half, and it is checked separately
+    from `state` on purpose. The 2026-09-21 backfill put 1,078 pre-existing
+    rows into `monitoring` so their streak history was not thrown away —
+    but `monitoring` is a proven state, so on a state check alone 532 of
+    them would have promoted straight to mastered on their next clean game,
+    having never taken a test. That is precisely the bug this service
+    exists to close, so the proof is required explicitly rather than
+    inferred from where a row happens to sit.
     """
     if state not in PROVEN_STATES:
         return False
     if state == STATE_MASTERED:
+        return False
+    if int(tests_passed or 0) < 1:
         return False
     return int(streak_clean or 0) >= int(streak_required or 0)
 
@@ -383,6 +400,7 @@ async def _apply_state_transition(
     routes/coach). `state` is the authority.
     """
     now = _now()
+    inc: Dict[str, int] = {"tests_taken": 1}
     if promotes:
         new_state = STATE_MONITORING
         update = {
@@ -392,6 +410,7 @@ async def _apply_state_transition(
             "streak_clean": 0,
             "updated_at": now,
         }
+        inc["tests_passed"] = 1
     elif passed:
         # Passed, but on uncalibrated positions — recorded, not promoted.
         new_state = STATE_SHOWN
@@ -407,7 +426,7 @@ async def _apply_state_transition(
 
     await db.user_concept_understanding.update_one(
         {"user_id": user_id, "concept_id": concept_id},
-        {"$set": update, "$inc": {"tests_taken": 1},
+        {"$set": update, "$inc": inc,
          "$setOnInsert": {"user_id": user_id, "concept_id": concept_id,
                           "created_at": now, "shown_count": 0}},
         upsert=True,

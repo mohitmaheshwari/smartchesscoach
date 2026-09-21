@@ -46,15 +46,29 @@ class TestPromotionRequiresProof:
 
     @pytest.mark.parametrize("state", [STATE_UNDERSTOOD, STATE_MONITORING])
     def test_proven_concept_promotes_at_threshold(self, state):
-        assert may_promote_to_mastered(state, 3, 3) is True
-        assert may_promote_to_mastered(state, 4, 3) is True
+        assert may_promote_to_mastered(state, 3, 3, tests_passed=1) is True
+        assert may_promote_to_mastered(state, 4, 3, tests_passed=1) is True
 
     @pytest.mark.parametrize("state", [STATE_UNDERSTOOD, STATE_MONITORING])
     def test_proven_but_short_streak_does_not_promote(self, state):
-        assert may_promote_to_mastered(state, 2, 3) is False
+        assert may_promote_to_mastered(state, 2, 3, tests_passed=1) is False
+
+    @pytest.mark.parametrize("state", [STATE_UNDERSTOOD, STATE_MONITORING])
+    def test_proven_state_without_a_passed_test_never_promotes(self, state):
+        # Caught in production on 2026-09-21, minutes after the backfill.
+        # The migration put 1,078 legacy rows into `monitoring` to keep
+        # their streak history, and `monitoring` is a proven state — so on
+        # a state check alone, 532 of them would have promoted straight to
+        # mastered on their next clean game, having never taken a test.
+        # The proof must be read explicitly, never inferred from the state.
+        assert may_promote_to_mastered(state, 999, 3, tests_passed=0) is False
+        assert may_promote_to_mastered(state, 999, 3) is False  # default is 0
+
+    def test_a_passed_test_plus_a_streak_does_promote(self):
+        assert may_promote_to_mastered(STATE_MONITORING, 3, 3, tests_passed=1) is True
 
     def test_already_mastered_does_not_re_promote(self):
-        assert may_promote_to_mastered(STATE_MASTERED, 99, 3) is False
+        assert may_promote_to_mastered(STATE_MASTERED, 99, 3, tests_passed=1) is False
 
 
 # ── the Lichess convention that would silently break every puzzle ─────────
