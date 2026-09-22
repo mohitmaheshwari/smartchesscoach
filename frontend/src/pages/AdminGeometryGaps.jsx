@@ -60,30 +60,47 @@ export default function AdminGeometryGaps() {
   const [line, setLine] = useState(null);
   const [ply, setPly] = useState(0);
   const [denied, setDenied] = useState(false);
+  // Two queues on one page. "gaps" asks "can we DRAW this?"; "why" asks
+  // "write the sentence we are missing". Mohit, 2026-09-22: "add those
+  // positions in geometry-gaps page so i or farhan can help you out" --
+  // here because GEOMETRY_REVIEWER_EMAILS is the only gate Farhan holds.
+  const [mode, setMode] = useState("gaps");
+  const [side, setSide] = useState("");
+  const [why, setWhy] = useState("");
 
   const loadResults = useCallback(async () => {
     try {
-      const r = await fetch(`${API}/admin/geometry-gaps/results`, {
+      const path =
+        mode === "why"
+          ? "/admin/geometry-gaps/no-why/results"
+          : "/admin/geometry-gaps/results";
+      const r = await fetch(`${API}${path}`, {
         credentials: "include",
       });
       if (r.ok) setResults(await r.json());
     } catch {
       /* the tally is a nicety; never block judging on it */
     }
-  }, []);
+  }, [mode]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     setNotes("");
+    setWhy("");
     setLine(null);
     setPly(0);
     setDenied(false);
     try {
-      const qs = cluster ? `?cluster=${encodeURIComponent(cluster)}` : "";
-      const res = await fetch(`${API}/admin/geometry-gaps/next${qs}`, {
-        credentials: "include",
-      });
+      const url =
+        mode === "why"
+          ? `${API}/admin/geometry-gaps/no-why/next${
+              side ? `?side=${encodeURIComponent(side)}` : ""
+            }`
+          : `${API}/admin/geometry-gaps/next${
+              cluster ? `?cluster=${encodeURIComponent(cluster)}` : ""
+            }`;
+      const res = await fetch(url, { credentials: "include" });
       if (res.status === 403) {
         // Without this the page renders its shell and then sits empty, which
         // is the blank-screen failure twice over. Say so instead.
@@ -92,7 +109,11 @@ export default function AdminGeometryGaps() {
         setError("");
       } else if (res.status === 404) {
         setItem(null);
-        setError("Nothing left to rule on in this cluster.");
+        setError(
+          mode === "why"
+            ? "Every caption in the corpus has a why. Nothing left."
+            : "Nothing left to rule on in this cluster."
+        );
       } else if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       } else {
@@ -105,7 +126,7 @@ export default function AdminGeometryGaps() {
       setLoading(false);
       loadResults();
     }
-  }, [cluster, loadResults]);
+  }, [cluster, mode, side, loadResults]);
 
   useEffect(() => {
     load();
@@ -129,13 +150,37 @@ export default function AdminGeometryGaps() {
     }
   };
 
+  const submitWhy = async (action) => {
+    if (!item || saving) return;
+    if (action === "authored" && !why.trim()) return;
+    setSaving(true);
+    try {
+      await fetch(`${API}/admin/geometry-gaps/no-why`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ...item, action, why: why.trim() }),
+      });
+      await load();
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // A line is the move itself followed by the engine's continuation.
   const movesFor = useCallback(
     (which) => {
       if (!item) return [];
-      return which === "played"
-        ? [item.played_san, ...(item.pv_after_played || [])]
-        : [item.best_san, ...(item.pv_after_best || [])];
+      // best_san can be absent on a missing-why item (the V5 record does not
+      // always carry one). An undefined SAN in the list renders a dead button
+      // and truncates the replay, so drop it here rather than downstream.
+      return (
+        which === "played"
+          ? [item.played_san, ...(item.pv_after_played || [])]
+          : [item.best_san, ...(item.pv_after_best || [])]
+      ).filter(Boolean);
     },
     [item]
   );
@@ -232,27 +277,61 @@ export default function AdminGeometryGaps() {
             Admin · geometry gaps
           </p>
           <h1 className="text-2xl font-semibold">
-            Mistakes the board cannot explain yet
+            {mode === "why"
+              ? "Blunders that never say why"
+              : "Mistakes the board cannot explain yet"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Click any move to play the line out on the board. The punishment
-            line after the mistake is usually where the real lesson is.
+            {mode === "why"
+              ? "Each of these is a real mistake whose caption never explains itself. Write the missing sentence, or say the move needs no coaching. 697 of 5,683 across 500 games."
+              : "Click any move to play the line out on the board. The punishment line after the mistake is usually where the real lesson is."}
           </p>
         </header>
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <select
-            className="rounded border bg-background px-2 py-1 text-sm"
-            value={cluster}
-            onChange={(e) => setCluster(e.target.value)}
-          >
-            <option value="">All clusters</option>
-            {Object.entries(CLUSTER_LABEL).map(([key, label]) => (
-              <option key={key} value={key}>
+          <div className="inline-flex rounded border p-0.5">
+            {[
+              ["gaps", "Undrawable"],
+              ["why", "Missing the why"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setMode(key)}
+                className={`rounded px-2.5 py-1 text-xs ${
+                  mode === key
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
                 {label}
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
+          {mode === "gaps" ? (
+            <select
+              className="rounded border bg-background px-2 py-1 text-sm"
+              value={cluster}
+              onChange={(e) => setCluster(e.target.value)}
+            >
+              <option value="">All clusters</option>
+              {Object.entries(CLUSTER_LABEL).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select
+              className="rounded border bg-background px-2 py-1 text-sm"
+              value={side}
+              onChange={(e) => setSide(e.target.value)}
+            >
+              <option value="">Both sides</option>
+              <option value="user">Their own moves</option>
+              <option value="opponent">Opponent moves (16.8% bare)</option>
+            </select>
+          )}
           <Button variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className="mr-1 h-3 w-3" /> Skip
           </Button>
@@ -340,44 +419,107 @@ export default function AdminGeometryGaps() {
               )}
               {renderLine("best", "What the engine wanted", "text-green-600")}
 
-              <div>
-                <label className="text-sm font-medium" htmlFor="gap-notes">
-                  What should the arrows show here?
-                </label>
-                <textarea
-                  id="gap-notes"
-                  className="mt-1 w-full rounded border bg-background p-2 text-sm"
-                  rows={4}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g. the knight hits the queen with tempo - draw a5 to the queen's square"
-                />
-              </div>
+              {mode === "why" ? (
+                <>
+                  <div className="rounded border border-amber-500/50 bg-amber-500/5 p-3">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      What we say today
+                    </div>
+                    <p className="mt-1 text-sm">{item.caption}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {item.side === "opponent" ? "Opponent" : "Player"} move ·{" "}
+                      {item.severity}
+                      {typeof item.cp_loss === "number"
+                        ? ` · ${item.cp_loss} cp`
+                        : ""}
+                    </p>
+                  </div>
 
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => rule("buildable")} disabled={saving}>
-                  Buildable
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => rule("not_buildable")}
-                  disabled={saving}
-                >
-                  Not buildable
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => rule("unsure")}
-                  disabled={saving}
-                >
-                  Unsure
-                </Button>
-              </div>
+                  <div>
+                    <label className="text-sm font-medium" htmlFor="gap-why">
+                      Why was this move bad? One or two short sentences.
+                    </label>
+                    <textarea
+                      id="gap-why"
+                      className="mt-1 w-full rounded border bg-background p-2 text-sm"
+                      rows={4}
+                      value={why}
+                      onChange={(e) => setWhy(e.target.value)}
+                      placeholder="e.g. It leaves the knight on d4 with nothing guarding it, and Qxd4 just takes it."
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Very easy English, short sentences. Say what the move
+                      gives away, not what to play instead.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => submitWhy("authored")}
+                      disabled={saving || !why.trim()}
+                    >
+                      Save this why
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => submitWhy("no_why_needed")}
+                      disabled={saving}
+                    >
+                      Not really a mistake
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => submitWhy("skip")}
+                      disabled={saving}
+                    >
+                      Skip
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-sm font-medium" htmlFor="gap-notes">
+                      What should the arrows show here?
+                    </label>
+                    <textarea
+                      id="gap-notes"
+                      className="mt-1 w-full rounded border bg-background p-2 text-sm"
+                      rows={4}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="e.g. the knight hits the queen with tempo - draw a5 to the queen's square"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={() => rule("buildable")} disabled={saving}>
+                      Buildable
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => rule("not_buildable")}
+                      disabled={saving}
+                    >
+                      Not buildable
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => rule("unsure")}
+                      disabled={saving}
+                    >
+                      Unsure
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ) : null}
 
-        {results && Object.keys(results.by_cluster || {}).length ? (
+        {mode === "gaps" &&
+        results &&
+        Object.keys(results.by_cluster || {}).length ? (
           <section className="mt-10">
             <h2 className="text-sm font-semibold">Ruled so far</h2>
             <table className="mt-2 w-full text-sm">
