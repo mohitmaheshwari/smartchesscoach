@@ -176,13 +176,128 @@ taught. That part is already built.
    2026-09-22, this line is stored for **90% of 100-199cp mistakes and 97% of
    200cp+ blunders**. The fork proof already fires correctly when handed it.
 
-3. **Repoint `chess_understanding` at `move_observations`** — phase,
-   eval_before (winning / level / losing), and the two new fields. Delete the
-   substring matching.
+3. **Delete the scoring in `chess_understanding.py`. Do not repair it.**
 
-4. **Delete the three invented dimensions** (`endgame = avg * 0.9`,
-   `calculation = tactical * 0.95`, `pattern_rec = average`). A dimension we
-   cannot measure is reported as "not enough evidence yet", never as a number.
+   An earlier draft of this scope said "repoint it". That was too kind. The
+   whole of ChessGuru's "multi-dimensional player analysis" is SEVEN LINES
+   of substring matching in an 879-line file:
+
+   ```
+   249:  if "one_move" in subcat or "simple" in subcat:
+   251:  if "tactical" in subcat or "complex" in subcat:
+   347:  if "positional" in cat or "development" in subcat or "structure" in subcat:
+   353:  if "positional" in cat or "structure" in subcat or "pawn" in subcat:
+   425:  if "opening" in subcat or "trap" in subcat or "principle" in subcat:
+   ```
+
+   No board is read. No engine value is used. No detector is called. Each
+   dimension starts at a hardcoded baseline and is nudged only if one of
+   those words appears in a weakness label. Nothing writes labels containing
+   those words, so every branch is dead and every score keeps its default.
+   That is why `positional_sense` is exactly 60.0 and `opening_knowledge`
+   exactly 65.0 for **all 17** profiles.
+
+   It is not a weak measurement. It is not a measurement. A player is told
+   "your positional sense is competent" because a loop found nothing.
+
+   There is nothing to repoint, so the scoring goes. The six QUESTIONS stay,
+   because the questions are right.
+
+4. **Rebuild each dimension as a count of proven detector fires.** The
+   evidence already exists, as numbers, one table away:
+
+   | dimension | what it counts | evidence we already hold |
+   |---|---|---|
+   | positional | **recorded board STATE per move — see 4b** | every fact already computed, none stored |
+   | opening | BREADTH, not just quality — how many sound openings the player actually knows | `player_identity.opening_repertoire`: openings played, main line, win rate per opening, split by colour and by reply to e4 |
+   | endgame | endgame blunders as a rate per endgame reached | 21,905 endgame blunders, 55 of 63 players |
+   | calculation | 1-move vs 3-move punishments | `punishment_depth`, new in item 1 |
+   | tactical | motifs found vs walked into | `motif_profile_service`, already two-sided |
+   | patterns | recurrence of the same named pattern | `user_pattern_events`, 123,154 rows |
+
+   **Opening knowledge means breadth (Mohit, 2026-09-22).** "How well did
+   you play the opening" is not "how much opening do you know". One sampled
+   player has 9 openings as White with a clear main line (French 17, then
+   Queen's Pawn 4, King's Pawn 4, Sicilian 4, Italian 3, Petrov 3, London 1,
+   Four Knights 1, QGD 1). That is breadth, depth and a main weapon, already
+   stored and entirely ignored by a constant 65.0.
+
+   Two caveats to settle first: only 17 of 69 players have a repertoire
+   built, and every win rate in the sampled repertoire reads 0.0, which
+   looks wrong and must be checked before anything trusts it.
+
+   A dimension with too little evidence reads "not enough yet". Never a
+   baseline, never a formula, never a number we did not measure.
+
+### 4b. Positional play is a STATE, not a list of opportunities
+
+Mohit, 2026-09-22, on being shown a "positional" score built from detector
+events: *"why would you ever want to know that you didn't put the knight on
+the rim?"*
+
+He is right, and it invalidates the earlier plan. Detector events answer
+"did you spot this" -- which produces the absurd position of crediting a
+player for **not** blundering. Positional play is not opportunities taken.
+It is the CONDITION of your position, on every move, whether or not anything
+was spotted.
+
+**His seven principles, as the spec.** Each mapped to code that already
+exists, and to whether it survives the move:
+
+| # | Principle | Computed today in | Stored per move? |
+|---|---|---|---|
+| 1 | Improve your worst piece | `board_state_describer`, `teaching_move_selector._improves_piece_activity` | **no** |
+| 2 | Control the centre | `caption_facts`, `cognitive_gap_subtypes` | **no** |
+| 3 | Pawn structure: isolated / doubled / backward | `pawn_structure_service` -- all three functions exist | **no** |
+| 4 | Good knight vs bad bishop | `caption_facts`, `caption_principles` | **no** |
+| 5 | Space advantage | `concept_contract_registry` only | **no** |
+| 6 | Prophylaxis | `prophylaxis_detector`, `active_teaching_engine` | **no** |
+| 7 | Trading the right pieces | `caption_facts` | **no** |
+
+**Seven for seven computed. Zero for seven kept.** Across 528,786 move
+records not one carries a single positional fact. Every one is derived to
+write a caption and discarded within milliseconds.
+
+That -- not a missing detector, not weak chess -- is the whole reason
+`positional_sense` is 60.0 for every player.
+
+**So the work is persistence, not detection.** Write a positional snapshot
+onto each move record from the facts we already compute:
+
+```
+pawn_structure : doubled, isolated, backward, islands
+pieces         : undefended count, worst-piece mobility, total mobility
+bishops        : own pawns standing on the bishop's own colour   (#4)
+center         : how many of d4/e4/d5/e5 the player controls     (#2)
+space          : squares controlled beyond the midline           (#5)
+trade_quality  : on a capture, whose piece was the better one    (#7)
+```
+
+Positional ability then becomes a sum over moves that already exist -- for
+the founder's account, 20,358 of them -- instead of a constant.
+
+Two rulings from the same conversation, recorded so they are not re-litigated:
+
+- **Trapping a piece is BOTH, and material decides which.** Tactical when
+  the piece actually falls; positional when it merely lives on doing
+  nothing. Our `trapped_piece_opportunity_proof` demands a material payoff,
+  so it catches only the tactical half. The bishop that is entombed but not
+  lost is principle #5 territory and is not measured today.
+- **A "hit" is not required for every fact.** `knight_on_rim` gates on
+  `cp_loss >= 30` and so can only ever fire on a bad move -- by
+  construction, never a success. That is not a broken detector; it is a
+  mistake-catcher, and it pairs with `knight_outpost` (25,387 fires, 76%
+  hit) which is the success half. State-based facts avoid the problem
+  entirely: they need no hit or miss at all.
+
+**Prophylaxis (#6) is the one that resists this.** The other six are board
+state -- countable from the position alone, no intent required. Prophylaxis
+means "he stopped an idea before it started", which needs the opponent's
+INTENTION, and intention is not in the position. A `prophylaxis_detector`
+exists; what it actually claims must be read and tested before anything
+trusts it, because an unprovable claim about what someone was planning is
+exactly the kind that goes wrong quietly. Six ship; the seventh gets its own
+investigation.
 
 5. **Recompute on a schedule, not once and never again.** Remove the
    permanent cache.
@@ -199,6 +314,84 @@ taught. That part is already built.
    301 opponent blunders of 200cp or more. With this, the diagnosis is
    genuinely two-sided the way Mohit described it — allowed / missed /
    punished / found — from stored data, with no new engine work.
+
+9. **Fix `worst_phase` so it can say "endgame".** Today it is a single
+   winner-takes-all label, and middlegame has the most moves, so middlegame
+   always wins. Across 63 profiled players it reads middlegame 48, opening
+   15, **endgame 0** — never once. Those same players have **21,905 endgame
+   blunders**, and 55 of 63 have at least one. Anything that reads
+   `worst_phase` to decide what to teach is structurally blind to the endgame
+   for every user we have. Report a phase as a problem on its own merits,
+   not by beating the other two.
+
+10. **Name one source of truth for "how good is this player".** Three
+    services can answer it today and nothing says which wins:
+    `chess_understanding` (six dimensions), `player_identity.style_profile`
+    (tactical vs positional tendency) and `motif_profile_service`
+    (per-motif). That breaks the single-source rule. V1 picks one owner per
+    question and the others defer to it.
+
+11. **`behavioral_coaching_layer`: neither screen it nor delete it yet —
+    FEED IT FIRST.** (Ruled 2026-09-22 after measuring; the original choice
+    was a false pair.)
+
+    The questions it asks are the right ones: do you collapse when winning,
+    do you tilt after a blunder, do you move too fast. What it lacks is
+    input. Every gate reads `rushes_in_winning_positions`,
+    `post_blunder_accuracy`, `blunder_spiral_rate` and `consistency_score`
+    on `player_identity` — set for 16 of 69 players. With those unset the
+    gates cannot open, so the detection is not wrong, it is starved.
+
+    **Measured on production, 57 eligible players: 53 get no diagnosis at
+    all, and the other 4 all get the same one (TILT_PRONE).** Four of its
+    five branches have never executed. Wiring that to a screen today would
+    show 93% of players "no major behavioural patterns detected" — the same
+    empty-by-default failure as `positional_sense = 60`, in a friendlier
+    sentence.
+
+    **The same questions, asked of `move_observations` instead, separate
+    players cleanly.** Over 54 players with 300+ observed moves:
+
+    | measure | min | median | max | spread |
+    |---|---|---|---|---|
+    | mistakes when winning (+200) | 11.0% | 21.9% | 36.9% | 26 pts |
+    | mistakes when level | 3.1% | 15.9% | 37.8% | 35 pts |
+    | mistakes right after a mistake | 15.7% | 29.7% | 46.7% | 31 pts |
+    | moves played under 2 seconds | 4.7% | 20.7% | 48.6% | 44 pts |
+
+    And the rows read as people. `user_f8343883498` errs on 14.5% of moves
+    in level positions and 27.7% when winning — the collapse pattern, in one
+    player. `user_a6091ca3813` is the reverse: 37.8% level, 27.6% winning.
+    `user_b62f1d5c1f1` is 30.9 / 30.9 / 30.9 — nothing situational at all,
+    his problem is uniform. That is a diagnosis; "TILT_PRONE for everyone
+    who qualifies" is not.
+
+    So: keep the service, keep its questions, compute its inputs from
+    `move_observations`, and wire it to `DeepMemoryPanel` (which already
+    carries player-level facts in game review and the coach sidebar) only
+    once it varies between players in production.
+
+    **Say what was measured, never why.** "You make more mistakes when
+    winning" is a fact about the moves. Whether the cause is complacency or
+    simply that winning positions are harder to convert is NOT settled by
+    these numbers, and the panel must not imply it is.
+
+### 3b. Where each piece appears on screen
+
+Nothing in this scope counts as done until it is on a screen. This is the
+map as it stands today, measured 2026-09-22.
+
+| What the player learns | Service | Screen today | State |
+|---|---|---|---|
+| Six dimensions (tactical, positional, opening, endgame, calculation, patterns) | `chess_understanding` | Game review (`LabV2`) via `/lab/{id}/deep-strategy` | Live, but only 17 of 128 users have one |
+| Playing style, worst phase, blunder breakdown | `player_identity` | `DeepMemoryPanel`, inside game review and the coach sidebar | Live, 69 users, 100% have a style |
+| Tactical vs positional tendency, as numbers | `player_identity.style_profile` | **Nowhere** | Computed, never shown |
+| Behaviour when winning or losing | `behavioral_coaching_layer` | **Nowhere** | Endpoint works, no caller |
+| Motif strength and weakness | `motif_profile_service` | Lab (`TacticsMasteryPanel`), `MotifDrill` | Live and working |
+| Allowed vs missed, punishment depth | *new in this scope* | Game review card (2a) + record (2b) | To build |
+
+Two rows read **Nowhere**. Those are the last-wire failures this scope must
+close, and no item here is finished while its row is still empty.
 
 ---
 
@@ -264,15 +457,34 @@ as the positional half of the diagnosis.
 distribution. *Unblocking step:* histogram `eval_before` at the moment of
 mistakes, per rating band, before picking any number.
 
-**Q3. Does "allowed" need the player to have had a choice?**
+**Q3. RULED 2026-09-22 (Mohit): no blame without a choice.**
+If every legal move loses the piece, the player allowed nothing and we say
+nothing. "You allowed this" fires only where a better move actually existed.
+Where none did, the causing move is earlier in the game and this one is not
+the lesson. Blaming a move the player could not have played differently is
+worse than silence.
+
+**Q3 (original wording). Does "allowed" need the player to have had a choice?**
 If every legal move loses the piece, the player did not allow anything — the
 position was already lost. *Unresolved because:* it needs a rule.
 *Unblocking step:* Mohit rules on whether a forced loss counts as a mistake at
 all.
 
-**Q4. Is 40 games the right window for the record in 2b?**
-*Unresolved because:* the decay model uses games-back, not a fixed window.
-*Unblocking step:* decide whether 2b shows decay state or a raw count.
+**Q4. RULED 2026-09-22 (Mohit): the last 10 games.**
+A fixed 10-game window, not the decay curve.
+
+One guard goes with it, because 10 games holds very different amounts of
+evidence per concept. Measured over the 51-55 users with 10+ analysed games,
+median events in a 10-game window: knight_outpost 15.7, endgame_loose_pawn_
+attack 10.0, pawn_kicks_piece 7.4 -- but queen_fork 2.8, defensive_pawn_push
+1.4, attack_with_tempo 0.9.
+
+So a concept with too few events in the window is NOT graded. It reads "not
+enough yet" rather than struggling or strong. Otherwise one bad moment
+becomes a permanent label on the rarer patterns.
+
+The minimum is deliberately not chosen here: it comes off the distribution
+before any code, the same way PROBLEM_PHASE_SHARE did.
 
 ---
 
@@ -281,9 +493,19 @@ all.
 Hard gates. None of this starts until all are true.
 
 1. Mohit has signed off on this document.
-2. Q1 answered — we know what writes the two opponent flags.
-3. Q3 answered — the rule for a forced loss is written down.
-4. Q2 has a histogram behind it, not a guessed threshold.
+2. DONE — Q1: `move_observation_deriver.py` sets
+   `punished_opponent_blunder` when the opponent's previous move blundered
+   and the player's reply graded best/excellent/brilliant. Two limits to
+   carry: it means "played well after their blunder", not strictly
+   "punished it"; and it needs `opponent_previous`, which exists on 32% of
+   moves, so two thirds can never be flagged either way.
+3. DONE — Q3 ruled: no blame without a choice (above).
+4. DONE — Q2: histogram of `eval_before` at mistakes, 120,000 moves. Level
+   positions (-50..+50) carry an 8.8% mistake rate; +200..+500 carries
+   23.6%, the highest of any band. The jump sits at +200, so that is the
+   "winning" boundary -- read off the distribution, not picked. Worth
+   noting in its own right: players err ~3x more when winning than when
+   level.
 5. The two new fields have names agreed and a version bump planned, so old
    events are distinguishable from new ones.
 6. A baseline is captured first: what the current system prescribes for the

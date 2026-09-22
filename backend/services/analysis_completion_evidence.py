@@ -8,6 +8,8 @@ not run an engine, define a chess detector, choose a focus, or own mastery.
 
 from __future__ import annotations
 
+import logging
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Mapping, Optional, Tuple
@@ -31,6 +33,9 @@ PWC_EVIDENCE_MODES = frozenset(
 DESTINATION_SAFETY_QUALITY_ID = (
     "gap:piece_safety:destination_safety_exact"
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -306,6 +311,33 @@ async def complete_analyzed_game_evidence(
             db.learning_sessions,
             user_id=user_id,
             events=prepared["events"],
+        )
+
+    # The observations this game just wrote are what the behavioural block is
+    # measured from, so refresh it here -- immediately after they land, and
+    # nowhere else.
+    #
+    # Without this the block keeps the values its dataclass was born with.
+    # Scanned in production 2026-09-22: all 69 players carried an identical
+    # 10.0/15.0/8.0 for move times and 0.5 for post-blunder accuracy, because
+    # _update_behavioral_profile never assigns those fields at all. That is
+    # also why behavioral_coaching_layer diagnoses 53 of 57 players as
+    # nothing -- every gate it opens reads one of them.
+    #
+    # Never fatal: a failure here must not cost the analysis that produced
+    # the observations, which is the valuable part.
+    try:
+        from services.player_identity import PlayerIdentityService
+
+        await PlayerIdentityService(db).refresh_behaviour_from_observations(
+            user_id
+        )
+    except Exception:  # noqa: BLE001 - evidence must survive a profile failure
+        logger.warning(
+            "behaviour refresh failed for %s after game %s",
+            user_id,
+            prepared["game_id"],
+            exc_info=True,
         )
 
     marker = _marker(prepared, context)

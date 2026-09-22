@@ -439,6 +439,14 @@ async def next_geometry_gap(
                 # game. Stored by the analyser already, so no engine call.
                 "pv_after_played": [str(x) for x in (move.get("pv_after_played") or [])],
                 "pv_after_best": [str(x) for x in (move.get("pv_after_best") or [])],
+                # Carried for the "Copy for Claude" prompt. The analyser
+                # already wrote all four and the page passed none of them on,
+                # so anyone asking "why was this a mistake" was re-deriving
+                # facts we had already stored.
+                "cognitive_gap": move.get("cognitive_gap"),
+                "critical_reason": move.get("critical_reason"),
+                "threat": move.get("threat"),
+                "mate_info": move.get("mate_info"),
                 "ruled_count": len(ruled),
             }
     raise HTTPException(
@@ -582,6 +590,15 @@ async def next_missing_why(
                 # already stored, so the author does not have to find it.
                 "pv_after_played": [str(x) for x in (rec.get("pv_after_played") or [])],
                 "pv_after_best": [str(x) for x in (rec.get("pv_after_best") or [])],
+                # The Copy-for-Claude prompt rendered "Eval before ? -> after ?"
+                # because this queue never sent them, and the analyser's own
+                # labels were sitting unread on the same record.
+                "eval_before": rec.get("eval_before"),
+                "eval_after": rec.get("eval_after"),
+                "cognitive_gap": rec.get("cognitive_gap"),
+                "critical_reason": rec.get("critical_reason"),
+                "threat": rec.get("threat"),
+                "mate_info": rec.get("mate_info"),
                 "done_count": len(done),
                 "scanned": scanned,
             }

@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Play with Coach — coaching room</title>
+<!-- The app's real piece set, copied verbatim from
+     node_modules/chessground/assets/. Self-contained: 12 embedded SVGs,
+     no network request. -->
+<link rel="stylesheet" href="cburnett.css" />
+<style>
+/* ---------------------------------------------------------------------------
+   ChessGuru — Play with Coach.
+
+   Not a copy of any reference. The shell (board-led layout, dark surround,
+   restraint) is generic good practice. The SIDEBAR is the argument, and it is
+   deliberately not an analysis panel:
+
+   Every chess site can tell you a move was bad after you played it, and show
+   you the engine's line. "Board vision / best move / opening analysis" is
+   commodity. What is ours is a coach who interrupts BEFORE the mistake, and
+   who tracks ONE habit across games until it is gone.
+
+   So the sidebar carries exactly two things: the habit under watch, and the
+   live moment. Nothing else competes.
+--------------------------------------------------------------------------- */
+:root{
+  --bg:#0a0b0c; --rail:#0d0e10; --panel:#141618; --panel-2:#1a1d20;
+  --line:#252a2e; --line-soft:#1c2023;
+  --text:#f1f2ef; --muted:#8a9199; --dim:#5d646b;
+  --accent:#7fb069; --accent-soft:rgba(127,176,105,.10); --accent-line:rgba(127,176,105,.40);
+  --warn:#d9a441; --warn-soft:rgba(217,164,65,.09); --warn-line:rgba(217,164,65,.42);
+  --ui:ui-sans-serif,system-ui,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --display:ui-serif,Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
+.app{display:grid;grid-template-columns:76px 1fr;height:100vh}
+
+/* Labels stay. An unlabelled icon rail suits a power user and fails a
+   900-rated player who opens this twice a week. */
+.rail{background:var(--rail);border-right:1px solid var(--line-soft);
+  display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:2px}
+.mark{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  background:linear-gradient(160deg,#1e2a1b,#141719);border:1px solid #2a3527;
+  color:var(--accent);font-size:17px;margin-bottom:16px}
+.nav{display:flex;flex-direction:column;align-items:center;gap:3px;width:100%}
+.nav a{width:60px;padding:8px 0 6px;border-radius:10px;display:flex;flex-direction:column;
+  align-items:center;gap:4px;color:var(--dim);text-decoration:none;transition:.15s}
+.nav a span.i{font-size:16px;line-height:1}
+.nav a span.t{font-size:9px;letter-spacing:.04em;text-transform:uppercase}
+.nav a:hover{color:var(--muted);background:#15181a}
+.nav a.on{color:var(--accent);background:var(--accent-soft)}
+.rail .sp{flex:1}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:58px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;border-bottom:1px solid var(--line-soft);background:#0c0d0f}
+.who{display:flex;align-items:center;gap:11px}
+.av{width:32px;height:32px;border-radius:8px;background:#1b211c;border:1px solid #2a3527;
+  display:grid;place-items:center;font-size:15px}
+.who b{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.who .sub{font-size:11px;color:var(--muted)}
+.rt{font-size:10.5px;color:var(--muted);background:#1b1f22;
+  border:1px solid var(--line);padding:1px 6px;border-radius:5px;margin-left:7px}
+.taken{display:flex;gap:2px;margin-left:16px;font-size:15px;color:#9aa1a8;opacity:.9}
+.brand{font-family:var(--display);font-size:16px;color:#d5d8d2}
+.brand em{font-style:italic;color:var(--accent)}
+
+.body{flex:1;display:grid;grid-template-columns:1fr 396px;gap:22px;padding:20px 22px;min-height:0}
+.boardwrap{display:flex;align-items:center;justify-content:center;min-width:0}
+
+/* The board is the hero. It is also EXACTLY the board the app already
+   renders: chessground's brown theme (#f0d9b5 / #b58863) with the cburnett
+   piece set, pulled from the installed package. Mohit likes this board, so
+   the redesign does not touch it - the surround changes, the board does not. */
+.board{width:min(70vh,100%);aspect-ratio:1;display:grid;
+  grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
+  border-radius:3px;overflow:hidden;
+  box-shadow:0 30px 70px rgba(0,0,0,.55),0 0 0 7px #131711,0 0 0 8px #1f2a1c}
+.sq{position:relative}
+.sq.l{background:#f0d9b5}
+.sq.d{background:#b58863}
+/* chessground's own last-move colour, unchanged. */
+.sq.hl::after{content:"";position:absolute;inset:0;background:rgba(155,199,0,.41)}
+/* The square the coach is asking about. A ring, not a fill: it points, it
+   does not answer. This is ours, and it is the only board addition. */
+.sq.ask::after{content:"";position:absolute;inset:6%;border-radius:3px;
+  border:2.5px solid var(--warn);box-shadow:0 0 16px rgba(217,164,65,.6)}
+.sq piece{display:block;width:100%;height:100%;position:relative;z-index:2;
+  background-size:contain;background-repeat:no-repeat;background-position:center}
+.co{position:absolute;font-size:9.5px;font-weight:700;opacity:.85;z-index:3}
+.co.f{right:3px;bottom:1px}
+.co.r{left:3px;top:1px}
+.sq.l .co{color:#b58863}
+.sq.d .co{color:#f0d9b5}
+
+.coach{display:flex;flex-direction:column;gap:12px;min-height:0}
+
+/* ---- 1. the habit under watch. the closed loop, made visible. -------------
+   This is the thing no analysis panel has: one habit, carried across games,
+   with the evidence that it is fading. */
+.watch{border:1px solid var(--line-soft);border-radius:12px;background:var(--panel);padding:14px}
+.k{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+.watch p{font-size:13.5px;line-height:1.5;color:#dfe2dc}
+.pips{display:flex;align-items:center;gap:5px;margin-top:11px}
+.pip{width:22px;height:4px;border-radius:2px;background:#262b2e}
+.pip.on{background:var(--accent)}
+.pips span{font-size:11px;color:var(--accent);margin-left:5px}
+.watch .n{font-size:11.5px;color:var(--muted);margin-top:7px}
+
+/* ---- 2. the live moment. the coach interrupting BEFORE the move. ---------
+   A question, never a verdict. The player keeps the choice - that is the
+   difference between a coach and an engine. */
+.moment{border:1px solid var(--warn-line);border-radius:14px;
+  background:linear-gradient(180deg,var(--warn-soft),rgba(217,164,65,.02));padding:16px}
+.mh{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.mh .dot{width:6px;height:6px;border-radius:50%;background:var(--warn)}
+.mh span{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--warn)}
+.moment h2{font-family:var(--display);font-size:21px;font-weight:400;
+  line-height:1.25;color:#f4f2ec;margin-bottom:9px}
+.moment .q{font-size:13.5px;line-height:1.6;color:#d7dad3;margin-bottom:15px}
+.moment .q b{color:#f1f2ef;font-weight:600}
+.choices{display:flex;flex-direction:column;gap:8px}
+.c1{display:flex;align-items:center;gap:11px;width:100%;text-align:left;cursor:pointer;
+  background:rgba(217,164,65,.14);border:1px solid var(--warn-line);border-radius:10px;
+  padding:12px 13px;color:var(--text);font-family:inherit;font-size:13.5px;font-weight:600;
+  transition:.15s}
+.c1:hover{background:rgba(217,164,65,.22)}
+.c1 .ar{margin-left:auto;color:var(--warn)}
+.c2{width:100%;text-align:left;cursor:pointer;background:transparent;
+  border:1px solid var(--line);border-radius:10px;padding:11px 13px;
+  color:var(--muted);font-family:inherit;font-size:13px;transition:.15s}
+.c2:hover{color:var(--text);border-color:#394045}
+.moment .after{font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.5}
+
+.hist{border:1px solid var(--line-soft);border-radius:12px;background:var(--panel);
+  padding:12px 14px;flex:1;min-height:0;display:flex;flex-direction:column}
+.rows{overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+.row{display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;padding:3.5px 0;color:#c4c8c2}
+.row i{color:var(--dim);font-style:normal}
+
+.bot{height:62px;border-top:1px solid var(--line-soft);background:#0c0d0f;
+  display:flex;align-items:center;justify-content:space-between;padding:0 22px;gap:20px}
+.meter{flex:1;max-width:320px}
+.mrow{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-bottom:5px}
+.bar{height:4px;border-radius:2px;background:#24292c;overflow:hidden}
+.bar i{display:block;height:100%;width:58%;background:var(--accent)}
+.btns{display:flex;gap:9px}
+/* No accent down here. It is spent on the coaching moment. */
+.btn{padding:8px 15px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;
+  background:var(--panel);border:1px solid var(--line);color:var(--muted);font-family:inherit}
+.btn:hover{color:var(--text);border-color:#394045}
+.clock{font-family:ui-monospace,monospace;font-size:19px}
+
+.note{position:fixed;top:19px;left:50%;transform:translateX(-50%);
+  font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:#4e555b;z-index:9;pointer-events:none}
+@media (max-width:1180px){.body{grid-template-columns:1fr}.coach{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail">
+    <div class="mark">&#9816;</div>
+    <div class="nav">
+      <a href="#"><span class="i">&#9636;</span><span class="t">Home</span></a>
+      <a href="#" class="on"><span class="i">&#9819;</span><span class="t">Play</span></a>
+      <a href="#"><span class="i">&#9671;</span><span class="t">Learn</span></a>
+      <a href="#"><span class="i">&#9650;</span><span class="t">Review</span></a>
+      <a href="#"><span class="i">&#9788;</span><span class="t">Progress</span></a>
+    </div>
+    <div class="sp"></div>
+    <div class="nav">
+      <a href="#"><span class="i">&#9881;</span><span class="t">Settings</span></a>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="top">
+      <div class="who">
+        <div class="av">&#9819;</div>
+        <div>
+          <b>Coach<span class="rt">plays to teach</span></b>
+          <div class="sub">Sicilian Defence &middot; move 21</div>
+        </div>
+        <div class="taken">&#9817;&#9817;&#9816;</div>
+      </div>
+      <div class="brand">Chess<em>Guru</em></div>
+    </header>
+
+    <div class="body">
+      <!-- cg-wrap is what the cburnett stylesheet scopes its piece rules to. -->
+      <div class="boardwrap cg-wrap"><div class="board" id="board"></div></div>
+
+      <aside class="coach">
+
+        <!-- 1. one habit, carried across games -->
+        <section class="watch">
+          <div class="k">What we are working on</div>
+          <p>When a piece of yours is attacked, you tend to save it before asking what it was defending.</p>
+          <div class="pips">
+            <i class="pip on"></i><i class="pip on"></i><i class="pip on"></i><i class="pip"></i><i class="pip"></i>
+            <span>3 clean games</span>
+          </div>
+          <div class="n">Two more and I stop bringing it up.</div>
+        </section>
+
+        <!-- 2. the live moment: interrupting BEFORE the move -->
+        <section class="moment">
+          <div class="mh"><span class="dot"></span><span>Before you play that</span></div>
+          <h2>Hold on a second.</h2>
+          <p class="q">Your rook on <b>e4</b> is doing something where it stands. Take the move back for a moment and look at what stops being true once it leaves.</p>
+          <div class="choices">
+            <button class="c1">Let me look again <span class="ar">&#8594;</span></button>
+            <button class="c2">I have checked &mdash; play it</button>
+          </div>
+          <p class="after">You keep the move either way. I would rather you saw it than obeyed me.</p>
+        </section>
+
+        <section class="hist">
+          <div class="k">Moves</div>
+          <div class="rows">
+            <div class="row"><i>17</i><span>Rg1</span><span>Bxe4</span></div>
+            <div class="row"><i>18</i><span>Bxf6</span><span>exf6</span></div>
+            <div class="row"><i>19</i><span>Qxf6</span><span>Qxf6</span></div>
+            <div class="row"><i>20</i><span>Rg4</span><span>Rfe8</span></div>
+            <div class="row"><i>21</i><span>Kd2</span><span>&hellip;</span></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <footer class="bot">
+      <div class="who">
+        <div class="av">&#9817;</div>
+        <div><b>mohit<span class="rt">822</span></b><div class="sub">White &middot; thinking</div></div>
+      </div>
+      <div class="meter">
+        <div class="mrow"><span>Caught before playing</span><span>4 of 6</span></div>
+        <div class="bar"><i></i></div>
+      </div>
+      <div class="clock">5:39</div>
+      <div class="btns">
+        <button class="btn">Restart</button>
+        <button class="btn">Resign</button>
+        <button class="btn">Offer a draw</button>
+      </div>
+    </footer>
+  </div>
+</div>
+<div class="note">Mockup &middot; illustrative position</div>
+
+<script>
+// Illustrative position only. A mockup makes no chess claim.
+var FEN = "r5k1/pp3p1p/3p1qp1/8/1PP1r3/P7/3K3P/8";
+// cburnett class names, so the real piece SVGs render.
+var NAME = {k:"king", q:"queen", r:"rook", b:"bishop", n:"knight", p:"pawn"};
+// Last move actually played: 21. Kd2, so e1 and d2 are the lit squares. The
+// board and the move list have to agree.
+var HL = {e1:1, d2:1};
+var ASK = {e4:1};
+var files = "abcdefgh";
+
+function square(fi, ri, ch){
+  var name = files.charAt(fi) + (8 - ri);
+  var cls = ((fi + ri) % 2) ? "d" : "l";
+  if (HL[name]) { cls += " hl"; }
+  if (ASK[name]) { cls += " ask"; }
+  var piece = "";
+  if (ch) {
+    var side = (ch === ch.toUpperCase()) ? "white" : "black";
+    piece = "<piece class=\"" + NAME[ch.toLowerCase()] + " " + side + "\"></piece>";
+  }
+  var co = "";
+  if (ri === 7) { co += "<span class=\"co f\">" + files.charAt(fi) + "</span>"; }
+  if (fi === 0) { co += "<span class=\"co r\">" + (8 - ri) + "</span>"; }
+  return "<div class=\"sq " + cls + "\">" + piece + co + "</div>";
+}
+
+var out = "";
+FEN.split("/").forEach(function(row, ri){
+  var fi = 0;
+  row.split("").forEach(function(ch){
+    if (ch >= "1" && ch <= "8") {
+      var n = Number(ch);
+      for (var i = 0; i < n; i++) { out += square(fi++, ri, null); }
+    } else {
+      out += square(fi++, ri, ch);
+    }
+  });
+});
+document.getElementById("board").innerHTML = out;
+</script>
+</body>
+</html>

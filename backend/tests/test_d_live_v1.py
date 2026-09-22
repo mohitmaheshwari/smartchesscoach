@@ -34,7 +34,12 @@ def _move(fen, uci, cp_loss):
 def test_schema_bumps_for_additive_d_live_fact():
     # v18 adds the separately authorized exact destination-safety fact while
     # retaining D_live unchanged for its original measurement contract.
-    assert SCHEMA_VERSION == 18
+    # v19 (2026-09-22) adds the per-move positional snapshot -- doubled and
+    # isolated pawns, loose pieces, bishop quality, centre, space, mobility.
+    # Additive: no existing field changed meaning, and D_live is untouched.
+    # This assertion is a deliberate pin on the record shape, so it firing
+    # is the point -- bump it only alongside a real, described change.
+    assert SCHEMA_VERSION == 19
 
 
 def test_legally_capturable_losing_piece_is_miss_when_both_gates_pass():
@@ -92,7 +97,7 @@ def test_game_derivation_embeds_exact_versioned_fact():
     )
 
     assert len(observations) == 1
-    assert observations[0]["schema_version"] == 18
+    assert observations[0]["schema_version"] == 19
     assert observations[0]["deriver_identity"] == current_deriver_identity()
     assert observations[0]["piece_safety_decision"]["version"] == D_LIVE_FACT_VERSION
     assert observations[0]["piece_safety_decision"]["outcome"] == "miss"

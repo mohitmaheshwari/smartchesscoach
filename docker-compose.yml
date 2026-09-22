@@ -262,6 +262,12 @@ services:
       # Razorpay — values come from the project-root .env (see scripts/set-env.sh)
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+      # Coaching-room presentation gate. Empty = OFF for every account,
+      # including admins. Compose passes only the variables named here, so a
+      # value in .env alone would never reach the container.
+      # See backend/services/coaching_room_gate.py.
+      - COACHING_ROOM_V2_USER_IDS=${COACHING_ROOM_V2_USER_IDS:-}
+      - COACHING_ROOM_V2_PERCENT=${COACHING_ROOM_V2_PERCENT:-}
     volumes:
       - ${HUMAN_CHESS_RUNTIME_DIR:-./backend/data/human_chess_runtime}:/opt/chessguru/human_chess:ro
     depends_on:

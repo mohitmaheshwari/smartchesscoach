@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 18  # v18 (2026-09-01): exact destination-safety planning fact.
+SCHEMA_VERSION = 19  # v19 (2026-09-22): positional state stored per move.
 # v16 introduced strict SEE for simple_hang. Schemas <16 are pre-SEE and must
 # never enter PIC diagnosis/proof. v17 retains that detector and adds the
 # comparable-decision fact validated in docs/simple_hang_corpus_evidence.md.
@@ -75,6 +75,27 @@ def current_deriver_identity() -> Dict[str, Any]:
 
 
 # ---------------- Small helpers -----------------------------------------
+
+def _positional_state(mv: dict, user_color: str) -> dict:
+    """Board-only positional state for the player, after their move.
+
+    Never raises: a malformed stored FEN must not cost the whole
+    observation, and a missing snapshot is honestly absent rather than
+    silently zero.
+    """
+    fen = mv.get("fen_after") or mv.get("fen_before")
+    if not fen:
+        return {}
+    try:
+        import chess
+        from services.positional_snapshot import positional_snapshot
+
+        board = chess.Board(fen)
+        color = chess.WHITE if user_color == "white" else chess.BLACK
+        return positional_snapshot(board, color)
+    except Exception:  # noqa: BLE001 - one bad FEN must not empty the row
+        return {}
+
 
 def _classify_phase(move_number: int) -> str:
     if move_number <= 15:
@@ -772,6 +793,20 @@ def derive_observations_for_game(
             "fen_before": mv.get("fen_before"),
             "phase": _classify_phase(mv.get("move_number") or 0),
             "was_critical_moment": bool(mv.get("is_critical")),
+
+            # The positional CONDITION of the player's position after this
+            # move -- doubled pawns, loose pieces, bishop quality, centre,
+            # space, mobility. Every one of these was already being computed
+            # somewhere to write a caption and then discarded; across 528,786
+            # stored rows not one carried a positional fact, which is the
+            # whole reason `positional_sense` reads 60.0 for every player.
+            #
+            # Stored per move, not per game, so it can be cut by `phase`
+            # above. Aggregate positional numbers are confounded by phase mix
+            # -- mobility and space differ naturally between an opening and
+            # an endgame -- and per-move storage is what makes that
+            # separable later.
+            "positional": _positional_state(mv, user_color),
 
             # Opponent's previous move
             "opponent_previous": opponent_previous,
