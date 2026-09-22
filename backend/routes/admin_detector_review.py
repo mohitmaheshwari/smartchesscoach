@@ -1669,6 +1669,12 @@ def _new_proof(module_name: str, func_name: str, label: str):
             },
         )
 
+    # The claim fingerprint hashes the producer plus the proof module it
+    # runs. Without this tag it hashed a hand-maintained list of four older
+    # modules, so a change to any of the 2026-09-22 proofs left every stored
+    # claim looking freshly built. A staleness marker that cannot see the
+    # code it is marking is worse than none.
+    produce._proof_module = f"services.{module_name}"
     return produce
 
 
@@ -1828,6 +1834,19 @@ LICHESS_QUEUES = {
         ),
         "arrow_is": "the move Lichess says is the solution",
     },
+    "lichess_pin_existing": {
+        "theme": "pin",
+        "serve": "fires_existing",
+        "question": (
+            "We now claim a pin that was ALREADY on the board before this "
+            "move -- we did not create it, we used it. Two questions: is the "
+            "sentence under the board TRUE of this position, and is "
+            "\"there was already a pin here\" the lesson a 1200 should take "
+            "away? Mark false if the pin is real but had nothing to do with "
+            "why the move works."
+        ),
+        "arrow_is": "the move Lichess says is the solution",
+    },
     "lichess_trapped": {
         "theme": "trappedPiece",
         "serve": "all",
@@ -1893,6 +1912,7 @@ async def _lichess_fires(detector: str, skip_fens: set, limit: int):
         if not played_san:
             continue
 
+        shipped_caption = None
         if spec["serve"] == "declined":
             from services.aligned_tactic_puzzle_proof import (
                 build_aligned_tactic_proof,
@@ -1906,6 +1926,46 @@ async def _lichess_fires(detector: str, skip_fens: set, limit: int):
                     continue          # it already fires; nothing to ask
             except Exception:  # noqa: BLE001
                 pass
+        elif spec["serve"] == "fires_existing":
+            # The reverse of "declined": serve ONLY what the proof now
+            # accepts, and only the pre-existing class. This queue exists
+            # because the sealed packet behind `tactic:aligned_with_stored_
+            # payoff`'s CAPTION grade has a population of {direct: 374,
+            # discovered: 62} -- zero pre-existing -- so the class shipped on
+            # 2026-09-22 rides a grade whose evidence never contained it.
+            # A caption is shown with every card: the question is not only
+            # "is this a pin" but "is THIS SENTENCE true", which is what a
+            # player actually meets.
+            from services.aligned_tactic_puzzle_proof import (
+                build_aligned_tactic_proof,
+            )
+            from services.verified_puzzle_feedback import _specific_context
+            try:
+                bundle = build_aligned_tactic_proof(
+                    board.copy(stack=False), played_san, best_san,
+                    line[1:], 250)
+            except Exception:  # noqa: BLE001
+                continue
+            if not (bundle and getattr(
+                    getattr(bundle, "verifier", None), "verified", False)):
+                continue
+            facts = list(bundle.verifier.facts) or [{}]
+            if (facts[0] or {}).get("creation_mode") != "existing":
+                continue
+            try:
+                shipped_caption, _remember = _specific_context(
+                    board.copy(stack=False),
+                    {"concept_id": bundle.verifier.concept_id,
+                     "verifier_facts": facts,
+                     "detector_facts": list(bundle.detector.facts),
+                     "played_move_uci":
+                         bundle.detector.counterfactual["played_move"]},
+                    bundle.verifier.acceptable_moves[0],
+                    correct=True, alternative=False)
+            except Exception:  # noqa: BLE001
+                # A card with no caption cannot answer the question this
+                # queue is asking, so do not serve one.
+                continue
 
         key = f"{detector}:{puzzle['puzzle_id']}"
         if key in skip_fens:
@@ -1917,7 +1977,9 @@ async def _lichess_fires(detector: str, skip_fens: set, limit: int):
             "claim_key": key,
             "detector": detector,
             "game_id": puzzle["puzzle_id"],
-            "claim": spec["question"],
+            "claim": (
+                shipped_caption + "  --  " + spec["question"]
+                if shipped_caption else spec["question"]),
             "evidence": {
                 "review_fen": fen_here, "line_fen": fen_here,
                 "fen_before": fen_here,
@@ -1934,6 +1996,11 @@ async def _lichess_fires(detector: str, skip_fens: set, limit: int):
                 "lichess_url": (
                     "https://lichess.org/training/" + str(puzzle["puzzle_id"])),
                 "solution_line": " ".join(line[:6]),
+                # The exact sentence a player would read. The question this
+                # queue asks is whether THIS is true, so the card has to
+                # carry it -- judging "is there a pin" is a different and
+                # much easier question than the one that matters.
+                "shipped_caption": shipped_caption,
             },
             "game": {
                 "white": None, "black": None, "platform": "lichess",

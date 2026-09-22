@@ -57,11 +57,20 @@ def _fingerprint(detector: str) -> str:
             parts.append(inspect.getsource(obj))
         except (OSError, TypeError):
             pass
-    # The shared proof builders matter as much as the producer wrapper.
-    for mod_name in ("services.fork_puzzle_proof",
-                     "services.discovered_attack_puzzle_proof",
-                     "services.played_hangs_detector",
-                     "services.mate_lesson"):
+    # The shared proof builders matter as much as the producer wrapper. A
+    # producer that names its own proof module (the 2026-09-22 detectors do,
+    # via `_new_proof`) gets that module hashed too -- otherwise a change to
+    # e.g. interference_puzzle_proof left every stored claim looking freshly
+    # built, which defeats the whole point of recording a fingerprint.
+    mod_names = ["services.fork_puzzle_proof",
+                 "services.discovered_attack_puzzle_proof",
+                 "services.aligned_tactic_puzzle_proof",
+                 "services.played_hangs_detector",
+                 "services.mate_lesson"]
+    tagged = getattr(producer, "_proof_module", None)
+    if tagged and tagged not in mod_names:
+        mod_names.append(tagged)
+    for mod_name in mod_names:
         try:
             mod = __import__(mod_name, fromlist=["*"])
             parts.append(inspect.getsource(mod))
