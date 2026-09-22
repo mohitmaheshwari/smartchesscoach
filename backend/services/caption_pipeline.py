@@ -466,6 +466,13 @@ class VisualSurface:
     """User-visible visual annotations."""
     arrows: List[Dict[str, str]] = field(default_factory=list)
     highlight_squares: List[str] = field(default_factory=list)
+    # The picture for the move we RECOMMEND, which lives on a different board:
+    # board_before + the best move, not the board the card renders. Kept apart
+    # from `arrows` so it can never be drawn over the played position -- that
+    # is the whole bug this field exists to avoid. The review page shows it on
+    # "What if I played X?", which already puts that exact position on screen.
+    best_move_arrows: List[Dict[str, str]] = field(default_factory=list)
+    best_move_arrows_fen: str = ""
 
 
 @dataclass
@@ -6327,9 +6334,30 @@ def build_move_teaching_decision(
         ]
     if os.environ.get("REVIEW_LEGACY_ARROWS", "false").strip().lower() != "true":
         _arrows_out = [a for a in _arrows_out if a.get("teach") is True]
+    # Mohit asked for exactly this picture (fb_1c52480b2e9b, v166): "it should
+    # draw a line from Qa5 to [the] bishop and our bishop to [the] bishop and a
+    # queen checking the king, so it's easy." It is real teaching -- it was
+    # just being drawn over the position the player actually reached, where
+    # those pieces are somewhere else. So it ships on its own board instead of
+    # being dropped.
+    _best_arrows: List[Dict[str, str]] = []
+    _best_arrows_fen = ""
+    if not inputs.mover_is_user or (played_move and played_move.uci() != (inputs.best_move_uci or "")):
+        _candidate = _check_attack_arrows(board_before, inputs.best_move_uci)
+        if _candidate:
+            try:
+                _bb = board_before.copy()
+                _bb.push(chess.Move.from_uci(str(inputs.best_move_uci)))
+                _best_arrows = _candidate
+                _best_arrows_fen = _bb.fen()
+            except Exception:
+                _best_arrows = []
+                _best_arrows_fen = ""
     visual = VisualSurface(
         arrows=_arrows_out,
         highlight_squares=caption_payload.get("highlight_squares") or [],
+        best_move_arrows=_best_arrows,
+        best_move_arrows_fen=_best_arrows_fen,
     )
     # Mohit 2026-05-31: extract the severity WORD R12 chose for the
     # rendered caption so downstream surfaces (Lab badge, mastery

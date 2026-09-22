@@ -232,3 +232,102 @@ def test_a_mistake_card_draws_no_picture_of_the_move_not_played():
     rendered.push(before.parse_san("b4"))
     for a in decision.visual.arrows or []:
         assert rendered.piece_at(chess.parse_square(a["from"])) is not None, a
+
+
+# --- the missed win keeps its picture, on its own board --------------------
+
+def test_the_recommended_move_picture_ships_with_the_fen_it_is_true_of():
+    """v166 is not deleted, it is relocated.
+
+    Mohit asked for this picture (fb_1c52480b2e9b): the recommended move's
+    lines onto what it wins and into the king. It was real teaching drawn over
+    the wrong position. It now travels with the board it belongs to, which the
+    review page already shows under "What if I played X?".
+    """
+    from services.caption_pipeline import (
+        CrossMoveState,
+        MoveInputs,
+        build_move_teaching_decision,
+    )
+
+    before = chess.Board(MISSED_FORK)
+    best_uci = before.parse_san("Qd5+").uci()
+    decision = build_move_teaching_decision(
+        MoveInputs(
+            fen_before=MISSED_FORK, played_san="b4",
+            mover_is_user=True, mover_is_white=True, user_color="white",
+            full_move_number=1, move_history_san=[],
+            best_move_san="Qd5+", best_move_uci=best_uci,
+            eval_before_cp=100, eval_after_cp=-200, cp_loss=300, opp_cp_loss=0,
+            pv_after_played=[], pv_after_best=[],
+        ),
+        CrossMoveState(),
+    )
+    assert _arrow_pairs(decision.visual.best_move_arrows) == {
+        ("d5", "a8"), ("d5", "g8"),
+    }
+    # And it names the board it is true of -- which is NOT the rendered one.
+    expected = before.copy()
+    expected.push(before.parse_san("Qd5+"))
+    assert decision.visual.best_move_arrows_fen == expected.fen()
+
+    rendered = before.copy()
+    rendered.push(before.parse_san("b4"))
+    assert decision.visual.best_move_arrows_fen != rendered.fen()
+
+    # Every arrow stands on a real piece of the board it was shipped with.
+    proof = chess.Board(decision.visual.best_move_arrows_fen)
+    for a in decision.visual.best_move_arrows:
+        assert proof.piece_at(chess.parse_square(a["from"])) is not None
+
+
+def test_the_two_arrow_channels_never_carry_the_same_thing():
+    """If the relocated picture leaked back into `arrows`, the bug returns."""
+    from services.caption_pipeline import (
+        CrossMoveState,
+        MoveInputs,
+        build_move_teaching_decision,
+    )
+
+    before = chess.Board(MISSED_FORK)
+    decision = build_move_teaching_decision(
+        MoveInputs(
+            fen_before=MISSED_FORK, played_san="b4",
+            mover_is_user=True, mover_is_white=True, user_color="white",
+            full_move_number=1, move_history_san=[],
+            best_move_san="Qd5+", best_move_uci=before.parse_san("Qd5+").uci(),
+            eval_before_cp=100, eval_after_cp=-200, cp_loss=300, opp_cp_loss=0,
+            pv_after_played=[], pv_after_best=[],
+        ),
+        CrossMoveState(),
+    )
+    on_card = _arrow_pairs(decision.visual.arrows or [])
+    relocated = _arrow_pairs(decision.visual.best_move_arrows or [])
+    assert not (on_card & relocated), on_card & relocated
+
+
+def test_a_move_that_was_played_needs_no_relocated_copy():
+    """It is already on the rendered board, so shipping it twice would
+    double-draw it."""
+    from services.caption_pipeline import (
+        CrossMoveState,
+        MoveInputs,
+        build_move_teaching_decision,
+    )
+
+    before = chess.Board(MISSED_FORK)
+    best_uci = before.parse_san("Qd5+").uci()
+    decision = build_move_teaching_decision(
+        MoveInputs(
+            fen_before=MISSED_FORK, played_san="Qd5+",
+            mover_is_user=True, mover_is_white=True, user_color="white",
+            full_move_number=1, move_history_san=[],
+            best_move_san="Qd5+", best_move_uci=best_uci,
+            eval_before_cp=100, eval_after_cp=120, cp_loss=0, opp_cp_loss=0,
+            pv_after_played=[], pv_after_best=[],
+        ),
+        CrossMoveState(),
+    )
+    assert decision.visual.best_move_arrows == []
+    assert decision.visual.best_move_arrows_fen == ""
+    assert _arrow_pairs(decision.visual.arrows) == {("d5", "a8"), ("d5", "g8")}

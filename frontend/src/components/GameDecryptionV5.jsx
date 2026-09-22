@@ -993,12 +993,31 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         return;
       }
       
-      setBoardFen(chess.fen());
+      const altFen = chess.fen();
+      setBoardFen(altFen);
       setShowingFutureMoves(true);
       setFutureMoveIndex(0);
-      
-      // Draw arrow showing the alternative move
-      setArrows([[result.from, result.to, "blue"]]);
+
+      // The recommended move's own picture -- what it attacks, and the check
+      // that stops the answer -- lives on THIS board, not on the one the card
+      // renders, which is the position after the move actually played. The
+      // backend ships it with the FEN it is true of, and we compare the two
+      // before drawing so it can never land on the wrong position again.
+      const bestArrows = currentMove.best_move_arrows;
+      const bestFen = currentMove.best_move_arrows_fen;
+      const samePosition =
+        bestFen && altFen.split(" ").slice(0, 4).join(" ") ===
+          String(bestFen).split(" ").slice(0, 4).join(" ");
+      if (bestArrows?.length && samePosition) {
+        setArrows(
+          bestArrows
+            .filter((a) => a?.from && a?.to)
+            .map((a) => [a.from, a.to, a.color || "green"])
+        );
+      } else {
+        // Otherwise just the move itself.
+        setArrows([[result.from, result.to, "blue"]]);
+      }
     } catch (err) {
       console.error("Error showing alternative move:", err, move);
     }
