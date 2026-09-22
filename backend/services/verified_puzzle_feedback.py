@@ -256,6 +256,7 @@ def _specific_context(
         front_piece = fact.get("front_piece") or "piece"
         rear_piece = fact.get("rear_piece") or "piece"
         front, rear = fact.get("front_square"), fact.get("rear_square")
+        pre_existing = fact.get("creation_mode") == "existing"
         if fact.get("creation_mode") == "discovered":
             lead = (
                 f"{best_san} clears a line for your {attacker} on "
@@ -267,7 +268,60 @@ def _specific_context(
             # them ("Bb5 puts your bishop on b5") adds nothing; lead with
             # what the move DID instead.
             lead = f"{best_san} lines your {attacker} up with"
-        if kind == "pin":
+        if pre_existing:
+            # The alignment was already on the board, so neither lead above
+            # is true -- the move did not create or uncover anything. Saying
+            # it did is why pre-existing alignments were refused by the proof
+            # until 2026-09-22: 344 of 1000 Lichess pin puzzles, the largest
+            # block of missing recall, held back by a caption rather than by
+            # the chess. What is true is that the move USES a line that is
+            # already there, and that is the better lesson anyway -- a 1200
+            # does not need to be told a line was created, they need to
+            # notice the one already in front of them.
+            if kind == "pin" and str(rear_piece).lower() == "king":
+                # Absolute pin only. The front piece is pinned to the KING, so
+                # moving it is illegal -- "cannot move" is literally true.
+                why = (
+                    f"Your {attacker} on {attacker_square} is already holding "
+                    f"the {front_piece} on {front} in place, because the "
+                    f"king on {rear} is behind it. {best_san} works "
+                    f"because that {front_piece} is not allowed to move."
+                )
+                remember = (
+                    "Before you calculate, look for an enemy piece stuck in "
+                    "front of its own king. It is not allowed to move, so it "
+                    "cannot defend and it cannot take back."
+                )
+            elif kind == "pin":
+                # RELATIVE pin: the rear piece is not the king, so the front
+                # piece may legally move -- it just costs its owner the piece
+                # behind it. Saying "cannot move" here is simply false, and
+                # 1 in 8 of the pre-existing fires are this shape.
+                why = (
+                    f"Your {attacker} on {attacker_square} already aims at "
+                    f"the {front_piece} on {front}, with the {rear_piece} on "
+                    f"{rear} behind it. {best_san} works because moving that "
+                    f"{front_piece} would give up the {rear_piece}."
+                )
+                remember = (
+                    "When an enemy piece stands in front of something more "
+                    "valuable, it can still move -- but it will not want to. "
+                    "Treat it as a defender that cannot afford to leave."
+                )
+            else:
+                why = (
+                    f"Your {attacker} on {attacker_square} is already aimed "
+                    f"at the {front_piece} on {front}, with the {rear_piece} "
+                    f"on {rear} behind it on the same line. {best_san} works "
+                    f"because once the {front_piece} moves, the {rear_piece} "
+                    f"is left there for you."
+                )
+                remember = (
+                    "Look for lines you already control where two enemy "
+                    "pieces stand one behind the other. You do not need to "
+                    "build the line, only to make the front piece move."
+                )
+        elif kind == "pin":
             why = (
                 f"{lead} the {front_piece} on {front} and the {rear_piece} "
                 f"on {rear}. If the {front_piece} moves, the {rear_piece} "

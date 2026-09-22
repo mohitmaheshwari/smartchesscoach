@@ -13,7 +13,7 @@ from services.stored_line_verifier import parse_legal_move, replay_stored_line
 from services.verified_puzzle_admission import DetectorProof, VerifierProof
 
 
-ALIGNED_PROOF_VERSION = "aligned_tactic_puzzle_proof.v4"
+ALIGNED_PROOF_VERSION = "aligned_tactic_puzzle_proof.v5"
 ALIGNED_QUALITY_ID = "tactic:aligned_with_stored_payoff"
 _DIAGONALS = ((1, 1), (1, -1), (-1, 1), (-1, -1))
 _ORTHOGONALS = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -136,22 +136,38 @@ def _candidate_delta(
     }
     after = board_before.copy(stack=False)
     after.push(best)
-    candidates = [
+    usable = [
         item
         for item in _aligned_pieces_evidence(after, color)
+        if item.get("front_value_vs_rear") in ("lower", "higher")
+    ]
+    created = [
+        item for item in usable
         if (item["front_piece_square"], item["rear_piece_square"])
         not in before_pairs
-        and item.get("front_value_vs_rear") in ("lower", "higher")
     ]
+    # Prefer an alignment this move CREATED; fall back to one already on the
+    # board. You exploit a pin far more often than you invent one -- 344 of
+    # 1000 Lichess `pin` puzzles at 600-1500 turn on a pin that was already
+    # there, and that is the single largest block of remaining recall.
+    #
+    # Measured and deliberately NOT shipped on 2026-09-21, because the only
+    # caption available said "<move> lines your bishop up with ...", which is
+    # false of a pin that predates the move. verified_puzzle_feedback now has
+    # an honest branch for creation_mode == "existing", so the restriction
+    # had outlived its reason.
+    candidates = created or usable
     if not candidates:
         return None
-    return max(
+    chosen = dict(max(
         candidates,
         key=lambda item: max(
             int(item.get("front_piece_value_cp") or 0),
             int(item.get("rear_piece_value_cp") or 0),
         ),
-    )
+    ))
+    chosen["alignment_pre_existing"] = not created
+    return chosen
 
 
 def _consequence_is_proved(
@@ -383,9 +399,10 @@ def _payoff_pin_blocks_defence(
     The shape is FjK5u (8/p4kpp/5p2/2Qb4/3P4/P3q2P/P5P1/1R5K b,
     Qxh3+ Kg1 Qxg2#): the bishop on d5 pins the g2 pawn to the king on
     h1, g2 is the only guard of h3, so gxh3 is illegal and mate follows.
-    Only the created-alignment case is claimed here, because the caption
-    for this concept says the best move lined the pieces up, and that
-    sentence is false of a pin that was already on the board.
+    Pre-existing pins are claimed here too, as of 2026-09-22. They were
+    excluded while the only caption available said the best move lined the
+    pieces up -- false of a pin that predates the move. The caption now has
+    an honest branch for creation_mode == "existing".
     """
     if alignment["kind"] != "pin":
         return None
@@ -476,11 +493,48 @@ def _stored_payoff(
         return None
     if not _consequence_is_proved(replay, board_before.turn):
         return None
-    return (
-        _payoff_uses_alignment(board_before, best, replay, alignment)
-        or _payoff_pin_confines_front(board_before, best, replay, alignment)
-        or _payoff_pin_blocks_defence(board_before, best, replay, alignment)
-    )
+    pre_existing = bool(alignment.get("alignment_pre_existing"))
+    # Payoff A says "the attacker captured the target the alignment exposed".
+    # When the move CREATED the alignment that is strong evidence, because the
+    # move is what made the capture available. When the alignment was already
+    # on the board it is close to no evidence at all: the capture may be
+    # happening for reasons that have nothing to do with the line. Measured
+    # over 1000 Lichess puzzles per theme, A supplied EVERY pre-existing
+    # cross-fire -- 8 of 8 on mateIn2, 6 of 7 on backRankMate -- including a
+    # king recapture (Kxf1) and a king retreat (Kh2) credited to a pin they
+    # never touched. B and C do not have this failure: they prove the front
+    # piece was confined or could not legally recapture, which is the pin
+    # doing work. So A is kept for created alignments only.
+    if pre_existing:
+        # Only payoff C may admit an alignment that predates the move, because
+        # only C proves the pin was LOAD-BEARING: it finds the recapture the
+        # front piece would have to make and shows it is pseudo-legal but
+        # illegal, i.e. the piece is genuinely stuck. A and B merely observe a
+        # pin somewhere on the board while the move does its work elsewhere.
+        #
+        # Measured over 1000 Lichess puzzles per theme: C contributes 238 of
+        # the 248 pre-existing pin fires with 3 cross-fires (all inspected,
+        # all real pins Lichess simply headlined as mate themes). B adds 10
+        # pin fires and BOTH bad hangingPiece fires -- 00hbV credits Nxe6 to
+        # a pinned rook on d7 that never defended e6. Ten fires is not worth
+        # a caption that says the pin did something it did not.
+        payoff = _payoff_pin_blocks_defence(
+            board_before, best, replay, alignment
+        )
+    else:
+        payoff = (
+            _payoff_uses_alignment(board_before, best, replay, alignment)
+            or _payoff_pin_confines_front(board_before, best, replay, alignment)
+            or _payoff_pin_blocks_defence(board_before, best, replay, alignment)
+        )
+    if payoff is not None and pre_existing:
+        # Every payoff model derives creation_mode from where the attacker
+        # stands, which cannot distinguish "I made this line" from "this line
+        # was already here". The candidate knows, so say it -- the caption
+        # then reads the truth instead of inferring it.
+        payoff = dict(payoff)
+        payoff["creation_mode"] = "existing"
+    return payoff
 
 
 def build_aligned_tactic_proof(
@@ -514,10 +568,29 @@ def build_aligned_tactic_proof(
         chess.parse_square(candidate["rear_piece_square"]),
     )
     independent_alignment = after_independent.get(key)
-    if key in before_independent or (
+    # The independent verifier still recomputes the ray from scratch on the
+    # after-board and still makes the stored line prove the alignment paid
+    # off. `key in before_independent` adds a third demand on top of those:
+    # that the move INVENTED the line. That is a novelty test, not a
+    # correctness test, and it is what actually refused pre-existing pins --
+    # the candidate reached here and was dropped one line later. Novelty is
+    # still required of a candidate that claims creation, because there the
+    # detector and the verifier must agree about what changed.
+    pre_existing = bool(candidate.get("alignment_pre_existing"))
+    if (key in before_independent and not pre_existing) or (
         independent_alignment and independent_alignment["kind"] != kind
     ):
         independent_alignment = None
+    if independent_alignment is not None and pre_existing:
+        # `independent_alignment` is rebuilt from the after-board, so it has
+        # no idea the line predates the move -- and every payoff model infers
+        # creation_mode from where the attacker STANDS, which reads an
+        # unmoved attacker as "discovered". Without this the pre-existing
+        # fires all render "<move> clears a line for your bishop", which is
+        # the precise falsehood that kept them out. Copy, never mutate: the
+        # dict is shared with `after_independent`.
+        independent_alignment = dict(independent_alignment)
+        independent_alignment["alignment_pre_existing"] = True
     payoff = (
         _stored_payoff(
             board_before, best, pv_after_best, independent_alignment
