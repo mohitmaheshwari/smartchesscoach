@@ -33,7 +33,9 @@ No DB schema or chess-service change is planned. Expected frontend touchpoints, 
 - Current opening/endgame library and lesson components: card hierarchy and verified board previews; existing `InlineBoardPreview` is a reuse candidate, not assumed universal.
 - `src/pages/CoachPlay.jsx` and existing setup/board/sidebar children: layout only around existing controllers and critical-message rules.
 - `UnifiedProgress.jsx`, `ImportGames.jsx`, `Settings.jsx`, arrival/public/internal page owners: their role-specific treatments from the route audit.
-- `frontend/package.json` and lockfile: self-hosted **Instrument Serif** (headings) and **Manrope** (interface). Both are SIL OFL, so no licence purchase is needed. The reference's `fonts.googleapis.com` and mutable `lichess-org/lila@master` piece-image requests must not ship; the app keeps its existing bundled piece assets.
+- `frontend/package.json` and **`frontend/yarn.lock`**: self-hosted **Instrument Serif** (headings) and **Manrope** (interface). Both are SIL OFL, so no licence purchase is needed. The reference's `fonts.googleapis.com` and mutable `lichess-org/lila@master` piece-image requests must not ship; the app keeps its existing bundled piece assets.
+- **Add the font packages with `yarn`, never `npm`.** The merge target `working-code` tracks both `yarn.lock` and `package-lock.json`, but every image builds with yarn — `Dockerfile:15` runs `yarn install` and `Dockerfile.frontend:12` runs `yarn install --frozen-lockfile`. `package-lock.json` is copied into the build context and then read by nothing. An `npm install` to add a font would update only the lockfile the build ignores, the image would resolve without it, and the redesign would ship with fallback system fonts. That is precisely the last-wire failure §5 exists to prevent.
+- Separately noted, not fixed here: `Dockerfile:15` omits `--frozen-lockfile`, so a production image can resolve differently from the committed lock. Out of scope for this change; worth its own ticket.
 - `backend/routes/auth.py` only: the single presentation-gate boolean on the existing `/auth/me` response, plus its allowlist env var. No other backend file is in scope. Per project instructions this requires `backend/tests/test_all_flows.py` to be run and its exit recorded.
 
 Route inventory and render/test evidence belong in documentation or QA fixtures, not a new runtime duplicate of `App.js`.
@@ -60,7 +62,7 @@ The prototype's rook position, simplified input and local completion flag are de
 
 ## 6. Test strategy
 
-**Baseline:** record current revision, installed dependencies, targeted tests, build status and representative task journeys. Compare new failures against that same baseline; do not reuse historical totals.
+**Baseline:** record current revision, installed dependencies (via `yarn install --frozen-lockfile`, matching the image build — an npm-resolved tree is not the baseline), targeted tests, build status and representative task journeys. Compare new failures against that same baseline; do not reuse historical totals.
 
 **Components:** shared style/flag contract, menu/keyboard behavior, loading/error/retry, relevant preview/no-preview, correct authorised destinations, assistance/attempt state, retained verdict and deliberate Next. Board tests cover orientation, promotion, legal input, highlights and unmount cleanup.
 
