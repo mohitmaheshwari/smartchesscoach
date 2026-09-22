@@ -193,17 +193,32 @@ taught. That part is already built.
 7. **The review card in 2a**, for mistakes where the punishment is deeper
    than one move.
 
+8. **The fourth quadrant: "your opponent gave you something and you did not
+   take it."** Opponent moves carry full engine truth — `cp_loss`,
+   `best_move`, `pv_after_played` on every stored row. Measured on 400 games:
+   301 opponent blunders of 200cp or more. With this, the diagnosis is
+   genuinely two-sided the way Mohit described it — allowed / missed /
+   punished / found — from stored data, with no new engine work.
+
 ---
 
 ## 4. Explicitly out of scope (V1)
 
-- **Storing the opponent's moves.** `game_analyses` holds zero opponent moves
-  (0 of 12,365 measured). Adding them roughly doubles analysis cost and needs
-  a backfill of 16,369 existing analyses. V1 deliberately proves the idea
-  using the refutation line instead, which is already stored. Revisit when V1
-  shows the diagnosis is worth it.
-- **"Your opponent blundered and you missed it."** This genuinely needs the
-  opponent's moves. Blocked by the above, on purpose.
+- **Re-analysing the 5,578 pre-June games.** Opponent moves are stored in
+  `stockfish_analysis.opponent_move_evaluations` and have been since Mohit's
+  fix in June 2026 — 86% of June analyses, 99-100% every month since, 10,835
+  of 16,413 overall. The only gap is games analysed before that fix. Whether
+  those are worth re-running is a separate decision with its own cost, and is
+  not part of V1.
+
+  **Correction, 2026-09-22.** An earlier draft of this document said
+  `game_analyses` holds zero opponent moves and that adding them would double
+  analysis cost. Both claims were wrong. They came from reading
+  `move_evaluations` alone, never checking for a second field, and then
+  sampling 400 analyses — which, because the collection reads oldest-first,
+  landed almost entirely in the one period where the number really is zero.
+  The sample confirmed the error instead of catching it. Mohit knew the fix
+  existed and said so; the data agreed with him.
 - **Raising `pv_length` from 4.** One number in `stockfish_service.py` that
   would help every depth-aware detector at once — but it changes analysis cost
   for every game and needs its own measurement. Noted, not done here.
@@ -286,7 +301,11 @@ Measured against the production database, 2026-09-22.
 | users total / with a chess_understanding profile | 128 / 17 |
 | users with 10+ analysed games | 56 |
 | `complex` substring hits across 74 player profiles | 0 |
-| opponent moves in `game_analyses` | 0 of 12,365 |
+| game analyses total | 16,413 |
+| ...with `opponent_move_evaluations` | 10,835 (66%) |
+| opponent coverage, May 2026 | 0% |
+| opponent coverage, June 2026 onward | 86%, then 99-100% |
+| opponent blunders 200cp+ (400 games) | 301 |
 | refutation line stored, 100-199cp mistakes | 89.9% |
 | refutation line stored, 200cp+ blunders | 96.8% |
 | refutation line length | 4 plies |
