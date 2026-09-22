@@ -303,15 +303,34 @@ as the positional half of the diagnosis.
 distribution. *Unblocking step:* histogram `eval_before` at the moment of
 mistakes, per rating band, before picking any number.
 
-**Q3. Does "allowed" need the player to have had a choice?**
+**Q3. RULED 2026-09-22 (Mohit): no blame without a choice.**
+If every legal move loses the piece, the player allowed nothing and we say
+nothing. "You allowed this" fires only where a better move actually existed.
+Where none did, the causing move is earlier in the game and this one is not
+the lesson. Blaming a move the player could not have played differently is
+worse than silence.
+
+**Q3 (original wording). Does "allowed" need the player to have had a choice?**
 If every legal move loses the piece, the player did not allow anything — the
 position was already lost. *Unresolved because:* it needs a rule.
 *Unblocking step:* Mohit rules on whether a forced loss counts as a mistake at
 all.
 
-**Q4. Is 40 games the right window for the record in 2b?**
-*Unresolved because:* the decay model uses games-back, not a fixed window.
-*Unblocking step:* decide whether 2b shows decay state or a raw count.
+**Q4. RULED 2026-09-22 (Mohit): the last 10 games.**
+A fixed 10-game window, not the decay curve.
+
+One guard goes with it, because 10 games holds very different amounts of
+evidence per concept. Measured over the 51-55 users with 10+ analysed games,
+median events in a 10-game window: knight_outpost 15.7, endgame_loose_pawn_
+attack 10.0, pawn_kicks_piece 7.4 -- but queen_fork 2.8, defensive_pawn_push
+1.4, attack_with_tempo 0.9.
+
+So a concept with too few events in the window is NOT graded. It reads "not
+enough yet" rather than struggling or strong. Otherwise one bad moment
+becomes a permanent label on the rarer patterns.
+
+The minimum is deliberately not chosen here: it comes off the distribution
+before any code, the same way PROBLEM_PHASE_SHARE did.
 
 ---
 
@@ -320,9 +339,19 @@ all.
 Hard gates. None of this starts until all are true.
 
 1. Mohit has signed off on this document.
-2. Q1 answered — we know what writes the two opponent flags.
-3. Q3 answered — the rule for a forced loss is written down.
-4. Q2 has a histogram behind it, not a guessed threshold.
+2. DONE — Q1: `move_observation_deriver.py` sets
+   `punished_opponent_blunder` when the opponent's previous move blundered
+   and the player's reply graded best/excellent/brilliant. Two limits to
+   carry: it means "played well after their blunder", not strictly
+   "punished it"; and it needs `opponent_previous`, which exists on 32% of
+   moves, so two thirds can never be flagged either way.
+3. DONE — Q3 ruled: no blame without a choice (above).
+4. DONE — Q2: histogram of `eval_before` at mistakes, 120,000 moves. Level
+   positions (-50..+50) carry an 8.8% mistake rate; +200..+500 carries
+   23.6%, the highest of any band. The jump sits at +200, so that is the
+   "winning" boundary -- read off the distribution, not picked. Worth
+   noting in its own right: players err ~3x more when winning than when
+   level.
 5. The two new fields have names agreed and a version bump planned, so old
    events are distinguishable from new ones.
 6. A baseline is captured first: what the current system prescribes for the
