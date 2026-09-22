@@ -234,3 +234,108 @@
 @media (min-width: 1024px) {
   .pwc-sheet-scrim { display: none; }
 }
+
+/* ─── The guardian interruption ──────────────────────────────────────────
+   The one moment on this page that earns the accent. Amber, not red: this is
+   a coach leaning in, not an error state. Red/orange/yellow alarm styling
+   made a teaching moment read as a failure.
+   ──────────────────────────────────────────────────────────────────────── */
+.pwc-guardian {
+  padding: 1rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--pwc-accent-ring);
+  border-color: rgb(217 164 65 / 0.42);
+  background: linear-gradient(180deg, rgb(217 164 65 / 0.09), rgb(217 164 65 / 0.02));
+}
+
+/* A critical risk reads a little firmer, without becoming an alarm. */
+.pwc-guardian[data-risk="critical"] {
+  border-color: rgb(217 164 65 / 0.68);
+}
+
+.pwc-guardian-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  color: var(--pwc-warn);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pwc-guardian-title {
+  margin-bottom: 0.45rem;
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: hsl(var(--foreground));
+}
+
+/* Teaching text is read, not skimmed. It does not shrink. */
+.pwc-guardian-message {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: hsl(var(--foreground) / 0.92);
+}
+
+.pwc-guardian-explain {
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Folded by default on purpose: the player looks first. */
+.pwc-guardian-evidence {
+  margin-top: 0.75rem;
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 0.65rem;
+}
+
+.pwc-guardian-evidence > summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--pwc-warn);
+  list-style: none;
+}
+
+.pwc-guardian-evidence > summary::-webkit-details-marker { display: none; }
+.pwc-guardian-evidence > summary::after { content: " ↓"; opacity: 0.7; }
+.pwc-guardian-evidence[open] > summary::after { content: " ↑"; }
+
+.pwc-guardian-line { margin-top: 0.6rem; }
+
+.pwc-guardian-line-key {
+  margin-bottom: 0.2rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.pwc-guardian-choices {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+/* Looking again is the encouraged path, so it carries the weight. Playing
+   anyway stays available and quiet - never disabled, never shamed. */
+.pwc-guardian-look {
+  background: var(--pwc-warn);
+  color: #1a1206;
+  border: 1px solid var(--pwc-warn);
+}
+
+.pwc-guardian-look:hover { filter: brightness(1.06); }
+
+.pwc-guardian-note {
+  margin-top: 0.65rem;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  color: hsl(var(--muted-foreground));
+}
