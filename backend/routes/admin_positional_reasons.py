@@ -504,3 +504,150 @@ async def geometry_gap_results(user: User = Depends(require_geometry_reviewer)):
             if r.get("verdict") == "buildable"
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Missing-why queue
+#
+# Mohit, 2026-09-22: "each blunder or mistake each side should explain the why
+# and if you don't have the why, we will help, but each blunder should have
+# the why." Then: "add those positions in geometry-gaps page so i or farhan
+# can help you out."
+#
+# It lives here rather than on one of the caption-authoring pages for a
+# concrete reason: GEOMETRY_REVIEWER_EMAILS is farhan.engineer07@gmail.com and
+# that gate grants exactly these endpoints and nothing else. Farhan cannot
+# reach /admin/captions at all, so this is the only surface he can help on.
+#
+# Measured before building (500 games, both sides): 697 of 5,683 mistake and
+# blunder captions carry no why -- 7.7% of the player's own moves and 16.8% of
+# the opponent's. The audit script that reports that number had "only audit
+# USER moves" hard-coded, which is why the opponent side was free to drift.
+# ---------------------------------------------------------------------------
+
+WHY_SEVERITIES = {
+    "mistake", "blunder", "serious",
+    "opp_mistake", "opp_blunder", "opp_serious",
+}
+
+
+@router.get("/admin/geometry-gaps/no-why/next")
+async def next_missing_why(
+    side: Optional[str] = Query(default=None, pattern="^(user|opponent)$"),
+    user: User = Depends(require_geometry_reviewer),
+):
+    """One mistake/blunder whose caption never says why, either side."""
+    from services.caption_why_heuristics import has_why
+
+    done = set(await db.caption_why_authoring.distinct("key"))
+    scanned = 0
+    async for doc in db.game_analyses.find(
+        {"decryption_v5_data.0": {"$exists": True}},
+        {"_id": 0, "game_id": 1, "decryption_v5_data": 1},
+    ):
+        gid = doc.get("game_id")
+        for rec in doc.get("decryption_v5_data") or []:
+            if not isinstance(rec, dict):
+                continue
+            sev = str(rec.get("severity") or "")
+            if sev not in WHY_SEVERITIES:
+                continue
+            is_user = bool(rec.get("is_user_move"))
+            this_side = "user" if is_user else "opponent"
+            if side and side != this_side:
+                continue
+            caption = str(rec.get("caption") or "").strip()
+            if not caption:
+                continue
+            played = str(rec.get("move_san") or "")
+            best = rec.get("best_move_san")
+            scanned += 1
+            if has_why(caption, played, best):
+                continue
+            key = f"{gid}:{rec.get('move_number')}:{played}"
+            if key in done:
+                continue
+            return {
+                "key": key,
+                "game_id": gid,
+                "fen": rec.get("fen_before") or rec.get("fen"),
+                "move_number": rec.get("move_number"),
+                "played_san": played,
+                "best_san": best,
+                "side": this_side,
+                "severity": sev,
+                "cp_loss": rec.get("cp_loss"),
+                "caption": caption,
+                # The punishment line is where the why usually is, and it is
+                # already stored, so the author does not have to find it.
+                "pv_after_played": [str(x) for x in (rec.get("pv_after_played") or [])],
+                "pv_after_best": [str(x) for x in (rec.get("pv_after_best") or [])],
+                "done_count": len(done),
+                "scanned": scanned,
+            }
+    raise HTTPException(
+        status_code=404,
+        detail=f"No caption left without a why (scanned {scanned})",
+    )
+
+
+@router.post("/admin/geometry-gaps/no-why")
+async def author_missing_why(
+    payload: Dict = Body(...),
+    user: User = Depends(require_geometry_reviewer),
+):
+    """Record a hand-written why, or say this one does not need coaching."""
+    key = str(payload.get("key") or "").strip()
+    action = str(payload.get("action") or "").strip().lower()
+    why = str(payload.get("why") or "").strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="key is required")
+    if action not in {"authored", "no_why_needed", "skip"}:
+        raise HTTPException(
+            status_code=400,
+            detail="action must be authored, no_why_needed or skip")
+    if action == "authored" and not why:
+        raise HTTPException(
+            status_code=400, detail="authored needs the why text")
+    row = {
+        "key": key,
+        "action": action,
+        "why": why or None,
+        "game_id": payload.get("game_id"),
+        "fen": payload.get("fen"),
+        "move_number": payload.get("move_number"),
+        "played_san": payload.get("played_san"),
+        "best_san": payload.get("best_san"),
+        "side": payload.get("side"),
+        "severity": payload.get("severity"),
+        "original_caption": payload.get("caption"),
+        "author_email": (getattr(user, "email", "") or "").lower(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.caption_why_authoring.update_one(
+        {"key": key}, {"$set": row}, upsert=True)
+    return {"ok": True, "key": key, "action": action}
+
+
+@router.get("/admin/geometry-gaps/no-why/results")
+async def missing_why_results(user: User = Depends(require_geometry_reviewer)):
+    """What has been authored so far."""
+    rows = await db.caption_why_authoring.find({}, {"_id": 0}).to_list(length=None)
+    by_action: Dict[str, int] = {}
+    by_author: Dict[str, int] = {}
+    for r in rows:
+        a = str(r.get("action") or "skip")
+        by_action[a] = by_action.get(a, 0) + 1
+        who = str(r.get("author_email") or "unknown")
+        by_author[who] = by_author.get(who, 0) + 1
+    return {
+        "total": len(rows),
+        "by_action": by_action,
+        "by_author": by_author,
+        "recent": [
+            {k: r.get(k) for k in
+             ("key", "side", "severity", "played_san", "why", "created_at")}
+            for r in sorted(rows, key=lambda x: str(x.get("created_at") or ""),
+                            reverse=True)[:10]
+        ],
+    }
