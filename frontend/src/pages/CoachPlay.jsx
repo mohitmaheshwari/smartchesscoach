@@ -3860,7 +3860,11 @@ const CoachPlay = ({ user }) => {
   }
 
   if (!gameStarted) {
+    // `pwc-root` carries the PWC design tokens. The setup screen used to
+    // render outside it, so a player met the app's own palette here and a
+    // different one the moment the game started. One flow, one look.
     return (
+      <div className="pwc-root">
       <CoachPlaySetup
         user={user}
         loading={loading}
@@ -3892,6 +3896,7 @@ const CoachPlay = ({ user }) => {
           { experience_version: "unified_v1", game_mode: mode }
         )}
       />
+      </div>
     );
   }
 

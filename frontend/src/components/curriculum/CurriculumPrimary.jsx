@@ -3,7 +3,6 @@ import { ArrowRight } from "lucide-react";
 import { ANALYTICS_EVENTS, trackCurriculum } from "../../lib/analytics";
 import { curriculumCta, curriculumStateLabel } from "../../lib/personalCurriculum";
 import HomeReplayDiagnostic from "./HomeReplayDiagnostic";
-import { useCoachingRoom } from "@/lib/coachingRoom";
 
 const eventProps = (curriculum, surface) => {
   const decision = curriculum?.decision;
@@ -33,10 +32,6 @@ export default function CurriculumPrimary({
     ? curriculum?.personalized_teaching?.profile
     : null;
   const shownRef = useRef(null);
-  // Presentation only. The recommendation, its destination and its analytics
-  // are identical in both compositions -- this changes how it reads, never
-  // what is recommended.
-  const coachingRoom = useCoachingRoom();
 
   useEffect(() => {
     const decisionId = curriculum?.decision?.decision_id;
@@ -87,31 +82,16 @@ export default function CurriculumPrimary({
     <section
       className="relative"
       data-testid={"curriculum-primary-" + surface}
-      data-coaching-room={coachingRoom ? "on" : "off"}
     >
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div className="max-w-[560px]">
           <p className="cg-eyebrow mb-3">
             {curriculumStateLabel(primary.state)}
           </p>
-          <h2
-            className={
-              coachingRoom
-                ? "cgr-display text-[30px] md:text-[40px] mb-4"
-                : "font-heading text-[26px] md:text-[34px] leading-[1.08] tracking-[-0.03em] text-foreground mb-3"
-            }
-          >
+          <h2 className="font-heading text-[26px] md:text-[34px] leading-[1.08] tracking-[-0.03em] text-foreground mb-3">
             {primary.title}
           </h2>
-          {/* What we are practising. Teaching text is read rather than
-              skimmed, so the coaching room does not shrink it. */}
-          <p
-            className={
-              coachingRoom
-                ? "cgr-teaching mb-3"
-                : "text-[14px] leading-relaxed text-muted-foreground mb-3"
-            }
-          >
+          <p className="text-[14px] leading-relaxed text-muted-foreground mb-3">
             {primary.reason}
           </p>
           <p className="text-[13px] leading-relaxed text-muted-foreground/85">

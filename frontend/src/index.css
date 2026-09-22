@@ -5,8 +5,23 @@
 @import "@fontsource/manrope/400.css";
 @import "@fontsource/manrope/500.css";
 @import "@fontsource/manrope/600.css";
-/* Coaching room editorial headings. Self-hosted: no remote font request. */
-@import "@fontsource/instrument-serif/400.css";
+
+/* ---------------------------------------------------------------------------
+   Brand accent.
+
+   This colour was written as a literal in 26 places, so changing it meant
+   finding all 26 and the app had no single source of truth for its own accent.
+   It is now one token. Change these three lines, the whole app follows.
+
+   2026-09-23: acid lime (var(--cg-accent)) -> our green (#7fb069), per the approved
+   Play with Coach mockup. The lime read closer to a highlighter than to a
+   coach.
+--------------------------------------------------------------------------- */
+:root {
+  --cg-accent: #7fb069;
+  --cg-accent-hi: #8fbf78;      /* hover */
+  --cg-accent-rgb: 127 176 105; /* for rgb(... / alpha) */
+}
 
 @tailwind base;
 @tailwind components;
@@ -1051,7 +1066,10 @@
   --card-foreground: 157 48% 6%;
   --popover: 42 48% 99%;
   --popover-foreground: 157 48% 6%;
-  --primary: 82 87% 62%;
+  /* 2026-09-23: was acid lime 82 87% 62%. This is the app's real accent
+     token - it is redefined here, later than the amber at the top of the
+     file, so this one wins. Now our green, matching --cg-accent. */
+  --primary: 101 31% 55%;
   --primary-foreground: 157 48% 6%;
   --secondary: 39 30% 91%;
   --secondary-foreground: 157 38% 12%;
@@ -1071,7 +1089,7 @@
   --experience-shadow: 157 46% 6%;
   color: hsl(var(--foreground));
   background:
-    radial-gradient(circle at 92% -5%, rgb(183 243 74 / 0.16), transparent 30rem),
+    radial-gradient(circle at 92% -5%, rgb(var(--cg-accent-rgb) / 0.16), transparent 30rem),
     radial-gradient(circle at 14% 102%, rgb(126 231 194 / 0.12), transparent 28rem),
     #f4efe4;
 }
@@ -1083,7 +1101,10 @@
   --card-foreground: 42 33% 94%;
   --popover: 156 42% 9%;
   --popover-foreground: 42 33% 94%;
-  --primary: 82 87% 62%;
+  /* 2026-09-23: was acid lime 82 87% 62%. This is the app's real accent
+     token - it is redefined here, later than the amber at the top of the
+     file, so this one wins. Now our green, matching --cg-accent. */
+  --primary: 101 31% 55%;
   --primary-foreground: 157 48% 6%;
   --secondary: 157 30% 13%;
   --secondary-foreground: 42 33% 94%;
@@ -1095,7 +1116,7 @@
   --input: 155 23% 18%;
   --ring: 82 87% 62%;
   background:
-    radial-gradient(circle at 92% -5%, rgb(183 243 74 / 0.10), transparent 32rem),
+    radial-gradient(circle at 92% -5%, rgb(var(--cg-accent-rgb) / 0.10), transparent 32rem),
     radial-gradient(circle at 10% 105%, rgb(126 231 194 / 0.08), transparent 30rem),
     #071411;
 }
@@ -1103,7 +1124,7 @@
 .experience-v1 .experience-sidebar {
   color: #f4efe4;
   background:
-    radial-gradient(circle at 30% 0%, rgb(183 243 74 / 0.10), transparent 14rem),
+    radial-gradient(circle at 30% 0%, rgb(var(--cg-accent-rgb) / 0.10), transparent 14rem),
     linear-gradient(180deg, #0d211b 0%, #071411 100%);
   border-right: 1px solid rgb(255 255 255 / 0.09);
   box-shadow: 24px 0 70px rgb(7 20 17 / 0.12);
@@ -1125,31 +1146,31 @@
 
 .experience-v1 .experience-sidebar nav a > div.bg-primary\/15 {
   color: #dfffa7;
-  background: rgb(183 243 74 / 0.12);
+  background: rgb(var(--cg-accent-rgb) / 0.12);
 }
 
 .experience-v1 .experience-brand-mark {
-  border: 1px solid rgb(183 243 74 / 0.22);
-  background: rgb(183 243 74 / 0.10);
+  border: 1px solid rgb(var(--cg-accent-rgb) / 0.22);
+  background: rgb(var(--cg-accent-rgb) / 0.10);
   box-shadow: 0 12px 30px rgb(0 0 0 / 0.16);
 }
 
 .experience-v1 .experience-coach-cta,
 .experience-v1 .experience-primary {
   color: #071411;
-  background: #b7f34a;
-  border: 1px solid rgb(183 243 74 / 0.72);
-  box-shadow: 0 16px 38px rgb(183 243 74 / 0.18);
+  background: var(--cg-accent);
+  border: 1px solid rgb(var(--cg-accent-rgb) / 0.72);
+  box-shadow: 0 16px 38px rgb(var(--cg-accent-rgb) / 0.18);
 }
 
 .experience-v1 .experience-coach-cta:hover,
 .experience-v1 .experience-primary:hover {
-  background: #c6ff62;
-  box-shadow: 0 20px 48px rgb(183 243 74 / 0.25);
+  background: var(--cg-accent-hi);
+  box-shadow: 0 20px 48px rgb(var(--cg-accent-rgb) / 0.25);
 }
 
 .experience-v1 .experience-acid-badge {
-  background: #b7f34a;
+  background: var(--cg-accent);
 }
 
 .experience-v1 .experience-mobile-header {
@@ -1179,7 +1200,7 @@
   width: 18rem;
   height: 18rem;
   border-radius: 999px;
-  background: rgb(183 243 74 / 0.07);
+  background: rgb(var(--cg-accent-rgb) / 0.07);
   filter: blur(48px);
   pointer-events: none;
 }
@@ -1201,15 +1222,15 @@
 }
 
 .experience-v1 .experience-focus-card {
-  border-color: rgb(183 243 74 / 0.42);
+  border-color: rgb(var(--cg-accent-rgb) / 0.42);
   background:
-    radial-gradient(circle at 100% 0%, rgb(183 243 74 / 0.18), transparent 15rem),
+    radial-gradient(circle at 100% 0%, rgb(var(--cg-accent-rgb) / 0.18), transparent 15rem),
     linear-gradient(145deg, rgb(255 253 248 / 0.98), rgb(238 255 208 / 0.48));
 }
 
 .dark .experience-v1 .experience-focus-card {
   background:
-    radial-gradient(circle at 100% 0%, rgb(183 243 74 / 0.13), transparent 15rem),
+    radial-gradient(circle at 100% 0%, rgb(var(--cg-accent-rgb) / 0.13), transparent 15rem),
     linear-gradient(145deg, #10271f, #0b2019);
 }
 
@@ -1256,13 +1277,13 @@
 
 .experience-v1 .experience-mobile-nav a.is-active {
   color: #dfffa7;
-  background: rgb(183 243 74 / 0.12);
+  background: rgb(var(--cg-accent-rgb) / 0.12);
 }
 
 .experience-v1 .experience-mobile-nav a.experience-mobile-coach {
   color: #071411;
-  background: #b7f34a;
-  box-shadow: 0 10px 28px rgb(183 243 74 / 0.20);
+  background: var(--cg-accent);
+  box-shadow: 0 10px 28px rgb(var(--cg-accent-rgb) / 0.20);
 }
 
 /* New shared page primitives. These let the canonical pages migrate without
@@ -1284,7 +1305,7 @@
   border: 1px solid rgb(7 20 17 / 0.10);
   border-radius: clamp(1.5rem, 3vw, 2.25rem);
   background:
-    radial-gradient(circle at 92% 0%, rgb(183 243 74 / 0.22), transparent 18rem),
+    radial-gradient(circle at 92% 0%, rgb(var(--cg-accent-rgb) / 0.22), transparent 18rem),
     linear-gradient(145deg, rgb(255 253 248 / 0.98), rgb(244 239 228 / 0.88));
   box-shadow: 0 32px 90px rgb(7 20 17 / 0.09);
 }
@@ -1292,7 +1313,7 @@
 .dark .experience-v1 .cg-hero {
   border-color: rgb(255 255 255 / 0.09);
   background:
-    radial-gradient(circle at 92% 0%, rgb(183 243 74 / 0.13), transparent 18rem),
+    radial-gradient(circle at 92% 0%, rgb(var(--cg-accent-rgb) / 0.13), transparent 18rem),
     linear-gradient(145deg, #10271f, #0b2019);
   box-shadow: 0 32px 90px rgb(0 0 0 / 0.24);
 }
@@ -1368,20 +1389,20 @@
   justify-content: center;
   gap: 0.55rem;
   padding: 0.75rem 1.35rem;
-  border: 1px solid rgb(183 243 74 / 0.72);
+  border: 1px solid rgb(var(--cg-accent-rgb) / 0.72);
   border-radius: 999px;
   color: #071411;
-  background: #b7f34a;
+  background: var(--cg-accent);
   font-size: 0.86rem;
   font-weight: 800;
-  box-shadow: 0 16px 38px rgb(183 243 74 / 0.18);
+  box-shadow: 0 16px 38px rgb(var(--cg-accent-rgb) / 0.18);
   transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
 
 .cg-primary-action:hover {
   transform: translateY(-2px);
-  background: #c6ff62;
-  box-shadow: 0 20px 48px rgb(183 243 74 / 0.25);
+  background: var(--cg-accent-hi);
+  box-shadow: 0 20px 48px rgb(var(--cg-accent-rgb) / 0.25);
 }
 
 .cg-secondary-action {
@@ -1475,120 +1496,4 @@
   .cg-chessloader__piece { animation: none; opacity: 0; }
   .cg-chessloader__piece:last-of-type { opacity: 1; transform: none; }
   .cg-chessloader__square { animation: none; opacity: 0.7; transform: none; }
-}
-
-
-/* ==========================================================================
-   COACHING ROOM
-   Approved design: docs/design/chessguru-atelier.html (2026-09-22).
-   Palette values are that file's :root, converted to the HSL triplets the
-   rest of this stylesheet and Tailwind already use.
-
-   Every rule is scoped under .coaching-room, which backend-gated accounts get
-   on <html> via lib/coachingRoom.js. An account that is not enrolled matches
-   none of this and renders exactly what it renders today.
-
-   .dark and .coaching-room both sit on <html>, so the dark rules are COMPOUND
-   (.dark.coaching-room). A descendant selector would never match.
-   ========================================================================== */
-
-.coaching-room {
-  /* Light - the approved reference */
-  --background: 60 24% 96%;          /* #f7f7f2 ivory working surface */
-  --foreground: 160 38% 15%;         /* #18362c */
-  --card: 48 100% 99%;               /* #fffefa raised paper */
-  --card-foreground: 160 38% 15%;
-  --popover: 48 100% 99%;
-  --popover-foreground: 160 38% 15%;
-  --primary: 155 43% 16%;            /* #183c2d forest */
-  --primary-foreground: 60 24% 96%;
-  --secondary: 64 26% 89%;           /* #e9eadb */
-  --secondary-foreground: 155 43% 16%;
-  --muted: 64 26% 89%;
-  --muted-foreground: 145 9% 38%;    /* #58695f */
-  --accent: 80 75% 75%;              /* #d0ef91 lime, used sparingly */
-  --accent-foreground: 155 43% 16%;
-  --border: 93 17% 88%;              /* #dfe5da calm neutral */
-  --input: 93 17% 88%;
-  --ring: 155 43% 16%;
-
-  /* Board. The reference's squares, so previews match the study. */
-  --cg-board-dark: 118 15% 61%;      /* #8eaa8d sage */
-  --cg-board-light: 64 26% 89%;      /* #e9eadb */
-}
-
-/* Dark companion. NOT part of the approved light reference - derived to keep
-   the same hues at usable contrast, because the app defaults to dark and the
-   scope requires the user's theme choice to be preserved. Needs its own
-   contrast check before rollout. */
-.dark.coaching-room {
-  --background: 158 30% 8%;
-  --foreground: 60 24% 96%;
-  --card: 158 28% 11%;
-  --card-foreground: 60 24% 96%;
-  --popover: 158 28% 11%;
-  --popover-foreground: 60 24% 96%;
-  --primary: 80 60% 70%;             /* lime carries the action in dark */
-  --primary-foreground: 158 30% 8%;
-  --secondary: 158 18% 18%;
-  --secondary-foreground: 60 24% 96%;
-  --muted: 158 18% 18%;
-  --muted-foreground: 145 12% 72%;
-  --accent: 80 75% 75%;
-  --accent-foreground: 155 43% 16%;
-  --border: 158 16% 22%;
-  --input: 158 16% 22%;
-  --ring: 80 60% 70%;
-
-  --cg-board-dark: 155 18% 38%;
-  --cg-board-light: 64 14% 72%;
-}
-
-.coaching-room body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-}
-
-/* Editorial serif is for selected coaching headlines only. Tables, errors and
-   move notation stay in the interface face on purpose. */
-.coaching-room .cgr-display {
-  font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.08;
-  color: hsl(var(--foreground));
-}
-
-/* Deliberate override: the shared .cg-eyebrow hardcodes #287a61, so unlike
-   .cg-panel it cannot pick up the coaching-room palette on its own. */
-.coaching-room .cg-eyebrow {
-  font-family: "Manrope", system-ui, sans-serif;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: hsl(var(--muted-foreground));
-}
-
-/* Teaching text is read, not skimmed - it does not shrink on small screens. */
-.coaching-room .cgr-teaching {
-  font-size: 1rem;
-  line-height: 1.6;
-  color: hsl(var(--foreground));
-}
-
-/* One quiet confirmation, not a reward animation. */
-@keyframes cgr-verdict-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: none; }
-}
-
-.coaching-room .cgr-verdict {
-  animation: cgr-verdict-in 180ms ease-out both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .coaching-room .cgr-verdict {
-    animation: none;
-  }
 }
