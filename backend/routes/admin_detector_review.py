@@ -131,6 +131,33 @@ CONFIDENCE_CERTAIN = "certain"      # the board settles it; low review value
 CONFIDENCE_LIKELY = "likely"        # settled, but near a boundary
 CONFIDENCE_UNCERTAIN = "uncertain"  # the board cannot answer the real question
 
+# How many stored claims to rank over before cutting to the page size. Every
+# detector's whole built set is well under this (largest is allowed_mate at
+# 1,912), and these are small documents, so in practice this ranks everything.
+CLAIM_POOL_CAP = 5000
+
+
+BULK_BUILD_LIMIT = 200
+
+
+def _live_pool_size(limit: int) -> int:
+    """Collect more than we serve, so the confidence ranking has a choice.
+
+    The live scan stops at the first `limit` fires and sorts those. On the
+    /next endpoint, which asks for limit=1, that makes the sort a literal
+    no-op on a one-element list -- the reviewer gets the first fire in cursor
+    order, every time.
+
+    Bulk builds (scripts/build_detector_claims.py asks for thousands) are
+    left alone: they want every claim, not a ranked screenful, and widening
+    their pool only makes an already-slow scan slower for no gain.
+    """
+    limit = int(limit)
+    if limit >= BULK_BUILD_LIMIT:
+        return limit
+    return max(limit * 10, 60)
+
+
 _CONFIDENCE_RANK = {
     CONFIDENCE_UNCERTAIN: 0,
     CONFIDENCE_LIKELY: 1,
@@ -1744,7 +1771,8 @@ async def _stored_claims(detector: str, skip_fens: set,
         return []
     try:
         rows = await db[CLAIMS_COLLECTION].find(
-            {"detector": detector}, {"_id": 0}).limit(limit * 6).to_list(limit * 6)
+            {"detector": detector}, {"_id": 0}
+        ).limit(CLAIM_POOL_CAP).to_list(CLAIM_POOL_CAP)
     except Exception:  # noqa: BLE001
         return []
     out: List[Dict[str, Any]] = []
@@ -1759,13 +1787,15 @@ async def _stored_claims(detector: str, skip_fens: set,
             "evidence": row.get("evidence") or {},
             "game": row.get("game"),
         })
-        if len(out) >= limit:
-            break
-    # Least-certain first, same order the live scan uses: a reviewer should
-    # meet the cards the board cannot settle, not fifty obvious ones.
+    # Rank the WHOLE unruled set, then cut. The old order was cut-then-rank:
+    # it took `limit` rows in Mongo's natural order and sorted only those, so
+    # the ranking never reached past the first screenful. Out of 400 stored
+    # simple_hang claims a reviewer met the 20 oldest, ranked among
+    # themselves -- which is why 218 rulings came back 209 true / 2 false.
+    # Ranking is worthless unless it ranks the whole pool.
     out.sort(key=lambda c: _CONFIDENCE_RANK.get(
         (c.get("evidence") or {}).get("confidence"), 0))
-    return out
+    return out[:limit]
 
 
 
@@ -1949,7 +1979,7 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
     )
     async for analysis in cursor:
         scanned += 1
-        if scanned > SCAN_LIMIT or len(found) >= limit:
+        if scanned > SCAN_LIMIT or len(found) >= _live_pool_size(limit):
             break
         game = games_by_id.get(analysis.get("game_id"))
         colour = (game or {}).get("user_color") or "white"
@@ -2035,7 +2065,7 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
     # lock says does not promote anything by itself.
     found.sort(key=lambda c: _CONFIDENCE_RANK.get(
         (c.get("evidence") or {}).get("confidence"), 0))
-    return found
+    return found[:limit]
 
 
 @router.get("/admin/detector-review/next")
@@ -2046,7 +2076,13 @@ async def next_claim(
     """One unjudged claim, or 404 when the queue is clear."""
     ruled = set(await db[COLLECTION].distinct(
         "claim_key", {"detector": detector}))
-    found = await _fires_for(detector, ruled, limit=1)
+    # Same source and same ranking as /batch. This endpoint used to call the
+    # live scan with limit=1, which broke out of the loop on the first fire
+    # and then "sorted" a single-element list -- so the least-certain-first
+    # ordering never applied to the one-card-at-a-time path at all.
+    found = await _stored_claims(detector, ruled, 1)
+    if not found:
+        found = await _fires_for(detector, ruled, limit=1)
     if not found:
         raise HTTPException(
             status_code=404,
