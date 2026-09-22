@@ -261,10 +261,20 @@ def _beat_coaching(
     if beat == BEAT_CAPTURED_CHECKER:
         captured = board_before.piece_at(move.to_square)
         name = chess.piece_name(captured.piece_type) if captured else "piece"
-        return (
-            f"Your king takes the {name} on {to_sq}. The checks have run out, "
-            f"and now nothing is stopping the pawn."
+        # Only claim the pawn is free if the learner still HAS one near
+        # promotion. On lucena[2] the defender's check was Rxf7+, taking the
+        # pawn, and this still said "nothing is stopping the pawn".
+        mover = board_before.turn
+        still_advanced = any(
+            chess.square_rank(sq) == (6 if mover == chess.WHITE else 1)
+            for sq in board_after.pieces(chess.PAWN, mover)
         )
+        if still_advanced:
+            return (
+                f"Your king takes the {name} on {to_sq}. The checks have run "
+                f"out, and now nothing is stopping the pawn."
+            )
+        return f"Your king takes the {name} on {to_sq}. The checks have run out."
     if beat == BEAT_PROMOTION_MATE:
         return (
             f"The pawn reaches {to_sq} and becomes a queen — and that is "
@@ -292,7 +302,19 @@ def _choose_defender_move(engine, board: chess.Board, learner: bool, depth: int)
     """
     import chess.engine
 
-    checks = [m for m in board.legal_moves if board.gives_check(m)]
+    # A check that captures the pawn we are trying to promote ends the
+    # demonstration without refuting anything. On lucena[2] the defender
+    # played Rxf7+, giving up the rook for the pawn: still winning for the
+    # learner, but the line then proves nothing about promoting. Stockfish's
+    # own continuation does not play it either.
+    advanced = {
+        sq for sq in board.pieces(chess.PAWN, learner)
+        if chess.square_rank(sq) == (6 if learner == chess.WHITE else 1)
+    }
+    checks = [
+        m for m in board.legal_moves
+        if board.gives_check(m) and m.to_square not in advanced
+    ]
     best_move = None
     best_cp = None
     for candidate in checks:
@@ -408,6 +430,14 @@ def build_continuation(
                     )
                     if r["beat"] == BEAT_CHECK:
                         check_index += 1
+                elif r["ply"] == 0:
+                    # The first move IS the lesson's answer. Running it through
+                    # a game-review captioner produced "Ke7 is playable. Kg8 was
+                    # better." -- naming the WRONG move as better than the one
+                    # the lesson teaches -- and "The curriculum starts with d4"
+                    # in a rook endgame. The surrounding UI already names this
+                    # move; it does not need a verdict on it.
+                    coaching = ""
                 elif r["ply"] > last_beat_ply:
                     # Past the last thing worth naming. The central pipeline
                     # is a game-review captioner and does not know it is in a
