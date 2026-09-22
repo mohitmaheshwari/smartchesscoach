@@ -4485,6 +4485,30 @@ def _check_attack_arrows(
         return []
 
 
+def _reply_attack_arrows(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    user_reply_san: Optional[str],
+) -> List[Dict[str, str]]:
+    """The same picture, for the reply the card actually recommends.
+
+    On an opponent card the words are addressed to the player -- "Play Qe7 --
+    it attacks the queen on h7" -- and that reply is legal on the board AFTER
+    the opponent moved, which is the board the card renders. So this is the
+    one board on which the picture and the caption are talking about the same
+    move.
+    """
+    if board_before is None or played_move is None or not user_reply_san:
+        return []
+    try:
+        after_opp = board_before.copy()
+        after_opp.push(played_move)
+        reply = after_opp.parse_san(str(user_reply_san))
+    except Exception:
+        return []
+    return _check_attack_arrows(after_opp, reply.uci())
+
+
 def _punishment_arrows(
     board_before: Optional[chess.Board],
     played_move: Optional[chess.Move],
@@ -6249,7 +6273,35 @@ def build_move_teaching_decision(
     # The one picture that earns its place on the board today: a check that
     # also piles a second attacker onto a piece. Tagged "teach" so it survives
     # the suppression below.
-    _teach_arrows = _check_attack_arrows(board_before, inputs.best_move_uci)
+    # ...but only when it is true of the board the card is SHOWING. The review
+    # board renders fen_after -- board_before plus the move that was PLAYED --
+    # while this picture is computed on board_before plus the BEST move. Those
+    # are the same position only when the player found the best move.
+    #
+    # Measured over 500 games: of 514 cards drawing this picture, 276 (54%)
+    # drew it for a position the card never displays. The other two teach-arrow
+    # builders (the trap cage and the punishment arrows) both compute on
+    # board_before + played_move, so they were aligned all along; this one was
+    # the odd source out.
+    #
+    # Reported 2026-09-22, on an opponent card: "Opponent's b4 is a major
+    # blunder. Play Qe7 -- it attacks the queen on h7", with the arrow drawn
+    # at White's queen on h7. best_move_uci there is the OPPONENT's best
+    # alternative, a move the caption never mentions and the board never
+    # reaches -- and "Qe7" happened to be legal for both sides, so the two
+    # readings of three characters looked like one.
+    if inputs.mover_is_user:
+        _played_uci = played_move.uci() if played_move else ""
+        _teach_arrows = (
+            _check_attack_arrows(board_before, inputs.best_move_uci)
+            if _played_uci and _played_uci == (inputs.best_move_uci or "")
+            else []
+        )
+    else:
+        # Their move is on the board; what the card recommends is our reply.
+        _teach_arrows = _reply_attack_arrows(
+            board_before, played_move, caption_facts.get("user_best_reply_san")
+        )
     # One picture per card. The check picture is rarer and more striking, so it
     # wins when both are available; otherwise show what the blunder gave away.
     if not _teach_arrows:
@@ -6260,10 +6312,19 @@ def build_move_teaching_decision(
             cp_loss=inputs.cp_loss,
         )
     if _teach_arrows:
-        _existing = {(a.get("from"), a.get("to")) for a in _arrows_out}
-        _arrows_out = [
-            a for a in _teach_arrows if (a["from"], a["to"]) not in _existing
-        ] + _arrows_out
+        # On a collision the TAGGED copy wins. The old order kept the untagged
+        # one, which the suppression filter below then stripped -- so a picture
+        # another rule had already drawn came out as no arrows at all.
+        #
+        # Qd5+ forking the rook on a8 and the king on g8 rendered with an empty
+        # board: the fork rule emitted d5->a8 and d5->g8 untagged, the dedupe
+        # dropped the tagged duplicates as "already there", and the filter then
+        # removed the originals for having no tag.
+        _teach_pairs = {(a["from"], a["to"]) for a in _teach_arrows}
+        _arrows_out = _teach_arrows + [
+            a for a in _arrows_out
+            if (a.get("from"), a.get("to")) not in _teach_pairs
+        ]
     if os.environ.get("REVIEW_LEGACY_ARROWS", "false").strip().lower() != "true":
         _arrows_out = [a for a in _arrows_out if a.get("teach") is True]
     visual = VisualSurface(
