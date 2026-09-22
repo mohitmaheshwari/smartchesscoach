@@ -17,7 +17,7 @@ code, not the agents' reports — two of them turned out to need that.
 | **capturingDefender** | 34.9% | **72.8%** | 0.3% / 0.3% |
 | **discoveredCheck** | 0.6% | **92.8%** | 0.0% / 0.3% |
 | **discoveredAttack** | 54.0% | **82.9%** | 0.0% / 0.3% |
-| **pin** | 12.5% | **32.2%** | 2.0% / 0.0% |
+| **pin** | 12.5% | **56.2%** | 1.2% / 0.0% |
 | backRankMate | 91.0% | **100.0%** | 0.0% / 0.0% |
 | fork | 66.8% | **79.8%** | 1.7% / — |
 | skewer | 72.2% | 72.2% | unchanged |
@@ -48,12 +48,9 @@ king is worth 0 cp to every winnable-target gate.
 `mateIn1` and `backRankMate` are at 100%. Nothing else is, and you chose
 precision when they conflict, so here is where each one stops and why.
 
-- **pin 32.2%.** The remaining mass is real and reachable — 344 of 1000 pin
-  puzzles exploit a pin that was *already on the board*, which measures 55.5%
-  if admitted. It was not shipped because the existing caption would then read
-  *"<move> lines your bishop up with…"* when nothing was lined up. **That is a
-  caption-policy call, not a detector one, and it is roughly +20 points waiting
-  on your word.**
+- **pin 56.2%** *(was 32.2% — shipped after you said go; see "The pin branch,
+  finished" below)*. The remaining misses are a different shape again and have
+  not been clustered yet.
 - **defensiveMove 61.9%.** 38% of the theme is king-and-pawn endgames decided
   by opposition or zugzwang. The board cannot license "this was the only move
   that held" there; it needs an engine, which is a different kind of proof.
@@ -122,6 +119,106 @@ grading them gets made.
 
 **Not wired:** nothing else. No `_AUTHORIZATIONS` entry was added or changed,
 so none of the new work can drive a plan or a caption.
+
+---
+
+## The pin branch, finished
+
+You said go, so it is in and pushed (`ffffa7a9`). **Pin 32.2% -> 56.2%.**
+
+The caption was only the third of three gates, and the smallest. The real
+blocker was in the independent verifier: it dropped any alignment that
+existed before the move. That is a *novelty* test, not a correctness one --
+the ray is still recomputed on the after-board and the stored line still has
+to prove the payoff. Novelty is still required of a candidate that claims to
+have created something.
+
+Then a subtler one. All 313 newly-admitted fires rendered *"<move> clears a
+line for your bishop"* -- the precise falsehood I was trying to avoid --
+because every payoff model infers `creation_mode` from where the attacker
+stands, and an attacker that never moved reads as "discovered". The flag now
+travels with the alignment the payoff actually sees.
+
+**Only payoff C may admit a pre-existing alignment.** C proves the pin was
+load-bearing: it finds the recapture the front piece would have to make and
+shows it is pseudo-legal but illegal. A and B only observe that a pin exists
+somewhere while the move does its work elsewhere. Measured, they supplied
+every bad cross-fire -- `Kxf1` and `Kh2` credited to pins they never touched,
+and `00hbV` crediting `Nxe6` to a d7 rook that never defended e6. Dropping
+them cost 10 fires and bought back all six false ones.
+
+Two captions, not one, because a pin against a **queen** is relative -- the
+front piece may legally move, so "cannot move out of the way" was simply
+false there. What a player now reads:
+
+> Your queen on g6 is already holding the pawn on g2 in place, because the
+> king on g1 is behind it. Nf3+ works because that pawn is not allowed to
+> move.
+>
+> *Before you calculate, look for an enemy piece stuck in front of its own
+> king. It is not allowed to move, so it cannot defend and it cannot take
+> back.*
+
+Cross-fire rose by 3 fires per 1000 (mateIn2 11->12, backRankMate 0->2). I
+replayed each on the board: all three are genuine absolute pins doing the
+work, which Lichess simply headlined as mate themes. Nothing else moved --
+skewer recall, fork and hangingPiece cross-fire are all unchanged.
+
+Sealed packet: **0 of 50 curated negatives fire**, including all five
+labelled `no_created_alignment`, and 50 of 50 recorded fires still fire.
+
+**One thing needs your ruling.** The packet behind this detector's CAPTION
+grade has a population of `{direct: 374, discovered: 62}` — **zero**
+pre-existing. Its 25/25 pin evidence was drawn entirely from created
+alignments, so the grade's evidence does not cover the class I just added.
+I bumped the proof to `v5` so the change is attributable and left
+`_AUTHORIZATIONS` alone. The negatives holding at 0/50 is real evidence, but
+it is not the same as a reviewed positive sample, and I am not allowed to
+grade my own work.
+
+---
+
+## A regression I dismissed last night, and should not have
+
+An agent flagged that discovered_attack (priority 435) outranking the aligned
+proof (425) was "a shipped change stealing the caption from verified
+skewers". I checked that both priorities came from the same original commit,
+called it by-design, and moved on. I checked the wrong thing: the question
+was never the priority, it was whether **line-walking made discovered_attack
+fire where it previously did not.** It did.
+
+`test_caption_fact_drives_feedback_but_not_prompt_or_recovery_identity` fails
+on HEAD. With the pre-line-walk proof restored, all 5 tests in that file
+pass. Measured overlap on positions the aligned proof verifies:
+
+| | before line-walk | after |
+|---|---|---|
+| skewer | 0 / 722 | **5 / 722** |
+| pin | 9 / 562 | **11 / 562** |
+
+So ~7 positions per 1000 lose a specific pin/skewer caption to a
+discovered_attack claim that is not caption-authorized, and fall back to a
+generic one. Small, contained, and real. The fix is a priority question --
+when a move is both a discovered attack and a skewer, which lesson does a
+1200 need? -- so it is yours, not mine. It was already failing before
+tonight's pin work; my change adds no new failures.
+
+---
+
+## The branch situation, which you should know about
+
+`origin/working-code` and the **local** `working-code` in
+`C:/Users/MIISCO/smartchesscoach` have **diverged** at `c513af68`.
+
+- `origin/working-code` carries every commit from this work — 555 commits
+  the local branch does not have, including all 18 `_puzzle_proof.py` files.
+- The local `working-code` (`4af8313c`) has 11 commits of its own and
+  **zero** detector proof files.
+
+I committed and pushed onto `origin/working-code`, where the work actually
+lives. Nothing was merged, rebased or force-pushed. Flagging it because a
+force-push of the local branch would destroy the detector work, and because
+a checkout there will look like none of this exists.
 
 ---
 
