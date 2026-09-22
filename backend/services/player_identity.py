@@ -662,6 +662,74 @@ class PlayerIdentityService:
         
         return identity
     
+    #: How many recent games the measured behavioural block reads. Mohit
+    #: ruled the record window is the last 10 games (2026-09-22).
+    BEHAVIOUR_WINDOW_GAMES = 10
+
+    async def refresh_behaviour_from_observations(self, user_id: str) -> Dict[str, Any]:
+        """Replace the DEFAULTED behavioural fields with measured ones.
+
+        `_update_behavioral_profile` never assigns avg_move_time_*,
+        post_blunder_accuracy, rushes_in_winning_positions,
+        recovery_capability or first_game_accuracy, so every one of them keeps
+        the value the dataclass was born with. Scanned in production
+        2026-09-22: all 69 players carried an identical 10.0/15.0/8.0 for move
+        times and 0.5 for post-blunder accuracy. The real median middlegame
+        move is 5.1 seconds. That is also why behavioral_coaching_layer
+        diagnoses 53 of 57 players as nothing -- every gate it opens reads one
+        of these.
+
+        Measured instead from stored observations, over the last N games.
+        Anything the sample cannot support stays UNTOUCHED rather than being
+        overwritten with a fresh guess: a measured None must not become
+        another plausible-looking default.
+
+        Returns what was measured, for logging and for tests.
+        """
+        from services.behavioural_stats import behavioural_stats
+
+        games = await self.db["games"].find(
+            {"user_id": user_id, "is_analyzed": True},
+            {"_id": 0, "game_id": 1},
+        ).sort("_id", -1).to_list(self.BEHAVIOUR_WINDOW_GAMES)
+        game_ids = [g.get("game_id") for g in games if g.get("game_id")]
+        if not game_ids:
+            return {}
+
+        observations = await self.db["move_observations"].find(
+            {"user_id": user_id, "game_id": {"$in": game_ids}}, {"_id": 0},
+        ).to_list(None)
+        if not observations:
+            return {}
+
+        stats = behavioural_stats(observations)
+        identity = await self.get_or_create(user_id)
+        beh = identity.behavioral_profile
+
+        # Each assignment is guarded: None means the window did not support
+        # the claim, and the stored value is left alone rather than replaced.
+        for phase in ("opening", "middlegame", "endgame"):
+            seconds = stats.get(f"median_move_seconds_{phase}")
+            if seconds is not None:
+                setattr(beh, f"avg_move_time_{phase}", float(seconds))
+
+        after = stats.get("mistake_rate_after_mistake")
+        if after is not None:
+            # The field is an ACCURACY, so it is the complement of the
+            # mistake rate on the move following a mistake.
+            beh.post_blunder_accuracy = round(1.0 - after, 4)
+
+        ratio = stats.get("collapse_ratio")
+        if ratio is not None:
+            # "Rushes when winning" is really "plays worse when winning".
+            # 1.5x their own level baseline is the bar; the median player
+            # sits at 2.09 and the range runs 1.09 to 7.15, so this is read
+            # off the distribution rather than picked.
+            beh.rushes_in_winning_positions = ratio >= 1.5
+
+        await self.save(identity)
+        return stats
+
     async def save(self, identity: PlayerIdentity):
         """Save identity to database"""
         identity.updated_at = datetime.now(timezone.utc)
