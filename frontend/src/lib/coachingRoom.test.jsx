@@ -9,7 +9,9 @@ import { createRoot } from "react-dom/client";
 import {
   COACHING_ROOM_CLASS,
   CoachingRoomProvider,
+  CoachingRoomPublic,
   isCoachingRoomEnabled,
+  isPublicCoachingRoomPath,
   useCoachingRoom,
 } from "./coachingRoom";
 
@@ -87,6 +89,67 @@ describe("CoachingRoomProvider", () => {
   it("defaults to off with no provider at all", () => {
     const { host, unmount } = render(<Probe />);
     expect(host.textContent).toBe("off");
+    unmount();
+  });
+});
+
+describe("isPublicCoachingRoomPath", () => {
+  it("covers every public page in App.js", () => {
+    [
+      "/",
+      "/login",
+      "/invite",
+      "/pricing",
+      "/terms",
+      "/privacy",
+      "/refund",
+      "/contact",
+      "/learn/openings",
+      "/learn/openings/italian-game",
+      "/prototype/interactive-moment",
+    ].forEach((path) => {
+      expect([path, isPublicCoachingRoomPath(path)]).toEqual([path, true]);
+    });
+  });
+
+  it("does not claim protected pages", () => {
+    ["/home", "/learn", "/lab", "/play-with-coach", "/settings", "/progress"].forEach(
+      (path) => {
+        expect([path, isPublicCoachingRoomPath(path)]).toEqual([path, false]);
+      }
+    );
+  });
+
+  it("does not treat /learn as public just because /learn/openings is", () => {
+    // The prefix is "/learn/openings/", not "/learn" - a sloppy startsWith
+    // here would hand the redesign to the gated Learn page.
+    expect(isPublicCoachingRoomPath("/learn")).toBe(false);
+    expect(isPublicCoachingRoomPath("/learning")).toBe(false);
+    expect(isPublicCoachingRoomPath("/learn/openings")).toBe(true);
+  });
+
+  it("survives a missing pathname", () => {
+    expect(isPublicCoachingRoomPath(undefined)).toBe(false);
+    expect(isPublicCoachingRoomPath(null)).toBe(false);
+    expect(isPublicCoachingRoomPath("")).toBe(false);
+  });
+});
+
+describe("CoachingRoomPublic", () => {
+  it("applies the coaching room with no account at all", () => {
+    const { unmount } = render(
+      <CoachingRoomPublic>
+        <Probe />
+      </CoachingRoomPublic>
+    );
+    expect(document.documentElement.classList.contains(COACHING_ROOM_CLASS)).toBe(true);
+    unmount();
+    expect(document.documentElement.classList.contains(COACHING_ROOM_CLASS)).toBe(false);
+  });
+
+  it("renders nothing of its own", () => {
+    const { host, unmount } = render(<CoachingRoomPublic />);
+    expect(host.textContent).toBe("");
     unmount();
   });
 });

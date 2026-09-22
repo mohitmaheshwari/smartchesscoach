@@ -9,6 +9,16 @@
  * time, so a build-time flag cannot serve two accounts differently on a single
  * deployment. See docs/coaching_room_all_pages_spec.md section 5.
  *
+ * Public pages are a deliberate exception. They have no account, so a
+ * per-account gate cannot reach them: Landing and friends render outside
+ * ProtectedRoute, so nothing there ever sees an /auth/me payload. Mohit ruled
+ * on 2026-09-22 that public surfaces adopt the design unconditionally rather
+ * than carry a second flag, so the front door stops contradicting the app.
+ *
+ * Exactly one component owns the <html> class at a time -- CoachingRoomProvider
+ * on protected routes, CoachingRoomPublic on public ones. A given URL is one or
+ * the other, never both, so they cannot fight over it.
+ *
  * Two consumers:
  *   - a class on <html>, so stylesheets can scope every new rule under it and
  *     a disabled account renders byte-identical presentation to today;
@@ -26,6 +36,31 @@ export function isCoachingRoomEnabled(user) {
 }
 
 const CoachingRoomContext = createContext(false);
+
+/**
+ * Public routes, taken from the routes in App.js that are NOT wrapped in
+ * ProtectedRoute. Redirect-only routes are excluded: they render no page.
+ */
+const PUBLIC_EXACT = new Set([
+  "/",
+  "/login",
+  "/invite",
+  "/pricing",
+  "/terms",
+  "/privacy",
+  "/refund",
+  "/contact",
+  "/learn/openings",
+]);
+
+const PUBLIC_PREFIXES = ["/learn/openings/", "/prototype/"];
+
+/** True for a page that has no account and therefore cannot be gated. */
+export function isPublicCoachingRoomPath(pathname) {
+  const path = String(pathname || "");
+  if (PUBLIC_EXACT.has(path)) return true;
+  return PUBLIC_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
 
 /** True when the current account is enrolled in the redesign. */
 export function useCoachingRoom() {
@@ -56,6 +91,16 @@ export function CoachingRoomProvider({ user, children }) {
   const enabled = isCoachingRoomEnabled(user);
   useCoachingRoomClass(enabled);
   return createElement(CoachingRoomContext.Provider, { value: enabled }, children);
+}
+
+/**
+ * Apply the coaching room to a public page.
+ *
+ * Unconditional by design: there is no account to consult. Renders nothing.
+ */
+export function CoachingRoomPublic({ children = null }) {
+  useCoachingRoomClass(true);
+  return createElement(CoachingRoomContext.Provider, { value: true }, children);
 }
 
 export default CoachingRoomContext;

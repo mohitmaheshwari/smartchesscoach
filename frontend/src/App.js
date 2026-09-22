@@ -78,7 +78,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { MotionConfig } from "framer-motion";
 import { EXPERIENCE_V1_ENABLED } from "@/lib/experience";
-import { CoachingRoomProvider } from "@/lib/coachingRoom";
+import { CoachingRoomProvider, CoachingRoomPublic, isPublicCoachingRoomPath } from "@/lib/coachingRoom";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 export const API = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
@@ -306,6 +306,12 @@ function AppRouter() {
         somebody else and think it is their own account. Renders null for
         everyone who is not in a view-as session, which is almost everyone. */}
     <ViewAsBanner />
+    {/* Public pages have no account, so the per-account gate cannot reach
+        them. They adopt the coaching room unconditionally (Mohit, 2026-09-22)
+        rather than leave the front door contradicting the signed-in app.
+        Mounts only on public paths, so it never competes with the provider
+        ProtectedRoute installs. */}
+    {isPublicCoachingRoomPath(location.pathname) && <CoachingRoomPublic />}
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
