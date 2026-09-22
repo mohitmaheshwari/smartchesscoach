@@ -261,11 +261,50 @@ taught. That part is already built.
     (per-motif). That breaks the single-source rule. V1 picks one owner per
     question and the others defer to it.
 
-11. **Rule on `behavioral_coaching_layer`: give it a screen or delete it.**
-    It knows about collapsing from winning positions and tilt after a
-    blunder. `/coach/behavioral-profile` works and **no frontend file calls
-    it**. Its fields are set for 16 of 69 profiled users. Computing into
-    nothing is the worst of the three options, because it reads as coverage.
+11. **`behavioral_coaching_layer`: neither screen it nor delete it yet —
+    FEED IT FIRST.** (Ruled 2026-09-22 after measuring; the original choice
+    was a false pair.)
+
+    The questions it asks are the right ones: do you collapse when winning,
+    do you tilt after a blunder, do you move too fast. What it lacks is
+    input. Every gate reads `rushes_in_winning_positions`,
+    `post_blunder_accuracy`, `blunder_spiral_rate` and `consistency_score`
+    on `player_identity` — set for 16 of 69 players. With those unset the
+    gates cannot open, so the detection is not wrong, it is starved.
+
+    **Measured on production, 57 eligible players: 53 get no diagnosis at
+    all, and the other 4 all get the same one (TILT_PRONE).** Four of its
+    five branches have never executed. Wiring that to a screen today would
+    show 93% of players "no major behavioural patterns detected" — the same
+    empty-by-default failure as `positional_sense = 60`, in a friendlier
+    sentence.
+
+    **The same questions, asked of `move_observations` instead, separate
+    players cleanly.** Over 54 players with 300+ observed moves:
+
+    | measure | min | median | max | spread |
+    |---|---|---|---|---|
+    | mistakes when winning (+200) | 11.0% | 21.9% | 36.9% | 26 pts |
+    | mistakes when level | 3.1% | 15.9% | 37.8% | 35 pts |
+    | mistakes right after a mistake | 15.7% | 29.7% | 46.7% | 31 pts |
+    | moves played under 2 seconds | 4.7% | 20.7% | 48.6% | 44 pts |
+
+    And the rows read as people. `user_f8343883498` errs on 14.5% of moves
+    in level positions and 27.7% when winning — the collapse pattern, in one
+    player. `user_a6091ca3813` is the reverse: 37.8% level, 27.6% winning.
+    `user_b62f1d5c1f1` is 30.9 / 30.9 / 30.9 — nothing situational at all,
+    his problem is uniform. That is a diagnosis; "TILT_PRONE for everyone
+    who qualifies" is not.
+
+    So: keep the service, keep its questions, compute its inputs from
+    `move_observations`, and wire it to `DeepMemoryPanel` (which already
+    carries player-level facts in game review and the coach sidebar) only
+    once it varies between players in production.
+
+    **Say what was measured, never why.** "You make more mistakes when
+    winning" is a fact about the moves. Whether the cause is complacency or
+    simply that winning positions are harder to convert is NOT settled by
+    these numbers, and the panel must not imply it is.
 
 ### 3b. Where each piece appears on screen
 
