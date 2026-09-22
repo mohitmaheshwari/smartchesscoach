@@ -78,12 +78,17 @@ class DimensionAssessment:
     confidence: float  # 0-1, how confident we are in this assessment
     evidence_count: int  # How many data points support this
     trend: str  # "improving", "stable", "declining"
+    #: False when NO evidence was found and the score is still the function's
+    #: hardcoded baseline. Such a dimension is not a finding and must never be
+    #: reported as a strength, a weakness or a coaching focus.
+    measured: bool = True
     specific_strengths: List[str] = field(default_factory=list)
     specific_weaknesses: List[str] = field(default_factory=list)
     last_updated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     
     def to_dict(self) -> Dict:
         return {
+            "measured": self.measured,
             "level": self.level.value,
             "score": self.score,
             "confidence": self.confidence,
@@ -384,6 +389,8 @@ class UnderstandingCalculator:
         else:
             level = UnderstandingLevel.AWARE
         
+        positional_measured = bool(positional_strength_count or positional_weakness_count)
+
         specific_strengths = []
         specific_weaknesses = []
         
@@ -398,6 +405,7 @@ class UnderstandingCalculator:
             confidence=min(0.8, games / 50),
             evidence_count=games,
             trend="stable",
+            measured=positional_measured,
             specific_strengths=specific_strengths,
             specific_weaknesses=specific_weaknesses
         )
@@ -440,6 +448,7 @@ class UnderstandingCalculator:
             )
         
         score = 65
+        opening_measured = bool(opening_issues or opening_strengths)
         
         issue_ratio = opening_issues / games if games > 0 else 0
         strength_ratio = opening_strengths / games if games > 0 else 0
@@ -464,6 +473,7 @@ class UnderstandingCalculator:
             confidence=min(0.8, games / 30),
             evidence_count=games,
             trend="stable",
+            measured=opening_measured,
             specific_strengths=["Follows opening principles"] if opening_strengths > 10 else [],
             specific_weaknesses=["Falls for opening traps"] if opening_issues > games * 0.1 else []
         )
@@ -597,16 +607,42 @@ class UnderstandingCalculator:
             trend="stable"
         )
         
-        # Determine primary strength and weakness
-        dimensions = {
-            "Tactical Vision": tactical.score,
-            "Positional Sense": positional.score,
-            "Opening Knowledge": opening.score,
-            "Consistency": consistency.score
+        # Determine primary strength and weakness.
+        #
+        # This used to be a max() over all four scores, two of which never
+        # move off a hardcoded baseline -- positional starts at 60, opening
+        # at 65, and both only adjust if a weakness label happens to contain
+        # the word "positional", "structure", "pawn" or "opening". Nothing
+        # writes labels like that, so for every user in production the scores
+        # were exactly 60.0 and 65.0, and `max()` picked OPENING KNOWLEDGE as
+        # the strength of every single player -- because 65 is simply the
+        # largest constant.
+        #
+        # Measured on the founder's own account: 783 games, 1,053 opening
+        # blunders, `opening_knowledge` among his top blunder types -- and
+        # the app told him opening knowledge was his greatest strength.
+        #
+        # A dimension with no evidence behind it is not a finding. It cannot
+        # be a strength, a weakness, or a coaching focus.
+        all_dimensions = {
+            "Tactical Vision": tactical,
+            "Positional Sense": positional,
+            "Opening Knowledge": opening,
+            "Consistency": consistency,
         }
-        
-        primary_strength = max(dimensions, key=dimensions.get)
-        primary_weakness = min(dimensions, key=dimensions.get)
+        dimensions = {
+            name: dim.score
+            for name, dim in all_dimensions.items()
+            if dim.measured
+        }
+        if dimensions:
+            primary_strength = max(dimensions, key=dimensions.get)
+            primary_weakness = min(dimensions, key=dimensions.get)
+        else:
+            primary_strength = ""
+            primary_weakness = ""
+        if not dimensions:
+            dimensions = {n: d.score for n, d in all_dimensions.items()}
         
         # Determine overall understanding
         avg = sum(dimensions.values()) / len(dimensions)
@@ -623,7 +659,11 @@ class UnderstandingCalculator:
         
         # Determine coaching focus
         # Focus on the weakest area that has enough confidence
-        coaching_focus = f"Focus on improving {primary_weakness.lower()}"
+        coaching_focus = (
+            f"Focus on improving {primary_weakness.lower()}"
+            if primary_weakness
+            else "Not enough evidence yet to name a focus"
+        )
         
         return ChessUnderstanding(
             user_id=user_id,
