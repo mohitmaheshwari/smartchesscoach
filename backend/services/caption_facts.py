@@ -9161,7 +9161,26 @@ def _recommended_move_traps_piece(
                 "square": chess.square_name(m.to_square),
                 "covered_by": covered_by,
             })
-            if static_exchange_eval(probe, m.to_square, not victim_color) <= 50:
+            # SEE alone is not enough: it skips KING recaptures by design, so
+            # a piece fleeing to a square attacked only by the enemy king reads
+            # as safe. Found on game dfa9eed3 move 15 -- after White's Qa4 the
+            # black bishop on a3 has Bc5 (SEE 200), Bb4 (300), Bc1 (300) and
+            # Bb2, which scores 0 because only the king on b1 attacks b2. Kxb2
+            # simply wins the bishop, but that one false "safe" square made the
+            # detector call the whole trap off, and the card fell back to a
+            # generic prompt. Same defect the v154 note recorded about SEE and
+            # king recaptures.
+            see_ok = static_exchange_eval(
+                probe, m.to_square, not victim_color) <= 50
+            if see_ok:
+                really_hanging = any(
+                    item.get("square") == chess.square_name(m.to_square)
+                    for item in legally_hanging_pieces(
+                        probe, victim_color, 100)
+                )
+                if really_hanging:
+                    see_ok = False
+            if see_ok:
                 safe = True
                 break
         if safe:
