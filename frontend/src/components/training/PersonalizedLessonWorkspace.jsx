@@ -291,8 +291,16 @@ export default function PersonalizedLessonWorkspace({
       setFeedback(payload);
       setHelp(null);
       if (payload.complete) invalidatePersonalCurriculum();
-      if (payload.correct && payload.continuation?.moves?.length) {
-        setWalkthrough({ ...payload.continuation, index: 0 });
+      if (payload.continuation?.moves?.length) {
+        // Also on a wrong move: seeing what the right move would have done is
+        // the half that teaches. `wrong` switches the heading so it does not
+        // read as praise.
+        setWalkthrough({
+          ...payload.continuation,
+          index: 0,
+          wrong: !payload.correct,
+          answerSan: payload.answer_san || payload.continuation.moves[0]?.san,
+        });
       }
       setSession((currentSession) => ({
         ...currentSession,
@@ -431,7 +439,15 @@ export default function PersonalizedLessonWorkspace({
           <aside className="cg-panel p-5 md:p-6">
             {walkthrough ? (
               <div data-testid="lesson-walkthrough">
-                <p className="cg-eyebrow mb-2">Watch how it finishes</p>
+                <p className="cg-eyebrow mb-2">
+                  {walkthrough.wrong ? "What the right move does" : "Watch how it finishes"}
+                </p>
+                {walkthrough.wrong && walkthrough.index === 0 && (
+                  <p className="text-sm text-foreground mb-3">
+                    The move here was <strong>{walkthrough.answerSan}</strong>. Here is
+                    what it does.
+                  </p>
+                )}
                 <h1 className="font-heading text-2xl leading-tight tracking-[-0.03em] text-foreground mb-1">
                   {walkthrough.moves[walkthrough.index].san}
                 </h1>

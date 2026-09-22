@@ -2443,7 +2443,15 @@ async def process_personalized_move(
     next_index = index + 1 if (correct or blind or unmeasured) else index
     exhausted = bool(next_index >= len(items))
     complete = exhausted if blind else bool(correct and exhausted)
-    reveal_answer = bool(not correct and stage_value == "guide")
+    # A wrong move gets the right move and the reason for it. This used to be
+    # gated on the "guide" stage, so on a later-stage position the lesson said
+    # "The answer stays hidden on this new position. Use the correction and try
+    # again" -- a test posture, in a lesson someone opened to learn from.
+    #
+    # Safe for mastery: `answer_was_revealed` above reads prior events for an
+    # `answer_san`, so any later attempt at this item is already recorded as
+    # ANSWER_REVEALED assistance and cannot be counted as unassisted.
+    reveal_answer = bool(not correct)
     next_profile = session.get("teaching_profile") or {}
     if misconception:
         from services.personal_teaching_profile import (
@@ -2529,15 +2537,25 @@ async def process_personalized_move(
     # they never saw the pawn promote. Only on a correct answer, only when the
     # engine could produce and verify a line, and never fatal: a failure here
     # leaves the lesson behaving exactly as it did before.
+    # Shown after a right answer to prove the idea out, and after a wrong one
+    # to show what the right move would have done -- which is the half that
+    # actually teaches.
     result["continuation"] = None
-    if correct and item.get("fen") and grade.get("answer_san"):
+    if item.get("fen") and grade.get("answer_san"):
         try:
             from services.lesson_continuation import build_continuation
 
             walkthrough = build_continuation(
                 item["fen"], grade["answer_san"]
             )
-            if walkthrough.moves:
+            # Only show it when it actually demonstrates the idea. On
+            # lucena[2] the generated line ended with the defender capturing
+            # the pawn, so it reached no promotion and proved nothing -- worse
+            # than showing nothing, because it looks like the taught move
+            # failed.
+            if walkthrough.moves and (
+                walkthrough.reached_promotion or walkthrough.reached_mate
+            ):
                 result["continuation"] = walkthrough.public_dict()
         except Exception as exc:
             logger.warning("continuation unavailable: %s", exc)
