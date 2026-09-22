@@ -176,13 +176,58 @@ taught. That part is already built.
    2026-09-22, this line is stored for **90% of 100-199cp mistakes and 97% of
    200cp+ blunders**. The fork proof already fires correctly when handed it.
 
-3. **Repoint `chess_understanding` at `move_observations`** — phase,
-   eval_before (winning / level / losing), and the two new fields. Delete the
-   substring matching.
+3. **Delete the scoring in `chess_understanding.py`. Do not repair it.**
 
-4. **Delete the three invented dimensions** (`endgame = avg * 0.9`,
-   `calculation = tactical * 0.95`, `pattern_rec = average`). A dimension we
-   cannot measure is reported as "not enough evidence yet", never as a number.
+   An earlier draft of this scope said "repoint it". That was too kind. The
+   whole of ChessGuru's "multi-dimensional player analysis" is SEVEN LINES
+   of substring matching in an 879-line file:
+
+   ```
+   249:  if "one_move" in subcat or "simple" in subcat:
+   251:  if "tactical" in subcat or "complex" in subcat:
+   347:  if "positional" in cat or "development" in subcat or "structure" in subcat:
+   353:  if "positional" in cat or "structure" in subcat or "pawn" in subcat:
+   425:  if "opening" in subcat or "trap" in subcat or "principle" in subcat:
+   ```
+
+   No board is read. No engine value is used. No detector is called. Each
+   dimension starts at a hardcoded baseline and is nudged only if one of
+   those words appears in a weakness label. Nothing writes labels containing
+   those words, so every branch is dead and every score keeps its default.
+   That is why `positional_sense` is exactly 60.0 and `opening_knowledge`
+   exactly 65.0 for **all 17** profiles.
+
+   It is not a weak measurement. It is not a measurement. A player is told
+   "your positional sense is competent" because a loop found nothing.
+
+   There is nothing to repoint, so the scoring goes. The six QUESTIONS stay,
+   because the questions are right.
+
+4. **Rebuild each dimension as a count of proven detector fires.** The
+   evidence already exists, as numbers, one table away:
+
+   | dimension | what it counts | evidence we already hold |
+   |---|---|---|
+   | positional | positional detector events per 10 games | 66,912 events: knight_outpost 25,368, pawn_kicks_piece 12,242, king_pawn_lifted 11,347, same_piece_better_square 9,841, active_defense 4,223, defensive_pawn_push 2,473, attack_with_tempo 1,418 |
+   | opening | BREADTH, not just quality — how many sound openings the player actually knows | `player_identity.opening_repertoire`: openings played, main line, win rate per opening, split by colour and by reply to e4 |
+   | endgame | endgame blunders as a rate per endgame reached | 21,905 endgame blunders, 55 of 63 players |
+   | calculation | 1-move vs 3-move punishments | `punishment_depth`, new in item 1 |
+   | tactical | motifs found vs walked into | `motif_profile_service`, already two-sided |
+   | patterns | recurrence of the same named pattern | `user_pattern_events`, 123,154 rows |
+
+   **Opening knowledge means breadth (Mohit, 2026-09-22).** "How well did
+   you play the opening" is not "how much opening do you know". One sampled
+   player has 9 openings as White with a clear main line (French 17, then
+   Queen's Pawn 4, King's Pawn 4, Sicilian 4, Italian 3, Petrov 3, London 1,
+   Four Knights 1, QGD 1). That is breadth, depth and a main weapon, already
+   stored and entirely ignored by a constant 65.0.
+
+   Two caveats to settle first: only 17 of 69 players have a repertoire
+   built, and every win rate in the sampled repertoire reads 0.0, which
+   looks wrong and must be checked before anything trusts it.
+
+   A dimension with too little evidence reads "not enough yet". Never a
+   baseline, never a formula, never a number we did not measure.
 
 5. **Recompute on a schedule, not once and never again.** Remove the
    permanent cache.
