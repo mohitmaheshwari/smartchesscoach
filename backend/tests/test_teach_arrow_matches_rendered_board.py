@@ -44,13 +44,9 @@ def test_the_reply_picture_is_built_on_the_board_after_their_move():
     arrows = _reply_attack_arrows(before, played, "Qe7+")
     pairs = _arrow_pairs(arrows)
 
-    assert pairs, "the reply checks and wins -- this must draw"
-    # Every arrow STARTS at the square our queen lands on, and the green one
-    # ends on the piece the caption names: "Play Qe7 -- it attacks the queen
-    # on h7". That is the picture the card was supposed to draw all along.
-    assert ("e7", "h7") in pairs, pairs
-    assert ("e7", "e1") in pairs, pairs
-    assert all(a["from"] == "e7" for a in arrows), pairs
+    # Move the queen d8-e7; from e7 it hits the queen on h7 and checks the
+    # king on e1. That is "Play Qe7 -- it attacks the queen on h7", drawn.
+    assert pairs == {("d8", "e7"), ("e7", "h7"), ("e7", "e1")}, pairs
 
 
 def test_no_arrow_starts_at_the_opponents_queen():
@@ -331,3 +327,45 @@ def test_a_move_that_was_played_needs_no_relocated_copy():
     assert decision.visual.best_move_arrows == []
     assert decision.visual.best_move_arrows_fen == ""
     assert _arrow_pairs(decision.visual.arrows) == {("d5", "a8"), ("d5", "g8")}
+
+
+# --- the reply picture has to start on a piece the player can see ----------
+
+def test_the_reply_picture_leads_with_the_move_itself():
+    """Otherwise it is a line starting in mid-air.
+
+    _check_attack_arrows draws from the square the piece LANDS on. On our own
+    cards that square holds the piece that just moved. On an opponent card the
+    reply has not been played, so e7 is empty and the only thing the arrow
+    visibly touches is the opponent's queen on h7 -- the complaint all over
+    again, with the arrow pointing the other way.
+    """
+    before = chess.Board(AMBIGUOUS)
+    played = before.parse_san("b4")
+    arrows = _reply_attack_arrows(before, played, "Qe7+")
+    assert arrows
+
+    shown = before.copy()
+    shown.push(played)
+    first = arrows[0]
+    assert (first["from"], first["to"]) == ("d8", "e7"), arrows
+    assert shown.piece_at(chess.parse_square(first["from"])) is not None
+    # and the attack line still lands on the queen the caption names
+    assert ("e7", "h7") in _arrow_pairs(arrows)
+
+
+def test_the_move_arrow_is_not_drawn_twice():
+    """If the attack picture already contains it, adding it again double-draws."""
+    before = chess.Board(AMBIGUOUS)
+    played = before.parse_san("b4")
+    arrows = _reply_attack_arrows(before, played, "Qe7+")
+    pairs = [(a["from"], a["to"]) for a in arrows]
+    assert len(pairs) == len(set(pairs)), pairs
+
+
+def test_a_reply_with_no_attack_picture_draws_nothing_at_all():
+    """The move arrow alone is not a lesson -- it would put a blue line on
+    every opponent card in the game."""
+    before = chess.Board("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1")
+    played = before.parse_san("e4")
+    assert _reply_attack_arrows(before, played, "Ke7") == []

@@ -4513,7 +4513,26 @@ def _reply_attack_arrows(
         reply = after_opp.parse_san(str(user_reply_san))
     except Exception:
         return []
-    return _check_attack_arrows(after_opp, reply.uci())
+    attack = _check_attack_arrows(after_opp, reply.uci())
+    if not attack:
+        return []
+    # Lead with the MOVE. _check_attack_arrows draws from the square the piece
+    # lands on, which on this board is still empty -- the reply has not been
+    # played yet. On our own cards that square holds the piece that just moved,
+    # so it reads fine; here it left a line starting in mid-air and ending on
+    # the opponent's queen, which is what "the arrwo shoed on opoponent queen"
+    # describes. Drawing d8->e7 first puts the picture on a piece the player
+    # can see and reads in order: move here, and it hits that.
+    move_arrow = {
+        "from": chess.square_name(reply.from_square),
+        "to": chess.square_name(reply.to_square),
+        "color": "blue",
+        "teach": True,
+    }
+    pairs = {(a["from"], a["to"]) for a in attack}
+    if (move_arrow["from"], move_arrow["to"]) in pairs:
+        return attack
+    return [move_arrow] + attack
 
 
 def _punishment_arrows(
