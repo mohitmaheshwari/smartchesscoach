@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Play with Coach — dark premium</title>
+<style>
+:root{
+  --bg:#0a0a0c; --rail:#0d0d10; --panel:#141418; --panel-2:#1a1a20;
+  --line:#26262e; --line-soft:#1d1d24;
+  --text:#f2f1ec; --muted:#8d8d98; --dim:#5f5f6b;
+  --accent:#e0a044; --accent-soft:rgba(224,160,68,.10); --accent-line:rgba(224,160,68,.38);
+  --sq-light:#e9d8b6; --sq-dark:#9a6b38;
+  --ui:ui-sans-serif,system-ui,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --display:ui-serif,Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
+.app{display:grid;grid-template-columns:76px 1fr;height:100vh}
+
+/* Rail keeps labels. An unlabelled icon rail is fine for a power user and
+   hostile to a 900-rated player who opens this twice a week. */
+.rail{background:var(--rail);border-right:1px solid var(--line-soft);
+  display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:2px}
+.mark{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;
+  background:linear-gradient(160deg,#2a2118,#171319);border:1px solid #33291d;
+  color:var(--accent);font-size:17px;margin-bottom:16px}
+.nav{display:flex;flex-direction:column;align-items:center;gap:3px;width:100%}
+.nav a{width:60px;padding:8px 0 6px;border-radius:10px;display:flex;flex-direction:column;
+  align-items:center;gap:4px;color:var(--dim);text-decoration:none;transition:.15s}
+.nav a span.i{font-size:16px;line-height:1}
+.nav a span.t{font-size:9px;letter-spacing:.04em;text-transform:uppercase}
+.nav a:hover{color:var(--muted);background:#141419}
+.nav a.on{color:var(--accent);background:var(--accent-soft)}
+.rail .sp{flex:1}
+
+.main{display:flex;flex-direction:column;min-width:0}
+
+.top{height:58px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;border-bottom:1px solid var(--line-soft);background:#0c0c0f}
+.who{display:flex;align-items:center;gap:11px}
+.av{width:32px;height:32px;border-radius:8px;background:#221c14;border:1px solid #33291d;
+  display:grid;place-items:center;font-size:15px}
+.who b{font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+.who .sub{font-size:11px;color:var(--muted)}
+.rt{font-size:10.5px;color:var(--accent);background:var(--accent-soft);
+  border:1px solid var(--accent-line);padding:1px 6px;border-radius:5px;margin-left:7px}
+.taken{display:flex;gap:2px;margin-left:16px;font-size:15px;color:#9a9aa6;opacity:.9}
+.brand{font-family:var(--display);font-size:16px;letter-spacing:.01em;color:#d8d5cc}
+.brand em{font-style:italic;color:var(--accent)}
+
+.body{flex:1;display:grid;grid-template-columns:1fr 392px;gap:22px;padding:20px 22px;min-height:0}
+.boardwrap{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0}
+
+/* The board is the hero. Everything else defers to it. */
+.board{
+  width:min(70vh,100%);aspect-ratio:1;display:grid;
+  grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
+  border-radius:6px;overflow:hidden;border:1px solid #000;
+  box-shadow:0 30px 70px rgba(0,0,0,.55),0 0 0 7px #17120c,0 0 0 8px #241a10;
+}
+.sq{position:relative;display:grid;place-items:center}
+.sq.l{background:
+  repeating-linear-gradient(94deg,rgba(255,255,255,.05) 0 2px,transparent 2px 6px),
+  linear-gradient(160deg,#eedcb8,#e0cda6)}
+.sq.d{background:
+  repeating-linear-gradient(94deg,rgba(0,0,0,.07) 0 2px,transparent 2px 7px),
+  linear-gradient(160deg,#a5743d,#8c6132)}
+.sq.hl::after{content:"";position:absolute;inset:0;background:rgba(224,178,68,.42)}
+.sq.chk::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(circle,rgba(212,90,76,.85),rgba(150,40,32,.35))}
+.p{position:relative;z-index:2;font-size:min(8.2vh,58px);line-height:1;user-select:none}
+.p.w{color:#fdfcf8;text-shadow:0 1px 0 #6d5a44,0 2px 3px rgba(0,0,0,.45)}
+.p.b{color:#1d1a17;text-shadow:0 1px 0 rgba(255,255,255,.14),0 2px 3px rgba(0,0,0,.4)}
+.co{position:absolute;font-size:9.5px;font-weight:700;opacity:.8;z-index:3}
+.co.f{right:3px;bottom:1px}
+.co.r{left:3px;top:1px}
+.sq.l .co{color:#7a5a2e}
+.sq.d .co{color:#f0dcb6}
+
+.coach{display:flex;flex-direction:column;gap:11px;min-height:0;overflow:hidden}
+.ch{display:flex;align-items:center;justify-content:center;gap:8px;
+  font-size:10px;letter-spacing:.20em;text-transform:uppercase;color:var(--muted);
+  padding:9px;border:1px solid var(--line-soft);border-radius:10px;background:var(--panel)}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+/* Exactly one highlighted thing on the page. The restraint is what reads
+   as premium, not the palette. */
+.verdict{border:1px solid var(--accent-line);border-radius:13px;background:
+  linear-gradient(180deg,rgba(224,160,68,.09),rgba(224,160,68,.03));padding:15px}
+.vtop{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.vlab{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600;color:var(--accent)}
+.vmove{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;color:#efe6d6}
+.act{display:flex;align-items:center;gap:12px;width:100%;text-align:left;cursor:pointer;
+  background:rgba(224,160,68,.10);border:1px solid var(--accent-line);border-radius:10px;
+  padding:12px 13px;color:var(--text);font-family:inherit;transition:.15s}
+.act:hover{background:rgba(224,160,68,.17)}
+.act .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;
+  background:var(--accent);color:#1a1206;font-size:14px}
+.act b{display:block;font-size:13.5px;font-weight:600}
+.act small{display:block;font-size:11.5px;color:var(--muted)}
+.act .ar{margin-left:auto;color:var(--accent)}
+
+.opts{display:flex;flex-direction:column;gap:7px}
+.opt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;cursor:pointer;
+  background:var(--panel);border:1px solid var(--line-soft);border-radius:11px;
+  padding:11px 13px;color:var(--text);font-family:inherit;transition:.15s}
+.opt:hover{background:var(--panel-2);border-color:var(--line)}
+.opt .ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex:none;
+  background:#22222a;color:var(--muted);font-size:13px}
+.opt b{display:block;font-size:13px;font-weight:600}
+.opt small{display:block;font-size:11.5px;color:var(--dim)}
+.opt .ar{margin-left:auto;color:var(--dim)}
+
+/* Deliberately NOT "last time Bc4 — inaccuracy, try d4". That leads with a
+   move and reads as a scoreboard of failures. Lead with the habit instead,
+   in words the player can carry into the next game. */
+.pat{border:1px solid var(--line-soft);border-radius:11px;background:var(--panel);padding:13px}
+.pk{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:7px}
+.pat p{font-size:13px;line-height:1.55;color:#d8d7d1}
+.pat .n{font-size:11.5px;color:var(--muted);margin-top:6px}
+
+.hist{border:1px solid var(--line-soft);border-radius:11px;background:var(--panel);
+  padding:11px 13px;flex:1;min-height:0;display:flex;flex-direction:column}
+.hist .pk{margin-bottom:8px}
+.rows{overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+.row{display:grid;grid-template-columns:30px 1fr 1fr;gap:8px;padding:3.5px 0;color:#c9c8c2}
+.row i{color:var(--dim);font-style:normal}
+.row .m.bad{color:var(--accent)}
+
+.bot{height:62px;border-top:1px solid var(--line-soft);background:#0c0c0f;
+  display:flex;align-items:center;justify-content:space-between;padding:0 22px;gap:20px}
+.meter{flex:1;max-width:330px}
+.mrow{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-bottom:5px}
+.bar{height:4px;border-radius:2px;background:#25252c;overflow:hidden}
+.bar i{display:block;height:100%;width:58%;background:linear-gradient(90deg,var(--accent),#c98a34)}
+.btns{display:flex;gap:9px}
+.btn{padding:8px 15px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;
+  background:var(--panel);border:1px solid var(--line);color:var(--muted);font-family:inherit}
+.btn:hover{color:var(--text);border-color:#3a3a45}
+/* No amber down here. The accent is spent on the coach's one action; a draw
+   offer must not compete with the teaching moment. */
+.btn.p{background:var(--panel-2);border-color:#3a3a45;color:var(--text)}
+.clock{font-family:ui-monospace,monospace;font-size:19px;letter-spacing:.02em}
+
+/* Sits in the top bar, not floating over the footer where it collided with
+   the player line. */
+.note{position:fixed;top:19px;left:50%;transform:translateX(-50%);
+  font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:#55555f;z-index:9;pointer-events:none}
+@media (max-width:1180px){.body{grid-template-columns:1fr}.coach{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail">
+    <div class="mark">&#9816;</div>
+    <div class="nav">
+      <a href="#"><span class="i">&#9636;</span><span class="t">Home</span></a>
+      <a href="#" class="on"><span class="i">&#9819;</span><span class="t">Play</span></a>
+      <a href="#"><span class="i">&#9671;</span><span class="t">Learn</span></a>
+      <a href="#"><span class="i">&#9650;</span><span class="t">Review</span></a>
+      <a href="#"><span class="i">&#9788;</span><span class="t">Progress</span></a>
+    </div>
+    <div class="sp"></div>
+    <div class="nav">
+      <a href="#"><span class="i">&#9881;</span><span class="t">Settings</span></a>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="top">
+      <div class="who">
+        <div class="av">&#9819;</div>
+        <div>
+          <b>The Maestro<span class="rt">2100</span></b>
+          <div class="sub">Sicilian Defence &middot; Najdorf</div>
+        </div>
+        <div class="taken">&#9817;&#9817;&#9816;&#9815;</div>
+      </div>
+      <div class="brand">Chess<em>Guru</em></div>
+    </header>
+
+    <div class="body">
+      <div class="boardwrap"><div class="board" id="board"></div></div>
+
+      <aside class="coach">
+        <div class="ch"><span class="dot"></span> Your coach</div>
+
+        <div class="verdict">
+          <div class="vtop">
+            <div class="vlab"><span class="dot"></span> Mistake</div>
+            <div class="vmove">Rxe4</div>
+          </div>
+          <button class="act">
+            <span class="ic">&#10022;</span>
+            <span><b>Show me why</b><small>What this move let your opponent do</small></span>
+            <span class="ar">&#8594;</span>
+          </button>
+        </div>
+
+        <div class="opts">
+          <button class="opt"><span class="ic">&#9673;</span>
+            <span><b>Board vision</b><small>Threats, pins and x-rays right now</small></span>
+            <span class="ar">&#8250;</span></button>
+          <button class="opt"><span class="ic">&#9889;</span>
+            <span><b>Better move</b><small>The line, and why it holds</small></span>
+            <span class="ar">&#8250;</span></button>
+          <button class="opt"><span class="ic">&#9776;</span>
+            <span><b>This opening</b><small>Where you left the main line</small></span>
+            <span class="ar">&#8250;</span></button>
+        </div>
+
+        <div class="pat">
+          <div class="pk">A habit worth watching</div>
+          <p>When a piece of yours is attacked, you tend to save it before asking what it was defending.</p>
+          <div class="n">Third game this week where that decided the position.</div>
+        </div>
+
+        <div class="hist">
+          <div class="pk">Moves</div>
+          <div class="rows">
+            <div class="row"><i>16</i><span class="m">Bxf3</span><span class="m">Bxf3</span></div>
+            <div class="row"><i>17</i><span class="m">Rg1</span><span class="m">Bxe4</span></div>
+            <div class="row"><i>18</i><span class="m">Bxf6</span><span class="m">exf6</span></div>
+            <div class="row"><i>19</i><span class="m">Qxf6</span><span class="m">Qxf6</span></div>
+            <div class="row"><i>20</i><span class="m">Rg4</span><span class="m">Rfe8</span></div>
+            <div class="row"><i>21</i><span class="m">Kd2</span><span class="m bad">Rxe4</span></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="bot">
+      <div class="who">
+        <div class="av">&#9817;</div>
+        <div><b>mohit<span class="rt">822</span></b><div class="sub">White &middot; 21 moves</div></div>
+      </div>
+      <div class="meter">
+        <div class="mrow"><span>Accuracy so far</span><span>58%</span></div>
+        <div class="bar"><i></i></div>
+      </div>
+      <div class="clock">5:39</div>
+      <div class="btns">
+        <button class="btn">Restart</button>
+        <button class="btn">Resign</button>
+        <button class="btn p">Offer a draw</button>
+      </div>
+    </footer>
+  </div>
+</div>
+<div class="note">Mockup &middot; illustrative position</div>
+
+<script>
+// Illustrative position only. A mockup makes no chess claim.
+var FEN = "r5k1/pp3p1p/3p1qp1/8/1PP1r3/P7/7P/4K3";
+var G = {k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟"};
+var HL = {e8:1, e4:1};
+var CHK = {e1:1};
+var files = "abcdefgh";
+
+function square(fi, ri, ch){
+  var name = files.charAt(fi) + (8 - ri);
+  var cls = ((fi + ri) % 2) ? "d" : "l";
+  if (HL[name]) { cls += " hl"; }
+  if (CHK[name]) { cls += " chk"; }
+  var piece = "";
+  if (ch) {
+    var side = (ch === ch.toUpperCase()) ? "w" : "b";
+    piece = "<span class=\"p " + side + "\">" + G[ch.toLowerCase()] + "</span>";
+  }
+  var co = "";
+  if (ri === 7) { co += "<span class=\"co f\">" + files.charAt(fi) + "</span>"; }
+  if (fi === 0) { co += "<span class=\"co r\">" + (8 - ri) + "</span>"; }
+  return "<div class=\"sq " + cls + "\">" + piece + co + "</div>";
+}
+
+var out = "";
+FEN.split("/").forEach(function(row, ri){
+  var fi = 0;
+  row.split("").forEach(function(ch){
+    if (ch >= "1" && ch <= "8") {
+      var n = Number(ch);
+      for (var i = 0; i < n; i++) { out += square(fi++, ri, null); }
+    } else {
+      out += square(fi++, ri, ch);
+    }
+  });
+});
+document.getElementById("board").innerHTML = out;
+</script>
+</body>
+</html>
