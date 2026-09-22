@@ -109,6 +109,18 @@ const DETECTORS = [
     claims:
       "a Lichess pin puzzle our detector declined. Is it a pin lesson, and if so what makes the pin pay off? We wrongly demand that the pinning piece capture the pinned piece",
   },
+  // The inverse of the queue above, added 2026-09-22. Every other Lichess
+  // queue asks about positions the detector DECLINED; this one asks about the
+  // ones it now accepts. It exists because the pre-existing pin class ships
+  // under a CAPTION grade whose sealed packet contains zero examples of it
+  // (population: 374 direct, 62 discovered, 0 pre-existing), so nobody has
+  // ever judged the sentence these positions produce.
+  {
+    id: "lichess_pin_existing",
+    label: "Pin already on the board — is the sentence true?",
+    claims:
+      "a pin that existed BEFORE the move. We do not claim to have created it, only to have used it. The card shows the exact sentence a player would read: mark it false if the pin is real but had nothing to do with why the move works",
+  },
   {
     id: "lichess_trapped",
     label: "Trapped piece — what is the motif?",
