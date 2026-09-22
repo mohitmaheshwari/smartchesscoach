@@ -33,13 +33,6 @@ def test_new_pin_must_win_the_exact_front_piece_in_stored_line():
         "rear_square": "d7",
         "net_material_gain_cp": 200,
         "replayed_uci": ("c4b5", "h7h6", "b5c6", "d7c6"),
-        # Provenance, added 2026-09-22 with the line walk: WHERE in the
-        # stored line the alignment was found. This case is the immediate
-        # one, so it must stay at ply 1 -- if the walk ever started
-        # answering this position from a later ply, that would be a real
-        # regression and this exact-equality check is what would catch it.
-        "alignment_ply_in_line": 1,
-        "alignment_is_immediate": True,
     }
 
 

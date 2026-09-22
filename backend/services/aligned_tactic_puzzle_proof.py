@@ -537,20 +537,27 @@ def _stored_payoff(
     return payoff
 
 
-def _attempt_at(
+def build_aligned_tactic_proof(
     board_before: chess.Board,
-    best: chess.Move,
-    continuation: Sequence[Any],
-) -> Optional[tuple]:
-    """Try to prove an alignment created (or used) by `best` in this position.
+    played_move: str,
+    best_move: str,
+    pv_after_best: Sequence[Any],
+    cp_loss: Any,
+) -> Optional[AlignedTacticProofBundle]:
+    try:
+        played = parse_legal_move(board_before, played_move)
+        best = parse_legal_move(board_before, best_move)
+        loss = require_nonnegative_cp_loss(cp_loss)
+    except (ValueError, TypeError):
+        return None
+    if played is None or best is None or played == best or loss < 100:
+        return None
 
-    Everything the builder used to do inline, so it can be run at a later ply
-    of the stored line without duplicating a single gate.
-    """
     candidate = _candidate_delta(board_before, best)
     if not candidate:
         return None
     kind = "pin" if candidate["front_value_vs_rear"] == "lower" else "skewer"
+    concept_id = f"tactic.{kind}"
 
     before_independent = _ray_alignments(board_before, board_before.turn)
     after = board_before.copy(stack=False)
@@ -584,69 +591,13 @@ def _attempt_at(
         # dict is shared with `after_independent`.
         independent_alignment = dict(independent_alignment)
         independent_alignment["alignment_pre_existing"] = True
-    if independent_alignment is None:
-        return None
-    payoff = _stored_payoff(
-        board_before, best, continuation, independent_alignment
-    )
-    if payoff is None:
-        return None
-    return kind, candidate, payoff
-
-
-def build_aligned_tactic_proof(
-    board_before: chess.Board,
-    played_move: str,
-    best_move: str,
-    pv_after_best: Sequence[Any],
-    cp_loss: Any,
-) -> Optional[AlignedTacticProofBundle]:
-    try:
-        played = parse_legal_move(board_before, played_move)
-        best = parse_legal_move(board_before, best_move)
-        loss = require_nonnegative_cp_loss(cp_loss)
-    except (ValueError, TypeError):
-        return None
-    if played is None or best is None or played == best or loss < 100:
-        return None
-
-    # The ply-1 candidate is the DETECTOR's claim and must survive even when
-    # nothing proves it: callers rely on getting an unverified bundle rather
-    # than None, and three guard tests pin that contract. Returning None here
-    # did not over-claim -- it made the claim vanish, which is worse, because
-    # a silent absence cannot be reviewed.
-    ply_one_candidate = _candidate_delta(board_before, best)
-
-    attempt = _attempt_at(board_before, best, pv_after_best)
-    ply_in_line = 1
-    if attempt is None:
-        # The alignment is often not on the board yet when the good move is
-        # played -- it is born a move or two later, frequently BY the reply
-        # the good move forces. Mohit, 2026-09-22, on Lichess alf8c: "axb4
-        # was the pin because rook vs rook, and if you played the line you
-        # would have found out."
-        #
-        # He is right, and it is the same miss that fork and discovered_attack
-        # both had: the shape scan was correct and was simply pointed at one
-        # position. So run the IDENTICAL scan at every later ply the solver
-        # moves. No gate is loosened; the only change is where we look.
-        attempt, ply_in_line = _alignment_anywhere_in_line(
-            board_before, best, pv_after_best
+    payoff = (
+        _stored_payoff(
+            board_before, best, pv_after_best, independent_alignment
         )
-    if attempt is None:
-        if not ply_one_candidate:
-            return None
-        # Geometry with no proved payoff: the detector still says what it
-        # saw, the verifier still refuses it.
-        kind = ("pin" if ply_one_candidate["front_value_vs_rear"] == "lower"
-                else "skewer")
-        candidate, payoff = ply_one_candidate, None
-    else:
-        kind, candidate, payoff = attempt
-        payoff = dict(payoff)
-        payoff["alignment_ply_in_line"] = ply_in_line
-        payoff["alignment_is_immediate"] = ply_in_line == 1
-    concept_id = f"tactic.{kind}"
+        if independent_alignment
+        else None
+    )
 
     detector = DetectorProof(
         concept_id=concept_id,
@@ -672,45 +623,3 @@ def build_aligned_tactic_proof(
         facts=(payoff,) if payoff else (),
     )
     return AlignedTacticProofBundle(detector=detector, verifier=verifier)
-
-
-def _alignment_anywhere_in_line(
-    board_before: chess.Board,
-    best: chess.Move,
-    pv_after_best: Sequence[Any],
-) -> tuple:
-    """Run the unchanged scan at each later ply the solver moves.
-
-    Returns (attempt, ply) or (None, 0). The ply is 1-based over the whole
-    line, so ply 1 is `best` itself and only 3, 5, 7 ... are ever tried here.
-    """
-    # Same replay settings as _stored_payoff, deliberately. Passing
-    # resolve_ambiguous_continuation=True here made lines replay that the
-    # payoff path itself calls incomplete, so the walk was not just "look at
-    # more plies" -- it quietly relaxed strictness, and it fired on a curated
-    # negative recorded as `incomplete_line`. The walk may change WHERE we
-    # look. It may not change WHAT counts.
-    replay = replay_stored_line(board_before, best, pv_after_best)
-    if not replay.complete:
-        return None, 0
-    initiator = board_before.turn
-    board = board_before.copy(stack=False)
-    ucis = list(replay.replayed_uci)
-    for index, uci in enumerate(ucis):
-        try:
-            move = chess.Move.from_uci(str(uci))
-        except ValueError:
-            return None, 0
-        if move not in board.legal_moves:
-            return None, 0
-        if index > 0 and board.turn == initiator:
-            # The continuation the payoff models get must start AFTER this
-            # move, exactly as it does at ply 1 -- handing them the whole
-            # line would let them settle a capture that has already happened.
-            attempt = _attempt_at(
-                board.copy(stack=False), move, list(ucis[index + 1:])
-            )
-            if attempt is not None:
-                return attempt, index + 1
-        board.push(move)
-    return None, 0
