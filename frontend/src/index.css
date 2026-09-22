@@ -13,7 +13,7 @@
    finding all 26 and the app had no single source of truth for its own accent.
    It is now one token. Change these three lines, the whole app follows.
 
-   2026-09-23: acid lime (var(--cg-accent)) -> our green (#7fb069), per the approved
+   2026-09-23: acid lime (#b7f34a) -> our green, per the approved
    Play with Coach mockup. The lime read closer to a highlighter than to a
    coach.
 --------------------------------------------------------------------------- */
@@ -131,7 +131,7 @@
 
 .experience-v1 .experience-primary:hover {
   filter: brightness(1.04);
-  box-shadow: 0 14px 34px hsl(38 92% 42% / 0.28);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.36);
 }
 
 .experience-v1 .experience-eyebrow {
@@ -620,7 +620,8 @@
   padding: clamp(0.4rem, 1vw, 0.75rem);
   border: 1px solid hsl(var(--border) / 0.76);
   border-radius: 1.1rem;
-  background: linear-gradient(145deg, hsl(224 26% 13%), hsl(224 32% 7%));
+  /* Neutral, so nothing tints the board. */
+  background: #141618;
   box-shadow:
     0 26px 70px hsl(var(--experience-shadow) / 0.24),
     0 1px 0 hsl(0 0% 100% / 0.07) inset;
@@ -1094,48 +1095,57 @@
     #f4efe4;
 }
 
+/* Dark — the coaching room.
+   Values from docs/design/chessguru-pwc-dark-mockup.html, approved 2026-09-23.
+
+   NOTE for whoever reads this next: every one of these tokens is ALSO defined
+   ~1000 lines above under the same selector. That earlier block is dead - this
+   one wins on source order. Edit here, not there.
+
+   The surfaces were green-tinted (--background: 157 48% 5%), which is what put
+   a green wash over every page. They are now neutral near-black, so the only
+   colour on screen is the board and the one accent. */
 .dark .experience-v1 {
-  --background: 157 48% 5%;
-  --foreground: 42 33% 94%;
-  --card: 156 42% 9%;
-  --card-foreground: 42 33% 94%;
-  --popover: 156 42% 9%;
-  --popover-foreground: 42 33% 94%;
-  /* 2026-09-23: was acid lime 82 87% 62%. This is the app's real accent
-     token - it is redefined here, later than the amber at the top of the
-     file, so this one wins. Now our green, matching --cg-accent. */
+  --background: 210 9% 4%;        /* #0a0b0c */
+  --foreground: 80 11% 94%;       /* #f1f2ef */
+  --card: 210 9% 9%;              /* #141618 */
+  --card-foreground: 80 11% 94%;
+  --popover: 210 9% 9%;
+  --popover-foreground: 80 11% 94%;
+  /* 2026-09-23: was acid lime 82 87% 62%. Now our green, matching
+     --cg-accent. Dark foreground on it measures ~7.8:1; white would be
+     ~2.5:1, so primary-foreground must stay dark. */
   --primary: 101 31% 55%;
-  --primary-foreground: 157 48% 6%;
-  --secondary: 157 30% 13%;
-  --secondary-foreground: 42 33% 94%;
-  --muted: 157 27% 13%;
-  --muted-foreground: 154 12% 66%;
-  --accent: 158 65% 70%;
-  --accent-foreground: 157 48% 6%;
-  --border: 155 23% 18%;
-  --input: 155 23% 18%;
-  --ring: 82 87% 62%;
-  background:
-    radial-gradient(circle at 92% -5%, rgb(var(--cg-accent-rgb) / 0.10), transparent 32rem),
-    radial-gradient(circle at 10% 105%, rgb(126 231 194 / 0.08), transparent 30rem),
-    #071411;
+  --primary-foreground: 210 9% 4%;
+  --secondary: 210 10% 11%;       /* #1a1d20 */
+  --secondary-foreground: 80 11% 94%;
+  --muted: 210 10% 11%;
+  --muted-foreground: 212 7% 57%; /* #8a9199 */
+  --accent: 210 10% 11%;          /* shadcn "accent" = hover bg, not brand */
+  --accent-foreground: 80 11% 94%;
+  --border: 207 11% 16%;          /* #252a2e hairline */
+  --input: 207 11% 16%;
+  --ring: 101 31% 55%;
+  /* No blanket glow behind every page. The old radial washes made every
+     surface faintly green and flattened the hierarchy. */
+  background: #0a0b0c;
 }
 
+/* Flat panel, hairline edge. The green gradient and accent glow made the
+   navigation compete with the board for attention. */
 .experience-v1 .experience-sidebar {
-  color: #f4efe4;
-  background:
-    radial-gradient(circle at 30% 0%, rgb(var(--cg-accent-rgb) / 0.10), transparent 14rem),
-    linear-gradient(180deg, #0d211b 0%, #071411 100%);
-  border-right: 1px solid rgb(255 255 255 / 0.09);
-  box-shadow: 24px 0 70px rgb(7 20 17 / 0.12);
+  color: #f1f2ef;
+  background: #0d0e10;
+  border-right: 1px solid rgb(255 255 255 / 0.07);
+  box-shadow: none;
 }
 
 .experience-v1 .experience-sidebar .text-foreground {
-  color: #f4efe4;
+  color: #f1f2ef;
 }
 
 .experience-v1 .experience-sidebar .text-muted-foreground {
-  color: rgb(244 239 228 / 0.58);
+  color: rgb(241 242 239 / 0.56);
 }
 
 .experience-v1 .experience-sidebar nav a > div:not(.experience-coach-cta):hover,
@@ -1145,7 +1155,7 @@
 }
 
 .experience-v1 .experience-sidebar nav a > div.bg-primary\/15 {
-  color: #dfffa7;
+  color: var(--cg-accent);
   background: rgb(var(--cg-accent-rgb) / 0.12);
 }
 
@@ -1157,16 +1167,16 @@
 
 .experience-v1 .experience-coach-cta,
 .experience-v1 .experience-primary {
-  color: #071411;
+  color: #0a0b0c;
   background: var(--cg-accent);
   border: 1px solid rgb(var(--cg-accent-rgb) / 0.72);
-  box-shadow: 0 16px 38px rgb(var(--cg-accent-rgb) / 0.18);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.30);
 }
 
 .experience-v1 .experience-coach-cta:hover,
 .experience-v1 .experience-primary:hover {
   background: var(--cg-accent-hi);
-  box-shadow: 0 20px 48px rgb(var(--cg-accent-rgb) / 0.25);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.36);
 }
 
 .experience-v1 .experience-acid-badge {
@@ -1276,14 +1286,14 @@
 }
 
 .experience-v1 .experience-mobile-nav a.is-active {
-  color: #dfffa7;
+  color: var(--cg-accent);
   background: rgb(var(--cg-accent-rgb) / 0.12);
 }
 
 .experience-v1 .experience-mobile-nav a.experience-mobile-coach {
-  color: #071411;
+  color: #0a0b0c;
   background: var(--cg-accent);
-  box-shadow: 0 10px 28px rgb(var(--cg-accent-rgb) / 0.20);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.30);
 }
 
 /* New shared page primitives. These let the canonical pages migrate without
@@ -1310,12 +1320,13 @@
   box-shadow: 0 32px 90px rgb(7 20 17 / 0.09);
 }
 
+/* Flat card, hairline edge. Was a green gradient (#10271f -> #0b2019) with an
+   accent wash, which made the page's largest surface its loudest one. The
+   introduction should not outshout the thing you came to do. */
 .dark .experience-v1 .cg-hero {
-  border-color: rgb(255 255 255 / 0.09);
-  background:
-    radial-gradient(circle at 92% 0%, rgb(var(--cg-accent-rgb) / 0.13), transparent 18rem),
-    linear-gradient(145deg, #10271f, #0b2019);
-  box-shadow: 0 32px 90px rgb(0 0 0 / 0.24);
+  border-color: rgb(255 255 255 / 0.07);
+  background: hsl(var(--card));
+  box-shadow: none;
 }
 
 .cg-eyebrow {
@@ -1391,18 +1402,18 @@
   padding: 0.75rem 1.35rem;
   border: 1px solid rgb(var(--cg-accent-rgb) / 0.72);
   border-radius: 999px;
-  color: #071411;
+  color: #0a0b0c;
   background: var(--cg-accent);
   font-size: 0.86rem;
   font-weight: 800;
-  box-shadow: 0 16px 38px rgb(var(--cg-accent-rgb) / 0.18);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.30);
   transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
 
 .cg-primary-action:hover {
   transform: translateY(-2px);
   background: var(--cg-accent-hi);
-  box-shadow: 0 20px 48px rgb(var(--cg-accent-rgb) / 0.25);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.36);
 }
 
 .cg-secondary-action {
