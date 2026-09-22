@@ -200,6 +200,45 @@ taught. That part is already built.
    genuinely two-sided the way Mohit described it — allowed / missed /
    punished / found — from stored data, with no new engine work.
 
+9. **Fix `worst_phase` so it can say "endgame".** Today it is a single
+   winner-takes-all label, and middlegame has the most moves, so middlegame
+   always wins. Across 63 profiled players it reads middlegame 48, opening
+   15, **endgame 0** — never once. Those same players have **21,905 endgame
+   blunders**, and 55 of 63 have at least one. Anything that reads
+   `worst_phase` to decide what to teach is structurally blind to the endgame
+   for every user we have. Report a phase as a problem on its own merits,
+   not by beating the other two.
+
+10. **Name one source of truth for "how good is this player".** Three
+    services can answer it today and nothing says which wins:
+    `chess_understanding` (six dimensions), `player_identity.style_profile`
+    (tactical vs positional tendency) and `motif_profile_service`
+    (per-motif). That breaks the single-source rule. V1 picks one owner per
+    question and the others defer to it.
+
+11. **Rule on `behavioral_coaching_layer`: give it a screen or delete it.**
+    It knows about collapsing from winning positions and tilt after a
+    blunder. `/coach/behavioral-profile` works and **no frontend file calls
+    it**. Its fields are set for 16 of 69 profiled users. Computing into
+    nothing is the worst of the three options, because it reads as coverage.
+
+### 3b. Where each piece appears on screen
+
+Nothing in this scope counts as done until it is on a screen. This is the
+map as it stands today, measured 2026-09-22.
+
+| What the player learns | Service | Screen today | State |
+|---|---|---|---|
+| Six dimensions (tactical, positional, opening, endgame, calculation, patterns) | `chess_understanding` | Game review (`LabV2`) via `/lab/{id}/deep-strategy` | Live, but only 17 of 128 users have one |
+| Playing style, worst phase, blunder breakdown | `player_identity` | `DeepMemoryPanel`, inside game review and the coach sidebar | Live, 69 users, 100% have a style |
+| Tactical vs positional tendency, as numbers | `player_identity.style_profile` | **Nowhere** | Computed, never shown |
+| Behaviour when winning or losing | `behavioral_coaching_layer` | **Nowhere** | Endpoint works, no caller |
+| Motif strength and weakness | `motif_profile_service` | Lab (`TacticsMasteryPanel`), `MotifDrill` | Live and working |
+| Allowed vs missed, punishment depth | *new in this scope* | Game review card (2a) + record (2b) | To build |
+
+Two rows read **Nowhere**. Those are the last-wire failures this scope must
+close, and no item here is finished while its row is still empty.
+
 ---
 
 ## 4. Explicitly out of scope (V1)
