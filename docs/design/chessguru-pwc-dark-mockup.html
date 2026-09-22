@@ -4,6 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Play with Coach — coaching room</title>
+<!-- The app's real piece set, copied verbatim from
+     node_modules/chessground/assets/. Self-contained: 12 embedded SVGs,
+     no network request. -->
+<link rel="stylesheet" href="cburnett.css" />
 <style>
 /* ---------------------------------------------------------------------------
    ChessGuru — Play with Coach.
@@ -68,29 +72,30 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
 .body{flex:1;display:grid;grid-template-columns:1fr 396px;gap:22px;padding:20px 22px;min-height:0}
 .boardwrap{display:flex;align-items:center;justify-content:center;min-width:0}
 
-/* The board is the hero. Everything else defers to it. */
+/* The board is the hero. It is also EXACTLY the board the app already
+   renders: chessground's brown theme (#f0d9b5 / #b58863) with the cburnett
+   piece set, pulled from the installed package. Mohit likes this board, so
+   the redesign does not touch it - the surround changes, the board does not. */
 .board{width:min(70vh,100%);aspect-ratio:1;display:grid;
   grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
-  border-radius:6px;overflow:hidden;border:1px solid #000;
+  border-radius:3px;overflow:hidden;
   box-shadow:0 30px 70px rgba(0,0,0,.55),0 0 0 7px #131711,0 0 0 8px #1f2a1c}
-.sq{position:relative;display:grid;place-items:center}
-.sq.l{background:repeating-linear-gradient(94deg,rgba(255,255,255,.05) 0 2px,transparent 2px 6px),
-  linear-gradient(160deg,#e9e3cf,#dcd4bd)}
-.sq.d{background:repeating-linear-gradient(94deg,rgba(0,0,0,.06) 0 2px,transparent 2px 7px),
-  linear-gradient(160deg,#7d8f6e,#6b7c5e)}
-.sq.hl::after{content:"";position:absolute;inset:0;background:rgba(217,164,65,.34)}
+.sq{position:relative}
+.sq.l{background:#f0d9b5}
+.sq.d{background:#b58863}
+/* chessground's own last-move colour, unchanged. */
+.sq.hl::after{content:"";position:absolute;inset:0;background:rgba(155,199,0,.41)}
 /* The square the coach is asking about. A ring, not a fill: it points, it
-   does not answer. */
-.sq.ask::after{content:"";position:absolute;inset:5%;border-radius:4px;
-  border:2.5px solid var(--warn);box-shadow:0 0 16px rgba(217,164,65,.55)}
-.p{position:relative;z-index:2;font-size:min(8.2vh,58px);line-height:1;user-select:none}
-.p.w{color:#fdfdfa;text-shadow:0 1px 0 #55604e,0 2px 3px rgba(0,0,0,.45)}
-.p.b{color:#1b1f1c;text-shadow:0 1px 0 rgba(255,255,255,.14),0 2px 3px rgba(0,0,0,.4)}
-.co{position:absolute;font-size:9.5px;font-weight:700;opacity:.8;z-index:3}
+   does not answer. This is ours, and it is the only board addition. */
+.sq.ask::after{content:"";position:absolute;inset:6%;border-radius:3px;
+  border:2.5px solid var(--warn);box-shadow:0 0 16px rgba(217,164,65,.6)}
+.sq piece{display:block;width:100%;height:100%;position:relative;z-index:2;
+  background-size:contain;background-repeat:no-repeat;background-position:center}
+.co{position:absolute;font-size:9.5px;font-weight:700;opacity:.85;z-index:3}
 .co.f{right:3px;bottom:1px}
 .co.r{left:3px;top:1px}
-.sq.l .co{color:#6d7a5f}
-.sq.d .co{color:#e6e9dc}
+.sq.l .co{color:#b58863}
+.sq.d .co{color:#f0d9b5}
 
 .coach{display:flex;flex-direction:column;gap:12px;min-height:0}
 
@@ -187,7 +192,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
     </header>
 
     <div class="body">
-      <div class="boardwrap"><div class="board" id="board"></div></div>
+      <!-- cg-wrap is what the cburnett stylesheet scopes its piece rules to. -->
+      <div class="boardwrap cg-wrap"><div class="board" id="board"></div></div>
 
       <aside class="coach">
 
@@ -250,7 +256,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);
 <script>
 // Illustrative position only. A mockup makes no chess claim.
 var FEN = "r5k1/pp3p1p/3p1qp1/8/1PP1r3/P7/3K3P/8";
-var G = {k:"♚", q:"♛", r:"♜", b:"♝", n:"♞", p:"♟"};
+// cburnett class names, so the real piece SVGs render.
+var NAME = {k:"king", q:"queen", r:"rook", b:"bishop", n:"knight", p:"pawn"};
 // Last move actually played: 21. Kd2, so e1 and d2 are the lit squares. The
 // board and the move list have to agree.
 var HL = {e1:1, d2:1};
@@ -264,8 +271,8 @@ function square(fi, ri, ch){
   if (ASK[name]) { cls += " ask"; }
   var piece = "";
   if (ch) {
-    var side = (ch === ch.toUpperCase()) ? "w" : "b";
-    piece = "<span class=\"p " + side + "\">" + G[ch.toLowerCase()] + "</span>";
+    var side = (ch === ch.toUpperCase()) ? "white" : "black";
+    piece = "<piece class=\"" + NAME[ch.toLowerCase()] + " " + side + "\"></piece>";
   }
   var co = "";
   if (ri === 7) { co += "<span class=\"co f\">" + files.charAt(fi) + "</span>"; }
