@@ -703,21 +703,33 @@ class PlayerIdentityService:
             return {}
 
         stats = behavioural_stats(observations)
-        identity = await self.get_or_create(user_id)
-        beh = identity.behavioral_profile
 
-        # Each assignment is guarded: None means the window did not support
-        # the claim, and the stored value is left alone rather than replaced.
+        # Write ONLY the fields this measured, with $set on their exact
+        # paths. Do NOT round-trip through the dataclass and save().
+        #
+        # I did exactly that on the first attempt and it was a bad mistake:
+        # save() serialises the whole PlayerIdentity, so it wrote fourteen
+        # UNTOUCHED dataclass defaults -- style_profile.tactical_score 0.5,
+        # keeps_queens True, opening_as_white "e4" and the rest -- into 67
+        # user documents that had never carried them. Constants created
+        # inside the fix for constants. Verified afterwards: all 67 docs
+        # holding those fields were written that day, and the one identity
+        # untouched since August does not have them.
+        #
+        # A targeted $set cannot do that. What was not measured is not
+        # written, so an absent field stays absent instead of becoming a
+        # plausible-looking default.
+        updates = {}
         for phase in ("opening", "middlegame", "endgame"):
             seconds = stats.get(f"median_move_seconds_{phase}")
             if seconds is not None:
-                setattr(beh, f"avg_move_time_{phase}", float(seconds))
+                updates[f"behavioral_profile.avg_move_time_{phase}"] = float(seconds)
 
         after = stats.get("mistake_rate_after_mistake")
         if after is not None:
             # The field is an ACCURACY, so it is the complement of the
             # mistake rate on the move following a mistake.
-            beh.post_blunder_accuracy = round(1.0 - after, 4)
+            updates["behavioral_profile.post_blunder_accuracy"] = round(1.0 - after, 4)
 
         ratio = stats.get("collapse_ratio")
         if ratio is not None:
@@ -725,9 +737,13 @@ class PlayerIdentityService:
             # 1.5x their own level baseline is the bar; the median player
             # sits at 2.09 and the range runs 1.09 to 7.15, so this is read
             # off the distribution rather than picked.
-            beh.rushes_in_winning_positions = ratio >= 1.5
+            updates["behavioral_profile.rushes_in_winning_positions"] = ratio >= 1.5
 
-        await self.save(identity)
+        if updates:
+            updates["behaviour_measured_at"] = datetime.now(timezone.utc)
+            await self.db[self.COLLECTION].update_one(
+                {"user_id": user_id}, {"$set": updates}, upsert=False,
+            )
         return stats
 
     async def save(self, identity: PlayerIdentity):
