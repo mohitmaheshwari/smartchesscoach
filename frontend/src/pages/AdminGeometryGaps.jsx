@@ -56,6 +56,7 @@ export default function AdminGeometryGaps() {
   const [results, setResults] = useState(null);
   const [cluster, setCluster] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
   // Which line is being walked, and how far into it.
   const [line, setLine] = useState(null);
   const [ply, setPly] = useState(0);
@@ -184,6 +185,57 @@ export default function AdminGeometryGaps() {
     },
     [item]
   );
+
+  // Everything Claude needs to answer "why was this worse", in one paste.
+  // It carries the analyser's own fields -- cognitive_gap, threat, mate_info --
+  // which the page had been holding back, so the answer is grounded in what we
+  // already decided about the move rather than re-derived from the FEN.
+  //
+  // The severity bands are included verbatim so the reply uses OUR definition
+  // of inaccuracy/mistake/blunder instead of its own.
+  const claudePrompt = useCallback(() => {
+    if (!item) return "";
+    const line = (moves) => (moves && moves.length ? moves.join(" ") : "(none stored)");
+    const ev = (v) => (v === null || v === undefined ? "?" : `${(v / 100).toFixed(2)}`);
+    return [
+      "You are coaching a 600-1500 rated chess player. Explain, in very simple",
+      "English, why the move they played was worse than the engine's move.",
+      "",
+      `Position (FEN): ${item.fen}`,
+      `${item.side_to_move} to move, move ${item.move_number}`,
+      "",
+      `They played:   ${item.played_san}`,
+      `Engine wants:  ${item.best_san}`,
+      `Eval before ${ev(item.eval_before)} -> after ${ev(item.eval_after)} (white's point of view)`,
+      `Cost of the move: ${item.cp_loss} centipawns`,
+      item.cognitive_gap ? `Our analyser labelled the gap: ${item.cognitive_gap}` : null,
+      item.critical_reason ? `Critical reason: ${item.critical_reason}` : null,
+      item.threat ? `Threat noted: ${JSON.stringify(item.threat)}` : null,
+      item.mate_info ? `Mate info: ${JSON.stringify(item.mate_info)}` : null,
+      "",
+      `Line after what they played: ${line(movesFor("played"))}`,
+      `Line after the engine move:  ${line(movesFor("best"))}`,
+      "",
+      "Severity bands we use (by player rating):",
+      "  under 1000: inaccuracy 150cp, mistake 300cp, blunder 300cp+",
+      "  1000-1399:  inaccuracy 75cp,  mistake 200cp, blunder 200cp+",
+      "  1400-1799:  inaccuracy 50cp,  mistake 150cp, blunder 150cp+",
+      "  1800+:      inaccuracy 30cp,  mistake 100cp, blunder 100cp+",
+      "",
+      "Answer with:",
+      "1. Severity, using the bands above (say which band you assumed).",
+      "2. Why the played move is worse - the actual mechanism on the board,",
+      "   not a restatement of the engine line. Name squares and pieces.",
+      "3. Why the engine's move is better.",
+      "4. One transferable lesson the player could use in another game.",
+      "5. The board facts you used, so each claim can be checked.",
+      "",
+      "Rules: short sentences, common words, no chess jargon. Say whose move",
+      "each move in a line is. Do not claim anything the position does not show.",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }, [item, movesFor]);
 
   // Replay from the original FEN every time rather than mutating a board we
   // keep around: a single illegal SAN then truncates the line instead of
@@ -406,6 +458,18 @@ export default function AdminGeometryGaps() {
                   }}
                 >
                   <Copy className="h-3 w-3" /> {copied ? "Copied" : "Copy FEN"}
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 ml-3 inline-flex items-center gap-1 text-xs font-medium text-foreground hover:underline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(claudePrompt());
+                    setCopiedPrompt(true);
+                    setTimeout(() => setCopiedPrompt(false), 1600);
+                  }}
+                >
+                  <Copy className="h-3 w-3" />{" "}
+                  {copiedPrompt ? "Prompt copied" : "Copy for Claude"}
                 </button>
                 <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">
                   {item.fen}
