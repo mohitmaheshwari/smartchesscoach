@@ -105,7 +105,7 @@ const DETECTORS = [
   // threshold.
   {
     id: "lichess_pin",
-    label: "Pin — what is the payoff?",
+    label: "Pin we MISSED — what is the payoff?",
     claims:
       "a Lichess pin puzzle our detector declined. Is it a pin lesson, and if so what makes the pin pay off? We wrongly demand that the pinning piece capture the pinned piece",
   },
@@ -117,7 +117,7 @@ const DETECTORS = [
   // ever judged the sentence these positions produce.
   {
     id: "lichess_pin_existing",
-    label: "Pin already on the board — is the sentence true?",
+    label: "Pin we CLAIM — is our sentence true?",
     claims:
       "a pin that existed BEFORE the move. We do not claim to have created it, only to have used it. The card shows the exact sentence a player would read: mark it false if the pin is real but had nothing to do with why the move works",
   },
