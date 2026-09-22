@@ -1601,6 +1601,26 @@ def _missed_concept(skill_id: str):
     return produce
 
 
+# Letters that are consonants but are SPOKEN with a leading vowel, so they
+# take "an": an x-ray, an f-file, an h-pawn. A vowel-letter test alone gets
+# these wrong, and "a x-ray attack" reads as carelessness on a page whose
+# whole job is asking someone to read carefully.
+_VOWEL_SOUNDING_CONSONANTS = ("x", "f", "h", "l", "m", "n", "r", "s")
+
+
+def _article(word: str) -> str:
+    """"a" or "an", by how the word is SAID rather than how it is spelled."""
+    word = str(word or "").strip().lower()
+    head = word.split()[0] if word else ""
+    if not head:
+        return "a"
+    # Single letter, or a letter used as a prefix (x-ray, h-pawn): the letter
+    # name is what gets spoken.
+    if len(head) == 1 or (len(head) > 1 and head[1] == "-"):
+        return "an" if head[0] in ("a", "e", "i", "o", "u") + _VOWEL_SOUNDING_CONSONANTS else "a"
+    return "an" if head[0] in "aeiou" else "a"
+
+
 def _new_proof(module_name: str, func_name: str, label: str):
     """Producer for the 2026-09-22 proof modules.
 
@@ -1649,7 +1669,8 @@ def _new_proof(module_name: str, func_name: str, label: str):
         head = (facts[0] or {}) if facts else {}
         side, arrow = _orientation_and_arrow(fen, best)
         return (
-            f"the engine's move is a {label} the player missed",
+            f"the engine's move is {_article(label)} {label} "
+            f"the player missed",
             {
                 "review_fen": fen, "line_fen": fen, "fen_before": fen,
                 "fen_after": move.get("fen_after"),
