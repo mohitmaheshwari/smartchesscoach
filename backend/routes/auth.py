@@ -29,6 +29,7 @@ import secrets
 import time
 
 from services import admin_view_as as view_as
+from services import coaching_room_gate
 import uuid
 import httpx
 import logging
@@ -881,6 +882,12 @@ async def get_me(request: Request, user: User = Depends(get_current_user)):
     session = getattr(request.state, "view_as", None)
     if session:
         payload["viewing_as"] = session
+    # Presentation gate for the coaching-room redesign. During a view-as
+    # session the person actually looking at the screen is the admin, so the
+    # presentation follows their account rather than the one being read.
+    # Presentation only: it never gates chess content, evidence or permission.
+    viewer_id = (session or {}).get("admin_user_id") or user.user_id
+    payload["coaching_room_v2"] = coaching_room_gate.is_enabled(viewer_id)
     return payload
 
 

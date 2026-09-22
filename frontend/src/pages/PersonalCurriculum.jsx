@@ -4,6 +4,7 @@ import { ArrowRight, Loader2 } from "lucide-react";
 import Layout from "@/components/Layout";
 import CurriculumPrimary from "@/components/curriculum/CurriculumPrimary";
 import { API } from "@/App";
+import { useCoachingRoom } from "@/lib/coachingRoom";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 import {
   EXPLORE_DESTINATIONS,
@@ -13,6 +14,7 @@ import {
 export default function PersonalCurriculum({ user }) {
   const navigate = useNavigate();
   const [curriculum, setCurriculum] = useState(null);
+  const coachingRoom = useCoachingRoom();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -88,10 +90,18 @@ export default function PersonalCurriculum({ user }) {
         className="cg-page max-w-[940px]"
         data-testid="personal-curriculum-page"
       >
-        <header className="cg-hero mb-10">
+        <header className={coachingRoom ? "cg-hero !pb-0 mb-6" : "cg-hero mb-10"}>
           <p className="cg-eyebrow">Your coaching plan</p>
-          <h1 className="cg-title">One lesson at a time.</h1>
-          <p className="cg-lede">
+          <h1
+            className={
+              coachingRoom
+                ? "cgr-display text-[26px] md:text-[32px] mb-2"
+                : "cg-title"
+            }
+          >
+            One lesson at a time.
+          </h1>
+          <p className={coachingRoom ? "cgr-teaching text-muted-foreground" : "cg-lede"}>
             I’ll keep one lesson in focus until it begins showing up in your games. You can still explore anything without losing your place.
           </p>
         </header>
