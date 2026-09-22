@@ -208,7 +208,7 @@ taught. That part is already built.
 
    | dimension | what it counts | evidence we already hold |
    |---|---|---|
-   | positional | positional detector events per 10 games | 66,912 events: knight_outpost 25,368, pawn_kicks_piece 12,242, king_pawn_lifted 11,347, same_piece_better_square 9,841, active_defense 4,223, defensive_pawn_push 2,473, attack_with_tempo 1,418 |
+   | positional | **recorded board STATE per move — see 4b** | every fact already computed, none stored |
    | opening | BREADTH, not just quality — how many sound openings the player actually knows | `player_identity.opening_repertoire`: openings played, main line, win rate per opening, split by colour and by reply to e4 |
    | endgame | endgame blunders as a rate per endgame reached | 21,905 endgame blunders, 55 of 63 players |
    | calculation | 1-move vs 3-move punishments | `punishment_depth`, new in item 1 |
@@ -228,6 +228,76 @@ taught. That part is already built.
 
    A dimension with too little evidence reads "not enough yet". Never a
    baseline, never a formula, never a number we did not measure.
+
+### 4b. Positional play is a STATE, not a list of opportunities
+
+Mohit, 2026-09-22, on being shown a "positional" score built from detector
+events: *"why would you ever want to know that you didn't put the knight on
+the rim?"*
+
+He is right, and it invalidates the earlier plan. Detector events answer
+"did you spot this" -- which produces the absurd position of crediting a
+player for **not** blundering. Positional play is not opportunities taken.
+It is the CONDITION of your position, on every move, whether or not anything
+was spotted.
+
+**His seven principles, as the spec.** Each mapped to code that already
+exists, and to whether it survives the move:
+
+| # | Principle | Computed today in | Stored per move? |
+|---|---|---|---|
+| 1 | Improve your worst piece | `board_state_describer`, `teaching_move_selector._improves_piece_activity` | **no** |
+| 2 | Control the centre | `caption_facts`, `cognitive_gap_subtypes` | **no** |
+| 3 | Pawn structure: isolated / doubled / backward | `pawn_structure_service` -- all three functions exist | **no** |
+| 4 | Good knight vs bad bishop | `caption_facts`, `caption_principles` | **no** |
+| 5 | Space advantage | `concept_contract_registry` only | **no** |
+| 6 | Prophylaxis | `prophylaxis_detector`, `active_teaching_engine` | **no** |
+| 7 | Trading the right pieces | `caption_facts` | **no** |
+
+**Seven for seven computed. Zero for seven kept.** Across 528,786 move
+records not one carries a single positional fact. Every one is derived to
+write a caption and discarded within milliseconds.
+
+That -- not a missing detector, not weak chess -- is the whole reason
+`positional_sense` is 60.0 for every player.
+
+**So the work is persistence, not detection.** Write a positional snapshot
+onto each move record from the facts we already compute:
+
+```
+pawn_structure : doubled, isolated, backward, islands
+pieces         : undefended count, worst-piece mobility, total mobility
+bishops        : own pawns standing on the bishop's own colour   (#4)
+center         : how many of d4/e4/d5/e5 the player controls     (#2)
+space          : squares controlled beyond the midline           (#5)
+trade_quality  : on a capture, whose piece was the better one    (#7)
+```
+
+Positional ability then becomes a sum over moves that already exist -- for
+the founder's account, 20,358 of them -- instead of a constant.
+
+Two rulings from the same conversation, recorded so they are not re-litigated:
+
+- **Trapping a piece is BOTH, and material decides which.** Tactical when
+  the piece actually falls; positional when it merely lives on doing
+  nothing. Our `trapped_piece_opportunity_proof` demands a material payoff,
+  so it catches only the tactical half. The bishop that is entombed but not
+  lost is principle #5 territory and is not measured today.
+- **A "hit" is not required for every fact.** `knight_on_rim` gates on
+  `cp_loss >= 30` and so can only ever fire on a bad move -- by
+  construction, never a success. That is not a broken detector; it is a
+  mistake-catcher, and it pairs with `knight_outpost` (25,387 fires, 76%
+  hit) which is the success half. State-based facts avoid the problem
+  entirely: they need no hit or miss at all.
+
+**Prophylaxis (#6) is the one that resists this.** The other six are board
+state -- countable from the position alone, no intent required. Prophylaxis
+means "he stopped an idea before it started", which needs the opponent's
+INTENTION, and intention is not in the position. A `prophylaxis_detector`
+exists; what it actually claims must be read and tested before anything
+trusts it, because an unprovable claim about what someone was planning is
+exactly the kind that goes wrong quietly. Six ship; the seventh gets its own
+investigation.
 
 5. **Recompute on a schedule, not once and never again.** Remove the
    permanent cache.
