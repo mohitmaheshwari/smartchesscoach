@@ -192,6 +192,46 @@ screen. V5 reviews re-render lazily on open, so an audit reading stored
 **8. Shared files are add-only.** Add your fact / endpoint / extractor /
 branch. Never repurpose someone else's.
 
+**9. No batch jobs, backfills or detector sweeps in the PROD container.**
+On 2026-09-23 a `build_detector_claims` sweep launched inside
+`chess-coach-backend` on the box took chessguru.ai down: `/api/health` went
+4.6s → 24s → **502**, container UNHEALTHY with an 18-deep failing streak,
+loadavg 8.63 on 4 cores. Not a traffic spike — 31 requests in two minutes.
+The box shares 4 cores with the matrimonial stack and mail_sender.
+> Use the LOCAL container. It reaches the same prod Mongo via
+> `host.docker.internal:27018` — same data, same code, zero effect on the
+> live site. Verified: 128 users, 17,138 games, 16,421 analyses.
+> If a job genuinely must run on the server it needs Mohit's okay, and
+> should be niced or run off-peak.
+>
+> **If someone's job is taking the live site down, kill it and tell them
+> after.** -8f asked for this explicitly: "I would rather lose the work than
+> have the site slow for real users while everyone waits for a human."
+> Recovery after the kill: CPU 90.14% → 0.38%, TTFB 45.6s → 0.070s.
+
+**10. Deploy ONLY via `./scripts/deploy.sh`. Never raw `docker compose up --build`.**
+`deploy.sh` already exports `GIT_COMMIT`; a raw compose run does not, and it
+skips all eight verification checks. Evidence it happened: container
+`StartedAt 11:58:40Z` from an image created `11:58:27Z`, 13 seconds apart,
+`RestartCount 0` — a build-then-recreate.
+> Run it under `nohup` (rule 5).
+> **Correction on the record:** this was first reported here — by me — as
+> "`git_commit: unknown` silently disables the commit-match check". That is
+> WRONG. -5b ran `verify_deployment.py` on the box: the SKIP branch needs
+> ALL commit-ish keys unknown, and `v5_caption_version: 175` is not, so it
+> **FAILS loudly**. The guard works. Do not deploy expecting it to be absent.
+> Expect check 1 red until a proper `deploy.sh` run relabels the container,
+> alongside check 8 (rule 4). Only one of the two is new.
+
+**11. Verify a container job is dead with `docker top`, not `/proc` from inside.**
+-8f's `kill -9` on the shell left the python child alive and `/proc/<pid>`
+still present. Took two passes.
+
+**12. `/admin/detector-review` cannot tell "no index yet" from "all ruled".**
+It renders the same reassuring "no claims left" for an empty index AND for a
+504 — which is how a live scan blowing past nginx's 60s timeout read to Mohit
+as "you're done". Anyone adding a detector to that queue will hit it.
+
 ---
 
 ## Waiting on Mohit
