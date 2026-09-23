@@ -103,8 +103,26 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
           </Badge>
         </div>
 
-        {/* Board (eval bar removed — coach doesn't give away the position) */}
+        {/* Board + eval bar. The bar was removed on 2026-04-15 (043cc7fe)
+            because "coach doesn't give away the position", and Mohit asked
+            for it back on 2026-09-23. It returns through the component's own
+            `hidden` mode rather than as a plain bar: whenever the backend
+            sets hide_eval -- the pedagogical moments the coach deliberately
+            sets up -- the score masks to "?" and the "Find the opportunity!"
+            badge below does the asking. So the position is still withheld
+            exactly where it was, and visible the rest of the time.
+
+            `evaluation` has been passed into this component and left unused
+            since that removal; this is its first consumer. */}
         <div className="flex gap-2 items-stretch">
+
+          <div className="w-5 md:w-6 shrink-0" data-testid="coach-play-eval-bar">
+            <EvalBar
+              evaluation={evaluation}
+              userColor={selectedColor}
+              hidden={hideEvalBar}
+            />
+          </div>
 
           <div
             className="experience-board-stage flex-1 relative rounded-lg overflow-hidden aspect-square"
