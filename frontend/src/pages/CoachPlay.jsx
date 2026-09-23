@@ -29,6 +29,7 @@ import UnifiedCoachPanel from "@/components/coach/UnifiedCoachPanel";
 import useTeachingMode from "@/hooks/useTeachingMode";
 import usePlayerData from "@/hooks/usePlayerData";
 import useGuardian from "@/hooks/useGuardian";
+import { isOnAuthoredLine } from "@/pages/openingLineGuard";
 import useStockfishEval from "@/hooks/useStockfishEval";
 import { useCoachFlow, INTERACTION_STATES, CLOCK_STATES } from "@/coachFlow";
 import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
@@ -553,6 +554,15 @@ const CoachPlay = ({ user }) => {
   // Compute and show guidance arrow from local data
   useEffect(() => {
     if (!openingIdeas.length || !isPlayerTurn || gameOver || gameMode === "play") return;
+
+    // Only guide while the board still matches the authored line. Without
+    // this the arrow keeps pointing into a line nobody is playing.
+    if (!isOnAuthoredLine(session?.move_history, openingIdeas)) {
+      setCoachArrows([]);
+      setFlowOpeningGuidance(null);
+      return;
+    }
+
     // The user's next move is at the current gamePly
     const idea = openingIdeas[gamePly];
     // The coach's last move (just played) is at gamePly - 1
@@ -584,7 +594,7 @@ const CoachPlay = ({ user }) => {
       setCoachArrows([]);
       setFlowOpeningGuidance(null);
     }
-  }, [gamePly, openingIdeas, isPlayerTurn, gameOver, gameMode, setFlowOpeningGuidance]);
+  }, [gamePly, openingIdeas, isPlayerTurn, gameOver, gameMode, session?.move_history, setFlowOpeningGuidance]);
 
   // Note: server-side guidance (coachFlow.openingGuidance) is used for CommentaryPanel text only.
   // Arrows are driven exclusively by client-side openingIdeas to avoid conflicts.
@@ -660,6 +670,7 @@ const CoachPlay = ({ user }) => {
   useEffect(() => {
     if (!openingIdeas.length || gameOver || openingComplete) return;
     if (gamePly >= openingIdeas.length && isPlayerTurn) {
+      const playedTheLine = isOnAuthoredLine(session?.move_history, openingIdeas);
       // All teaching moves played — show summary
       const branchName = activeBranch?.name || selectedOpening || "opening";
       const otherBranches = allBranches
@@ -679,7 +690,9 @@ const CoachPlay = ({ user }) => {
         evalScore,
         otherBranches,
         totalMoves: openingIdeas.length,
-        deviations: 0, // TODO: track during play
+        // Reaching the end of the line does not mean it was followed: the
+        // ply counter advances on ANY move. Ask the board.
+        deviations: playedTheLine ? 0 : 1,
       });
 
       // Log to backend for mastery tracking
@@ -694,7 +707,9 @@ const CoachPlay = ({ user }) => {
             branch_key: activeBranch?.key || null,
             guided_mode: guidedMode,
             moves_total: openingIdeas.length,
-            played_perfectly: true, // no deviations if we got here
+            // Was reported as always-true, so mastery tracking recorded a
+            // perfect opening for games that had left the line entirely.
+            played_perfectly: playedTheLine,
           }),
         }).catch(() => {}); // fire-and-forget
       }
@@ -717,6 +732,10 @@ const CoachPlay = ({ user }) => {
     guidedMode,
     selectedOpening,
     session?.session_id,
+    // Read by isOnAuthoredLine to decide played_perfectly. Without it this
+    // effect can report on a stale history and claim a clean line for a game
+    // that deviated - the exact thing the guard exists to stop.
+    session?.move_history,
     setFlowOpeningGuidance,
   ]);
 
@@ -3860,7 +3879,11 @@ const CoachPlay = ({ user }) => {
   }
 
   if (!gameStarted) {
+    // `pwc-root` carries the PWC design tokens. The setup screen used to
+    // render outside it, so a player met the app's own palette here and a
+    // different one the moment the game started. One flow, one look.
     return (
+      <div className="pwc-root">
       <CoachPlaySetup
         user={user}
         loading={loading}
@@ -3892,6 +3915,7 @@ const CoachPlay = ({ user }) => {
           { experience_version: "unified_v1", game_mode: mode }
         )}
       />
+      </div>
     );
   }
 

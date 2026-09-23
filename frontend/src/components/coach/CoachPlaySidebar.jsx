@@ -65,7 +65,21 @@ import {
   Download,
 } from "lucide-react";
 
-/* ── Guardian Intervention Panel ── */
+/* ── Guardian Intervention Panel ──────────────────────────────────────────
+   The coach interrupting BEFORE the move. This is the thing an engine cannot
+   do, so it is written as a question, not a verdict:
+
+   - it asks rather than commands ("Hold on a second", not "Wait!")
+   - the ANSWER stays folded away. Showing the refutation and the better moves
+     up front does the seeing for the player, which is the one thing we are
+     trying to teach them to do themselves
+   - the player keeps the move either way. A coach who cannot be overruled is
+     just a blocker
+
+   It also no longer prints cp_loss as "N pawns". The eval shift is usually
+   part positional, so that framing reads to a 900-rated player as literal
+   material and misstates what happened. See memory/feedback_cp_loss_is_not_material.md
+   -------------------------------------------------------------------------- */
 const GuardianPanel = ({
   guardianIntervention,
   pendingMove,
@@ -74,6 +88,20 @@ const GuardianPanel = ({
 }) => {
   if (!guardianIntervention || !pendingMove) return null;
 
+  const analysis = guardianIntervention.analysis || {};
+  const alternatives = guardianIntervention.alternative_moves || [];
+  const hasEvidence =
+    (analysis.punishment_line || []).length > 0 ||
+    (analysis.best_line || []).length > 0 ||
+    alternatives.length > 0;
+
+  const categoryLabel = {
+    one_move_blunder: "One-move blunder",
+    tactical_miss: "Missed tactic",
+    threat_blindness: "Missed threat",
+    calculation_error: "Calculation error",
+  }[analysis.mistake_category] || (analysis.mistake_category ? "Positional mistake" : null);
+
   return (
     <motion.div
       variants={slideInRight}
@@ -81,138 +109,87 @@ const GuardianPanel = ({
       animate="animate"
       exit="exit"
       data-testid="guardian-intervention-inline"
-      className={`p-4 rounded-lg border-2 ${
-        guardianIntervention.risk_level === "critical"
-          ? "border-red-500 bg-red-500/10"
-          : guardianIntervention.risk_level === "high"
-          ? "border-orange-500 bg-orange-500/10"
-          : "border-yellow-500 bg-yellow-50"
-      }`}
+      data-risk={guardianIntervention.risk_level || "medium"}
+      className="pwc-guardian"
     >
-      <div className="flex items-center gap-2 mb-3">
-        <AlertTriangle
-          className={`w-6 h-6 ${
-            guardianIntervention.risk_level === "critical"
-              ? "text-red-500"
-              : guardianIntervention.risk_level === "high"
-              ? "text-orange-500"
-              : "text-yellow-500"
-          }`}
-        />
-        <h4 className="font-bold text-white">
-          {guardianIntervention.intervention_type === "block"
-            ? "Wait!"
-            : "Think Again"}
-        </h4>
-      </div>
-
-      <p className="text-sm font-medium text-white mb-2">
-        {guardianIntervention.message}
-      </p>
-      <p className="text-xs text-muted-foreground mb-3">
-        {guardianIntervention.explanation}
+      <p className="pwc-guardian-eyebrow">
+        <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+        Before you play <span className="font-mono">{pendingMove.moveSan}</span>
       </p>
 
-      {guardianIntervention.alternative_moves?.length > 0 && (
-        <div className="p-2 rounded bg-muted/50 mb-3">
-          <p className="text-xs font-medium text-foreground mb-1.5 flex items-center gap-1">
-            <Lightbulb className="w-3 h-3 text-primary" />
-            Better alternatives:
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {guardianIntervention.alternative_moves.map((move, i) => (
-              <Badge
-                key={i}
-                variant="outline"
-                className="font-mono cursor-pointer hover:bg-primary/20 text-xs"
-              >
-                {move}
-              </Badge>
-            ))}
-          </div>
-        </div>
+      <h4 className="pwc-guardian-title">Hold on a second.</h4>
+
+      <p className="pwc-guardian-message">{guardianIntervention.message}</p>
+
+      {guardianIntervention.explanation && (
+        <p className="pwc-guardian-explain">{guardianIntervention.explanation}</p>
       )}
 
-      <p className="text-xs text-muted-foreground mb-3">
-        Your move:{" "}
-        <span className="font-mono font-medium text-white">
-          {pendingMove.moveSan}
-        </span>
-      </p>
+      {hasEvidence && (
+        <details className="pwc-guardian-evidence">
+          <summary>Show me what I saw</summary>
 
-      {/* Engine analysis — why this move is bad */}
-      {guardianIntervention.analysis && (
-        <div className="space-y-2 mb-3">
-          {/* Punishment line: what happens after your bad move */}
-          {guardianIntervention.analysis.punishment_line?.length > 0 && (
-            <div className="p-2 rounded bg-red-500/10 border border-red-500/20">
-              <p className="text-[10px] uppercase tracking-widest text-red-400 font-bold mb-1">
-                What happens next
-              </p>
-              <p className="text-xs text-foreground font-mono">
-                {pendingMove.moveSan}{" "}
-                {guardianIntervention.analysis.punishment_line.join(" ")}
+          {(analysis.punishment_line || []).length > 0 && (
+            <div className="pwc-guardian-line">
+              <p className="pwc-guardian-line-key">What follows</p>
+              <p className="font-mono text-xs">
+                {pendingMove.moveSan} {analysis.punishment_line.join(" ")}
               </p>
             </div>
           )}
 
-          {/* Best line: what you should play instead */}
-          {guardianIntervention.analysis.best_line?.length > 0 && (
-            <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/20">
-              <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold mb-1">
-                Better plan
-              </p>
-              <p className="text-xs text-foreground font-mono">
-                {guardianIntervention.analysis.best_line.join(" ")}
-              </p>
+          {(analysis.best_line || []).length > 0 && (
+            <div className="pwc-guardian-line">
+              <p className="pwc-guardian-line-key">A line that holds</p>
+              <p className="font-mono text-xs">{analysis.best_line.join(" ")}</p>
             </div>
           )}
 
-          {/* Mistake category badge */}
-          {guardianIntervention.analysis.mistake_category && (
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-[10px]">
-                {guardianIntervention.analysis.mistake_category === "one_move_blunder" ? "One-move blunder"
-                  : guardianIntervention.analysis.mistake_category === "tactical_miss" ? "Missed tactic"
-                  : guardianIntervention.analysis.mistake_category === "threat_blindness" ? "Missed threat"
-                  : guardianIntervention.analysis.mistake_category === "calculation_error" ? "Calculation error"
-                  : "Positional mistake"}
-              </Badge>
-              {guardianIntervention.analysis.cp_loss > 0 && (
-                <span className="text-[10px] text-muted-foreground">
-                  -{(guardianIntervention.analysis.cp_loss / 100).toFixed(1)} pawns
-                </span>
-              )}
+          {alternatives.length > 0 && (
+            <div className="pwc-guardian-line">
+              <p className="pwc-guardian-line-key">Worth a look</p>
+              <div className="flex flex-wrap gap-1.5">
+                {alternatives.map((move, i) => (
+                  <Badge key={i} variant="outline" className="font-mono text-xs">
+                    {move}
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
-        </div>
+
+          {categoryLabel && (
+            <Badge variant="outline" className="text-[10px] mt-1">
+              {categoryLabel}
+            </Badge>
+          )}
+        </details>
       )}
 
-      <div className="flex gap-2">
+      <div className="pwc-guardian-choices">
+        <Button
+          size="sm"
+          className="flex-1 pwc-guardian-look"
+          onClick={cancelRiskyMove}
+          data-testid="guardian-cancel-btn"
+        >
+          <RotateCcw className="w-3 h-3 mr-1.5" aria-hidden="true" />
+          Let me look again
+        </Button>
         <Button
           size="sm"
           variant="outline"
           className="flex-1"
-          onClick={cancelRiskyMove}
-          data-testid="guardian-cancel-btn"
-        >
-          <RotateCcw className="w-3 h-3 mr-1" />
-          Different Move
-        </Button>
-        <Button
-          size="sm"
-          variant={
-            guardianIntervention.risk_level === "critical"
-              ? "destructive"
-              : "default"
-          }
-          className="flex-1"
           onClick={confirmRiskyMove}
           data-testid="guardian-confirm-btn"
         >
-          Play Anyway
+          I&rsquo;ve checked &mdash; play it
         </Button>
       </div>
+
+      <p className="pwc-guardian-note">
+        You keep the move either way. I&rsquo;d rather you saw it than obeyed me.
+      </p>
     </motion.div>
   );
 };
