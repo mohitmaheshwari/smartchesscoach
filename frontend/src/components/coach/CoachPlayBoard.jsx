@@ -92,8 +92,18 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
           left ~390px of the board column empty and made the page read as a
           small board with furniture around it, which is the opposite of the
           approved design. It is now bounded by the height available and by
-          its own column, whichever runs out first. */}
-      <div className="w-full mx-auto max-w-[min(96vw,calc(100dvh-340px))] lg:max-w-[min(calc(100vh-150px),100%)]">
+          its own column, whichever runs out first.
+
+          The 265px budget is everything that shares the column: the opponent
+          bar above, the player bar and the pre-move checklist below, their
+          margins, and the column padding. Measured, not guessed: 150 and 205
+          both clipped the opponent bar off the top and the checklist off the
+          bottom, because the column centres its content and overflow is lost
+          at BOTH ends. 265 is the first value where every row renders. At 150px
+          the board grew taller than the column, and because the column
+          centres its content, the overflow clipped the TOP of the board --
+          rank 8 and the opponent bar both disappeared. */}
+      <div className="w-full mx-auto max-w-[min(96vw,calc(100dvh-340px))] lg:max-w-[min(calc(100vh-265px),100%)]">
         {/* Coach info bar */}
         <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-muted/50 text-sm">
           <div className="flex items-center gap-2">
