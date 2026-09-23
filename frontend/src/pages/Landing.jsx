@@ -12,7 +12,7 @@ import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 
-const ACID = "#B7F34A";
+const ACID = "#7FB069";
 const MINT = "#7EE7C2";
 const CORAL = "#FF8066";
 const ease = [0.22, 1, 0.36, 1];
@@ -43,7 +43,7 @@ function PrimaryButton({ children, onClick, testId, className = "" }) {
       data-testid={testId}
       whileHover={reduceMotion ? undefined : { y: -2, scale: 1.01 }}
       whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-      className={`group inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold text-[#0A1712] shadow-[0_18px_55px_rgba(183,243,74,0.2)] transition-shadow hover:shadow-[0_22px_70px_rgba(183,243,74,0.3)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B7F34A] focus-visible:ring-offset-2 focus-visible:ring-offset-[#071411] ${className}`}
+      className={`group inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold text-[#0A1712] shadow-[0_18px_55px_rgba(127,176,105,0.2)] transition-shadow hover:shadow-[0_22px_70px_rgba(127,176,105,0.3)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7FB069] focus-visible:ring-offset-2 focus-visible:ring-offset-[#071411] ${className}`}
       style={{ background: ACID }}
     >
       {children}<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -56,12 +56,12 @@ function PlanPreview() {
   const stages = ["Learn", "Practise", "Blind test", "Play", "Verify"];
   return (
     <div className="relative mx-auto w-full max-w-[520px]">
-      <motion.div aria-hidden="true" animate={reduceMotion ? undefined : { rotate: [0, 3, 0], y: [0, -7, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} className="absolute -right-6 top-12 h-32 w-32 rounded-[32px] border border-[#B7F34A]/20 bg-[#B7F34A]/10" />
+      <motion.div aria-hidden="true" animate={reduceMotion ? undefined : { rotate: [0, 3, 0], y: [0, -7, 0] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }} className="absolute -right-6 top-12 h-32 w-32 rounded-[32px] border border-[#7FB069]/20 bg-[#7FB069]/10" />
       <motion.div aria-hidden="true" animate={reduceMotion ? undefined : { rotate: [0, -4, 0], y: [0, 8, 0] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }} className="absolute -bottom-6 -left-5 h-28 w-28 rounded-full border border-[#7EE7C2]/20 bg-[#7EE7C2]/10" />
       <div className="relative overflow-hidden rounded-[30px] border border-white/15 bg-[#0D211B]/95 shadow-[0_36px_100px_rgba(0,0,0,0.38)] backdrop-blur-xl">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-6">
-          <div><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#B7F34A]">A sample coaching conversation</p><p className="mt-1 font-heading text-xl font-semibold text-white">Your path to 1200</p></div>
-          <div className="grid h-11 w-11 place-items-center rounded-2xl border border-[#B7F34A]/25 bg-[#B7F34A]/10"><Target className="h-5 w-5 text-[#B7F34A]" /></div>
+          <div><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#7FB069]">A sample coaching conversation</p><p className="mt-1 font-heading text-xl font-semibold text-white">Your path to 1200</p></div>
+          <div className="grid h-11 w-11 place-items-center rounded-2xl border border-[#7FB069]/25 bg-[#7FB069]/10"><Target className="h-5 w-5 text-[#7FB069]" /></div>
         </div>
         <div className="p-5 sm:p-6">
           <p className="mb-4 text-sm leading-6 text-white/65">I’ve been looking through your games. You already see plenty of tactical chances. The part holding you back happens when your opponent attacks one of your pieces.</p>
@@ -77,7 +77,7 @@ function PlanPreview() {
           <div className="mt-5">
             <div className="mb-3 flex items-center justify-between"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">This week</p><p className="text-[10px] text-[#7EE7C2]">Adapts after every game</p></div>
             <div className="grid grid-cols-5 gap-1.5">
-              {stages.map((stage, index) => <div key={stage} className="min-w-0"><div className={`h-1.5 rounded-full ${index < 2 ? "bg-[#B7F34A]" : "bg-white/10"}`} /><p className={`mt-2 truncate text-[9px] ${index < 2 ? "text-white/75" : "text-white/35"}`}>{stage}</p></div>)}
+              {stages.map((stage, index) => <div key={stage} className="min-w-0"><div className={`h-1.5 rounded-full ${index < 2 ? "bg-[#7FB069]" : "bg-white/10"}`} /><p className={`mt-2 truncate text-[9px] ${index < 2 ? "text-white/75" : "text-white/35"}`}>{stage}</p></div>)}
             </div>
           </div>
         </div>
@@ -95,13 +95,13 @@ function SkillProfile() {
     <div className="rounded-[28px] border border-[#16372C] bg-[#0B2019] p-5 shadow-[0_30px_70px_rgba(7,20,17,0.16)] sm:p-7">
       <div className="flex items-start justify-between">
         <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7EE7C2]">What your coach sees</p><h3 className="mt-2 font-heading text-2xl font-semibold text-white">You don’t need more opening theory right now.</h3></div>
-        <BrainCircuit className="h-6 w-6 text-[#B7F34A]" />
+        <BrainCircuit className="h-6 w-6 text-[#7FB069]" />
       </div>
       <div className="mt-7 space-y-3">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#B7F34A]">What you already do well</p><p className="mt-2 text-sm leading-6 text-white/65">You notice attacking chances and usually understand what your opening is trying to achieve.</p></div>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#7FB069]">What you already do well</p><p className="mt-2 text-sm leading-6 text-white/65">You notice attacking chances and usually understand what your opening is trying to achieve.</p></div>
         <div className="rounded-2xl border border-[#FF8066]/20 bg-[#FF8066]/[0.06] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#FF9B86]">What keeps getting in the way</p><p className="mt-2 text-sm leading-6 text-white/70">When your opponent attacks something, you react to that piece and stop looking at the rest of the board.</p></div>
       </div>
-      <div className="mt-6 rounded-2xl bg-[#B7F34A] p-4 text-[#071411]">
+      <div className="mt-6 rounded-2xl bg-[#7FB069] p-4 text-[#071411]">
         <p className="text-[10px] font-bold uppercase tracking-[0.15em]">Our one rule for now</p>
         <p className="mt-1.5 text-sm font-semibold leading-relaxed">Before moving an attacked piece, ask what it is protecting. We’ll make that check feel automatic.</p>
       </div>
@@ -118,10 +118,10 @@ function LearningCard() {
         <h3 className="mt-3 max-w-md font-heading text-3xl font-semibold leading-[1.08] text-[#071411]">The lesson starts with what <em className="font-normal text-[#B94D37]">you</em> misunderstood.</h3>
         <div className="mt-7 grid gap-3">
           <div className="rounded-2xl bg-[#F4EFE4] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#62756E]">From your game</p><p className="mt-2 text-sm leading-relaxed text-[#203D34]">You moved the attacked knight, but that knight was the only piece defending e4.</p></div>
-          <div className="rounded-2xl border border-[#B7F34A] bg-[#EEFFD0] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#466513]">Your coach</p><p className="mt-2 text-sm font-medium leading-relaxed text-[#17300F]">Before moving an attacked piece, look at what it protects. I’ve seen this same blind spot in your recent games, so we’re going to slow the moment down together.</p></div>
+          <div className="rounded-2xl border border-[#7FB069] bg-[#EEFFD0] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#466513]">Your coach</p><p className="mt-2 text-sm font-medium leading-relaxed text-[#17300F]">Before moving an attacked piece, look at what it protects. I’ve seen this same blind spot in your recent games, so we’re going to slow the moment down together.</p></div>
           <div className="flex items-center justify-between rounded-2xl border border-black/10 p-4">
             <div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#62756E]">Today’s practice</p><p className="mt-1 text-sm font-semibold text-[#071411]">A short set of new defender positions</p></div>
-            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#071411] text-[#B7F34A]"><ArrowRight className="h-5 w-5" /></div>
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#071411] text-[#7FB069]"><ArrowRight className="h-5 w-5" /></div>
           </div>
         </div>
       </div>
@@ -134,11 +134,11 @@ function ProofCard() {
     <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#10271F] p-6 sm:p-8">
       <div className="flex items-start justify-between gap-4">
         <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#7EE7C2]">A sample message from your coach</p><h3 className="mt-3 font-heading text-3xl font-semibold leading-tight text-white">I’m not asking you to memorize the practice positions.</h3></div>
-        <LineChart className="h-6 w-6 shrink-0 text-[#B7F34A]" />
+        <LineChart className="h-6 w-6 shrink-0 text-[#7FB069]" />
       </div>
       <div className="mt-7 space-y-3">
         <div className="rounded-2xl border border-white/10 bg-black/10 p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/40">When we started</p><p className="mt-2 text-sm leading-6 text-white/65">When one of your pieces was attacked, you usually moved it at once. That was when another piece got left behind.</p></div>
-        <div className="rounded-2xl border border-[#B7F34A]/25 bg-[#B7F34A]/[0.07] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#B7F34A]/75">What I’m seeing now</p><p className="mt-2 text-sm font-medium leading-6 text-white/80">You’re beginning to pause and check what the piece protects before you move it. That is the habit we’re building.</p></div>
+        <div className="rounded-2xl border border-[#7FB069]/25 bg-[#7FB069]/[0.07] p-4"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#7FB069]/75">What I’m seeing now</p><p className="mt-2 text-sm font-medium leading-6 text-white/80">You’re beginning to pause and check what the piece protects before you move it. That is the habit we’re building.</p></div>
         <div className="flex items-start gap-3 rounded-2xl bg-black/15 p-4"><RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-[#7EE7C2]" /><p className="text-sm leading-6 text-white/60"><strong className="font-semibold text-[#7EE7C2]">What comes next:</strong> I’ll keep watching your games. When this holds under pressure, we’ll move on together.</p></div>
       </div>
     </div>
@@ -251,11 +251,11 @@ export default function Landing() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.08] bg-[#071411]/80 backdrop-blur-2xl">
         <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
-          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B7F34A]">
+          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7FB069]">
             <img src="/chessguru-logo.svg" alt="" className="h-8 w-8" /><span className="font-heading text-[17px] font-bold tracking-tight">ChessGuru</span>
           </button>
           <nav aria-label="Main navigation" className="hidden items-center gap-7 lg:flex">
-            {[["How it works", "how-it-works"], ["The plan", "personal-plan"], ["Proof", "proof"]].map(([label, id]) => <button key={id} type="button" onClick={() => scrollToId(id)} className="text-sm text-white/55 transition-colors hover:text-white focus:outline-none focus-visible:text-[#B7F34A]">{label}</button>)}
+            {[["How it works", "how-it-works"], ["The plan", "personal-plan"], ["Proof", "proof"]].map(([label, id]) => <button key={id} type="button" onClick={() => scrollToId(id)} className="text-sm text-white/55 transition-colors hover:text-white focus:outline-none focus-visible:text-[#7FB069]">{label}</button>)}
             <button type="button" onClick={() => navigate("/pricing")} className="text-sm text-white/55 transition-colors hover:text-white">Pricing</button>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -270,13 +270,13 @@ export default function Landing() {
         <section className="relative isolate flex min-h-[900px] items-center overflow-hidden pb-28 pt-32 lg:min-h-screen lg:pb-24 lg:pt-28">
           <div aria-hidden="true" className="absolute inset-0 -z-10">
             <div className="absolute left-[-12%] top-[5%] h-[540px] w-[540px] rounded-full bg-[#2C705A]/25 blur-[130px]" />
-            <div className="absolute right-[-8%] top-[18%] h-[500px] w-[500px] rounded-full bg-[#B7F34A]/10 blur-[140px]" />
+            <div className="absolute right-[-8%] top-[18%] h-[500px] w-[500px] rounded-full bg-[#7FB069]/10 blur-[140px]" />
             <div className="absolute inset-0 opacity-[0.045]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.45) 1px, transparent 1px),linear-gradient(90deg,rgba(255,255,255,.45) 1px,transparent 1px)", backgroundSize: "72px 72px", maskImage: "linear-gradient(to bottom, black, transparent 88%)" }} />
           </div>
           <div className="mx-auto grid w-full max-w-[1240px] grid-cols-1 items-center gap-16 px-5 sm:px-8 lg:grid-cols-[1.05fr_.95fr] lg:gap-12">
             <div className="max-w-[680px]">
               <motion.div initial={reduceMotion ? false : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease }} className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#7EE7C2]/25 bg-[#7EE7C2]/[0.07] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-[#9DF0D3]"><Sparkles className="h-3.5 w-3.5" /> Personal improvement for 600–1500 players</motion.div>
-              <motion.h1 initial={reduceMotion ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.08, ease }} className="font-heading text-[clamp(3.2rem,7vw,6.8rem)] font-semibold leading-[0.88] tracking-[-0.055em] text-[#F4EFE4]">Your next rating milestone needs a plan built from <span className="text-[#B7F34A]">your games.</span></motion.h1>
+              <motion.h1 initial={reduceMotion ? false : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.08, ease }} className="font-heading text-[clamp(3.2rem,7vw,6.8rem)] font-semibold leading-[0.88] tracking-[-0.055em] text-[#F4EFE4]">Your next rating milestone needs a plan built from <span className="text-[#7FB069]">your games.</span></motion.h1>
               <motion.p initial={reduceMotion ? false : { opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.18, ease }} className="mt-7 max-w-[610px] text-base leading-7 text-white/62 sm:text-lg sm:leading-8">ChessGuru discovers what is actually holding you back, teaches the chess you need next, and tracks whether the weakness disappears from your real games.</motion.p>
               <motion.div initial={reduceMotion ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.28, ease }} className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <PrimaryButton onClick={() => startPlan("hero")} testId="hero-cta-button" className="sm:px-7">Build my improvement plan</PrimaryButton>
@@ -292,7 +292,7 @@ export default function Landing() {
 
         <section className="border-y border-white/10 bg-[#0A1B16] py-6">
           <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-center gap-x-9 gap-y-4 px-5 text-[10px] font-bold uppercase tracking-[0.17em] text-white/40 sm:px-8">
-            <span className="text-[#B7F34A]">Not another analysis tool</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>One personal focus</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>Knowledge selected for you</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>Measured in future games</span>
+            <span className="text-[#7FB069]">Not another analysis tool</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>One personal focus</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>Knowledge selected for you</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>Measured in future games</span>
           </div>
         </section>
 
@@ -333,20 +333,20 @@ export default function Landing() {
           <div className="mx-auto max-w-[1240px] px-5 sm:px-8">
             <Reveal className="mx-auto max-w-3xl text-center"><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#B94D37]">A complete chess curriculum</p><h2 className="mt-4 font-heading text-[clamp(2.7rem,5vw,5rem)] font-semibold leading-[0.95] tracking-[-0.045em]">ChessGuru can teach the whole game. Your games tell your coach what comes next.</h2></Reveal>
             <div className="mt-14 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {CURRICULUM.map(([title, Icon, body], index) => <Reveal key={title} delay={index * 0.04}><div className="h-full rounded-[24px] border border-[#071411]/10 bg-white/55 p-5 transition-all hover:-translate-y-1 hover:bg-white hover:shadow-[0_20px_50px_rgba(7,20,17,0.1)]"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#071411] text-[#B7F34A]"><Icon className="h-5 w-5" /></div><h3 className="mt-5 font-heading text-xl font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#536A62]">{body}</p></div></Reveal>)}
+              {CURRICULUM.map(([title, Icon, body], index) => <Reveal key={title} delay={index * 0.04}><div className="h-full rounded-[24px] border border-[#071411]/10 bg-white/55 p-5 transition-all hover:-translate-y-1 hover:bg-white hover:shadow-[0_20px_50px_rgba(7,20,17,0.1)]"><div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#071411] text-[#7FB069]"><Icon className="h-5 w-5" /></div><h3 className="mt-5 font-heading text-xl font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#536A62]">{body}</p></div></Reveal>)}
             </div>
           </div>
         </section>
 
         <section className="relative overflow-hidden bg-[#0B1F19] py-24 sm:py-32">
-          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(183,243,74,.12),transparent_45%)]" />
+          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(127,176,105,.12),transparent_45%)]" />
           <div className="relative mx-auto max-w-[1060px] px-5 sm:px-8">
             <Reveal className="grid items-center gap-10 rounded-[34px] border border-white/10 bg-white/[0.04] p-7 backdrop-blur sm:p-10 lg:grid-cols-[1fr_.72fr] lg:p-12">
               <div><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#7EE7C2]">Free to start</p><h2 className="mt-4 font-heading text-4xl font-semibold leading-[0.98] tracking-[-0.035em] text-white sm:text-5xl">Meet the coach before you pay for the program.</h2><p className="mt-5 max-w-xl text-sm leading-7 text-white/55 sm:text-base">Import games, receive your first diagnosis, and experience personal training on the Free plan. Pro opens ongoing coaching only after the complete lifecycle is verified.</p></div>
               <div className="rounded-[24px] bg-[#F4EFE4] p-6 text-[#071411]">
                 <div className="flex items-baseline justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#537066]">Free</p><p className="mt-2 font-heading text-4xl font-semibold">₹0</p></div><Gamepad2 className="h-7 w-7 text-[#28745D]" /></div>
                 <ul className="mt-5 space-y-2.5 text-sm text-[#365047]">{["Import Chess.com and Lichess games", "Receive your coaching focus", "Start personal pattern training"].map((text) => <li key={text} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#28745D]" />{text}</li>)}</ul>
-                <button type="button" onClick={() => navigate("/pricing")} className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-[#071411] underline decoration-[#B7F34A] decoration-2 underline-offset-4">See Free and Pro <ArrowRight className="h-4 w-4" /></button>
+                <button type="button" onClick={() => navigate("/pricing")} className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-[#071411] underline decoration-[#7FB069] decoration-2 underline-offset-4">See Free and Pro <ArrowRight className="h-4 w-4" /></button>
               </div>
             </Reveal>
           </div>
@@ -364,10 +364,10 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="relative overflow-hidden bg-[#B7F34A] py-24 text-[#071411] sm:py-32">
+        <section className="relative overflow-hidden bg-[#7FB069] py-24 text-[#071411] sm:py-32">
           <motion.div aria-hidden="true" animate={reduceMotion ? undefined : { x: [0, 24, 0], rotate: [0, 5, 0] }} transition={{ duration: 9, repeat: Infinity }} className="absolute -right-24 -top-32 h-[400px] w-[400px] rounded-full border-[60px] border-[#071411]/[0.06]" />
           <div className="relative mx-auto max-w-[900px] px-5 text-center sm:px-8">
-            <Reveal><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#35510B]">Your games already contain the answer</p><h2 className="mt-5 font-heading text-[clamp(3rem,7vw,6rem)] font-semibold leading-[0.9] tracking-[-0.05em]">Stop guessing what to study next.</h2><p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-[#29420B]/80 sm:text-lg">Connect your games. Choose your goal. Let ChessGuru build the plan—and keep measuring until your chess changes.</p><button type="button" onClick={() => startPlan("final_cta")} className="group mt-9 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-[#071411] px-8 py-4 text-sm font-bold text-white shadow-[0_20px_50px_rgba(7,20,17,0.25)] transition-transform hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#071411] focus-visible:ring-offset-4 focus-visible:ring-offset-[#B7F34A]">Build my improvement plan <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button><p className="mt-5 text-xs text-[#35510B]/70">Free to start · No credit card · Your plan changes as your chess changes</p></Reveal>
+            <Reveal><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#35510B]">Your games already contain the answer</p><h2 className="mt-5 font-heading text-[clamp(3rem,7vw,6rem)] font-semibold leading-[0.9] tracking-[-0.05em]">Stop guessing what to study next.</h2><p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-[#29420B]/80 sm:text-lg">Connect your games. Choose your goal. Let ChessGuru build the plan—and keep measuring until your chess changes.</p><button type="button" onClick={() => startPlan("final_cta")} className="group mt-9 inline-flex min-h-14 items-center justify-center gap-2 rounded-full bg-[#071411] px-8 py-4 text-sm font-bold text-white shadow-[0_20px_50px_rgba(7,20,17,0.25)] transition-transform hover:-translate-y-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#071411] focus-visible:ring-offset-4 focus-visible:ring-offset-[#7FB069]">Build my improvement plan <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></button><p className="mt-5 text-xs text-[#35510B]/70">Free to start · No credit card · Your plan changes as your chess changes</p></Reveal>
           </div>
         </section>
       </main>

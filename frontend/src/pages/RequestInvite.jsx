@@ -73,7 +73,7 @@ export default function RequestInvite() {
 
         {done ? (
           <div className="mt-10" data-testid="invite-done">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#B7F34A]">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#7FB069]">
               <Check className="h-6 w-6 text-[#071411]" />
             </div>
             <h1 className="mt-6 font-heading text-3xl font-semibold">You're on the list.</h1>
@@ -85,7 +85,7 @@ export default function RequestInvite() {
           </div>
         ) : (
           <>
-            <p className="mt-10 text-[10px] font-bold uppercase tracking-[0.22em] text-[#B7F34A]">
+            <p className="mt-10 text-[10px] font-bold uppercase tracking-[0.22em] text-[#7FB069]">
               Opening soon
             </p>
             <h1 className="mt-4 font-heading text-3xl font-semibold leading-tight sm:text-4xl">
@@ -107,7 +107,7 @@ export default function RequestInvite() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white placeholder-white/30 focus:border-[#B7F34A] focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white placeholder-white/30 focus:border-[#7FB069] focus:outline-none"
                 />
                 <p className="mt-1.5 text-xs text-white/40">
                   Use the address you'd sign in with — Google works best.
@@ -120,7 +120,7 @@ export default function RequestInvite() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Your name"
-                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white placeholder-white/30 focus:border-[#B7F34A] focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white placeholder-white/30 focus:border-[#7FB069] focus:outline-none"
                 />
               </div>
               <div>
@@ -133,7 +133,7 @@ export default function RequestInvite() {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Rating, where you play, what you're stuck on"
-                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white placeholder-white/30 focus:border-[#B7F34A] focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white placeholder-white/30 focus:border-[#7FB069] focus:outline-none"
                 />
               </div>
 
@@ -143,7 +143,7 @@ export default function RequestInvite() {
                 type="submit"
                 disabled={submitting}
                 data-testid="invite-submit"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#B7F34A] px-6 py-3.5 text-sm font-bold text-[#071411] transition-transform hover:-translate-y-0.5 disabled:opacity-60"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#7FB069] px-6 py-3.5 text-sm font-bold text-[#071411] transition-transform hover:-translate-y-0.5 disabled:opacity-60"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {submitting ? "Sending…" : "Request an invite"}
@@ -155,14 +155,14 @@ export default function RequestInvite() {
               <button
                 type="button"
                 onClick={() => navigate("/login")}
-                className="font-semibold text-white underline decoration-[#B7F34A] decoration-2 underline-offset-4"
+                className="font-semibold text-white underline decoration-[#7FB069] decoration-2 underline-offset-4"
                 data-testid="invite-signin-link"
               >
                 Sign in
               </button>
             </p>
             {signupsOpen && (
-              <p className="mt-3 text-sm text-[#B7F34A]" data-testid="invite-open-notice">
+              <p className="mt-3 text-sm text-[#7FB069]" data-testid="invite-open-notice">
                 ChessGuru is open now — you can sign in directly.
               </p>
             )}

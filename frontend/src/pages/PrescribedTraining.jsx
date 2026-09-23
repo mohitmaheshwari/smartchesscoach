@@ -832,7 +832,7 @@ export default function PrescribedTraining({ user = null }) {
                     onClick={() => setSelectedModule(mod)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       selectedModule?.module_id === mod.module_id
-                        ? "bg-[#B7F34A] text-[#071411]"
+                        ? "bg-[#7FB069] text-[#071411]"
                         : "bg-card border border-border text-foreground hover:bg-muted/50"
                     }`}
                   >

@@ -563,7 +563,7 @@ export default function PersonalizedLessonWorkspace({
                       onClick={() => submitMove(choice.id)}
                       className={`w-full text-left rounded-lg border px-3 py-2.5 text-sm transition-colors disabled:opacity-50 ${
                         reasonChoice === choice.id
-                          ? "border-[#B7F34A] bg-[#B7F34A]/15 text-foreground"
+                          ? "border-[#7FB069] bg-[#7FB069]/15 text-foreground"
                           : "border-border hover:bg-muted/60 text-foreground"
                       }`}
                     >

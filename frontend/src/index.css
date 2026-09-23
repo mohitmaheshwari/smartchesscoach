@@ -1080,7 +1080,7 @@
   --accent-foreground: 158 58% 15%;
   --border: 42 20% 82%;
   --input: 42 20% 82%;
-  --ring: 82 87% 62%;
+  --ring: 101 31% 55%;   /* was lime; focus ring follows the accent */
   --success: 158 56% 39%;
   --warning: 38 92% 54%;
   --critical: 10 100% 70%;

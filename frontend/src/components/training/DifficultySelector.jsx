@@ -51,7 +51,7 @@ export default function DifficultySelector({
               aria-pressed={selected}
               className={`rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 ${
                 selected
-                  ? "border-[#B7F34A] bg-[#B7F34A]/15 shadow-[0_14px_34px_rgba(183,243,74,0.12)]"
+                  ? "border-[#7FB069] bg-[#7FB069]/15 shadow-[0_14px_34px_rgba(127,176,105,0.12)]"
                   : "border-border bg-card/60 hover:border-emerald-700/25"
               }`}
             >

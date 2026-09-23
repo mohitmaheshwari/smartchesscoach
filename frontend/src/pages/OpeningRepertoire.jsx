@@ -69,7 +69,7 @@ function OpeningCard({ opening, onClick }) {
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {opening.in_library && (
-          <span className="rounded-full bg-[#B7F34A]/20 px-2.5 py-1 text-[10px] font-bold text-emerald-900 dark:text-[#DFFFA7]">
+          <span className="rounded-full bg-[#7FB069]/20 px-2.5 py-1 text-[10px] font-bold text-emerald-900 dark:text-[#DFFFA7]">
             Lesson ready
           </span>
         )}
@@ -104,8 +104,8 @@ function RecommendedCard({ opening, onClick }) {
       className="experience-focus-card group w-full rounded-2xl border p-5 text-left"
     >
       <div className="flex items-start gap-3">
-        <div className="rounded-xl bg-[#B7F34A]/20 p-2">
-          <Sparkles className="h-4 w-4 text-emerald-800 dark:text-[#B7F34A]" />
+        <div className="rounded-xl bg-[#7FB069]/20 p-2">
+          <Sparkles className="h-4 w-4 text-emerald-800 dark:text-[#7FB069]" />
         </div>
         <div className="min-w-0 flex-1">
           {opening.focus_title && opening.focus_title !== opening.name && (
@@ -233,8 +233,8 @@ export default function OpeningRepertoire({ user }) {
       <main className="experience-page experience-learning-page experience-repertoire-page cg-page" data-testid="opening-repertoire-page">
         <header className="cg-hero">
           <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-[#B7F34A]/20 p-2.5">
-              <BookOpen className="h-5 w-5 text-emerald-800 dark:text-[#B7F34A]" />
+            <div className="rounded-xl bg-[#7FB069]/20 p-2.5">
+              <BookOpen className="h-5 w-5 text-emerald-800 dark:text-[#7FB069]" />
             </div>
             <p className="cg-eyebrow">Openings with your coach</p>
           </div>
