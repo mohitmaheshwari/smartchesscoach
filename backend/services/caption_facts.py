@@ -8834,14 +8834,38 @@ def _principles_violated(
         _p_end_opposition,       # added 2026-05-17 (Mohit signoff) — king_move_required gate
         _p_end_rook_behind_passer, # added 2026-05-18 (Phase 4) — Tarrasch's rule, single-passer-only
         _p_end_pawn_traps_own_rook,  # added 2026-06-22 — pawn push that entombs your own rook (mobility collapse)
-        _p_op_bishop_trade_doubles_pawn,  # added 2026-05-18 (Phase 6) — cross-opening structural concession
         _p_op_f2_f7_strike,               # added 2026-05-18 (Phase 6) — weak-king-square strike
         _p_op_trapped_knight,             # added 2026-05-18 (Phase 6) — knight with zero safe squares
         _p_mid_king_safety,
         _p_mid_keep_attackers,
         _p_def_trade_attackers,
         _p_tac_skewer_pattern,
-        _p_mid_bad_bishop,
+        # MID_BAD_BISHOP and OP_BISHOP_TRADE_DOUBLES_PAWN are deliberately
+        # NOT in this tuple. This list answers "what did the player do
+        # wrong on this move", and neither of them can. Measured over 800
+        # games / 24,660 moves on 2026-09-23, against a base rate of 56.4%
+        # of all user moves being engine-approved:
+        #
+        #   MID_BAD_BISHOP                53.2% agreement   z = -0.8
+        #   OP_BISHOP_TRADE_DOUBLES_PAWN  56.2% agreement   z = -0.0
+        #
+        # They fire at chance with respect to move quality, i.e. they carry
+        # no information about whether the move was a mistake. That is not a
+        # bug in either predicate -- a bad bishop is a standing condition of
+        # the position, and it persisted across 11 consecutive moves in one
+        # game while the player did nothing wrong. They were filed in the
+        # wrong drawer, not broken.
+        #
+        # Both concepts stay measured, as slow-moving numbers per position,
+        # in services/positional_snapshot.py (`bad_bishop_pawns` and
+        # `doubled_pawns`). That is where a state belongs. The predicates
+        # below are kept and still importable so the measurement above can
+        # be reproduced.
+        #
+        # For contrast, the ones that look similar but are real detection
+        # and therefore stay: MID_KING_SAFETY (47.1%, z = -9.0) and
+        # OP_NOT_CASTLED (47.0%, z = -6.6) fire far more often on mistakes
+        # than chance. Do not move those without re-measuring.
     ):
         try:
             ev = detector(facts, board_before)

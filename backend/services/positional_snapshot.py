@@ -200,6 +200,20 @@ def _bad_bishop_pawns(board: chess.Board, color: chess.Color) -> int:
     Principle 4, in its classic form: a bishop hemmed in by its own pawns is
     a bad bishop. Counted per bishop and summed, so a side with two bishops
     on the same colour is charged for both.
+
+    The measurement is sound. The ADVICE historically attached to it was
+    not, and anyone building on this number should know why before they
+    repeat it. The old MID_BAD_BISHOP caption principle told the player to
+    reroute the flagged bishop, but it hardcoded engine_endorsement="absent"
+    and offered no aligned moves, so nothing ever checked that rerouting was
+    right. Asked directly (Stockfish, depth 16, multipv 5, 40 flagged
+    positions on 2026-09-23): a move of the flagged bishop was in the
+    engine's top 5 in 9 of 40, and was the engine's first choice in 3 of 40.
+
+    So: a high count here means the bishop is hemmed in, which is true and
+    worth tracking over a player's games. It does NOT mean moving that
+    bishop is the right move now, and no caption should say so without
+    asking the engine about the specific position.
     """
     return sum(b["same_colour_pawns"] for b in bishop_details(board, color))
 
