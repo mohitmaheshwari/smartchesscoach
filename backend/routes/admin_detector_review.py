@@ -1713,13 +1713,121 @@ def _lazy(module_name: str, func_name: str):
     return call
 
 
+def _principle_violation(principle_id: str, name: str, cue: str):
+    """Serve one PRINCIPLE detector's fires so it can be judged.
+
+    All 35 principles in services/caption_principles.py have a coded board
+    predicate in caption_facts (_p_*), an engine-endorsement gate, and a
+    grade of SHADOW (34) or DISABLED (1) -- so can_influence(.., CAPTION) is
+    False for every one and not a single principle has ever reached a player.
+    They were measured once and never promoted.
+
+    This queue is how the evidence for promoting them gets made. A ruling
+    here promotes nothing on its own; the grade in detector_quality still has
+    to be changed by hand, which is the point -- Mohit enables them, not a
+    model.
+
+    Known limitation, stated rather than hidden: principles that need the
+    game's move history (OP_SAME_PIECE_TWICE, OP_FINISH_DEVELOPMENT) get an
+    empty history here, because the stored analysis carries only user moves
+    and rebuilding both sides needs the PGN this producer does not receive.
+    Those will under-fire in this queue relative to production.
+    """
+    def produce(move, colour, analysis):
+        if move.get("is_opponent_move"):
+            return None
+        fen = move.get("fen_before")
+        played = move.get("move")
+        best = move.get("best_move")
+        if not fen or not played or not best:
+            return None
+        from services.caption_facts import extract_facts, _principles_violated
+
+        try:
+            facts = extract_facts(
+                fen_before=fen,
+                played_san=str(played),
+                best_move_san=str(best),
+                eval_before_cp=move.get("eval_before"),
+                eval_after_cp=move.get("eval_after"),
+                cp_loss=abs(int(move.get("cp_loss") or 0)),
+                pv_after_played=list(move.get("pv_after_played") or []),
+                pv_after_best=list(move.get("pv_after_best") or []),
+                move_history_san=[],
+                full_move_number=int(move.get("move_number") or 0),
+                mover_is_user=True,
+            )
+            board = chess.Board(fen)
+            hits = _principles_violated(facts, board)
+        except Exception:  # noqa: BLE001
+            return None
+        hit = None
+        for item in (hits or []):
+            if str(item.get("principle_id")) == principle_id:
+                hit = item
+                break
+        if hit is None:
+            return None
+
+        side, arrow = _orientation_and_arrow(fen, str(played))
+        best_arrow = _orientation_and_arrow(fen, str(best))[1]
+        loss = move.get("cp_loss")
+        loss = loss if isinstance(loss, (int, float)) else 0
+        # A principle that the ENGINE also endorses is the strong case; one it
+        # does not is the long-term claim and the one worth a human eye first.
+        endorsed = str(hit.get("engine_endorsement") or "") == "best"
+        confidence = CONFIDENCE_LIKELY if endorsed else CONFIDENCE_UNCERTAIN
+        caption = "%s. %s" % (name, cue) if cue else name
+        evidence = {
+            "fen_before": fen, "fen_after": move.get("fen_after"),
+            "review_fen": fen, "line_fen": fen,
+            "played_san": str(played), "best_move": str(best),
+            "move_number": move.get("move_number"), "cp_loss": loss,
+            "confidence": confidence,
+            "pv_after_played": list(move.get("pv_after_played") or [])[:8],
+            "pv_after_best": list(move.get("pv_after_best") or [])[:8],
+            "side_to_move": side, "arrow": arrow,
+            "arrow_is": "the move played",
+            "extra_arrows": [[best_arrow[0], best_arrow[1], "green"]]
+                            if best_arrow else [],
+            "extra_arrows_is": "what the engine wanted instead",
+            "quality_id": "principle:%s" % principle_id,
+            "detector_facts": [dict(hit)],
+        }
+        return caption, evidence
+
+    return produce
+
+
+def _principle_producers():
+    """One review entry per principle in the catalog, built from the catalog.
+
+    Generated rather than typed so a principle added to caption_principles.py
+    cannot silently miss the review queue -- which is how 35 detectors came to
+    exist with nobody able to look at one.
+    """
+    from services.caption_principles import PRINCIPLES
+
+    out = {}
+    for item in PRINCIPLES:
+        pid = str(item.get("id") or "").strip()
+        if not pid:
+            continue
+        out["principle_" + pid.lower()] = _principle_violation(
+            pid,
+            str(item.get("name") or pid),
+            str(item.get("cue_best") or ""),
+        )
+    return out
+
+
 def _producers():
     from services.discovered_attack_puzzle_proof import (
         build_discovered_attack_proof,
     )
     from services.fork_puzzle_proof import build_fork_proof
 
-    return {
+    registry = {
         "allowed_mate": _produce_allowed_mate,
         "tempo_loss": _produce_tempo_loss,
         "simple_hang": _produce_simple_hang,
@@ -1775,6 +1883,9 @@ def _producers():
         "missed_philidor": _missed_concept("endgame_philidor"),
         "missed_active_rook": _missed_concept("endgame_active_rook"),
     }
+    # 35 principle detectors, all SHADOW/DISABLED, none ever seen by anyone.
+    registry.update(_principle_producers())
+    return registry
 
 
 CLAIMS_COLLECTION = "detector_claims"
