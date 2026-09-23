@@ -732,6 +732,10 @@ const CoachPlay = ({ user }) => {
     guidedMode,
     selectedOpening,
     session?.session_id,
+    // Read by isOnAuthoredLine to decide played_perfectly. Without it this
+    // effect can report on a stale history and claim a clean line for a game
+    // that deviated - the exact thing the guard exists to stop.
+    session?.move_history,
     setFlowOpeningGuidance,
   ]);
 

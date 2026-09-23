@@ -15,6 +15,13 @@
  * Deviating from a line is not a mistake. We simply stop guiding from a line
  * nobody is playing any more.
  *
+ * Not the same thing as `openingDeviation` in CoachPlay, and they compose:
+ * that one catches the USER playing off-line in guided mode and rejects the
+ * move so they can try again, which means it never reaches move_history. This
+ * one asks a simpler question of the board -- does the history still match the
+ * line at all -- and so also covers the case that had no handler: the COACH
+ * leaving the line, which is what produced the bad arrow.
+ *
  * Lives in its own module so the guard and its tests share one definition
  * instead of a copy that can drift.
  */
