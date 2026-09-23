@@ -2267,6 +2267,32 @@ async def _fires_for(detector: str, skip_fens: set, limit: int) -> List[Dict[str
     return found[:limit]
 
 
+@router.get("/admin/detector-review/detectors")
+async def list_review_detectors(user: User = Depends(require_admin)):
+    """Every queue this route can serve, so the page cannot go stale.
+
+    The page used to carry a hand-written list, so the 35 principle queues
+    existed on the server with no way to reach them -- the same shape of
+    problem as the detectors themselves: built, and invisible.
+    """
+    from services.caption_principles import PRINCIPLES
+
+    names = {str(item.get("id")): str(item.get("name") or item.get("id"))
+             for item in PRINCIPLES}
+    out = []
+    for key in sorted(_producers()):
+        if key.startswith("principle_"):
+            pid = key[len("principle_"):].upper()
+            out.append({"id": key, "label": names.get(pid, pid),
+                        "group": "principle", "principle_id": pid})
+        else:
+            out.append({"id": key, "label": key.replace("_", " "),
+                        "group": "detector"})
+    return {"detectors": out,
+            "counts": {"total": len(out),
+                       "principles": sum(1 for d in out if d["group"] == "principle")}}
+
+
 @router.get("/admin/detector-review/next")
 async def next_claim(
     detector: str = Query(default="allowed_mate"),

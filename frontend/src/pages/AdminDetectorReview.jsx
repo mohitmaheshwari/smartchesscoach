@@ -363,6 +363,11 @@ const replay = (fen, moves, ply) => {
 
 export default function AdminDetectorReview() {
   const [detector, setDetector] = useState(DETECTORS[0].id);
+  // The hand-written DETECTORS list above could not see the 35 principle
+  // queues the server added, so they existed with no way to reach them --
+  // the same shape of problem as the detectors themselves. The server now
+  // says what it can serve and this list follows it.
+  const [principles, setPrinciples] = useState([]);
   const [claims, setClaims] = useState([]);
   // Caption feedback is deliberately NOT part of the verdict. A detector can
   // be dead right and still say it badly, and collapsing the two means the
@@ -447,6 +452,23 @@ export default function AdminDetectorReview() {
       credentials: "include",
     });
     if (res.ok) setResults(await res.json());
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API}/admin/detector-review/detectors`, {
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const body = await res.json();
+        setPrinciples(
+          (body.detectors || []).filter((d) => d.group === "principle")
+        );
+      } catch {
+        /* the curated buttons still work without this */
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -573,7 +595,17 @@ export default function AdminDetectorReview() {
   }, [detector]);
 
   const summary = results?.summary?.[detector];
-  const active = DETECTORS.find((d) => d.id === detector);
+  // Fall back to the server list, or a principle selection renders with a
+  // blank heading and no statement of what it claims.
+  const active =
+    DETECTORS.find((d) => d.id === detector) ||
+    (principles.find((p) => p.id === detector)
+      ? {
+          ...principles.find((p) => p.id === detector),
+          claims:
+            "this positional principle was violated by the move played. It is graded shadow, so nothing you rule here reaches a player until the grade is changed by hand",
+        }
+      : undefined);
 
   return (
     <Layout>
@@ -612,6 +644,30 @@ export default function AdminDetectorReview() {
             </Button>
           </div>
         </div>
+
+        {principles.length > 0 && (
+          <div className="mb-3">
+            <label
+              htmlFor="principle-picker"
+              className="block text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-1"
+            >
+              Positional principles ({principles.length}) — all shadow
+            </label>
+            <select
+              id="principle-picker"
+              value={principles.some((p) => p.id === detector) ? detector : ""}
+              onChange={(e) => e.target.value && setDetector(e.target.value)}
+              className="w-full rounded-sm border border-border bg-background px-2 py-1.5 text-xs"
+            >
+              <option value="">Pick a principle to review…</option>
+              {principles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="grid gap-1.5">
           {DETECTORS.map((d) => {
