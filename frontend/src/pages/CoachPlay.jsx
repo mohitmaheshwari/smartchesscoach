@@ -4020,23 +4020,21 @@ const CoachPlay = ({ user }) => {
         </div>
       )}
 
-      {/* Pre-game focus banner */}
-      {showFocusBanner && focusRule && (
-        <div className="bg-amber-500/10 border-b border-amber-500/15 px-4 py-3 flex items-center justify-between animate-in fade-in slide-in-from-top duration-300">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-              <Target className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">{focusRule.name}</p>
-              <p className="text-xs text-foreground">{focusRule.rule}</p>
-            </div>
-          </div>
-          <button onClick={() => setShowFocusBanner(false)} className="text-muted-foreground/40 hover:text-muted-foreground text-xs ml-4">
-            &times;
-          </button>
-        </div>
-      )}
+      {/* The pre-game focus banner used to sit here. Removed 2026-09-23: it
+          rendered focusRule.rule, and the sidebar's "Today's goal" card
+          renders session_goal.text -- which resolve to the SAME sentence,
+          because session_goal is built from the same focus bundle ("the same
+          reader the FocusCard + session_goal_service use, so the goal card
+          and the coach voice speak with one anchor").
+
+          So the player was told the same thing twice on one screen, and the
+          duplicate took a full row of height above the board -- on a page
+          whose whole argument is that the board is the hero.
+
+          The sidebar card is the one that stays: it lives where the coach
+          lives and is pinned for the whole game, whereas this was dismissible
+          and pre-game only. focusRule is still loaded and still drives the
+          coaching logic; only the second rendering of it is gone. */}
       {/* ─── PWC responsive redesign (docs/pwc_responsive_redesign_scope.md) ──
           `.pwc-root` re-skins this subtree to the new design tokens (warm/amber)
           by overriding the shadcn CSS vars — scoped to PWC only. The shell below
