@@ -165,7 +165,13 @@ async def fetch_recent_lichess_games(username: str, since_timestamp: int = None)
             params = {
                 "max": 20,
                 "pgnInJson": "true",
-                "clocks": "false",
+                # Clocks are the ONLY source of per-move think time. With this
+                # off, every lichess game imported since launch lost its timing
+                # permanently: measured 2026-09-23, 0 of 56 lichess games carried
+                # [%clk] against 618 of 625 chess.com games (99%). That silently
+                # disabled time management, rushing detection and the patience
+                # habit for anyone who plays on lichess.
+                "clocks": "true",
                 "evals": "false"
             }
             

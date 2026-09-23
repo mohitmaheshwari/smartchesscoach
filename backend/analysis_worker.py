@@ -2187,7 +2187,19 @@ def process_job(db, job):
         # =========================================================================
         try:
             from services.thinking_score import calculate_game_thinking_scores
-            
+
+            # Patience is scored from think-time, so the clocks in the PGN have
+            # to reach the move evaluations first. Without this the habit is
+            # reported unmeasured rather than silently perfect.
+            try:
+                from services.move_time_analyzer import attach_move_times
+                _timed = attach_move_times(
+                    game.get("pgn") or "", user_color,
+                    game.get("time_control"), move_evaluations)
+                logger.info(f"[THINKING SCORE] attached think-time to {_timed} moves for {game_id}")
+            except Exception as _mt_err:
+                logger.warning(f"[THINKING SCORE] move-time attach failed (non-fatal): {_mt_err}")
+
             # Build analysis dict for thinking score calculation
             analysis_for_score = {
                 "game_id": game_id,
