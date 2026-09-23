@@ -41,8 +41,6 @@
   --pwc-ok: #5f9e4a;
   --pwc-warn: #c9881f;
   --pwc-bad: #c8503f;
-  --pwc-sq-light: #ecd8ad;
-  --pwc-sq-dark: #a07a54;
 
   /* Mobile bottom-sheet sizing. Peek is a small persistent coach bar so the
      BOARD owns the screen (in the real app you move on the board, not via
@@ -97,8 +95,6 @@
   --pwc-ok: #7fb069;
   --pwc-warn: #d9a441;            /* reserved for the interruption */
   --pwc-bad: #d96857;
-  --pwc-sq-light: #f0d9b5;        /* chessground brown, verbatim */
-  --pwc-sq-dark: #b58863;
 }
 
 /* ─── Responsive shell ───────────────────────────────────────────────────

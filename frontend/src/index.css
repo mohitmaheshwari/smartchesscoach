@@ -18,6 +18,18 @@
    coach.
 --------------------------------------------------------------------------- */
 :root {
+  /* Board squares.
+     chessground's bundled brown.css does NOT use a colour pair: it paints the
+     whole board #f0d9b5 and washes the dark squares with black at 20%, which
+     renders them #c0ae91. Measured light/dark contrast 1.58:1, against 2.29:1
+     for real lichess brown -- roughly 45% less separation, which is why our
+     board read flat next to the reference.
+
+     These are the real pair. Changing them changes every board in the app,
+     which is also what makes board themes a two-line job. */
+  --cg-sq-light: #f0d9b5;
+  --cg-sq-dark:  #b58863;
+
   --cg-accent: #7fb069;
   --cg-accent-hi: #8fbf78;      /* hover */
   --cg-accent-rgb: 127 176 105; /* for rgb(... / alpha) */
@@ -1507,4 +1519,21 @@
   .cg-chessloader__piece { animation: none; opacity: 0; }
   .cg-chessloader__piece:last-of-type { opacity: 1; transform: none; }
   .cg-chessloader__square { animation: none; opacity: 0.7; transform: none; }
+}
+
+
+/* Paint the checker from the token pair instead of chessground's 20%-black
+   overlay. One conic tile covers a 2x2 block of squares, so the tile is 25%
+   of the board; the first quadrant is top-right, which is the dark square on
+   a correctly oriented board (a8 light, b8 dark).
+
+   Scoped under .cg-wrap so it outranks the element-level rule in
+   chessground.brown.css regardless of stylesheet import order. */
+.cg-wrap cg-board {
+  background-color: var(--cg-sq-light);
+  background-image: repeating-conic-gradient(
+    var(--cg-sq-dark) 0% 25%,
+    var(--cg-sq-light) 0% 50%
+  );
+  background-size: 25% 25%;
 }
