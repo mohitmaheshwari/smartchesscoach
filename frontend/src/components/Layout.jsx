@@ -38,7 +38,18 @@ import {
   loadPersonalCurriculum,
 } from "@/lib/personalCurriculum";
 
-const Layout = ({ children, user }) => {
+/**
+ * `fullBleed` drops the centred document container for surfaces that are
+ * applications rather than pages.
+ *
+ * Play with Coach is the case that forced it: every page was wrapped in
+ * max-w-[1440px] with padding on all four sides, so on a 1920px screen the
+ * board column lost ~480px to margins before it started, and ~56px of vertical
+ * padding before that. The board then sized itself from that narrowed column
+ * and read as a small board surrounded by furniture -- which is the opposite
+ * of a board-led coaching screen.
+ */
+const Layout = ({ children, user, fullBleed = false }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -493,9 +504,20 @@ const Layout = ({ children, user }) => {
       </header>
 
       {/* ═══ Main Content ═══ */}
-      <main className={`experience-main flex-1 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'} pt-14 md:pt-0 bg-background ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
-        <div className={`${EXPERIENCE_V1_ENABLED ? 'max-w-[1440px]' : 'max-w-6xl'} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8`}>
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+      <main className={`experience-main flex-1 min-h-0 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'} pt-14 md:pt-0 bg-background ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
+        <div
+          className={
+            fullBleed
+              ? "h-full min-h-0 flex flex-col"
+              : `${EXPERIENCE_V1_ENABLED ? "max-w-[1440px]" : "max-w-6xl"} mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8`
+          }
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className={fullBleed ? "flex-1 min-h-0 flex flex-col" : undefined}
+          >
             {children}
           </motion.div>
         </div>

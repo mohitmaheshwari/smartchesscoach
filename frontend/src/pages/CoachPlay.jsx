@@ -3922,7 +3922,7 @@ const CoachPlay = ({ user }) => {
   // Game screen
   console.log("[CoachPlay] RENDERING - gameMode IS:", gameMode, "gameStarted:", gameStarted);
   return (
-    <Layout user={user}>
+    <Layout user={user} fullBleed>
       {/* Predict-coach-move ("Call My Move") — shown before the coach's move is revealed; a fixed
           overlay so it can't disrupt the board layout. Tapping an option (or the continue button)
           always resolves it, so it can't hang the game. See docs/predict_coach_move_scope.md. */}
@@ -4041,33 +4041,12 @@ const CoachPlay = ({ user }) => {
           is responsive: two-column on desktop, board + coach bottom-sheet on
           mobile/tablet. Teaching logic in the child components is unchanged. */}
       <div className="experience-page experience-pwc-page pwc-root flex flex-col flex-1 min-h-0">
-      <motion.div
-        variants={navFade}
-        initial="initial"
-        animate="animate"
-        className="border-b border-border/50 bg-background/80 backdrop-blur-sm"
-      >
-        <div className="max-w-[1320px] mx-auto px-6 md:px-10 h-11 flex items-center justify-between">
-          <div className="flex items-baseline gap-4 min-w-0">
-            <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
-              Play with Coach
-            </p>
-            {timeControl && (
-              <span className="text-[11px] text-muted-foreground/70 font-mono tabular-nums hidden sm:inline">
-                {timeControl} · {gameMode === "play" ? "review afterward" : "coached"}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-4 text-[11.5px] text-muted-foreground">
-            {selectedColor && (
-              <span className="hidden sm:inline font-mono tabular-nums">
-                you · {selectedColor}
-              </span>
-            )}
-          </div>
-        </div>
-      </motion.div>
-
+      {/* The "Play with Coach / 15+10 / you - white" strip used to sit here in
+          its own 44px band inside a max-w-[1320px] centred container. The
+          reference layout has no such band: who you are playing, the time
+          control and your colour live in the two bars that already frame the
+          board. Removing it returns a row of height and stops the page
+          reading as a document with a game inside it. */}
       {/* Page entrance — fade+rise on the game container (transform/opacity
           only; content stays interactive while animating in). */}
       <motion.div
