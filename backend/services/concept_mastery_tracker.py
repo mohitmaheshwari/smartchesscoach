@@ -449,11 +449,18 @@ async def update_user_mastery_for_recent_games(
     """
     # Pull recent analyzed games for this user, oldest first so streaks
     # accumulate correctly.
-    cursor = db.games.find(
+    # Ascending on a mixed-format date_played is worse than useless here:
+    # "-" sorts below ".", so the ISO rows (the RECENT ones) come first and
+    # `.limit()` then keeps them, so "the oldest N games, oldest first" is
+    # both the wrong set and the wrong order -- and streaks accumulate over
+    # that order. See services/game_dates.py.
+    from services.game_dates import sort_games_by_played_at
+
+    rows = await db.games.find(
         {"user_id": user_id, "is_analyzed": True},
         {"_id": 0, "game_id": 1, "imported_at": 1, "date_played": 1},
-    ).sort([("date_played", 1), ("imported_at", 1)]).limit(max_games)
-    games = await cursor.to_list(max_games)
+    ).to_list(length=None)
+    games = sort_games_by_played_at(rows, newest_first=False)[:max_games]
 
     totals = {
         "games_processed": 0,

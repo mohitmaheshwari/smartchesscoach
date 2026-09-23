@@ -56,10 +56,16 @@ async def _pre_enrollment_games(
     cutoff: datetime,
     limit: Optional[int] = 3,
 ) -> list[Dict[str, Any]]:
+    # Mongo cannot order date_played: the field mixes ISO and PGN formats and
+    # "." sorts above "-". This takes the first `limit` rows in order, so a
+    # wrong order is a wrong answer. See services/game_dates.py.
+    from services.game_dates import sort_games_by_played_at
+
     rows = await db.games.find(
         {"user_id": user_id, "is_analyzed": True},
         {"_id": 0, "game_id": 1, "date_played": 1, "analyzed_at": 1},
-    ).sort("date_played", -1).to_list(length=None)
+    ).to_list(length=None)
+    rows = sort_games_by_played_at(rows, newest_first=True)
     eligible = []
     for row in rows:
         played = _utc(row.get("date_played"))

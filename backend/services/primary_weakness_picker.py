@@ -527,11 +527,20 @@ async def _resolve_user_rating(db, user_id: str) -> Optional[int]:
         )
     except Exception:
         # Fallback: median of recent user_rating on games
-        ratings = []
-        async for g in db.games.find(
+        # date_played holds BOTH "2026-09-22T..." and "2026.04.01", and "."
+        # sorts above "-", so a Mongo sort puts every PGN-style date on top.
+        # Measured on user_8b599930d7ef: this asked for the 20 most recent
+        # games and returned 20 from Feb-Apr -- ZERO overlap with the real 20,
+        # and a median rating of 1245 instead of 1297. services/game_dates.py
+        # exists for exactly this and says to sort in Python.
+        from services.game_dates import sort_games_by_played_at
+
+        rows = await db.games.find(
             {"user_id": user_id, "user_rating": {"$ne": None}},
-            {"user_rating": 1},
-        ).sort("date_played", -1).limit(20):
+            {"user_rating": 1, "date_played": 1, "imported_at": 1},
+        ).to_list(length=None)
+        ratings = []
+        for g in sort_games_by_played_at(rows, newest_first=True)[:20]:
             r = g.get("user_rating")
             if isinstance(r, (int, float)) and r > 0:
                 ratings.append(int(r))
