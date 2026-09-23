@@ -114,5 +114,169 @@ So the question is not whether the profile conflicts with the redesign. It
 does not. The question is whether Mohit wants to EXTEND a surface he did not
 commission, or rule on that surface first.
 
-**AWAITING MOHIT'S RULING on EXTEND vs PARALLEL before sections 1–7 are
-written and before any code.**
+**RULED 2026-09-24: EXTEND.** Mohit approved extending the existing coach
+card rather than ruling on the Codex surface first.
+
+---
+
+## 1. What it is
+
+One sentence at the top of the coach card on Home that tells a player
+something true about how they play, drawn from their own games.
+
+Today that line is a stage label — "I'm starting to see your habits" — which
+is the same for almost everyone. It becomes an observation: what this player
+is good at, and what keeps costing them games. It is written like a coach
+talking, never like a report. No numbers, no percentages, no chess jargon.
+
+Nothing else on the card changes.
+
+---
+
+## 2. What the user sees
+
+The card as it renders today:
+
+```
+  I've been thinking about your games.
+
+  I'm starting to see your habits.              <- generic, this line changes
+
+  We've worked on piece safety for 12 days now.
+
+  In a slow game the board feels settled, so it stops getting re-checked
+  every move. Then one capture changes it.
+
+  [ Practise this with me  -> ]
+```
+
+**After — a player with 25 games:**
+
+```
+  I've been thinking about your games.
+
+  You play for the attack, and you spot pins well. Forks are where
+  games slip away — you find them, but you walk into them just as often.
+
+  We've worked on piece safety for 12 days now.
+
+  In a slow game the board feels settled, so it stops getting re-checked
+  every move. Then one capture changes it.
+
+  [ Practise this with me  -> ]
+```
+
+**It grows with how much we have seen.** The same player earlier:
+
+```
+  3 games    You play for the attack.
+
+ 10 games    You play for the attack. Forks are where games slip
+             away from you.
+
+ 25 games    You play for the attack, and you spot pins well. Forks are
+             where games slip away — you find them, but you walk into
+             them just as often.
+```
+
+**When nothing can be measured honestly, today's line ships unchanged.**
+Silence is not a state the player ever sees; they see what they see now.
+
+### Rules the sentence must obey
+
+- **No numbers.** Not counts, not percentages, not centipawns, not "8 of your
+  last 10". If it cannot be said in words it is not said.
+- **Name the behaviour, not the tally.** "Forks are where games slip away",
+  never "you walked into 17 forks".
+- **Very easy English.** Short sentences, one idea each, common words.
+- **No jargon.** No fianchetto, prophylaxis, zwischenzug. "Pin" and "fork"
+  are allowed — they are the vocabulary the training already teaches.
+- **Strength first, always.** A player opens Home to a sentence about what
+  they are good at, then what is costing them. Never the other way round.
+- **At most two strengths and two gaps**, so it stays a sentence and never
+  becomes a list.
+
+---
+
+## 3. In scope (V1)
+
+- A new `observation` field on the home coach conversation payload, replacing
+  `stage_opener` in the card when present.
+- Observation built from four sources only: **motif events** (two-sided —
+  finds vs walks into), **repertoire**, **phase**, **style**.
+- Three depth tiers by games seen: 3+ (one clause), 10+ (two), 25+ (full).
+- **25-game window.** Games older than the last 25 are not read.
+- **Refresh on every 5th newly analysed game**, not on page load.
+- Phrasings authored offline as deterministic templates and approved through
+  the existing caption authoring path. **No LLM at request time.**
+- Falls back to today's `stage_opener` whenever no tier is met.
+- Coverage measured across all users before it ships.
+
+---
+
+## 4. Explicitly out of scope (V1)
+
+- **Positional observations.** 1,771 of 532,399 moves carry positional state.
+  Nothing honest can be said yet.
+- **Behavioural observations** ("you get loose when winning"). 0 of 69 users
+  have measured behaviour stats.
+- **Any change to `continuity`, `belief`, the focus rail, or the CTA.**
+- **Any change to `CurriculumHome`** — that is the admin surface and a
+  separate question.
+- **Progress claims** ("this is improving"). Requires a trend the profile
+  does not yet compute.
+- **Opening-variation prompts** ("you always play d3") — real, measured, and
+  a different card. Filed, not built here.
+- **Rating-band phrasing differences.** One voice for V1.
+
+---
+
+## 5. Success criteria
+
+- **Coverage:** at least 80% of users with 10+ analysed games receive a
+  measured observation rather than the fallback. Measured before release.
+- **Distinctness:** no single observation sentence is shown to more than 25%
+  of users. This is the criterion the current card fails — `stage_opener` is
+  identical for 3 of 4 sampled users and `belief` has two variants.
+- **Truth:** every shipped observation is re-derivable from stored move
+  observations for that user, verified per-user on a sample, with zero
+  claiming a motif the events do not support.
+- **Behavioural:** click-through on the focus-rail action is higher for users
+  who see a measured observation than for those who see the fallback. This is
+  the real test — knowing *why it is for me* should make the action more
+  likely, and if it does not, the sentence is decoration.
+
+---
+
+## 6. Open questions
+
+**Q: Can the observation contradict the line below it?**
+The observation may say "you play for the attack" while `continuity` says
+"we've worked on piece safety". Those can read as two unrelated coaches.
+*Why unresolved:* needs rendered pairs across real users to judge.
+*Unblocking step:* render both lines for 50 users and read them together
+before authoring the final templates.
+
+**Q: Is "you walk into forks just as often" a failure scoreboard?**
+It names a weakness in words with no count, which satisfies the rule as
+written, but it sits close to a line Mohit has drawn twice.
+*Why unresolved:* Mohit's judgement, not a measurement.
+*Unblocking step:* he reads the three tiers above and says yes or no.
+
+**Q: Where does the every-5-games counter live?**
+*Why unresolved:* no existing field tracks games-since-last-profile-refresh.
+*Unblocking step:* decide during implementation — stored on the profile doc
+or derived from analysed-game count.
+
+---
+
+## 7. Pre-code requirements
+
+1. **Mohit signs off on this document**, specifically the three-tier mockup
+   in Section 2 — that is the product contract.
+2. The two-sided motif profile is confirmed queryable per user over a
+   25-game window (it is computed live today, not stored).
+3. Observation templates authored and approved before wiring, not after.
+4. Coverage dry-run across all users, reported before anything ships.
+5. Distinctness check runnable — the 25% criterion needs a measurement that
+   exists before release, not after.
