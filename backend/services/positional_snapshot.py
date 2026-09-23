@@ -42,7 +42,7 @@ of every game, because that is the whole point.
 """
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import chess
 
@@ -158,6 +158,42 @@ def _mobility(board: chess.Board, color: chess.Color) -> Dict[str, int]:
     }
 
 
+HOME_BISHOP_SQUARES = {
+    chess.WHITE: frozenset((chess.C1, chess.F1)),
+    chess.BLACK: frozenset((chess.C8, chess.F8)),
+}
+
+
+def bishop_details(board: chess.Board, color: chess.Color) -> List[Dict[str, Any]]:
+    """Per-bishop measurements behind `bad_bishop_pawns`. Measurement only.
+
+    Returns one entry per bishop of `color` with the raw numbers and no
+    verdict: which square it stands on, how many of its own pawns sit on its
+    colour, how many squares it can move to, and whether it is still on its
+    starting square.
+
+    Deliberately threshold-free. "How many pawns block it" is a property of
+    the board; "how many is too many" is a coaching judgement that belongs to
+    whoever is grading, not here. Callers that want a yes/no bad-bishop
+    verdict apply their own cut-offs to these numbers, so the measurement has
+    exactly one definition even when the verdicts differ.
+    """
+    own = int(board.occupied_co[color])
+    pawns = int(board.pieces(chess.PAWN, color))
+    out: List[Dict[str, Any]] = []
+    for square in board.pieces(chess.BISHOP, color):
+        light = bool(chess.BB_LIGHT_SQUARES & chess.BB_SQUARES[square])
+        mask = chess.BB_LIGHT_SQUARES if light else chess.BB_DARK_SQUARES
+        out.append({
+            "square": chess.square_name(square),
+            "on_light_squares": light,
+            "same_colour_pawns": chess.popcount(pawns & int(mask)),
+            "mobility": chess.popcount(int(board.attacks(square)) & ~own),
+            "undeveloped": square in HOME_BISHOP_SQUARES[color],
+        })
+    return out
+
+
 def _bad_bishop_pawns(board: chess.Board, color: chess.Color) -> int:
     """Own pawns standing on the same colour squares as your own bishops.
 
@@ -165,14 +201,7 @@ def _bad_bishop_pawns(board: chess.Board, color: chess.Color) -> int:
     a bad bishop. Counted per bishop and summed, so a side with two bishops
     on the same colour is charged for both.
     """
-    total = 0
-    for square in board.pieces(chess.BISHOP, color):
-        light = bool(chess.BB_LIGHT_SQUARES & chess.BB_SQUARES[square])
-        mask = chess.BB_LIGHT_SQUARES if light else chess.BB_DARK_SQUARES
-        total += chess.popcount(
-            int(board.pieces(chess.PAWN, color)) & int(mask)
-        )
-    return total
+    return sum(b["same_colour_pawns"] for b in bishop_details(board, color))
 
 
 def _center_control(board: chess.Board, color: chess.Color) -> int:
