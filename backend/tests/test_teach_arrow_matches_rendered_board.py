@@ -44,9 +44,12 @@ def test_the_reply_picture_is_built_on_the_board_after_their_move():
     arrows = _reply_attack_arrows(before, played, "Qe7+")
     pairs = _arrow_pairs(arrows)
 
-    # Move the queen d8-e7; from e7 it hits the queen on h7 and checks the
-    # king on e1. That is "Play Qe7 -- it attacks the queen on h7", drawn.
-    assert pairs == {("d8", "e7"), ("e7", "h7"), ("e7", "e1")}, pairs
+    # Move the queen d8-e7; from e7 it hits the queen on h7 AND the knight on
+    # c5, and checks the king on e1. Both targets are drawn -- the move forks
+    # them, and showing one of the two would hide what makes it strong.
+    assert pairs == {
+        ("d8", "e7"), ("e7", "h7"), ("e7", "c5"), ("e7", "e1"),
+    }, pairs
 
 
 def test_no_arrow_starts_at_the_opponents_queen():
@@ -369,3 +372,50 @@ def test_a_reply_with_no_attack_picture_draws_nothing_at_all():
     before = chess.Board("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1")
     played = before.parse_san("e4")
     assert _reply_attack_arrows(before, played, "Ke7") == []
+
+
+# --- a threat does not have to be a check to be worth drawing --------------
+
+def test_a_recommended_move_that_only_threatens_still_draws():
+    """Mohit 2026-09-23, on an inaccuracy card with an empty board: "did we not
+    talk about inaccuracies too? Why is missing there?"
+
+    The card said "Play d5 -- your pawn kicks their knight on c6" and drew
+    nothing, because the picture used to require a CHECK. d5 really does attack
+    that knight -- SEE 200 -- it just is not a check. A check is what makes a
+    threat unanswerable; it is not what makes it worth showing.
+    """
+    before = chess.Board(
+        "r3k2r/pbpp1pp1/1pnbqn1p/4p3/P1BPP3/2P1BN2/1P1N1PPP/R2QK2R b KQkq - 0 1"
+    )
+    played = before.parse_san("Qe7")
+    arrows = _reply_attack_arrows(before, played, "d5")
+    assert _arrow_pairs(arrows) == {("d4", "d5"), ("d5", "c6")}
+
+    shown = before.copy()
+    shown.push(played)
+    # the picture starts on the pawn the player can see
+    assert shown.piece_at(chess.D4) is not None
+    # and c6 really is a black knight the pawn will attack
+    after = shown.copy()
+    after.push(shown.parse_san("d5"))
+    assert after.piece_at(chess.C6).symbol() == "n"
+    assert chess.C6 in after.attacks(chess.D5)
+
+
+def test_a_quiet_reply_that_threatens_nothing_still_draws_nothing():
+    """Coverage is not the goal on its own -- a move arrow with no threat
+    behind it would put a line on every opponent card in the game."""
+    before = chess.Board("4k3/8/8/8/8/8/4P3/4K3 b - - 0 1")
+    played = before.parse_san("Kd8")
+    assert _reply_attack_arrows(before, played, "e4") == []
+
+
+def test_at_most_two_targets_plus_the_check():
+    before = chess.Board(AMBIGUOUS)
+    arrows = _reply_attack_arrows(before, before.parse_san("b4"), "Qe7+")
+    greens = [a for a in arrows if a["color"] == "green"]
+    reds = [a for a in arrows if a["color"] == "red"]
+    blues = [a for a in arrows if a["color"] == "blue"]
+    assert len(blues) == 1 and len(greens) <= 2 and len(reds) <= 1
+    assert len(arrows) <= 4

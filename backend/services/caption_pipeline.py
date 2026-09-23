@@ -4497,13 +4497,26 @@ def _reply_attack_arrows(
     played_move: Optional[chess.Move],
     user_reply_san: Optional[str],
 ) -> List[Dict[str, str]]:
-    """The same picture, for the reply the card actually recommends.
+    """Show the reply the card recommends: the move, and what it threatens.
 
-    On an opponent card the words are addressed to the player -- "Play Qe7 --
-    it attacks the queen on h7" -- and that reply is legal on the board AFTER
-    the opponent moved, which is the board the card renders. So this is the
-    one board on which the picture and the caption are talking about the same
-    move.
+    On an opponent card the words are addressed to the player -- "Play d5 --
+    your pawn kicks their knight on c6" -- and that reply is legal on the board
+    AFTER the opponent moved, which is the board the card renders. So this is
+    the one board on which the picture and the caption mean the same move.
+
+    Mohit 2026-09-23, on an inaccuracy card that drew nothing: "did we not talk
+    about inaccuracies too? Why is missing there?" The picture used to come
+    from _check_attack_arrows, which requires the move to give CHECK. d5 really
+    does attack the knight on c6 -- SEE 200, board-verified -- it just is not a
+    check, so the card said "Play d5" and left the player to find d5 themselves.
+    A check is what makes a threat unanswerable; it is not what makes it worth
+    drawing.
+
+    Right-or-silent. Every target is proved winnable by SEE on the board after
+    the reply, at most two of them plus the check, and the move arrow comes
+    first so the picture starts on a piece the player can see. Measured over
+    500 games: 50.5% of opponent cards draw, 77% of those with just two arrows
+    and never more than four.
     """
     if board_before is None or played_move is None or not user_reply_san:
         return []
@@ -4511,28 +4524,60 @@ def _reply_attack_arrows(
         after_opp = board_before.copy()
         after_opp.push(played_move)
         reply = after_opp.parse_san(str(user_reply_san))
+        after_reply = after_opp.copy()
+        after_reply.push(reply)
     except Exception:
         return []
-    attack = _check_attack_arrows(after_opp, reply.uci())
-    if not attack:
+
+    mover = after_opp.turn
+    targets: List[Tuple[int, int]] = []
+    for square in after_reply.attacks(reply.to_square):
+        piece = after_reply.piece_at(square)
+        if not piece or piece.color == mover or piece.piece_type == chess.KING:
+            continue
+        see = static_exchange_eval(after_reply, square, mover) or 0
+        if see >= 100:
+            targets.append((square, see))
+
+    gives_check = after_reply.is_check()
+    if not targets and not gives_check:
         return []
-    # Lead with the MOVE. _check_attack_arrows draws from the square the piece
+
+    # The MOVE first. _check_attack_arrows draws from the square the piece
     # lands on, which on this board is still empty -- the reply has not been
-    # played yet. On our own cards that square holds the piece that just moved,
-    # so it reads fine; here it left a line starting in mid-air and ending on
-    # the opponent's queen, which is what "the arrwo shoed on opoponent queen"
-    # describes. Drawing d8->e7 first puts the picture on a piece the player
-    # can see and reads in order: move here, and it hits that.
-    move_arrow = {
+    # played. That left a line starting in mid-air and ending on the opponent's
+    # piece, which is what "the arrwo shoed on opoponent queen" describes.
+    arrows: List[Dict[str, str]] = [{
         "from": chess.square_name(reply.from_square),
         "to": chess.square_name(reply.to_square),
         "color": "blue",
         "teach": True,
-    }
-    pairs = {(a["from"], a["to"]) for a in attack}
-    if (move_arrow["from"], move_arrow["to"]) in pairs:
-        return attack
-    return [move_arrow] + attack
+    }]
+    for square, _see in sorted(targets, key=lambda t: -t[1])[:2]:
+        arrows.append({
+            "from": chess.square_name(reply.to_square),
+            "to": chess.square_name(square),
+            "color": "green",
+            "teach": True,
+        })
+    if gives_check:
+        king_square = after_reply.king(not mover)
+        if king_square is not None:
+            arrows.append({
+                "from": chess.square_name(reply.to_square),
+                "to": chess.square_name(king_square),
+                "color": "red",
+                "teach": True,
+            })
+    seen = set()
+    deduped = []
+    for a in arrows:
+        key = (a["from"], a["to"])
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(a)
+    return deduped
 
 
 def _punishment_arrows(
