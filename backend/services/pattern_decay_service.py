@@ -184,12 +184,17 @@ async def build_decay_games(db, user_id: str, max_games: int = 20) -> List[Dict]
         {"_id": 0, "game_id": 1, "date_played": 1},
     ).to_list(None)
 
-    def norm(d):
-        s = str(d or "").replace(".", "-")[:10]
-        return s if len(s) == 10 else ""
+    # This used to normalise date_played to YYYY-MM-DD and sort on that, which
+    # collapses every game played on the same day into a tie. That is not an
+    # edge case: 96% of one real user's 655 dated games share a day with
+    # another, and their busiest day holds 18. Decay multiplies by DECAY_RATE
+    # per GAME back, so a tie hands out those weights in whatever order Mongo
+    # returned the rows -- and the resulting pattern scores choose the user's
+    # focus. services/game_dates.py orders within a day and owns the two
+    # date formats.
+    from services.game_dates import sort_games_by_played_at
 
-    ordered = sorted(games, key=lambda g: norm(g.get("date_played")), reverse=True)
-    ordered = [g for g in ordered if norm(g.get("date_played"))][: max_games * 2]
+    ordered = sort_games_by_played_at(games, newest_first=True)[: max_games * 2]
     ids = [g["game_id"] for g in ordered]
 
     analyses = await db.game_analyses.find(
