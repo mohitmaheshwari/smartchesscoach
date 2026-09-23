@@ -48,6 +48,7 @@ Present so far: `smartchesscoach-5b.md`, `smartchesscoach-33.md`.
 | `services/caption_pipeline.py` | -5b | — | see -5b's file for the FEN invariant |
 | `frontend/components/GameDecryptionV5.jsx` | -5b | -a0 (nearby) | compares two FENs before drawing; **simplify that check and the old bug returns** |
 | `services/caption_facts.py` | -8f | — | add facts, never edit another's |
+| `services/caption_why_heuristics.py` | -70 | -21 (parallel definition) | **OPEN — see C4** |
 | `services/primary_weakness_picker.py` | **-33** | -8f (date-sort fix only, landed) | resolved, see below |
 | `services/pattern_decay_service.py` | -8f | — | |
 | `routes/admin_detector_review.py` | -70, -8f | | **sequential shared — see below** |
@@ -97,6 +98,52 @@ committed. Queue context handed over — see `smartchesscoach-33.md`.
 **C3 — the positional queue.** One decision covers both sessions.
 Frame for Mohit: the queue needs 240 human dispositions and has 1, so
 whatever gets built must reduce cost per position or it changes nothing.
+
+---
+
+## C4 — OPEN, and currently producing a wrong number
+
+Two definitions of "does this caption explain why" disagree by **34 points**
+on the same corpus, and one of them is labelled "the ONE definition".
+
+`services/caption_why_heuristics.py` (-70) passes a caption if ANY of three
+heuristics fires. `scripts/caption_why_class.py` (-21, landed 2026-09-07)
+splits at the alternative-move boundary and returns
+PLAYED_WHY / ALT_WHY_ONLY / NO_WHY.
+
+Reported by -21, reproduced independently by -33 in the live container:
+
+| caption | `has_why` |
+|---|---|
+| "You played Qf6; Nxd3+ was stronger — it trades his bishop." | **PASS** |
+| "Nd4 is a mistake. e4 was better — it attacks the knight on f3." | **PASS** |
+| "Bf6 is a mistake. f5 was better." | fail |
+| "Qf6 lets Qxc5 win your bishop on c5." | PASS |
+
+The first is the exact caption that started Mohit's complaint on 2026-09-06.
+It passes on the em dash plus the word "bishop". The first two explain the
+RECOMMENDED move and say nothing about the move the player actually made —
+so the student still does not know what was wrong with their move, which is
+the whole point of the rule. The definition only catches the bare
+"X is a mistake. Y was better." shape.
+
+**Scale:** that shape is 34.5% of all flagged mistakes on the 744-game
+corpus, so the metric reports ~69% compliance where the honest number is
+~34.8% (-21 hand-validated on a 30-row stratified sample, ±2pp). A review
+queue driven by it skips precisely the captions that most need fixing. This
+is `memory/feedback_keyword_caption_audit_unreliable.md` happening live.
+
+**A second defect, found while reproducing it (-33):** the signature is
+`has_why(caption, played_san="", best_san=None)`. Called without the move
+names — which is easy, they are optional — it returns **True for every one
+of the four, including the bare no-why caption**. Any caller that forgets
+them gets a silent false PASS.
+
+**Resolution is -70's call**, not -21's and not -33's: fold the three-way
+distinction into `caption_why_heuristics.py` and delete the script, or keep
+the script and have the audit import it. Either is fine. What should not
+survive is two disagreeing definitions while one claims to be the only one.
+-21 has NOT touched -70's file (rule 8, add-only).
 
 ---
 
