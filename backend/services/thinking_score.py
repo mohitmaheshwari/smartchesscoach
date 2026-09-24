@@ -388,17 +388,35 @@ def calculate_thinking_progress(
                 "explanation": _generate_trend_explanation(habit, change, recent_avg)
             }
         else:
+            # `recent_avg or 0` turned "never measured" into a confident 0,
+            # which on screen is the worst possible reading: it says the player
+            # is terrible at a habit we never observed. Keep it null and mark
+            # it, so the UI can say "not enough data" instead of scoring them.
             habit_progress[habit.value] = {
-                "current_score": recent_avg or 0,
+                "current_score": recent_avg,          # None when unmeasured
                 "previous_score": None,
                 "change": None,
+                "measured": recent_avg is not None,
                 "trend": "insufficient_data"
             }
     
     # Calculate overall progress
-    recent_overall = sum(g.get("overall_score", 0) for g in recent_games) / len(recent_games)
-    older_overall = sum(g.get("overall_score", 0) for g in older_games) / len(older_games) if older_games else None
-    
+    # Same null trap as _calculate_habit_average: overall_score is None for a
+    # game where nothing could be measured, and summing that raises.
+    def _mean_overall(games):
+        vals = [g.get("overall_score") for g in games]
+        vals = [v for v in vals if v is not None]
+        return (sum(vals) / len(vals)) if vals else None
+
+    recent_overall = _mean_overall(recent_games)
+    older_overall = _mean_overall(older_games) if older_games else None
+    if recent_overall is None:
+        return {
+            "has_enough_data": False,
+            "message": "Not enough measured games yet.",
+            "games_analyzed": len(sorted_scores),
+        }
+
     overall_change = (recent_overall - older_overall) if older_overall else None
     
     return {
@@ -414,13 +432,27 @@ def calculate_thinking_progress(
 
 
 def _calculate_habit_average(games: List[Dict], habit_key: str) -> Optional[float]:
-    """Calculate average score for a habit across games."""
+    """Average score for a habit across games, over the games that MEASURED it.
+
+    A habit we could not observe in a game now stores score=None instead of a
+    fake 100. `.get("score", 0)` does NOT protect against that - the default
+    only applies when the key is absent, so a stored null came straight through
+    and sum() raised TypeError. Skip unmeasured games; return None when a habit
+    was never measured at all, so the caller can say "no data" rather than "0".
+    """
     scores = []
     for game in games:
-        habit_scores = game.get("habit_scores", {})
-        if habit_key in habit_scores:
-            scores.append(habit_scores[habit_key].get("score", 0))
-    
+        habit_scores = game.get("habit_scores") or {}
+        entry = habit_scores.get(habit_key)
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("measured") is False:
+            continue
+        value = entry.get("score")
+        if value is None:
+            continue
+        scores.append(value)
+
     return sum(scores) / len(scores) if scores else None
 
 
