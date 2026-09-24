@@ -6399,6 +6399,31 @@ def _p_op_knight_on_rim(
 #   3. Only triggers when there's a previously-moved own piece of
 #      the SAME piece type. Tracked by walking move_history_san.
 #   4. cp_loss_strict (≥30).
+_HOME_SQUARES = {
+    chess.WHITE: ((chess.B1, chess.KNIGHT), (chess.G1, chess.KNIGHT),
+                  (chess.C1, chess.BISHOP), (chess.F1, chess.BISHOP),
+                  (chess.A1, chess.ROOK), (chess.H1, chess.ROOK),
+                  (chess.D1, chess.QUEEN)),
+    chess.BLACK: ((chess.B8, chess.KNIGHT), (chess.G8, chess.KNIGHT),
+                  (chess.C8, chess.BISHOP), (chess.F8, chess.BISHOP),
+                  (chess.A8, chess.ROOK), (chess.H8, chess.ROOK),
+                  (chess.D8, chess.QUEEN)),
+}
+
+
+def pieces_still_at_home(board: chess.Board, colour: chess.Color) -> int:
+    """How many of this side's pieces have never left their starting square.
+
+    The literal subject of the OP_SAME_PIECE_TWICE caption: "Multiple pieces
+    are still on their starting squares." Pawns are excluded -- a pawn on its
+    start square is normal, not undeveloped.
+    """
+    return sum(1 for sq, pt in _HOME_SQUARES[colour]
+               if (board.piece_at(sq) is not None
+                   and board.piece_at(sq).color == colour
+                   and board.piece_at(sq).piece_type == pt))
+
+
 def _p_op_same_piece_twice(
     facts: Dict[str, Any],
     board_before: chess.Board,
@@ -6494,6 +6519,18 @@ def _p_op_same_piece_twice(
             continue
         aligned_other_types.append(san)
     endorsement = _principle_engine_endorsement(aligned_other_types, facts.get("best_move_san"))
+    # The caption says "Multiple pieces are still on their starting squares",
+    # so require that to be true. Measured over 490 replayed games: 13.4% of
+    # fires had fewer than two pieces at home (8.8% had exactly one, 4.6%
+    # none), i.e. the player had in fact developed and the stated reason was
+    # false. Re-moving a piece may still cost tempo there, but that is a
+    # different lesson and needs different words.
+    #
+    # Distribution of pieces-at-home across all fires, before this cut:
+    #   0:4.6%  1:8.8%  2:19.4%  3:23.3%  4:25.0%  5:13.2%  6:5.7%
+    if pieces_still_at_home(board_before, board_before.turn) < 2:
+        return None
+
     return {
         "principle_id": "OP_SAME_PIECE_TWICE",
         "evidence": {
@@ -6709,6 +6746,19 @@ def _p_tac_defender_count(
     best = _normalize_san(facts.get("best_move_san") or "")
     if not (best and played != best):
         return None
+    # The caption says "Two attackers, one defender - the piece falls", so the
+    # square had better actually have more attackers than defenders. Measured
+    # over 490 replayed games, attackers minus defenders across all fires:
+    #
+    #   -3:0.6%  -2:0.2%  -1:1.2%  0:13.0%  +1:68.7%  +2:13.0%  +3:3.0%  +4:0.2%
+    #
+    # 15.0% sat at zero or below. Those are moves that lose material for some
+    # other reason -- a pin, a fork, a deflection -- and telling the student to
+    # count attackers and defenders sends them to look at a square where the
+    # count is level and the real cause is somewhere else entirely.
+    if int(facts.get("attacker_count") or 0) <= int(facts.get("defender_count") or 0):
+        return None
+
     return {
         "principle_id": "TAC_DEFENDER_COUNT",
         "evidence": {
