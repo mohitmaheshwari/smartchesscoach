@@ -3922,7 +3922,7 @@ const CoachPlay = ({ user }) => {
   // Game screen
   console.log("[CoachPlay] RENDERING - gameMode IS:", gameMode, "gameStarted:", gameStarted);
   return (
-    <Layout user={user}>
+    <Layout user={user} fullBleed>
       {/* Predict-coach-move ("Call My Move") — shown before the coach's move is revealed; a fixed
           overlay so it can't disrupt the board layout. Tapping an option (or the continue button)
           always resolves it, so it can't hang the game. See docs/predict_coach_move_scope.md. */}
@@ -4020,56 +4020,33 @@ const CoachPlay = ({ user }) => {
         </div>
       )}
 
-      {/* Pre-game focus banner */}
-      {showFocusBanner && focusRule && (
-        <div className="bg-amber-500/10 border-b border-amber-500/15 px-4 py-3 flex items-center justify-between animate-in fade-in slide-in-from-top duration-300">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-              <Target className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">{focusRule.name}</p>
-              <p className="text-xs text-foreground">{focusRule.rule}</p>
-            </div>
-          </div>
-          <button onClick={() => setShowFocusBanner(false)} className="text-muted-foreground/40 hover:text-muted-foreground text-xs ml-4">
-            &times;
-          </button>
-        </div>
-      )}
+      {/* The pre-game focus banner used to sit here. Removed 2026-09-23: it
+          rendered focusRule.rule, and the sidebar's "Today's goal" card
+          renders session_goal.text -- which resolve to the SAME sentence,
+          because session_goal is built from the same focus bundle ("the same
+          reader the FocusCard + session_goal_service use, so the goal card
+          and the coach voice speak with one anchor").
+
+          So the player was told the same thing twice on one screen, and the
+          duplicate took a full row of height above the board -- on a page
+          whose whole argument is that the board is the hero.
+
+          The sidebar card is the one that stays: it lives where the coach
+          lives and is pinned for the whole game, whereas this was dismissible
+          and pre-game only. focusRule is still loaded and still drives the
+          coaching logic; only the second rendering of it is gone. */}
       {/* ─── PWC responsive redesign (docs/pwc_responsive_redesign_scope.md) ──
           `.pwc-root` re-skins this subtree to the new design tokens (warm/amber)
           by overriding the shadcn CSS vars — scoped to PWC only. The shell below
           is responsive: two-column on desktop, board + coach bottom-sheet on
           mobile/tablet. Teaching logic in the child components is unchanged. */}
       <div className="experience-page experience-pwc-page pwc-root flex flex-col flex-1 min-h-0">
-      <motion.div
-        variants={navFade}
-        initial="initial"
-        animate="animate"
-        className="border-b border-border/50 bg-background/80 backdrop-blur-sm"
-      >
-        <div className="max-w-[1320px] mx-auto px-6 md:px-10 h-11 flex items-center justify-between">
-          <div className="flex items-baseline gap-4 min-w-0">
-            <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
-              Play with Coach
-            </p>
-            {timeControl && (
-              <span className="text-[11px] text-muted-foreground/70 font-mono tabular-nums hidden sm:inline">
-                {timeControl} · {gameMode === "play" ? "review afterward" : "coached"}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-4 text-[11.5px] text-muted-foreground">
-            {selectedColor && (
-              <span className="hidden sm:inline font-mono tabular-nums">
-                you · {selectedColor}
-              </span>
-            )}
-          </div>
-        </div>
-      </motion.div>
-
+      {/* The "Play with Coach / 15+10 / you - white" strip used to sit here in
+          its own 44px band inside a max-w-[1320px] centred container. The
+          reference layout has no such band: who you are playing, the time
+          control and your colour live in the two bars that already frame the
+          board. Removing it returns a row of height and stops the page
+          reading as a document with a game inside it. */}
       {/* Page entrance — fade+rise on the game container (transform/opacity
           only; content stays interactive while animating in). */}
       <motion.div

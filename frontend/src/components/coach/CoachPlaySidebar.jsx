@@ -10,6 +10,7 @@
  */
 
 import ClickableMoves from "@/components/shared/ClickableMove";
+import { shouldShowWaitingLine } from "@/components/coach/coachWaitingLine";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1123,6 +1124,39 @@ const CoachPlaySidebar = ({
                 </p>
               </div>
             )}
+
+            {/* ═══ Before the first move ═══
+                Every coaching panel below is gated on something that only
+                exists AFTER a move -- guardianIntervention needs a pendingMove,
+                v5Coaching needs a played move, feedback needs a request. So a
+                player who opened the board met two-thirds of an empty panel at
+                the one moment they were deciding whether this thing was going
+                to help them.
+
+                One line, and only at move 0. It is not filler: it states when
+                the coach actually speaks, which is what the guardian does --
+                it interrupts BEFORE a risky move. Silence then reads as the
+                coach waiting rather than the coach being broken.
+
+                Deliberately not a restatement of the goal card above it: the
+                focus bundle already supplies that text, and saying it twice
+                is the duplication that removed the pre-game banner. */}
+            {shouldShowWaitingLine({
+              gameOver,
+              guardianIntervention,
+              geometryMoment,
+              v5Coaching,
+              loadingFeedback,
+              moveCount: session?.move_history?.length,
+            }) && (
+                <p
+                  className="px-3.5 py-2 text-[12.5px] leading-relaxed text-muted-foreground"
+                  data-testid="coach-waiting-line"
+                >
+                  Play when you&rsquo;re ready. I&rsquo;ll step in if a move is
+                  worth a second look.
+                </p>
+              )}
 
             {/* ═══ Coach Greeting — warm reference to focus + last session ═══
                 2026-07-03: The "day 6 of your focus — 88 events across 178

@@ -87,7 +87,23 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
       {/* Board column width drives the (CSS-responsive) board size. Caps by the
           available space: on mobile by viewport height minus chrome+coach peek;
           on desktop by the column width (no more 100vw-450px collapse). */}
-      <div className="w-full mx-auto max-w-[min(96vw,calc(100dvh-340px))] lg:max-w-[min(550px,calc(100vh-160px),100%)]">
+      {/* The board is the hero, so it takes the space that is actually there.
+          It used to be capped at 550px on desktop: on a 1600px screen that
+          left ~390px of the board column empty and made the page read as a
+          small board with furniture around it, which is the opposite of the
+          approved design. It is now bounded by the height available and by
+          its own column, whichever runs out first.
+
+          The 230px budget is everything that shares the column: the opponent
+          bar above, the player bar and the pre-move checklist below, their
+          margins, and the column padding. Measured, not guessed: 150 and 205
+          both clipped the opponent bar off the top and the checklist off the
+          bottom, because the column centres its content and overflow is lost
+          at BOTH ends. 265 is the first value where every row renders. At 150px
+          the board grew taller than the column, and because the column
+          centres its content, the overflow clipped the TOP of the board --
+          rank 8 and the opponent bar both disappeared. */}
+      <div className="w-full mx-auto max-w-[min(96vw,calc(100dvh-340px))] lg:max-w-[min(calc(100vh-230px),100%)]">
         {/* Coach info bar */}
         <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-muted/50 text-sm">
           <div className="flex items-center gap-2">
@@ -402,13 +418,34 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
               </Badge>
             )}
           </div>
-          <Badge variant="outline" className="text-xs">
-            <Clock className="w-3 h-3 mr-1" />
-            {Math.floor((session?.user_time_remaining || 900) / 60)}:
-            {String(
-              Math.floor((session?.user_time_remaining || 900) % 60)
-            ).padStart(2, "0")}
-          </Badge>
+          {/* One bottom bar instead of three stacked rows. Flip and Resign
+              used to sit in their own centered row below this one, so the
+              board was pushed up by furniture it did not need. */}
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">
+              <Clock className="w-3 h-3 mr-1" />
+              {Math.floor((session?.user_time_remaining || 900) / 60)}:
+              {String(
+                Math.floor((session?.user_time_remaining || 900) % 60)
+              ).padStart(2, "0")}
+            </Badge>
+            <Button variant="outline" size="sm" onClick={flipBoard} className="h-7 px-2.5">
+              <RotateCcw className="w-3.5 h-3.5 mr-1" />
+              Flip
+            </Button>
+            {!gameOver && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resignGame}
+                data-testid="resign-btn"
+                className="h-7 px-2.5 text-muted-foreground"
+              >
+                <Flag className="w-3.5 h-3.5 mr-1" />
+                Resign
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Pre-Move Checklist */}
@@ -451,25 +488,12 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
           </div>
         )}
 
-        {/* Controls */}
-        {(!unifiedExperience || !gameOver) && (
+        {/* Post-game actions only. Flip and Resign moved up into the player
+            bar; during a game this row renders nothing and the board keeps
+            the height. Undo stays removed - a real coach doesn't let you take
+            back moves. */}
+        {gameOver && (
         <div className="flex items-center justify-center gap-2 mt-4">
-          <Button variant="outline" size="sm" onClick={flipBoard}>
-            <RotateCcw className="w-4 h-4 mr-1" />
-            Flip
-          </Button>
-          {/* Undo removed — a real coach doesn't let you take back moves */}
-          {!gameOver && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={resignGame}
-              data-testid="resign-btn"
-            >
-              <Flag className="w-4 h-4 mr-1" />
-              Resign
-            </Button>
-          )}
           {gameOver && !unifiedExperience && (
             <Button
               variant="default"
