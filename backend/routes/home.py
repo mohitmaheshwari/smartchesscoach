@@ -335,7 +335,37 @@ async def get_home_coach_conversation(user: User = Depends(get_current_user)):
     conversation = await build_home_conversation(db, user.user_id)
     if not conversation:
         return {"has_conversation": False}
-    return {"has_conversation": True, **conversation}
+
+    # What the player does with the chances their opponent hands them.
+    # Attached here rather than inside build_home_conversation so the scoped
+    # narrative (docs/home_page_coach_conversation_scope.md) stays as designed
+    # and this can be removed without touching it.
+    #
+    # punished/missed_opponent_blunder have been written on every move since
+    # the deriver was built and read by nothing; this is their first reader.
+    # Counts are recomputed from execution_quality and cp_loss rather than the
+    # stored booleans, because rows written before 2026-09-25 used a stricter
+    # bar that scored a good-but-not-best move as failing to punish.
+    punish_line = None
+    try:
+        from services.punish_rate_coaching import (
+            punish_counts_from_observations,
+            punish_rate_line,
+        )
+        observations = await db.move_observations.find(
+            {"user_id": user.user_id,
+             "$or": [{"missed_opponent_blunder": True},
+                     {"punished_opponent_blunder": True}]},
+            {"_id": 0, "execution_quality": 1, "cp_loss": 1,
+             "missed_opponent_blunder": 1, "punished_opponent_blunder": 1},
+        ).to_list(2000)
+        counts = punish_counts_from_observations(observations)
+        punish_line = punish_rate_line(
+            counts["chances_taken"], counts["chances_total"])
+    except Exception:
+        logger.debug("punish-rate line unavailable (non-fatal)", exc_info=True)
+
+    return {"has_conversation": True, "punish_line": punish_line, **conversation}
 
 
 @router.get("/home/dashboard-v2")

@@ -568,6 +568,20 @@ export default function HomePageNew({ user }) {
                   {coachConversation.one_action}
                 </p>
               )}
+              {/* What they do with the chances their opponent hands them.
+                  Sits after the focus action and before the sign-off, as a
+                  quieter second voice: the action above is what to work on
+                  this week, this is a habit for every move of every game.
+                  Deliberately carries no numbers -- the rate chooses the
+                  sentence and never appears in it. */}
+              {coachConversation?.punish_line?.text && (
+                <p className="text-[13px] leading-relaxed text-muted-foreground mb-4">
+                  {coachConversation.punish_line.headline}{" "}
+                  <span className="text-foreground">
+                    {coachConversation.punish_line.habit}
+                  </span>
+                </p>
+              )}
               {coachConversation?.encouragement && (
                 <p className="text-[13px] text-muted-foreground mb-2">
                   {coachConversation.encouragement}
