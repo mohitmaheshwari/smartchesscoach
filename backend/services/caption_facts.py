@@ -6424,6 +6424,106 @@ def pieces_still_at_home(board: chess.Board, colour: chess.Color) -> int:
                    and board.piece_at(sq).piece_type == pt))
 
 
+# ── Promise checks ──────────────────────────────────────────────────
+#
+# Each of these answers one caption's literal claim as a fact about the
+# board, so a principle can be stopped from saying something the position
+# does not support. Measured 2026-09-24 over 393 games replayed from PGN.
+# Every check was also run against every position in the corpus, not only
+# the fires, because a check that cannot return False scores a perfect
+# record and means nothing -- that is how an earlier "loose piece exists
+# somewhere" check passed at 0% false while being true almost everywhere.
+
+
+def count_attacked_pieces(board: chess.Board, colour: chess.Color) -> int:
+    """How many of this side's PIECES (never pawns) an enemy attacks.
+
+    The subject of "Multiple pieces attacked - handle the worst one first".
+    """
+    n = 0
+    for pt in (chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN):
+        for sq in board.pieces(pt, colour):
+            if board.attackers(not colour, sq):
+                n += 1
+    return n
+
+
+def move_shuts_in_own_bishop(board: chess.Board, move: chess.Move) -> bool:
+    """Does this pawn move reduce one of the mover's own bishops' scope?
+
+    Per bishop, never summed. d2-d3 shuts in a bishop on c4 while freeing the
+    one on c1, so a total across both bishops can RISE on exactly the move the
+    caption is complaining about.
+    """
+    if board.piece_type_at(move.from_square) != chess.PAWN:
+        return False
+    colour = board.turn
+    after = board.copy()
+    after.push(move)
+    for bsq in board.pieces(chess.BISHOP, colour):
+        if after.piece_at(bsq) is None:
+            continue
+        if len(after.attacks(bsq)) < len(board.attacks(bsq)):
+            return True
+    return False
+
+
+def pawn_move_contacts_enemy_pawns(board: chess.Board, move: chess.Move) -> bool:
+    """Is this pawn advance a real break -- does it touch their pawn chain?
+
+    A break is met by a pawn capture or attacks a pawn. An advance into empty
+    space gains room but opens no line, so "the pawn break opens the line" is
+    not true of it.
+    """
+    if board.piece_type_at(move.from_square) != chess.PAWN:
+        return False
+    if board.is_capture(move):
+        return True
+    them = not board.turn
+    probe = board.copy()
+    probe.push(move)
+    for reply in probe.legal_moves:
+        if (reply.to_square == move.to_square
+                and probe.piece_type_at(reply.from_square) == chess.PAWN):
+            return True
+    for sq in board.attacks(move.to_square):
+        p = board.piece_at(sq)
+        if p is not None and p.piece_type == chess.PAWN and p.color == them:
+            return True
+    return False
+
+
+def _king_steps_toward_centre(move: chess.Move) -> bool:
+    """Does this king move actually get closer to the middle of the board?
+
+    Distance to the centre point (between d4/e4/d5/e5), so a move is judged
+    by where it ends up rather than by which rank it left.
+    """
+    def _d(sq: int) -> float:
+        return (abs(chess.square_file(sq) - 3.5)
+                + abs(chess.square_rank(sq) - 3.5))
+
+    return _d(move.to_square) < _d(move.from_square)
+
+
+def pawn_push_near_uncastled_king(board: chess.Board, move: chess.Move) -> bool:
+    """'Pushing pawns near your king BEFORE CASTLING.'
+
+    A king that has already castled, or lost its rights, cannot act on that
+    advice -- the premise of the sentence is false. Same shape as the
+    DEF_WALK_KING bug: a gate satisfied by the good outcome as well as the bad.
+    """
+    colour = board.turn
+    if not board.has_castling_rights(colour):
+        return False
+    if board.piece_type_at(move.from_square) != chess.PAWN:
+        return False
+    ksq = board.king(colour)
+    if ksq is None:
+        return False
+    return abs(chess.square_file(move.from_square) - chess.square_file(ksq)) <= 2
+
+
 def _p_op_same_piece_twice(
     facts: Dict[str, Any],
     board_before: chess.Board,
@@ -6804,6 +6904,14 @@ def _p_def_most_attacked(
         key=lambda p: p.get("piece_value_cp", 0)
             if isinstance(p.get("piece_value_cp"), int) else 0
     )
+    # "Multiple pieces attacked - handle the worst one first." Require that
+    # more than one actually is. Measured over 393 replayed games: 62.7% of
+    # fires (79 of 126) had fewer than two pieces under attack, so the caption
+    # told the student to triage a list with one item on it. The check fails on
+    # 90.4% of all corpus positions, so passing it means something.
+    if count_attacked_pieces(board_before, board_before.turn) < 2:
+        return None
+
     return {
         "principle_id": "DEF_MOST_ATTACKED",
         "evidence": {
@@ -6952,6 +7060,17 @@ def _p_op_loose_king_pawns(
         return None
     aligned = _developing_minor_moves(board_before, own_color)
     endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
+    # "Pushing pawns near your king BEFORE CASTLING ... castle first." A king
+    # that has already castled cannot take that advice. 25.2% of fires (28 of
+    # 111) had no castling rights left or were not a pawn push near the king.
+    # Check fails on 89.9% of all positions.
+    try:
+        _mv = board_before.parse_san(str(facts.get("played_san") or ""))
+    except Exception:  # noqa: BLE001
+        return None
+    if not pawn_push_near_uncastled_king(board_before, _mv):
+        return None
+
     return {
         "principle_id": "OP_LOOSE_KING_PAWNS",
         "evidence": {
@@ -7026,6 +7145,16 @@ def _p_op_bishop_blocked(
             continue
         aligned.append(_normalize_san(board_before.san(move)))
     endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
+    # "This pawn move blocks your bishop's diagonal." Require a bishop of the
+    # mover's to actually lose scope. 23.4% of fires (39 of 167) did not shut
+    # any bishop in. Check fails on 97.8% of all positions.
+    try:
+        _mv = board_before.parse_san(str(facts.get("played_san") or ""))
+    except Exception:  # noqa: BLE001
+        return None
+    if not move_shuts_in_own_bishop(board_before, _mv):
+        return None
+
     return {
         "principle_id": "OP_BISHOP_BLOCKED",
         "evidence": {
@@ -7440,6 +7569,17 @@ def _p_mid_pawn_break(
     if played == best_norm:
         return None
     target = _move_target_from_san(best_raw)
+    # "The pawn break opens the line." Require the recommended push to touch
+    # their pawn chain; an advance into empty space gains space but opens
+    # nothing. 60.4% of fires (81 of 134) recommended a move that was not a
+    # break by that definition. Check fails on 90.5% of all positions.
+    try:
+        _bm = board_before.parse_san(str(facts.get("best_move_san") or ""))
+    except Exception:  # noqa: BLE001
+        return None
+    if not pawn_move_contacts_enemy_pawns(board_before, _bm):
+        return None
+
     return {
         "principle_id": "MID_PAWN_BREAK",
         "evidence": {
@@ -8641,8 +8781,13 @@ def _p_end_king_active(
         piece = board_before.piece_at(move.from_square)
         if not piece or piece.piece_type != chess.KING or piece.color != own_color:
             continue
-        new_rank = chess.square_rank(move.to_square)
-        if new_rank != back_rank:
+        # "Activate the king - the centre is where it fights." Leaving the
+        # back rank is not the same thing: Kg1-h2 is off the back rank and
+        # further from the middle than it started. Offering it as the aligned
+        # move made the engine look like it endorsed centralisation when it
+        # had endorsed a sideways shuffle -- 21.7% of this principle's
+        # best-endorsed fires recommended a move that did not centralise.
+        if _king_steps_toward_centre(move):
             aligned.append(_normalize_san(board_before.san(move)))
     endorsement = _principle_engine_endorsement(aligned, facts.get("best_move_san"))
     return {
