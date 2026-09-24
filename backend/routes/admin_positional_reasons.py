@@ -547,7 +547,9 @@ async def next_missing_why(
     """One mistake/blunder whose caption never says why, either side."""
     from services.caption_why_heuristics import has_why
 
-    done = set(await db.caption_why_authoring.distinct("key"))
+    # A "later" skip is a deferral, not an answer -- it must come back round.
+    done = set(await db.caption_why_authoring.distinct(
+        "key", {"$or": [{"action": {"$ne": "skip"}}, {"reason": {"$ne": "later"}}]}))
     scanned = 0
     async for doc in db.game_analyses.find(
         {"decryption_v5_data.0": {"$exists": True}},
@@ -619,16 +621,25 @@ async def author_missing_why(
     why = str(payload.get("why") or "").strip()
     if not key:
         raise HTTPException(status_code=400, detail="key is required")
+    # Mohit worked the queue on 2026-09-23 and left 4 skips against 2 authored.
+    # A bare "skip" is unreadable -- it can mean "I don't know", "this card is
+    # broken" or "later", and those need opposite responses from us. Ask which.
+    reason = str(payload.get("reason") or "").strip().lower() or None
     if action not in {"authored", "no_why_needed", "skip"}:
         raise HTTPException(
             status_code=400,
             detail="action must be authored, no_why_needed or skip")
+    if action == "skip" and reason not in {"unsure", "card_looks_wrong", "later"}:
+        raise HTTPException(
+            status_code=400,
+            detail="skip needs reason: unsure, card_looks_wrong or later")
     if action == "authored" and not why:
         raise HTTPException(
             status_code=400, detail="authored needs the why text")
     row = {
         "key": key,
         "action": action,
+        "reason": reason,
         "why": why or None,
         "game_id": payload.get("game_id"),
         "fen": payload.get("fen"),
@@ -652,14 +663,20 @@ async def missing_why_results(user: User = Depends(require_geometry_reviewer)):
     rows = await db.caption_why_authoring.find({}, {"_id": 0}).to_list(length=None)
     by_action: Dict[str, int] = {}
     by_author: Dict[str, int] = {}
+    skip_reasons: Dict[str, int] = {}
     for r in rows:
         a = str(r.get("action") or "skip")
         by_action[a] = by_action.get(a, 0) + 1
+        if a == "skip":
+            # None = the 4 skips recorded before reasons existed.
+            k = str(r.get("reason") or "before_reasons_existed")
+            skip_reasons[k] = skip_reasons.get(k, 0) + 1
         who = str(r.get("author_email") or "unknown")
         by_author[who] = by_author.get(who, 0) + 1
     return {
         "total": len(rows),
         "by_action": by_action,
+        "skip_reasons": skip_reasons,
         "by_author": by_author,
         "recent": [
             {k: r.get(k) for k in

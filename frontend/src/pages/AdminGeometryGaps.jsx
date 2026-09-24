@@ -151,7 +151,7 @@ export default function AdminGeometryGaps() {
     }
   };
 
-  const submitWhy = async (action) => {
+  const submitWhy = async (action, reason) => {
     if (!item || saving) return;
     if (action === "authored" && !why.trim()) return;
     setSaving(true);
@@ -160,7 +160,7 @@ export default function AdminGeometryGaps() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ ...item, action, why: why.trim() }),
+        body: JSON.stringify({ ...item, action, reason, why: why.trim() }),
       });
       await load();
     } catch (e) {
@@ -534,13 +534,23 @@ export default function AdminGeometryGaps() {
                     >
                       Not really a mistake
                     </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => submitWhy("skip")}
-                      disabled={saving}
-                    >
-                      Skip
-                    </Button>
+                    {/* One "Skip" button was unreadable -- Mohit left 4 of
+                        them and there is no way to tell "I don't know" from
+                        "this card is broken". Only "later" comes back. */}
+                    {[
+                      ["unsure", "Not sure"],
+                      ["card_looks_wrong", "Card looks wrong"],
+                      ["later", "Later"],
+                    ].map(([reasonKey, label]) => (
+                      <Button
+                        key={reasonKey}
+                        variant="ghost"
+                        onClick={() => submitWhy("skip", reasonKey)}
+                        disabled={saving}
+                      >
+                        {label}
+                      </Button>
+                    ))}
                   </div>
                 </>
               ) : (

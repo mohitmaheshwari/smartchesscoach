@@ -7130,6 +7130,29 @@ def _p_tac_changed_after_move(
 #   2. Engine's #1 move is a king move (SAN starts with 'K').
 #   3. Played move was NOT a king move.
 #   4. cp_loss_strict (≥30).
+def _king_pawn_shelter(board: chess.Board, colour: chess.Color) -> int:
+    """Own pawns on the king's file and its neighbours, on the two ranks
+    IN FRONT of it. The thing "walk the king toward pawn cover" promises.
+    """
+    ks = board.king(colour)
+    if ks is None:
+        return 0
+    kf, kr = chess.square_file(ks), chess.square_rank(ks)
+    step = 1 if colour == chess.WHITE else -1
+    n = 0
+    for f in (kf - 1, kf, kf + 1):
+        if not 0 <= f <= 7:
+            continue
+        for d in (1, 2):
+            r = kr + step * d
+            if not 0 <= r <= 7:
+                continue
+            piece = board.piece_at(chess.square(f, r))
+            if piece and piece.piece_type == chess.PAWN and piece.color == colour:
+                n += 1
+    return n
+
+
 def _p_def_walk_king(
     facts: Dict[str, Any],
     board_before: chess.Board,
@@ -7154,6 +7177,29 @@ def _p_def_walk_king(
     played = _normalize_san(facts.get("played_san") or "")
     best_norm = _normalize_san(best_raw)
     if played == best_norm:
+        return None
+    # The rights test alone cannot tell "never castled, stuck in the open"
+    # from "castled on move 6 and perfectly safe" -- a castled king has no
+    # rights either. Mohit's card: Black king on g8 behind f7/g7/h7, told to
+    # "walk toward pawn cover" it was already standing in.
+    #
+    # So check the promise instead of the proxy: does the engine's king move
+    # actually gain cover? Measured over 1,685 real fires, it does NOT on
+    # 81.5% of them (shelter change -3..0). The sentence was false four times
+    # out of five. Suppressing those leaves the 18.5% where it is literally
+    # true. The rest are king moves for other reasons -- centralisation,
+    # stepping off a line -- and want their own principle, not this one's
+    # words.
+    own_king = board_before.king(own_color)
+    if own_king is None:
+        return None
+    try:
+        probe = board_before.copy(stack=False)
+        probe.push(probe.parse_san(best_raw))
+    except Exception:  # noqa: BLE001
+        return None
+    if _king_pawn_shelter(probe, own_color) <= _king_pawn_shelter(
+            board_before, own_color):
         return None
     return {
         "principle_id": "DEF_WALK_KING",

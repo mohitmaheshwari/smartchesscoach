@@ -101,6 +101,45 @@ whatever gets built must reduce cost per position or it changes nothing.
 
 ---
 
+## C5 — state principles move to the measurement layer. RESOLVED: -8f does it.
+
+-8f measured principle fires against stored `cp_loss` over 600 games:
+
+```
+TAC_CHANGED_AFTER_MOVE  2771 fires   0.0% at cp_loss<=20   median 210
+TAC_HANGING_PIECE        937         0.0%                  median 188
+TAC_DEFENDER_COUNT       599         0.0%                  median 222
+---
+MID_BAD_BISHOP            91        53.8%    state, not error
+MID_KING_SAFETY         1650        47.0%    state, not error
+OP_NOT_CASTLED           951        46.2%    state, not error
+---
+TAC_PIN_PATTERN          241        99.2%    fires on GOOD moves
+```
+
+The 0.0% rows are the positive control: the probe can separate
+error-principles. So the middle band is real — three principles fire about
+half the time on moves the engine agreed with, because they describe the
+POSITION, not the move. MID_BAD_BISHOP fired on the same bishop for 11
+consecutive moves in one game, none of them mistakes. TAC_PIN_PATTERN is
+the inverse pathology, firing almost only on good moves.
+
+A state principle cannot be graded as a violation either way, so it is not
+a shadow-vs-caption candidate at all. The three move out of -8f's grading
+queue into `positional_snapshot.py` as tracked numbers over a player's games.
+
+**-8f does the transfer; -33 stays out of the file until it lands.** Ruled
+2026-09-23 by the two sessions, Mohit delegating ("you guys decide"). -8f is
+already in that file with a refactor proven to move nothing across 24,738
+positions and holds the measurements; -33 doing it would mean re-deriving
+them.
+
+Worth recording: -8f had read the bad-bishop result as Stockfish being
+tactically short-sighted, and retracted that themselves when the numbers
+disagreed.
+
+---
+
 ## C4 — OPEN, and currently producing a wrong number
 
 Two definitions of "does this caption explain why" disagree by **34 points**
@@ -191,6 +230,170 @@ screen. V5 reviews re-render lazily on open, so an audit reading stored
 
 **8. Shared files are add-only.** Add your fact / endpoint / extractor /
 branch. Never repurpose someone else's.
+
+**9. No batch jobs, backfills or detector sweeps in the PROD container.**
+On 2026-09-23 a `build_detector_claims` sweep launched inside
+`chess-coach-backend` on the box took chessguru.ai down: `/api/health` went
+4.6s → 24s → **502**, container UNHEALTHY with an 18-deep failing streak,
+loadavg 8.63 on 4 cores. Not a traffic spike — 31 requests in two minutes.
+The box shares 4 cores with the matrimonial stack and mail_sender.
+> Use the LOCAL container. It reaches the same prod Mongo via
+> `host.docker.internal:27018` — same data, same code, zero effect on the
+> live site. Verified: 128 users, 17,138 games, 16,421 analyses.
+> If a job genuinely must run on the server it needs Mohit's okay, and
+> should be niced or run off-peak.
+>
+> **If someone's job is taking the live site down, kill it and tell them
+> after.** -8f asked for this explicitly: "I would rather lose the work than
+> have the site slow for real users while everyone waits for a human."
+> Recovery after the kill: CPU 90.14% → 0.38%, TTFB 45.6s → 0.070s.
+
+**10. Deploy ONLY via `./scripts/deploy.sh`. Never raw `docker compose up --build`.**
+`deploy.sh` already exports `GIT_COMMIT`; a raw compose run does not, and it
+skips all eight verification checks. Evidence it happened: container
+`StartedAt 11:58:40Z` from an image created `11:58:27Z`, 13 seconds apart,
+`RestartCount 0` — a build-then-recreate.
+> Run it under `nohup` (rule 5).
+> **Correction on the record:** this was first reported here — by me — as
+> "`git_commit: unknown` silently disables the commit-match check". That is
+> WRONG. -5b ran `verify_deployment.py` on the box: the SKIP branch needs
+> ALL commit-ish keys unknown, and `v5_caption_version: 175` is not, so it
+> **FAILS loudly**. The guard works. Do not deploy expecting it to be absent.
+> Expect check 1 red until a proper `deploy.sh` run relabels the container,
+> alongside check 8 (rule 4). Only one of the two is new.
+
+**11. Verify a container job is dead with `docker top`, not `/proc` from inside.**
+-8f's `kill -9` on the shell left the python child alive and `/proc/<pid>`
+still present. Took two passes.
+
+**14. "Does it work" and "can a user reach it" are SEPARATE checks.**
+-5b counted six things built today and reaching nobody: review arrows, the
+PWC eval bar, the coaching timeline, the Explain button, "Practice Now", and
+36 openings' worth of chapters. All wired, all working, none rendered or
+reachable. Treating each as its own bug misses that it is one disease.
+> After building, ask "what does a user click to see this" and answer it by
+> loading the page, not by reading the code.
+
+**15. The backend and the frontend deploy separately. Check BOTH.**
+Measured 2026-09-24: `/api/health` reported `git_commit 11fe2569`, which IS
+`origin/working-code` HEAD — backend fully deployed, zero commits behind.
+The live bundle was `main.83455eb4.js` and did NOT contain that commit's
+frontend work:
+
+```
+marker                 live bundle   trunk source
+lesson-spine           PRESENT       present   <- positive control
+coach-play-eval-bar    absent        present
+lesson-next-chapter    absent        present
+```
+
+A green backend commit label says nothing about what the browser is running.
+> Verify the frontend by fetching the live bundle and grepping for a
+> `data-testid` the change introduced, with a known-present marker alongside
+> it as the control.
+
+**12. `/admin/detector-review` cannot tell "no index yet" from "all ruled".**
+It renders the same reassuring "no claims left" for an empty index AND for a
+504 — which is how a live scan blowing past nginx's 60s timeout read to Mohit
+as "you're done". Anyone adding a detector to that queue will hit it.
+
+---
+
+## Ownership map — route tasks by AREA, not by file
+
+**Rule 13: before starting anything new, check this map.** If the task is not
+your area, say so and hand it to the owner — sessions can message each other
+directly. Nothing auto-routes; Mohit types into whichever session he has
+open, and it is on the receiving session to redirect.
+
+Areas, not files, because Mohit thinks in areas and files change weekly.
+Each session chose its own and named what it explicitly does NOT want.
+
+| session | owns |
+|---|---|
+| **-21** | thinking habits & per-game scoring · game import & clock capture · time-management and rushing signals · game-review narrative truth · caption claim *verification* (is it TRUE, does it answer why) |
+| **-8f** | review caption *correctness* · detector quality, grading & the review queue · onboarding diagnostic · chess-truth verification ("prove it on the board") · game-analysis data correctness ("this number looks wrong") |
+| **-5b** | game-review board geometry (arrows, highlights) · caption pipeline · PWC caption presentation & eval bar · release verification, deploy gate, `/api/health` identity |
+| **-70** | admin review tooling (`/admin/detector-review`, `/admin/geometry-gaps`) · caption why-quality & the missing-why queue · claim wording on review surfaces · detector coverage measurement |
+| **-a0** | Play-with-Coach screen & layout · frontend theming and design tokens · board rendering / chessground · pre-move guardian *presentation* |
+| **-33** | player profile & `/home` composition · focus picker sources and topic selection · positional measurement from the board |
+
+### Seams — named by the sessions themselves
+
+- **grading vs choosing.** -8f owns detector GRADING (evidence, queue,
+  shadow→caption promotion). -33 owns which topic the picker CHOOSES from
+  the graded set. The single PLAN-graded id is the seam: -8f makes the case
+  for promoting more, -33 decides what the picker does with them.
+- **words wrong vs detection wrong.** Anything phrased "the coach said the
+  wrong thing" goes to **-5b** first; they hand off to -8f if the problem is
+  detection rather than wording. They can usually tell in one query.
+- **concept presence.** `positional_snapshot.py` (-33) is the ONE board
+  measurement. Anyone needing "is this concept present on the board" calls
+  it; new concepts are added there, add-only, not in a parallel module.
+  Ruled 2026-09-23 on -8f's positional gold-set request.
+- **theming crosses pages.** -a0 owns theming, which by nature touches pages
+  others own. They flag before editing rather than treat the area as a
+  licence.
+- **`analysis_worker.py`** belongs to everyone. Route by what the task is
+  about, not by the file.
+
+### Nobody's area
+
+**Product and visual design of customer surfaces** — the curriculum-vs-profile
+question, what `/home` should say. -8f, -5b and -70 each explicitly declined
+it for lack of design context. -33 holds it by default. Worth Mohit knowing
+that four of six sessions consider this out of scope for them.
+
+---
+
+## Ownership map — route tasks by AREA, not by file
+
+**Rule 13: before starting anything new, check this map.** If the task is not
+your area, say so and hand it to the owner — sessions can message each other
+directly. Nothing auto-routes: Mohit types into whichever session he has
+open, and it is on the RECEIVING session to redirect.
+
+Areas, not files, because Mohit thinks in areas and files change weekly.
+Each session chose its own and named what it explicitly does not want.
+
+| session | owns |
+|---|---|
+| **-21** | thinking habits & per-game scoring · game import & clock capture · time-management and rushing signals · game-review narrative truth · caption claim *verification* (is it TRUE, does it answer why) |
+| **-8f** | review caption *correctness* · detector quality, grading & the review queue · onboarding diagnostic · chess-truth verification ("prove it on the board") · game-analysis data correctness ("this number looks wrong") |
+| **-5b** | game-review board geometry (arrows, highlights) · caption pipeline · PWC caption presentation & eval bar · release verification, deploy gate, `/api/health` identity |
+| **-70** | admin review tooling (`/admin/detector-review`, `/admin/geometry-gaps`) · caption why-quality & the missing-why queue · claim wording on review surfaces · detector coverage measurement |
+| **-a0** | Play-with-Coach screen & layout · frontend theming and design tokens · board rendering / chessground · pre-move guardian *presentation* |
+| **-33** | player profile & `/home` composition · focus picker sources and topic selection · positional measurement from the board |
+
+### Seams — named by the sessions themselves
+
+- **Grading vs choosing.** -8f owns detector GRADING (evidence, queue,
+  shadow→caption promotion). -33 owns which topic the picker CHOOSES from
+  the graded set. The single PLAN-graded id is the seam: -8f makes the case
+  for promoting more, -33 decides what the picker does with them.
+- **Words wrong vs detection wrong.** Anything phrased "the coach said the
+  wrong thing" goes to **-5b** first; they hand to -8f if the fault is
+  detection rather than wording. Usually one query to tell.
+- **Concept presence.** `positional_snapshot.py` is the ONE board
+  measurement. Anyone needing "is this concept present" calls it; new
+  concepts are added there, add-only, never in a parallel module.
+- **Measurement vs threshold.** Inside that file, measurement is
+  threshold-free (how many pawns sit on the bishop's colour) and the
+  verdict (how many is too many) belongs to whoever grades. Verdicts may
+  differ; the numbers never do. This is the seam that would have prevented
+  C4, and it came from -8f, not from the file's owner.
+- **Theming crosses pages.** -a0 owns theming, which by nature touches pages
+  others own. They flag before editing rather than treat the area as licence.
+- **`analysis_worker.py`** belongs to everyone. Route by what the task is
+  about, not by the file.
+
+### Nobody's area
+
+**Product and visual design of customer surfaces** — what `/home` should
+say, curriculum vs profile. -8f, -5b and -70 each explicitly declined it for
+lack of design context; -a0 declined the curriculum specifically. -33 holds
+it by default. Four of six sessions consider it out of scope for them, which
+is worth knowing before it is handed to any of them.
 
 ---
 

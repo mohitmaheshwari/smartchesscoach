@@ -114,6 +114,27 @@ const GuidedOpeningLesson = ({
     setShowIntro(true);
     setIsPlaying(false);
   }, [chapters.length]);
+
+  // The spine unlocks as you go, so something has to do the unlocking.
+  // goToChapter was the only writer of chapterIndex and its only caller is a
+  // spine button guarded by `reached` (i <= chapterIndex) -- so the index
+  // could never rise above 0 and every chapter after the first was
+  // unreachable in all 36 multi-chapter openings. Finishing a chapter is what
+  // earns the next one.
+  const goToNextChapter = useCallback(() => {
+    setChapterIndex((prev) => {
+      const next = Math.min(prev + 1, Math.max(chapters.length - 1, 0));
+      return next;
+    });
+    setCurrentMoveIndex(-1);
+    setShowIntro(true);
+    setIsPlaying(false);
+  }, [chapters.length]);
+
+  const nextChapterTitle = !isLastChapter
+    ? String(chapters[chapterIndex + 1]?.title || "").trim()
+    : "";
+
   const keyIdeas = opening?.key_ideas || [];
   const userColor = opening?.color || "white";
   const introMessage = useMemo(() => {
@@ -502,18 +523,51 @@ const GuidedOpeningLesson = ({
                   )}
                 </AnimatePresence>
                 
-                {/* Why button */}
-                {!showingWhy && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={getWhyExplanation}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <HelpCircle className="w-4 h-4 mr-1" />
-                    Why this move?
-                  </Button>
-                )}
+                {/* Why button, and — once the line is done — the way onward.
+                    The finish has to live HERE, on the last move's card. The
+                    `isComplete` branch below never renders: coachMessage is set
+                    for every in-range move including the last one, so the
+                    branch above it always wins. Proved by playing a chapter to
+                    its end in a test -- what the student is left with is this
+                    card and a Replay button, which is why both "Practice Now"
+                    and any next-chapter action were invisible. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {!showingWhy && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={getWhyExplanation}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <HelpCircle className="w-4 h-4 mr-1" />
+                      Why this move?
+                    </Button>
+                  )}
+
+                  {isComplete && !isLastChapter && (
+                    <Button
+                      size="sm"
+                      onClick={goToNextChapter}
+                      className="experience-primary"
+                      data-testid="lesson-next-chapter"
+                    >
+                      <Play className="mr-1 h-4 w-4" />
+                      Next: {nextChapterTitle || "keep going"}
+                    </Button>
+                  )}
+
+                  {isComplete && isLastChapter && onStartPractice && (
+                    <Button
+                      size="sm"
+                      onClick={onStartPractice}
+                      className="experience-primary"
+                      data-testid="lesson-start-practice"
+                    >
+                      <Play className="mr-1 h-4 w-4" />
+                      Practice Now
+                    </Button>
+                  )}
+                </div>
               </motion.div>
             ) : isComplete ? (
               <motion.div
@@ -527,15 +581,19 @@ const GuidedOpeningLesson = ({
                     <Target className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <p className="font-semibold text-primary">Lesson complete</p>
+                    <p className="font-semibold text-primary">
+                      {isLastChapter ? "Lesson complete" : "Section complete"}
+                    </p>
                     <p className="mt-1 text-muted-foreground">
-                      Now you know the main line. Ready to test yourself?
+                      {isLastChapter
+                        ? "That's the whole lesson. Ready to test yourself?"
+                        : `Next: ${nextChapterTitle}.`}
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <Button 
+                  <Button
                     onClick={reset}
                     variant="outline"
                     className="w-full border-border"
@@ -544,7 +602,7 @@ const GuidedOpeningLesson = ({
                     Watch Again
                   </Button>
                   {onStartPractice && (
-                    <Button 
+                    <Button
                       onClick={onStartPractice}
                       className="experience-primary w-full"
                     >
