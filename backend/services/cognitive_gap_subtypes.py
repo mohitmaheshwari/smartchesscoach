@@ -155,6 +155,39 @@ def classify_king_safety(mv, opponent_previous, opp_next) -> Tuple[Optional[str]
         if (n_attacked_squares_near_king >= 3
                 and not _san_forcing(san)
                 and (mv.get("cp_loss") or 0) >= 150):
+            # The label says the player IGNORED the attack, and the user-facing
+            # wording is "your opponent had pieces near your king and you
+            # didn't defend". Everything above tests the first half only: that
+            # pressure exists, that the move was quiet, that it lost material.
+            # None of it asks whether the move actually addressed the king.
+            #
+            # Measured over 900 games, change in attacked squares around the
+            # king after the played move:
+            #   -8..-1  18.3%   |   0  71.6%   |   +1 or more  10.1%
+            #
+            # So on 172 of 940 fires the player REDUCED the pressure on their
+            # own king -- one of them by eight squares -- and was told they
+            # ignored it. Same shape as the DEF_WALK_KING bug: the premise is
+            # tested and the accusation is not.
+            after_move = board.copy()
+            try:
+                after_move.push(move)
+            except Exception:  # noqa: BLE001
+                after_move = None
+            if after_move is not None:
+                # Measure around where the king ACTUALLY IS afterwards. Walking
+                # the king off a pressured square is one of the commonest ways
+                # to answer an attack, and scoring it against the square it
+                # just left counts the escape as an ignored threat.
+                king_sq_after = after_move.king(board.turn)
+                attacked_after = 0
+                if king_sq_after is not None:
+                    for sq in chess.SQUARES:
+                        if (chess.square_distance(sq, king_sq_after) <= 2
+                                and after_move.attackers(opp_col, sq)):
+                            attacked_after += 1
+                if attacked_after < n_attacked_squares_near_king:
+                    return (None, None)  # they did defend; say something else
             return ("ignored_king_attack", _promote_severity("critical", mv))
 
     # ── king_in_center — king still on starting square past move 12

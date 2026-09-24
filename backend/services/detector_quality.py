@@ -173,6 +173,102 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "Requires a different stored best move and at least 100cp consequence.",
         ),
     ),
+    # The four named tactical motifs. Registered rather than promoted: they
+    # fire well (missed_pin 1,278 across 50 users, missed_fork 759/49,
+    # missed_skewer 529/43, missed_discovered_attack 399/43) and together they
+    # cover 2,965 observations, but none has been through the caption check
+    # that caught five principles saying things the board did not support on
+    # 2026-09-24. Named individually rather than under missed_generic_tactic,
+    # which carries more volume (4,413) and would give a user a focus called
+    # "generic tactic" -- the repetition problem wearing a different hat.
+    # Promote each one only when its sentence has been verified per-FEN.
+    "gap:missed_tactic:missed_pin": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref="fire volume measured 2026-09-24; caption unverified",
+        rationale=(
+            "1,278 observations across 50 users. Names the motif a 600-1500 "
+            "player can actually look for, instead of 'generic tactic'."
+        ),
+        limitations=(
+            "Caption claim has not been checked against the board.",
+            "Volume alone is not a promotion case.",
+        ),
+    ),
+    "gap:missed_tactic:missed_fork": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref="fire volume measured 2026-09-24; caption unverified",
+        rationale="759 observations across 49 users.",
+        limitations=(
+            "Caption claim has not been checked against the board.",
+            "Volume alone is not a promotion case.",
+        ),
+    ),
+    "gap:missed_tactic:missed_skewer": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref="fire volume measured 2026-09-24; caption unverified",
+        rationale="529 observations across 43 users.",
+        limitations=(
+            "Caption claim has not been checked against the board.",
+            "Volume alone is not a promotion case.",
+        ),
+    ),
+    "gap:missed_tactic:missed_discovered_attack": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref="fire volume measured 2026-09-24; caption unverified",
+        rationale="399 observations across 43 users.",
+        limitations=(
+            "Caption claim has not been checked against the board.",
+            "Volume alone is not a promotion case.",
+        ),
+    ),
+    "gap:king_safety:ignored_king_attack": Authorization(
+        # SHADOW, not PLAN, and deliberately so. The measurements below are
+        # strong enough to argue for PLAN -- this would be the first
+        # non-piece_safety topic any user could be given, and 53 of 86 users
+        # currently share one focus because there is exactly one PLAN id. But
+        # the caption-surface lock requires a reviewed promotion packet for
+        # anything reaching that surface, and this project's rule is that no
+        # model approves its own claims. Promoting it here would mean editing
+        # the allowlist that exists to stop exactly that.
+        #
+        # The packet is written and waiting at
+        # docs/ignored_king_attack_promotion_packet_2026_09_24.md. Grade moves
+        # when Mohit signs it, not before.
+        grade=QualityGrade.SHADOW,
+        evidence_ref="docs/ignored_king_attack_promotion_packet_2026_09_24.md",
+        rationale=(
+            "The first non-piece_safety topic anyone can be given. Until now "
+            "topic_can_be_planned returned True for exactly one pattern, so 53 "
+            "of 86 users held the same focus -- not because their games looked "
+            "alike but because there was one authorized id. king_safety is the "
+            "largest gap in the corpus (5,794 mistakes of 100cp or worse "
+            "against piece_safety's 5,660) and ignored_king_attack is its "
+            "highest-volume detector: 4,028 observations across 57 users, "
+            "which is every user in move_observations and more reach than the "
+            "single PLAN id it joins. "
+            "Both halves of what the user is told are now true of the board. "
+            "'Opponent had pieces near your king': 0 of 768 fires sit below "
+            "the 3-square threshold, against a 49.9% base rate over 27,618 "
+            "positions, so the test discriminates rather than passing "
+            "everything. 'And you didn't defend': measured and then enforced. "
+            "Before the gate, 18.3% of fires were moves that REDUCED the "
+            "pressure on their own king, one of them by eight squares, and "
+            "the player was told they ignored the attack. Now 0%."
+        ),
+        limitations=(
+            "Pressure is counted as squares within 2 of the king attacked by "
+            "the opponent, which is a proxy for danger, not danger itself. A "
+            "single well-placed piece can be worse than three loose ones.",
+            "board.attackers() is pseudo-legal, so a pinned attacker still "
+            "counts. That is arguably right for king safety -- a pinned piece "
+            "still controls the squares the king wants -- but it is a choice, "
+            "not a measurement.",
+            "The detector gates on cp_loss >= 150, so its agreement with the "
+            "engine is circular. Do not cite that as evidence of quality; the "
+            "case rests on the two board claims above.",
+            "Says the attack was ignored, never why it was missed.",
+        ),
+    ),
     "gap:king_safety:allowed_mate_exact": Authorization(
         grade=QualityGrade.SHADOW,
         evidence_ref="docs/allowed_mate_evidence_2026_09_18.md",
