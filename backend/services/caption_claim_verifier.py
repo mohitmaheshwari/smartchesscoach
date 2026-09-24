@@ -176,6 +176,44 @@ def _verify_blunder(facts: Dict[str, Any]) -> Tuple[bool, str]:
             chess.Board(facts["fen_before"]).parse_san(best)
         except Exception:
             return (False, "blunder_best_illegal")
+        # Legal is not the same as worth playing. "{best} was better" is true
+        # whenever it loses less than what was played, which includes
+        # positions the player has already lost -- "Qxe5 was better" said to
+        # someone who is a queen down either way is arithmetic, not coaching,
+        # and it reads as faintly insulting.
+        #
+        # Mohit set the line at a queen: below that, a 600-1500 player still
+        # wins these often enough that a better move is worth naming, whatever
+        # the engine calls the position. Measured over 24,862 mistakes and
+        # blunders, where the recommended move would leave the player:
+        #
+        #   a queen down or worse     3.8%   <- suppressed here
+        #   a rook to a queen down   10.3%
+        #   a piece to a rook down    8.2%
+        #   1-3 pawns down           10.2%
+        #   roughly level            23.8%
+        #   ahead                    43.7%
+        #
+        # Abstaining hands off to the narrator, as the recapture and
+        # clearance cases below already do. The card still teaches what went
+        # wrong; it just stops offering a rescue that is not one.
+        # No exception is needed for "the opponent just blundered and I am
+        # back in it", and it is worth writing down why, because the question
+        # is a good one. eval_before is the score of the position AFTER the
+        # opponent has moved, assuming best play from there. If their blunder
+        # genuinely put the player back in the game, this number rises above
+        # -900 on its own and nothing below fires. What remains in the band is
+        # the other case: the opponent erred and the player is STILL a queen
+        # down -- less lost, not back in it. Measured: 68 of the 946 came
+        # straight after an opponent error of 300cp+, and every one of them was
+        # still a queen down afterwards.
+        eval_before_white_pov = facts.get("eval_before_cp")
+        if eval_before_white_pov is not None:
+            side_white = facts.get("moving_piece_color") == "white"
+            eval_for_mover = (eval_before_white_pov if side_white
+                              else -eval_before_white_pov)
+            if eval_for_mover <= -900:
+                return (False, "blunder_best_move_cannot_rescue")
     # Specific tactical claims that R12 turns into prose must verify.
     if facts.get("opp_reply_creates_fork") and not _opp_reply_forks(facts):
         return (False, "blunder_fork_geom_fail")
