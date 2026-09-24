@@ -196,11 +196,26 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
     ),
     "gap:missed_tactic:missed_fork": Authorization(
         grade=QualityGrade.SHADOW,
-        evidence_ref="fire volume measured 2026-09-24; caption unverified",
-        rationale="759 observations across 49 users.",
+        evidence_ref="verified 2026-09-24 against fork_puzzle_proof over 700 games",
+        rationale=(
+            "759 observations across 49 users, and the only one of these four "
+            "with its claim checked. Scored against verify_created_fork -- the "
+            "independent geometry plus stored-line payoff path, already "
+            "validated on Lichess fork puzzles -- on 12,476 moves where the "
+            "player did NOT play the engine's move: "
+            "precision 364 of 364 (100.0%), recall 364 of 559 (65.1%). "
+            "It never claims a fork the geometry does not back. "
+            "The 195 it misses are not dropped: _detect_tactic_on_move is an "
+            "if/elif chain and they come back as missed_discovered_attack or "
+            "missed_generic_tactic, which for a knight capture that gives "
+            "check AND uncovers a line are both true descriptions. That is a "
+            "labelling precedence question, not lost coverage."
+        ),
         limitations=(
-            "Caption claim has not been checked against the board.",
-            "Volume alone is not a promotion case.",
+            "Recall 65.1%: a third of real missed forks are labelled as "
+            "another motif, so this id undercounts fork weakness per user.",
+            "Verified against another detector, not against a human. The "
+            "oracle's own Lichess validation is inherited, not re-run here.",
         ),
     ),
     "gap:missed_tactic:missed_skewer": Authorization(
