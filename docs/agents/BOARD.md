@@ -266,6 +266,32 @@ skips all eight verification checks. Evidence it happened: container
 -8f's `kill -9` on the shell left the python child alive and `/proc/<pid>`
 still present. Took two passes.
 
+**14. "Does it work" and "can a user reach it" are SEPARATE checks.**
+-5b counted six things built today and reaching nobody: review arrows, the
+PWC eval bar, the coaching timeline, the Explain button, "Practice Now", and
+36 openings' worth of chapters. All wired, all working, none rendered or
+reachable. Treating each as its own bug misses that it is one disease.
+> After building, ask "what does a user click to see this" and answer it by
+> loading the page, not by reading the code.
+
+**15. The backend and the frontend deploy separately. Check BOTH.**
+Measured 2026-09-24: `/api/health` reported `git_commit 11fe2569`, which IS
+`origin/working-code` HEAD — backend fully deployed, zero commits behind.
+The live bundle was `main.83455eb4.js` and did NOT contain that commit's
+frontend work:
+
+```
+marker                 live bundle   trunk source
+lesson-spine           PRESENT       present   <- positive control
+coach-play-eval-bar    absent        present
+lesson-next-chapter    absent        present
+```
+
+A green backend commit label says nothing about what the browser is running.
+> Verify the frontend by fetching the live bundle and grepping for a
+> `data-testid` the change introduced, with a known-present marker alongside
+> it as the control.
+
 **12. `/admin/detector-review` cannot tell "no index yet" from "all ruled".**
 It renders the same reassuring "no claims left" for an empty index AND for a
 504 — which is how a live scan blowing past nginx's 60s timeout read to Mohit
