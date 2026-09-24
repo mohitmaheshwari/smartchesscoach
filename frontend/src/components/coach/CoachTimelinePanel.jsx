@@ -20,14 +20,23 @@ const SEVERITY_CONFIG = {
   low: { icon: Check, color: "text-emerald-500", bg: "bg-emerald-50", border: "border-emerald-200" },
 };
 
-const CoachTimelinePanel = ({ timeline = [] }) => {
+const CoachTimelinePanel = ({ timeline = [], maxVisible = 3 }) => {
   const [expanded, setExpanded] = useState(false);
 
   if (timeline.length === 0) return null;
 
   // Split: critical/medium vs low
-  const important = timeline.filter(t => t.severity !== "low");
-  const minor = timeline.filter(t => t.severity === "low");
+  const allImportant = timeline.filter(t => t.severity !== "low");
+  const lowSeverity = timeline.filter(t => t.severity === "low");
+
+  // Only the most recent few stay open. Every non-low moment is a mistake,
+  // so leaving them all expanded turns the side of the board into a running
+  // tally of everything the player got wrong this game -- which is the one
+  // thing this product does not do. The older ones are still here, one click
+  // away; they just stop accumulating in front of them.
+  const important = allImportant.slice(-maxVisible);
+  const olderImportant = allImportant.slice(0, -maxVisible);
+  const minor = [...olderImportant, ...lowSeverity];
 
   return (
     <div className="space-y-2">
@@ -48,7 +57,7 @@ const CoachTimelinePanel = ({ timeline = [] }) => {
             className="flex items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground transition-colors px-1"
           >
             {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-            {minor.length} quiet moment{minor.length !== 1 ? "s" : ""}
+            {minor.length} earlier moment{minor.length !== 1 ? "s" : ""}
           </button>
           {expanded && (
             <div className="space-y-1 mt-1">
