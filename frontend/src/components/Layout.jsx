@@ -26,7 +26,8 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
-  Flag
+  Flag,
+  Import
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { API } from "@/App";
@@ -171,37 +172,24 @@ const Layout = ({ children, user, fullBleed = false }) => {
 
   const navigation = [
     { name: 'Home', href: '/home', icon: Home },
-    { name: 'Learn', href: personalCurriculumEnabled ? '/learn' : '/lab', icon: BookOpen },
-    ...(personalCurriculumEnabled
-      ? [{ name: 'Game Review', href: CURRICULUM_ROUTES.gameReview, icon: FlaskConical }]
-      : []),
+    { name: 'Review Game', href: '/lab', icon: FlaskConical },
+    { name: 'Learn', href: '/training', icon: BookOpen },
     { name: 'Progress', href: '/progress', icon: TrendingUp },
   ];
 
   // Admin nav is locked to the owner email on top of the role check.
-  // Server enforces the same rule.
   const ADMIN_EMAILS = new Set(['bhutramohit@gmail.com']);
   const isAdmin =
     (user?.role === 'super_admin' || user?.role === 'admin')
     && ADMIN_EMAILS.has((user?.email || '').trim().toLowerCase());
-  const isActive = (href) => location.pathname === href ||
-    (href === '/learn' && [
-      '/training',
-      '/openings',
-      '/openings-overview',
-      '/endgames',
-      '/coach',
-      '/focus',
-    ].some((prefix) => location.pathname.startsWith(prefix))) ||
-    (href === '/lab' && location.pathname.startsWith('/game/')) ||
-    (href === '/lab' && location.pathname.startsWith('/lab/')) ||
-    (href === CURRICULUM_ROUTES.gameReview && [
-      '/game/',
-      '/lab/game/',
-      '/replay/',
-    ].some((prefix) => location.pathname.startsWith(prefix))) ||
-    (href === '/admin' && location.pathname.startsWith('/admin')) ||
-    (href === '/review' && location.pathname.startsWith('/review'));
+
+  const isActive = (href) => {
+    if (href === '/home') return location.pathname === '/home' || location.pathname === '/';
+    if (href === '/lab') return location.pathname === '/lab' || location.pathname.startsWith('/game/') || location.pathname.startsWith('/lab/');
+    if (href === '/training' || href === '/learn') return location.pathname.startsWith('/training') || location.pathname.startsWith('/learn') || location.pathname.startsWith('/openings');
+    if (href === '/progress') return location.pathname.startsWith('/progress');
+    return location.pathname === href;
+  };
 
   const isReviewer = !!user?.is_reviewer;
 
@@ -236,19 +224,19 @@ const Layout = ({ children, user, fullBleed = false }) => {
     <div className={`min-h-screen flex bg-background ${EXPERIENCE_V1_ENABLED ? "experience-v1" : ""}`}>
       {/* ═══ Desktop Sidebar ═══ */}
       <aside
-        className={`experience-sidebar hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 sidebar-gradient ${
+        className={`experience-sidebar hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 bg-[#0d1115] border-r border-white/5 ${
           sidebarCollapsed ? 'w-[68px]' : 'w-[240px]'
         }`}
       >
         {/* Logo */}
         <div className={`flex items-center h-16 px-4 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           <Link to="/home" className="flex items-center gap-3 group">
-            <div className="experience-brand-mark w-9 h-9 rounded-xl flex items-center justify-center">
-              <img src="/chessguru-logo.svg" alt="" className="h-7 w-7" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#84b872]/20 border border-[#84b872]/30 text-[#84b872]">
+              <img src="/chessguru-logo.svg" alt="" className="h-5 w-5" />
             </div>
             {!sidebarCollapsed && (
-              <span className="text-foreground font-heading font-bold text-[15px] tracking-tight">
-                ChessGuru
+              <span className="text-foreground font-display font-semibold text-[17px] tracking-tight">
+                Chess<span className="text-[#84b872]">Guru</span>
               </span>
             )}
           </Link>
@@ -262,45 +250,49 @@ const Layout = ({ children, user, fullBleed = false }) => {
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1">
+        {/* Navigation Section */}
+        <nav className="flex-1 py-4 px-3 space-y-2 overflow-y-auto">
           {navigation.map((item) => {
             const IconComponent = item.icon;
             const active = isActive(item.href);
             return (
               <Link key={item.href} to={item.href}>
                 <div
-                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                  className={`relative w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl transition-all duration-150 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                   } ${active
-                    ? 'bg-primary/15 text-primary font-medium'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5 dark:hover:bg-white/5'
+                    ? 'bg-[#18231c] text-[#84b872] font-medium'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                   }`}
                   data-testid={"nav-" + item.name.toLowerCase().replaceAll(" ", "-")}
                   title={sidebarCollapsed ? item.name : undefined}
                 >
                   {active && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3.5px] h-6 rounded-r-full bg-[#84b872]" />
                   )}
-                  <IconComponent className={`w-[18px] h-[18px] flex-shrink-0 ${active ? 'text-primary' : ''}`} strokeWidth={active ? 2 : 1.5} />
-                  {!sidebarCollapsed && <span className="text-[13px]">{item.name}</span>}
+                  <IconComponent className={`w-[20px] h-[20px] flex-shrink-0 ${active ? 'text-[#84b872]' : 'text-muted-foreground'}`} strokeWidth={ active ? 2 : 1.5 } />
+                  {!sidebarCollapsed && (
+                    <span className={`text-[15px] font-medium tracking-tight ${active ? 'text-[#84b872]' : 'text-slate-300'}`}>
+                      {item.name}
+                    </span>
+                  )}
                 </div>
               </Link>
             );
           })}
 
-          {/* Play with Coach — Golden CTA */}
-          <div className={`pt-5 ${sidebarCollapsed ? 'px-0' : 'px-0'}`}>
+          {/* Play with Coach — Solid Green CTA */}
+          <div className="pt-6">
             <Link to="/play-with-coach">
               <div
-                className={`experience-coach-cta relative w-full flex items-center gap-2.5 px-3 py-3 rounded-xl transition-all duration-200 text-black font-semibold hover:scale-[1.02] active:scale-[0.98] ${
+                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl bg-[#84b872] hover:bg-[#93c781] text-black font-semibold text-[14px] transition-all shadow-md ${
                   sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                 }`}
                 data-testid="nav-play-coach"
                 title={sidebarCollapsed ? "Play with Coach" : undefined}
               >
-                <Swords className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
-                {!sidebarCollapsed && <span className="text-[13px]">Play with Coach</span>}
+                <Swords className="w-[20px] h-[20px] flex-shrink-0 text-black" strokeWidth={2} />
+                {!sidebarCollapsed && <span className="text-[14px] font-semibold text-black">Play with Coach</span>}
               </div>
             </Link>
           </div>
@@ -361,16 +353,20 @@ const Layout = ({ children, user, fullBleed = false }) => {
           </div>
         )}
 
-        {/* Bottom */}
+        {/* Bottom / Account Section */}
         <div className="p-3 space-y-1 border-t border-border/50">
-          <button
-            onClick={toggleTheme}
-            className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`}
-            data-testid="sidebar-theme-toggle"
-          >
-            {theme === "dark" ? <Sun className="w-[18px] h-[18px]" strokeWidth={1.5} /> : <Moon className="w-[18px] h-[18px]" strokeWidth={1.5} />}
-            {!sidebarCollapsed && <span className="text-[13px]">{theme === "dark" ? "Light" : "Dark"}</span>}
-          </button>
+          {!sidebarCollapsed && (
+            <p className="font-body text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground/60 mb-2 px-3 mt-1">
+              Account
+            </p>
+          )}
+
+          <Link to="/pricing">
+            <div className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-pricing">
+              <BookOpen className="w-[18px] h-[18px] text-[#d0ae6d]" strokeWidth={1.5} />
+              {!sidebarCollapsed && <span className="text-[13px] font-medium text-foreground">Premium</span>}
+            </div>
+          </Link>
 
           <Link to="/settings">
             <div className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
@@ -379,14 +375,14 @@ const Layout = ({ children, user, fullBleed = false }) => {
             </div>
           </Link>
 
-          {/* User */}
+          {/* User Profile & Sign Out */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className={`w-full gap-3 hover:bg-white/5 h-auto py-2 ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="user-menu-trigger">
                 <div className="relative">
-                  <Avatar className="h-8 w-8 ring-2 ring-primary/20">
+                  <Avatar className="h-8 w-8 ring-2 ring-[#d0ae6d]/40">
                     <AvatarImage src={userPicture} alt={userName} />
-                    <AvatarFallback className="text-xs font-bold bg-primary/20 text-primary">{userInitial}</AvatarFallback>
+                    <AvatarFallback className="text-xs font-bold bg-[#d0ae6d]/20 text-[#d0ae6d]">{userInitial}</AvatarFallback>
                   </Avatar>
                   <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-background" />
                 </div>
@@ -398,9 +394,9 @@ const Layout = ({ children, user, fullBleed = false }) => {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="top" className="w-52">
+            <DropdownMenuContent align="end" side="top" className="w-52 border-[#d0ae6d]/20 bg-[#13100d]">
               <div className="flex items-center gap-2 p-2">
-                <Avatar className="h-8 w-8"><AvatarImage src={userPicture} alt={userName} /><AvatarFallback className="text-xs bg-primary/20 text-primary">{userInitial}</AvatarFallback></Avatar>
+                <Avatar className="h-8 w-8"><AvatarImage src={userPicture} alt={userName} /><AvatarFallback className="text-xs bg-[#d0ae6d]/20 text-[#d0ae6d]">{userInitial}</AvatarFallback></Avatar>
                 <div className="flex flex-col min-w-0">
                   <span className="text-sm font-medium truncate">{userName}</span>
                   <span className="text-xs text-muted-foreground truncate">{userEmail}</span>

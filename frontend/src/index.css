@@ -18,95 +18,111 @@
    coach.
 --------------------------------------------------------------------------- */
 :root {
-  /* Board squares.
-     chessground's bundled brown.css does NOT use a colour pair: it paints the
-     whole board #f0d9b5 and washes the dark squares with black at 20%, which
-     renders them #c0ae91. Measured light/dark contrast 1.58:1, against 2.29:1
-     for real lichess brown -- roughly 45% less separation, which is why our
-     board read flat next to the reference.
+  /* Board squares — Warm Walnut Wood Pair */
+  --cg-sq-light: #eccfa4;
+  --cg-sq-dark:  #8d5c2d;
 
-     These are the real pair. Changing them changes every board in the app,
-     which is also what makes board themes a two-line job. */
-  --cg-sq-light: #f0d9b5;
-  --cg-sq-dark:  #b58863;
+  --cg-accent: #d0ae6d;
+  --cg-accent-hi: #e9cb88;      /* hover */
+  --cg-accent-rgb: 208 174 109; /* for rgb(... / alpha) */
 
-  --cg-accent: #7fb069;
-  --cg-accent-hi: #8fbf78;      /* hover */
-  --cg-accent-rgb: 127 176 105; /* for rgb(... / alpha) */
+  /* Square One Theme Tokens */
+  --background: 24 20% 4%;        /* #0c0a08 - Warm Walnut Dark Canvas */
+  --foreground: 39 42% 92%;       /* #f5eddc - Soft Cream */
+  --card: 24 18% 6%;              /* #13100d - Warm Dark Glass Container */
+  --card-foreground: 39 42% 92%;
+  --popover: 24 18% 6%;
+  --popover-foreground: 39 42% 92%;
+  --primary: 40 52% 62%;          /* #d0ae6d - Square One Gold */
+  --primary-foreground: 24 20% 4%;
+  --secondary: 24 16% 10%;        /* #1a1612 */
+  --secondary-foreground: 39 42% 92%;
+  --muted: 24 14% 12%;            /* #1f1a15 */
+  --muted-foreground: 34 10% 50%; /* #8a8174 */
+  --accent: 42 66% 72%;           /* #e9cb88 - Light Gold Accent */
+  --accent-foreground: 24 20% 4%;
+  --border: 39 30% 88% / 0.08;    /* Hairline Gold Border */
+  --input: 24 16% 14%;
+  --ring: 40 52% 62%;
+  --radius: 0.75rem;
 }
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Frontend Experience V1: Warm Intelligence ─────────────────────
-   Scoped to Layout's rollout class. Existing pages remain untouched when
-   REACT_APP_FRONTEND_EXPERIENCE_V1_ENABLED is false. */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #0c0a08;
+  color: #f5eddc;
+}
+
+h1, h2, h3, .font-heading, .font-display {
+  font-family: 'Fraunces', Georgia, serif;
+}
+
+.font-mono {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* ─── Frontend Experience V1: Square One Warm Walnut & Gold ─── */
 .experience-v1 {
-  --background: 42 33% 97%;
-  --foreground: 222 36% 12%;
-  --card: 42 38% 99%;
-  --card-foreground: 222 36% 12%;
-  --popover: 42 38% 99%;
-  --popover-foreground: 222 36% 12%;
-  --primary: 38 92% 50%;
-  --primary-foreground: 224 32% 8%;
-  --secondary: 42 22% 92%;
-  --secondary-foreground: 222 30% 16%;
-  --muted: 42 20% 92%;
-  --muted-foreground: 218 11% 42%;
-  --accent: 174 58% 38%;
-  --accent-foreground: 0 0% 100%;
-  --border: 38 18% 84%;
-  --input: 38 18% 84%;
-  --ring: 38 92% 50%;
-  --success: 154 57% 38%;
-  --warning: 38 92% 50%;
-  --critical: 356 63% 56%;
-  --experience-ink: 224 32% 8%;
-  --experience-teal: 174 58% 38%;
-  --experience-rose: 356 63% 56%;
-  --experience-shadow: 222 35% 9%;
+  --background: 24 20% 4%;
+  --foreground: 39 42% 92%;
+  --card: 24 18% 6%;
+  --card-foreground: 39 42% 92%;
+  --popover: 24 18% 6%;
+  --popover-foreground: 39 42% 92%;
+  --primary: 40 52% 62%;
+  --primary-foreground: 24 20% 4%;
+  --secondary: 24 16% 10%;
+  --secondary-foreground: 39 42% 92%;
+  --muted: 24 14% 12%;
+  --muted-foreground: 34 10% 50%;
+  --accent: 42 66% 72%;
+  --accent-foreground: 24 20% 4%;
+  --border: 39 30% 88% / 0.08;
+  --input: 24 16% 14%;
+  --ring: 40 52% 62%;
+  --experience-ink: 24 20% 4%;
+  --experience-shadow: 0 0% 0%;
   color: hsl(var(--foreground));
   background:
-    radial-gradient(circle at 82% -10%, hsl(var(--primary) / 0.11), transparent 30rem),
-    hsl(var(--background));
+    radial-gradient(60% 50% at 20% 18%, rgba(208, 174, 109, 0.06) 0%, transparent 65%),
+    radial-gradient(50% 45% at 85% 80%, rgba(208, 174, 109, 0.04) 0%, transparent 70%),
+    #0c0a08;
 }
 
 .dark .experience-v1 {
-  --background: 224 32% 7%;
-  --foreground: 42 24% 94%;
-  --card: 223 27% 10%;
-  --card-foreground: 42 24% 94%;
-  --popover: 223 27% 10%;
-  --popover-foreground: 42 24% 94%;
-  --primary: 38 92% 54%;
-  --primary-foreground: 224 32% 7%;
-  --secondary: 222 21% 15%;
-  --secondary-foreground: 42 24% 94%;
-  --muted: 222 20% 15%;
-  --muted-foreground: 216 13% 67%;
-  --accent: 174 58% 45%;
-  --accent-foreground: 224 32% 7%;
-  --border: 220 17% 21%;
-  --input: 220 17% 21%;
-  --ring: 38 92% 54%;
+  --background: 24 20% 4%;
+  --foreground: 39 42% 92%;
+  --card: 24 18% 6%;
+  --card-foreground: 39 42% 92%;
+  --popover: 24 18% 6%;
+  --popover-foreground: 39 42% 92%;
+  --primary: 40 52% 62%;
+  --primary-foreground: 24 20% 4%;
+  --secondary: 24 16% 10%;
+  --secondary-foreground: 39 42% 92%;
+  --muted: 24 14% 12%;
+  --muted-foreground: 34 10% 50%;
+  --accent: 42 66% 72%;
+  --accent-foreground: 24 20% 4%;
+  --border: 39 30% 88% / 0.08;
+  --input: 24 16% 14%;
+  --ring: 40 52% 62%;
   background:
-    radial-gradient(circle at 82% -10%, hsl(var(--primary) / 0.10), transparent 32rem),
-    hsl(var(--background));
+    radial-gradient(60% 50% at 20% 18%, rgba(208, 174, 109, 0.06) 0%, transparent 65%),
+    radial-gradient(50% 45% at 85% 80%, rgba(208, 174, 109, 0.04) 0%, transparent 70%),
+    #0c0a08;
 }
 
-.experience-v1 .experience-sidebar {
-  background:
-    linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--background) / 0.96));
-  border-right: 1px solid hsl(var(--border) / 0.82);
-  box-shadow: 18px 0 46px hsl(var(--experience-shadow) / 0.05);
-}
-
+.experience-v1 .experience-sidebar,
 .dark .experience-v1 .experience-sidebar {
-  background:
-    linear-gradient(180deg, hsl(224 32% 8% / 0.98), hsl(224 32% 6% / 0.98));
-  box-shadow: 18px 0 56px hsl(0 0% 0% / 0.22);
+  background: linear-gradient(180deg, rgba(13, 11, 9, 0.98) 0%, rgba(19, 16, 13, 0.98) 60%, rgba(13, 11, 9, 0.98) 100%);
+  border-right: 1px solid rgba(245, 237, 220, 0.07);
+  backdrop-filter: blur(24px);
+  box-shadow: none;
 }
 
 .experience-v1 .experience-mobile-header {
@@ -771,38 +787,38 @@
     --sidebar-border: 220 13% 91%;
   }
 
-  /* ─── DARK MODE ─── Deep, immersive, premium ─── */
+  /* ─── DARK MODE ─── Square One Warm Walnut & Gold ─── */
   .dark {
-    --background: 224 30% 6%;
-    --foreground: 210 20% 95%;
-    --card: 224 25% 9%;
-    --card-foreground: 210 20% 95%;
-    --popover: 224 25% 9%;
-    --popover-foreground: 210 20% 95%;
-    --primary: 43 96% 56%;
-    --primary-foreground: 224 30% 6%;
-    --secondary: 224 20% 13%;
-    --secondary-foreground: 210 20% 85%;
-    --muted: 224 20% 13%;
-    --muted-foreground: 220 10% 50%;
-    --accent: 43 96% 56%;
-    --accent-foreground: 224 30% 6%;
+    --background: 24 20% 4%;        /* #0c0a08 - Warm Walnut Dark Canvas */
+    --foreground: 39 42% 92%;       /* #f5eddc - Soft Cream */
+    --card: 24 18% 6%;              /* #13100d - Dark Glass Container */
+    --card-foreground: 39 42% 92%;
+    --popover: 24 18% 6%;
+    --popover-foreground: 39 42% 92%;
+    --primary: 40 52% 62%;          /* #d0ae6d - Warm Gold */
+    --primary-foreground: 24 20% 4%;
+    --secondary: 24 16% 10%;        /* #1a1612 */
+    --secondary-foreground: 39 42% 92%;
+    --muted: 24 14% 12%;            /* #1f1a15 */
+    --muted-foreground: 34 10% 50%; /* #8a8174 */
+    --accent: 42 66% 72%;           /* #e9cb88 - Light Gold Accent */
+    --accent-foreground: 24 20% 4%;
     --destructive: 0 62% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 224 20% 14%;
-    --input: 224 20% 14%;
-    --ring: 43 96% 56%;
+    --border: 39 30% 88% / 0.08;    /* Hairline Gold Border */
+    --input: 24 16% 14%;
+    --ring: 40 52% 62%;
 
-    --success: 152 69% 50%;
-    --warning: 38 92% 56%;
+    --success: 101 31% 55%;         /* #84b872 Sage Green */
+    --warning: 40 52% 62%;
     --critical: 0 62% 55%;
 
     --wine: 353 55% 50%;
-    --gold: 43 96% 56%;
-    --gold-muted: 43 60% 44%;
+    --gold: 40 52% 62%;
+    --gold-muted: 40 40% 45%;
 
-    --sidebar-bg: 224 28% 8%;
-    --sidebar-border: 224 20% 12%;
+    --sidebar-bg: 24 20% 4%;
+    --sidebar-border: 39 30% 88% / 0.08;
   }
 }
 

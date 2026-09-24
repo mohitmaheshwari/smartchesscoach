@@ -71,27 +71,27 @@
       instead of the approximations that were here. Mohit likes the board we
       already render; these tokens should not quietly disagree with it. */
 .dark .pwc-root {
-  --background: 210 9% 4%;        /* #0a0b0c */
-  --foreground: 80 11% 94%;       /* #f1f2ef */
-  --card: 210 9% 9%;              /* #141618 */
-  --card-foreground: 80 11% 94%;
-  --popover: 210 9% 9%;
-  --popover-foreground: 80 11% 94%;
-  --primary: 101 31% 55%;         /* #7fb069 — our green */
-  --primary-foreground: 210 9% 4%;
-  --secondary: 210 10% 11%;       /* #1a1d20 */
-  --secondary-foreground: 80 11% 94%;
-  --muted: 210 10% 11%;
-  --muted-foreground: 212 7% 57%; /* #8a9199 */
-  --accent: 210 10% 11%;          /* shadcn "accent" = hover bg, not brand */
-  --accent-foreground: 80 11% 94%;
-  --border: 207 11% 16%;          /* #252a2e hairline */
-  --input: 207 11% 16%;
-  --ring: 101 31% 55%;
+  --background: 30 18% 4%;        /* #0c0a08 warm walnut */
+  --foreground: 40 45% 92%;       /* #f5eddc soft cream */
+  --card: 30 20% 7%;              /* #13100d glass card */
+  --card-foreground: 40 45% 92%;
+  --popover: 30 20% 7%;
+  --popover-foreground: 40 45% 92%;
+  --primary: 40 52% 62%;          /* #d0ae6d gold */
+  --primary-foreground: 30 18% 4%;
+  --secondary: 30 15% 10%;        /* #1e1710 */
+  --secondary-foreground: 40 45% 92%;
+  --muted: 30 15% 10%;
+  --muted-foreground: 40 10% 60%;
+  --accent: 30 15% 12%;          /* hover bg */
+  --accent-foreground: 40 45% 92%;
+  --border: 38 30% 25%;          /* hairline gold border */
+  --input: 38 30% 25%;
+  --ring: 40 52% 62%;
 
-  --pwc-accent: #7fb069;
-  --pwc-accent-soft: rgba(127, 176, 105, 0.12);
-  --pwc-accent-ring: rgba(127, 176, 105, 0.40);
+  --pwc-accent: #d0ae6d;
+  --pwc-accent-soft: rgba(208, 174, 109, 0.12);
+  --pwc-accent-ring: rgba(208, 174, 109, 0.40);
   --pwc-ok: #7fb069;
   --pwc-warn: #d9a441;            /* reserved for the interruption */
   --pwc-bad: #d96857;

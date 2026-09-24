@@ -4,6 +4,7 @@ import { ArrowLeft, Check, ChevronRight, Eye, Loader2, RotateCcw, Shapes } from 
 import { API } from "@/App";
 import LichessBoard from "@/components/LichessBoard";
 import { Button } from "@/components/ui/button";
+import Layout from "@/components/Layout";
 
 const STAGE_LABELS = {
   baseline: "First look",
@@ -37,9 +38,10 @@ async function api(path, options = {}) {
   return data;
 }
 
-function ModuleCatalog({ data, onStart, loadingModule }) {
+function ModuleCatalog({ data, onStart, loadingModule, user }) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <Layout user={user}>
+      <div className="min-h-screen bg-background text-foreground">
       <main className="max-w-5xl mx-auto px-5 py-10 md:py-14">
         <Link
           to="/training"
@@ -120,6 +122,7 @@ function ModuleCatalog({ data, onStart, loadingModule }) {
         </div>
       </main>
     </div>
+    </Layout>
   );
 }
 
@@ -372,7 +375,8 @@ export default function BoardGeometryLesson({ user }) {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <Layout user={user}>
+      <div className="min-h-screen bg-background text-foreground">
       <main className="max-w-6xl mx-auto px-5 py-6 md:py-10">
         <div className="flex items-center justify-between gap-4 mb-6">
           <button
@@ -500,5 +504,6 @@ export default function BoardGeometryLesson({ user }) {
         </div>
       </main>
     </div>
+    </Layout>
   );
 }

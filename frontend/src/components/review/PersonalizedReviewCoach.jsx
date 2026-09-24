@@ -139,20 +139,20 @@ export default function PersonalizedReviewCoach({
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-[28px] border border-emerald-900/10 bg-gradient-to-br from-[#f7fbf5] via-white to-[#f6f1ff] p-6 md:p-8 shadow-[0_24px_70px_-36px_rgba(32,69,56,0.45)]"
+        className="relative overflow-hidden rounded-[24px] border border-[#2a221b] bg-gradient-to-br from-[#181410] via-[#13100d] to-[#1c1713] p-6 md:p-8 shadow-2xl"
         data-testid="personalized-review-intro"
       >
-        <div className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-violet-200/30 blur-3xl" />
-        <div className="absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-emerald-200/35 blur-3xl" />
+        <div className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-[#d0ae6d]/10 blur-3xl" />
+        <div className="absolute -bottom-20 -left-12 h-48 w-48 rounded-full bg-[#84b872]/10 blur-3xl" />
         <div className="relative">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-800/10 bg-white/75 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-800">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#d0ae6d]/30 bg-[#d0ae6d]/10 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#d0ae6d]">
             <Sparkles className="h-3.5 w-3.5" />
             Your coach's game plan
           </div>
-          <h2 className="max-w-xl font-serif text-3xl leading-tight tracking-[-0.025em] text-slate-950 md:text-[42px]">
+          <h2 className="max-w-xl font-serif text-3xl leading-tight tracking-[-0.025em] text-[#f4efe6] md:text-[42px]">
             {plan.opening}
           </h2>
-          <p className="mt-5 max-w-xl text-[17px] leading-8 text-slate-600">
+          <p className="mt-5 max-w-xl text-[16px] leading-relaxed text-stone-300">
             {plan.game_arc}
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -164,13 +164,13 @@ export default function PersonalizedReviewCoach({
                 });
                 showChapter(0);
               }}
-              className="group inline-flex min-h-12 items-center gap-3 rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+              className="group inline-flex min-h-12 items-center gap-3 rounded-full bg-gradient-to-r from-[#84b872] to-[#6da35b] px-6 py-3 text-sm font-bold text-[#0c0a08] shadow-lg transition hover:-translate-y-0.5 hover:brightness-110 focus:outline-none"
               data-testid="personalized-review-start"
             >
               Review this game with me
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </button>
-            <span className="text-sm text-slate-500">
+            <span className="text-sm text-stone-400">
               {chapters.length === 1 ? "One useful moment" : `${chapters.length} useful moments`}
             </span>
           </div>
@@ -184,16 +184,16 @@ export default function PersonalizedReviewCoach({
       <motion.section
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-[28px] border border-emerald-900/10 bg-gradient-to-br from-[#f4faf1] to-white p-6 md:p-8 shadow-[0_24px_70px_-38px_rgba(32,69,56,0.45)]"
+        className="rounded-[24px] border border-[#2a221b] bg-gradient-to-br from-[#181410] to-[#13100d] p-6 md:p-8 shadow-2xl"
         data-testid="personalized-review-takeaway"
       >
-        <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-900 text-white shadow-lg shadow-emerald-900/20">
-          <Check className="h-5 w-5" />
+        <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#84b872] text-[#0c0a08] shadow-lg shadow-[#84b872]/20">
+          <Check className="h-5 w-5 stroke-[2.5]" />
         </div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#84b872]">
           What I want you to take forward
         </p>
-        <h2 className="mt-3 font-serif text-3xl leading-tight tracking-[-0.02em] text-slate-950">
+        <h2 className="mt-3 font-serif text-3xl leading-tight tracking-[-0.02em] text-[#f4efe6]">
           {plan.takeaway}
         </h2>
         <div className="mt-8 flex flex-wrap gap-3">
@@ -207,7 +207,7 @@ export default function PersonalizedReviewCoach({
                 });
                 onNavigate?.(plan.next_action.href);
               }}
-              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-emerald-900 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-[#84b872] px-5 py-3 text-sm font-bold text-[#0c0a08] transition hover:-translate-y-0.5 hover:brightness-110 focus:outline-none"
               data-testid="personalized-review-next-action"
             >
               Practise this idea
@@ -220,7 +220,7 @@ export default function PersonalizedReviewCoach({
               setActiveIndex(-1);
               onReplay?.();
             }}
-            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#2a221b] bg-[#1a1511] px-5 py-3 text-sm font-semibold text-stone-300 transition hover:border-[#d0ae6d]/40 hover:text-white"
             data-testid="personalized-review-replay"
           >
             <RotateCcw className="h-4 w-4" />
@@ -251,19 +251,19 @@ export default function PersonalizedReviewCoach({
 
   return (
     <section
-      className="rounded-[28px] border border-slate-200/80 bg-white p-5 md:p-7 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.55)]"
+      className="rounded-[24px] border border-[#2a221b] bg-[#13100d] p-5 md:p-7 shadow-2xl"
       data-testid="personalized-review-chapter"
     >
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#d0ae6d]">
             {ROLE_LABELS[chapter.role] || "A moment worth understanding"}
           </p>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-stone-400">
             Move {event.move.number} · {event.move.san}
           </p>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
+        <span className="rounded-full bg-[#1c1713] border border-[#2a221b] px-3 py-1 text-xs font-mono font-medium text-stone-300">
           {activeIndex + 1} of {chapters.length}
         </span>
       </div>
@@ -277,21 +277,21 @@ export default function PersonalizedReviewCoach({
             exit={{ opacity: 0, x: -8 }}
           >
             {event.teaching?.headline && (
-              <div className="mb-6 rounded-2xl border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white px-5 py-4">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-800">
+              <div className="mb-6 rounded-2xl border border-[#d0ae6d]/30 bg-[#d0ae6d]/10 px-5 py-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#d0ae6d]">
                   Your position
                 </p>
-                <h2 className="mt-2 font-serif text-2xl leading-snug text-slate-950">
+                <h2 className="mt-2 font-serif text-2xl leading-snug text-[#f4efe6]">
                   {event.teaching.headline}
                 </h2>
                 {event.teaching.practical_lead && (
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                  <p className="mt-2 text-sm leading-relaxed text-stone-300">
                     {event.teaching.practical_lead}
                   </p>
                 )}
               </div>
             )}
-            <h2 className="font-serif text-2xl leading-snug text-slate-950 md:text-[30px]">
+            <h2 className="font-serif text-2xl leading-snug text-[#f4efe6] md:text-[30px]">
               {prompt.question}
             </h2>
             <div className="mt-6 grid gap-2.5" role="group" aria-label={prompt.question}>
@@ -301,20 +301,20 @@ export default function PersonalizedReviewCoach({
                   key={option.id}
                   disabled={submitting}
                   onClick={() => submitReflection(event, prompt, option.id)}
-                  className="group flex min-h-12 w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-left text-sm font-medium text-slate-700 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                  className="group flex min-h-12 w-full items-center justify-between rounded-2xl border border-[#2a221b] bg-[#181410] px-4 py-3 text-left text-sm font-medium text-stone-200 transition hover:border-[#d0ae6d]/60 hover:bg-[#201914] focus:outline-none disabled:cursor-wait disabled:opacity-60"
                   data-testid={`personalized-reflection-option-${option.id}`}
                 >
                   <span>{option.label}</span>
                   {submitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <ArrowRight className="h-4 w-4 opacity-40 transition group-hover:translate-x-0.5 group-hover:opacity-80" />
+                    <ArrowRight className="h-4 w-4 text-[#d0ae6d] opacity-50 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
                   )}
                 </button>
               ))}
             </div>
             {error && (
-              <p className="mt-3 text-sm text-rose-700" role="alert">
+              <p className="mt-3 text-sm text-rose-400" role="alert">
                 {error}
               </p>
             )}
@@ -327,36 +327,36 @@ export default function PersonalizedReviewCoach({
           >
             {event.teaching?.headline && (
               <div className="mb-5">
-                <h2 className="font-serif text-3xl leading-tight text-slate-950">
+                <h2 className="font-serif text-3xl leading-tight text-[#f4efe6]">
                   {event.teaching.headline}
                 </h2>
                 {event.teaching.practical_lead && (
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                  <p className="mt-2 text-sm leading-relaxed text-stone-300">
                     {event.teaching.practical_lead}
                   </p>
                 )}
               </div>
             )}
             {selectedLabel && (
-              <div className="mb-5 rounded-2xl border border-violet-100 bg-violet-50/70 px-4 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
+              <div className="mb-5 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-4 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-300">
                   What you told me
                 </p>
-                <p className="mt-1 text-sm text-violet-950">{selectedLabel}</p>
+                <p className="mt-1 text-sm text-violet-100">{selectedLabel}</p>
               </div>
             )}
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#84b872]">
               What actually happened
             </p>
-            <p className="mt-3 text-[17px] leading-8 text-slate-800">
+            <p className="mt-3 text-[16px] leading-relaxed text-stone-200">
               {event.teaching.caption}
             </p>
             {event.teaching.principle && event.teaching.principle !== event.teaching.caption && (
-              <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-4">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-800">
+              <div className="mt-5 rounded-2xl border border-[#84b872]/30 bg-[#84b872]/10 px-4 py-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#84b872]">
                   Keep this with you
                 </p>
-                <p className="mt-1.5 text-sm leading-6 text-emerald-950">
+                <p className="mt-1.5 text-sm leading-relaxed text-emerald-100">
                   {event.teaching.principle}
                 </p>
               </div>
@@ -382,10 +382,10 @@ export default function PersonalizedReviewCoach({
                   });
                   onShowVisual?.(visual);
                 }}
-                className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-full border border-[#2a221b] bg-[#181410] px-4 py-2 text-sm font-semibold text-stone-300 transition hover:border-[#d0ae6d]/60 hover:text-white"
                 data-testid="personalized-review-show-visual"
               >
-                <Eye className="h-4 w-4" />
+                <Eye className="h-4 w-4 text-[#d0ae6d]" />
                 Show the relationship
               </button>
             )}
@@ -394,12 +394,12 @@ export default function PersonalizedReviewCoach({
       </AnimatePresence>
 
       {canReveal && (
-        <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-5">
+        <div className="mt-8 flex items-center justify-between border-t border-[#2a221b] pt-5">
           <button
             type="button"
             disabled={activeIndex === 0}
             onClick={() => showChapter(activeIndex - 1)}
-            className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 disabled:invisible"
+            className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-stone-400 transition hover:text-white disabled:invisible"
           >
             <ArrowLeft className="h-4 w-4" />
             Previous
@@ -416,7 +416,7 @@ export default function PersonalizedReviewCoach({
                 setActiveIndex(chapters.length);
               }
             }}
-            className="group inline-flex min-h-11 items-center gap-2 rounded-full bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+            className="group inline-flex min-h-11 items-center gap-2 rounded-full bg-[#84b872] px-5 py-2.5 text-sm font-bold text-[#0c0a08] transition hover:brightness-110"
             data-testid="personalized-review-continue"
           >
             {activeIndex + 1 < chapters.length ? "Next moment" : "What to take forward"}

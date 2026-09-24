@@ -379,13 +379,7 @@ const Dashboard = ({ user }) => {
 
   const openFeaturedGame = async () => {
     if (!featuredGame?.coach_selected) {
-      navigate(
-        `/lab/game/${featuredGame.game_id}${
-          featuredGame.critical_move
-            ? `?move=${featuredGame.critical_move}`
-            : ""
-        }`,
-      );
+      navigate(`/lab/game/${featuredGame.game_id}`);
       return;
     }
     try {
@@ -601,76 +595,16 @@ const Dashboard = ({ user }) => {
           {/* ─── Page head ─── */}
           <div className="cg-hero mb-10 md:mb-14">
             <div>
-              <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
-                Your coaching room
+              <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-[#d0ae6d] font-bold mb-3">
+                Review Game · Scouting Report
               </p>
-              <h1 className="experience-coach-copy font-serif text-[28px] md:text-[40px] leading-[1.05] tracking-[-0.02em] font-medium text-foreground">
-                Let’s choose what will help next.
+              <h1 className="font-display text-2xl md:text-4xl font-bold uppercase tracking-tight text-foreground">
+                Games <span className="text-[#d0ae6d]">Worth Understanding</span>
               </h1>
             </div>
           </div>
 
-          {/* ━━━━━━━━━━ LEARN NEXT · Engine 2 curriculum ━━━━━━━━━━ */}
-          {/* The Lab's identity: the forward-looking learning PATH. "Learn next"
-              is the prerequisite-gated, rating-aware pick from Engine 2; the skill
-              tree below shows what you've mastered / next / locked. (Progress is
-              the report card — how you're doing; this is the syllabus — what to
-              learn next.) 2026-07-07. */}
-          {learnNext && (
-            <motion.section ref={recommendationElementRef} {...revealOnScroll} className="mb-12 md:mb-16">
-              <div className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
-                Learn next
-              </div>
-              <div className="experience-focus-card experience-surface rounded-2xl border border-violet-500/20 bg-violet-500/[0.04] p-6 md:p-7">
-                <p className="font-serif text-[22px] md:text-[28px] leading-[1.15] tracking-[-0.015em] font-medium text-foreground mb-2">
-                  {learnNext.label}
-                </p>
-                {learnNext.reason && (
-                  <p className="text-[13.5px] text-muted-foreground mb-1">{learnNext.reason}</p>
-                )}
-                {learnNext.fixes && (
-                  <p className="text-[13px] text-muted-foreground/80 mb-5">
-                    Fixes: {learnNext.fixes}
-                  </p>
-                )}
-                <button
-                  onClick={() => {
-                    trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_PRIMARY_CLICKED, {
-                      surface: "legacy_lab",
-                      decision_id: `legacy_engine2:${learnNext.skill_id}`,
-                      decision_source: "engine2_learn_next",
-                      recommendation_kind: "expand",
-                      content_type: "skill",
-                      content_id: learnNext.skill_id,
-                      origin: "recommendation",
-                      is_recommended: true,
-                    });
-                    navigate(`/training/skill/${learnNext.skill_id}`);
-                  }}
-                  className="experience-primary h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
-                >
-                  Start this lesson
-                  <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                </button>
-              </div>
-            </motion.section>
-          )}
 
-          {/* ━━━━━━━━━━ YOUR MASTERY · fundamentals + tactics ━━━━━━━━━━ */}
-          {/* Fundamentals skill tree (openings/mates/concepts/endgames) AND the
-              fork/pin/skewer tactics ladder — unified here 2026-07-08 so pins &
-              forks show up in the mastery view, not a separate page. */}
-          <section className="mb-16 md:mb-24 space-y-14">
-            <MasteryPanel />
-            <InGameMasteryPanel />
-            <TacticsMasteryPanel />
-          </section>
-
-          {/* ━━━━━━━━━━ COACHING PATTERNS · motifs, phases, coordination ━━━━━━━━━━ */}
-          {/* New: Display 5 coaching patterns (fork/pin/skewer, phase accuracy,
-              coordination, prophylaxis, opening deviations) with cards + CTAs.
-              Launched 2026-07-14 as part of complete pattern detector system. */}
-          <CoachingPatternsPanel user={user} />
 
           {/* ━━━━━━━━━━ SESSION REVIEW ━━━━━━━━━━ */}
           {/* Renders only when user arrived from Home's "Open in Lab"

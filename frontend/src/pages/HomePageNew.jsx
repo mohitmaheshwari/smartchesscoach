@@ -410,13 +410,66 @@ export default function HomePageNew({ user }) {
         data-testid="home-page"
       >
         <motion.div variants={staggerContainer} initial="initial" animate="animate">
-          {/* ─── GREETING ─── */}
-          <motion.div variants={fadeInUp} className="flex items-baseline justify-between mb-10 md:mb-12">
-            <p className="text-muted-foreground text-[13px]">
-              {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
-            </p>
-            <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
+          {/* ─── SQUARE ONE DASHBOARD HEADER ─── */}
+          <motion.div variants={fadeInUp} className="mb-8 border-b border-[#d0ae6d]/15 pb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h1 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight text-foreground">
+                  Improvement <span className="text-[#d0ae6d]">Dashboard</span>
+                </h1>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#d0ae6d] mt-1">
+                  Your Specific Blindspots · To Actually Get Better
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => navigate('/lab')}
+                  className="px-3.5 py-1.5 rounded-lg border border-[#d0ae6d]/30 bg-[#1e1710]/80 text-[12px] font-medium text-foreground hover:bg-[#d0ae6d]/10 transition-colors flex items-center gap-1.5"
+                >
+                  <FlaskConical className="w-3.5 h-3.5 text-[#d0ae6d]" /> Replay Coach's read
+                </button>
+                <button
+                  onClick={() => navigate('/play-with-coach')}
+                  className="px-3.5 py-1.5 rounded-lg border border-[#d0ae6d]/30 bg-[#1e1710]/80 text-[12px] font-medium text-foreground hover:bg-[#d0ae6d]/10 transition-colors flex items-center gap-1.5"
+                >
+                  <Swords className="w-3.5 h-3.5 text-[#d0ae6d]" /> Analyze a session
+                </button>
+              </div>
+            </div>
           </motion.div>
+
+          {/* ─── FINGERPRINT STATUS CARD ─── */}
+          <motion.section variants={fadeInUp} className="mb-10 rounded-2xl border border-[#d0ae6d]/25 bg-gradient-to-br from-[#19130d] via-[#13100d] to-[#0c0a08] p-6 md:p-8 shadow-2xl relative overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#d0ae6d]">
+                Gathering · 0 / 10 Games
+              </span>
+              <span className="text-[11px] font-mono text-muted-foreground">0 / 10 G</span>
+            </div>
+
+            <h2 className="font-display text-2xl md:text-4xl font-bold tracking-tight text-[#f5eddc] mb-4 uppercase">
+              Your Fingerprint is Still Forming
+            </h2>
+            <p className="text-[14px] leading-relaxed text-muted-foreground max-w-[620px] mb-6">
+              Other platforms coach the typical 700. ChessGuru coaches <strong className="text-foreground font-semibold">you</strong>.
+              Play ranked games to call out a pattern with confidence. After that, this page becomes a scouting report on your specific blind spots — the exact moments, the exact moves, ranked by what each one is worth in elo.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => navigate('/play-with-coach')}
+                className="px-6 py-3 rounded-xl bg-[#84b872] hover:bg-[#93c781] text-black font-semibold text-[14px] shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+              >
+                Play your first game <ArrowRight className="w-4 h-4 text-black" />
+              </button>
+              <button
+                onClick={() => navigate('/import')}
+                className="px-5 py-3 rounded-xl border border-white/10 bg-white/5 text-foreground font-medium text-[13px] hover:bg-white/10 transition-colors flex items-center gap-2"
+              >
+                Import your whole history with Premium <ArrowRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+          </motion.section>
 
           {/* ─── SINCE YOU LAST PLAYED (the Mirror) ─── */}
           {lastSession?.story && (
@@ -681,6 +734,18 @@ export default function HomePageNew({ user }) {
             </div>
           </motion.section>
         </motion.div>
+
+        {/* Floating Ask Coach trigger */}
+        <div className="fixed bottom-6 right-6 z-50">
+          <button
+            onClick={() => navigate('/play-with-coach')}
+            className="px-4 py-2.5 rounded-full bg-[#13100d]/90 border border-[#d0ae6d]/40 text-foreground font-semibold text-[13px] shadow-2xl backdrop-blur-xl hover:border-[#d0ae6d] transition-all flex items-center gap-2 group"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Ask Coach</span>
+            <span className="text-[#d0ae6d]">👑</span>
+          </button>
+        </div>
       </motion.div>
     </Layout>
   );

@@ -410,28 +410,27 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     if (!decryptionData || decryptionData.length === 0) return;
     const params = new URLSearchParams(window.location.search);
     const raw = params.get("move");
-    if (!raw) { setInitialMoveHandled(true); return; }
-    const target = parseInt(raw, 10);
-    if (isNaN(target) || target <= 0) { setInitialMoveHandled(true); return; }
-    let idx = decryptionData.findIndex(
-      (m) => m.move_number === target && m.is_user_move
-    );
-    if (idx === -1) {
-      // Fallback: any entry on that full move (covers games where the
-      // backend strips opponent plies or where is_user_move isn't set).
-      for (let i = decryptionData.length - 1; i >= 0; i--) {
-        if (decryptionData[i].move_number === target) { idx = i; break; }
+    let idx = 0;
+    if (raw) {
+      const target = parseInt(raw, 10);
+      if (!isNaN(target) && target > 0) {
+        const foundIdx = decryptionData.findIndex(
+          (m) => m.move_number === target && m.is_user_move
+        );
+        if (foundIdx !== -1) {
+          idx = foundIdx;
+        } else {
+          for (let i = decryptionData.length - 1; i >= 0; i--) {
+            if (decryptionData[i].move_number === target) { idx = i; break; }
+          }
+        }
       }
     }
-    if (idx === -1) { setInitialMoveHandled(true); return; }
+    if (idx < 0 || idx >= decryptionData.length) idx = 0;
     setCurrentMoveIndex(idx);
     setBoardFen(decryptionData[idx].fen_after);
-    applyCaptionArrows(decryptionData[idx]);   // also sets highlights
+    applyCaptionArrows(decryptionData[idx]);
     setInitialMoveHandled(true);
-    // applyCaptionArrows is useCallback(..., []) so its identity never
-    // changes; listing it is a runtime no-op, and the effect's first line
-    // returns once initialMoveHandled is set, so it still runs exactly
-    // once. The file's other two call sites already list it.
   }, [decryptionData, initialMoveHandled, applyCaptionArrows]);
 
   // v78.3 — cancel in-flight playback when the user navigates moves.
@@ -1398,46 +1397,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         </div>
         {/* close board+eval-bar flex row */}
         </div>
-
-        {/* Horizontal eval graph below the board — whole-game timeline,
-            click to jump (2026-06-06). Hidden in plan mode. */}
-        {!planMode && !hasPersonalizedReview && (
-          <EvalGraph
-            data={decryptionData}
-            currentIndex={currentMoveIndex}
-            onSeek={goToMove}
-          />
-        )}
-
-        {!hasPersonalizedReview && <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="icon" onClick={goToStart} disabled={currentMoveIndex === -1} data-testid="btn-go-start">
-            <ChevronsLeft className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={goBackward} disabled={currentMoveIndex === -1} data-testid="btn-go-back">
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <span className="px-4 text-sm text-gray-500 min-w-[100px] text-center">
-            {currentMoveIndex === -1 ? "Start" : `Move ${currentMove?.move_number || ""}`}
-            {currentMove && !currentMove.is_user_move && " (opp)"}
-          </span>
-          <Button variant="outline" size="icon" onClick={goForward} disabled={!decryptionData || currentMoveIndex >= decryptionData.length - 1} data-testid="btn-go-forward">
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={goToEnd} disabled={!decryptionData || currentMoveIndex >= decryptionData.length - 1} data-testid="btn-go-end">
-            <ChevronsRight className="w-4 h-4" />
-          </Button>
-        </div>}
-
-        {!hasPersonalizedReview && (
-          <MoveListV5
-            decryptionData={decryptionData}
-            currentMoveIndex={currentMoveIndex}
-            onMoveClick={goToMove}
-          />
-        )}
       </div>
 
-      {/* RIGHT: Coaching */}
+      {/* RIGHT: Coaching & Interactive Controls */}
       <div className="lg:w-1/2 space-y-4">
         {hasPersonalizedReview ? (
           <PersonalizedReviewCoach
@@ -1489,11 +1451,6 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               setFeedbackRuleName(ruleName || null);
               setFeedbackOpen(true);
             }}
-            // v78.3 / v79.1 — "Play this line" wiring. Sub-component
-            // is a separate functional component so it can't read the
-            // parent's state directly. Pass: a boolean for whether
-            // THIS move's playback is active + the current step + a
-            // function to start playback + a function to cancel.
             isCoachLinePlaying={coachLinePlaybackIdx === currentMoveIndex}
             coachLineStepIndex={coachLineStepIndex}
             onPlayCoachLine={(lineMoves, startFen) => {
@@ -1519,18 +1476,13 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               currentMove.fen_before,
               currentMoveIndex,
             )}
-            // Caption move click: draw arrow on the main board for any
-            // SAN clicked in the narrative or principle_cue. Arrow
-            // colour amber so it visually differs from green (last move).
             onCaptionMoveClick={(san, from, to) => setArrows([[from, to, "amber"]])}
-            // Thought reflection props
             userThought={userThoughts[currentMove?.move_number]}
             thoughtInputOpen={thoughtInputOpen[currentMove?.move_number]}
             onToggleThoughtInput={(moveNum) => setThoughtInputOpen(prev => ({ ...prev, [moveNum]: !prev[moveNum] }))}
             onThoughtChange={(moveNum, text, category) => setUserThoughts(prev => ({ ...prev, [moveNum]: { text, category, saved: false } }))}
             onSaveThought={saveThought}
             savingThought={savingThought}
-            // Plan mode props
             planMode={planMode}
             planMoves={planMoves}
             planBoard={planBoard}
@@ -1543,7 +1495,6 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             onCancelPlan={cancelPlanMode}
             onSubmitPlan={() => submitPlan(currentMove)}
             onPlanReasoningChange={setPlanReasoning}
-            // Enrichment props
             positionCommentary={posCommentary[currentMoveIndex]}
             openingAnalysis={coachReview?.opening_analysis}
             patternContext={coachReview?.pattern_context}
@@ -1551,10 +1502,55 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           />
         )}
 
-        {/* The proof step. Appears once he has walked the whole review.
-            Measured over 12,911 games, 95% surface exactly ONE concept, so
-            this is one card and one test, not a pile of them.
-            docs/teaching_loop_scope.md */}
+        <div className="text-xs text-stone-400 text-center py-1">
+          Arrow keys: left/right navigate • Click moves in explanation to see on board
+        </div>
+
+        {/* Horizontal eval graph below instruction text */}
+        {!planMode && !hasPersonalizedReview && (
+          <EvalGraph
+            data={decryptionData}
+            currentIndex={currentMoveIndex}
+            onSeek={goToMove}
+          />
+        )}
+
+        {/* Clean Next & Previous Navigation Bar */}
+        {!hasPersonalizedReview && (
+          <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-[#2a221b] bg-[#13100d] shadow-lg">
+            <Button
+              variant="outline"
+              onClick={goBackward}
+              disabled={currentMoveIndex <= 0}
+              className="flex-1 min-h-11 border-[#2a221b] bg-[#181410] hover:bg-[#201c17] text-stone-200 font-medium text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-30"
+              data-testid="btn-go-back"
+            >
+              <ChevronLeft className="w-4 h-4 text-[#d0ae6d]" />
+              <span>Previous move</span>
+            </Button>
+
+            <div className="px-3 py-1 text-center font-mono shrink-0">
+              <div className="text-[10px] text-stone-400 uppercase tracking-wider font-sans font-semibold">
+                {currentMoveIndex === -1 ? "Start" : `Move ${currentMove?.move_number || ""}${currentMove && !currentMove.is_user_move ? " (opp)" : ""}`}
+              </div>
+              <div className="text-sm font-bold text-[#d0ae6d]">
+                {currentMove ? currentMove.move_san : "Initial"}
+              </div>
+            </div>
+
+            <Button
+              onClick={goForward}
+              disabled={!decryptionData || currentMoveIndex >= decryptionData.length - 1}
+              className="flex-1 min-h-11 bg-[#84b872] hover:brightness-110 text-[#0c0a08] font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-30"
+              data-testid="btn-go-forward"
+            >
+              <span>Next move</span>
+              <ChevronRight className="w-4 h-4 stroke-[3]" />
+            </Button>
+          </div>
+        )}
+
+        {/* Concept proof step */}
         {reviewFinished && testableConcept && (
           <ConceptTestCard
             conceptId={testableConcept.concept_id}
@@ -1562,18 +1558,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           />
         )}
 
-        {/* Authoring fact-dump panel — only when ?show_facts=1 is on URL.
-            Shows the raw per-move record from decryption_v5_data so the
-            caption author can see exactly which facts the extractor
-            produced for this move. The header carries an Export-session
-            button that downloads the full debug bundle (game + analysis
-            + V5 records + voice layer + coach review) as a single JSON
-            file. Built for offline debugging / sharing a session. */}
         {showFacts && currentMove && (() => {
           const rec = factsByMove[`${currentMove.move_number}|${currentMove.move_san}`];
 
-          // Bundle exporter — fetches /api/lab/export/{gameId} and saves
-          // the response as chessguru-session-{gameId}-{date}.json.
           const handleExport = async () => {
             const owner = captureGameOwner();
             const targetGameId = gameId;
@@ -1652,10 +1639,6 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             submitting={submittingFeedback}
           />
         )}
-        
-        <div className="text-xs text-gray-400 text-center">
-          Arrow keys: left/right navigate • Click moves in explanation to see on board
-        </div>
       </div>
     </div>
     </>
@@ -1852,26 +1835,26 @@ const MoveCoachingCardV5 = ({
   const hasThought = userThought?.saved;
 
   // Determine card style based on move type
-  let borderClass = 'border-gray-200 bg-white';
+  let borderClass = 'border-[#2a221b] bg-[#13100d] text-stone-200';
   let headerIcon = <Brain className="w-5 h-5 text-blue-400" />;
   
   if (!isUser) {
-    borderClass = 'border-indigo-500/30 bg-indigo-50';
-    headerIcon = <Target className="w-5 h-5 text-indigo-400" />;
+    borderClass = 'border-blue-500/30 bg-[#13100d] text-stone-200';
+    headerIcon = <Target className="w-5 h-5 text-blue-400" />;
   } else if (severity === 'blunder' || severity === 'mistake') {
-    borderClass = 'border-red-500/30 bg-red-50';
-    headerIcon = <AlertTriangle className="w-5 h-5 text-red-400" />;
+    borderClass = 'border-rose-500/40 bg-[#181212] text-stone-200';
+    headerIcon = <AlertTriangle className="w-5 h-5 text-rose-400" />;
   } else if (severity === 'inaccuracy') {
     borderClass = weaknessMatch 
-      ? 'border-amber-500/40 bg-amber-950/15 ring-1 ring-amber-500/20'
-      : 'border-orange-500/30 bg-orange-50';
-    headerIcon = <Lightbulb className="w-5 h-5 text-orange-400" />;
+      ? 'border-amber-500/40 bg-[#181512] ring-1 ring-amber-500/20'
+      : 'border-amber-500/30 bg-[#181512]';
+    headerIcon = <Lightbulb className="w-5 h-5 text-amber-400" />;
   } else if (move.is_best_move) {
-    borderClass = 'border-emerald-500/30 bg-emerald-50';
-    headerIcon = <Trophy className="w-5 h-5 text-emerald-400" />;
+    borderClass = 'border-[#84b872]/40 bg-[#121814] text-stone-200';
+    headerIcon = <Trophy className="w-5 h-5 text-[#84b872]" />;
   } else if (severity === 'good') {
-    borderClass = 'border-emerald-500/20 bg-emerald-50/50';
-    headerIcon = <CheckCircle2 className="w-5 h-5 text-emerald-400" />;
+    borderClass = 'border-[#84b872]/30 bg-[#121814] text-stone-200';
+    headerIcon = <CheckCircle2 className="w-5 h-5 text-[#84b872]" />;
   }
 
   // Shared flag context for all inline flags on this move
@@ -1897,25 +1880,22 @@ const MoveCoachingCardV5 = ({
   };
 
   return (
-    <Card className={`border ${borderClass}`} data-testid="move-coaching-card-v5">
+    <Card className={`border shadow-2xl rounded-2xl ${borderClass}`} data-testid="move-coaching-card-v5">
       <CardContent className="p-5 space-y-3">
         {/* ─── HEADER ──────────────────────────────────────── */}
-        {/* Severity and phase tags removed — they were System-layer labels
-            leaking into the Surface. The border color (red/amber) and the
-            narrative below already convey how the move went. */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {headerIcon}
-          <span className="font-bold text-gray-900 text-lg">{move.move_san}</span>
-          <Badge variant={isUser ? "default" : "secondary"} className="text-xs">
+          <span className="font-bold text-[#f4efe6] text-lg font-mono">{move.move_san}</span>
+          <Badge variant={isUser ? "default" : "secondary"} className={isUser ? "bg-[#d0ae6d] text-[#0c0a08] font-bold text-xs" : "bg-[#1c1713] text-stone-300 border border-[#2a221b] text-xs"}>
             {isUser ? "Your move" : "Opponent"}
           </Badge>
           {move.is_best_move && (
-            <Badge className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+            <Badge className="text-xs bg-[#84b872]/20 text-[#84b872] border border-[#84b872]/30">
               Best move!
             </Badge>
           )}
           {weaknessMatch && (
-            <Badge className="text-xs bg-amber-500/20 text-amber-300 border-amber-500/30">
+            <Badge className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30">
               Known pattern{move.weakness_count ? ` (${move.weakness_count}x)` : ''}
             </Badge>
           )}
@@ -1925,21 +1905,18 @@ const MoveCoachingCardV5 = ({
         {move.narrative && (
           <div className="leading-relaxed group" data-testid="move-narrative">
             {goldCaption && (
-              <div className="text-[11px] uppercase tracking-wide text-emerald-600 font-semibold mb-1">
+              <div className="text-[11px] uppercase tracking-wide text-[#84b872] font-semibold mb-1">
                 ChessGuru
               </div>
             )}
-            {/* 2026-07-03: Focus-area badges — per-move tag showing which
-                coaching pattern this move fell under. Multiple badges
-                possible (e.g., time + king_safety on the same move). */}
             {move._focus_badges && move._focus_badges.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-1.5">
                 {move._focus_badges.map((b, i) => {
                   const bg = b.severity === "critical"
-                    ? "bg-rose-100 text-rose-700 border-rose-200"
+                    ? "bg-rose-950/40 text-rose-300 border-rose-800/40"
                     : b.severity === "moderate"
-                    ? "bg-amber-100 text-amber-700 border-amber-200"
-                    : "bg-zinc-100 text-zinc-700 border-zinc-200";
+                    ? "bg-amber-950/40 text-amber-300 border-amber-800/40"
+                    : "bg-stone-800/40 text-stone-300 border-stone-700/40";
                   return (
                     <span
                       key={i}
@@ -1957,63 +1934,11 @@ const MoveCoachingCardV5 = ({
               </div>
             )}
 
-            {/* Board Geometry moment — the shape this move made, missed, or allowed.
-                Copy, arrows and highlights all come from board_geometry_service,
-                the same source the lessons and PWC moments use, so the wording
-                cannot drift between surfaces. */}
-            {move.geometry_moments && move.geometry_moments.length > 0 && (() => {
-              const g = move.geometry_moments[0];
-              const tone =
-                g.moment_type === "found"
-                  ? "bg-emerald-50 border-emerald-300 text-emerald-800"
-                  : g.moment_type === "allowed"
-                  ? "bg-rose-50 border-rose-300 text-rose-800"
-                  : "bg-amber-50 border-amber-300 text-amber-800";
-              return (
-                <div className={`mb-2 rounded-lg border px-3 py-2 ${tone}`} data-testid="geometry-moment">
-                  <div className="text-[10px] font-bold uppercase tracking-wide opacity-80">
-                    {g.eyebrow}
-                  </div>
-                  {g.explanation && (
-                    <p className="mt-1 text-[12px] leading-relaxed">{g.explanation}</p>
-                  )}
-                  {g.lesson && (
-                    <p className="mt-1 text-[12px] italic opacity-90">{g.lesson}</p>
-                  )}
-                  {g.module_id && (
-                    <a
-                      href={`/training/geometry/${g.module_id}`}
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-current/30 px-2.5 py-1 text-[11px] font-medium hover:opacity-80"
-                    >
-                      <GraduationCap className="w-3.5 h-3.5" />
-                      <span>Practise this shape</span>
-                    </a>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* [PART B] Training plan badges — show which active training this relates to */}
-            {move.related_training_plans && move.related_training_plans.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {move.related_training_plans.map((plan, i) => (
-                  <a
-                    key={i}
-                    href={`/training/prescribed?plan=${plan.plan_id}`}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer text-[11px] font-medium"
-                    title={plan.description || `Related to your ${plan.plan_name} training`}
-                  >
-                    <GraduationCap className="w-3.5 h-3.5" />
-                    <span>Training: {plan.plan_name}</span>
-                  </a>
-                ))}
-              </div>
-            )}
             <ClickableCaption
               text={move.narrative}
               fen={move.fen_before}
               onMoveSelect={onCaptionMoveClick}
-              className="text-sm text-gray-700"
+              className="text-sm text-stone-200 leading-relaxed"
             />
             <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
           </div>
@@ -2711,7 +2636,7 @@ const MoveCoachingCardV5 = ({
 
 const ClickableMoves = ({ text, moves, onMoveClick }) => {
   if (!moves?.length || !text) {
-    return <p className="text-gray-900 text-sm">{text}</p>;
+    return <p className="text-stone-200 text-sm">{text}</p>;
   }
   
   // Parse text and make moves clickable
@@ -2746,14 +2671,14 @@ const ClickableMoves = ({ text, moves, onMoveClick }) => {
   }
   
   return (
-    <p className="text-gray-900 text-sm">
+    <p className="text-stone-200 text-sm">
       {parts.map((part, i) => {
         if (part.type === 'move') {
           return (
             <button
               key={i}
               onClick={() => onMoveClick(moves, part.moveIndex)}
-              className="font-mono font-bold text-amber-400 hover:text-amber-300 hover:underline cursor-pointer transition-colors"
+              className="font-mono font-bold text-[#d0ae6d] hover:text-amber-300 hover:underline cursor-pointer transition-colors"
               title={`Click to see this on the board`}
             >
               {part.content}
@@ -2761,7 +2686,7 @@ const ClickableMoves = ({ text, moves, onMoveClick }) => {
           );
         }
         if (part.type === 'move-inactive') {
-          return <span key={i} className="font-mono font-semibold text-gray-600">{part.content}</span>;
+          return <span key={i} className="font-mono font-semibold text-stone-400">{part.content}</span>;
         }
         return <span key={i}>{part.content}</span>;
       })}
@@ -2778,38 +2703,38 @@ const ClickableMoves = ({ text, moves, onMoveClick }) => {
 // /feedback/flag endpoint used by InlineFlag; writes to move_feedback.
 
 const FeedbackPanel = ({ move, ruleName, feedbackText, setFeedbackText, onSubmit, onCancel, submitting }) => (
-  <Card className="bg-red-50 border-red-200" data-testid="feedback-panel">
+  <Card className="bg-rose-950/20 border-rose-800/40" data-testid="feedback-panel">
     <CardContent className="p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-900">What is wrong with this explanation?</p>
+          <p className="text-sm font-medium text-stone-200">What is wrong with this explanation?</p>
           {ruleName && (
-            <p className="text-[11px] text-gray-500 mt-0.5">
-              Flagging: <span className="font-mono text-red-500">{ruleName}</span>
+            <p className="text-[11px] text-stone-400 mt-0.5">
+              Flagging: <span className="font-mono text-rose-400">{ruleName}</span>
             </p>
           )}
         </div>
-        <Button variant="ghost" size="icon" onClick={onCancel} className="h-6 w-6">
+        <Button variant="ghost" size="icon" onClick={onCancel} className="h-6 w-6 text-stone-400 hover:text-white">
           <X className="w-4 h-4" />
         </Button>
       </div>
       {move?.narrative && (
-        <div className="bg-white rounded border border-red-100 px-3 py-2">
-          <p className="text-[11px] text-gray-400 mb-0.5">Narrative shown</p>
-          <p className="text-xs text-gray-700 leading-relaxed">{move.narrative}</p>
+        <div className="bg-[#13100d] rounded border border-rose-900/30 px-3 py-2">
+          <p className="text-[11px] text-stone-500 mb-0.5">Narrative shown</p>
+          <p className="text-xs text-stone-300 leading-relaxed">{move.narrative}</p>
         </div>
       )}
       <Textarea
         value={feedbackText}
         onChange={(e) => setFeedbackText(e.target.value)}
         placeholder="What's wrong? e.g., 'Queen moved to a2, not to the diagonal — Open Long Line doesn't apply here.'"
-        className="min-h-[80px] bg-white border-red-200 text-gray-900"
+        className="min-h-[80px] bg-[#13100d] border-rose-900/40 text-stone-200 placeholder:text-stone-500"
         data-testid="feedback-textarea"
         autoFocus
       />
       <div className="flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
-        <Button size="sm" onClick={onSubmit} disabled={!feedbackText.trim() || submitting} data-testid="submit-feedback-btn">
+        <Button variant="outline" size="sm" onClick={onCancel} className="border-[#2a221b] text-stone-300 hover:bg-[#1c1713]">Cancel</Button>
+        <Button size="sm" onClick={onSubmit} disabled={!feedbackText.trim() || submitting} className="bg-rose-600 hover:bg-rose-700 text-white" data-testid="submit-feedback-btn">
           {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />} Submit report
         </Button>
       </div>
@@ -2835,32 +2760,32 @@ const MoveListV5 = ({ decryptionData, currentMoveIndex, onMoveClick }) => {
   }
   
   const moveClass = (m, idx) => {
-    if (currentMoveIndex === idx) return 'bg-emerald-500/30 text-gray-900 ring-1 ring-emerald-500/50';
+    if (currentMoveIndex === idx) return 'bg-[#d0ae6d]/25 text-[#d0ae6d] font-semibold border border-[#d0ae6d]/40';
     
     const severity = m.severity || 'good';
-    if (severity === 'blunder') return 'text-red-400 bg-red-500/10 hover:bg-red-500/20';
-    if (severity === 'mistake') return 'text-red-400 hover:bg-red-500/10';
-    if (severity === 'inaccuracy') return 'text-orange-400 hover:bg-orange-500/10';
-    if (m.is_best_move) return 'text-emerald-400 hover:bg-emerald-500/10';
-    if (!m.is_user_move) return 'text-gray-500 hover:bg-gray-100';
-    return 'text-gray-600 hover:bg-gray-100';
+    if (severity === 'blunder') return 'text-rose-400 bg-rose-500/10 hover:bg-rose-500/20';
+    if (severity === 'mistake') return 'text-rose-400 hover:bg-rose-500/10';
+    if (severity === 'inaccuracy') return 'text-amber-400 hover:bg-amber-500/10';
+    if (m.is_best_move) return 'text-[#84b872] hover:bg-[#84b872]/10';
+    if (!m.is_user_move) return 'text-stone-400 hover:bg-white/5';
+    return 'text-stone-300 hover:bg-white/5';
   };
   
   const indicator = (m) => {
     const severity = m.severity || 'good';
-    if (severity === 'blunder') return <span className="text-red-400 ml-0.5">??</span>;
-    if (severity === 'mistake') return <span className="text-red-400 ml-0.5">?</span>;
-    if (severity === 'inaccuracy') return <span className="text-orange-400 ml-0.5">?!</span>;
-    if (m.is_best_move) return <span className="text-emerald-400 ml-0.5">!</span>;
+    if (severity === 'blunder') return <span className="text-rose-400 ml-0.5 font-bold">??</span>;
+    if (severity === 'mistake') return <span className="text-rose-400 ml-0.5 font-bold">?</span>;
+    if (severity === 'inaccuracy') return <span className="text-amber-400 ml-0.5 font-bold">?!</span>;
+    if (m.is_best_move) return <span className="text-[#84b872] ml-0.5 font-bold">!</span>;
     return null;
   };
 
   return (
-    <ScrollArea className="h-[180px] rounded-lg border border-gray-200 bg-gray-50">
-      <div className="p-2 space-y-1">
+    <ScrollArea className="h-[180px] rounded-xl border border-[#2a221b] bg-[#13100d]">
+      <div className="p-3 space-y-1">
         {pairs.map(p => (
-          <div key={p.num} className="flex items-center gap-1 text-sm">
-            <span className="w-8 text-gray-500 text-right shrink-0">{p.num}.</span>
+          <div key={p.num} className="flex items-center gap-1 text-sm font-mono">
+            <span className="w-8 text-stone-500 text-right shrink-0">{p.num}.</span>
             <button 
               onClick={() => onMoveClick(p.wi)} 
               className={`px-2 py-0.5 rounded font-mono transition-colors ${moveClass(p.w, p.wi)}`}

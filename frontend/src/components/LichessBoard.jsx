@@ -656,10 +656,10 @@ const LichessBoard = forwardRef(({
   }
 
   return (
-    <div className="board-stage-board relative w-full aspect-square" style={{ maxWidth: "100%" }}>
+    <div className="board-stage-board relative w-full aspect-square rounded-2xl p-2.5 md:p-3" style={{ maxWidth: "100%", background: "linear-gradient(145deg, #1f140a, #120b05)", border: "1.5px solid #d0ae6d", boxShadow: "0 20px 50px rgba(0,0,0,0.6), inset 0 1px 1px rgba(245, 237, 220, 0.15)" }}>
       <div
         ref={boardRef}
-        className="w-full h-full rounded-lg overflow-hidden"
+        className="w-full h-full rounded-lg overflow-hidden border border-[#d0ae6d]/30"
       />
       {showCoordinates && <BoardCoordinates orientation={orientation} />}
       {classIcon && iconStyle && (
