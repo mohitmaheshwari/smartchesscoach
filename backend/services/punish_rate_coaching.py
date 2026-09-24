@@ -48,12 +48,17 @@ MIN_CHANCES = 10
 # 600-rated player, so these say "something for free". Short sentences, one
 # idea each, nothing a beginner has to decode. test_words_stay_simple keeps it
 # that way for whoever writes the next line.
-_HABIT = "After they move, ask one thing: did that leave anything for free?"
+# All three say the same first sentence, then differ only in what the player
+# does about it. "You take some of it" was the first attempt and Mohit called
+# it confusing -- it does not tell anyone whether that is good or bad. The
+# point to land is that the chance is there every game and they do not always
+# get it, so the second sentence says exactly that in those words.
+_HABIT = "After they move, ask: did they leave anything free?"
 
 _OPENERS = {
-    "low": "Your opponents often leave something for free. A lot of it goes past you.",
-    "mid": "Your opponents often leave something for free. You take some of it.",
-    "high": "Your opponents often leave something for free. You take most of it.",
+    "low": "Your opponents often leave something free. You often let it go.",
+    "mid": "Your opponents often leave something free. You don't always take it.",
+    "high": "Your opponents often leave something free. You usually take it.",
 }
 
 
