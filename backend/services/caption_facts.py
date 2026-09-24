@@ -6021,12 +6021,81 @@ def _p_op_queen_out_early(
 #      "endorsement_required" enforces this implicitly.
 #   3. Mover_is_user — fork principles fire for either side; the cue
 #      branches at render time on perspective. Detector is symmetric.
+def _fork_is_unanswerable(
+    board_before: chess.Board,
+    played_san: str,
+    shape: Dict[str, Any],
+) -> Optional[bool]:
+    """Can the opponent rescue every forked target with a single move?
+
+    A fork caption promises the student something specific and checkable:
+    you are attacking two things at once, and they cannot save both. That
+    promise is a fact about the board, not a matter of judgement, so it is
+    worth testing before we say it. Play the move, then try every legal
+    reply. If any single reply leaves nothing winnable, the fork did not
+    deliver what the caption claims and we should say something else.
+
+    A target counts as rescued when it has moved, been captured, or become
+    defended well enough that taking it loses material. SEE is used rather
+    than a raw attacker count because it uses the cheapest LEGAL attacker,
+    so a pinned attacker cannot fake a threat.
+
+    The enemy king is excluded from the winnable count: it is a forced
+    target, never material. A royal fork still passes here on the strength
+    of its other target, which is exactly why it works -- the king must
+    move, and the other piece is still hanging afterwards.
+
+    Returns None when the shape cannot be evaluated.
+    """
+    all_targets = shape.get("attacked_targets") or []
+    if len(all_targets) < 2:
+        return None
+    winnable = [t for t in all_targets if not t.get("is_forced")]
+    if not winnable:
+        return None
+    try:
+        after_fork = board_before.copy()
+        after_fork.push(after_fork.parse_san(played_san))
+    except Exception:  # noqa: BLE001
+        return None
+
+    forker = not after_fork.turn  # the side that just moved
+    squares = []
+    for t in winnable:
+        try:
+            squares.append(chess.parse_square(str(t.get("square"))))
+        except (ValueError, TypeError):
+            return None
+
+    for reply in after_fork.legal_moves:
+        probe = after_fork.copy()
+        probe.push(reply)
+        # Material the forker can take immediately, anywhere on the board --
+        # NOT only on the two squares the fork started on. Checking just those
+        # squares scores a rescue whenever a target steps away, including when
+        # it steps somewhere worse. The case that exposed it: Be6+ forking the
+        # king and the queen, met by Qxe6. The queen has left f5, so a
+        # squares-only check calls it saved; in fact Qb3xe6 recaptures down the
+        # diagonal the bishop just vacated and wins the queen for a bishop.
+        best_gain = 0
+        for follow in probe.legal_moves:
+            if not probe.is_capture(follow):
+                continue
+            gain = static_exchange_eval(probe, follow.to_square, forker)
+            if gain > best_gain:
+                best_gain = gain
+        if best_gain <= 0:
+            return False  # this one reply left nothing to win
+    return True
+
+
 def _p_tac_fork_pattern(
     facts: Dict[str, Any],
     board_before: chess.Board,
 ) -> Optional[Dict[str, Any]]:
     """Fires when the played move creates a multi-target attack with at
-    least one target valued ≥ knight, AND the engine endorses the move."""
+    least one target valued ≥ knight, AND the engine endorses the move,
+    AND the opponent cannot rescue every target with one reply."""
     # Promotion policy comes from the shared predicate — this used to inline its
     # own `any(value_cp >= 300)`, a second copy of the threshold that could drift
     # from is_named_fork(). Falls back to filtering the raw list so the helper
@@ -6045,13 +6114,28 @@ def _p_tac_fork_pattern(
     endorsement = "best" if (played and best and played == best) else "absent"
     if endorsement == "absent":
         return None
+
+    # The targets live on the shape as `attacked_targets`. This block read a
+    # bare `targets` that was never assigned, so every fork raised NameError
+    # and _principles_violated swallowed it -- a crash and a clean no-fire are
+    # indistinguishable through a bare `except Exception`. Measured on the
+    # corpus 2026-09-24: 60 of 60 positions where a named fork existed and the
+    # engine endorsed the move raised, 0 returned None. The detector had never
+    # produced a caption in its life.
+    targets = shape.get("attacked_targets") or []
+
+    # And do not promise what the board does not deliver: if one reply saves
+    # every target, this is a double attack that goes nowhere, not a fork.
+    if _fork_is_unanswerable(board_before, played, shape) is not True:
+        return None
+
     return {
         "principle_id": "TAC_FORK_PATTERN",
         "evidence": {
             "attacker_square": shape.get("attacker_square"),
             "attacker_piece_type": shape.get("attacker_piece_type"),
             "targets": [
-                {"square": t["square"], "piece_type": t["piece_type"]}
+                {"square": t.get("square"), "piece_type": t.get("piece_type")}
                 for t in targets[:2]
             ],
         },
