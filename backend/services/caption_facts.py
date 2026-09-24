@@ -9463,6 +9463,8 @@ def extract_facts(
     move_history_san: Optional[List[str]] = None,
     full_move_number: Optional[int] = None,
     mover_is_user: Optional[bool] = None,
+    opp_replies: Optional[List[Dict[str, Any]]] = None,
+    opp_reply_is_clear: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     Extract the deterministic facts dict for one move.
@@ -9735,6 +9737,25 @@ def extract_facts(
     fork_target_2: Optional[str] = None
     fork_target_1_square: Optional[str] = None
     fork_target_2_square: Optional[str] = None
+    # Is the opponent's reply actually THE answer, or one of several equal
+    # ones? opp_reply_san is a single move taken from the stored line, and a
+    # caption built on it reads as certain. Measured 2026-09-24 on a real
+    # position: after 6.Qd2 the top two replies were Bxc4 and h6, 8cp apart,
+    # and two engines at the same depth ordered them differently. They teach
+    # different lessons (a bishop trade vs a pawn chasing a bishop off g5), so
+    # naming either one as "what your opponent does" is a coin flip dressed as
+    # analysis. When this is False, templates should avoid the confident
+    # "lets {opp_reply_san} ..." phrasing.
+    opp_reply_alternatives: List[str] = []
+    if opp_replies:
+        opp_reply_alternatives = [
+            r.get("move_san") for r in opp_replies if r.get("move_san")
+        ]
+    if opp_reply_is_clear is None and opp_replies and len(opp_replies) >= 2:
+        _a = opp_replies[0].get("eval_cp")
+        _b = opp_replies[1].get("eval_cp")
+        if _a is not None and _b is not None:
+            opp_reply_is_clear = abs(_a - _b) > 30
     if pv_after_played:
         raw = (pv_after_played[0] or "").strip()
         if raw:
@@ -10280,6 +10301,8 @@ def extract_facts(
         # OPPONENT REPLY (2026-05-13) — used by R12_blunder WHY composer
         # and any future rule that needs to say "after their reply, ...".
         "opp_reply_san": opp_reply_san,
+        "opp_reply_is_clear": opp_reply_is_clear,
+        "opp_reply_alternatives": opp_reply_alternatives,
         "opp_reply_attacks_played_piece": opp_reply_attacks_played_piece,
         "opp_reply_captures_piece_type": opp_reply_captures_piece_type,
         "opp_reply_captures_square": opp_reply_captures_square,
