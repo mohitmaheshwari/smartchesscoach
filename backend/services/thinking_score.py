@@ -79,6 +79,30 @@ MISTAKE_TO_HABIT_MAPPING = {
 }
 
 
+# The mapping that actually reaches data. Keys are the `cognitive_gap` values
+# the analyser writes onto each move evaluation; MISTAKE_TO_HABIT_MAPPING above
+# is keyed on a `category` field that no move evaluation has ever carried.
+#
+# opening_knowledge / endgame_technique / pawn_structure / piece_activity are
+# deliberately absent: they are knowledge gaps, not thinking habits, and
+# forcing them into one would put a number on something we cannot observe.
+COGNITIVE_GAP_TO_HABIT = {
+    "missed_tactic": ThinkingHabit.TACTICAL_VISION,
+    "tactical_oversight": ThinkingHabit.TACTICAL_VISION,
+    "piece_safety": ThinkingHabit.THREAT_AWARENESS,
+    "king_safety": ThinkingHabit.KING_SAFETY,
+    "calculation_depth": ThinkingHabit.MOVE_VERIFICATION,
+}
+
+# Patience is the only habit that cannot be read off the board - it is about
+# how long the player thought. A mistake counts against patience when it was
+# made markedly faster than that player's own pace in that game, so the bar
+# adapts to bullet vs rapid instead of judging everyone against one constant.
+PATIENCE_FAST_RATIO = 0.4      # move took < 40% of the player's median think time
+PATIENCE_FLOOR_SECONDS = 2.0   # ...and was genuinely quick in absolute terms
+MIN_TIMED_MOVES_FOR_PATIENCE = 8
+
+
 def calculate_game_thinking_scores(
     game_analysis: Dict,
     user_color: str
@@ -127,26 +151,87 @@ def calculate_game_thinking_scores(
         if habit and moment.get("cp_loss", 0) >= 100:
             habit_mistakes[habit] += 1
     
-    # Calculate scores (higher = better)
+    # ── Patience: attributed from think-time, not from the board ──────────
+    # Only assessable when the PGN carried clocks. Without them this habit is
+    # marked unmeasured rather than scored, so a missing clock can never look
+    # like perfect patience.
+    timed = [m for m in move_evals if m.get("time_spent_seconds") is not None]
+    patience_measured = len(timed) >= MIN_TIMED_MOVES_FOR_PATIENCE
+    if patience_measured:
+        times = sorted(float(m["time_spent_seconds"]) for m in timed)
+        median_t = times[len(times) // 2]
+        fast_bar = max(median_t * PATIENCE_FAST_RATIO, PATIENCE_FLOOR_SECONDS)
+        for m in timed:
+            if abs(m.get("cp_loss", 0)) < 100:
+                continue
+            if float(m["time_spent_seconds"]) < fast_bar:
+                habit_mistakes[ThinkingHabit.PATIENCE] += 1
+                if len(examples[ThinkingHabit.PATIENCE]) < 3:
+                    examples[ThinkingHabit.PATIENCE].append({
+                        "move_number": m.get("move_number"),
+                        "move": m.get("move"),
+                        "cp_loss": abs(m.get("cp_loss", 0)),
+                        "seconds": round(float(m["time_spent_seconds"]), 1),
+                        "explanation": (
+                            f"played in {float(m['time_spent_seconds']):.0f}s "
+                            f"against your {median_t:.0f}s pace this game"
+                        ),
+                    })
+
+    # ── Which habits did this game actually give us evidence about? ───────
+    # A habit is measured when something could have been attributed to it.
+    # Anything else is reported as unmeasured and left OUT of the average.
+    # Scoring an unobserved habit 100 is what made overall_score meaningless:
+    # tactical_vision, king_safety and patience never fired in 4,000 games and
+    # together carry 55% of the weight, so every score was 55% constant.
+    # Evidence must be about THIS habit, not merely present somewhere in the
+    # game. An earlier version marked tactical_vision and king_safety measured
+    # whenever any mappable gap existed, which just relocated the free-100
+    # problem: a game of 20 piece-safety blunders still scored 70.6 because
+    # two untouched habits contributed 100 each.
+    #
+    # Known limitation, deliberately not papered over: we detect habit
+    # FAILURES but have no signal for how often a habit was successfully
+    # exercised. `opportunities` is the move count, not real opportunities. So
+    # tactical_vision, king_safety and patience are failure-indicators - they
+    # appear when they fired - while threat_awareness and move_verification
+    # are the always-attributable catch-alls. Do not read a per-habit score as
+    # "how good you are at X"; read the mistake count and examples.
+    measured = {
+        ThinkingHabit.THREAT_AWARENESS: True,   # catch-all; every game exercises it
+        ThinkingHabit.MOVE_VERIFICATION: True,  # driven by cp_loss, always available
+        ThinkingHabit.TACTICAL_VISION: habit_mistakes[ThinkingHabit.TACTICAL_VISION] > 0,
+        ThinkingHabit.KING_SAFETY: habit_mistakes[ThinkingHabit.KING_SAFETY] > 0,
+        ThinkingHabit.PATIENCE: patience_measured,
+    }
+
     scores = {}
     for habit in ThinkingHabit:
-        opportunities = habit_opportunities[habit]
         mistakes = habit_mistakes[habit]
-        
-        if opportunities > 0:
-            # Score = percentage of moves where habit was followed (no relevant mistake)
-            score = max(0, min(100, 100 * (1 - (mistakes / opportunities * 3))))  # Scale factor of 3 to be more sensitive
-        else:
-            score = 100  # No data, assume perfect
-        
+        # Opportunities were previously incremented for EVERY habit on EVERY
+        # move, which made them a copy of the move count. Use the move count
+        # directly and say so, rather than dressing it up as per-habit data.
+        opportunities = total_moves
+        if not measured[habit]:
+            scores[habit.value] = {
+                "score": None,
+                "measured": False,
+                "mistakes": 0,
+                "opportunities": 0,
+                "examples": [],
+            }
+            continue
+        score = max(0, min(100, 100 * (1 - (mistakes / opportunities * 3)))) if opportunities else 100
         scores[habit.value] = {
             "score": round(score, 1),
+            "measured": True,
             "mistakes": mistakes,
             "opportunities": opportunities,
-            "examples": examples[habit]
+            "examples": examples[habit],
         }
-    
-    # Calculate overall thinking score (weighted average)
+
+    # Calculate overall thinking score (weighted average over MEASURED habits,
+    # weights renormalised so an unmeasured habit neither helps nor hurts).
     weights = {
         ThinkingHabit.THREAT_AWARENESS: 0.25,
         ThinkingHabit.TACTICAL_VISION: 0.25,
@@ -154,12 +239,15 @@ def calculate_game_thinking_scores(
         ThinkingHabit.KING_SAFETY: 0.15,
         ThinkingHabit.PATIENCE: 0.15,
     }
-    
-    overall = sum(scores[h.value]["score"] * w for h, w in weights.items())
-    
+    live = {h: w for h, w in weights.items() if measured[h]}
+    total_w = sum(live.values())
+    overall = (sum(scores[h.value]["score"] * w for h, w in live.items()) / total_w
+               if total_w else None)
+
     return {
-        "overall_score": round(overall, 1),
+        "overall_score": round(overall, 1) if overall is not None else None,
         "habit_scores": scores,
+        "measured_habits": sorted(h.value for h in live),
         "total_moves": total_moves,
         "game_id": game_analysis.get("game_id"),
         "calculated_at": datetime.now(timezone.utc).isoformat()
@@ -169,11 +257,21 @@ def calculate_game_thinking_scores(
 def _categorize_mistake(move_eval: Dict, game_analysis: Dict) -> Optional[ThinkingHabit]:
     """
     Categorize a mistake into which thinking habit was violated.
-    
+
     Uses multiple signals to determine the most likely cause.
     """
+    # cognitive_gap is the field move_evaluations ACTUALLY carry. Measured
+    # 2026-09-23 over 12,365 user moves: `category` present on 0, `insight`
+    # present on 0, `cognitive_gap` present on 2,154. Reading the first two
+    # left only two reachable branches (cp_loss>=300 -> verification, and the
+    # default -> threat awareness), so tactical_vision, king_safety and
+    # patience never fired once in 4,000 games and each scored a constant 100.
+    gap = (move_eval.get("cognitive_gap") or "").strip()
+    if gap in COGNITIVE_GAP_TO_HABIT:
+        return COGNITIVE_GAP_TO_HABIT[gap]
+
     category = move_eval.get("category", "")
-    
+
     # Check explicit category mapping first
     if category in MISTAKE_TO_HABIT_MAPPING:
         return MISTAKE_TO_HABIT_MAPPING[category]

@@ -117,6 +117,23 @@ OP_NOT_CASTLED           951        46.2%    state, not error
 TAC_PIN_PATTERN          241        99.2%    fires on GOOD moves
 ```
 
+> **CORRECTION 2026-09-24, after -8f challenged it.** The next sentence is
+> WRONG and is left visible rather than quietly edited. All three cited
+> principles carry `gate_policy: "endorsement_required + cp_loss_strict"`,
+> and `caption_facts.py:6182` defines that as "engine's #1 must DIFFER from
+> played" with a hard `cp_loss >= 30` floor. A detector that cannot fire
+> below 30cp can never appear in the `cp_loss <= 20` bucket, so **the 0.0%
+> is guaranteed by the gate, not discovered by the probe.** -8f said two of
+> the three were tautological; checking the gate policies, it is all three.
+>
+> What survives: the STATE band principles are NOT cp_loss-gated, so their
+> measured 44–71% and "they straddle the 56.4% base rate" still stand.
+> What does not: any claim the probe was *shown* able to discriminate. A
+> valid control needs a principle with no cp_loss gate landing near 0% —
+> `OP_CLAIM_CENTER` (`endorsement_preferred`) and `TAC_BACK_RANK`
+> (`endorsement_required`, no cp_loss floor) are candidates. Until one is
+> shown, treat the band separation as measured but uncontrolled.
+
 The 0.0% rows are the positive control: the probe can separate
 error-principles. So the middle band is real — three principles fire about
 half the time on moves the engine agreed with, because they describe the

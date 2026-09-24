@@ -30,6 +30,7 @@ import useTeachingMode from "@/hooks/useTeachingMode";
 import usePlayerData from "@/hooks/usePlayerData";
 import useGuardian from "@/hooks/useGuardian";
 import { isOnAuthoredLine } from "@/pages/openingLineGuard";
+import { playForSan } from "@/lib/chessSounds";
 import useStockfishEval from "@/hooks/useStockfishEval";
 import { useCoachFlow, INTERACTION_STATES, CLOCK_STATES } from "@/coachFlow";
 import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
@@ -482,6 +483,50 @@ const CoachPlay = ({ user }) => {
   } = guardian;
   
   // NEW: Real-time move feedback state
+  // ── One verdict per move ─────────────────────────────────────────
+  // The badge on the played square renders v5Coaching.severity, and THREE
+  // code paths write v5Coaching for the same move: two from
+  // /coach/play/v5/interactive-feedback and one from /coach/play/v5/feedback.
+  // They do not all derive the verdict from the same numbers -- the
+  // interactive path uses stored analysis when it exists and falls back to a
+  // live quick eval when it does not -- so the square could read "inaccuracy"
+  // and then "good" about two seconds later.
+  //
+  // Reported by Mohit 2026-09-24: "it showed inaccuracy first and then after 2
+  // seconds showed as good, best in the position, this is so unpremium."
+  //
+  // The later writes still land: they carry the narrative, the question, the
+  // arrows. Only the VERDICT is pinned, to whatever was decided first for that
+  // exact move. The backend already intends this -- the interactive route
+  // persists its evaluated facts so the coach phase "never needs a second
+  // engine verdict" -- but nothing enforced it at the surface.
+  const pinnedVerdictRef = useRef({ key: null, severity: null });
+
+  const moveVerdictKey = (c) =>
+    c && c.move_san ? `${c.fen_before || ""}|${c.move_san}` : null;
+
+  const applyV5Coaching = useCallback((next) => {
+    if (!next) {
+      pinnedVerdictRef.current = { key: null, severity: null };
+      setV5Coaching(next);
+      return;
+    }
+    const key = moveVerdictKey(next);
+    const pin = pinnedVerdictRef.current;
+    if (key && pin.key === key && pin.severity && next.severity !== pin.severity) {
+      console.log(
+        "[V2-BOARD] verdict pinned:", pin.severity,
+        "— ignoring later", next.severity, "for", key
+      );
+      setV5Coaching({ ...next, severity: pin.severity });
+      return;
+    }
+    if (key && next.severity) {
+      pinnedVerdictRef.current = { key, severity: next.severity };
+    }
+    setV5Coaching(next);
+  }, []);
+
   const [moveFeedback, setMoveFeedback] = useState(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   
@@ -1419,6 +1464,9 @@ const CoachPlay = ({ user }) => {
           setCurrentFen(data.current_fen);
           setIsPlayerTurn(data.is_player_turn);
           
+          if (data.coach_move) {
+            playForSan(data.coach_move);
+          }
           if (data.coach_move && data.message) {
             toast.success(data.message || `Coach played ${data.coach_move}`);
             // Update last move highlight
@@ -1701,7 +1749,7 @@ const CoachPlay = ({ user }) => {
 
       // Clear all coaching state at game start (especially important for Play Mode)
       setCoachArrows([]);
-      setV5Coaching(null);
+      applyV5Coaching(null);
 
       // Set initial opening guidance — store ALL ideas for client-side arrows
       console.log("[CoachPlay] Start response openingGuidance:", data.openingGuidance);
@@ -1920,7 +1968,7 @@ const CoachPlay = ({ user }) => {
             /* fail-open: fall through to the normal verdict below */
           }
 
-          setV5Coaching(v5Data);
+          applyV5Coaching(v5Data);
 
           // Track fundamental violations for post-game summary
           if (v5Data.fundamental_violated) {
@@ -1972,7 +2020,7 @@ const CoachPlay = ({ user }) => {
 
         // PLAY MODE: Skip all coaching state updates
         if (gameMode !== "play" && data.user_move_coaching) {
-          setV5Coaching(data.user_move_coaching);
+          applyV5Coaching(data.user_move_coaching);
           setInteractiveCoaching(prev => ({
             ...prev,
             userMoveCoaching: data.user_move_coaching
@@ -2177,7 +2225,7 @@ const CoachPlay = ({ user }) => {
 
         if (data.user_move_coaching) {
           console.log("[V2-FLOW] Setting v5Coaching with severity:", data.user_move_coaching.severity);
-          setV5Coaching(data.user_move_coaching);
+          applyV5Coaching(data.user_move_coaching);
 
           // Coaching is NON-BLOCKING (Mohit 2026-07-07): show the feedback card
           // but NEVER freeze the board. The old lock-on-mistake + "I understand —
@@ -2186,7 +2234,7 @@ const CoachPlay = ({ user }) => {
         } else {
           console.log("[V2-FLOW] No user_move_coaching in response");
           // Play Mode: clear coaching state and arrows
-          setV5Coaching(null);
+          applyV5Coaching(null);
           setCoachArrows([]);
         }
 
@@ -2323,7 +2371,7 @@ const CoachPlay = ({ user }) => {
       
       if (response.ok) {
         const coaching = await response.json();
-        setV5Coaching({
+        applyV5Coaching({
           ...coaching,
           move_san: moveSan,
           fen_before: fenBefore
@@ -2524,7 +2572,7 @@ const CoachPlay = ({ user }) => {
     if (!sessionId || currentSessionIdRef.current !== sessionId) return false;
     const ownsSession = () => currentSessionIdRef.current === sessionId;
     // IMMEDIATELY clear all coaching state for clean transition
-    setV5Coaching(null);
+    applyV5Coaching(null);
     setGeometryMoment(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
@@ -3070,7 +3118,7 @@ const CoachPlay = ({ user }) => {
     clearGuardian();
     
     // Clear coaching state for clean transition
-    setV5Coaching(null);
+    applyV5Coaching(null);
     setGeometryMoment(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
@@ -3408,7 +3456,7 @@ const CoachPlay = ({ user }) => {
     // Clear coaching state for new move
     setCoachArrows([]);
     setPreMoveTrap(null);
-    setV5Coaching(null);
+    applyV5Coaching(null);
     setOpeningDeviation(null);
     setCoachMoveExplanation(null);
 
@@ -3440,6 +3488,11 @@ const CoachPlay = ({ user }) => {
       highlightMove(moveObj.from + moveObj.to);
       setUserLastMoveSquare(moveObj.to);
       setCoachLastMoveSquare(null);
+      // The piece has landed locally; the sound belongs to that moment rather
+      // than to the server round trip. Deriving it from the SAN keeps capture
+      // and check distinct without each caller re-deriving it.
+      playForSan(moveObj.san);
+
       await executeMoveForSession(session?.session_id, moveObj.san, timeSpentPlay);
       setIsPlayerTurn(false);
       return true;
@@ -3638,15 +3691,35 @@ const CoachPlay = ({ user }) => {
     );
     console.log("[V2-FLOW] handleUserMove result: autoCommitted=", autoCommitted, "moveQuality=", moveQuality);
 
-    // Show board label IMMEDIATELY from evaluate-pending (don't wait for interactive-feedback)
-    // "unknown" means the engine did not finish searching this move. It used
-    // to arrive as "good", so a move we never evaluated got a tick painted on
-    // the board -- on a loaded server that included hung pieces. No verdict is
-    // better than a wrong one; the label fills in from interactive-feedback
-    // when the real evaluation lands.
-    if (moveQuality && moveQuality !== "unknown" && !unifiedExperience) {
-      setV5Coaching({ severity: moveQuality, move_san: moveData.san });
-      console.log("[V2-BOARD] Instant label from evaluate-pending:", moveData.to, moveQuality);
+    // The board label no longer comes from evaluate-pending.
+    //
+    // It used to be painted here, immediately, so the player saw a verdict
+    // without waiting. But evaluate-pending is fast_eval -- a nodes-limited
+    // search around depth 8 -- and the label it produced was then overwritten
+    // by the real evaluation. Measured over 25 games / 761 user moves,
+    // depth 8 and depth 14 disagree on 20.5% of moves, and on 67 of them the
+    // shallow search called a move a fault that the deep search called good.
+    // One was Rd4: cp_loss 129 ("mistake") at depth 8, cp_loss 0 -- a perfect
+    // move -- at depth 14.
+    //
+    // Reported by Mohit 2026-09-24: "it showed inaccuracy first and then after
+    // 2 seconds showed as good, best in the position, this is so unpremium."
+    //
+    // Pinning the FIRST verdict would have pinned the least reliable one. So
+    // the shallow search keeps its real job -- deciding whether to interrupt
+    // before the move is committed -- and stops painting a word on the board.
+    // The label now arrives from the real evaluation, about two seconds later,
+    // and does not change afterwards.
+    //
+    // The same instinct is already in the comment this replaces: "unknown" was
+    // dropped here because a move we never evaluated got a tick painted on it,
+    // and "no verdict is better than a wrong one". This extends that from the
+    // unevaluated case to the under-evaluated one.
+    if (moveQuality && moveQuality !== "unknown") {
+      console.log(
+        "[V2-BOARD] evaluate-pending said", moveQuality,
+        "- not painting it; waiting for the real evaluation"
+      );
     }
 
     if (autoCommitted) {
@@ -3752,7 +3825,7 @@ const CoachPlay = ({ user }) => {
     resetTeachingState();
     // Reset move feedback
     setMoveFeedback(null);
-    setV5Coaching(null);
+    applyV5Coaching(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
     setFundamentalViolations([]);
@@ -3922,7 +3995,7 @@ const CoachPlay = ({ user }) => {
   // Game screen
   console.log("[CoachPlay] RENDERING - gameMode IS:", gameMode, "gameStarted:", gameStarted);
   return (
-    <Layout user={user}>
+    <Layout user={user} fullBleed>
       {/* Predict-coach-move ("Call My Move") — shown before the coach's move is revealed; a fixed
           overlay so it can't disrupt the board layout. Tapping an option (or the continue button)
           always resolves it, so it can't hang the game. See docs/predict_coach_move_scope.md. */}
@@ -4020,56 +4093,33 @@ const CoachPlay = ({ user }) => {
         </div>
       )}
 
-      {/* Pre-game focus banner */}
-      {showFocusBanner && focusRule && (
-        <div className="bg-amber-500/10 border-b border-amber-500/15 px-4 py-3 flex items-center justify-between animate-in fade-in slide-in-from-top duration-300">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-              <Target className="w-3.5 h-3.5 text-amber-500" strokeWidth={2} />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">{focusRule.name}</p>
-              <p className="text-xs text-foreground">{focusRule.rule}</p>
-            </div>
-          </div>
-          <button onClick={() => setShowFocusBanner(false)} className="text-muted-foreground/40 hover:text-muted-foreground text-xs ml-4">
-            &times;
-          </button>
-        </div>
-      )}
+      {/* The pre-game focus banner used to sit here. Removed 2026-09-23: it
+          rendered focusRule.rule, and the sidebar's "Today's goal" card
+          renders session_goal.text -- which resolve to the SAME sentence,
+          because session_goal is built from the same focus bundle ("the same
+          reader the FocusCard + session_goal_service use, so the goal card
+          and the coach voice speak with one anchor").
+
+          So the player was told the same thing twice on one screen, and the
+          duplicate took a full row of height above the board -- on a page
+          whose whole argument is that the board is the hero.
+
+          The sidebar card is the one that stays: it lives where the coach
+          lives and is pinned for the whole game, whereas this was dismissible
+          and pre-game only. focusRule is still loaded and still drives the
+          coaching logic; only the second rendering of it is gone. */}
       {/* ─── PWC responsive redesign (docs/pwc_responsive_redesign_scope.md) ──
           `.pwc-root` re-skins this subtree to the new design tokens (warm/amber)
           by overriding the shadcn CSS vars — scoped to PWC only. The shell below
           is responsive: two-column on desktop, board + coach bottom-sheet on
           mobile/tablet. Teaching logic in the child components is unchanged. */}
       <div className="experience-page experience-pwc-page pwc-root flex flex-col flex-1 min-h-0">
-      <motion.div
-        variants={navFade}
-        initial="initial"
-        animate="animate"
-        className="border-b border-border/50 bg-background/80 backdrop-blur-sm"
-      >
-        <div className="max-w-[1320px] mx-auto px-6 md:px-10 h-11 flex items-center justify-between">
-          <div className="flex items-baseline gap-4 min-w-0">
-            <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
-              Play with Coach
-            </p>
-            {timeControl && (
-              <span className="text-[11px] text-muted-foreground/70 font-mono tabular-nums hidden sm:inline">
-                {timeControl} · {gameMode === "play" ? "review afterward" : "coached"}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-4 text-[11.5px] text-muted-foreground">
-            {selectedColor && (
-              <span className="hidden sm:inline font-mono tabular-nums">
-                you · {selectedColor}
-              </span>
-            )}
-          </div>
-        </div>
-      </motion.div>
-
+      {/* The "Play with Coach / 15+10 / you - white" strip used to sit here in
+          its own 44px band inside a max-w-[1320px] centred container. The
+          reference layout has no such band: who you are playing, the time
+          control and your colour live in the two bars that already frame the
+          board. Removing it returns a row of height and stops the page
+          reading as a document with a game inside it. */}
       {/* Page entrance — fade+rise on the game container (transform/opacity
           only; content stays interactive while animating in). */}
       <motion.div

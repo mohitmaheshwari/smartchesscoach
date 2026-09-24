@@ -30,6 +30,21 @@ DEFAULT_DEPTH = STOCKFISH_DEPTH
 QUICK_DEPTH = 12    # For rapid analysis
 DEEP_DEPTH = 22     # For critical positions
 
+# The punishment line - what the opponent does after a mistake - is the single
+# most-read piece of analysis we produce. The caption's "why" is built from it
+# (opp_reply_san) and the review arrows are drawn from it. It was searched at
+# depth 12, which is too shallow to pick between close replies that teach
+# different lessons: on one hand-checked position the top two replies were
+# 14cp apart at depth 12 and 56cp apart at depth 18, and depth 12 preferred the
+# one that taught the wrong thing. It runs only on mistakes and turning points,
+# a handful per game, so the extra depth is affordable.
+PUNISHMENT_DEPTH = 18
+
+# Two replies within this are a tie. When that happens the single stored reply
+# is an arbitrary pick, and neither the caption nor an arrow should present it
+# as "what the opponent does".
+REPLY_TIE_CP = 30
+
 # Centipawn thresholds for move classification
 # These match Chess.com's classification system
 class MoveClassification(str, Enum):
@@ -83,6 +98,10 @@ class MoveEvaluation:
     pv_after_played: List[str] = None    # What happens after the move you played
     pv_after_best: List[str] = None      # What would happen after the best move
     threat_after_played: str = None      # The immediate threat you face after your move
+    # The opponent's top replies WITH evals, so consumers can tell a real
+    # punishment from a coin flip between tied moves. See PUNISHMENT_DEPTH.
+    opp_replies: List[Dict[str, Any]] = None   # [{move_san, move_uci, eval_cp}], best first
+    opp_reply_is_clear: Optional[bool] = None  # top reply beats 2nd by > REPLY_TIE_CP
     # NEW: Position after move and turning point detection
     fen_after: str = None                # FEN position after the move
     is_turning_point: bool = False       # Eval swing >= 120cp
@@ -271,10 +290,59 @@ class StockfishEngine:
             logger.error(f"Failed to get PV: {e}")
             return []
     
+    def get_top_replies(
+        self,
+        board: chess.Board,
+        num: int = 3,
+        depth: int = PUNISHMENT_DEPTH,
+    ) -> List[Dict[str, Any]]:
+        """The opponent's best replies WITH their evaluations, not just one.
+
+        Why more than one: the caption layer and the review arrows both name
+        "what the opponent does next" from a single stored move. When the top
+        two replies are close, that single move is an arbitrary pick between
+        ideas that teach completely different things.
+
+        Worked example (2026-09-24). After 6.Qd2 in
+        1k1r1b1r/... the stored reply was Bxc4 - a bishop trade. The real best
+        was h6, a pawn chasing a bishop off g5 so a queen could reach g2. Two
+        unrelated lessons. At depth 12 those two moves were 14cp apart (a coin
+        flip); at depth 18 they were 56cp apart and h6 was clearly best.
+
+        Returns [{move_san, move_uci, eval_cp}] from the mover's point of view,
+        best first. Empty list if the engine cannot answer.
+        """
+        if not self.engine:
+            raise RuntimeError("Engine not started")
+        try:
+            infos = self.engine.analyse(
+                board, chess.engine.Limit(depth=depth), multipv=num)
+            if isinstance(infos, dict):
+                infos = [infos]
+            out: List[Dict[str, Any]] = []
+            for info in infos:
+                pv = info.get("pv") or []
+                if not pv:
+                    continue
+                score = info.get("score")
+                cp = None
+                if score is not None:
+                    rel = score.relative
+                    cp = rel.score(mate_score=100000)
+                out.append({
+                    "move_san": board.san(pv[0]),
+                    "move_uci": pv[0].uci(),
+                    "eval_cp": cp,
+                })
+            return out
+        except Exception as e:
+            logger.error(f"Failed to get top replies: {e}")
+            return []
+
     def get_threat(self, board: chess.Board, depth: int = DEFAULT_DEPTH) -> Optional[str]:
         """
         Get the main threat in the position (opponent's best response).
-        
+
         Returns:
             The threatening move in SAN notation, or None
         """
@@ -709,22 +777,38 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                     pv_after_played = []
                     pv_after_best = []
                     threat_after_played = None
-                    
+                    opp_replies = []
+                    opp_reply_is_clear = None
+
                     is_bad_move = classification in [MoveClassification.INACCURACY, MoveClassification.MISTAKE, MoveClassification.BLUNDER]
-                    
+
                     if is_bad_move:
                         # Get PV after the best move (what SHOULD have happened)
                         best_board = board.copy()
                         best_board.push(best_move)
-                        pv_after_best = engine.get_principal_variation(best_board, depth=12, pv_length=4)
-                        
+                        pv_after_best = engine.get_principal_variation(best_board, depth=PUNISHMENT_DEPTH, pv_length=4)
+
                         # Get PV after the played move (shows the PROBLEM)
                         played_board = board.copy()
                         played_board.push(move)
-                        pv_after_played = engine.get_principal_variation(played_board, depth=12, pv_length=4)
-                        
+                        pv_after_played = engine.get_principal_variation(played_board, depth=PUNISHMENT_DEPTH, pv_length=4)
+
                         # Get the immediate threat after the played move
-                        threat_after_played = engine.get_threat(played_board, depth=12)
+                        threat_after_played = engine.get_threat(played_board, depth=PUNISHMENT_DEPTH)
+
+                        # The opponent's top replies WITH evals, so a reader can
+                        # tell "this is THE punishment" from "these are tied and
+                        # we are picking one". Captions and arrows both name the
+                        # opponent's reply; neither should sound certain about a
+                        # coin flip.
+                        opp_replies = engine.get_top_replies(
+                            played_board, num=3, depth=PUNISHMENT_DEPTH)
+                        if len(opp_replies) >= 2:
+                            a, b = opp_replies[0].get("eval_cp"), opp_replies[1].get("eval_cp")
+                            if a is not None and b is not None:
+                                opp_reply_is_clear = abs(a - b) > REPLY_TIE_CP
+                        elif len(opp_replies) == 1:
+                            opp_reply_is_clear = True  # only one legal-ish answer
                     
                     board.push(move)
                     fen_after = board.fen()  # Store position after move
@@ -739,12 +823,18 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         # Get PV after best move
                         best_board = board.copy()
                         best_board.push(best_move)
-                        pv_after_best = engine.get_principal_variation(best_board, depth=12, pv_length=4)
+                        pv_after_best = engine.get_principal_variation(best_board, depth=PUNISHMENT_DEPTH, pv_length=4)
                         
                         # Get PV after played move
                         played_board = board.copy()
                         played_board.push(move)
-                        pv_after_played = engine.get_principal_variation(played_board, depth=12, pv_length=4)
+                        pv_after_played = engine.get_principal_variation(played_board, depth=PUNISHMENT_DEPTH, pv_length=4)
+                        opp_replies = engine.get_top_replies(
+                            played_board, num=3, depth=PUNISHMENT_DEPTH)
+                        if len(opp_replies) >= 2:
+                            _a, _b = opp_replies[0].get("eval_cp"), opp_replies[1].get("eval_cp")
+                            if _a is not None and _b is not None:
+                                opp_reply_is_clear = abs(_a - _b) > REPLY_TIE_CP
                         
                         board.push(move)
                     
@@ -765,6 +855,8 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         mate_in_before=prev_mate,
                         mate_in_after=current_mate,
                         pv_after_played=pv_after_played,
+                        opp_replies=opp_replies,
+                        opp_reply_is_clear=opp_reply_is_clear,
                         pv_after_best=pv_after_best,
                         threat_after_played=threat_after_played,
                         fen_after=fen_after,

@@ -196,7 +196,7 @@ def compute_move_time_stats(
     if not clks or all(c is None for c in clks):
         return None
 
-    increment = _parse_increment(time_control)
+    increment = _parse_increment(resolve_time_control(pgn, time_control))
     spent = _per_ply_time_spent(clks, increment)
 
     user_is_white = (user_color or "white").lower() == "white"
@@ -265,3 +265,65 @@ def compute_move_time_stats(
                     stats["took_time_critical"] = True
 
     return stats
+
+
+_TC_HEADER_RE = re.compile(r'\[TimeControl\s+"([^"]+)"\]')
+
+
+def resolve_time_control(pgn: str, time_control: Optional[str]) -> Optional[str]:
+    """Best available "base+increment" string for this game.
+
+    games.time_control is not reliably a time control: measured over 400
+    chess.com games it held a CATEGORY ("rapid", "blitz") on 68% and a real
+    control ("900+10", "600") on the rest. Feeding a category to
+    _parse_increment yields increment 0, which understates every move's think
+    time by the increment and makes players look faster - and therefore more
+    impulsive - than they were. The PGN header is authoritative where present.
+    """
+    m = _TC_HEADER_RE.search(pgn or "")
+    if m and _TC_RE.match(m.group(1).strip()):
+        return m.group(1).strip()
+    if time_control and _TC_RE.match(str(time_control).strip()):
+        return str(time_control).strip()
+    return None
+
+
+def attach_move_times(
+    pgn: str,
+    user_color: str,
+    time_control: Optional[str],
+    move_evaluations: Optional[List[Dict]],
+) -> int:
+    """Set `time_spent_seconds` on each USER move evaluation, in place.
+
+    `move_evaluations` holds one entry per user ply in order, so the k-th user
+    ply's think time belongs to the k-th evaluation — the same alignment
+    compute_move_time_stats() uses for the critical move.
+
+    Returns how many evaluations got a time. Zero means the PGN had no usable
+    clocks; callers must treat that as "unknown", never as "fast" or "slow".
+    Kept here so clock parsing lives in exactly one module
+    (feedback_single_source_of_truth).
+    """
+    if not move_evaluations:
+        return 0
+    clks = _extract_clk_per_ply(pgn or "")
+    if not clks or all(c is None for c in clks):
+        return 0
+
+    spent = _per_ply_time_spent(clks, _parse_increment(resolve_time_control(pgn, time_control)))
+    user_is_white = (user_color or "white").lower() == "white"
+    user_times = [
+        spent[i] for i in range(len(spent))
+        if (i % 2 == 0) == user_is_white
+    ]
+
+    attached = 0
+    for idx, ev in enumerate(move_evaluations):
+        if idx >= len(user_times):
+            break
+        t = user_times[idx]
+        if t is not None and t >= 0:
+            ev["time_spent_seconds"] = round(float(t), 2)
+            attached += 1
+    return attached
