@@ -755,15 +755,24 @@ def derive_observations_for_game(
             and opponent_previous["created_threat"]
             and not _is_good_enough(mv)
         )
+        # Judged by the same bar as responded_to_threat above: _is_good_enough,
+        # which accepts "good" and requires the move to have cost under 50cp.
+        # These two used to demand best/excellent/brilliant, so a good move that
+        # took the material but was not the engine's first choice counted as
+        # failing to punish. Measured over 6,651 events: one in thirteen was a
+        # move the engine was essentially fine with, and the player was told
+        # they let the chance go. Same shape as the other bugs found on
+        # 2026-09-24 -- the opponent's error was tested, the player's failure
+        # was assumed.
         punished_opponent_blunder = (
             opponent_previous is not None
             and opponent_previous["blundered"]
-            and mv.get("evaluation") in ("best", "excellent", "brilliant")
+            and _is_good_enough(mv)
         )
         missed_opponent_blunder = (
             opponent_previous is not None
             and opponent_previous["blundered"]
-            and mv.get("evaluation") not in ("best", "excellent", "brilliant")
+            and not _is_good_enough(mv)
         )
         found_best_in_critical = (
             bool(mv.get("is_critical"))
