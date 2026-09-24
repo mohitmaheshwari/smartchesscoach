@@ -82,3 +82,27 @@ def test_counts_recomputed_not_trusted():
     ]
     counts = punish_counts_from_observations(observations)
     assert counts == {"chances_taken": 2, "chances_total": 3}
+
+
+def test_words_stay_simple():
+    """Everything a player reads is plain English.
+
+    Mohit's standing rule for anything published on the site: the audience is
+    600-1500 and half of them are not reading in their first language. Long
+    words and long sentences are how a coaching line turns into a textbook.
+    Chess terms that a beginner would have to look up are banned outright --
+    "material" is accurate and still jargon.
+    """
+    JARGON = ("material", "initiative", "prophylaxis", "tempo", "zwischenzug",
+              "fianchetto", "outpost", "counterplay", "compensation")
+    for taken in (3, 11, 16):
+        out = punish_rate_line(taken, 20)
+        for field in ("headline", "habit"):
+            text = out[field]
+            for term in JARGON:
+                assert term not in text.lower(), (term, text)
+            for sentence in [s for s in text.replace("?", ".").split(".") if s.strip()]:
+                words = sentence.split()
+                assert len(words) <= 12, ("sentence too long", sentence)
+            for word in text.replace("?", "").replace(".", "").replace(",", "").split():
+                assert len(word) <= 10, ("word too long", word)

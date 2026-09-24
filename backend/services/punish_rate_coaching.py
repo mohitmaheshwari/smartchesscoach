@@ -44,12 +44,16 @@ UPPER_QUARTILE = 0.62
 # Fewer chances than this and the rate is noise, not a pattern.
 MIN_CHANCES = 10
 
-_HABIT = "After they move, ask one thing: what did that leave behind?"
+# Plain words only. "Material" is the accurate term and it is also jargon to a
+# 600-rated player, so these say "something for free". Short sentences, one
+# idea each, nothing a beginner has to decode. test_words_stay_simple keeps it
+# that way for whoever writes the next line.
+_HABIT = "After they move, ask one thing: did that leave anything for free?"
 
 _OPENERS = {
-    "low": "Your opponents keep handing you material, and a lot of it goes by.",
-    "mid": "Your opponents keep handing you material. You take some of it, and some slips past.",
-    "high": "Your opponents keep handing you material, and you spot most of it.",
+    "low": "Your opponents often leave something for free. A lot of it goes past you.",
+    "mid": "Your opponents often leave something for free. You take some of it.",
+    "high": "Your opponents often leave something for free. You take most of it.",
 }
 
 
