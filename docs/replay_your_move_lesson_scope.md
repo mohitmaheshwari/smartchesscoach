@@ -90,15 +90,45 @@ choose between a wrong label and a rewritten concept.
 - Non-personal lessons (Lichess-sourced, no played move) keep today's flow
   untouched. This beat only exists when we actually have the player's move.
 
-## The part I would push back on
+## Correction: the label was right, I was wrong
 
-**Mohit's format fixes visibility. It does not by itself fix the label.**
-For this card the real lesson is not "watch your undefended pieces" -- it is
-"your knight on f5 was holding a diagonal; before you move a piece, ask what
-it was holding." Playing `Nh6` makes the loss visible, but a card still
-titled *Undefended Pieces* teaches the wrong habit for this position.
+An earlier draft of this doc argued the concept label was wrong for this
+card -- that the real lesson was the blocked diagonal, not undefended
+pieces. Mohit corrected it: *"it was undefended piece itself, because the
+move I made in the game itself, I blundered my queen because queen was
+undefended, it was supported by a pinned pawn."*
 
-So I would treat the label as a separate decision, not smuggle it in here.
+He is right, and I had already verified the fact and then argued past it.
+The queen's only defender is the g2 pawn; g2 is pinned to the white king by
+the rook on g6; `gxh3` is therefore **illegal**. A defender that cannot
+legally capture is not a defender. The queen was undefended in the game,
+and `Undefended Pieces` is the correct concept.
+
+So the teachable sentence for this card is not about the diagonal at all:
+
+> Your queen on h3 looked safe because the g2 pawn guarded it. That pawn
+> cannot move -- their rook on g6 pins it to your king. A piece defended
+> only by a pinned piece is not defended.
+
+## The real finding underneath this
+
+`board.attackers()` is pseudo-legal: it counts a PINNED defender as a
+defender. Verified on this position -- after the blunder, `attackers()`
+reports h3 as defended by g2, while `gxh3` is not a legal move.
+
+So any "is this piece defended?" check built on `attackers()` will call
+this queen safe. That is the same shape as the SEE-on-the-square defect
+(both sides of an exchange computed on the square, neither subtracting what
+the move captured, so 21.7% of 890 `simple_hang` fires were trades reported
+as hangs).
+
+**This is worth measuring across the piece-safety path before anything is
+built here**, because if it is widespread it changes what the lesson should
+say on many more cards than this one. It is cheap to test: for every
+position where we call a piece defended, check whether any of its defenders
+can legally make the recapture.
+
+Not measured yet -- the prod DB tunnel was down when this was written.
 
 **The rewind is the real design risk.** Step 3 shows the position after the
 move; step 5 needs the position before it. If that rewind is not obvious,
