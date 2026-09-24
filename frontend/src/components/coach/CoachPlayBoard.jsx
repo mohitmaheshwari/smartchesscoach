@@ -121,22 +121,23 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
 
         {/* Board + eval bar. The bar was removed on 2026-04-15 (043cc7fe)
             because "coach doesn't give away the position", and Mohit asked
-            for it back on 2026-09-23. It returns through the component's own
-            `hidden` mode rather than as a plain bar: whenever the backend
-            sets hide_eval -- the pedagogical moments the coach deliberately
-            sets up -- the score masks to "?" and the "Find the opportunity!"
-            badge below does the asking. So the position is still withheld
-            exactly where it was, and visible the rest of the time.
+            for it back on 2026-09-23.
 
-            `evaluation` has been passed into this component and left unused
-            since that removal; this is its first consumer. */}
+            It comes back ALWAYS ON. The component can mask the score to "?"
+            whenever the backend sets hide_eval -- the pedagogical moments the
+            coach sets up -- and that masking is what would have preserved the
+            April reasoning. Asked directly on 2026-09-24, with his own note
+            quoted back to him, Mohit chose the plain bar instead. hidden is
+            hard-coded false; one prop puts the masking back.
+
+            Consequence, left deliberately: hideEvalBar still drives the "Find
+            the opportunity!" badge below, so that badge can now appear beside
+            a fully visible score. The badge is -a0's surface, not mine.
+
+            `evaluation` had been passed into this component and left unused
+            since the 2026-04-15 removal; this is its first consumer. */}
         <div className="flex gap-2 items-stretch">
 
-          {/* Mohit 2026-09-24, asked directly: always on, not masked. The
-              component can mask the score to "?" when the backend sets
-              hide_eval, and that is what the April removal note was guarding
-              ("coach doesn't give away the position") -- he chose the plain
-              bar over that. One prop to put the masking back. */}
           <div className="w-5 md:w-6 shrink-0" data-testid="coach-play-eval-bar">
             <EvalBar
               evaluation={evaluation}
