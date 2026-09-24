@@ -5,11 +5,12 @@
  * pre-move checklist, controls (flip, undo, resign, new game).
  */
 
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MOTION_TIMING } from "@/lib/motion";
 import LichessBoard from "@/components/LichessBoard";
 import { Button } from "@/components/ui/button";
+import { isMuted, setMuted } from "@/lib/chessSounds";
 import { Badge } from "@/components/ui/badge";
 import PreMoveChecklist from "@/components/coach/PreMoveChecklist";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
@@ -27,6 +28,8 @@ import {
   Play,
   BookOpen,
   X,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 
 const CoachPlayBoard = forwardRef(function CoachPlayBoard(
@@ -82,6 +85,10 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
   },
   boardRef
 ) {
+  // Board sound preference. Local state so the icon flips immediately; the
+  // value itself lives in localStorage and is read by the sound module.
+  const [soundOff, setSoundOff] = useState(() => isMuted());
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-2 md:p-4 overflow-auto">
       {/* Board column width drives the (CSS-responsive) board size. Caps by the
@@ -433,6 +440,22 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                 Math.floor((session?.user_time_remaining || 900) % 60)
               ).padStart(2, "0")}
             </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const next = !soundOff;
+                setSoundOff(next);
+                setMuted(next);
+              }}
+              className="h-7 w-7 px-0"
+              title={soundOff ? "Board sound off" : "Board sound on"}
+              aria-label={soundOff ? "Turn board sound on" : "Turn board sound off"}
+              aria-pressed={!soundOff}
+              data-testid="board-sound-toggle"
+            >
+              {soundOff ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            </Button>
             <Button variant="outline" size="sm" onClick={flipBoard} className="h-7 px-2.5">
               <RotateCcw className="w-3.5 h-3.5 mr-1" />
               Flip

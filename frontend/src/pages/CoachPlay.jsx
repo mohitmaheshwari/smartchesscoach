@@ -30,6 +30,7 @@ import useTeachingMode from "@/hooks/useTeachingMode";
 import usePlayerData from "@/hooks/usePlayerData";
 import useGuardian from "@/hooks/useGuardian";
 import { isOnAuthoredLine } from "@/pages/openingLineGuard";
+import { playForSan } from "@/lib/chessSounds";
 import useStockfishEval from "@/hooks/useStockfishEval";
 import { useCoachFlow, INTERACTION_STATES, CLOCK_STATES } from "@/coachFlow";
 import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
@@ -1463,6 +1464,9 @@ const CoachPlay = ({ user }) => {
           setCurrentFen(data.current_fen);
           setIsPlayerTurn(data.is_player_turn);
           
+          if (data.coach_move) {
+            playForSan(data.coach_move);
+          }
           if (data.coach_move && data.message) {
             toast.success(data.message || `Coach played ${data.coach_move}`);
             // Update last move highlight
@@ -3484,6 +3488,11 @@ const CoachPlay = ({ user }) => {
       highlightMove(moveObj.from + moveObj.to);
       setUserLastMoveSquare(moveObj.to);
       setCoachLastMoveSquare(null);
+      // The piece has landed locally; the sound belongs to that moment rather
+      // than to the server round trip. Deriving it from the SAN keeps capture
+      // and check distinct without each caller re-deriving it.
+      playForSan(moveObj.san);
+
       await executeMoveForSession(session?.session_id, moveObj.san, timeSpentPlay);
       setIsPlayerTurn(false);
       return true;
