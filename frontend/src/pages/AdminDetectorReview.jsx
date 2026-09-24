@@ -49,6 +49,19 @@ const CAPTION_FAULTS = [
 ];
 
 const DETECTORS = [
+  // The inverse of every other queue. These are moves Stockfish is certain are
+  // mistakes and for which the board yields NO consequence in either
+  // direction -- no punishment the opponent collected, none we missed.
+  // Measured 2026-09-24 over 2,500 games / 24,577 mistakes: 42.6% land here,
+  // and that bucket is exactly where captions get invented ("Before
+  // sacrificing in the endgame..." on a move with is_sacrifice=False).
+  // There is no claim to rule true or false -- the NOTE is the payload.
+  {
+    id: "no_why",
+    label: "No why — what is the lesson?",
+    claims:
+      "a real mistake we cannot explain: the opponent wins no material, forks nothing, traps nothing, forces nothing to move. Write what the student should learn in the note. Mark TRUE if a real lesson exists, FALSE if this is noise a 1200 should never be shown, UNSURE if you cannot tell. FALSE is a useful answer here — it shrinks the problem honestly",
+  },
   // Built and measured against Lichess overnight 2026-09-22, none of them
   // graded in _AUTHORIZATIONS yet, so nothing here can reach a player. This
   // queue is how the evidence for grading them gets made. The percentages

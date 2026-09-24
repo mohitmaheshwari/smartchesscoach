@@ -1821,6 +1821,131 @@ def _principle_producers():
     return out
 
 
+# ---------------------------------------------------------------------------
+# The "no why" queue.
+#
+# Every other queue here asks "is this claim true?". This one asks the
+# opposite: these are moves Stockfish is sure are mistakes and for which the
+# board yields NO derivable consequence -- neither the punishment the opponent
+# collected nor the one we missed. Measured 2026-09-24 over 2,500 games /
+# 24,577 mistakes: 42.6% of mistakes land here.
+#
+# It exists because that bucket is precisely where captions get invented. Two
+# real examples from one audited game: "Before sacrificing in the endgame..."
+# rendered on a move with is_sacrifice=False, and a queening promotion
+# rendered as "you push the h-pawn, claiming a little space". The system had
+# nothing to say and said something.
+#
+# So the reviewer is not asked to rule a claim true or false. They are asked
+# what the student should actually learn -- and "nothing, this is noise a
+# 1200 should never be shown" is a legitimate and useful answer.
+_NO_WHY_MIN_CP = 100
+
+
+def _no_why_class(board, played, best_mv, played_san, best_san, piece_count):
+    """A first guess at the family, to be corrected by the reviewer.
+
+    Deliberately crude and deliberately visible: it is a description of the
+    MOVE (which piece, which square), not of the ERROR, which is the same
+    failure this whole queue exists to fix. Two buckets ("wrong piece moved",
+    "same piece, worse square") are known dumping grounds -- splitting those
+    is the main thing a reviewer can give us.
+    """
+    p_cap = board.is_capture(played)
+    b_cap = board.is_capture(best_mv)
+    pt = board.piece_at(played.from_square).piece_type
+    bt = board.piece_at(best_mv.from_square).piece_type
+    if p_cap and b_cap and played.to_square == best_mv.to_square and pt != bt:
+        return "wrong recapture"
+    if played.to_square == best_mv.to_square and pt != bt:
+        return "wrong piece to the square"
+    if played_san in ("O-O", "O-O-O") and best_san in ("O-O", "O-O-O"):
+        return "wrong side to castle"
+    if p_cap and not b_cap and (best_san in ("O-O", "O-O-O")
+                                or bt in (chess.KNIGHT, chess.BISHOP)):
+        return "grab instead of develop/castle"
+    if p_cap:
+        from services.caption_facts import static_exchange_eval
+        see = static_exchange_eval(board, played.to_square, board.turn)
+        if see is not None and see < 0:
+            return "unsound sacrifice"
+    if played_san.endswith("+") and not best_san.endswith("+"):
+        return "pointless check"
+    if bt == chess.PAWN and chess.square_name(best_mv.to_square)[0] in "cdef"             and pt != chess.PAWN:
+        return "missed pawn break"
+    if pt == chess.KING and piece_count <= 16:
+        return "endgame king placement"
+    if pt == bt:
+        return "same piece, worse square"
+    return "wrong piece moved"
+
+
+def _produce_no_why(move, colour, analysis):
+    if move.get("is_opponent_move"):
+        return None
+    cp_loss = move.get("cp_loss")
+    if not isinstance(cp_loss, (int, float)) or cp_loss < _NO_WHY_MIN_CP:
+        return None
+    fen = move.get("fen_before")
+    played_san = move.get("move")
+    best_san = move.get("best_move")
+    pv_played = list(move.get("pv_after_played") or [])
+    pv_best = list(move.get("pv_after_best") or [])
+    # No stored line means we never had a chance to derive anything -- that is
+    # a separate data bug (13.8% of mistakes, measured), not a silent mistake.
+    if not (fen and played_san and best_san and pv_played and pv_best):
+        return None
+
+    from services.punishment_resolver import resolve_both
+
+    try:
+        if resolve_both(fen, played_san, best_san, pv_played, pv_best) is not None:
+            return None          # we CAN explain this one; not for this queue
+        board = chess.Board(fen)
+        played = board.parse_san(str(played_san))
+        best_mv = board.parse_san(str(best_san))
+    except Exception:  # noqa: BLE001
+        return None
+
+    piece_count = len(board.piece_map())
+    family = _no_why_class(board, played, best_mv, str(played_san),
+                           str(best_san), piece_count)
+    side, arrow = _orientation_and_arrow(fen, played_san)
+    phase = ("opening" if piece_count >= 28 else
+             "endgame" if piece_count <= 14 else "middlegame")
+
+    claim = (
+        f"{played_san} loses {int(cp_loss)}cp and {best_san} was better, but "  # allow-noncentral-caption
+        f"nothing measurable happens: the opponent wins no material, forks "
+        f"nothing, traps nothing and forces no piece to move. My guess at the "
+        f"family is “{family}”. What should the student learn here "
+        f"— and is this teachable at all?"
+    )
+    return (claim, {
+        "review_fen": fen,
+        "line_fen": fen,
+        "fen_before": fen,
+        "fen_after": move.get("fen_after"),
+        "played_san": played_san,
+        "best_move": best_san,
+        "move_number": move.get("move_number") or 0,
+        "cp_loss": cp_loss,
+        "side_to_move": side,
+        "arrow": arrow,
+        "arrow_is": "the move played",
+        "guessed_family": family,
+        "phase": phase,
+        "piece_count": piece_count,
+        "eval_before": move.get("eval_before"),
+        "eval_after": move.get("eval_after"),
+        "pv_after_played": pv_played[:8],
+        "pv_after_best": pv_best[:8],
+        # The whole queue is uncertain by construction: if the board could
+        # settle it, it would not be here.
+        "confidence": CONFIDENCE_UNCERTAIN,
+    })
+
+
 def _producers():
     from services.discovered_attack_puzzle_proof import (
         build_discovered_attack_proof,
@@ -1829,6 +1954,7 @@ def _producers():
 
     registry = {
         "allowed_mate": _produce_allowed_mate,
+        "no_why": _produce_no_why,
         "tempo_loss": _produce_tempo_loss,
         "simple_hang": _produce_simple_hang,
         "left_book": _produce_left_book,
