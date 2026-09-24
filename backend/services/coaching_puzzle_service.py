@@ -61,10 +61,25 @@ WEAKNESS_TO_PUZZLE_THEMES = {
 
     # ── Canonical cognitive_gap names (what the Mirror produces) ──
     "piece_safety":       ["hangingPiece", "trappedPiece", "capturingDefender"],
+    # The four mate patterns below are the ones a 600-1500 actually meets.
+    # They were unreachable from any weakness until 2026-09-24: present in the
+    # 4.1M import, named by nothing. ~36k calibrated puzzles between them.
+    # The obscure named mates (Opera, Pillsbury, Epaulette, Swallowtail,
+    # Triangle, Vukovic, Balestra, Blind Swine, Kill Box, Morphy) are left out
+    # on purpose -- they are tournament trivia at this rating, and a confident
+    # irrelevant puzzle is worse than none.
     "king_safety":        ["kingsideAttack", "queensideAttack", "attackingF2F7",
-                           "exposedKing", "defensiveMove"],
+                           "exposedKing", "defensiveMove", "backRankMate",
+                           "smotheredMate", "anastasiaMate", "arabianMate",
+                           "hookMate"],
+    # "removeTheDefender" was named here from the day this dict was written and
+    # matches ZERO of 4,110,434 lichess puzzles -- it is not a Lichess theme at
+    # all. The real name is "capturingDefender" (30,468 rows), which this same
+    # dict already uses correctly under piece_safety. So tactical_oversight has
+    # been silently serving one theme fewer than intended. Counted on the live
+    # collection, not assumed.
     "tactical_oversight": ["fork", "pin", "skewer", "discoveredAttack",
-                           "deflection", "removeTheDefender", "xRayAttack",
+                           "deflection", "capturingDefender", "xRayAttack",
                            "interference", "attraction"],
     "missed_tactic":      ["fork", "pin", "skewer", "discoveredAttack",
                            "deflection", "mateIn2", "mateIn3"],
