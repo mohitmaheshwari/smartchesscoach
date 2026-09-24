@@ -482,6 +482,50 @@ const CoachPlay = ({ user }) => {
   } = guardian;
   
   // NEW: Real-time move feedback state
+  // ── One verdict per move ─────────────────────────────────────────
+  // The badge on the played square renders v5Coaching.severity, and THREE
+  // code paths write v5Coaching for the same move: two from
+  // /coach/play/v5/interactive-feedback and one from /coach/play/v5/feedback.
+  // They do not all derive the verdict from the same numbers -- the
+  // interactive path uses stored analysis when it exists and falls back to a
+  // live quick eval when it does not -- so the square could read "inaccuracy"
+  // and then "good" about two seconds later.
+  //
+  // Reported by Mohit 2026-09-24: "it showed inaccuracy first and then after 2
+  // seconds showed as good, best in the position, this is so unpremium."
+  //
+  // The later writes still land: they carry the narrative, the question, the
+  // arrows. Only the VERDICT is pinned, to whatever was decided first for that
+  // exact move. The backend already intends this -- the interactive route
+  // persists its evaluated facts so the coach phase "never needs a second
+  // engine verdict" -- but nothing enforced it at the surface.
+  const pinnedVerdictRef = useRef({ key: null, severity: null });
+
+  const moveVerdictKey = (c) =>
+    c && c.move_san ? `${c.fen_before || ""}|${c.move_san}` : null;
+
+  const applyV5Coaching = useCallback((next) => {
+    if (!next) {
+      pinnedVerdictRef.current = { key: null, severity: null };
+      setV5Coaching(next);
+      return;
+    }
+    const key = moveVerdictKey(next);
+    const pin = pinnedVerdictRef.current;
+    if (key && pin.key === key && pin.severity && next.severity !== pin.severity) {
+      console.log(
+        "[V2-BOARD] verdict pinned:", pin.severity,
+        "— ignoring later", next.severity, "for", key
+      );
+      setV5Coaching({ ...next, severity: pin.severity });
+      return;
+    }
+    if (key && next.severity) {
+      pinnedVerdictRef.current = { key, severity: next.severity };
+    }
+    setV5Coaching(next);
+  }, []);
+
   const [moveFeedback, setMoveFeedback] = useState(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   
@@ -1701,7 +1745,7 @@ const CoachPlay = ({ user }) => {
 
       // Clear all coaching state at game start (especially important for Play Mode)
       setCoachArrows([]);
-      setV5Coaching(null);
+      applyV5Coaching(null);
 
       // Set initial opening guidance — store ALL ideas for client-side arrows
       console.log("[CoachPlay] Start response openingGuidance:", data.openingGuidance);
@@ -1920,7 +1964,7 @@ const CoachPlay = ({ user }) => {
             /* fail-open: fall through to the normal verdict below */
           }
 
-          setV5Coaching(v5Data);
+          applyV5Coaching(v5Data);
 
           // Track fundamental violations for post-game summary
           if (v5Data.fundamental_violated) {
@@ -1972,7 +2016,7 @@ const CoachPlay = ({ user }) => {
 
         // PLAY MODE: Skip all coaching state updates
         if (gameMode !== "play" && data.user_move_coaching) {
-          setV5Coaching(data.user_move_coaching);
+          applyV5Coaching(data.user_move_coaching);
           setInteractiveCoaching(prev => ({
             ...prev,
             userMoveCoaching: data.user_move_coaching
@@ -2177,7 +2221,7 @@ const CoachPlay = ({ user }) => {
 
         if (data.user_move_coaching) {
           console.log("[V2-FLOW] Setting v5Coaching with severity:", data.user_move_coaching.severity);
-          setV5Coaching(data.user_move_coaching);
+          applyV5Coaching(data.user_move_coaching);
 
           // Coaching is NON-BLOCKING (Mohit 2026-07-07): show the feedback card
           // but NEVER freeze the board. The old lock-on-mistake + "I understand —
@@ -2186,7 +2230,7 @@ const CoachPlay = ({ user }) => {
         } else {
           console.log("[V2-FLOW] No user_move_coaching in response");
           // Play Mode: clear coaching state and arrows
-          setV5Coaching(null);
+          applyV5Coaching(null);
           setCoachArrows([]);
         }
 
@@ -2323,7 +2367,7 @@ const CoachPlay = ({ user }) => {
       
       if (response.ok) {
         const coaching = await response.json();
-        setV5Coaching({
+        applyV5Coaching({
           ...coaching,
           move_san: moveSan,
           fen_before: fenBefore
@@ -2524,7 +2568,7 @@ const CoachPlay = ({ user }) => {
     if (!sessionId || currentSessionIdRef.current !== sessionId) return false;
     const ownsSession = () => currentSessionIdRef.current === sessionId;
     // IMMEDIATELY clear all coaching state for clean transition
-    setV5Coaching(null);
+    applyV5Coaching(null);
     setGeometryMoment(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
@@ -3070,7 +3114,7 @@ const CoachPlay = ({ user }) => {
     clearGuardian();
     
     // Clear coaching state for clean transition
-    setV5Coaching(null);
+    applyV5Coaching(null);
     setGeometryMoment(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
@@ -3408,7 +3452,7 @@ const CoachPlay = ({ user }) => {
     // Clear coaching state for new move
     setCoachArrows([]);
     setPreMoveTrap(null);
-    setV5Coaching(null);
+    applyV5Coaching(null);
     setOpeningDeviation(null);
     setCoachMoveExplanation(null);
 
@@ -3638,15 +3682,35 @@ const CoachPlay = ({ user }) => {
     );
     console.log("[V2-FLOW] handleUserMove result: autoCommitted=", autoCommitted, "moveQuality=", moveQuality);
 
-    // Show board label IMMEDIATELY from evaluate-pending (don't wait for interactive-feedback)
-    // "unknown" means the engine did not finish searching this move. It used
-    // to arrive as "good", so a move we never evaluated got a tick painted on
-    // the board -- on a loaded server that included hung pieces. No verdict is
-    // better than a wrong one; the label fills in from interactive-feedback
-    // when the real evaluation lands.
-    if (moveQuality && moveQuality !== "unknown" && !unifiedExperience) {
-      setV5Coaching({ severity: moveQuality, move_san: moveData.san });
-      console.log("[V2-BOARD] Instant label from evaluate-pending:", moveData.to, moveQuality);
+    // The board label no longer comes from evaluate-pending.
+    //
+    // It used to be painted here, immediately, so the player saw a verdict
+    // without waiting. But evaluate-pending is fast_eval -- a nodes-limited
+    // search around depth 8 -- and the label it produced was then overwritten
+    // by the real evaluation. Measured over 25 games / 761 user moves,
+    // depth 8 and depth 14 disagree on 20.5% of moves, and on 67 of them the
+    // shallow search called a move a fault that the deep search called good.
+    // One was Rd4: cp_loss 129 ("mistake") at depth 8, cp_loss 0 -- a perfect
+    // move -- at depth 14.
+    //
+    // Reported by Mohit 2026-09-24: "it showed inaccuracy first and then after
+    // 2 seconds showed as good, best in the position, this is so unpremium."
+    //
+    // Pinning the FIRST verdict would have pinned the least reliable one. So
+    // the shallow search keeps its real job -- deciding whether to interrupt
+    // before the move is committed -- and stops painting a word on the board.
+    // The label now arrives from the real evaluation, about two seconds later,
+    // and does not change afterwards.
+    //
+    // The same instinct is already in the comment this replaces: "unknown" was
+    // dropped here because a move we never evaluated got a tick painted on it,
+    // and "no verdict is better than a wrong one". This extends that from the
+    // unevaluated case to the under-evaluated one.
+    if (moveQuality && moveQuality !== "unknown") {
+      console.log(
+        "[V2-BOARD] evaluate-pending said", moveQuality,
+        "- not painting it; waiting for the real evaluation"
+      );
     }
 
     if (autoCommitted) {
@@ -3752,7 +3816,7 @@ const CoachPlay = ({ user }) => {
     resetTeachingState();
     // Reset move feedback
     setMoveFeedback(null);
-    setV5Coaching(null);
+    applyV5Coaching(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
     setFundamentalViolations([]);
