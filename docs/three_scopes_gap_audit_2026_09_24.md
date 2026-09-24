@@ -155,3 +155,57 @@ The order the evidence supports:
    first three are the cause.
 
 No code has been written. This is a measurement, not a plan.
+
+---
+
+# Addendum — step 3 diagnosed: the cycle DOES measure, into a shadow
+
+`current_metric` is 0 of 237 because `close_focus` never runs. `server.py`'s
+`focus_outcome_loop` is gated on `FOCUS_OUTCOME_RENDER_ENABLED`, which is
+**unset in prod**, and when off it writes verdicts to `focus_outcome_shadow`
+instead of closing the focus.
+
+That shadow is not empty. **427 rows across 54 users:**
+
+```
+  240  no_data               median 1 game since focus start
+   79  measurement_pending   median 7 games
+   54  regressed             median 43 games,  delta median +57.9%
+   35  stuck                 median 97 games,  delta median  +0.1%
+   19  improved              median 63 games,  delta median -29.1%
+```
+
+**The measurement is not broken — most focuses are too young to judge.**
+A real verdict needs roughly 40+ games after the focus starts; `no_data` sits
+at a median of 1. That is a maturity problem, not a defect.
+
+And the verdicts look internally coherent: `stuck` lands at a median delta of
+**+0.1%**, dead centre between improved and regressed, which is a good sign
+the thresholds cut the distribution sensibly rather than arbitrarily.
+
+## Why it still must not be turned on yet
+
+**31 of 54 users have more than one distinct verdict over time.** A player
+could be told "improved" on Monday and "regressed" on Tuesday off the same
+focus. That is the blocker, and it is worse than showing nothing.
+
+Two smaller faults found with it:
+
+- `regressed` max delta is **+1920.2%**, which smells like division by a
+  near-zero baseline. Needs a floor before any of this renders.
+- `metric_name` is null on **351 of 427** rows — most verdicts do not record
+  what was actually measured, so they cannot be audited after the fact.
+
+## Recommendation for step 3
+
+Do **not** flip `FOCUS_OUTCOME_RENDER_ENABLED`. Instead, before rendering:
+
+1. require a minimum games-since-start (the data says ~40, lock it off the
+   histogram rather than picking it)
+2. require the same verdict on consecutive passes, so a flip cannot reach a
+   player
+3. floor the baseline before computing `delta_pct`
+4. always record `metric_name`
+
+The cycle's success path exists and works. What is missing is the stability
+gate between it and a human being.
