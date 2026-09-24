@@ -39,10 +39,15 @@ describe("the board actually renders the bar", () => {
     expect(boardSource).toMatch(/<EvalBar\b/);
   });
 
-  it("feeds it the evaluation and the hide flag the page already tracks", () => {
+  it("feeds it the evaluation the page already tracks", () => {
     const element = boardSource.slice(boardSource.indexOf("<EvalBar"));
     expect(element).toMatch(/evaluation=\{evaluation\}/);
-    expect(element).toMatch(/hidden=\{hideEvalBar\}/);
+  });
+
+  it("is always on -- Mohit chose the plain bar over the masked one", () => {
+    const element = boardSource.slice(boardSource.indexOf("<EvalBar"));
+    expect(element).toMatch(/hidden=\{false\}/);
+    expect(element).not.toMatch(/hidden=\{hideEvalBar\}/);
   });
 });
 

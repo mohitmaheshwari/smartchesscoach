@@ -116,11 +116,16 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
             since that removal; this is its first consumer. */}
         <div className="flex gap-2 items-stretch">
 
+          {/* Mohit 2026-09-24, asked directly: always on, not masked. The
+              component can mask the score to "?" when the backend sets
+              hide_eval, and that is what the April removal note was guarding
+              ("coach doesn't give away the position") -- he chose the plain
+              bar over that. One prop to put the masking back. */}
           <div className="w-5 md:w-6 shrink-0" data-testid="coach-play-eval-bar">
             <EvalBar
               evaluation={evaluation}
               userColor={selectedColor}
-              hidden={hideEvalBar}
+              hidden={false}
             />
           </div>
 
