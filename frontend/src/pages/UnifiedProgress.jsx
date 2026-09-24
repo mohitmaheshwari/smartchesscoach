@@ -24,6 +24,9 @@ import Layout from "@/components/Layout";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
+// Thinking habits. The component existed since before 2026-09 and was
+// imported by nothing, so the scores it renders reached no screen at all.
+import ThinkingScoreCard from "@/components/coach/ThinkingScoreCard";
 import {
   fadeInUp,
   revealOnScroll,
@@ -523,6 +526,14 @@ export default function UnifiedProgress({ user }) {
               </div>
             </div>
           )}
+        </motion.section>
+
+        <motion.section
+          variants={fadeInUp}
+          className="mb-10 md:mb-14"
+          data-testid="progress-thinking-habits"
+        >
+          <ThinkingScoreCard />
         </motion.section>
 
         <motion.div variants={fadeInUp} className="mb-10 md:mb-14">

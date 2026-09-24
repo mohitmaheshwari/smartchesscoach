@@ -167,10 +167,20 @@ const ThinkingScoreCard = ({ compact = false }) => {
     );
   }
 
-  // Sort habits by score (lowest first for recommendations focus)
-  const sortedHabits = Object.entries(habit_progress || {}).sort(
-    (a, b) => (a[1]?.current_score || 0) - (b[1]?.current_score || 0)
-  );
+  // Weakest first, because the point of the card is what to work on - but an
+  // UNMEASURED habit must sink to the bottom, not float to the top. With
+  // `|| 0` a null score sorted as zero, so the three habits we had no data for
+  // took all three default slots and the card showed "Not enough data yet"
+  // three times while hiding the two habits actually measured.
+  const isMeasured = (h) =>
+    h?.measured !== false && h?.current_score !== null && h?.current_score !== undefined;
+  const sortedHabits = Object.entries(habit_progress || {}).sort((a, b) => {
+    const am = isMeasured(a[1]);
+    const bm = isMeasured(b[1]);
+    if (am !== bm) return am ? -1 : 1;      // measured first
+    if (!am) return 0;                       // both unmeasured: keep order
+    return a[1].current_score - b[1].current_score;  // then weakest first
+  });
 
   const habitsToShow = showAllHabits ? sortedHabits : sortedHabits.slice(0, 3);
 
@@ -221,7 +231,7 @@ const ThinkingScoreCard = ({ compact = false }) => {
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
               <span className={`text-2xl font-bold ${getScoreColor(overall_score)}`}>
-                {Math.round(overall_score)}
+                {overall_score === null || overall_score === undefined ? "–" : Math.round(overall_score)}
               </span>
             </div>
           </div>
@@ -257,7 +267,15 @@ const ThinkingScoreCard = ({ compact = false }) => {
           
           {habitsToShow.map(([habitKey, habitData]) => {
             const HabitIcon = HABIT_ICONS[habitKey] || Brain;
-            const score = habitData?.current_score || 0;
+            // A habit we could not observe now arrives as current_score: null.
+            // `|| 0` turned that into a confident zero, which reads as "you are
+            // terrible at this" for something we never measured. Three of the
+            // five habits produced no data at all until 2026-09-24, so this was
+            // most of the card.
+            const measured = habitData?.measured !== false
+              && habitData?.current_score !== null
+              && habitData?.current_score !== undefined;
+            const score = measured ? habitData.current_score : null;
             const change = habitData?.change;
             const trend = habitData?.trend;
             
@@ -274,24 +292,34 @@ const ThinkingScoreCard = ({ compact = false }) => {
                     <span className="text-xs font-medium">{HABIT_LABELS[habitKey]}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs font-medium ${getScoreColor(score)}`}>
-                      {Math.round(score)}
-                    </span>
-                    {change !== null && (
-                      <span className={`text-[10px] ${change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>
-                        {change > 0 ? '+' : ''}{Math.round(change)}
+                    {measured ? (
+                      <>
+                        <span className={`text-xs font-medium ${getScoreColor(score)}`}>
+                          {Math.round(score)}
+                        </span>
+                        {change !== null && change !== undefined && (
+                          <span className={`text-[10px] ${change > 0 ? 'text-green-400' : change < 0 ? 'text-red-400' : 'text-muted-foreground'}`}>
+                            {change > 0 ? '+' : ''}{Math.round(change)}
+                          </span>
+                        )}
+                        <TrendIcon trend={trend} />
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground" data-testid={`habit-unmeasured-${habitKey}`}>
+                        Not enough data yet
                       </span>
                     )}
-                    <TrendIcon trend={trend} />
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${score}%` }}
-                    transition={{ duration: 0.5, delay: 0.1 }}
-                    className={`h-full rounded-full ${getProgressColor(score)}`}
-                  />
+                  {measured && (
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${score}%` }}
+                      transition={{ duration: 0.5, delay: 0.1 }}
+                      className={`h-full rounded-full ${getProgressColor(score)}`}
+                    />
+                  )}
                 </div>
                 <p className="text-[10px] text-muted-foreground">
                   {HABIT_DESCRIPTIONS[habitKey]}
