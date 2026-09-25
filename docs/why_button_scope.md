@@ -195,3 +195,39 @@ but not pretending.
   purpose: that function selects a sentence from the `R*.json` variant
   files, which is the mechanism this feature exists to avoid. The cost is
   that wording now lives in two places. Worth a decision.
+
+
+---
+
+## Measured again on 60 positions (2026-09-25, live code)
+
+The 98% I reported came from 40 positions. On 60 it is **54/60 (90%)**.
+Both runs are real; the smaller one was optimistic, and 90% is the
+better estimate — it also happens to match the figure the feature was
+scoped on. Treat 40-position runs as directional, not as a rate.
+
+    mechanism   WINS_MATERIAL 28   FORCES_RETREAT 23   FORK 3
+    piece named pawn 16  bishop 14  knight 10  queen 7  rook 4  none 3
+
+**On "it always says pawn".** The first three live cards all said pawn,
+which looked like the feature only ever finding scraps. It is 16 of 54
+(30%), and 11 of those 16 sat on a 100-199cp move — where a pawn is a
+proportionate answer, not a shallow one.
+
+The real residue is small and specific: **3 of 54 (5.6%)** explain a
+400cp-or-worse move as winning a pawn. Those are true but badly
+under-stated, and they are the same shape as the mate case below — the
+derivable material is found while the actual reason sits deeper than the
+ply budget reaches.
+
+## Known gaps, restated
+
+1. **Under-stated big losses.** 3/54 report a pawn on a 400+cp move;
+   one card reports a pawn at a mate-level evaluation. Both need the
+   line searched further, or a mate check on the position after the
+   played move.
+2. **Second prose path.** Still does not route through
+   `build_move_teaching_decision`. Deliberate, still worth a decision.
+3. **Scoreboard rows can be textless.** With filler stripped, a game
+   whose mistakes matched no pattern shows move + badge and no
+   sentence. Honest, but thin.
