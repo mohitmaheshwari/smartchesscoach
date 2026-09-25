@@ -199,3 +199,54 @@ docker exec chess-coach-backend python backend/scripts/detector_bench/true_conce
 ```
 
 All four are read-only.
+
+---
+
+## 8. Fires per real game — the ranking that actually decides (added same day)
+
+Lichess recall says a prover is right *when the motif is present*. It says
+nothing about how often it is present in 600-1500 games. Measured on 400
+analysed games, 2,537 user moves at >=100cp loss. Positive control: the wired
+`build_fork_proof` must fire, and does.
+
+| prover | Lichess recall | fires/game | **% of real games** | callers |
+|---|---|---|---|---|
+| `build_clearance_proof` | 93.3% | 0.78 | **47.0%** | 0 |
+| `build_fork_proof` *(control)* | 97.5% | 0.92 | 46.5% | 5 |
+| `build_trapped_piece_opportunity_proof` | 92.5% | 0.15 | 11.5% | 0 |
+| `build_advanced_pawn_proof` | 100.0% | 0.14 | 9.0% | 0 |
+| `build_xray_attack_proof` | 99.2% | 0.06 | 6.0% | 0 |
+| `build_deflection_proof` | 93.3% | 0.06 | 4.8% | 0 |
+| `build_interference_proof` | 100.0% | 0.04 | 2.8% | 0 |
+| `build_attraction_proof` | 92.5% | 0.02 | 2.2% | 0 |
+
+**The ranking inverts.** The two 100%-recall provers (`interference`,
+`advanced_pawn`) sit near the bottom in real games. `clearance`, mid-table on
+Lichess, fires as often as the wired fork detector.
+
+### The true-negative control, and why it proves less than it appears
+
+On 6,981 user moves at <30cp loss, **every prover fired zero times**. That
+looks like perfect discrimination and is not: each prover gates on
+`cp_loss < 100` and returns `None` before any motif logic runs. **This measured
+the centipawn gate, not the motif.** It is recorded so nobody later cites it as
+precision evidence.
+
+### Do not wire `clearance` on this number
+
+A clearance sacrifice does not occur in 47% of 600-1500 games. The detector
+itself is careful — `clearance_puzzle_proof.py` documents twelve puzzles played
+out move by move, keeps a deliberate refusal, and reports 94.9% detector /
+**83.0% verified** recall, matching this bench. The geometry is sound.
+
+But it requires `pv_after_best` and walks the engine line. In a Lichess
+`clearance` puzzle the clearance *is* the point; in an arbitrary blunder's best
+line, one friendly piece stepping out of another's way co-occurs by accident.
+Geometric truth is not a licensed coaching claim — see
+`feedback_precision_vs_meaning_are_separate_audits`.
+
+**So `clearance` is the top candidate for semantic review, not for wiring.**
+Reviewing 50 of its fires on real games is the cheapest high-value next step,
+and it is the one evidence type the quality lock accepts.
+
+Added benches: `fires_per_real_game.py`, `true_negative_control.py`.
