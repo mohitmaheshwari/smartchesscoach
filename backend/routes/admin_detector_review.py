@@ -1621,7 +1621,7 @@ def _article(word: str) -> str:
     return "an" if head[0] in "aeiou" else "a"
 
 
-def _new_proof(module_name: str, func_name: str, label: str):
+def _new_proof(module_name: str, func_name: str, label: str, fact_gate=None):
     """Producer for the 2026-09-22 proof modules.
 
     These do NOT carry `target_square` or `targets` in their facts the way
@@ -1667,6 +1667,12 @@ def _new_proof(module_name: str, func_name: str, label: str):
 
         facts = list(getattr(getattr(bundle, "detector", None), "facts", ()) or ())
         head = (facts[0] or {}) if facts else {}
+        # Some proofs find their motif anywhere in the stored line, which is
+        # right for puzzle recall and wrong for a claim about the move the
+        # player actually got wrong. `fact_gate` lets a queue ask for only the
+        # subset that is licensed to be coached. It only removes fires.
+        if fact_gate is not None and not fact_gate(head):
+            return None
         side, arrow = _orientation_and_arrow(fen, best)
         return (
             f"the engine's move is {_article(label)} {label} "
@@ -1981,6 +1987,30 @@ def _producers():
         "advanced_pawn": _new_proof("advanced_pawn_puzzle_proof", "build_advanced_pawn_proof", "advanced pawn"),
         "defensive_move": _new_proof("defensive_move_puzzle_proof", "build_defensive_move_proof", "defensive move"),
         "clearance_general": _new_proof("clearance_puzzle_proof", "build_clearance_proof", "clearance"),
+        # clearance_general serves every fire. Measured 2026-09-25 on 400 real
+        # games, 310 fires on user blunders of >=100cp:
+        #
+        #   clearance_ply_in_line == 0   208   67.1%   the missed move IS the
+        #                                              clearance
+        #   clearance_ply_in_line == 2   102   32.9%   the clearance happens
+        #                                              later in a line the
+        #                                              player never reached
+        #
+        # `_locate_clearance` walks every initiator ply deliberately -- its
+        # docstring is explicit that refusing to look further loses recall no
+        # threshold can buy back -- and that is right for puzzle extraction.
+        # It is wrong for a caption: at ply 2 the player's mistake was the
+        # FIRST move, so naming the clearance teaches a move they never had
+        # the chance to play. 67.1% cannot clear the >=95% semantic precision
+        # the quality lock asks of Caption grade.
+        #
+        # So this queue serves only the licensed subset. 208 is past the lock's
+        # >=50 reviewed-fires floor, and every one is about the played move.
+        # clearance_general stays: the ply-2 fires are still correct geometry
+        # and still the right material for puzzle extraction.
+        "clearance_immediate": _new_proof(
+            "clearance_puzzle_proof", "build_clearance_proof", "clearance",
+            fact_gate=lambda f: f.get("clearance_is_immediate") is True),
         "xray_attack": _new_proof("xray_attack_puzzle_proof", "build_xray_attack_proof", "x-ray attack"),
         "interference": _new_proof("interference_puzzle_proof", "build_interference_proof", "interference"),
         "discovered_attack": _missed_motif(

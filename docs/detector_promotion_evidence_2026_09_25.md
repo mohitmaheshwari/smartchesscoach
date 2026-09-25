@@ -312,17 +312,36 @@ leaves **208 fires** — comfortably past the lock's ">=50 reviewed fires" — a
 every one of them is about the move the user actually played. That is the
 version worth putting through human review.
 
-### One thing to check first
+### RETRACTED: the "100% onto, zero through" anomaly was my bug
 
-Every one of the 310 fires is `onto` (the follow-up lands on the vacated
-square); **zero** are `through` (a slider crossing it). The detector's own
-docstring documents seven of its twelve reference puzzles as `through`, so the
-positive control exists and this hard zero needs explaining before review —
-either real games genuinely differ, or `_left_the_way` behaves differently on
-stored PV data than on puzzle lines.
+I reported every fire as `onto` and flagged it for investigation. There is no
+`through` key in the facts. The field is **`clearance_kind`**, valued `"line"`
+(a slider crossing the square) or `"square"` (a piece landing on it), and my
+`f.get("through")` returned `None`, which my counter scored as `onto`.
 
-Other recorded facts: the clearance move is a capture in only 11.0% of fires
-(so "win material" is rarely the real lesson), and the follow-up is +2 plies
-later in 73.2% of cases, +4 in 26.8%.
+Read correctly the split is **50.0% `line` / 50.0% `square`** — even, and no
+anomaly at all. A control run confirms the detector is healthy: on the twelve
+puzzles its own docstring cites it fires on eleven, identifies every vacated
+square correctly, and *refuses* `01gA2` exactly as documented.
+
+Corrected facts, using the proof's own recorded fields: the clearance move is a
+capture in **17.1%** of fires (not 11.0% — my hand replay returned `None` for
+every ply-2 case), and the follow-up is +2 plies later in 73.2%, +4 in 26.8%.
+
+The ply finding is unaffected: **67.1% licensed / 32.9% scenery** stands.
+
+### Shipped: the `clearance_immediate` review queue
+
+`_new_proof` now takes an optional `fact_gate`, and a new queue
+`clearance_immediate` serves only `clearance_is_immediate` fires.
+`clearance_general` is unchanged. Verified on 400 games: general 88 fires
+(ply 0: 59, ply 2: 29), immediate 59, all ply 0, a strict subset, 33.0% removed
+against a measured 32.9% ply-2 share.
+
+**Pool correction:** 59 reviewable, not the 208 quoted above. The queue applies
+a `verifier.verified` filter my raw count did not — the stricter and correct
+basis. Still past the lock's ≥50 floor.
+
+Scope: `docs/clearance_immediate_queue_scope.md`.
 
 Benches: `clearance_semantic_review.py`, `registry_quality_ids.py`.

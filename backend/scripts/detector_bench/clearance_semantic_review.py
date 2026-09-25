@@ -75,24 +75,14 @@ async def main():
             f = (bundle.detector.facts or [{}])[0]
             p = f.get("clearance_ply_in_line")
             ply[p] += 1
-            kind["through" if f.get("through") else "onto"] += 1
+            kind[f.get("clearance_kind") or "(missing)"] += 1
             d = f.get("follow_up_ply_in_line")
             if isinstance(p, int) and isinstance(d, int):
                 gap[d - p] += 1
 
-            # was the clearance move itself a capture? replay to its ply
-            is_cap = None
-            try:
-                b2 = chess.Board(fen)
-                line = [best] + [str(x) for x in pv]
-                for i, u in enumerate(line):
-                    mv = chess.Move.from_uci(u)
-                    if i == p:
-                        is_cap = b2.is_capture(mv)
-                        break
-                    b2.push(mv)
-            except Exception:
-                pass
+            # the proof already records this; my hand replay returned None
+            # for every ply-2 case because the loop broke before reaching it
+            is_cap = f.get("clearance_move_is_capture")
             capture_clear[str(is_cap)] += 1
 
             if len(samples) < 60:
@@ -103,7 +93,7 @@ async def main():
                     "follow_up_ply": d, "vacated": f.get("vacated_square"),
                     "clearing_piece": f.get("clearing_piece"),
                     "follow_up_piece": f.get("follow_up_piece"),
-                    "through": f.get("through"),
+                    "clearance_kind": f.get("clearance_kind"),
                     "clearance_move_is_capture": is_cap,
                 })
 
