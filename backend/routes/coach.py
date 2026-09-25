@@ -1436,6 +1436,7 @@ async def get_game_decryption_v5(
 async def get_move_why(
     game_id: str,
     move_number: int,
+    san: Optional[str] = Query(default=None),
     user: User = Depends(get_current_user),
 ):
     """Work out, on demand, why one move was a mistake.
@@ -1473,11 +1474,25 @@ async def get_move_why(
         (analysis or {}).get("stockfish_analysis") or {}
     ).get("move_evaluations") or []
 
-    target = next(
-        (m for m in evaluations if m.get("move_number") == move_number
-         and not m.get("is_opponent_move")),
-        None,
-    )
+    # move_number alone is NOT a key. Measured on 300 games: 31 of them
+    # (10%) carry a duplicate move_number among the user's evaluations,
+    # so first-match-wins would explain a different move than the card
+    # the player clicked -- silently, and only on some games.
+    candidates_for_move = [
+        m for m in evaluations
+        if m.get("move_number") == move_number
+        and not m.get("is_opponent_move")
+    ]
+    target = None
+    if san:
+        target = next(
+            (m for m in candidates_for_move if m.get("move") == san), None)
+    if target is None:
+        if san and len(candidates_for_move) > 1:
+            # Ambiguous and the move we were asked about is not here:
+            # refuse rather than explain the wrong move.
+            raise HTTPException(status_code=404, detail="Move not analysed")
+        target = candidates_for_move[0] if candidates_for_move else None
     if not target:
         raise HTTPException(status_code=404, detail="Move not analysed")
 

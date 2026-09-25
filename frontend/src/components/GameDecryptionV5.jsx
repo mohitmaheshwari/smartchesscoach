@@ -1873,7 +1873,8 @@ const WhyThisWasBad = ({ gameId, move, onArrows }) => {
     setState("loading");
     try {
       const res = await fetch(
-        `${API}/coach/why/${gameId}/${move.move_number}`,
+        `${API}/coach/why/${gameId}/${move.move_number}` +
+          `?san=${encodeURIComponent(move.move_san || "")}`,
         { credentials: "include" },
       );
       const data = await res.json();
