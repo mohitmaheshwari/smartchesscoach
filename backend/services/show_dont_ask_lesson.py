@@ -198,11 +198,20 @@ def build_moment(fen_before: str, played_san: str) -> Optional[Dict[str, Any]]:
         "reply_uci": reply.uci(),
         "arrows": [[chess.square_name(taker),
                     chess.square_name(played.to_square), "red"]],
-        # Two short sentences, one idea each. The first is what he did, the
-        # second is what happened -- no verdict word, because watching it is
-        # the verdict.
-        "line_one": "You played %s." % played_san,
-        "line_two": "Their %s on %s took it straight back." % (
+        # Two short sentences, one idea each, and NO verdict word -- watching
+        # it is the verdict.
+        #
+        # Led by the piece and the square, never by the notation. "You played
+        # Bxf2+" makes a 600 decode algebraic before they can feel anything,
+        # and a move name is the one detail that never recurs; the picture of
+        # a bishop walking onto a watched square is what they need next week.
+        # The board is playing the move underneath these lines anyway.
+        "line_one": "Your %s went to %s." % (  # allow-noncentral-caption
+            PIECE_WORDS.get(moved_piece.piece_type, "piece") if moved_piece
+            else "piece",
+            chess.square_name(played.to_square),
+        ),
+        "line_two": "Their %s on %s took it straight back." % (  # allow-noncentral-caption
             PIECE_WORDS.get(taker_piece.piece_type, "piece") if taker_piece
             else "piece",
             chess.square_name(taker),

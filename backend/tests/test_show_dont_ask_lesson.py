@@ -162,3 +162,17 @@ def test_safe_move_count_agrees_with_grading_each_move():
     counted = sum(1 for mv in board.legal_moves
                   if grade_attempt(HANGS, mv.uci())["accepted"])
     assert safe_move_count(HANGS) == counted
+
+
+def test_screen_one_never_leads_with_move_notation():
+    """Mohit's rule: players remember patterns, not moves. A card that opens
+    "You played Bxf2+" makes a 600 decode algebraic before they feel
+    anything, and the move name is the one detail that never recurs. The
+    board is playing the move underneath these lines anyway."""
+    moment = build_moment(HANGS, PUNISHED_MOVE)
+    assert moment is not None
+    assert not moment["line_one"].lower().startswith("you played")
+    assert PUNISHED_MOVE not in moment["line_one"]
+    # it should name the piece and where it went instead
+    assert "bishop" in moment["line_one"].lower()
+    assert "f2" in moment["line_one"]
