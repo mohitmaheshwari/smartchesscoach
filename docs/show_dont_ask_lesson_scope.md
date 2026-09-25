@@ -144,6 +144,79 @@ Nothing here needs new detection, and nothing needs Stockfish at click time.
 The only thing missing is that `teaching_engine` returns `arrows: []` on a
 wrong move — the information is computed to grade him and then discarded.
 
+## Where community puzzles fit
+
+Mohit: *"community puzzles can also show up once you're done with your
+mistake, how would that show up?"*
+
+**They fill screen 4 and nothing else.** Screens 1 and 2 are "watch your own
+move get punished" and they cannot be borrowed — there is no *your move* in a
+stranger's game. Passing someone else's position off as yours would be the
+product telling a small lie, and the whole point of screen 1 is that this
+actually happened to you.
+
+So the order is:
+
+```
+  his own 203 moments   ->  screens 1,2,3 + screen 4 from another of HIS games
+  when those run out    ->  screen 4 only, from the community pool
+```
+
+And the label stays honest. His own game says:
+
+```
+  DIFFERENT GAME · SAME IDEA
+```
+
+A community position says:
+
+```
+  SOMEONE ELSE'S GAME · SAME IDEA
+```
+
+The task line is identical either way — *play a move that nothing can take* —
+because the skill being tested is identical.
+
+### The pool supports it, for this category
+
+Measured 2026-09-25 on production `community_puzzles`:
+
+```
+  piece_safety         2,968   (2,950 approved)
+  calculation_depth   27,114
+  missed_tactic        2,008
+  king_safety            151
+  opening_knowledge      122
+  tactical_oversight      17
+  endgame_technique       12
+```
+
+Of 300 piece-safety positions sampled, **296 are usable** as a "play something
+safe" board — at least one safe move exists and several tempting ones do not.
+The 4 that fail are positions with no safe move at all, which would be an
+unwinnable screen. So a one-line board check gates admission; it is cheap and
+it removes exactly the broken ones.
+
+### The constraint that matters for rolling this out
+
+The pool is wildly uneven. `piece_safety` and `missed_tactic` have thousands.
+`endgame_technique` has **twelve puzzles across every user in the product**.
+So screen 4 exists for two categories and effectively does not exist for
+endgames, openings or tactical oversight.
+
+That is not a reason to hold this back — it is a reason to ship it for
+piece_safety first and to know, before promising the other five, that the
+transfer step there needs a pool that does not exist yet. A lesson whose
+transfer screen silently falls back to the same position twice would teach
+memorisation and report it as learning.
+
+### One thing a community position cannot do
+
+Your own game carries the motivation: this cost you something. A stranger's
+position is a repetition, not a reckoning. So they should read as practice
+reps after the lesson, never as the lesson itself — which is also why they
+are never allowed to be screen 1.
+
 ## In scope
 
 - Replace the reason question with screens 1–5 for `piece_safety`.
