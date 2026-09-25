@@ -29,7 +29,7 @@ sed -i '/^MONGO_URL=/d' "$ENV_FILE"
 
 # Add the correct production MONGO_URL
 cat >> "$ENV_FILE" << 'EOF'
-MONGO_URL=mongodb://admin_user_mii_s_c:Mii123$44$@72.60.204.176:27017/?authSource=admin
+MONGO_URL=mongodb://<user>:<password-from-env>@72.60.204.176:27017/?authSource=admin
 EOF
 
 echo ""

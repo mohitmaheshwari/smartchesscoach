@@ -138,7 +138,11 @@ async def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=500, help="games to sample")
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--severities", type=str, default="mistake,blunder")
+    ap.add_argument("--side", choices=("both", "user", "opponent"),
+                    default="both",
+                    help="which side's moves to audit (default both)")
+    ap.add_argument("--severities", type=str,
+                    default="mistake,blunder,serious,opp_mistake,opp_blunder,opp_serious")
     ap.add_argument("--sample-fail-count", type=int, default=12,
                     help="how many failing captions to print as examples")
     ap.add_argument("--min-version", type=int, default=None,
@@ -175,6 +179,8 @@ async def main() -> int:
     pass_count = 0
     fail_count = 0
     fail_by_severity: Counter[str] = Counter()
+    fail_by_side: Counter[str] = Counter()
+    total_by_side: Counter[str] = Counter()
     total_by_severity: Counter[str] = Counter()
     fail_shapes: Counter[str] = Counter()
     fail_examples: list[dict] = []
@@ -194,14 +200,21 @@ async def main() -> int:
                 sev = rec.get("severity")
                 if sev not in severities:
                     continue
-                # Only audit USER moves.
-                if not rec.get("is_user_move"):
+                # Mohit, 2026-09-22: "each blunder or mistake EACH SIDE should
+                # explain the why". This audit used to skip opponent moves
+                # entirely, so the two captions he flagged that day -- both
+                # opp_serious -- were invisible to the only instrument we had
+                # for measuring this rule. --side lets you split it back out.
+                is_user = bool(rec.get("is_user_move"))
+                side = "user" if is_user else "opponent"
+                if args.side != "both" and args.side != side:
                     continue
                 caption = (rec.get("caption") or "").strip()
                 if not caption:
                     continue
                 total_scanned += 1
                 total_by_severity[sev] += 1
+                total_by_side[side] += 1
                 played = rec.get("move_san") or ""
                 best = rec.get("best_move_san")
                 h1 = has_concrete_consequence(caption, played, best)
@@ -218,6 +231,7 @@ async def main() -> int:
                 else:
                     fail_count += 1
                     fail_by_severity[sev] += 1
+                    fail_by_side[side] += 1
                     shape = caption_shape(caption)
                     fail_shapes[shape] += 1
                     if len(fail_examples) < args.sample_fail_count * 4:
@@ -226,6 +240,7 @@ async def main() -> int:
                             "move_number": rec.get("move_number"),
                             "move_san": played,
                             "severity": sev,
+                            "side": side,
                             "cp_loss": rec.get("cp_loss"),
                             "caption": caption,
                         })
@@ -245,6 +260,13 @@ async def main() -> int:
     print("  Heuristic hit rates (any-of passes):")
     for k, v in h_hits.most_common():
         print(f"    {k:<18}: {v} ({100*v/total_scanned:.1f}%)")
+    print()
+    print("  Fail rate by side:")
+    for sd in ("user", "opponent"):
+        t = total_by_side.get(sd, 0)
+        f = fail_by_side.get(sd, 0)
+        if t:
+            print(f"    {sd:<9} {f}/{t} = {100.0*f/t:.1f}%")
     print()
     print("  Fail rate by severity:")
     for sev in sorted(severities):
@@ -276,6 +298,8 @@ async def main() -> int:
         "h_hits": dict(h_hits),
         "total_by_severity": dict(total_by_severity),
         "fail_by_severity": dict(fail_by_severity),
+        "total_by_side": dict(total_by_side),
+        "fail_by_side": dict(fail_by_side),
         "fail_shapes_top": fail_shapes.most_common(20),
         "fail_examples_sample": sample,
     }

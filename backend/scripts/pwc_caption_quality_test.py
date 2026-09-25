@@ -7,15 +7,21 @@ corpus of analyzed games — for BOTH user and opponent moves — then measures:
             The central-layer path is auto-verified (framework Step 2); the LEGACY
             fallback narratives (opponent moves, user-move fallbacks) are NOT — this
             is where fabrications hide. This test surfaces them.
-  QUALITY   user mistakes/blunders carry the 4 teachings (what · why-bad · better ·
-            why-better); nothing renders empty (never-silent).
-  COVERAGE  empty-rate per side.
+  QUALITY   shown user mistakes/blunders carry the 4 teachings (what · why-bad ·
+            better · why-better).
+  CADENCE   intentional suppression rate and reasons. Silence is correct for
+            routine, already-decided, unverified, or incomplete material.
 
 Split user vs opponent so we see exactly where PWC lags review. Run in dev container.
 """
 from __future__ import annotations
 import os, sys, io, re, asyncio, collections
-sys.path.insert(0, "/app/backend")
+
+# Run against the checkout that contains this script. The previous hardcoded
+# /app/backend path silently audited an older container image even when a newer
+# workspace copy of this harness was executed from /tmp.
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BACKEND_ROOT)
 import chess, chess.pgn
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -27,17 +33,24 @@ LIMIT_GAMES = int(os.environ.get("LIMIT_GAMES", "40"))
 def _fen4(f): return " ".join(f.split()[:4])
 
 
-def _whatm(c): return bool(re.search(r"\b(is (a|an) (mistake|inaccuracy|serious mistake|major blunder)|loses to|lets |allows |walks into|drops |hangs|it drops the)\b", c, re.I))
-def _whybad(c): return bool(re.search(r"(loses to \S+|lets \S+ (win|capture)|lets \S+ in\b|allows \S+ (fork|forking|pin|skew)|walks into \S+|drops the \w+|\bhangs\b|win your \w+ on|forking your|losing material|loses material|it drops the|leaves your king|in the cent(er|re)|away from defending)", c, re.I))
+def _whatm(c, san):
+    normalized_caption = c.replace("+", "").replace("#", "")
+    normalized_san = (san or "").replace("+", "").replace("#", "")
+    return bool(normalized_san and normalized_san in normalized_caption)
+def _whybad(c): return bool(re.search(r"(loses to \S+|lets \S+ (win|capture|attack)|lets \S+ in\b|allows |walks into \S+|runs into \S+|drops the \w+|\bhangs\b|win your \w+ on|forking your|losing material|loses material|it drops the|leaves your \w+ (?:undefended|exposed)|leaves your king|in the cent(er|re)|away from defending|misses the chance|needs attention because)", c, re.I))
 def _whybetter(c):
     m = re.search(r"was (?:the )?(?:better|stronger)\b\s*[—-]\s*(.*?)(?:\.|$)", c)
     if not m: return False
     t = m.group(1).lower()
-    return bool(re.search(r"\b(it )?(attacks?|captures?|wins?|forks?|develops?|defends?|trades?|recaptur|sacrifices?|opens|keeps?|puts your|hits|breaks|protects?|saves?|covers?|untangl|connects?|pins?|skewers?|moves your|gets your king|takes the)\b", t))
+    return bool(re.search(r"^\s*(?:(?:it|this move|that move)\s+)?(?:also\s+)?(?:attacks?|captures?|wins?|forks?|develops?|defends?|trades?|recaptur|sacrifices?|opens?|keeps?|puts?|hits?|breaks?|blocks?|makes?|protects?|saves?|covers?|forces?|untangl|connects?|pins?|skewers?|moves?|gets?|takes?|gives?|posts?)\b", t))
 
 
 async def main():
-    from services.shared_coaching_v5 import generate_move_coaching, CoachingContext
+    from services.shared_coaching_v5 import (
+        CoachingContext,
+        _central_narrative_for_move,
+        generate_move_coaching,
+    )
     try:
         from services.game_decryption_v5_service import detect_phase
     except Exception:
@@ -47,9 +60,13 @@ async def main():
     db = AsyncIOMotorClient(MONGO, serverSelectionTimeoutMS=15000)[DB]
     games = await db.games.find({"is_analyzed": True}, {"_id": 0, "game_id": 1, "pgn": 1, "user_color": 1}).limit(LIMIT_GAMES).to_list(LIMIT_GAMES)
 
-    stat = lambda: {"n": 0, "empty": 0, "false": 0}
+    stat = lambda: {"n": 0, "shown": 0, "suppressed": 0, "false": 0}
     user, opp = stat(), stat()
-    mistakes = {"n": 0, "what": 0, "whybad": 0, "better": 0, "whybetter": 0, "all4": 0}
+    mistakes = {"n": 0, "shown": 0, "what": 0, "whybad": 0, "better": 0, "whybetter": 0, "all4": 0}
+    suppression_reasons = collections.Counter()
+    serious_suppression_reasons = collections.Counter()
+    serious_contract_gaps = collections.Counter()
+    serious_suppression_samples = []
     false_samples, mistake_gap_samples = [], []
 
     for g in games:
@@ -82,6 +99,7 @@ async def main():
                 try: ph = detect_phase(board, fmn)
                 except Exception: pass
             _eb, _ea = me.get("eval_before"), me.get("eval_after")
+            c = None
             try:
                 c = await generate_move_coaching(
                     board_before=board.copy(), move=mv, best_move_san=me.get("best_move"),
@@ -99,39 +117,91 @@ async def main():
             bucket = user if is_user else opp
             bucket["n"] += 1
             if not narr:
-                bucket["empty"] += 1
+                bucket["suppressed"] += 1
+                suppression_reasons[getattr(c, "suppression_reason", None) or "no_caption"] += 1
             else:
+                bucket["shown"] += 1
                 bafter = board.copy(); bafter.push(mv)
                 vfacts = {"move_san": san, "fen_before": board.fen(), "fen_after": bafter.fen(),
-                          "is_user_move": is_user, "cp_loss": abs(cp),
+                          "is_user_move": is_user, "user_color": uc, "cp_loss": abs(cp),
                           "best_move_san": me.get("best_move"),
                           "pv_after_played": me.get("pv_after_played") or [],
                           "pv_after_best": me.get("pv_after_best") or []}
                 try:
-                    if verify_caption(narr, vfacts):  # truthy = violations
+                    violations = verify_caption(narr, vfacts)
+                    if violations:  # truthy = violations
                         bucket["false"] += 1
                         if len(false_samples) < 20:
-                            false_samples.append(f"  [{'U' if is_user else 'O'} cp{cp}] {san}: {narr[:95]}")
+                            checks = "; ".join(
+                                f"{item.get('check')}: {item.get('detail')}"
+                                for item in violations
+                            )
+                            false_samples.append(
+                                f"  [{'U' if is_user else 'O'} cp{cp}] {san}: {narr}\n"
+                                f"      VERIFY: {checks}"
+                            )
                 except Exception:
                     pass
             # quality: user mistakes
-            if is_user and cp >= 120 and narr:
+            if is_user and cp >= 120:
                 mistakes["n"] += 1
-                w1, w2, w3, w4 = _whatm(narr), _whybad(narr), bool(me.get("best_move") and (me["best_move"].replace("+","").replace("#","") in narr or "was better" in narr or "was stronger" in narr or "was the" in narr)), _whybetter(narr)
-                mistakes["what"] += w1; mistakes["whybad"] += w2; mistakes["better"] += w3; mistakes["whybetter"] += w4
-                if w1 and w2 and w3 and w4: mistakes["all4"] += 1
-                elif len(mistake_gap_samples) < 15:
-                    mistake_gap_samples.append(f"  cp{cp} {san}: {narr[:95]}")
+                if not narr:
+                    source_caption, _, _, _ = _central_narrative_for_move(
+                        board_before=board.copy(),
+                        move_san=san,
+                        mover_is_user=True,
+                        user_color=uc,
+                        full_move_number=fmn,
+                        move_history_san=list(hist),
+                        best_move_san=me.get("best_move"),
+                        eval_before_cp=int(_eb) if isinstance(_eb, (int, float)) else None,
+                        eval_after_cp=int(_ea) if isinstance(_ea, (int, float)) else None,
+                        cp_loss=cp,
+                        pv_after_played=me.get("pv_after_played") or [],
+                        pv_after_best=me.get("pv_after_best") or [],
+                        severity_override=(
+                            "mistake" if cp < 250 else "blunder"
+                        ),
+                        move_evaluations=mes,
+                    )
+                    serious_suppression_reasons[getattr(c, "suppression_reason", None) or "no_caption"] += 1
+                    contract = getattr(c, "teaching_contract", None) or {}
+                    for key in ("what", "why_bad", "better_move", "why_better", "verified"):
+                        if contract.get("required") and not contract.get(key):
+                            serious_contract_gaps[key] += 1
+                    if len(serious_suppression_samples) < 15:
+                        serious_suppression_samples.append(
+                            f"  {gid} m{fmn} cp{cp} {san} best={me.get('best_move')} "
+                            f"reason={getattr(c, 'suppression_reason', None)} "
+                            f"tier={getattr(c, 'caption_tier', None)} contract={contract} "
+                            f"source={source_caption[:180]!r}"
+                        )
+                else:
+                    mistakes["shown"] += 1
+                    w1, w2, w3, w4 = _whatm(narr, san), _whybad(narr), bool(me.get("best_move") and (me["best_move"].replace("+","").replace("#","") in narr or "was better" in narr or "was stronger" in narr or "was the" in narr)), _whybetter(narr)
+                    mistakes["what"] += w1; mistakes["whybad"] += w2; mistakes["better"] += w3; mistakes["whybetter"] += w4
+                    if w1 and w2 and w3 and w4: mistakes["all4"] += 1
+                    elif len(mistake_gap_samples) < 15:
+                        mistake_gap_samples.append(f"  cp{cp} {san}: {narr[:95]}")
             board.push(mv); hist.append(san)
 
     def pct(a, b): return f"{round(100*a/b)}%" if b else "—"
     print(f"\n=== PWC caption bulk test ({LIMIT_GAMES} games) ===")
-    print(f"USER moves:     n={user['n']}  empty={user['empty']} ({pct(user['empty'],user['n'])})  FALSE-claim={user['false']} ({pct(user['false'],user['n'])})")
-    print(f"OPPONENT moves: n={opp['n']}  empty={opp['empty']} ({pct(opp['empty'],opp['n'])})  FALSE-claim={opp['false']} ({pct(opp['false'],opp['n'])})")
+    print(f"USER moves:     n={user['n']}  shown={user['shown']} ({pct(user['shown'],user['n'])})  suppressed={user['suppressed']} ({pct(user['suppressed'],user['n'])})  FALSE-claim={user['false']} ({pct(user['false'],user['shown'])} of shown)")
+    print(f"OPPONENT moves: n={opp['n']}  shown={opp['shown']} ({pct(opp['shown'],opp['n'])})  suppressed={opp['suppressed']} ({pct(opp['suppressed'],opp['n'])})  FALSE-claim={opp['false']} ({pct(opp['false'],opp['shown'])} of shown)")
     m = mistakes
-    print(f"\nUSER mistakes/blunders (cp>=120): n={m['n']}")
+    print(f"\nUSER mistakes/blunders (cp>=120): total={m['n']} shown={m['shown']} ({pct(m['shown'],m['n'])})")
     for k in ["what", "whybad", "better", "whybetter", "all4"]:
-        print(f"   {k:10s} {m[k]:4d}  ({pct(m[k], m['n'])})")
+        print(f"   {k:10s} {m[k]:4d}  ({pct(m[k], m['shown'])} of shown)")
+    print("\n--- intentional suppression reasons ---")
+    for reason, count in suppression_reasons.most_common():
+        print(f"  {reason:30s} {count:4d}")
+    print("\n--- serious suppression reasons ---")
+    for reason, count in serious_suppression_reasons.most_common():
+        print(f"  {reason:30s} {count:4d}")
+    print(f"  incomplete contract gaps: {dict(serious_contract_gaps)}")
+    for sample in serious_suppression_samples:
+        print(sample)
     print("\n--- FALSE-claim samples (accuracy failures) ---")
     for s in false_samples: print(s)
     print("\n--- mistake quality-gap samples ---")

@@ -3412,8 +3412,9 @@ async def get_interactive_coaching(
             # Check if student followed the previous coaching plan
             active_plan = session_doc.get("active_coach_plan")
             if active_plan and coaching.severity == "good":
-                # Student played a good move after getting a plan — acknowledge it
-                coaching_dict["narrative"] = f"{coaching_dict.get('narrative', '')} You're following the plan."
+                # Keep progress acknowledgement separate from the verified
+                # chess narrative so the caption cannot change after its gate.
+                coaching_dict["plan_followed"] = True
                 # Clear the plan after acknowledgment
                 try:
                     await db.coach_sessions.update_one(
@@ -3423,83 +3424,19 @@ async def get_interactive_coaching(
                 except Exception:
                     pass
 
-            # Enhance Socratic question for mistakes/blunders via the
-            # central caption pipeline (PR-6E of 5, 2026-05-27). Single
-            # source of truth per Mohit ("can't afford 2 sources" —
-            # memory/feedback_one_source_of_truth). socratic_feedback_
-            # for_live_move is the only path; smart_coaching.generate_
-            # smart_user_feedback has been deleted along with
-            # services/smart_coaching.py entirely.
+            # The central generate_move_coaching call above already attached
+            # Socratic fields. Persist its plan without running the caption
+            # pipeline a second time or replacing the verified narrative.
             if coaching.severity in ("mistake", "blunder"):
                 try:
-                    # Build SAN history from session for opening-theory gate
-                    _mh_san = []
-                    for entry in (session_doc.get("move_history") or []):
-                        m = entry.get("move") if isinstance(entry, dict) else None
-                        if m:
-                            _mh_san.append(m)
-
-                    from services.live_v5_teaching import socratic_feedback_for_live_move
-                    smart_fb = socratic_feedback_for_live_move(
-                        fen_before=board.fen(),
-                        played_san=move_san,
-                        user_color=user_color,
-                        severity=coaching.severity,
-                        fundamental_violated=coaching_dict.get("fundamental_violated"),
-                        coach_intent=_coach_intent,
-                        phase=phase_str,
-                        cp_loss=cp_loss,
-                        user_rating=session_doc.get("user_rating", 1200),
-                        pv_after_played=pv_after_played,
-                        move_history_san=_mh_san,
-                        best_move_san=best_move,
-                    )
-                    if smart_fb:
-                        logger.info(
-                            f"[SOCRATIC] Central layer produced output for "
-                            f"{move_san!r} (severity={coaching.severity}): "
-                            f"narrative={smart_fb.get('narrative', '')[:60]!r}"
+                    _focus_plan = coaching_dict.get("focus_plan")
+                    if _focus_plan:
+                        await db.coach_sessions.update_one(
+                            {"session_id": session_id},
+                            {"$set": {"active_coach_plan": _focus_plan}},
                         )
-                    else:
-                        logger.info(
-                            f"[SOCRATIC] Central layer suppressed for "
-                            f"{move_san!r} (gate fired or severity skip — "
-                            f"matches prior smart_coaching None semantics)"
-                        )
-                    if smart_fb:
-                        if smart_fb.get("question"):
-                            coaching_dict["socratic_question"] = smart_fb["question"]
-                        if smart_fb.get("hint"):
-                            coaching_dict["socratic_hint"] = smart_fb["hint"]
-
-                    # Explain WHY the best move is better
-                    if best_move and best_move != move_san:
-                        try:
-                            from services.move_comparison import compare_moves
-                            comparison = compare_moves(
-                                board, move_san, best_move, user_color,
-                                pv_after_best=pv_after_best,
-                            )
-                            if comparison and comparison.get("reasons"):
-                                coaching_dict["why_best_is_better"] = comparison["summary"]
-                                coaching_dict["comparison_reasons"] = comparison["reasons"][:3]
-                        except Exception:
-                            pass
-                        if smart_fb:
-                            if smart_fb.get("narrative"):
-                                coaching_dict["narrative"] = smart_fb["narrative"]
-                            if smart_fb.get("plan"):
-                                coaching_dict["focus_plan"] = smart_fb["plan"]
-                                # Store the plan on the session so we can check if student follows it
-                                try:
-                                    await db.coach_sessions.update_one(
-                                        {"session_id": session_id},
-                                        {"$set": {"active_coach_plan": smart_fb["plan"]}}
-                                    )
-                                except Exception:
-                                    pass
-                except Exception as smart_err:
-                    logger.debug(f"Smart user feedback failed (using template): {smart_err}")
+                except Exception as plan_err:
+                    logger.debug(f"Coach plan persistence failed: {plan_err}")
 
             # Compute best_move_uci for board arrow drawing
             if best_move and best_move != move_san:
@@ -3734,10 +3671,6 @@ async def get_interactive_coaching(
                         last_user_move.get("time_spent"), cp_loss,
                     )
                     if _t_match:
-                        coaching_dict["narrative"] = (
-                            f"{coaching_dict['narrative']} This is exactly the "
-                            f"pattern you're training right now."
-                        )
                         coaching_dict["training_focus_hit"] = _train_gap
                         logger.info(f"[training-focus] fired for {session_id} gap={_train_gap} cp={cp_loss}")
             except Exception as _tf_err:
@@ -3867,22 +3800,21 @@ async def get_interactive_coaching(
                     exc_info=True,
                 )
 
-            # Minimal SAN-only safety net: if the central layer crashed
-            # somehow, surface bare move SAN so the UI doesn't go blank.
-            # This is NOT a parallel teaching path — it's a one-line
-            # emergency response only. Should never fire in practice.
+            # Keep a neutral shell for later trap enrichment. A failed or
+            # routine central narration does not become a filler card.
             if not coach_explanation:
                 coach_explanation = {
                     "move_san": last_coach_move.get("move", ""),
-                    "explanation": f"I play {last_coach_move.get('move', '')}.",
+                    "explanation": "",
                     "plan": "",
                     "threats": [],
                     "teaching_point": "",
                     "hint_for_user": "",
+                    "teaching_worthy": False,
                 }
                 logger.warning(
-                    "[COACH-EXPLAIN] Central layer returned None; using minimal "
-                    "SAN-only fallback. Investigate the pipeline."
+                    "[COACH-EXPLAIN] Central layer returned None; suppressing "
+                    "the coach-move card."
                 )
 
             # Name the SPECIFIC opening, once at entry — reliable exact-prefix match
@@ -3956,6 +3888,8 @@ async def get_interactive_coaching(
                 if intent_materialized and (not in_opening or v2_intent in ("fork_opportunity", "hanging_piece_punishment")):
                     coach_explanation["v2_intent"] = v2_intent
                     coach_explanation["v2_label"] = intent_labels.get(v2_intent, "")
+                    if coach_explanation["v2_label"]:
+                        coach_explanation["teaching_worthy"] = True
                 else:
                     coach_explanation["v2_label"] = ""
 
@@ -4003,6 +3937,7 @@ async def get_interactive_coaching(
                                 piece="", square="", target="", target_square="", defenders="",
                             )
                             if trap_text:
+                                coach_explanation["teaching_worthy"] = True
                                 coach_explanation["trap_warning"] = {
                                     "name": trap.name,
                                     "hint": trap_text.get("explanation", ""),
@@ -4017,6 +3952,7 @@ async def get_interactive_coaching(
                                 logger.info(f"[TRAP] Approaching: {trap.name}")
                         elif moves_played == trap_setup_len:
                             # Student's next move is the trap decision point
+                            coach_explanation["teaching_worthy"] = True
                             coach_explanation["trap_warning"] = {
                                 "name": trap.name,
                                 "is_decision_point": True,
@@ -4041,7 +3977,8 @@ async def get_interactive_coaching(
             except Exception as trap_err:
                 logger.debug(f"Trap detection failed: {trap_err}")
 
-            result["coach_move_coaching"] = coach_explanation
+            if coach_explanation.get("teaching_worthy") or coach_explanation.get("trap_warning"):
+                result["coach_move_coaching"] = coach_explanation
         except Exception as e:
             logger.warning(f"Error generating coach move explanation: {e}")
 
@@ -5561,36 +5498,6 @@ async def evaluate_pending_move(
                 text = tmpl["text"]
 
             # else: stay silent — nothing position-specific to say
-
-        # ─── ANTI-SILENCE RULES ─────
-        # Rule 1: Force ambient in opening if nothing else triggered
-        if layer == "silent" and fast_signals.get("is_opening_phase") and move_number >= 3:
-            if move_number <= 6:
-                layer = "ambient"
-                concept_key = "opening_phase"
-                category = "opening_orientation"
-                severity = "low"
-                tmpl = pick_template("ambient", "development_phase", {}, session_id)
-                text = tmpl["text"]
-            elif fast_signals.get("king_unsafe"):
-                layer = "ambient"
-                concept_key = "king_safety_ambient"
-                category = "opening_orientation"
-                severity = "low"
-                tmpl = pick_template("ambient", "king_uncommitted", {}, session_id)
-                text = tmpl["text"]
-
-        # Rule 2: No silent gap > 2 moves — force ambient if coach has been quiet
-        if layer == "silent" and moves_since_last_msg >= 3:
-            # Generate a position-awareness message
-            board_for_ambient = board_after if board_after else chess.Board(fen_before)
-            _ambient = _generate_gap_filler(board_for_ambient, user_color, move_number, fast_signals, session_id)
-            if _ambient:
-                layer = _ambient["layer"]
-                text = _ambient["text"]
-                concept_key = _ambient["concept_key"]
-                category = _ambient["category"]
-                severity = _ambient["severity"]
 
         # ─── DUPLICATE SUPPRESSION ─────
         # Same concept within last 8 moves → downgrade to silent (except critical)

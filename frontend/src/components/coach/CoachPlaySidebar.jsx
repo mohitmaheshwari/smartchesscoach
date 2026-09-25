@@ -459,7 +459,6 @@ const LegacyChatMessages = ({
   setInlineOpening,
   moveFeedback,
   setMoveFeedback,
-  loadingFeedback,
   gameOver,
 }) => (
   <div
@@ -489,15 +488,6 @@ const LegacyChatMessages = ({
       />
     )}
 
-    {loadingFeedback && (
-      <div className="p-3 rounded-lg bg-primary/5 border border-primary/10 animate-pulse">
-        <div className="flex items-center gap-2 text-sm text-primary">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          <span>Analyzing your move...</span>
-        </div>
-      </div>
-    )}
-
     {chatMessages.length === 0 && !moveFeedback && !gameOver && (
       <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
         <div className="flex items-start gap-2">
@@ -514,7 +504,7 @@ const LegacyChatMessages = ({
       </div>
     )}
 
-    {chatMessages.map((msg, i) => (
+    {chatMessages.filter((msg) => msg.type !== "thinking").map((msg, i) => (
       <div
         key={i}
         className={`p-3 rounded-lg ${
@@ -953,7 +943,7 @@ const LegacyChatMessages = ({
         <div className="flex items-center gap-2">
           <Loader2 className="w-4 h-4 text-primary animate-spin" />
           <span className="text-sm text-muted-foreground">
-            Coach is thinking...
+            Replying...
           </span>
         </div>
       </div>
@@ -990,7 +980,6 @@ const CoachPlaySidebar = ({
   consequenceFeedback,
   setConsequenceFeedback,
   isCoachThinking,
-  loadingFeedback,
   acknowledgedConcepts,
   activeTrapAlert,
   setActiveTrapAlert,
@@ -1243,28 +1232,6 @@ const CoachPlaySidebar = ({
                 component: "CoachPlaySidebar.PunishmentPuzzle",
               }}
             />
-
-            {/* Coach is thinking — shimmer placeholder while move feedback
-                is being generated (scope: PWC coach-message shimmer). */}
-            <AnimatePresence>
-              {loadingFeedback && !gameOver && (
-                <motion.div
-                  key="coach-thinking-shimmer"
-                  variants={slideInRight}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  className="relative overflow-hidden rounded-xl border border-border bg-muted/20 px-4 py-3"
-                  data-testid="coach-thinking-shimmer"
-                >
-                  <p className="text-[12px] text-muted-foreground flex items-center gap-2">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Coach is thinking…
-                  </p>
-                  <div className="absolute inset-0 animate-shimmer pointer-events-none" />
-                </motion.div>
-              )}
-            </AnimatePresence>
 
             <AnimatePresence>
             {interactiveCoaching?.coachMoveCoaching?.explanation && (() => {
@@ -1579,11 +1546,6 @@ const CoachPlaySidebar = ({
               );
             })()}
 
-            {/* Fundamentals Checklist — shows pass/fail for 7 fundamentals */}
-            {v5Coaching?.checklist_snapshot && (
-              <FundamentalsChecklist snapshot={v5Coaching.checklist_snapshot} />
-            )}
-
             {/* All old sections removed: trap opportunity, eval label,
                 position read, behavioral coaching — v2 handles everything */}
 
@@ -1864,7 +1826,6 @@ const CoachPlaySidebar = ({
             setInlineOpening={setInlineOpening}
             moveFeedback={moveFeedback}
             setMoveFeedback={setMoveFeedback}
-            loadingFeedback={loadingFeedback}
             gameOver={gameOver}
           />
 
@@ -2007,44 +1968,6 @@ const PreMoveFundamentals = () => {
           </div>
         ))}
       </div>
-    </div>
-  );
-};
-
-
-// ─── Fundamentals Checklist ─────────────────────────────────────
-
-const FUNDAMENTAL_ICONS = {
-  check_opponents_move: { label: "Threats", icon: "👁" },
-  hanging_pieces: { label: "Hanging", icon: "🛡" },
-  king_safety: { label: "King", icon: "♔" },
-  calculate: { label: "Calculate", icon: "🧮" },
-  development: { label: "Develop", icon: "♞" },
-  center_control: { label: "Center", icon: "⊞" },
-  have_a_plan: { label: "Plan", icon: "🎯" },
-};
-
-const FundamentalsChecklist = ({ snapshot }) => {
-  if (!snapshot) return null;
-  const entries = Object.entries(snapshot);
-  return (
-    <div className="flex flex-wrap gap-1.5 px-1 py-2">
-      {entries.map(([key, passed]) => {
-        const info = FUNDAMENTAL_ICONS[key] || { label: key, icon: "?" };
-        return (
-          <span
-            key={key}
-            title={info.label}
-            className={`text-xs px-1.5 py-0.5 rounded ${
-              passed
-                ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                : "bg-red-50 text-red-600 border border-red-200 font-semibold"
-            }`}
-          >
-            {info.icon} {info.label}
-          </span>
-        );
-      })}
     </div>
   );
 };

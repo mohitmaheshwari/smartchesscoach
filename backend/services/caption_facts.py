@@ -5221,12 +5221,17 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
                 return None
             name = PIECE_TYPE_NAMES.get(cap_pt, "piece")
             see = static_exchange_eval(board, move.to_square, mover)
+            capture_board = board.copy()
+            capture_board.push(move)
+            with_check = capture_board.is_check()
             if see is not None and see >= 200:
-                return "wins material"
+                return "wins material with check" if with_check else "wins material"
             if see is not None and see >= 80:
-                return "wins a pawn" if cap_pt == chess.PAWN else "wins material"
+                if cap_pt == chess.PAWN:
+                    return "wins a pawn with check" if with_check else "wins a pawn"
+                return "wins material with check" if with_check else "wins material"
             # equal-ish exchange — the value is removing the piece, not material
-            return f"trades his {name}"
+            return f"takes the {name} with check" if with_check else f"trades his {name}"
 
         # CASTLE — its whole purpose is king safety; name that, not an incidental
         # "defends f7" the rook happens to add. Checked before threat/escape/defends.
@@ -5972,6 +5977,147 @@ def extract_facts(
             if _played_move_why and _played_move_why == best_move_why:
                 best_move_why = None
         except Exception:
+            pass
+    if (
+        not best_move_why
+        and played_drops_material
+        and played_drops_piece
+        and material_delta_best_cp >= material_delta_played_cp + 100
+    ):
+        best_move_why = f"keeps your {played_drops_piece} safe"
+    if not best_move_why and played_drops_piece and opp_reply_san and _best_mv is not None:
+        try:
+            best_board = board_before.copy()
+            best_board.push(_best_mv)
+            best_board.parse_san(opp_reply_san)
+        except (chess.InvalidMoveError, chess.IllegalMoveError, ValueError):
+            best_move_why = f"keeps your {played_drops_piece} out of that capture"
+    if not best_move_why and mate_threat_evidence:
+        own_side = "white" if own_color == chess.WHITE else "black"
+        if (
+            mate_threat_evidence.get("via_played_move")
+            and not mate_threat_evidence.get("via_best_move")
+            and mate_threat_evidence.get("side_delivering_mate") != own_side
+        ):
+            best_move_why = "keeps your king out of the forced mating line"
+    if not best_move_why and opp_reply_san and _best_mv is not None:
+        try:
+            played_reply = board_after.parse_san(opp_reply_san)
+            if board_after.is_capture(played_reply):
+                captured = board_after.piece_at(played_reply.to_square)
+                if captured is not None and captured.color == own_color:
+                    captured_name = PIECE_TYPE_NAMES.get(captured.piece_type, "piece")
+                    captured_square = chess.square_name(played_reply.to_square)
+                    best_board = board_before.copy()
+                    best_board.push(_best_mv)
+                    try:
+                        best_reply = best_board.parse_san(
+                            opp_reply_san.rstrip("+#")
+                        )
+                    except (
+                        chess.InvalidMoveError,
+                        chess.IllegalMoveError,
+                        ValueError,
+                    ):
+                        best_move_why = (
+                            f"keeps your {captured_name} out of that capture"
+                        )
+                    else:
+                        best_captured = best_board.piece_at(best_reply.to_square)
+                        best_see = static_exchange_eval(
+                            best_board,
+                            best_reply.to_square,
+                            best_board.turn,
+                        )
+                        if (
+                            best_captured is not None
+                            and best_captured.color == own_color
+                            and (best_see or 0) <= 0
+                        ):
+                            best_move_why = (
+                                f"keeps your {captured_name} on {captured_square} "
+                                f"defended against {opp_reply_san}"
+                            )
+        except (
+            chess.InvalidMoveError,
+            chess.IllegalMoveError,
+            ValueError,
+        ):
+            pass
+    if (
+        not best_move_why
+        and opp_reply_creates_fork
+        and opp_reply_san
+        and _best_mv is not None
+    ):
+        try:
+            best_board = board_before.copy()
+            best_board.push(_best_mv)
+            best_reply = best_board.parse_san(opp_reply_san.rstrip("+#"))
+            best_board.push(best_reply)
+            attacked_user_pieces = [
+                sq
+                for sq in best_board.attacks(best_reply.to_square)
+                if (
+                    (piece := best_board.piece_at(sq)) is not None
+                    and piece.color == own_color
+                    and piece.piece_type != chess.PAWN
+                )
+            ]
+            if len(attacked_user_pieces) < 2:
+                best_move_why = (
+                    f"keeps {opp_reply_san} from attacking two of your "
+                    f"pieces at once"
+                )
+        except (
+            chess.InvalidMoveError,
+            chess.IllegalMoveError,
+            ValueError,
+        ):
+            best_move_why = (
+                f"keeps {opp_reply_san} from attacking two of your pieces at once"
+            )
+    if (
+        not best_move_why
+        and opp_reply_attacks_played_piece
+        and opp_reply_san
+        and moving_piece_type is not None
+    ):
+        best_move_why = (
+            f"keeps your {PIECE_TYPE_NAMES.get(moving_piece_type, 'piece')} "
+            f"away from {target_square}, where {opp_reply_san} can attack it"
+        )
+    if (
+        not best_move_why
+        and opp_reply_san
+        and opp_reply_san.endswith(("+", "#"))
+        and _best_mv is not None
+    ):
+        try:
+            best_board = board_before.copy()
+            best_board.push(_best_mv)
+            try:
+                best_reply = best_board.parse_san(opp_reply_san.rstrip("+#"))
+            except (
+                chess.InvalidMoveError,
+                chess.IllegalMoveError,
+                ValueError,
+            ):
+                best_reply = None
+            if best_reply is None:
+                prevents_check = True
+            else:
+                best_board.push(best_reply)
+                prevents_check = not best_board.is_check()
+            if prevents_check:
+                best_move_why = (
+                    f"keeps {opp_reply_san.rstrip('+#')} from checking your king"
+                )
+        except (
+            chess.InvalidMoveError,
+            chess.IllegalMoveError,
+            ValueError,
+        ):
             pass
 
     # Queen-chase (verifiable-true): a NON-check, NON-capture queen move that's a real

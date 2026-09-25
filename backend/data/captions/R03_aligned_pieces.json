@@ -22,10 +22,10 @@
     {"variant": "xray_default"}
   ],
   "variants": {
-    "pin_to_king": "{played_san}. Pins the {front_piece_type} on {front_square} to the king.",
-    "skewer_king": "{played_san}. Skewers the king on {front_square} — when it moves, the {rear_piece_type} on {rear_square} is exposed.",
-    "skewer_default": "{played_san}. Skewers the {front_piece_type} on {front_square} — when it moves, the {rear_piece_type} on {rear_square} is exposed.",
-    "pin_front_lower": "{played_san}. Pins the {front_piece_type} on {front_square} against the {rear_piece_type} on {rear_square}.",
+    "pin_to_king": "{played_san}. The {front_piece_type} on {front_square} is shielding the king from this attack.",
+    "skewer_king": "{played_san}. Attacks the king on {front_square}; when it moves, the {rear_piece_type} on {rear_square} is next.",
+    "skewer_default": "{played_san}. Attacks the {front_piece_type} on {front_square}; if it moves, the {rear_piece_type} on {rear_square} is next.",
+    "pin_front_lower": "{played_san}. The {front_piece_type} on {front_square} is shielding the {rear_piece_type} on {rear_square} from this attack.",
     "xray_default": "{played_san}. Lines up the {front_piece_type} on {front_square} in front of the {rear_piece_type}."
   }
 }

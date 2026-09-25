@@ -21,7 +21,6 @@ import {
   Brain,
   Clock,
   Lightbulb,
-  Loader2,
   RotateCcw,
   Flag,
   Play,
@@ -365,15 +364,9 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                 Your turn
               </Badge>
             )}
-            {!isPlayerTurn && !gameOver && !coachThinking && (
+            {!isPlayerTurn && !gameOver && (
               <Badge className="bg-amber-500/20 text-amber-500 border-amber-200 text-xs">
                 Coach's turn
-              </Badge>
-            )}
-            {coachThinking && (
-              <Badge className="bg-blue-500/20 text-blue-500 border-blue-500/30 text-xs animate-pulse">
-                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                Thinking...
               </Badge>
             )}
           </div>

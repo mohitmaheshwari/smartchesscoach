@@ -7,7 +7,8 @@
       "human_name": "Short coach-voice name, 3-6 words. What you'd say to a student.",
       "short_description": "One sentence in coach voice. WHY it matters or WHAT it does, not just what it is.",
       "family": "Tactical/positional grouping. Used to roll up related patterns in insights ('you handle the Légal's family well — 4/5 hits').",
-      "example_fen": "Canonical example position. Optional — null means Mohit will fill from a known game later."
+      "example_fen": "Canonical example position. Optional — null means Mohit will fill from a known game later.",
+      "canonical_concept_id": "Optional existing caption_principles ID. New events use it as concept_id; pattern_id remains the stable legacy alias."
     }
   },
   "patterns": {
@@ -21,31 +22,36 @@
       "human_name": "Free piece win",
       "short_description": "A clean way to win a knight, bishop, rook, or queen — the engine saw it cleanly.",
       "family": "Material gains",
-      "example_fen": null
+      "example_fen": null,
+      "canonical_concept_id": "TAC_HANGING_PIECE"
     },
     "clearance_for_attack": {
       "human_name": "Open the line so your piece attacks",
       "short_description": "Move a piece out of the way so another of yours has a direct shot at the king or a key square.",
       "family": "Légal's family",
-      "example_fen": null
+      "example_fen": null,
+      "canonical_concept_id": "TAC_DISCOVERED_PATTERN"
     },
     "clearance_then_check": {
       "human_name": "Knight sacrifice for queen check",
       "short_description": "Sacrifice a knight (or pawn) to open the line so your queen can deliver check on the next move.",
       "family": "Légal's family",
-      "example_fen": null
+      "example_fen": null,
+      "canonical_concept_id": "TAC_DISCOVERED_PATTERN"
     },
     "queen_fork_capture_with_check": {
       "human_name": "Queen captures with check",
       "short_description": "Queen move that grabs material and checks the king on the same turn.",
       "family": "Forcing checks",
-      "example_fen": null
+      "example_fen": null,
+      "canonical_concept_id": "TAC_FORK_PATTERN"
     },
     "queen_fork": {
       "human_name": "Queen fork on king + piece",
       "short_description": "Queen move that attacks the king and another loose piece at once.",
       "family": "Forks",
-      "example_fen": null
+      "example_fen": null,
+      "canonical_concept_id": "TAC_FORK_PATTERN"
     },
     "attack_with_tempo": {
       "human_name": "Attack with tempo",
@@ -69,7 +75,8 @@
       "human_name": "Don't undevelop a piece",
       "short_description": "Moving a developed piece back to its starting square wastes a tempo — usually a better move exists.",
       "family": "Opening principles",
-      "example_fen": null
+      "example_fen": null,
+      "canonical_concept_id": "OP_SAME_PIECE_TWICE"
     },
     "defensive_pawn_push": {
       "human_name": "Don't push wing pawns when you should be developing",
@@ -105,13 +112,15 @@
       "human_name": "Move gives check; vacated square opens attack",
       "short_description": "Move a piece to check the king while the square it leaves opens a line for another of yours to hit a loose target.",
       "family": "Discovered attacks",
-      "example_fen": null
+      "example_fen": null,
+      "canonical_concept_id": "TAC_DISCOVERED_PATTERN"
     },
     "knight_on_rim": {
       "human_name": "Avoid knight on the rim in the opening",
       "short_description": "Knights on the a- or h-file in the opening attack very few squares — develop toward the center instead.",
       "family": "Opening principles",
-      "example_fen": null
+      "example_fen": null,
+      "canonical_concept_id": "OP_KNIGHT_ON_RIM"
     },
     "pawn_kicks_piece": {
       "human_name": "Pawn push that kicks an enemy piece",
@@ -129,7 +138,8 @@
       "human_name": "Attack the weak square in front of the king",
       "short_description": "Opponent's f- or g-pawn moved off its starting square, leaving a weak point in front of the king — pile up there.",
       "family": "King attacks",
-      "example_fen": null
+      "example_fen": null,
+      "canonical_concept_id": "MID_KING_SAFETY"
     },
     "trap_punishment": {
       "human_name": "Punish the known trap setup",

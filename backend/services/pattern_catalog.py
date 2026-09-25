@@ -58,8 +58,57 @@ def get_catalog() -> Dict:
 
 
 def get_pattern(pattern_id: str) -> Optional[Dict]:
-    """Return the catalog entry for a pattern_id, or None if unknown."""
-    return get_catalog().get("patterns", {}).get(pattern_id)
+    """Return one display record without duplicating caption principles.
+
+    Legacy snake_case patterns live in pattern_catalog.json. Canonical
+    ALL_CAPS principle IDs are adapted from caption_principles.py so the
+    event ledger can use one concept identity without copying coach text.
+    """
+    stored = get_catalog().get("patterns", {}).get(pattern_id)
+    if stored is not None:
+        return stored
+    try:
+        from services.caption_principles import PRINCIPLES
+
+        principle = next(
+            item for item in PRINCIPLES
+            if isinstance(item, dict) and item.get("id") == pattern_id
+        )
+    except (ImportError, StopIteration):
+        return None
+    prefix_family = {
+        "OP_": "Opening principles",
+        "TAC_": "Tactics",
+        "DEF_": "Defensive technique",
+        "MID_": "Positional",
+        "END_": "Endgame technique",
+        "STR_": "Strategy",
+    }
+    family = "Chess understanding"
+    for prefix, label in prefix_family.items():
+        if pattern_id.startswith(prefix):
+            family = label
+            break
+    return {
+        "human_name": principle.get("name") or pattern_id,
+        "short_description": (
+            principle.get("cue_best")
+            or principle.get("cue_top_n")
+            or principle.get("cue_absent")
+            or principle.get("name")
+            or pattern_id
+        ),
+        "family": family,
+        "example_fen": None,
+        "canonical_concept_id": pattern_id,
+        "source": "caption_principles",
+    }
+
+
+def canonical_concept_id(pattern_id: str) -> str:
+    """Resolve a legacy pattern alias to its existing canonical principle."""
+    entry = get_catalog().get("patterns", {}).get(pattern_id) or {}
+    return str(entry.get("canonical_concept_id") or pattern_id)
 
 
 def resolve_pattern_ids(caption_facts: Dict) -> List[str]:

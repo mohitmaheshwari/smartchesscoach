@@ -1100,11 +1100,10 @@ def update_session_suppression(
 # every coaching surface, including "coach narrates its own move,"
 # routes through caption_pipeline.build_move_teaching_decision.
 #
-# Unlike v5_teaching_decision_for_live_move (gated by weight + cooldown
-# thresholds — only ~20% of moves surface a teaching anchor), this
-# entry point is ALWAYS-ON for coach moves. PWC's frontend expects a
-# coach_move_coaching payload on every engine move, so the central
-# layer must produce one every time.
+# The central layer still renders every coach move so its facts remain
+# available, then this adapter marks whether the move has enough concrete
+# teaching value for a live card. Routine development and quiet repositioning
+# stay silent.
 # ────────────────────────────────────────────────────────────────────
 
 
@@ -1142,14 +1141,8 @@ def coach_move_narration_for_live_move(
             "v2_label": Optional[str],
         }
 
-    Returns None only when input validation fails (bad FEN / SAN).
-    PR-5 (2026-05-26): v2_context is no longer required — when caller
-    has no v2 teaching signal, the central layer still produces
-    deterministic narration via R17's terminal coach_quiet_
-    repositioning variant. Per
-    [[one-source-of-truth-for-coaching]] — every PWC coach move must
-    produce narration, no fallback path remains after smart_coaching
-    deletion.
+    Returns None only when input validation fails (bad FEN / SAN). The
+    returned teaching_worthy flag tells the route whether to display it.
 
     NOT gated by the pwc_v5_teaching feature flag — this is the always-
     on coach-narration surface, not the cooldown-gated user-side V5
@@ -1215,6 +1208,16 @@ def coach_move_narration_for_live_move(
         # but defensive.
         return None
 
+    facts = decision.debug_facts or {}
+    teaching_worthy = bool(
+        facts.get("coach_move_is_sound") is False
+        or facts.get("coach_target_was_undefended")
+        or facts.get("coach_was_castling")
+        or facts.get("is_check")
+        or facts.get("coach_attack_targets")
+        or facts.get("coach_move_is_retreat")
+    )
+
     return {
         "move_san": extras.move_san,
         "explanation": extras.explanation,
@@ -1225,6 +1228,7 @@ def coach_move_narration_for_live_move(
         "opponent_opportunity": extras.opponent_opportunity,
         "v2_intent": extras.v2_intent,
         "v2_label": extras.v2_label,
+        "teaching_worthy": teaching_worthy,
     }
 
 

@@ -104,7 +104,7 @@ class TextAudit:
 _PIECE_ON_SQUARE_RE = re.compile(
     r"\b(?:(your|their|my|opponent[''']?s|the|a|an)\s+)?"
     r"(king|queen|rook|bishop|knight|pawn)"
-    r"\s+on\s+"
+    r"\s+(?:is\s+)?on\s+"
     r"([a-h][1-8])\b",
     flags=re.IGNORECASE,
 )

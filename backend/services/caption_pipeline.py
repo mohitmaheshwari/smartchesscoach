@@ -538,6 +538,7 @@ class SeverityComputation:
     is_forced_recapture: bool
 
 
+
 def compute_severity_for_move(
     *,
     cp_loss: int,
@@ -3262,6 +3263,53 @@ def _verify_phase2_attack_claims(
     return None
 
 
+def _rewrite_phase2_forced_attack_response(
+    *,
+    caption_text: str,
+    fen_before: str,
+    best_move_san: Optional[str],
+    pv_after_best: List[str],
+) -> Optional[str]:
+    """Rewrite an immediate attack as a forced reply when the PV proves it.
+
+    The old phase-2 verifier rejected "attacks the knight on f3" when the
+    opponent answered by moving that knight.  The attack was real and useful;
+    it simply did not survive because it achieved its purpose.  Reword only
+    when the stored opponent reply starts on the claimed target square.
+    """
+    if not caption_text or not best_move_san or len(pv_after_best) < 2:
+        return None
+    try:
+        board = chess.Board(fen_before)
+        board.push_san(best_move_san)
+        reply = board.parse_san(pv_after_best[1])
+    except Exception:
+        return None
+
+    replacements: List[Tuple[int, int, str]] = []
+    for match in _PHASE2_ATTACKS_RE.finditer(caption_text):
+        try:
+            claimed_square = chess.parse_square(match.group(2).lower())
+        except Exception:
+            continue
+        if reply.from_square != claimed_square:
+            continue
+        replacements.append(
+            (
+                match.start(),
+                match.end(),
+                f"forces the {match.group(1).lower()} on "
+                f"{match.group(2).lower()} to move",
+            )
+        )
+    if not replacements:
+        return None
+    rewritten = caption_text
+    for start, end, replacement in reversed(replacements):
+        rewritten = rewritten[:start] + replacement + rewritten[end:]
+    return rewritten
+
+
 def _verify_and_recover_caption(
     *,
     caption_payload: Dict[str, Any],
@@ -3273,6 +3321,8 @@ def _verify_and_recover_caption(
     pv_after_best: List[str],
     severity_practical: str,
     mover_is_user: bool,
+    pv_after_played: Optional[List[str]] = None,
+    caption_facts: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Post-render board-grounding check.
 
@@ -3289,8 +3339,9 @@ def _verify_and_recover_caption(
       2. If no severity / no best move (clean move): "{played_san}." —
          factual mention only.
 
-    Returns a telemetry dict {original_text, verdict, recovery_text} or
-    None when the caption passed (most common case).
+    Returns a telemetry dict for every path. verdict is pass,
+    fail_recovered, not_applicable, or not_run. This lets persistent
+    concept events distinguish verified evidence from silence.
 
     The verifier itself is the one from scripts/content_correctness_audit.
     Mutates caption_payload in place; raising is OK (the caller has a
@@ -3298,7 +3349,7 @@ def _verify_and_recover_caption(
     """
     text_in = (caption_payload.get("caption") or "").strip()
     if not text_in:
-        return None  # nothing to verify
+        return {"verdict": "not_applicable", "reason": "empty_caption"}
 
     # Build the post-played-move board (Phase 1 claims like "your queen
     # on a7" reference the position AFTER the played move, which is what
@@ -3308,24 +3359,29 @@ def _verify_and_recover_caption(
         post_board.push(played_move)
         fen_after = post_board.fen()
     except Exception:
-        return None  # bad FEN/move — skip verify, leave caption alone
+        return {"verdict": "not_run", "reason": "invalid_position_or_move"}
 
     try:
-        from scripts.content_correctness_audit import audit_text_against_fen
+        from services.narrator_claim_verifier import verify_caption
     except Exception:
-        return None  # audit module unavailable — skip silently
+        return {"verdict": "not_run", "reason": "verifier_unavailable"}
 
     try:
-        audit = audit_text_against_fen(
-            text=text_in,
-            fen=fen_after,
-            user_color=user_color or "white",
-            engine=None,  # Phase 1 (piece-on-square) only
-        )
+        narrator_facts = {
+            "move_san": played_san,
+            "fen_before": fen_before,
+            "fen_after": fen_after,
+            "is_user_move": bool(mover_is_user),
+            "user_color": user_color or "white",
+            "best_move_san": best_move_san,
+            "pv_after_played": list(pv_after_played or []),
+            "pv_after_best": list(pv_after_best or []),
+        }
+        violations = verify_caption(text_in, narrator_facts)
     except Exception:
-        return None
+        return {"verdict": "not_run", "reason": "verifier_error"}
 
-    phase1_failed = (audit.overall == "fail")
+    phase1_failed = bool(violations)
 
     # Phase 2 (semantic): check "best_move attacks X on Y" survives opp PV[1].
     # No engine spawn — uses cached pv_after_best from MoveInputs (computed
@@ -3346,9 +3402,59 @@ def _verify_and_recover_caption(
             phase2_fail = None  # verifier crash — leave caption alone
 
     if not phase1_failed and phase2_fail is None:
-        return None  # both layers passed — caption ships unchanged
+        return {
+            "verdict": "pass",
+            "phase1": "pass",
+            "phase2": "pass",
+        }
 
-    # Build the recovery caption — bare severity, no piece claims.
+    if not phase1_failed and phase2_fail is not None:
+        reworded = _rewrite_phase2_forced_attack_response(
+            caption_text=text_in,
+            fen_before=fen_before,
+            best_move_san=best_move_san,
+            pv_after_best=pv_after_best or [],
+        )
+        if reworded:
+            try:
+                reworded_violations = verify_caption(reworded, narrator_facts)
+                reworded_phase2 = _verify_phase2_attack_claims(
+                    caption_text=reworded,
+                    fen_before=fen_before,
+                    best_move_san=best_move_san,
+                    pv_after_best=pv_after_best or [],
+                )
+                if not reworded_violations and reworded_phase2 is None:
+                    caption_payload["caption"] = reworded
+                    return {
+                        "verdict": "fail_recovered",
+                        "phase1": "pass",
+                        "phase2": "reworded_forced_response",
+                        "original_text": text_in,
+                        "recovery_text": reworded,
+                    }
+            except Exception:
+                pass
+
+    # Prefer the deterministic fact-based fallback when it can still teach.
+    # It uses the same extracted facts and is itself verified before shipping.
+    recovery = ""
+    recovery_rule = ""
+    if caption_facts:
+        try:
+            from services.caption_fallback_tiers import tier23_caption
+            candidate, candidate_rule = tier23_caption(
+                caption_facts,
+                flagged_mistake=bool(mover_is_user),
+            )
+            if candidate and not verify_caption(candidate, narrator_facts):
+                recovery = candidate
+                recovery_rule = candidate_rule
+        except Exception:
+            recovery = ""
+
+    # Last factual floor: severity + SAN only. PWC's teaching-worthiness gate
+    # suppresses this low-value shell; review can still display the verdict.
     _severity_phrases = {
         "blunder": "is a major blunder",
         "serious": "is a serious mistake",
@@ -3356,20 +3462,20 @@ def _verify_and_recover_caption(
         "inaccuracy": "is an inaccuracy",
     }
     sev_phrase = _severity_phrases.get((severity_practical or "").lower(), "")
-    if mover_is_user and sev_phrase and best_move_san and best_move_san != played_san:
-        recovery = f"{played_san} {sev_phrase}. {best_move_san} was better."
-    elif mover_is_user and sev_phrase:
-        recovery = f"{played_san} {sev_phrase}."
-    elif (not mover_is_user) and sev_phrase:
-        recovery = f"Opponent's {played_san} {sev_phrase}."
-    else:
-        # Clean move OR no severity — just acknowledge the SAN.
-        recovery = f"{played_san}."
+    if not recovery:
+        if mover_is_user and sev_phrase and best_move_san and best_move_san != played_san:
+            recovery = f"{played_san} {sev_phrase}. {best_move_san} was better."
+        elif mover_is_user and sev_phrase:
+            recovery = f"{played_san} {sev_phrase}."
+        elif (not mover_is_user) and sev_phrase:
+            recovery = f"Opponent's {played_san} {sev_phrase}."
+        else:
+            recovery = f"{played_san}."
 
     prev_rule = caption_payload.get("rule_name") or "R_FALLBACK"
     failed_claims = [
-        f"[{c.kind}] {c.text!r}: {c.detail}"
-        for c in audit.claims if c.verdict == "fail"
+        f"[{item.get('check')}] {item.get('detail')}"
+        for item in violations
     ]
     if phase2_fail is not None:
         failed_claims.append(f"[phase2_attack] {phase2_fail[0]!r}: {phase2_fail[1]}")
@@ -3379,12 +3485,265 @@ def _verify_and_recover_caption(
         f"-> '{recovery}'"
     )
     caption_payload["caption"] = recovery
-    caption_payload["rule_name"] = f"{prev_rule}→R_VERIFIER_RECOVERY"
+    caption_payload["rule_name"] = (
+        f"{prev_rule}→{recovery_rule}" if recovery_rule
+        else f"{prev_rule}→R_VERIFIER_RECOVERY"
+    )
     return {
         "original_text": text_in,
-        "verdict": "fail",
+        "verdict": "fail_recovered",
         "recovery_text": recovery,
         "failed_claims": failed_claims,
+    }
+
+
+_SERIOUS_TEACHING_TIERS = {"mistake", "serious", "blunder"}
+_WHY_BAD_TEXT_RE = _re_pb.compile(
+    r"(?:\bloses?\s+to\b|\blets?\b|\ballows?\b|\bwalks?\s+into\b|\bruns?\s+into\b|"
+    r"\bdrops?\b|\bhangs?\b|\bleaves?\b|\bmiss(?:es|ed)\s+the\s+chance\b|"
+    r"\bignores?\b|\bgives?\s+up\b|\bweakens?\b|\bblocks?\b|"
+    r"\bfails?\s+to\b|\baway\s+from\s+defending\b|\blosing\s+material\b)",
+    _re_pb.I,
+)
+_WHY_BETTER_DETAIL_RE = _re_pb.compile(
+    r"^\s*(?:(?:it|this move|that move)\s+)?(?:also\s+)?(?:attacks?|captures?|wins?|forks?|develops?|defends?|"
+    r"trades?|recaptur\w*|sacrifices?|opens?|keeps?|puts?|hits?|breaks?|"
+    r"blocks?|makes?|protects?|saves?|covers?|forces?|untangl\w*|connects?|pins?|"
+    r"skewers?|moves?|gets?|takes?|gives?|posts?)\b",
+    _re_pb.I,
+)
+
+
+def _infinitive_reason(reason: str) -> str:
+    """Turn the verified 'it does X' slot into a 'chance to do X' slot."""
+    words = (reason or "").split()
+    if not words:
+        return ""
+    first = {
+        "takes": "take",
+        "develops": "develop",
+        "gets": "get",
+        "posts": "post",
+        "attacks": "attack",
+        "defends": "defend",
+        "trades": "trade",
+        "moves": "move",
+        "gives": "give",
+        "makes": "make",
+        "wins": "win",
+        "forces": "force",
+        "delivers": "deliver",
+    }.get(words[0].lower())
+    if first:
+        words[0] = first
+    return " ".join(words)
+
+
+def _verified_why_bad_clause(facts: Dict[str, Any]) -> str:
+    """Return one concrete downside supported by extracted board/PV facts."""
+    reply = (facts.get("opp_reply_san") or "").strip()
+    if facts.get("played_drops_material") and reply and facts.get("played_drops_piece"):
+        return f"it allows {reply}, which wins your {facts['played_drops_piece']}"
+    if facts.get("opp_reply_creates_fork") and reply:
+        p1 = facts.get("fork_target_1")
+        s1 = facts.get("fork_target_1_square")
+        p2 = facts.get("fork_target_2")
+        s2 = facts.get("fork_target_2_square")
+        if p1 and s1 and p2 and s2:
+            return (
+                f"it allows {reply}, attacking your {p1} on {s1} "
+                f"and your {p2} on {s2} at the same time"
+            )
+    mate = facts.get("mate_threat_evidence") or {}
+    if mate.get("via_played_move") and not mate.get("delivered_on_this_move"):
+        return "it allows a forced checkmate"
+    if facts.get("opp_reply_attacks_played_piece") and reply:
+        piece = facts.get("moving_piece_type") or "piece"
+        square = facts.get("target_square")
+        where = f" on {square}" if square else ""
+        return f"it allows {reply}, attacking your {piece}{where}"
+    if reply and (reply.endswith("+") or reply.endswith("#")):
+        return f"it allows {reply}, forcing your king to respond"
+    best_why = _infinitive_reason(facts.get("best_move_why") or "")
+    if best_why:
+        return f"it misses the chance to {best_why}"
+    return ""
+
+
+def _ensure_serious_teaching_contract(
+    *,
+    caption_payload: Dict[str, Any],
+    caption_facts: Dict[str, Any],
+    inputs: MoveInputs,
+    severity_practical: str,
+) -> None:
+    """Fill provable WHAT/WHY/BETTER/WHY-BETTER clauses in one place."""
+    requires_lesson = (
+        inputs.mover_is_user
+        and abs(int(inputs.cp_loss or 0)) >= 100
+        and severity_practical != "good"
+    )
+    if not requires_lesson:
+        return
+    played = (inputs.played_san or "").strip()
+    best = (inputs.best_move_san or "").strip()
+    best_why = (caption_facts.get("best_move_why") or "").strip()
+    caption = (caption_payload.get("caption") or "").strip()
+    if not caption:
+        why_bad = _verified_why_bad_clause(caption_facts)
+        if not played or not why_bad:
+            return
+        caption = f"{played} needs attention because {why_bad}."
+
+    _best_pos = caption.find(best) if best else -1
+    _played_clause = caption[:_best_pos] if _best_pos > 0 else caption
+    if not _WHY_BAD_TEXT_RE.search(_played_clause):
+        why_bad = ""
+        if played:
+            embedded_bad = _re_pb.search(
+                _re_pb.escape(played)
+                + r"\s+(?:runs?\s+into|loses?\s+to|allows?)\s+"
+                + r"([^,.!?]+)(?:,\s*(?:taking|winning)\s+your\s+(\w+))?",
+                caption,
+                _re_pb.I,
+            )
+            if embedded_bad:
+                reply = embedded_bad.group(1).strip()
+                lost_piece = (embedded_bad.group(2) or "").strip()
+                why_bad = (
+                    f"it allows {reply}, which takes your {lost_piece}"
+                    if lost_piece
+                    else f"it runs into {reply}"
+                )
+        if not why_bad:
+            why_bad = _verified_why_bad_clause(caption_facts)
+        if not why_bad and best:
+            existing_better = _re_pb.search(
+                _re_pb.escape(best)
+                + r"\s+was\s+(?:the\s+)?(?:better|stronger)(?:\s+move)?\s*[—-]\s*"
+                + r"([^.!?]+)",
+                caption,
+                _re_pb.I,
+            )
+            if (
+                existing_better
+                and _WHY_BETTER_DETAIL_RE.search(existing_better.group(1))
+            ):
+                reason = existing_better.group(1).strip()
+                reason = _re_pb.sub(
+                    r"^(?:it|this move|that move)\s+",
+                    "",
+                    reason,
+                    count=1,
+                    flags=_re_pb.I,
+                )
+                reason = _re_pb.sub(
+                    r"^also\s+",
+                    "",
+                    reason,
+                    count=1,
+                    flags=_re_pb.I,
+                )
+                reason = _infinitive_reason(reason)
+                if reason:
+                    why_bad = f"it misses the chance to {reason}"
+        if why_bad:
+            severity_match = _re_pb.search(
+                _re_pb.escape(played)
+                + r"\s+is\s+an?\s+(?:major\s+blunder|serious\s+mistake|mistake|inaccuracy)",
+                caption,
+                _re_pb.I,
+            )
+            if severity_match:
+                caption = (
+                    caption[:severity_match.end()]
+                    + f" — {why_bad}"
+                    + caption[severity_match.end():]
+                )
+            else:
+                caption = f"{played} needs attention because {why_bad}. {caption}"
+
+    if best and best != played:
+        best_occurs = best.replace("+", "").replace("#", "") in \
+            caption.replace("+", "").replace("#", "")
+        if not best_occurs:
+            suffix = f" {best} was better"
+            suffix += f" — it {best_why}." if best_why else "."
+            caption = caption.rstrip() + suffix
+        elif best_why:
+            better_re = _re_pb.compile(
+                _re_pb.escape(best)
+                + r"\s+was\s+(?:the\s+)?(?:better|stronger)(?:\s+move)?"
+                + r"(?:\s*[—-]\s*[^.!?]+)?\.",
+                _re_pb.I,
+            )
+            caption = better_re.sub(
+                f"{best} was better — it {best_why}.",
+                caption,
+                count=1,
+            )
+
+    caption_payload["caption"] = caption
+
+
+def _teaching_contract_status(
+    *,
+    caption: str,
+    inputs: MoveInputs,
+    severity_practical: str,
+    verification: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Machine-readable PWC display contract for serious user mistakes."""
+    text = (caption or "").strip()
+    played = (inputs.played_san or "").strip()
+    best = (inputs.best_move_san or "").strip()
+    normalized = text.replace("+", "").replace("#", "")
+    played_normalized = played.replace("+", "").replace("#", "")
+    best_normalized = best.replace("+", "").replace("#", "")
+
+    what = bool(played_normalized and played_normalized in normalized)
+    best_pos = text.find(best) if best else -1
+    played_clause = text[:best_pos] if best_pos > 0 else text
+    why_bad = bool(_WHY_BAD_TEXT_RE.search(played_clause))
+    better = bool(
+        not best
+        or best == played
+        or (best_normalized and best_normalized in normalized)
+    )
+    why_better_match = None
+    if best and best != played:
+        why_better_match = _re_pb.search(
+            _re_pb.escape(best)
+            + r"\s+was\s+(?:the\s+)?(?:better|stronger)(?:\s+move)?\s*[—-]\s*"
+            + r"([^.!?]+)",
+            text,
+            _re_pb.I,
+        )
+    why_better = bool(
+        not best
+        or best == played
+        or (
+            why_better_match
+            and _WHY_BETTER_DETAIL_RE.search(why_better_match.group(1))
+        )
+    )
+    verified = (verification or {}).get("verdict") in {"pass", "fail_recovered"}
+    required = bool(
+        inputs.mover_is_user
+        and abs(int(inputs.cp_loss or 0)) >= 100
+        and severity_practical != "good"
+    )
+    complete = bool(text) and verified and (
+        (what and why_bad and better and why_better) if required else True
+    )
+    return {
+        "required": required,
+        "complete": complete,
+        "what": what,
+        "why_bad": why_bad,
+        "better_move": better,
+        "why_better": why_better,
+        "verified": verified,
     }
 
 
@@ -4442,10 +4801,13 @@ def build_move_teaching_decision(
             user_color=inputs.user_color,
             played_san=inputs.played_san,
             best_move_san=inputs.best_move_san,
+            pv_after_played=list(inputs.pv_after_played or []),
             pv_after_best=list(inputs.pv_after_best or []),
             severity_practical=practical.practical_tier,
             mover_is_user=bool(inputs.mover_is_user),
+            caption_facts=caption_facts,
         )
+        caption_facts["caption_verification"] = _verifier_telemetry
     except Exception as _ver_exc:
         # Defensive: verifier MUST NOT break caption rendering. Any
         # exception logs + the original caption survives unchanged.
@@ -4453,6 +4815,12 @@ def build_move_teaching_decision(
             f"[caption_verifier] crashed on move {inputs.full_move_number}: "
             f"{_ver_exc!r} — leaving caption unchanged"
         )
+
+    if "caption_verification" not in caption_facts:
+        caption_facts["caption_verification"] = {
+            "verdict": "not_run",
+            "reason": "pipeline_exception",
+        }
 
     # v104 (Mohit 2026-06-03) — floor teaching principle for bare shell.
     # Runs BEFORE tier classification so the enriched caption gets the
@@ -4579,6 +4947,7 @@ def build_move_teaching_decision(
                 "fen_before": caption_facts.get("fen_before") or inputs.fen_before,
                 "fen_after": caption_facts.get("fen_after"),
                 "is_user_move": bool(inputs.mover_is_user),
+                "user_color": inputs.user_color,
                 "cp_loss": abs(int(inputs.cp_loss or 0)),
                 "best_move_san": inputs.best_move_san,
                 "pv_after_played": list(inputs.pv_after_played or []),
@@ -4762,12 +5131,17 @@ def build_move_teaching_decision(
                     logger.info(f"[conductor] goal anchor skipped: {_ga_exc}")
 
             if _conductor_thread and _conductor_thread.get("text"):
-                if _conductor_thread.get("prepend"):
+                _existing = (caption_payload.get("caption") or "").strip()
+                _preserve_serious_lesson = (
+                    inputs.mover_is_user
+                    and practical.practical_tier in _SERIOUS_TEACHING_TIERS
+                    and bool(_existing)
+                )
+                if _conductor_thread.get("prepend") or _preserve_serious_lesson:
                     # Keep the underlying engine why + better move; lead with the
                     # recurrence. If the move had no caption (shouldn't for a real
                     # mistake), at least name the engine's better move so the
                     # "why" law isn't violated.
-                    _existing = (caption_payload.get("caption") or "").strip()
                     if _existing:
                         caption_payload["caption"] = _conductor_thread["text"] + " " + _existing
                     else:
@@ -4780,6 +5154,62 @@ def build_move_teaching_decision(
                 caption_payload["rule_name"] = "R_CONDUCTOR_thread"
         except Exception as _ct_exc:
             logger.warning(f"[conductor] thread compute failed m{inputs.full_move_number}: {_ct_exc!r}")
+
+    # ─── FINAL TEACHING CONTRACT + VERIFY ───────────────────────
+    # All caption mutations (principle, pin, distilled template, conductor)
+    # have now finished. Complete serious lessons from verified facts, then
+    # verify the exact string that every surface will receive. Nothing may
+    # rewrite the narrative after this boundary.
+    try:
+        _ensure_serious_teaching_contract(
+            caption_payload=caption_payload,
+            caption_facts=caption_facts,
+            inputs=inputs,
+            severity_practical=practical.practical_tier,
+        )
+    except Exception as _contract_exc:
+        logger.warning(
+            f"[teaching_contract] enrich failed m{inputs.full_move_number}: "
+            f"{_contract_exc!r}"
+        )
+
+    try:
+        _final_verification = _verify_and_recover_caption(
+            caption_payload=caption_payload,
+            fen_before=inputs.fen_before,
+            played_move=played_move,
+            user_color=inputs.user_color,
+            played_san=inputs.played_san,
+            best_move_san=inputs.best_move_san,
+            pv_after_played=list(inputs.pv_after_played or []),
+            pv_after_best=list(inputs.pv_after_best or []),
+            severity_practical=practical.practical_tier,
+            mover_is_user=bool(inputs.mover_is_user),
+            caption_facts=caption_facts,
+        )
+        caption_facts["caption_verification"] = _final_verification
+    except Exception as _final_ver_exc:
+        caption_facts["caption_verification"] = {
+            "verdict": "not_run",
+            "reason": "final_verifier_exception",
+        }
+        logger.warning(
+            f"[final_caption_verifier] m{inputs.full_move_number}: "
+            f"{_final_ver_exc!r}"
+        )
+
+    # Tier and contract must describe the final verified text, not the string
+    # that existed before distilled/conductor enrichment.
+    tier = classify_caption_tier(
+        caption_text=caption_payload.get("caption") or "",
+        rule_name=caption_payload.get("rule_name") or "",
+    )
+    caption_facts["teaching_contract"] = _teaching_contract_status(
+        caption=caption_payload.get("caption") or "",
+        inputs=inputs,
+        severity_practical=practical.practical_tier,
+        verification=caption_facts.get("caption_verification"),
+    )
 
     # ─── Build the decision ──────────────────────────────────────
     text = TextSurface(

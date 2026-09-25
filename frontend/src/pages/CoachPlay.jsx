@@ -327,7 +327,6 @@ const CoachPlay = ({ user }) => {
   
   // NEW: Real-time move feedback state
   const [moveFeedback, setMoveFeedback] = useState(null);
-  const [loadingFeedback, setLoadingFeedback] = useState(false);
   
   // Board arrows for coaching visualization
   const [coachArrows, setCoachArrows] = useState([]);
@@ -386,6 +385,15 @@ const CoachPlay = ({ user }) => {
   // higher in this function listed v5Coaching as a dep, which threw
   // 'Cannot access yn before initialization' under Vite/Rollup minification.
   const [v5Coaching, setV5Coaching] = useState(null);
+  // Fast evaluation can classify a move before the full teaching caption is
+  // ready. Keep that preview separate so the board marker can update without
+  // mounting a half-empty coaching card that is replaced a moment later.
+  const [moveQualityPreview, setMoveQualityPreview] = useState(null);
+  // User-caption and coach-move requests can overlap. A cycle token prevents a
+  // late response from an older move replacing the current move's caption, and
+  // the published ref makes the first complete caption stable for that cycle.
+  const coachingCycleRef = useRef(0);
+  const publishedUserCaptionRef = useRef(null);
 
   // Client-side Stockfish (WASM) — computes the eval facts locally so PWC captions
   // route through the same central door as review with no server Stockfish call.
@@ -1008,12 +1016,19 @@ const CoachPlay = ({ user }) => {
   };
 
   const resumeSession = async (sessionId) => {
+    const coachingCycle = coachingCycleRef.current + 1;
+    coachingCycleRef.current = coachingCycle;
+    publishedUserCaptionRef.current = null;
+    setV5Coaching(null);
+    setMoveQualityPreview(null);
+
     try {
       const response = await fetch(`${API}/coach/play/state/${sessionId}`, {
         credentials: "include"
       });
       if (response.ok) {
         const data = await response.json();
+        if (coachingCycle !== coachingCycleRef.current) return;
         setSession(data.session);
         // Always ensure we have a valid FEN - fall back to starting position
         const validFen = data.current_fen || data.session?.current_fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -1038,7 +1053,7 @@ const CoachPlay = ({ user }) => {
           
           // Fetch feedback for the last move on resume
           setTimeout(() => {
-            fetchInteractiveCoaching(sessionId);
+            fetchInteractiveCoaching(sessionId, null, coachingCycle);
           }, 500);
         }
         
@@ -1048,7 +1063,7 @@ const CoachPlay = ({ user }) => {
           // It's coach's turn - trigger coach to make a move
           // The coach might have been interrupted mid-move
           setTimeout(() => {
-            triggerCoachMove(sessionId);
+            triggerCoachMove(sessionId, coachingCycle);
           }, 500);
         }
         
@@ -1116,9 +1131,12 @@ const CoachPlay = ({ user }) => {
   }, [openingCorrectionCount, session?.session_id]);
   
   // Trigger coach to make a move (used after resume when it's coach's turn)
-  const triggerCoachMove = async (sessionId) => {
+  const triggerCoachMove = async (
+    sessionId,
+    coachingCycle = coachingCycleRef.current
+  ) => {
+    if (coachingCycle !== coachingCycleRef.current) return;
     setCoachThinking(true);
-    setThinkingMessage("Coach is thinking...");
     
     try {
       const response = await fetch(`${API}/coach/play/trigger-coach-move`, {
@@ -1130,6 +1148,7 @@ const CoachPlay = ({ user }) => {
       
       // Read body once to avoid "body stream already read" errors
       const data = await response.json();
+      if (coachingCycle !== coachingCycleRef.current) return;
       if (response.ok) {
         if (data.success) {
           setCurrentFen(data.current_fen);
@@ -1143,7 +1162,7 @@ const CoachPlay = ({ user }) => {
               // For SAN moves, we need to get UCI from the API response
               // For now, just refetch the state to get proper lastMove
               setTimeout(() => {
-                fetchInteractiveCoaching(sessionId);
+                fetchInteractiveCoaching(sessionId, "coach_move", coachingCycle);
               }, 500);
             }
           }
@@ -1159,7 +1178,9 @@ const CoachPlay = ({ user }) => {
       console.error("Error triggering coach move:", error);
       toast.error("Error getting coach move");
     } finally {
-      setCoachThinking(false);
+      if (coachingCycle === coachingCycleRef.current) {
+        setCoachThinking(false);
+      }
     }
   };
 
@@ -1340,8 +1361,11 @@ const CoachPlay = ({ user }) => {
       window.history.replaceState({ gameMode, sessionId: data.session?.session_id }, '', newUrl);
 
       // Clear all coaching state at game start (especially important for Play Mode)
+      coachingCycleRef.current += 1;
+      publishedUserCaptionRef.current = null;
       setCoachArrows([]);
       setV5Coaching(null);
+      setMoveQualityPreview(null);
 
       // Set initial opening guidance — store ALL ideas for client-side arrows
       console.log("[CoachPlay] Start response openingGuidance:", data.openingGuidance);
@@ -1462,7 +1486,6 @@ const CoachPlay = ({ user }) => {
   const fetchMoveFeedbackForSession = async (sessionId) => {
     if (!sessionId) return;
 
-    setLoadingFeedback(true);
     setIsCoachThinking(true);
     try {
       const response = await fetch(`${API}/coach/play/feedback/${sessionId}`, {
@@ -1586,7 +1609,6 @@ const CoachPlay = ({ user }) => {
     } catch (error) {
       console.error("Error fetching move feedback:", error);
     } finally {
-      setLoadingFeedback(false);
       setIsCoachThinking(false);
     }
   };
@@ -1595,7 +1617,6 @@ const CoachPlay = ({ user }) => {
   const fetchUserMoveCoaching = async (sessionId) => {
     if (!sessionId) return;
 
-    setLoadingFeedback(true);
 
     try {
       const response = await fetch(`${API}/coach/play/v5/interactive-feedback`, {
@@ -1659,7 +1680,6 @@ const CoachPlay = ({ user }) => {
     } catch (error) {
       console.error("Error fetching user move coaching:", error);
     } finally {
-      setLoadingFeedback(false);
     }
   };
   
@@ -1694,11 +1714,12 @@ const CoachPlay = ({ user }) => {
             explanation: data.coach_move_coaching.explanation,
             move_san: data.coach_move_coaching.move_san,
           }));
-          setInteractiveCoaching(prev => ({
-            ...prev,
-            coachMoveCoaching: data.coach_move_coaching
-          }));
         }
+        setInteractiveCoaching(prev => ({
+          ...prev,
+          coachMoveCoaching: data.coach_move_coaching || null
+        }));
+        setCoachMoveExplanation(data.coach_move_coaching?.explanation || null);
 
         // Pre-move trap prompt — show BEFORE user's next move
         if (data.pre_move_trap) {
@@ -1720,15 +1741,20 @@ const CoachPlay = ({ user }) => {
     }
   };
   
-  // Combined fetch for resume/trigger (gets both at once)
-  const fetchInteractiveCoaching = async (sessionId, phase = null) => {
+  // Fetch one completed coaching payload. User-caption and coach-move requests
+  // are intentionally phase-separated so a later response cannot replace text
+  // the student has already started reading.
+  const fetchInteractiveCoaching = async (
+    sessionId,
+    phase = null,
+    coachingCycle = coachingCycleRef.current
+  ) => {
     if (!sessionId) {
       console.log("[V2-FLOW] fetchInteractiveCoaching called with no sessionId — skipping");
       return;
     }
 
     console.log("[V2-FLOW] fetchInteractiveCoaching START for session:", sessionId);
-    setLoadingFeedback(true);
 
     try {
       // Client-side eval for the just-played user move (browser WASM): await the
@@ -1766,6 +1792,10 @@ const CoachPlay = ({ user }) => {
       if (response.ok) {
         const data = await response.json();
 
+        // Ignore late responses from the previous move. Without this guard, a
+        // slow user-caption request can overwrite the next move's card.
+        if (coachingCycle !== coachingCycleRef.current) return;
+
         // Log EVERYTHING we received
         console.log("[V2-COACHING] === FULL RESPONSE ===");
         console.log("[USER-MOVE-DEBUG] Play Mode Check - user_move_coaching is:", data.user_move_coaching === null ? "NULL" : (data.user_move_coaching ? "YES" : "NO"));
@@ -1799,27 +1829,42 @@ const CoachPlay = ({ user }) => {
         console.log("[V2-COACHING] behavioral:", data.behavioral_coaching ? "YES" : "NO");
         console.log("[V2-COACHING] pre_move_trap:", data.pre_move_trap ? "YES" : "NO");
 
+        const candidateUserCaption = data.user_move_coaching;
+        const hasCompleteUserCaption = Boolean(
+          candidateUserCaption?.narrative?.trim()
+        );
+
+        // Publish at most one complete user caption per move. Fast evaluation
+        // still powers the board marker, but never mounts a partial text card.
+        if (
+          gameMode !== "play" &&
+          phase !== "coach_move" &&
+          hasCompleteUserCaption &&
+          !publishedUserCaptionRef.current
+        ) {
+          publishedUserCaptionRef.current = candidateUserCaption;
+          setV5Coaching(candidateUserCaption);
+          setMoveQualityPreview(null);
+        }
+
+        const stableUserCaption = publishedUserCaptionRef.current;
         setInteractiveCoaching(prev => ({
           ...(prev || {}),
-          userMoveCoaching: data.user_move_coaching || null,
-          trapResult: data.trap_result || null,
-          // On a user-move-only fetch the coach hasn't replied yet — keep the existing
-          // coach card instead of clobbering it to null.
-          ...(phase !== "user_move" ? { coachMoveCoaching: data.coach_move_coaching || null } : {}),
+          ...(phase !== "coach_move"
+            ? {
+                userMoveCoaching: stableUserCaption || null,
+                trapResult: data.trap_result || null,
+              }
+            : {}),
+          ...(phase !== "user_move"
+            ? { coachMoveCoaching: data.coach_move_coaching || null }
+            : {}),
         }));
 
-        if (data.user_move_coaching) {
-          console.log("[V2-FLOW] Setting v5Coaching with severity:", data.user_move_coaching.severity);
-          setV5Coaching(data.user_move_coaching);
-
-          // Coaching is NON-BLOCKING (Mohit 2026-07-07): show the feedback card
-          // but NEVER freeze the board. The old lock-on-mistake + "I understand —
-          // let me play" gate interrupted the game. The card still renders; the
-          // player just keeps playing.
-        } else {
-          console.log("[V2-FLOW] No user_move_coaching in response");
-          // Play Mode: clear coaching state and arrows
+        if (gameMode === "play" && phase !== "coach_move") {
+          publishedUserCaptionRef.current = null;
           setV5Coaching(null);
+          setMoveQualityPreview(null);
           setCoachArrows([]);
         }
 
@@ -1828,16 +1873,14 @@ const CoachPlay = ({ user }) => {
         // let me play" click. (Mohit 2026-07-07 — the popups stopped the game.)
 
         // Update CommentaryPanel with v2 coach explanation (replaces generic text)
-        if (data.coach_move_coaching?.explanation) {
-          setCoachMoveExplanation(data.coach_move_coaching.explanation);
-        }
+        setCoachMoveExplanation(
+          data.coach_move_coaching?.explanation || null
+        );
       } else {
         console.log("[V2-FLOW] interactive-feedback response NOT OK:", response.status);
       }
     } catch (error) {
       console.error("Error fetching interactive coaching:", error);
-    } finally {
-      setLoadingFeedback(false);
     }
   };
 
@@ -1917,7 +1960,6 @@ const CoachPlay = ({ user }) => {
   const fetchV5Coaching = async (moveSan, fenBefore, isUserMove = true, bestMove = null, pvAfterPlayed = [], cpLoss = 0) => {
     if (!session?.session_id) return;
     
-    setLoadingFeedback(true);
     setIsCoachThinking(true);
 
     try {
@@ -1985,7 +2027,6 @@ const CoachPlay = ({ user }) => {
     } catch (error) {
       console.error("Error fetching V5 coaching:", error);
     } finally {
-      setLoadingFeedback(false);
       setIsCoachThinking(false);
     }
   };
@@ -2133,20 +2174,16 @@ const CoachPlay = ({ user }) => {
     setFeedbackCorrectPattern("");
   };
 
-  // Coach is thinking
-  const THINKING_MESSAGES = [
-    "Studying your move...",
-    "Looking at the board...",
-    "Working out the reply...",
-    "Checking the candidates...",
-  ];
-  
   const [coachThinking, setCoachThinking] = useState(false);
-  const [thinkingMessage, setThinkingMessage] = useState("");
   const [undoLoading, setUndoLoading] = useState(false);
 
   // Execute the move (called after guardian check passes or user confirms)
   const executeMove = async (moveSan, timeSpent, isOverride = false, riskType = null) => {
+    const coachingCycle = coachingCycleRef.current + 1;
+    coachingCycleRef.current = coachingCycle;
+    publishedUserCaptionRef.current = null;
+    setMoveQualityPreview(null);
+
     // IMMEDIATELY clear all coaching state for clean transition
     setV5Coaching(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
@@ -2159,7 +2196,6 @@ const CoachPlay = ({ user }) => {
     // or leave it empty (normal move).
     setPuzzleFeedback(null);
     setIsCoachThinking(true);
-    setLoadingFeedback(true);
     setEscapeSquaresQuiz(null);
 
     try {
@@ -2209,7 +2245,6 @@ const CoachPlay = ({ user }) => {
       if (data.curriculum_redirect) {
         toast.error(data.message || "That's not the right move for this lesson.", { duration: 4000 });
         setIsCoachThinking(false);
-        setLoadingFeedback(false);
         return false;
       }
       
@@ -2264,29 +2299,19 @@ const CoachPlay = ({ user }) => {
         // reply. phase="user_move" returns only the user card (its eval is already
         // computed by evaluate-pending); the coach card still arrives after the coach
         // moves via the existing post-coach fetch. (Mohit 2026-06-27.)
-        fetchInteractiveCoaching(session?.session_id, "user_move");
+        fetchInteractiveCoaching(session?.session_id, "user_move", coachingCycle);
 
         setCoachThinking(true);
-        setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
         
         // Skip V5 feedback — the new coaching system (evaluate-pending + coachFlow)
         // already provides fundamentals, commentary, and coaching decisions.
         // V5 was the old system and would show duplicate/conflicting messages.
-        setLoadingFeedback(false);
         setIsCoachThinking(false);
         
-        // Add thinking message to chat
-        setChatMessages(prev => [...prev.filter(m => m.type !== "thinking"), {
-          type: "thinking",
-          message: THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)],
-          timestamp: Date.now()
-        }]);
-        
         // Poll for coach's response
-        pollForCoachResponse();
+        pollForCoachResponse(coachingCycle);
       } else {
         // No coach response expected - clear loading state
-        setLoadingFeedback(false);
         setIsCoachThinking(false);
       }
 
@@ -2296,13 +2321,14 @@ const CoachPlay = ({ user }) => {
       toast.error("Connection error. Please try again.");
       setIsPlayerTurn(true);
       setIsCoachThinking(false);
-      setLoadingFeedback(false);
       return false;
     }
   };
   
   // Poll for coach's move and messages
-  const pollForCoachResponse = async () => {
+  const pollForCoachResponse = async (
+    coachingCycle = coachingCycleRef.current
+  ) => {
     const maxAttempts = 30;  // 30 seconds max
     let attempts = 0;
     
@@ -2319,7 +2345,6 @@ const CoachPlay = ({ user }) => {
               setGameResult(lastData.session?.result || "draw");
               setCoachThinking(false);
               setIsCoachThinking(false);
-              setLoadingFeedback(false);
               setSession(lastData.session);
               if (lastData.current_fen) setCurrentFen(lastData.current_fen);
               return;
@@ -2331,7 +2356,6 @@ const CoachPlay = ({ user }) => {
               setIsPlayerTurn(true);
               setCoachThinking(false);
               setIsCoachThinking(false);
-              setLoadingFeedback(false);
               setMoveStartTime(Date.now());
               return;
             }
@@ -2341,7 +2365,6 @@ const CoachPlay = ({ user }) => {
         }
         setCoachThinking(false);
         setIsCoachThinking(false);
-        setLoadingFeedback(false);
         setIsPlayerTurn(true);
         setMoveStartTime(Date.now());
         toast.error("Coach took too long to respond. Your turn.");
@@ -2444,7 +2467,11 @@ const CoachPlay = ({ user }) => {
             // Socratic coaching, stores move snapshots, and gets coach move explanation
             console.log("[V2-FLOW] Coach move received, calling fetchInteractiveCoaching now...");
             // Don't lock here — lock decision happens AFTER we see the coaching response
-            fetchInteractiveCoaching(session?.session_id || sessionId);
+            fetchInteractiveCoaching(
+              session?.session_id || sessionId,
+              "coach_move",
+              coachingCycle
+            );
 
             return;
           }
@@ -2653,6 +2680,10 @@ const CoachPlay = ({ user }) => {
     if (!pendingMove) return;
     
     const { moveSan, timeSpent, riskType, chess, originalFen } = pendingMove;
+    const coachingCycle = coachingCycleRef.current + 1;
+    coachingCycleRef.current = coachingCycle;
+    publishedUserCaptionRef.current = null;
+    setMoveQualityPreview(null);
     
     // Update board to show the move
     setCurrentFen(chess.fen());
@@ -2668,7 +2699,6 @@ const CoachPlay = ({ user }) => {
     setCurrentInsight(null);
     setConsequenceFeedback(null);
     setIsCoachThinking(true);
-    setLoadingFeedback(true);
 
     try {
       // Confirm endpoint processes the move AND triggers coach response
@@ -2691,7 +2721,6 @@ const CoachPlay = ({ user }) => {
         setCurrentFen(originalFen);
         setIsPlayerTurn(true);
         setIsCoachThinking(false);
-        setLoadingFeedback(false);
         return;
       }
 
@@ -2710,21 +2739,18 @@ const CoachPlay = ({ user }) => {
         setGameOver(true);
         setGameResult(data.result);
         setIsCoachThinking(false);
-        setLoadingFeedback(false);
         return;
       }
 
       // Coach is now thinking — poll for response
       if (data.awaiting_coach) {
         setCoachThinking(true);
-        setThinkingMessage(THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)]);
-        fetchUserMoveCoaching(session.session_id);
-        pollForCoachResponse();
+        fetchInteractiveCoaching(session.session_id, "user_move", coachingCycle);
+        pollForCoachResponse(coachingCycle);
       } else {
         // PLAY MODE: No coach response expected — immediately ready for next move
         setIsPlayerTurn(true);
         setIsCoachThinking(false);
-        setLoadingFeedback(false);
         setMoveStartTime(Date.now());
       }
     } catch (error) {
@@ -2733,7 +2759,6 @@ const CoachPlay = ({ user }) => {
       setCurrentFen(originalFen);
       setIsPlayerTurn(true);
       setIsCoachThinking(false);
-      setLoadingFeedback(false);
     }
   };
 
@@ -2790,9 +2815,12 @@ const CoachPlay = ({ user }) => {
     if (!session || !isPlayerTurn || gameOver || !currentFen) return false;
 
     // Clear coaching state for new move
+    coachingCycleRef.current += 1;
+    publishedUserCaptionRef.current = null;
     setCoachArrows([]);
     setPreMoveTrap(null);
     setV5Coaching(null);
+    setMoveQualityPreview(null);
     setOpeningDeviation(null);
     setCoachMoveExplanation(null);
 
@@ -3009,9 +3037,10 @@ const CoachPlay = ({ user }) => {
     );
     console.log("[V2-FLOW] handleUserMove result: autoCommitted=", autoCommitted, "moveQuality=", moveQuality);
 
-    // Show board label IMMEDIATELY from evaluate-pending (don't wait for interactive-feedback)
+    // Show only the board label from fast evaluation. The coaching card waits
+    // for the complete narrative so it appears once and remains stable.
     if (moveQuality) {
-      setV5Coaching({ severity: moveQuality, move_san: moveData.san });
+      setMoveQualityPreview({ severity: moveQuality, move_san: moveData.san });
       console.log("[V2-BOARD] Instant label from evaluate-pending:", moveData.to, moveQuality);
     }
 
@@ -3070,6 +3099,8 @@ const CoachPlay = ({ user }) => {
   };
 
   const newGame = () => {
+    coachingCycleRef.current += 1;
+    publishedUserCaptionRef.current = null;
     setSession(null);
     setGameStarted(false);
     setGameOver(false);
@@ -3085,6 +3116,7 @@ const CoachPlay = ({ user }) => {
     // Reset move feedback
     setMoveFeedback(null);
     setV5Coaching(null);
+    setMoveQualityPreview(null);
     setInteractiveCoaching({ userMoveCoaching: null, coachMoveCoaching: null });
     setBehavioralCoaching(null);
     setFundamentalViolations([]);
@@ -3130,7 +3162,6 @@ const CoachPlay = ({ user }) => {
         throw new Error(data.detail || data.message || "Could not undo the move");
       }
       setCoachThinking(false);
-      setLoadingFeedback(false);
       setMoveFeedback(null);
       setActiveTrapAlert(null);
 
@@ -3447,8 +3478,9 @@ const CoachPlay = ({ user }) => {
             // Play Mode: no move classification badges
             if (gameMode === "play") return null;
             // Show classification on the USER's move square (persists after coach moves)
-            const cls = v5Coaching?.severity && userLastMoveSquare
-              ? { square: userLastMoveSquare, type: v5Coaching.theory_applied ? "book" : v5Coaching.severity }
+            const visibleQuality = v5Coaching || moveQualityPreview;
+            const cls = visibleQuality?.severity && userLastMoveSquare
+              ? { square: userLastMoveSquare, type: v5Coaching?.theory_applied ? "book" : visibleQuality.severity }
               : null;
             if (cls) console.log("[V2-BOARD] Move label:", cls.square, cls.type);
             return cls;
@@ -3498,7 +3530,6 @@ const CoachPlay = ({ user }) => {
           consequenceFeedback={consequenceFeedback}
           setConsequenceFeedback={setConsequenceFeedback}
           isCoachThinking={isCoachThinking}
-          loadingFeedback={loadingFeedback}
           acknowledgedConcepts={acknowledgedConcepts}
           activeTrapAlert={activeTrapAlert}
           setActiveTrapAlert={setActiveTrapAlert}

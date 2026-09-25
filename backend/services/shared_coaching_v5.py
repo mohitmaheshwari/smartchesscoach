@@ -106,6 +106,11 @@ class V5Coaching:
     checklist_snapshot: Optional[Dict] = None      # All 7 fundamentals pass/fail
     hide_best_move: bool = False                   # Frontend hides best_move when True
     suppress: bool = False                         # Coach deliberately silent (policy layer said so)
+    suppression_reason: Optional[str] = None       # Machine-readable reason for intentional silence
+    teaching_worthy: Optional[bool] = None         # Final PWC usefulness gate
+    caption_tier: Optional[str] = None              # HIGH/MID/LOW/NONE from central classifier
+    teaching_contract: Optional[Dict] = None        # WHAT/WHY/BETTER/WHY-BETTER evidence
+    caption_verification: Optional[Dict] = None     # Final rendered-string verifier result
     conductor_thread: Optional[dict] = None        # Coach Conductor: the player-model thread that fired (if any)
 
     def to_dict(self) -> Dict:
@@ -775,8 +780,8 @@ def _central_narrative_for_move(
     player_identity: Optional[Dict[str, Any]] = None,
     session_focus: Optional[Dict[str, Any]] = None,
     session_conductor_threads_pulled: Optional[set] = None,
-) -> "tuple[str, Optional[str]]":
-    """Return (caption, severity_practical) from the central caption
+) -> "tuple[str, Optional[str], Optional[dict], Dict[str, Any]]":
+    """Return caption, practical severity, conductor thread, and metadata from the central caption
     pipeline for this move — the SAME text + severity the review surface
     produces — or ("", None) if the central layer is deliberately silent /
     fails.
@@ -804,7 +809,10 @@ def _central_narrative_for_move(
         )
     except Exception as exc:
         logger.info(f"[central_narrative] import failed: {exc}")
-        return "", None
+        return "", None, None, {
+            "central_status": "import_error",
+            "central_error": type(exc).__name__,
+        }
     try:
         user_color_norm = (user_color or "white").lower()
         user_is_white = user_color_norm == "white"
@@ -860,10 +868,81 @@ def _central_narrative_for_move(
         sev_practical = getattr(decision.teaching_meta, "severity_practical", None)
         # 3rd element: the Coach Conductor thread (or None). When set, `caption`
         # IS the thread statement and the caller surfaces it as the chosen voice.
-        return caption, sev_practical, getattr(decision, "conductor_thread", None)
+        meta = {
+            "central_status": "caption" if caption else "empty",
+            "caption_tier": getattr(decision.teaching_meta, "caption_tier", "NONE"),
+            "has_teaching_content": bool(
+                getattr(decision.teaching_meta, "has_teaching_content", False)
+            ),
+            "caption_severity_word": getattr(
+                decision.teaching_meta, "caption_severity_word", None
+            ),
+            "stayed_winning": bool(
+                getattr(decision.teaching_meta, "stayed_winning", False)
+            ),
+            "decisiveness_changed": bool(
+                getattr(decision.teaching_meta, "decisiveness_changed", False)
+            ),
+            "mover_state_before": getattr(
+                decision.teaching_meta, "mover_state_before", "balanced"
+            ),
+            "mover_state_after": getattr(
+                decision.teaching_meta, "mover_state_after", "balanced"
+            ),
+            "principle_id_used": getattr(
+                decision.teaching_meta, "principle_id_used", None
+            ),
+            "teaching_contract": decision.debug_facts.get("teaching_contract") or {},
+            "caption_verification": decision.debug_facts.get("caption_verification") or {},
+        }
+        return caption, sev_practical, getattr(decision, "conductor_thread", None), meta
     except Exception as exc:
         logger.info(f"[central_narrative] failed for {move_san!r}: {exc}")
-        return "", None, None
+        return "", None, None, {
+            "central_status": "exception",
+            "central_error": type(exc).__name__,
+        }
+
+
+def _pwc_teaching_worthiness(
+    *,
+    raw_severity: str,
+    practical_severity: Optional[str],
+    central_meta: Dict[str, Any],
+    conductor_thread: Optional[Dict[str, Any]],
+    played_is_best: bool = False,
+) -> "tuple[bool, str]":
+    """Decide whether one completed central caption deserves a live card."""
+    verification = (central_meta.get("caption_verification") or {}).get("verdict")
+    if verification not in ("pass", "fail_recovered"):
+        return False, "unverified_caption"
+    if conductor_thread:
+        return True, "personalized_verified_thread"
+
+    practical = practical_severity or raw_severity
+    tier = central_meta.get("caption_tier") or "NONE"
+    contract = central_meta.get("teaching_contract") or {}
+    if played_is_best and not (
+        tier == "HIGH" and central_meta.get("has_teaching_content")
+    ):
+        return False, "not_a_mistake"
+
+    # A cp-loss label can look severe in a position that stayed clearly won.
+    # The canonical practical evaluator already resolved that context; respect
+    # it instead of interrupting with an engine-only correction.
+    if raw_severity != "good" and practical == "good":
+        return False, "already_decided"
+
+    if raw_severity in ("mistake", "blunder") and practical != "good":
+        if contract.get("complete"):
+            return True, "complete_serious_lesson"
+        return False, "incomplete_serious_lesson"
+
+    # Good moves and small inaccuracies earn a live card only when the shared
+    # classifier found a named, reusable teaching idea.
+    if tier == "HIGH" and central_meta.get("has_teaching_content"):
+        return True, "high_value_teaching"
+    return False, "routine_or_low_value"
 
 
 async def generate_move_coaching(
@@ -942,8 +1021,9 @@ async def generate_move_coaching(
     _central_caption = ""
     _central_sev = None
     _central_thread = None
+    _central_meta: Dict[str, Any] = {}
     if is_user_move:
-        _central_caption, _central_sev, _central_thread = _central_narrative_for_move(
+        _central_caption, _central_sev, _central_thread, _central_meta = _central_narrative_for_move(
             board_before=board_before,
             move_san=move_san,
             mover_is_user=True,
@@ -976,7 +1056,87 @@ async def generate_move_coaching(
         # to practical produced a green "good" badge under negative caption
         # text. The badge stays the familiar cp_loss tier; the caption carries
         # the central layer's nuanced wording. _central_sev kept for diagnostics.
-    
+
+    # ─── LIVE PWC DISPLAY GATE ───────────────────────────────────
+    # The central pipeline is the sole author.  Live mode either shows that
+    # final verified lesson or stays quiet; it never falls through to a second
+    # prose generator. Review mode keeps its historical structural enrichment.
+    _is_live_user = is_user_move and context in (
+        CoachingContext.LIVE_AFTER_USER,
+        CoachingContext.LIVE_BEFORE_USER,
+    )
+    if _is_live_user:
+        if not _central_caption:
+            _central_status = _central_meta.get("central_status")
+            _silence_reason = (
+                "central_pipeline_error"
+                if _central_status in {"import_error", "exception"}
+                else "central_caption_empty"
+            )
+            return V5Coaching(
+                narrative="",
+                severity="silent",
+                is_user_move=True,
+                best_move=best_move_san,
+                suppress=True,
+                suppression_reason=_silence_reason,
+                teaching_worthy=False,
+            )
+
+        _same_as_best = bool(
+            best_move_san
+            and move_san.replace("+", "").replace("#", "")
+            == best_move_san.replace("+", "").replace("#", "")
+        )
+        _worthy, _worthy_reason = _pwc_teaching_worthiness(
+            raw_severity=severity,
+            practical_severity=_central_sev,
+            central_meta=_central_meta,
+            conductor_thread=_central_thread,
+            played_is_best=_same_as_best,
+        )
+        if not _worthy:
+            return V5Coaching(
+                narrative="",
+                severity="silent",
+                is_user_move=True,
+                best_move=best_move_san,
+                suppress=True,
+                suppression_reason=_worthy_reason,
+                teaching_worthy=False,
+                caption_tier=_central_meta.get("caption_tier"),
+                teaching_contract=_central_meta.get("teaching_contract"),
+                caption_verification=_central_meta.get("caption_verification"),
+            )
+
+        _display_severity = (
+            _central_meta.get("caption_severity_word")
+            or ("mistake" if _central_sev == "serious" else _central_sev)
+            or severity
+        )
+        coaching = V5Coaching(
+            narrative=_central_caption,
+            severity=_display_severity,
+            is_user_move=True,
+            best_move=best_move_san,
+            future_moves=pv_after_played[:4] if pv_after_played else None,
+            concept_id=_central_meta.get("principle_id_used"),
+            suppress=False,
+            suppression_reason=None,
+            teaching_worthy=True,
+            caption_tier=_central_meta.get("caption_tier"),
+            teaching_contract=_central_meta.get("teaching_contract"),
+            caption_verification=_central_meta.get("caption_verification"),
+            conductor_thread=_central_thread,
+        )
+        if _display_severity in ("mistake", "blunder"):
+            coaching = _enrich_with_fundamentals(
+                coaching, board_before, board_after, move, best_move_san,
+                cp_loss, phase, user_color, opponent_last_move, opening_match, context,
+                coach_intent=coach_intent,
+            )
+        return coaching
+
     # ─── COACH CONDUCTOR: a fired thread WINS (one voice chooses). ───
     # When the player-model surfaced a recurring-pattern thread for this move,
     # speak it — bypassing the policy gate and the critique/legacy branches. It's
@@ -1007,7 +1167,7 @@ async def generate_move_coaching(
         _opp_central = ""
         if best_move_san or eval_before_cp is not None or eval_after_cp is not None:
             try:
-                _opp_central, _, _ = _central_narrative_for_move(
+                _opp_central, _, _, _ = _central_narrative_for_move(
                     board_before=board_before, move_san=move_san, mover_is_user=False,
                     user_color=user_color, full_move_number=board_before.fullmove_number,
                     move_history_san=move_history_san, best_move_san=best_move_san,

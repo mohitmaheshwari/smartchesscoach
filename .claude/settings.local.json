@@ -1,7 +1,5 @@
 {
-  "skipDangerousModePermissionPrompt": true,
   "permissions": {
-    "defaultMode": "bypassPermissions",
     "allow": [
       "Read",
       "Glob",
@@ -63,7 +61,10 @@
       "Bash(command:*)",
       "Bash(python -c ':*)",
       "Bash(python3 -m py_compile routes/voice.py)",
-      "Bash(MSYS_NO_PATHCONV=1 '/c/Program Files/Docker/Docker/resources/bin/docker.exe' exec chess-coach-backend python3 -c ' *)"
+      "Bash(MSYS_NO_PATHCONV=1 '/c/Program Files/Docker/Docker/resources/bin/docker.exe' exec chess-coach-backend python3 -c ' *)",
+      "mcp__chess-analysis__board_to_ascii",
+      "Bash(ssh -o ConnectTimeout=25 root@72.60.204.176 'cd /root/repos/smartchesscoach; git log --oneline -1')",
+      "Bash(ssh -o ConnectTimeout=30 -o BatchMode=yes root@72.60.204.176 'docker exec -w /app/backend chess-coach-backend python /tmp/cb.py')"
     ],
     "deny": [
       "Bash(rm -rf /)",
@@ -76,6 +77,8 @@
       "Bash(git clean -fd:*)",
       "Bash(git branch -D:*)",
       "Bash(sudo:*)"
-    ]
-  }
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "skipDangerousModePermissionPrompt": true
 }

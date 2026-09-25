@@ -1,6 +1,6 @@
 # Coach Geometry Arrows — Scope
 
-**Status:** draft for Mohit signoff · 2026-07-10
+**Status:** SUPERSEDED by `board_geometry_learning_scope.md` · 2026-09-11
 **Goal in one line:** show the player a **living map of the plans on the board — theirs and the coach's — as persistent arrows and zones**, so a 600–1500 player learns to think in *plans*, not just moves.
 
 ---

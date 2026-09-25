@@ -5,7 +5,8 @@ point is to FEEL the flow (cadence / continuity / voice), not grade captions.
 """
 from __future__ import annotations
 import os, sys, io, asyncio
-sys.path.insert(0, "/app/backend")
+BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BACKEND_ROOT)
 import chess, chess.pgn
 from motor.motor_asyncio import AsyncIOMotorClient
 MONGO=os.environ.get("MONGO_URL"); DB=os.environ.get("DB_NAME","chess_coach")
@@ -75,14 +76,14 @@ async def main():
                     eval_before_cp=int(_eb) if isinstance(_eb,(int,float)) else None,
                     eval_after_cp=int(_ea) if isinstance(_ea,(int,float)) else None,best_move_san=me.get("best_move"))
                 print(f"--- ply {ply}: COACH played {san}")
-                if ce:
+                if ce and ce.get("teaching_worthy"):
                     lbl=ce.get("v2_label") or "Coach played"
                     print(f"      COACH card [{lbl}]: {ce.get('explanation','')}")
                     if ce.get("hint_for_user"): print(f"        ? {ce['hint_for_user']}")
                     opp=ce.get("opponent_opportunity")
                     if opp and opp.get("message"): print(f"        can you see it: {opp['message']}")
                 else:
-                    print("      (coach card: nothing)")
+                    print("      (coach card: nothing — routine move)")
             except Exception as e:
                 print(f"--- ply {ply}: COACH {san}  [ERR {e}]")
         b.push(mv); hist.append(san)

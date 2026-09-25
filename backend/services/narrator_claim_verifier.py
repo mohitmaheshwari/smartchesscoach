@@ -35,7 +35,21 @@ _FREE_RX = re.compile(r"\b(free pawn|hanging|undefended|for free|wins? the pawn|
 _NORECAP_RX = re.compile(r"\b(no recapture|can'?t (?:take|recapture)|"
                          r"loses? (?:the|that) pawn cleanly|without (?:a )?recapture|"
                          r"no way to recapture)\b", re.I)
-_MATE_RX = re.compile(r"\b(checkmate|is mate|delivers mate)\b|#", re.I)
+_MATE_RX = re.compile(
+    r"\b(?:allows?|lets?|delivers?|leads?\s+to|miss(?:es|ed|ing)|"
+    r"walks?\s+into|is|it['’]?s|forced)\s+(?:a\s+)?(?:forced\s+)?"
+    r"(?:checkmate|mate)\b|"
+    r"\bmate\s+in\s+\d+\b|"
+    r"\b(?:ignores?|creates?|faces?|stops?|prevents?|defends?\s+against)\s+"
+    r"(?:the\s+)?mating\s+threat\b|"
+    r"\b(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)#",
+    re.I,
+)
+_PIECE_ON_SQUARE_RX = re.compile(
+    r"\b(?:(your|their|my|opponent['’]?s|the|a|an)\s+)?"
+    r"(knight|bishop|rook|queen|king|pawn)\s+(?:is\s+)?on\s+([a-h][1-8])\b",
+    re.I,
+)
 
 
 def _board_post(facts: Dict[str, Any]) -> chess.Board:
@@ -45,18 +59,70 @@ def _board_post(facts: Dict[str, Any]) -> chess.Board:
     return b
 
 
-def _check_piece_on_square(caption: str, post: chess.Board) -> List[Dict[str, str]]:
-    """'<piece> on <sq>' must match the board the user sees. Current-location
-    claims only — skip 'to/jumps to/plays' (those are future moves)."""
+def _board_after_best(facts: Dict[str, Any]) -> chess.Board | None:
+    """Return the counterfactual board after the recommended move."""
+    san = facts.get("best_move_san")
+    if not san:
+        return None
+    try:
+        board = chess.Board(facts["fen_before"])
+        board.push_san(san)
+        return board
+    except Exception:
+        return None
+
+
+def _uses_best_move_context(caption: str, claim_start: int, facts: Dict[str, Any]) -> bool:
+    """Whether a location claim belongs to the recommended-move clause."""
+    best = (facts.get("best_move_san") or "").strip()
+    if not best:
+        return False
+    sentence_start = max(
+        caption.rfind(".", 0, claim_start),
+        caption.rfind("!", 0, claim_start),
+        caption.rfind("?", 0, claim_start),
+    ) + 1
+    prefix = caption[sentence_start:claim_start]
+    best_rx = re.escape(best)
+    return bool(re.search(
+        rf"(?:{best_rx}\s+was\s+(?:the\s+)?(?:better|stronger)|"
+        rf"(?:instead|better|stronger)[^.!?]*\b{best_rx}\b)",
+        prefix,
+        re.I,
+    ))
+
+
+def _check_piece_on_square(
+    caption: str,
+    post: chess.Board,
+    facts: Dict[str, Any],
+) -> List[Dict[str, str]]:
+    """Verify current and counterfactual piece-on-square claims."""
     out = []
-    for m in re.finditer(r"\b(knight|bishop|rook|queen|king|pawn)\s+on\s+([a-h][1-8])\b",
-                         caption, re.I):
-        pc, sq = m.group(1).lower(), m.group(2).lower()
-        pa = post.piece_at(chess.parse_square(sq))
+    best_post = _board_after_best(facts)
+    user_color = chess.WHITE if (facts.get("user_color") or "white").lower() == "white" else chess.BLACK
+    for m in _PIECE_ON_SQUARE_RX.finditer(caption):
+        side_word = (m.group(1) or "").lower().replace("’", "'")
+        pc, sq = m.group(2).lower(), m.group(3).lower()
+        board = best_post if best_post is not None and _uses_best_move_context(
+            caption, m.start(), facts
+        ) else post
+        pa = board.piece_at(chess.parse_square(sq))
         if pa is None or pa.piece_type != _PIECE[pc]:
             actual = _PNAME.get(pa.piece_type, "nothing") if pa else "nothing"
             out.append({"check": "piece_on_square",
                         "detail": f"says '{pc} on {sq}' but {sq} holds {actual}"})
+            continue
+        if side_word in ("your", "my") and pa.color != user_color:
+            out.append({
+                "check": "piece_color",
+                "detail": f"says '{side_word} {pc} on {sq}' but that piece belongs to the opponent",
+            })
+        elif side_word in ("their", "opponent's") and pa.color == user_color:
+            out.append({
+                "check": "piece_color",
+                "detail": f"says '{side_word} {pc} on {sq}' but that piece belongs to the player",
+            })
     return out
 
 
@@ -118,25 +184,71 @@ def _check_no_recapture(caption: str, facts: Dict[str, Any]) -> List[Dict[str, s
     return []
 
 
+def _same_san(a: str, b: str) -> bool:
+    return (a or "").replace("+", "").replace("#", "") == \
+        (b or "").replace("+", "").replace("#", "")
+
+
+def _line_reaches_mate(board: chess.Board, sans: List[str]) -> bool:
+    """Replay a stored principal variation and require an actual mate board."""
+    if board.is_checkmate():
+        return True
+    sim = board.copy()
+    for san in sans:
+        try:
+            sim.push_san(san)
+        except Exception:
+            return False
+        if sim.is_checkmate():
+            return True
+    return False
+
+
 def _check_mate(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
     if not _MATE_RX.search(caption):
         return []
     try:
-        b = chess.Board(facts["fen_before"])
-        if facts.get("is_user_move"):
-            rec = facts.get("best_move_san") or facts.get("move_san")
-        else:
-            pv = facts.get("pv_after_played") or []
-            rec = pv[0] if pv else None
-        if not rec:
-            return []
-        b.push_san(rec)
-        if not b.is_checkmate():
-            return [{"check": "mate",
-                     "detail": f"claims checkmate but {rec} is not mate"}]
-    except Exception:
-        pass
-    return []
+        before = chess.Board(facts["fen_before"])
+        played = facts.get("move_san")
+        if not played:
+            return [{"check": "mate", "detail": "mate claim has no played move to verify"}]
+        played_board = before.copy()
+        played_board.push_san(played)
+        played_pv = list(facts.get("pv_after_played") or [])
+        if played_pv and _same_san(played_pv[0], played):
+            played_pv = played_pv[1:]
+        played_reaches_mate = _line_reaches_mate(played_board, played_pv)
+
+        best = facts.get("best_move_san")
+        best_reaches_mate = False
+        if best:
+            best_board = before.copy()
+            best_board.push_san(best)
+            best_pv = list(facts.get("pv_after_best") or [])
+            if best_pv and _same_san(best_pv[0], best):
+                best_pv = best_pv[1:]
+            best_reaches_mate = _line_reaches_mate(best_board, best_pv)
+
+        low = caption.lower()
+        best_context = bool(re.search(
+            r"\bmiss(?:ed|es|ing)\b[^.!?]*\b(?:mate|checkmate)\b",
+            low,
+        ))
+        if not best_context and best:
+            mate_match = _MATE_RX.search(caption)
+            if mate_match:
+                best_context = _uses_best_move_context(caption, mate_match.start(), facts)
+
+        verified = best_reaches_mate if best_context else played_reaches_mate
+        if not verified:
+            context = "recommended line" if best_context else "line after the played move"
+            return [{
+                "check": "mate",
+                "detail": f"claims mate but the stored {context} does not reach checkmate",
+            }]
+        return []
+    except Exception as exc:
+        return [{"check": "mate", "detail": f"mate claim could not be verified: {exc}"}]
 
 
 _OUTPOST_RX = re.compile(r"\boutpost\b|no pawn can chase", re.I)
@@ -285,7 +397,7 @@ def verify_caption(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
         post = _board_post(facts)
     except Exception:
         return []  # can't build the board → can't check; let caller decide
-    return (_check_piece_on_square(caption, post)
+    return (_check_piece_on_square(caption, post, facts)
             + _check_free(caption, facts)
             + _check_no_recapture(caption, facts)
             + _check_mate(caption, facts)

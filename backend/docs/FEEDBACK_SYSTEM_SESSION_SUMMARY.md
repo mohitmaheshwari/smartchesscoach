@@ -187,7 +187,7 @@ curl -s -X POST \
 
 # 2. Run batch 3 triage (100 new items, 5 parallel batches)
 docker exec \
-  -e MONGO_URL="mongodb://admin_user_mii_s_c:Mii123\$44\$@host.docker.internal:27018" \
+  -e MONGO_URL="mongodb://<user>:<password-from-env>@host.docker.internal:27018" \
   -e DB_NAME="chess_coach" \
   -e LLM_EXPOSER_URL="http://host.docker.internal:8000" \
   -e LLM_EXPOSER_KEY="llmk_trjmkkEcfZXYijpWMQsHSFifakCFbwr-2c5DjPHXEmI" \
@@ -195,13 +195,13 @@ docker exec \
 
 # 3. Ship authoring submissions from batch 3
 docker exec \
-  -e MONGO_URL="mongodb://admin_user_mii_s_c:Mii123\$44\$@host.docker.internal:27018" \
+  -e MONGO_URL="mongodb://<user>:<password-from-env>@host.docker.internal:27018" \
   -e DB_NAME="chess_coach" \
   chess-coach-backend python scripts/ship_authoring_submissions.py
 
 # 4. Check updated dashboard
 docker exec \
-  -e MONGO_URL="mongodb://admin_user_mii_s_c:Mii123\$44\$@host.docker.internal:27018" \
+  -e MONGO_URL="mongodb://<user>:<password-from-env>@host.docker.internal:27018" \
   -e DB_NAME="chess_coach" \
   chess-coach-backend python scripts/feedback_status_dashboard.py
 ```
@@ -210,7 +210,7 @@ docker exec \
 
 ```bash
 docker exec -d \
-  -e MONGO_URL="mongodb://admin_user_mii_s_c:Mii123\$44\$@host.docker.internal:27018" \
+  -e MONGO_URL="mongodb://<user>:<password-from-env>@host.docker.internal:27018" \
   -e DB_NAME="chess_coach" \
   -e LLM_EXPOSER_URL="http://host.docker.internal:8000" \
   -e LLM_EXPOSER_KEY="llmk_trjmkkEcfZXYijpWMQsHSFifakCFbwr-2c5DjPHXEmI" \
