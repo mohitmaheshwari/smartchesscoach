@@ -152,6 +152,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const showFacts = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("show_facts") === "1";
   const [factsByMove, setFactsByMove] = useState({});
   const [decryptionData, setDecryptionData] = useState(null);
+  // Every mistake in the game, both sides. Server derives it from the
+  // same move list it is returning, so it cannot disagree with the cards.
+  const [moveScoreboard, setMoveScoreboard] = useState(null);
   const [cctNarrative, setCctNarrative] = useState(null);
   const [truthLine, setTruthLine] = useState(null);
   const [playerDecryption, setPlayerDecryption] = useState(null);
@@ -302,6 +305,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     // Every item below belongs to one game + review variant. Clear the prior
     // owner's optional fields before the replacement request begins.
     setDecryptionData(null);
+    setMoveScoreboard(null);
     setCctNarrative(null);
     setTruthLine(null);
     setPlayerDecryption(null);
@@ -610,6 +614,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       }
 
       setDecryptionData(perMoveData);
+      setMoveScoreboard(data.move_scoreboard || null);
       setGameTeachingPlan(data.game_teaching_plan || null);
       setTeachableEvents(data.teachable_events || []);
       setReflectionPrompts(data.reflection_prompts || []);
@@ -1472,12 +1477,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             coreLesson={coreLesson}
             gameResult={gameResult}
             opponentName={opponentName}
+            moveScoreboard={moveScoreboard}
             onBegin={goForward}
           />
         ) : (
           <MoveCoachingCardV5
             move={currentMove}
             gameId={gameId}
+            onWhyArrows={(a) => setArrows(a)}
             goldCaption={!reviewValidation && currentMove ? goldMap[`${currentMove.move_number}:${currentMove.move_san}`] : null}
             captionPref={!reviewValidation && currentMove ? prefMap[`${currentMove.move_number}:${currentMove.move_san}`] : null}
             onPrefer={(pref) => savePreference(currentMove, pref)}
@@ -1665,7 +1672,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
 // ─── GAME START CARD ────────────────────────────────────────────────
 
-const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlindspot, coachSummary, coreLesson, gameResult, opponentName, onBegin }) => {
+const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlindspot, coachSummary, coreLesson, gameResult, opponentName, moveScoreboard, onBegin }) => {
   if (!decryptionData?.length) return null;
 
   // Calculate stats
@@ -1767,6 +1774,65 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlinds
         </p>
       </div>
 
+      {/* Every mistake in the game, both sides (2026-09-25).
+          Derived server-side from the same move list this page is
+          already holding, so it cannot drift from the cards. The
+          opponent's errors are listed as chances, because that is what
+          they were -- a game review that only lists your own mistakes
+          teaches half the game. */}
+      {moveScoreboard?.moments?.length > 0 && (
+        <div
+          className="rounded-lg border border-border bg-background p-4 space-y-3"
+          data-testid="move-scoreboard"
+        >
+          <div className="flex items-baseline justify-between">
+            <h3 className="text-sm font-medium text-foreground">
+              Where the game turned
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              {moveScoreboard.moments.length} moment
+              {moveScoreboard.moments.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <ul className="space-y-1.5">
+            {moveScoreboard.moments.map((m, i) => {
+              const yours = m.side === "you";
+              return (
+                <li
+                  key={`${m.move_number}-${m.move_san}-${i}`}
+                  className="flex items-start gap-2.5 text-xs leading-relaxed"
+                >
+                  <span className="font-mono text-muted-foreground w-8 shrink-0 text-right">
+                    {m.move_number}.
+                  </span>
+                  <span
+                    className={`font-mono w-14 shrink-0 ${
+                      yours ? "text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    {m.move_san}
+                  </span>
+                  <span
+                    className={`px-1.5 rounded text-[10px] uppercase tracking-wide shrink-0 ${
+                      yours
+                        ? m.severity === "blunder"
+                          ? "bg-red-500/15 text-red-500"
+                          : m.severity === "mistake"
+                          ? "bg-orange-500/15 text-orange-500"
+                          : "bg-yellow-500/15 text-yellow-600"
+                        : "bg-emerald-500/15 text-emerald-500"
+                    }`}
+                  >
+                    {yours ? m.severity : "their slip"}
+                  </span>
+                  <span className="text-muted-foreground">{m.text}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {/* CTA */}
       <button 
         onClick={onBegin}
@@ -1788,9 +1854,102 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlinds
 
 // ─── MOVE COACHING CARD V5 ──────────────────────────────────────────
 
+// On-demand "Why" (2026-09-25, docs/why_button_scope.md).
+//
+// Every other caption is computed while the page renders, so when the
+// system cannot derive a reason it still has to emit a sentence -- and
+// emits one it does not know. Behind a button that deadline disappears:
+// the backend can spend ~5s asking the engine for eight good moves and
+// keep the first one it can actually explain from the board.
+//
+// The important case is `found: false`. It happens, it is correct, and
+// it must render as "we cannot show a clear reason" -- never as a
+// softer generated sentence. Filling that gap is the bug being removed.
+const WhyThisWasBad = ({ gameId, move, onArrows }) => {
+  const [state, setState] = useState("idle"); // idle | loading | done
+  const [result, setResult] = useState(null);
+
+  const ask = async () => {
+    setState("loading");
+    try {
+      const res = await fetch(
+        `${API}/coach/why/${gameId}/${move.move_number}` +
+          `?san=${encodeURIComponent(move.move_san || "")}`,
+        { credentials: "include" },
+      );
+      const data = await res.json();
+      setResult(data);
+      setState("done");
+      if (data?.found && data.arrows?.length && onArrows) {
+        onArrows(
+          data.arrows
+            .filter((a) => a?.from && a?.to)
+            .map((a, i) => [a.from, a.to, i === 0 ? "red" : "blue"]),
+        );
+      }
+    } catch (e) {
+      setResult({ found: false, reason: "engine_error" });
+      setState("done");
+    }
+  };
+
+  if (state === "idle") {
+    return (
+      <div className="mt-2">
+        <button
+          onClick={ask}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/30"
+          data-testid="why-btn"
+        >
+          Why was this bad?
+        </button>
+      </div>
+    );
+  }
+
+  if (state === "loading") {
+    return (
+      <div className="mt-2 text-xs text-sky-400/80" data-testid="why-loading">
+        Coach is working it out&hellip;
+      </div>
+    );
+  }
+
+  if (!result?.found) {
+    // Deliberately blunt. See the note at the top of this component.
+    return (
+      <div
+        className="mt-2 rounded border border-gray-600/40 bg-gray-500/5 p-2.5 text-xs text-gray-400"
+        data-testid="why-none"
+      >
+        We can&rsquo;t show a clear reason here.
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="mt-2 rounded border border-sky-500/30 bg-sky-500/5 p-2.5 space-y-1.5"
+      data-testid="why-found"
+    >
+      <div className="text-xs uppercase tracking-wide text-sky-400 font-medium">
+        Why it was bad
+      </div>
+      <div className="text-sm text-gray-200 leading-relaxed">{result.text}</div>
+      {result.arrows?.length > 0 && (
+        <div className="text-[11px] text-gray-500 font-mono">
+          {result.arrows.map((a) => a.san).join("  ")}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const MoveCoachingCardV5 = ({
   move,
   gameId,
+  // Lets the on-demand "Why" draw its line on the parent's board.
+  onWhyArrows,
   goldCaption,
   captionPref,
   onPrefer,
@@ -2119,6 +2278,12 @@ const MoveCoachingCardV5 = ({
           playing={isCoachLinePlaying}
           onCompare={onCompareCandidate}
         />
+
+        {/* The why, on demand. Only on our own real errors: an
+            inaccuracy rarely has a punishment worth a five-second wait. */}
+        {isUser && (severity === "blunder" || severity === "mistake") && (
+          <WhyThisWasBad gameId={gameId} move={move} onArrows={onWhyArrows} />
+        )}
 
         {/* v78.3 — "Play this line" button. Visible on user-mistake
             moves where V5 surfaced a coach_line_length_hint (or a

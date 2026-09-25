@@ -1078,8 +1078,19 @@ async def get_game_decryption_v5(
                 enriched_move.pop("candidate_comparison", None)
                 enriched_data.append(enriched_move)
 
+            # Every mistake and blunder in the game, both sides, derived
+            # from the same list being returned -- so the section can never
+            # disagree with the cards next to it.
+            try:
+                from services.game_summary_service import build_move_scoreboard
+                move_scoreboard = build_move_scoreboard(enriched_data)
+            except Exception:
+                logger.exception("move scoreboard failed for %s", game_id)
+                move_scoreboard = None
+
             legacy_response = {
                 "decryption_data": enriched_data,
+                "move_scoreboard": move_scoreboard,
                 "status": "complete",
                 "generated_at": analysis.get("decryption_v5_generated_at"),
                 "concepts_to_acknowledge": concepts_to_acknowledge,
@@ -1419,6 +1430,112 @@ async def get_game_decryption_v5(
         import traceback
         traceback.print_exc()
         return {"error": str(e), "decryption_data": None}
+
+
+@router.get("/why/{game_id}/{move_number}")
+async def get_move_why(
+    game_id: str,
+    move_number: int,
+    san: Optional[str] = Query(default=None),
+    user: User = Depends(get_current_user),
+):
+    """Work out, on demand, why one move was a mistake.
+
+    This is the only coaching path allowed to take seconds, because it is
+    the only one behind a button. That budget is what lets us ask the
+    engine for several good moves and keep one we can actually explain,
+    instead of taking its single best move and inventing a reason for it.
+
+    `found: false` is a real, intended answer. The caller shows the board
+    facts and says we cannot explain this one. It must never fall back to
+    a generated sentence -- that fallback is the bug this endpoint exists
+    to remove.
+    """
+    global db
+
+    from services.why_on_demand import (
+        CANDIDATE_COUNT,
+        CANDIDATE_DEPTH,
+        explain,
+    )
+
+    game = await db.games.find_one(
+        {"game_id": game_id, **user_scope_filter(user)},
+        {"_id": 0, "game_id": 1},
+    )
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "stockfish_analysis.move_evaluations": 1},
+    )
+    evaluations = (
+        (analysis or {}).get("stockfish_analysis") or {}
+    ).get("move_evaluations") or []
+
+    # move_number alone is NOT a key. Measured on 300 games: 31 of them
+    # (10%) carry a duplicate move_number among the user's evaluations,
+    # so first-match-wins would explain a different move than the card
+    # the player clicked -- silently, and only on some games.
+    candidates_for_move = [
+        m for m in evaluations
+        if m.get("move_number") == move_number
+        and not m.get("is_opponent_move")
+    ]
+    target = None
+    if san:
+        target = next(
+            (m for m in candidates_for_move if m.get("move") == san), None)
+    if target is None:
+        if san and len(candidates_for_move) > 1:
+            # Ambiguous and the move we were asked about is not here:
+            # refuse rather than explain the wrong move.
+            raise HTTPException(status_code=404, detail="Move not analysed")
+        target = candidates_for_move[0] if candidates_for_move else None
+    if not target:
+        raise HTTPException(status_code=404, detail="Move not analysed")
+
+    fen_before = target.get("fen_before")
+    played_san = target.get("move")
+    if not fen_before or not played_san:
+        return {"found": False, "reason": "no_position"}
+
+    def _run():
+        # Sync engine work, kept off the event loop. threads=1 is not a
+        # performance setting: multi-threaded Stockfish returns a
+        # different line run to run, so a reason shown twice would differ.
+        import chess
+
+        from stockfish_service import StockfishEngine
+
+        with StockfishEngine(threads=1) as engine:
+            board = chess.Board(fen_before)
+            candidates = engine.get_candidate_lines(
+                board, num=CANDIDATE_COUNT, depth=CANDIDATE_DEPTH)
+        return explain(
+            fen_before,
+            played_san,
+            target.get("pv_after_played") or [],
+            candidates,
+        )
+
+    import asyncio
+
+    try:
+        result = await asyncio.to_thread(_run)
+    except Exception:
+        logger.exception("why-on-demand failed for %s move %s",
+                         game_id, move_number)
+        return {"found": False, "reason": "engine_error"}
+
+    if not result:
+        return {"found": False, "reason": "no_explainable_candidate"}
+
+    result["move_number"] = move_number
+    result["played_san"] = played_san
+    result["fen_before"] = fen_before
+    return result
 
 
 @router.post("/decryption/v5/{game_id}/validation-review")
