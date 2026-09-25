@@ -46,11 +46,18 @@ def test_disabled_detector_stays_blocked_when_rollout_is_off(monkeypatch):
 
 
 def test_plan_sanitizer_keeps_evidence_but_hides_shadow_gap(monkeypatch):
+    """The sanitizer must hide a SHADOW-graded gap while keeping its evidence.
+
+    The example used to be ignored_king_attack, which was promoted to PLAN on
+    2026-09-26 and so is no longer hidden -- correctly. The test's purpose is
+    unchanged; it just needs a subtype that is still shadow, and
+    allowed_mate_exact is, on the same king_safety pattern.
+    """
     monkeypatch.setenv("DETECTOR_QUALITY_GATE_ENFORCED", "true")
     raw = {
         "game_id": "g1",
         "missed_pattern": "king_safety",
-        "subtype": "ignored_king_attack",
+        "subtype": "allowed_mate_exact",
         "severity": "critical",
         "cp_loss": 220,
     }

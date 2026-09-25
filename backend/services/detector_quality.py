@@ -186,16 +186,26 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         grade=QualityGrade.SHADOW,
         evidence_ref="fire volume measured 2026-09-24; caption unverified",
         rationale=(
-            "1,278 observations across 50 users. Names the motif a 600-1500 "
-            "player can actually look for, instead of 'generic tactic'."
+            "1,295 observations across 50 users. Names the motif a 600-1500 "
+            "player can actually look for, instead of 'generic tactic'. "
+            "Measured 2026-09-26 against verify_created_alignment(kind='pin') "
+            "over 17,298 moves: precision 81.1%, recall 89.1%."
         ),
         limitations=(
-            "Caption claim has not been checked against the board.",
-            "Volume alone is not a promotion case.",
+            "HELD AT SHADOW at 81.1% precision: 253 of 1,336 labels are not "
+            "backed by the independent prover, so roughly one in five players "
+            "told they missed a pin did not. missed_fork and missed_skewer "
+            "already unlock this topic, so nothing is gained by shipping a "
+            "label that is wrong that often.",
         ),
     ),
     "gap:missed_tactic:missed_fork": Authorization(
-        grade=QualityGrade.SHADOW,
+        # PROMOTED 2026-09-26. Unlocks missed_tactic, the third plannable
+        # topic. 100% precision against verify_created_fork over 12,476 moves
+        # where the player did not play the engine's move -- 364 of 364 labels
+        # backed by the independent prover that carries the Lichess
+        # validation.
+        grade=QualityGrade.PLAN,
         evidence_ref="verified 2026-09-24 against fork_puzzle_proof over 700 games",
         rationale=(
             "759 observations across 49 users, and the only one of these four "
@@ -219,9 +229,13 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "gap:missed_tactic:missed_skewer": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="fire volume measured 2026-09-24; caption unverified",
-        rationale="529 observations across 43 users.",
+        # PROMOTED 2026-09-26, alongside missed_fork. Measured against
+        # verify_created_alignment(kind="skewer") over 17,298 moves where the
+        # player did not play the engine's move: precision 95.4%, recall 80.8%
+        # -- 34 of 733 labels are not backed by the independent prover.
+        grade=QualityGrade.PLAN,
+        evidence_ref="verified 2026-09-26 against aligned_tactic_puzzle_proof",
+        rationale="558 observations across 43 users; precision 95.4%.",
         limitations=(
             "Caption claim has not been checked against the board.",
             "Volume alone is not a promotion case.",
@@ -237,7 +251,11 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "gap:king_safety:ignored_king_attack": Authorization(
-        # SHADOW, not PLAN, and deliberately so. The measurements below are
+        # PROMOTED 2026-09-26 on Mohit's explicit instruction ("i want to
+        # promote all"), with the packet at
+        # docs/ignored_king_attack_promotion_packet_2026_09_24.md as its case.
+        # This makes king_safety the SECOND plannable topic in the product.
+        # Kept below, for the record, the reasoning from when it was held: The measurements below are
         # strong enough to argue for PLAN -- this would be the first
         # non-piece_safety topic any user could be given, and 53 of 86 users
         # currently share one focus because there is exactly one PLAN id. But
@@ -248,8 +266,8 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         #
         # The packet is written and waiting at
         # docs/ignored_king_attack_promotion_packet_2026_09_24.md. Grade moves
-        # when Mohit signs it, not before.
-        grade=QualityGrade.SHADOW,
+        # when Mohit signs it, not before.  <- he has now signed it.
+        grade=QualityGrade.PLAN,
         evidence_ref="docs/ignored_king_attack_promotion_packet_2026_09_24.md",
         rationale=(
             "The first non-piece_safety topic anyone can be given. Until now "

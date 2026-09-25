@@ -74,6 +74,28 @@ def test_caption_surface_admits_only_evidence_backed_ids():
         "tactic:forced_mate_exact",
         "review:verified_single_game_cause",
         "review:exact_endgame_result_change",
+        # Promoted 2026-09-26 on Mohit's explicit instruction, each with its
+        # own measurement rather than on volume. Plan grade includes Caption
+        # by contract, which is why they appear on this list at all.
+        #
+        #   ignored_king_attack   both halves of what it tells the player are
+        #                         true of the board: pressure present on 768
+        #                         of 768 fires against a 49.9% base rate, and
+        #                         "you didn't defend" enforced after 18.3% of
+        #                         fires turned out to be players who HAD
+        #                         reduced the pressure on their own king.
+        #                         Packet: docs/ignored_king_attack_promotion_
+        #                         packet_2026_09_24.md
+        #   missed_fork           364 of 364 labels backed by the independent
+        #                         fork prover over 12,476 moves (100%).
+        #   missed_skewer         precision 95.4% over 17,298 moves against
+        #                         verify_created_alignment(kind='skewer').
+        #
+        # missed_pin (81.1%) and missed_discovered_attack (35.3%) were
+        # measured at the same time and deliberately NOT promoted.
+        "gap:king_safety:ignored_king_attack",
+        "gap:missed_tactic:missed_fork",
+        "gap:missed_tactic:missed_skewer",
     }
     caption = {
         qid for qid in explicit_authorizations()
