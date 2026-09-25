@@ -1246,8 +1246,20 @@ async def start_personalized_lesson(
         existing_query["delivery_mode"] = delivery_mode
     existing = await db.learning_sessions.find_one(existing_query)
     if existing:
+        # Concept lessons are re-resolved here too, and that is the whole
+        # point of this block. The refresh below compares content_version and
+        # rewrites a stale session, but it only runs when `descriptor` is not
+        # None -- and `descriptor` was resolved for endgames only. So a
+        # concept session, once created, served its original text forever.
+        #
+        # Measured on production 2026-09-25: 95 of 174 learning_sessions were
+        # still printing reason options that had been replaced in the code,
+        # including four of Mohit's, the oldest created 2026-08-31. The
+        # replacement was written because "nobody picks the second, so the
+        # question measured nothing" -- and nobody had seen it, because the
+        # sessions never refreshed.
         descriptor = None
-        if content_kind == "endgame":
+        if content_kind in ("endgame", "concept"):
             from services.personalized_lesson_adapter import (
                 LessonUnavailable,
                 resolve_personalized_lesson,
@@ -1262,7 +1274,10 @@ async def start_personalized_lesson(
                 )
             except LessonUnavailable as exc:
                 return {"error": str(exc)}
-            if bool((params or {}).get("review")):
+            # The review reshape below is endgame-only: it keeps the last item
+            # and relabels it, which is meaningless for a concept lesson whose
+            # items are separate positions from the player's own games.
+            if content_kind == "endgame" and bool((params or {}).get("review")):
                 review_item = dict(descriptor["items"][-1])
                 review_item["stage"] = "retain"
                 descriptor = {

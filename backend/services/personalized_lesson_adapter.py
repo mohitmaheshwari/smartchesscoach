@@ -828,6 +828,21 @@ async def _concept_descriptor(
             else _stage(index, len(items))
         )
 
+    # Everything on the card that lesson_question_spec owns. Any edit to the
+    # question, the task line, the reason prompt or either reason option moves
+    # this, which moves content_version, which makes a stored session refresh.
+    question_spec_fingerprint = {
+        "question": str(getattr(spec, "question", "") or ""),
+        "task_line": str(getattr(spec, "task_line", "") or ""),
+        "reason_prompt": str(getattr(spec, "reason_prompt", "") or ""),
+        "accepts": str(getattr(spec, "accepts", "") or ""),
+        "reason_options": [
+            [str(getattr(option, "id", "")), str(getattr(option, "label", ""))]
+            for option in (getattr(spec, "reason_options", ()) or ())
+        ],
+        "band": str(band or ""),
+    }
+
     return {
         "schema_version": ADAPTER_SCHEMA_VERSION,
         "kind": "concept",
@@ -837,10 +852,28 @@ async def _concept_descriptor(
         "rule": str(pattern.get("prevention") or pattern.get("rule") or ""),
         "intro": str(pattern.get("explanation") or ""),
         "canonical_source": TACTICAL_SOURCE,
-        "content_version": str(
-            (patterns.get("_meta") or {}).get("version")
-            or _content_version(pattern)
-        ),
+        # Hashed from what the card actually says, NOT from a hand-maintained
+        # file version. It used to prefer `patterns._meta.version`, a literal
+        # ("2.0.0") in the pattern file -- so the version tracked one input
+        # while the card is built from several. The question, task line and
+        # reason options come from lesson_question_spec, a different module
+        # entirely, and editing them moved nothing.
+        #
+        # The cost was measured on production 2026-09-25: 95 of 174
+        # learning_sessions were still printing reason options that had been
+        # replaced in code, the oldest created 2026-08-31. The replacement
+        # exists because "nobody picks the second, so the question measured
+        # nothing" -- and no player ever saw the better pair, because a stale
+        # session compares equal to a fresh one and never refreshes.
+        #
+        # Deliberately NOT hashing `items`: those are positions taken from the
+        # player's own games, so they change whenever they play, and a lesson
+        # that regenerates mid-attempt would lose their progress for no
+        # teaching reason. This hashes the words.
+        "content_version": _content_version({
+            "pattern": pattern,
+            "question": question_spec_fingerprint,
+        }),
         "items": items,
         "mastery_capability": (
             "independent" if len(items) > 1 else "guided"
