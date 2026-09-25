@@ -166,8 +166,16 @@ def explain(
                 "mechanism": got.mechanism,
                 "text": text,
                 "move_san": got.agent_move,
-                "line_san": list(got.line),
-                "arrows": _arrows(fen_before, got.line),
+                # Punishment.line starts AFTER the agent move, and for this
+                # direction the agent move is their reply -- which itself
+                # comes after ours. From fen_before the board therefore
+                # needs the played move and the reply prepended, or the
+                # first SAN is illegal and no arrow is drawn at all. That
+                # is exactly what shipped: a correct sentence with an
+                # empty arrow list.
+                "line_san": [played_san, got.agent_move] + list(got.line),
+                "arrows": _arrows(
+                    fen_before, [played_san, got.agent_move] + list(got.line)),
                 "candidate_rank": None,
                 "eval_gap_cp": 0,
             }
@@ -208,8 +216,11 @@ def explain(
             "mechanism": missed.mechanism,
             "text": text,
             "move_san": missed.agent_move,
-            "line_san": list(missed.line) or line,
-            "arrows": _arrows(fen_before, (missed.line or line)),
+            # Same frame problem, one move shallower: the better move was
+            # never played, so the line runs straight from fen_before.
+            "line_san": [missed.agent_move] + list(missed.line),
+            "arrows": _arrows(
+                fen_before, [missed.agent_move] + list(missed.line)),
             "candidate_rank": rank,
             "eval_gap_cp": gap,
         }

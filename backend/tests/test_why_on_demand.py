@@ -304,3 +304,65 @@ def test_opponent_rows_carry_no_template_sentence():
     out = build_move_scoreboard(v5)
     assert out["moments"][0]["text"] is None
     assert out["moments"][0]["side"] == "opponent"
+
+
+# --------------------------------------------------------------------------
+# Arrows must survive the REAL frames, not a hand-written line
+# --------------------------------------------------------------------------
+
+def test_received_arrows_are_drawn_from_the_real_resolver_output():
+    """1.e4 e5 2.Bc4 Nc6 3.Qh5 Nf6?? 4.Qxf7#.
+
+    The isolation test above feeds _arrows a line that already starts at
+    fen_before, so it passed while the shipped code fed it a line that
+    began two moves later -- every SAN illegal, every arrow dropped. This
+    goes through explain() and asserts the arrows actually come back.
+    """
+    board = chess.Board()
+    for san in ("e4", "e5", "Bc4", "Nc6", "Qh5"):
+        board.push_san(san)
+    fen = board.fen()   # Black to move; Nf6 allows mate
+
+    out = explain(fen, "Nf6", ["Nf6", "Qxf7#"], [])
+    assert out is not None
+    assert out["direction"] == "received"
+    assert out["mechanism"] == "MATE"
+    assert out["arrows"], "arrows came back empty"
+    # first the mistake, then the move that punishes it
+    assert (out["arrows"][0]["from"], out["arrows"][0]["to"]) == ("g8", "f6")
+    assert (out["arrows"][1]["from"], out["arrows"][1]["to"]) == ("h5", "f7")
+
+
+def test_missed_arrows_start_at_the_recommended_move():
+    board = chess.Board()
+    for san in ("e4", "e5", "Bc4", "Nc6", "Qh5", "Nf6"):
+        board.push_san(san)
+    fen = board.fen()
+
+    cands = [{
+        "move_san": "Qxf7#",
+        "eval_cp": 100000,
+        "line_san": ["Qxf7#"],
+    }]
+    out = explain(fen, "d3", [], cands)
+    if out is None:
+        pytest.skip("resolver found no missed punishment in this frame")
+    assert out["direction"] == "missed"
+    assert out["arrows"], "arrows came back empty"
+    assert out["arrows"][0]["san"] == "Qxf7#"
+
+
+def test_every_found_result_that_has_a_line_also_has_arrows():
+    """A found answer with an empty arrow list is the bug that shipped."""
+    board = chess.Board()
+    for san in ("e4", "e5", "Bc4", "Nc6", "Qh5", "Nf6"):
+        board.push_san(san)
+    fen = board.fen()
+    for played, pv, cands in (
+        ("Qxf7#", ["Qxf7#"], []),
+        ("d3", [], [{"move_san": "Qxf7#", "eval_cp": 100000,
+                     "line_san": ["Qxf7#"]}]),
+    ):
+        out = explain(fen, played, pv, cands)
+        if out and out.get("line_san"):
+            assert out["arrows"], (played, out["line_san"])
