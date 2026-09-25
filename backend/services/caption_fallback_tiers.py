@@ -91,12 +91,21 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
         played = facts.get("played_san")
         best = facts.get("best_move_san")
         why = facts.get("best_move_why")
+        # Whose move is this? Every sentence below names the mover and the
+        # mover's pieces, and they were hardcoded to "You"/"your" -- so an
+        # OPPONENT mistake that reached this floor read "You played Be7"
+        # under a card badged Opponent, and would have said "taking your
+        # bishop" about a bishop the player does not own. Flagged live on
+        # eb189840 move 12. _better_suffix directly above already guards on
+        # mover_is_user; this block never did.
+        _who = _subject(facts)          # "You" / "Your opponent"
+        _whose = _poss(facts)           # "your" / "their"
         if played and best and best != played:
             # Missed opportunity WITH a why ("Nf3 was stronger — it develops a piece",
             # "exd4 was stronger — it trades off his bishop"). The why makes it teaching,
             # so it fires from the inaccuracy range, not engine-worship.
             if why and cp >= _INACCURACY_CP:
-                return (f"You played {played}; {best} was stronger — it {why}.",
+                return (f"{_who} played {played}; {best} was stronger — it {why}.",
                         "R_TIER_missed_principle")
             # No why for the BETTER move — try the consequence of the PLAYED
             # move instead (2026-07-14, Q2: the bare "Y was the stronger move
@@ -108,14 +117,14 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
                 opp = facts.get("opp_reply_san") or ""
                 cap_pt = _PIECE.get(facts.get("opp_reply_captures_piece_type"))
                 if opp and cap_pt:
-                    return (f"You played {played}; {best} was the stronger move here — "
-                            f"{played} runs into {opp}, taking your {cap_pt}.",
+                    return (f"{_who} played {played}; {best} was the stronger move here — "
+                            f"{played} runs into {opp}, taking {_whose} {cap_pt}.",
                             "R_TIER_mistake_floor_consequence")
                 if opp and (opp.endswith("+") or opp.endswith("#")):
-                    return (f"You played {played}; {best} was the stronger move here — "
+                    return (f"{_who} played {played}; {best} was the stronger move here — "
                             f"{played} lets {opp} come in with check.",
                             "R_TIER_mistake_floor_consequence")
-                return (f"You played {played}; {best} was the stronger move here.",
+                return (f"{_who} played {played}; {best} was the stronger move here.",
                         "R_TIER_mistake_floor")
 
     sub = _subject(facts)
