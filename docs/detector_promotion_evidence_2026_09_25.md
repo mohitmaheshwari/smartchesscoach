@@ -3,7 +3,18 @@
 Task: "go again and see all your lichess provers and promote detectors."
 
 **I did not promote anything, and promotion turns out not to be the blocker.**
-Four of the motifs are already Caption-grade. Nothing in production calls them.
+
+> **CORRECTION, same day.** Section 4 of the first version of this document
+> claimed *"nothing in production calls any `build_*_proof`"*. That was wrong.
+> It was grepped against a local checkout **671 commits behind
+> `origin/working-code`**. At origin the four Caption-grade provers **are**
+> wired — `caption_facts.py`, `verified_puzzle_builder.py`,
+> `game_decryption_v5_service.py`, `shape_detectors.py`,
+> `cognitive_gap_subtypes.py`. The cited gold evidence files exist at origin
+> too. Every number measured **inside the container** (registry contents,
+> recall, cross-fire, coverage) was run against origin-matching code and
+> stands; only the host-grep conclusions were wrong. Section 4 is rewritten
+> below.
 
 ---
 
@@ -71,47 +82,45 @@ alone can never promote.
 What this bench *is* good for: deciding which detectors deserve the expensive
 human review, and catching detectors that are broken.
 
-## 4. Promotion is not the blocker — the wire is
+## 4. What is wired, and what is not
 
-Four of these motifs are **already Caption-grade**:
+Measured in the container (= `origin/working-code`), excluding the provers'
+own modules, tests and `admin_*` routes:
 
-```
-tactic:fork_with_stored_payoff        caption
-tactic:free_piece_exact               caption
-tactic:forced_mate_exact              caption
-tactic:aligned_with_stored_payoff     caption
-```
+| prover | production callers |
+|---|---|
+| `build_fork_proof` | 5 — caption_facts, verified_puzzle_builder, cognitive_gap_subtypes, game_decryption_v5_service, shape_detectors |
+| `build_discovered_attack_proof` | 3 — caption_pipeline, verified_puzzle_builder, cognitive_gap_subtypes |
+| `build_free_piece_proof` | 2 — caption_facts, verified_puzzle_builder |
+| `build_aligned_tactic_proof` | 2 — caption_facts, verified_puzzle_builder |
+| `build_forced_mate_proof` | 1 — verified_puzzle_builder |
+| `build_removal_defender_proof` | 1 — verified_puzzle_builder |
+| `build_back_rank_mate_proof` | 1 — verified_puzzle_builder |
+| **`build_interference_proof`** | **0** |
+| **`build_advanced_pawn_proof`** | **0** |
+| **`build_xray_attack_proof`** | **0** |
+| **`build_deflection_proof`** | **0** |
+| **`build_clearance_proof`** | **0** |
+| **`build_attraction_proof`** | **0** |
+| **`build_trapped_piece_opportunity_proof`** | **0** |
+| `build_defensive_move_proof` | 0 (60.8% recall — not a candidate) |
 
-They produced **zero fires in 400 games.** Reason:
+So the four Caption-grade motifs are wired. The genuine gap is **seven provers
+scoring 92.5–100% Lichess recall with ≤5% cross-fire and no caller at all.**
 
-```
-$ grep -rn "build_fork_proof" backend/services backend/routes backend/*.py
-  (nothing — only the _puzzle_proof module itself, tests, and admin_* routes)
-```
+### An id-namespace split still needs checking before wiring any of them
 
-No production file calls any `build_*_proof`. `move_observation_deriver` has
-its own weaker inline logic and never consults a prover. The good
-implementation is wired to the admin review page and nothing else.
-
-This is the same failure recorded on 2026-07-13 as *"last-wire failure is the
-disease"*, and in the detector-loop skill: *"the fork proof scored 66% and
-coaching had never seen a single missed knight fork."* Seven weeks on, unfixed.
-
-### There is also an id-namespace split
-
-Provers emit **dotted** ids; the registry holds **colon** ids. Nothing
-translates between them.
+Registry ids are colon-prefixed; prover `concept_id`s are dotted, and a
+container-side search found no translation helper:
 
 ```
 gap:piece_safety:simple_hang   -> CAPTION   (in registry)
 piece_safety.simple_hang       -> SHADOW    (prover's own id, no row)
 ```
 
-Registry id prefixes: `concept:` 24, `gap:` 10, `tactic:` 7, `curriculum:` 7,
-`review:` 6, `shape:` 3, `principle:` 3, `brain:` 3, `legacy_endgame:` 1.
-Rows using the prover shape: **0**.
-
-So a promotion row written against `tactic.knight_fork` would authorise nothing.
+Registry rows using the prover shape: **0**. Since the wired provers evidently
+do reach captions, `caption_facts.py` must resolve authority some other way —
+that path must be read before assuming a new prover inherits it.
 
 ## 5. Mohit's multi-tagging point, generalised
 
@@ -164,20 +173,21 @@ Plan.
 
 ## 7. Recommendation
 
-1. **Do not touch the registry.** Promotion is not the constraint and the lock
-   rejects this evidence type by name.
-2. **Wire the four already-Caption-grade provers into
-   `move_observation_deriver`**, behind a flag, defaulted off. This needs no
-   promotion packet — the authority already exists. This is the change that
-   makes a user feel the detectors.
-3. **Fix the id namespace** so a prover's `concept_id` resolves to a registry
-   row, or the wiring in (2) silently authorises nothing.
-4. **Investigate two real defects**: `build_trapped_piece_proof` at 0.8% and
+1. **Work from a fresh checkout.** This one is 671 commits behind
+   `origin/working-code` and it produced a false headline. See
+   [[feedback_author_content_in_a_worktree_at_origin]].
+2. **Do not touch the registry.** The lock rejects this evidence type by name.
+3. **Rank the seven unwired provers by fires/game on real games before wiring
+   any of them.** Lichess recall says a prover is right when the motif is
+   present; it says nothing about how often it is present in 600–1500 games.
+   Recorded precedent: promoted `discovered_attack` fires on 1.8% of games.
+4. **Read how `caption_facts.py` grants a prover authority** — the dotted/colon
+   split means a new prover may not inherit it.
+5. **Investigate two real defects**: `build_trapped_piece_proof` at 0.8% and
    `build_back_rank_mate_proof` at 13.3% against a repo baseline of 99.5%.
-5. Human-review precision for `interference`, `advanced_pawn`, `xray_attack`
-   and `deflection` on **real games** — the only evidence the lock accepts.
 
-Items 2 and 3 need Scope-Driven sign-off before code.
+Item 3 is measurement and needs no sign-off. Wiring needs Scope-Driven
+sign-off.
 
 ## Reproducing
 
