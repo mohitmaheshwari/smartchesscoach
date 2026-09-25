@@ -76,7 +76,26 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "backend" ]; then
   # 2 by default: ~2 cores for analysis, the rest left for the API and Mongo.
   # Override with ANALYSIS_WORKERS=N ./scripts/deploy.sh
   ANALYSIS_WORKERS="${ANALYSIS_WORKERS:-2}"
-  docker compose up -d --scale analysis-worker="$ANALYSIS_WORKERS" backend analysis-worker || die "backend containers failed to start"
+
+  # Clear orphaned containers before recreating. When compose recreates a
+  # container it first RENAMES the old one to <shortid>_<name>; if a previous
+  # deploy died between the rename and the removal, that name is still held and
+  # the next `compose up` aborts with "Conflict. The container name ... is
+  # already in use". 2026-09-25: that aborted the whole command AFTER
+  # chess-coach-backend had already been removed, so the site served HTTP 502
+  # until the orphan was deleted by hand. The deploy correctly reported FAIL --
+  # but a failure here means users are DOWN, unlike a failure in the
+  # verification step below, where the release is already live.
+  ORPHANS="$(docker ps -a --filter 'name=_smartchesscoach-analysis-worker'              --filter 'name=_chess-coach-backend' --format '{{.ID}}' || true)"
+  if [ -n "$ORPHANS" ]; then
+    printf '    note  removing %s orphaned container(s) left by an earlier deploy
+'       "$(printf '%s
+' "$ORPHANS" | wc -l | tr -d ' ')"
+    # shellcheck disable=SC2086
+    docker rm -f $ORPHANS >/dev/null 2>&1 || true
+  fi
+
+  docker compose up -d --scale analysis-worker="$ANALYSIS_WORKERS" backend analysis-worker     || die "backend containers failed to start -- THE SITE IS DOWN, this is not a verification failure"
   ok "analysis workers: $ANALYSIS_WORKERS"
 
   step "backend running the intended commit"
