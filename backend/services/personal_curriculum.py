@@ -801,9 +801,28 @@ def _personalized_candidate(
 ) -> CurriculumCandidate:
     """Route a supported canonical lesson through the shared workspace."""
     destination = candidate.destination
+    # "opening" is deliberately NOT in this set. Mohit, 2026-09-25, opening
+    # Caro-Kann from Progress: "it should have opened in an opening page, so
+    # it would have been better to teach ... it's not a puzzle."
+    #
+    # He is right, and the override was doing exactly the wrong thing: it
+    # fires only when supports_personalized_lesson_identity() says the
+    # opening HAS theory and move steps, so the better the opening's content
+    # the more certain it was to be replaced by a single-position puzzle.
+    # today_composer already builds the correct href (/openings/{key}), and
+    # /openings/:openingKey -> OpeningLesson.jsx is routed and rich: for
+    # caro_kann it serves 10 lesson move steps, 2 traps, 2 variations, 3
+    # middlegame plans and 4 golden rules against the workspace's one
+    # position.
+    #
+    # Nothing is lost by not routing openings here: OpeningLesson.jsx posts
+    # engine2/skill-seen for opening_{key}, opening_{key}_white/_black AND
+    # trap_set_{key}, so study still registers on the skill tree.
+    #
+    # concept / trap / trap_set / endgame stay — for those the workspace IS
+    # the right surface.
     if destination.content_kind not in {
         "concept",
-        "opening",
         "trap",
         "trap_set",
         "endgame",
