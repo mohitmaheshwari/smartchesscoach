@@ -368,6 +368,32 @@ async def get_home_coach_conversation(user: User = Depends(get_current_user)):
     return {"has_conversation": True, "punish_line": punish_line, **conversation}
 
 
+@router.get("/progress/area-grades")
+async def get_area_grades(user: User = Depends(get_current_user)):
+    """Where the player stands in every part of their game.
+
+    Display-only: it reads stored observations and tells nobody what to do
+    next, so it is not gated by detector quality and needs no authorization
+    id. A player can see all six areas and all three phases today, while
+    exactly one of them is allowed to become a focus.
+
+    Returns measured=False rather than grades when there are too few games --
+    an unplayed area is not an excellent one.
+    """
+    from services.area_grades import counts_from_observations, grade_areas
+
+    observations = await db.move_observations.find(
+        {"user_id": user.user_id,
+         "execution_quality": {"$in": ["mistake", "blunder"]}},
+        {"_id": 0, "missed_pattern": 1, "phase": 1, "execution_quality": 1,
+         "game_id": 1},
+    ).to_list(50000)
+
+    games_played = len({o.get("game_id") for o in observations if o.get("game_id")})
+    counts = counts_from_observations(observations)
+    return grade_areas(counts, games_played)
+
+
 @router.get("/home/dashboard-v2")
 async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
     """

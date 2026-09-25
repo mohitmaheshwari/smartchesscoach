@@ -27,6 +27,7 @@ import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
 // Thinking habits. The component existed since before 2026-09 and was
 // imported by nothing, so the scores it renders reached no screen at all.
 import ThinkingScoreCard from "@/components/coach/ThinkingScoreCard";
+import AreaGradesCard from "@/components/coach/AreaGradesCard";
 import {
   fadeInUp,
   revealOnScroll,
@@ -533,6 +534,7 @@ export default function UnifiedProgress({ user }) {
           className="mb-10 md:mb-14"
           data-testid="progress-thinking-habits"
         >
+          <AreaGradesCard />
           <ThinkingScoreCard />
         </motion.section>
 
