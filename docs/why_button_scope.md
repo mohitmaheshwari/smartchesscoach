@@ -1,6 +1,8 @@
 # Scope: The "Why" button, and the both-sides mistake list
 
-Status: DRAFT — needs Mohit's sign-off before any code.
+Status: BUILT 2026-09-25 (commit 6e25cc82). Numbers below are from
+the shipped code, not from the probe that preceded it — see
+"What changed after building it".
 Written 2026-09-25. Measurements in here are from real runs, cited by file.
 
 ---
@@ -138,3 +140,58 @@ important" mistakes. For this section we want all of them.
 
 The 5.5-second typical wait. Acceptable behind a button with a "Coach
 is working it out…" state, or too long?
+
+
+---
+
+## What changed after building it
+
+Two things moved once the real code existed, and both are worth keeping
+on the record.
+
+**1. Coverage is 98%, not 90% — and the 90% was measuring a different
+thing.** The probe I sized the feature with called the resolver's
+internals directly, in one direction only: "what would a better move
+have won". The shipped `explain()` asks the more direct question first
+— "what does their reply actually collect" — and that catches most
+positions on its own. On the same 40 positions: 27 answered from what
+the opponent got, 12 from what the player missed, 1 unanswered.
+
+So the honest numbers for the shipped feature are:
+
+| | |
+|---|---|
+| typical wait | 5.4s |
+| slow case (p90) | 8.8s |
+| worst seen | 13.5s |
+| found a reason | 39/40 |
+| said nothing | 1/40 |
+
+The design still assumes silence happens and still handles it. One in
+forty is not zero, and the 40 positions are a sample, not a census.
+
+**2. The sentences were nearly empty and it did not show.** First run,
+27 of 39 answers read "wins your piece". `WINS_MATERIAL` is a net figure
+across a whole exchange, so it had no single victim to name, and the
+`or "piece"` fallback filled the hole without ever failing. A caption
+that says "piece" tells a player nothing they could not see, and it
+looked like a working feature for as long as nobody read the output.
+
+Fixed by deriving the piece: take what each side actually lost over the
+line and cancel them off largest first; whatever of theirs is left
+unmatched is what they are genuinely down. Even trades name nobody. The
+same 40 positions now read "wins your knight", "wins your rook", "wins
+your queen". Where it still cannot name one, it says "material" — vaguer
+but not pretending.
+
+## Known gaps, not fixed
+
+- **Mate under-stated.** One card sits at a mate-level evaluation but
+  its line does not reach mate inside the ply budget, so it reports the
+  material instead: "wins your pawn". Under-stated, not false. Fixing it
+  needs a mate check on the position after the played move.
+- **Second prose path.** The standing rule is that every caption surface
+  routes through `build_move_teaching_decision`. This one does not, on
+  purpose: that function selects a sentence from the `R*.json` variant
+  files, which is the mechanism this feature exists to avoid. The cost is
+  that wording now lives in two places. Worth a decision.
