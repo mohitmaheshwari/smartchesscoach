@@ -265,6 +265,12 @@ def transfer_position_is_usable(fen: str, min_unsafe: int = 3) -> bool:
     unsafe ones that the safe move is a choice rather than the only legal
     option. Measured on 300 production piece-safety puzzles: 296 pass, and
     the 4 that fail have no safe move at all.
+
+    Stops as soon as the answer is known. It used to grade every legal move
+    of every candidate, and the endpoint tries candidates in a loop, so the
+    lesson took 1.36s to build -- most of it spent counting moves nobody
+    asked about. Each grade runs two independent exchange proofs, so the
+    early exit is worth roughly a second per request.
     """
     try:
         board = chess.Board(fen)
@@ -276,4 +282,6 @@ def transfer_position_is_usable(fen: str, min_unsafe: int = 3) -> bool:
             safe += 1
         else:
             unsafe += 1
-    return safe >= 1 and unsafe >= min_unsafe
+        if safe >= 1 and unsafe >= min_unsafe:
+            return True
+    return False

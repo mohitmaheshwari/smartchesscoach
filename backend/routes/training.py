@@ -1302,3 +1302,92 @@ async def pause_board_geometry_lesson(
     if not owned:
         raise HTTPException(status_code=404, detail="Session not found")
     return await exit_lesson(db, session_id, "pause")
+
+
+# ─── SHOW, DON'T ASK — the piece-safety lesson ──────────────────────
+# docs/show_dont_ask_lesson_scope.md. Five screens, no multiple choice:
+# watch your own move get punished, read the cause, replay the position
+# until you play something safe, do it again somewhere else, carry one
+# habit sentence. Board geometry only -- no engine on any request, so a
+# click costs nothing.
+
+class SafetyAttemptRequest(BaseModel):
+    fen: str
+    move: str
+
+
+@router.get("/safety-lesson")
+async def get_safety_lesson(user: User = Depends(get_current_user)):
+    """The next lesson built from this player's own games.
+
+    Own moments first, because the force of the opening screen is that this
+    really happened to him. The transfer position comes from a DIFFERENT game
+    of his when one exists, and from the community pool when it does not --
+    labelled honestly either way, never passed off as his.
+    """
+    from services.show_dont_ask_lesson import (
+        build_lesson,
+        transfer_position_is_usable,
+    )
+
+    observations = await db.move_observations.find(
+        {"user_id": user.user_id, "subtype": "destination_safety_exact"},
+        {"_id": 0, "fen_before": 1, "move_san": 1, "game_id": 1,
+         "move_number": 1, "derived_at": 1},
+    ).sort("derived_at", -1).to_list(400)
+
+    moment = None
+    for row in observations:
+        if row.get("fen_before") and row.get("move_san"):
+            if build_lesson(row["fen_before"], row["move_san"]) is not None:
+                moment = row
+                break
+    if moment is None:
+        return {"available": False,
+                "reason": "no punished piece-safety moment in your games yet"}
+
+    # Transfer: another of his games first.
+    transfer_fen, own = None, True
+    for row in observations:
+        if row.get("game_id") == moment.get("game_id"):
+            continue
+        candidate = row.get("fen_before")
+        if candidate and transfer_position_is_usable(candidate):
+            transfer_fen = candidate
+            break
+
+    # Falling back to the community pool. Gated on the same board check, so a
+    # position with no safe move -- an unpassable screen -- cannot be served.
+    if transfer_fen is None:
+        pool = await db.community_puzzles.find(
+            {"issue_type": "piece_safety", "approved": True},
+            {"_id": 0, "fen": 1},
+        ).limit(60).to_list(60)
+        for row in pool:
+            candidate = row.get("fen")
+            if candidate and transfer_position_is_usable(candidate):
+                transfer_fen, own = candidate, False
+                break
+
+    lesson = build_lesson(
+        moment["fen_before"], moment["move_san"],
+        transfer_fen=transfer_fen, transfer_is_own_game=own,
+    )
+    lesson["available"] = True
+    lesson["source_game_id"] = moment.get("game_id")
+    return lesson
+
+
+@router.post("/safety-lesson/attempt")
+async def grade_safety_attempt(
+    request: SafetyAttemptRequest,
+    user: User = Depends(get_current_user),
+):
+    """Grade one attempt. Stateless and board-only, so it is instant.
+
+    A rejected move gets no verdict word -- it gets the arrow of the piece
+    that would take it, and the player tries again.
+    """
+    from services.show_dont_ask_lesson import grade_attempt
+
+    return grade_attempt(request.fen, request.move)

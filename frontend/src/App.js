@@ -40,6 +40,7 @@ import Challenge from "@/pages/Challenge";
 import Settings from "@/pages/Settings";
 import AuthCallback from "@/pages/AuthCallback";
 import UnifiedProgress from "@/pages/UnifiedProgress";  // Merged progress + journey
+import SafetyLesson from "@/pages/SafetyLesson";  // show-don't-ask piece-safety lesson
 import Reflect from "@/pages/Reflect";
 import Onboarding from "@/pages/Onboarding";
 import DiagnosticPuzzles from "@/pages/DiagnosticPuzzles";
@@ -353,6 +354,11 @@ function AppRouter() {
       <Route path="/focus" element={
         <ProtectedRoute>
           {() => <Navigate to="/training?weakness=current" replace />}
+        </ProtectedRoute>
+      } />
+      <Route path="/training/safety" element={
+        <ProtectedRoute>
+          {({ user }) => <SafetyLesson user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/progress" element={
