@@ -2008,9 +2008,34 @@ def _producers():
         # >=50 reviewed-fires floor, and every one is about the played move.
         # clearance_general stays: the ply-2 fires are still correct geometry
         # and still the right material for puzzle extraction.
+        # Two further filters, measured on the 59 ply-0 fires 2026-09-25 by
+        # reading them as chess rather than as fields:
+        #
+        #   44.1%  the follow-up is a quiet move achieving nothing visible
+        #   10.2%  the follow-up is the KING stepping onto the vacated square
+        #
+        # The second is the `Rxf2 ... Kf1` shape: the rook leaves f1, the king
+        # steps in, nothing got out of anything's way for any purpose, and the
+        # real lesson is "take the free knight on f2".
+        # `_blocked_only_by_own_piece` already refuses the king as the CLEARING
+        # piece, saying in as many words that "the king stepped aside" is not
+        # the lesson a 600-1500 player takes from a clearance. The identical
+        # argument applies to the king stepping IN, and that case was not
+        # refused.
+        #
+        # So the coachable subset is: the missed move IS the clearance, the
+        # follow-up is not the king, and the follow-up does something a caption
+        # can point at. The two fires this keeps look like Nxf3+ opening the
+        # f6-a1 diagonal so Qxa1 wins a rook, and Bd7 clearing c8 so Rxa8 wins
+        # a knight. Both are real lessons a 1200 never sees.
         "clearance_immediate": _new_proof(
             "clearance_puzzle_proof", "build_clearance_proof", "clearance",
-            fact_gate=lambda f: f.get("clearance_is_immediate") is True),
+            fact_gate=lambda f: (
+                f.get("clearance_is_immediate") is True
+                and f.get("follow_up_piece") != "king"
+                and (f.get("follow_up_is_capture")
+                     or f.get("follow_up_gives_check")
+                     or f.get("follow_up_promotes")))),
         "xray_attack": _new_proof("xray_attack_puzzle_proof", "build_xray_attack_proof", "x-ray attack"),
         "interference": _new_proof("interference_puzzle_proof", "build_interference_proof", "interference"),
         "discovered_attack": _missed_motif(

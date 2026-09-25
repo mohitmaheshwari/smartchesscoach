@@ -76,3 +76,49 @@ and the scan limit reaches further than that in production.
 
 Promotion, registry edits, wiring clearance into any player-facing surface, and
 the other six unwired provers.
+
+---
+
+## Revision, same day: two further filters
+
+Reading the surviving 59 as chess rather than as fields showed the ply-0 gate
+alone was not enough. Two were clean (`Nxf3+` vacating e5 so the queen's f6–a1
+diagonal opens and `Qxa1` wins a rook; `Bd7` clearing c8 so `Rxa8` wins a
+knight). One was plainly wrong: `Rxf2` — the rook leaves f1 and the **king**
+steps onto the empty square. Nothing got out of anything's way for any purpose;
+the lesson is "take the free knight on f2".
+
+Measured across all 59:
+
+| what the follow-up does | |
+|---|---|
+| quiet — achieves nothing visible | **44.1%** |
+| capture | 27.1% |
+| check | 27.1% |
+| capture + check | 1.7% |
+
+and **10.2%** of follow-ups were the king.
+
+`_blocked_only_by_own_piece` already refuses the king as the *clearing* piece,
+stating that "the king stepped aside" is not a lesson a 600–1500 player takes.
+The identical argument applies to the king stepping *in*; that case was not
+refused.
+
+**Change.** `_locate_clearance` now records `follow_up_is_capture`,
+`follow_up_gives_check` and `follow_up_promotes`. Recorded, not gated — the
+geometry is a clearance either way and puzzle extraction still wants it. The
+queue's `fact_gate` then requires: clearance is immediate, the follow-up is not
+the king, and the follow-up does something a caption can point at.
+
+**Result on 400 games:** 59 → **33**, and of those 33 the follow-up is a capture
+(48.5%), a check (48.5%) or both (3.0%). **Zero quiet follow-ups, zero kings.**
+`clearance_general` unchanged at 88.
+
+**Pool size:** `SCAN_LIMIT` is 20,000 against 16,886 analyses, so the queue
+scans the whole corpus. 33 per 400 games projects to **~1,393 fires**, far above
+the lock's ≥50 floor.
+
+**Tests:** `test_line_motif_proofs.py` + `test_detector_quality_gate.py` — 32
+passed. `test_detector_gold_corpus.py` fails 3 (`coordination`, `prophylaxis`,
+`full_detector_audit`) — **verified identical on pristine `origin/working-code`
+code**, so pre-existing and unrelated.
