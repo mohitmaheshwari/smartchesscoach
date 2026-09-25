@@ -2141,10 +2141,13 @@ const MoveCoachingCardV5 = ({
             lineSteps = trap;
             lineKind = "trap";
           } else if (Array.isArray(move.coach_line_moves) && move.coach_line_moves.length > 0) {
-            // v78.4: explicit coach line (used by opp mistakes)
+            // v78.4: explicit coach line (opp mistakes), and since v176 the
+            // punishment line on our OWN mistakes -- the backend leads that
+            // one with the played move, so it animates from fen_before and
+            // shows the mistake followed by what the opponent does about it.
             lineMoves = move.coach_line_moves;
             lineSteps = lineMoves.map((m) => ({ move: m, explanation: null }));
-            lineKind = isUser ? "pv" : "punishment";
+            lineKind = "punishment";
           } else if ((move.pv_after_best || []).length > 0 && (move.coach_line_length_hint || 0) >= 1) {
             const sliced = (move.pv_after_best || []).slice(0, move.coach_line_length_hint);
             lineMoves = sliced;
@@ -2160,7 +2163,7 @@ const MoveCoachingCardV5 = ({
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/30"
                   data-testid="play-this-line-btn"
                 >
-                  ▶ Show me on the board
+                  ▶ {isUser ? "Why? Play it out" : "Show me on the board"}
                 </button>
               )}
               {isCoachLinePlaying && (
@@ -2168,7 +2171,8 @@ const MoveCoachingCardV5 = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-wide text-amber-500 font-medium">
                       {lineKind === "trap" ? "Trap line"
-                        : lineKind === "punishment" ? "Why it works"
+                        : lineKind === "punishment"
+                          ? (isUser ? "What happens next" : "Why it works")
                         : "Engine line"}
                     </span>
                     <button
