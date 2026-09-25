@@ -149,6 +149,48 @@ def _safe_squares(board: chess.Board, square: int, owner: bool) -> List[chess.Mo
     return out
 
 
+def _net_victim_loss(pre: chess.Board, after: chess.Board,
+                     victim: bool, aggressor: bool) -> Optional[str]:
+    """Which piece the victim is NET down once the line is played out.
+
+    WINS_MATERIAL is a net centipawn figure over a whole exchange, so it
+    has no single victim -- which is why it shipped with victim_piece
+    unset and every sentence read "wins your piece". That is a word with
+    no information in it, and because the fallback never errored it read
+    as a working caption for months.
+
+    A net figure still has a nameable piece most of the time: take what
+    each side actually lost over the line and cancel them off largest
+    first. Whatever of the victim's is left unmatched is the piece they
+    are genuinely down. Returns None when nothing survives the
+    cancellation, and None must stay unnamed rather than be papered over.
+    """
+    def lost(colour: bool) -> List[int]:
+        out: List[int] = []
+        for piece_type in (chess.QUEEN, chess.ROOK, chess.BISHOP,
+                           chess.KNIGHT, chess.PAWN):
+            gone = (len(pre.pieces(piece_type, colour))
+                    - len(after.pieces(piece_type, colour)))
+            out.extend([piece_type] * max(0, gone))
+        return out
+
+    theirs = sorted(lost(victim),
+                    key=lambda t: PIECE_VALUE_CP.get(t, 0), reverse=True)
+    ours = sorted(lost(aggressor),
+                  key=lambda t: PIECE_VALUE_CP.get(t, 0), reverse=True)
+
+    # Cancel biggest against biggest; an even trade tells the player
+    # nothing, so it must not be described as a piece they lost.
+    for spent in ours:
+        for i, taken in enumerate(theirs):
+            if PIECE_VALUE_CP.get(taken, 0) <= PIECE_VALUE_CP.get(spent, 0):
+                theirs.pop(i)
+                break
+    if not theirs:
+        return None
+    return chess.piece_name(theirs[0])
+
+
 def _consequences(
     pre: chess.Board,
     agent_move: chess.Move,
@@ -214,7 +256,8 @@ def _consequences(
     # is a punishment the player MISSED.
     gain = -net - material_baseline_cp
     if gain > 0:
-        offer("WINS_MATERIAL", gain)
+        offer("WINS_MATERIAL", gain,
+              victim_piece=_net_victim_loss(pre, line_board, victim, aggressor))
 
     # --- FORK ------------------------------------------------------------
     hit = [sq for sq in post.attacks(agent_move.to_square)
