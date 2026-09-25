@@ -250,3 +250,79 @@ Reviewing 50 of its fires on real games is the cheapest high-value next step,
 and it is the one evidence type the quality lock accepts.
 
 Added benches: `fires_per_real_game.py`, `true_negative_control.py`.
+
+---
+
+## 9. Correction: read `quality_id`, not `concept_id`
+
+Section 4 said the registry and the provers live in namespaces that never meet,
+and that "17 of 17 provers cannot reach a caption." **Wrong field.** A proof
+bundle carries both:
+
+- `concept_id` — dotted, semantic: `tactic.clearance`
+- `quality_id` — colon, and what the registry is keyed on:
+  `tactic:clearance_with_stored_payoff`
+
+Read through `quality_id`, the namespaces match exactly and six provers reach a
+player-facing surface today:
+
+| prover | quality_id | grade |
+|---|---|---|
+| `destination_safety` | `gap:piece_safety:destination_safety_exact` | **plan** |
+| `fork` | `tactic:fork_with_stored_payoff` | **caption** |
+| `forced_mate` | `tactic:forced_mate_exact` | **caption** |
+| `free_piece` | `tactic:free_piece_exact` | **caption** |
+| `piece_safety` | `gap:piece_safety:simple_hang` | **caption** |
+| `aligned_tactic` | `tactic:aligned_with_stored_payoff` | **caption** |
+| `trapped_piece` | `gap:piece_safety:trapped_piece_exact` | shadow |
+| `discovered_attack` | `tactic:discovered_attack_with_stored_payoff` | shadow |
+| `back_rank_mate` | `tactic:back_rank_mate_exact` | shadow |
+| `removal_defender` | `tactic:remove_defender_with_stored_payoff` | shadow |
+| `clearance` | `tactic:clearance_with_stored_payoff` | shadow, **no row** |
+| `deflection` | `tactic:deflection_with_stored_payoff` | shadow, **no row** |
+| `attraction` | `tactic:attraction_with_stored_payoff` | shadow, **no row** |
+| `interference` | `tactic:interference_with_stored_payoff` | shadow, **no row** |
+| `xray_attack` | `tactic:xray_attack_with_stored_payoff` | shadow, **no row** |
+| `advanced_pawn` | `endgame:advanced_pawn_with_stored_payoff` | shadow, **no row** |
+| `defensive_move` | `defense:quiet_move_that_answers_a_threat` | shadow, **no row** |
+
+There is no namespace bug and nothing to "fix" before wiring. Seven provers
+simply have no registry row yet.
+
+## 10. Clearance semantic review — it does not clear Caption grade as scoped
+
+310 fires on real user blunders (>=100cp) across 400 games. `_locate_clearance`
+walks **every** initiator ply of the stored line and records
+`clearance_ply_in_line`, so the licensing question is answered from the
+detector's own recorded facts:
+
+| where the clearance sits | fires | share | |
+|---|---|---|---|
+| **ply 0** — the best move *is* the clearance | 208 | **67.1%** | licensed: it is the move the user got wrong |
+| **ply 2** — clearance happens later in the line | 102 | **32.9%** | scenery: the user never reached this position |
+
+**A third of fires would teach the wrong move.** At ply 2 the user's mistake was
+the *first* move of the line; the clearance is downstream of a continuation they
+never played. Caption-grade needs >=95% semantic precision. 67.1% is nowhere
+near it, so `clearance` must not be promoted as currently scoped.
+
+**It is fixable by a one-line gate, not a rewrite.** The proof already exposes
+`clearance_is_immediate`. Restricting fires to `clearance_ply_in_line == 0`
+leaves **208 fires** — comfortably past the lock's ">=50 reviewed fires" — and
+every one of them is about the move the user actually played. That is the
+version worth putting through human review.
+
+### One thing to check first
+
+Every one of the 310 fires is `onto` (the follow-up lands on the vacated
+square); **zero** are `through` (a slider crossing it). The detector's own
+docstring documents seven of its twelve reference puzzles as `through`, so the
+positive control exists and this hard zero needs explaining before review —
+either real games genuinely differ, or `_left_the_way` behaves differently on
+stored PV data than on puzzle lines.
+
+Other recorded facts: the clearance move is a capture in only 11.0% of fires
+(so "win material" is rarely the real lesson), and the follow-up is +2 plies
+later in 73.2% of cases, +4 in 26.8%.
+
+Benches: `clearance_semantic_review.py`, `registry_quality_ids.py`.
