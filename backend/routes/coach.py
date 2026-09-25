@@ -1507,9 +1507,9 @@ async def get_move_why(
         # different line run to run, so a reason shown twice would differ.
         import chess
 
-        from stockfish_service import StockfishService
+        from stockfish_service import StockfishEngine
 
-        with StockfishService(threads=1) as engine:
+        with StockfishEngine(threads=1) as engine:
             board = chess.Board(fen_before)
             candidates = engine.get_candidate_lines(
                 board, num=CANDIDATE_COUNT, depth=CANDIDATE_DEPTH)

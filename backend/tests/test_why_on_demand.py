@@ -204,3 +204,103 @@ def test_scoreboard_is_in_move_order():
 def test_scoreboard_empty_input_is_safe():
     out = build_move_scoreboard([])
     assert out["moments"] == []
+
+
+# --------------------------------------------------------------------------
+# The symbols the route imports at call time
+# --------------------------------------------------------------------------
+
+def test_engine_class_and_method_exist():
+    """The route imports these INSIDE the request handler.
+
+    A wrong name there cannot fail at startup, cannot fail at import,
+    and cannot fail in any unit test -- it fails once, per click, as a
+    caught exception that the endpoint reports as "no reason found".
+    Shipped exactly that way: the class is StockfishEngine and the route
+    asked for StockfishService, so every click returned engine_error in
+    0.1s and looked indistinguishable from honest silence.
+    """
+    import inspect
+
+    from stockfish_service import StockfishEngine
+
+    assert hasattr(StockfishEngine, "get_candidate_lines")
+    assert hasattr(StockfishEngine, "__enter__")
+    assert hasattr(StockfishEngine, "__exit__")
+    params = inspect.signature(StockfishEngine.__init__).parameters
+    assert "threads" in params
+
+    sig = inspect.signature(StockfishEngine.get_candidate_lines).parameters
+    for expected in ("board", "num", "depth", "pv_length"):
+        assert expected in sig, expected
+
+
+def test_route_module_imports_names_that_exist():
+    """Walk the handler's own source for `from X import Y` and resolve each.
+
+    Deferred imports inside a function body are invisible to every other
+    check in this file; this is the one that looks at them.
+    """
+    import ast
+    import importlib
+    import os
+
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    src = open(os.path.join(here, "routes", "coach.py"), encoding="utf-8").read()
+    tree = ast.parse(src)
+
+    handler = next(
+        (n for n in ast.walk(tree)
+         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+         and n.name == "get_move_why"),
+        None,
+    )
+    assert handler is not None, "get_move_why not found"
+
+    checked = 0
+    for node in ast.walk(handler):
+        if not isinstance(node, ast.ImportFrom) or not node.module:
+            continue
+        module = importlib.import_module(node.module)
+        for alias in node.names:
+            assert hasattr(module, alias.name), (
+                f"{node.module} has no {alias.name}")
+            checked += 1
+    assert checked > 0, "no deferred imports found -- test is vacuous"
+
+
+# --------------------------------------------------------------------------
+# Scoreboard rows must not repeat what the row already shows
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize("raw", [
+    "Opening mistake (move 10)",
+    "Opening blunder (move 4)",
+    "Mistake on move 17",
+    "Blunder on move 3",
+    "Endgame slip (move 40)",
+    "",
+    None,
+])
+def test_filler_descriptions_are_dropped(raw):
+    from services.game_summary_service import _scoreboard_text
+    assert _scoreboard_text(raw) is None
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("Left piece hanging (move 12)", "Left piece hanging"),
+    ("Allowed a fork (move 9)", "Allowed a fork"),
+    ("Back rank exposed (move 21)", "Back rank exposed"),
+    ("Got pinned (move 8)", "Got pinned"),
+])
+def test_real_descriptions_survive_minus_the_move_number(raw, expected):
+    from services.game_summary_service import _scoreboard_text
+    assert _scoreboard_text(raw) == expected
+
+
+def test_opponent_rows_carry_no_template_sentence():
+    """"A chance for you here" on every opponent error is a template."""
+    v5 = [_mv(3, "Bxe5", "opp_mistake", False)]
+    out = build_move_scoreboard(v5)
+    assert out["moments"][0]["text"] is None
+    assert out["moments"][0]["side"] == "opponent"

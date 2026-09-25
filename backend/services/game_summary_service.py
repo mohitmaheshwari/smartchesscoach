@@ -15,6 +15,7 @@ Example outputs:
 from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict, field
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -347,6 +348,33 @@ def _clean_for_list(text: str) -> str:
     return text.strip()
 
 
+_SCOREBOARD_FILLER = (
+    "opening mistake", "opening blunder", "endgame slip", "endgame blunder",
+    "blunder", "mistake", "inaccuracy", "needs review",
+)
+
+
+def _scoreboard_text(raw: str) -> Optional[str]:
+    """Drop text that only restates what the row already shows.
+
+    Every row prints the move number, the move and the severity badge.
+    "Mistake on move 17" next to that is three repetitions and no
+    information; _get_short_description falls back to it whenever no
+    pattern matched. Live output read "Opening mistake (move 10)",
+    "Mistake on move 17" -- filler that looks like coaching.
+
+    Informative descriptions ("Left piece hanging", "Allowed a fork")
+    are kept, minus their move-number suffix.
+    """
+    if not raw:
+        return None
+    text = re.sub(r"\s*\((?:move\s*)?\d+\)\s*$", "", str(raw)).strip()
+    text = re.sub(r"\s+on move \d+\s*$", "", text).strip()
+    if not text or text.lower().strip(" .") in _SCOREBOARD_FILLER:
+        return None
+    return text
+
+
 def build_move_scoreboard(v5_data: List[Dict]) -> Dict:
     """Every mistake and blunder in the game, both sides, in move order.
 
@@ -377,15 +405,17 @@ def build_move_scoreboard(v5_data: List[Dict]) -> Dict:
                 continue
             you[severity] += 1
             plan = move_data.get("plan") or {}
-            text = _get_short_description(move_data, plan)
+            text = _scoreboard_text(_get_short_description(move_data, plan))
             band = severity
         else:
             if severity not in ("opp_blunder", "opp_mistake"):
                 continue
             band = "blunder" if severity == "opp_blunder" else "mistake"
             opp[band] += 1
-            # Their error is our chance, so it is described as one.
-            text = "A chance for you here."
+            # No sentence here. The badge already says it was their slip,
+            # and "A chance for you here" on every single opponent error
+            # is a template, not an observation.
+            text = None
 
         rows.append({
             "move_number": move_data.get("move_number", 0),
@@ -393,7 +423,7 @@ def build_move_scoreboard(v5_data: List[Dict]) -> Dict:
             "side": "you" if is_user else "opponent",
             "severity": band,
             "phase": move_data.get("phase", "middlegame"),
-            "text": _clean_for_list(text) if text else None,
+            "text": text or None,
         })
 
     rows.sort(key=lambda r: (r["move_number"], r["side"] != "you"))
