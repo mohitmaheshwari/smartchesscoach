@@ -40,6 +40,25 @@ DEEP_DEPTH = 22     # For critical positions
 # a handful per game, so the extra depth is affordable.
 PUNISHMENT_DEPTH = 18
 
+# How much of the punishment line we KEEP. The search already produces ~15
+# plies at PUNISHMENT_DEPTH; get_principal_variation then slices the list, so
+# raising this costs nothing -- no extra engine time, only a few more short
+# strings per move.
+#
+# It was 4, and that window hid the answer on more than half the mistakes we
+# could not explain. Measured 2026-09-25 over the freshly regenerated games,
+# on the 241 mistakes where no punishment fact fires at ply 1:
+#
+#     142 (58.9%)  the material actually goes DEEPER in the line
+#      99 (41.1%)  genuinely quiet / positional
+#
+#     ply  3: 51     ply  7: 31     ply 11: 6
+#     ply  5: 36     ply  9: 18
+#
+# Two hand-checked cases: a rook lost to Bxe1 at ply 5, and Qxd3+ at ply 5-6 --
+# both computed by the engine and discarded before reaching the database.
+PUNISHMENT_PV_PLIES = 12
+
 # Two replies within this are a tie. When that happens the single stored reply
 # is an arbitrary pick, and neither the caption nor an arrow should present it
 # as "what the opponent does".
@@ -786,12 +805,12 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         # Get PV after the best move (what SHOULD have happened)
                         best_board = board.copy()
                         best_board.push(best_move)
-                        pv_after_best = engine.get_principal_variation(best_board, depth=PUNISHMENT_DEPTH, pv_length=4)
+                        pv_after_best = engine.get_principal_variation(best_board, depth=PUNISHMENT_DEPTH, pv_length=PUNISHMENT_PV_PLIES)
 
                         # Get PV after the played move (shows the PROBLEM)
                         played_board = board.copy()
                         played_board.push(move)
-                        pv_after_played = engine.get_principal_variation(played_board, depth=PUNISHMENT_DEPTH, pv_length=4)
+                        pv_after_played = engine.get_principal_variation(played_board, depth=PUNISHMENT_DEPTH, pv_length=PUNISHMENT_PV_PLIES)
 
                         # Get the immediate threat after the played move
                         threat_after_played = engine.get_threat(played_board, depth=PUNISHMENT_DEPTH)
@@ -823,12 +842,12 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         # Get PV after best move
                         best_board = board.copy()
                         best_board.push(best_move)
-                        pv_after_best = engine.get_principal_variation(best_board, depth=PUNISHMENT_DEPTH, pv_length=4)
+                        pv_after_best = engine.get_principal_variation(best_board, depth=PUNISHMENT_DEPTH, pv_length=PUNISHMENT_PV_PLIES)
                         
                         # Get PV after played move
                         played_board = board.copy()
                         played_board.push(move)
-                        pv_after_played = engine.get_principal_variation(played_board, depth=PUNISHMENT_DEPTH, pv_length=4)
+                        pv_after_played = engine.get_principal_variation(played_board, depth=PUNISHMENT_DEPTH, pv_length=PUNISHMENT_PV_PLIES)
                         opp_replies = engine.get_top_replies(
                             played_board, num=3, depth=PUNISHMENT_DEPTH)
                         if len(opp_replies) >= 2:
@@ -892,10 +911,10 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         if best_move != move:
                             _bb = board.copy()
                             _bb.push(best_move)
-                            opp_pv_after_best = engine.get_principal_variation(_bb, depth=12, pv_length=4)
+                            opp_pv_after_best = engine.get_principal_variation(_bb, depth=12, pv_length=PUNISHMENT_PV_PLIES)
                             _pb = board.copy()
                             _pb.push(move)
-                            opp_pv_after_played = engine.get_principal_variation(_pb, depth=12, pv_length=4)
+                            opp_pv_after_played = engine.get_principal_variation(_pb, depth=12, pv_length=PUNISHMENT_PV_PLIES)
                         board.push(move)  # redo
                         opp_fen_after = board.fen()
                         opponent_analysis.append(MoveEvaluation(
