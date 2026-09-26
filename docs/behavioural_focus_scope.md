@@ -167,9 +167,56 @@ So Part B is two pieces, and the second is not optional:
 2. give `check_focus_outcome` a branch that measures time flags per game
    before and after, the same shape as `_topic_rates` does for a pattern.
 
-The evidence is there: `impulsive_critical` 11,984 rows and
-`time_pressure_blunder` 489, across 48 users — about 2% of all observed moves,
-so it is selective rather than a base rate.
+### What the time evidence actually supports, measured 2026-09-26
+
+Mohit asked whether "quality of move versus time taken" could be a stat. It
+cannot, and the measurement is worth keeping because the answer is the opposite
+of the intuition. Mistake rate against time spent, over 260,000 moves:
+
+```
+  under 1s   5.8%      5-15s   18.2%
+  1-2s       8.5%      15s+    24.0%
+  2-5s      12.4%
+```
+
+More time, more mistakes, monotonically — and it survives normalising to each
+player's own pace (6.1% to 23.7%). That is position difficulty leaking in, not
+thinking being harmful. Published as a stat it would tell players to think less.
+
+There is no difficulty control available to remove it, either: the only flag we
+store is `was_critical_moment`, and it is set by
+`cp_loss >= 100 or evaluation in (blunder, mistake)` — it IS the outcome. That
+is why quiet positions show 0.0% mistakes across 207,659 moves, and it fully
+explains `found_best_in_critical` being false on 93% of critical moments.
+
+So the question is turned round, conditioning on the move already being bad,
+which holds difficulty fixed:
+
+```
+  snap share of ALL moves    23.5%
+  snap share of MISTAKES     13.2%
+```
+
+Mistakes are LESS rushed than ordinary moves, and of 42 players with enough
+data, **0 make their mistakes faster than their usual pace and 40 make them
+slower.** So "not taking time to think" is not what is costing these players
+material, and no focus should claim it is.
+
+**The per-move claim survives and is now correct** (shipped `08cd60a4`):
+`impulsive_critical` has become `snap_decision`, measured against the player's
+own pace in that game rather than an absolute three seconds — the old rule
+called 14.6% of its own fires impulsive for thinking *longer* than usual, and
+its `is_critical` condition was vacuous on all 11,984. `slow_paralysis` could
+never fire at all and now can. Re-derived over 400 real games: 26 snap
+decisions, 10 time-pressure blunders, 8 long thinks that still went wrong.
+
+**So Part B keeps timeouts and drops impulsiveness as a trait.** The flags
+explain individual moves; the topic is scored from timeouts, which are real and
+countable at 2,227 games.
+
+**And a constraint Part B must respect:** the 11,984 existing rows still carry
+the old key under the old rule. Nothing may AGGREGATE over `time_flag` until
+they are re-derived, or the total mixes two definitions.
 
 ## Out of scope, deliberately
 
