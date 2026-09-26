@@ -1128,6 +1128,34 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
             # nothing to use. Prefer UTCDate; store ISO8601 UTC.
             game_doc["date_played"] = _parse_pgn_date(pgn)
 
+            # played_at_utc — the TYPED instant, and the only date field any
+            # measurement reads. `date_played` above stays exactly as it is:
+            # it is a string in three shapes, and ASCII "." sorts above "-",
+            # so comparing it puts every chess.com dotted date after every ISO
+            # timestamp whatever day it names. That put 407 games on the wrong
+            # side of 15 focus windows.
+            #
+            # Written here because nothing in the product wrote it before --
+            # only scripts/backfill_played_at_utc.py did, over history. So
+            # every game imported after a migration run had no typed date, and
+            # measurement silently skipped it: 1,553 of 17,804 games on
+            # 2026-09-26, all imported that month. A migration that has to be
+            # re-run after every import is not a migration.
+            #
+            # services/played_at.derive is the same function the backfill uses,
+            # not a copy of its rules. It returns nothing rather than inventing
+            # an instant, so an unparseable game stores no date instead of a
+            # fabricated one.
+            from services.played_at import SRC_NONE, derive
+
+            played_at, played_at_source = derive(
+                dict(game_doc, pgn=pgn, platform=platform)
+            )
+            if played_at is not None and played_at_source != SRC_NONE:
+                game_doc["played_at_utc"] = played_at
+                game_doc["played_at_source"] = played_at_source
+                game_doc["played_at_raw"] = game_doc.get("date_played")
+
             # Extract additional metadata
             if platform == "chess.com":
                 game_doc["time_control"] = game_data.get("time_class", "")

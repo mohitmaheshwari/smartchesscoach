@@ -93,19 +93,39 @@ severity-weighted count. Everything else stays: the same authorized-subtype
 filter, the same severity weights, the same rating priors, the same plan-surface
 gate.
 
-**The dependency that must be named.** Recency needs `played_at_utc`, the BSON
-date. **3,106 of 17,804 games do not have it** — 17.4% — because
-`scripts/backfill_played_at_utc.py` has not finished. A recency model silently
-ignores those games. Never `date_played` instead: it holds ISO timestamps,
-chess.com's dotted `2026.04.15`, and nothing at all for Play-with-Coach rows,
-and `.` sorts above `-` in ASCII, so every dotted date lands after every
-timestamp regardless of when it happened. That already put 407 games into the
-wrong side of 15 focus windows.
+**The dependency that must be named, and it is not what I first wrote.**
+Recency needs `played_at_utc`, the BSON date. **1,553 of 17,804 games do not
+have it — 8.7%.**
 
-So Part A ships **after** the backfill reports zero remaining, or it ships with
-the recency window measured only over dated games and that limit stated on the
-focus document. My recommendation is to finish the backfill first; it is a
-one-off and it makes the rest trustworthy.
+(An earlier draft of this scope said 3,106 and 17.4%. That was my arithmetic
+error: in MongoDB `$exists: false` also matches an explicit `null`, so my two
+queries returned the same 1,553 rows and I added them together. The corrected
+figure does not change the recommendation below, but it halves the size of the
+problem.)
+
+Never `date_played` instead: it holds ISO timestamps, chess.com's dotted
+`2026.04.15`, and nothing at all for Play-with-Coach rows, and `.` sorts above
+`-` in ASCII, so every dotted date lands after every timestamp regardless of
+when it happened. That already put 407 games into the wrong side of 15 focus
+windows.
+
+**The real problem is that nothing writes the field.** Grepping for a writer
+outside `scripts/`: there is none. `scripts/backfill_played_at_utc.py` is the
+only thing that sets `played_at_utc`, and
+`primary_weakness_picker` is the only thing that reads it. So this was never a
+one-off migration — it is a chore that silently reopens with every import. The
+evidence is exact: **all 1,553 undated games were imported this month**, and
+**all 1,553 still carry a usable `date_played`**, so every one is recoverable.
+
+So Part A has a prerequisite that is smaller and more durable than re-running a
+migration:
+
+1. **write `played_at_utc` in the import path**, so the field is right by
+   construction and the gap cannot reopen, then
+2. run the existing backfill once for the 1,553 historical rows.
+
+Only then does the recency ranking cover every game. The 17-of-57 number below
+was measured over the 82.6% of games that are dated today.
 
 ## Part B — turn time management back on
 
