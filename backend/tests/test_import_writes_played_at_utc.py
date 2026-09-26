@@ -100,3 +100,44 @@ def test_the_import_path_actually_calls_it():
     source = (BACKEND_ROOT / "journey_service.py").read_text(encoding="utf-8")
     assert "from services.played_at import" in source
     assert 'game_doc["played_at_utc"]' in source
+
+
+def test_the_backfill_script_can_still_reach_everything_it_moved():
+    """Moving the derivation out broke the script at RUNTIME, not at import.
+
+    `main` still referenced `_DOTTED` and `_ISO_PREFIX`, which had moved to the
+    service. Nothing failed until the script ran against production, minutes
+    into a dry run:
+
+        NameError: name '_DOTTED' is not defined
+
+    Importing the module cannot catch that: a global is only looked up when the
+    function body executes. So this checks the one thing that actually broke --
+    every name the service defines, which the script's source still mentions,
+    must be reachable on the script module.
+
+    Deliberately narrow. An earlier version of this test tried to resolve every
+    name in the file and flagged comprehension variables (`d`, `r`, `key`),
+    because a correct scope analyser is not something a test should contain.
+    """
+    import ast
+
+    from scripts import backfill_played_at_utc as script
+    from services import played_at
+
+    service_names = {
+        name for name in vars(played_at)
+        if not name.startswith("__")
+    }
+    source = (BACKEND_ROOT / "scripts" / "backfill_played_at_utc.py").read_text(
+        encoding="utf-8"
+    )
+    mentioned = {
+        node.id for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Name) and node.id in service_names
+    }
+    assert mentioned, "positive control: the script should mention some of them"
+    unreachable = sorted(n for n in mentioned if not hasattr(script, n))
+    assert not unreachable, (
+        "the script uses these but can no longer reach them: %s" % unreachable
+    )

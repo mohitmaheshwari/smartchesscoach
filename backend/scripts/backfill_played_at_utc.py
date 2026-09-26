@@ -83,6 +83,12 @@ from services.played_at import (  # noqa: E402,F401
     SRC_PGN_LOCAL,
     SRC_PGN_UTC,
     SRC_STORED_ISO,
+    # `main` classifies the raw stored value for its report, so it needs these
+    # two shape tests as well. They are imported rather than re-declared: a
+    # second copy of "what a dotted date looks like" is exactly the kind of
+    # duplicate that let the string-ordering bug live.
+    _DOTTED,
+    _ISO_PREFIX,
     derive,
     parse_stored,
 )
