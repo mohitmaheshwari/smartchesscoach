@@ -874,22 +874,39 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     decryptionData?.length && currentMoveIndex >= decryptionData.length - 1
   );
 
-  // The concept this game actually taught. Measured across 12,911 games,
-  // 95% surface exactly one, so taking the first taught concept is the
-  // normal case rather than a simplification. Prefer one the coach flagged
-  // for acknowledgment; that is the concept the review led with.
-  const testableConcept = useMemo(() => {
-    if (!decryptionData?.length) return null;
-    const flagged = decryptionData.find(
-      (m) => m.needs_acknowledgment && (m.concept_id || m.plan?.concept_id)
-    );
-    const source = flagged || decryptionData.find((m) => m.plan?.concept_id);
-    if (!source) return null;
-    return {
-      concept_id: source.concept_id || source.plan?.concept_id,
-      transferable_learning: source.plan?.transferable_learning || "",
-    };
-  }, [decryptionData]);
+  // The concept this game actually taught.
+  //
+  // This used to read m.concept_id / m.plan.concept_id off the review cards,
+  // and so it never once returned anything: those fields were retired on
+  // 2026-05-11 ("legacy prose fields retired" — the V5 caption pipeline
+  // replaced that prose) and this card was built in September against the
+  // retired schema. Measured 2026-09-26: concept_id is null on all 16,292
+  // stored cards, so the proof step has never appeared for any user.
+  //
+  // The detector event log has the answer, in the same vocabulary the puzzle
+  // pools are keyed on. The backend picks the biggest mistake of the game and
+  // applies the same should_offer_test gate the offer endpoint uses.
+  const [testableConcept, setTestableConcept] = useState(null);
+
+  useEffect(() => {
+    if (!gameId || !reviewFinished) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API}/api/coach/concept-test/for-game/${encodeURIComponent(gameId)}`,
+          { credentials: "include" }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data?.concept_id) setTestableConcept(data);
+      } catch {
+        // Silent: no test offered is the ordinary outcome on about half of
+        // games, and a failed lookup must never break the review itself.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [gameId, reviewFinished]);
 
   const goForward = useCallback(() => {
     if (!decryptionData || currentMoveIndex >= decryptionData.length - 1) return;
@@ -1565,7 +1582,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         {reviewFinished && testableConcept && (
           <ConceptTestCard
             conceptId={testableConcept.concept_id}
-            conceptText={testableConcept.transferable_learning}
+            conceptText={testableConcept.transferable_learning || ""}
           />
         )}
 

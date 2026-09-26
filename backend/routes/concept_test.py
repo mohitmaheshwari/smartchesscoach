@@ -12,6 +12,8 @@ Endpoints:
 - POST /coach/concept-test/{test_id}/submit      - grade it, move the state
 - POST /coach/concept-test/{concept_id}/decline  - "Not now"
 - GET  /coach/concept-test/{concept_id}/offer    - should we offer it?
+- GET  /coach/concept-test/for-game/{game_id}    - which concept did this
+                                                   game teach?
 """
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -37,6 +39,7 @@ from services.concept_test_service import (
     grade_concept_test,
     record_test_declined,
     should_offer_test,
+    pick_concept_for_game,
 )
 
 
@@ -60,6 +63,24 @@ async def _user_rating(user_id: str, fallback: int = 1200) -> int:
 
 class SubmitPayload(BaseModel):
     answers: List[str]
+
+
+@router.get("/for-game/{game_id}")
+async def concept_for_game(game_id: str, user: User = Depends(get_current_user)):
+    """Which concept should the review at the end of THIS game test?
+
+    Declared above /{concept_id} for readability; the paths do not actually
+    collide because this one has two segments.
+
+    Returns {"concept_id": null} rather than a 404 when the game taught
+    nothing testable. That is the ordinary case, not an error -- measured
+    2026-09-26, about half of recently analysed games carry a concept -- and
+    a 404 would put a red line in the browser console on every other review.
+    """
+    concept = await pick_concept_for_game(db, user.user_id, game_id)
+    if not concept:
+        return {"concept_id": None, "reason": "no testable concept in this game"}
+    return concept
 
 
 @router.get("/{concept_id}")
