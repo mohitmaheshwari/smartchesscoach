@@ -97,6 +97,55 @@ V5_COACHING_VERSION = 177  # v177 (2026-09-25): the mistake floor stops telling 
 # 8 plies at the UI's 2-second pacing is ~16s -- long enough to carry a
 # full liquidation, short enough that nobody stops watching.
 PUNISHMENT_LINE_MAX_PLIES = 8
+
+
+def punishment_line_end(
+    pv_after_played: list, hang_square: Optional[str] = None
+) -> Optional[int]:
+    """How many plies of the punishment line actually ARE the punishment.
+
+    Mohit 2026-09-26, on a one-move blunder that played out nine moves:
+    "this straight up is one move blunder, our detector would have fired here
+    and should have stopped directly on the first move."
+
+    He was right that it should stop and wrong that a detector was stopping
+    it: nothing was. The line is [played] + pv_after_played[:8], a fixed
+    slice, so every stored line came out exactly 9 moves long whatever the
+    mistake was -- measured 19 of 19 in the corpus.
+
+    Two rules, in order of how much they know:
+
+      1. The hang detector named a square. The punishment is complete the
+         moment something captures on it -- after Nf4, that is Bxf4+, ply 1.
+         Everything after is the game continuing, not the knight being lost.
+
+      2. No detector fact. Fall back to the last capture in the line, which
+         is where a forced sequence of trades finishes. This keeps the case
+         the fixed slice was built for: eb189840 move 8 loses a pawn over
+         seven forced captures and needs all of them.
+
+    Returns an index into pv_after_played (inclusive), or None to keep the
+    caller's existing behaviour -- a positional punishment with no capture
+    and no hang has no honest stopping point, and guessing one would cut a
+    line in the middle of the idea.
+    """
+    if not pv_after_played:
+        return None
+
+    if hang_square:
+        target = str(hang_square).strip().lower()
+        for idx, san in enumerate(pv_after_played):
+            token = str(san or "").strip().rstrip("+#!?")
+            if "x" in token and token.lower().endswith(target):
+                return idx
+
+    last_capture = None
+    for idx, san in enumerate(pv_after_played):
+        if "x" in str(san or ""):
+            last_capture = idx
+    return last_capture
+
+
 # Same floor the punishment arrows use, so board and words agree on
 # what counts as a mistake worth drawing.
 PUNISHMENT_LINE_MIN_CP = 100
@@ -3860,6 +3909,17 @@ async def generate_game_decryption_v5(
                             if str(x or "").strip()
                         ][:PUNISHMENT_LINE_MAX_PLIES]
                         if _pv_played_line:
+                            # Stop where the punishment lands, not at the cap.
+                            # The hang detector already named the square if a
+                            # piece is simply lost; punishment_line_end turns
+                            # that into a ply, and falls back to the last
+                            # capture when no detector fired.
+                            _end = punishment_line_end(
+                                _pv_played_line,
+                                caption_facts.get("played_hangs_square"),
+                            )
+                            if _end is not None:
+                                _pv_played_line = _pv_played_line[: _end + 1]
                             # Lead with the played move: the UI animates from
                             # fen_before, so the line must start with what was
                             # actually played or the board jumps a move ahead.
