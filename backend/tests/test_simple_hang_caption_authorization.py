@@ -96,6 +96,21 @@ def test_caption_surface_admits_only_evidence_backed_ids():
         "gap:king_safety:ignored_king_attack",
         "gap:missed_tactic:missed_fork",
         "gap:missed_tactic:missed_skewer",
+        # Promoted 2026-09-26: the first BEHAVIOURAL topic, and the first whose
+        # evidence is not a board motif. Three stored facts, none inferred -- a
+        # timeout LOSS (the game's result plus its termination), a blunder with
+        # under thirty seconds on the PGN clock, and a think over ninety
+        # seconds that still went wrong. 1,258 timeout losses across 47 users,
+        # 16 of whom lose on time in more than one game in ten.
+        #
+        # It appears on THIS list only because Plan grade includes Caption by
+        # contract. Nothing renders it as a caption: it is a game-level fact
+        # about the clock, not a claim about a move.
+        #
+        # Moving fast is deliberately excluded from it. Across 42 players,
+        # mistakes are LESS rushed than ordinary moves (13.2% against 23.5%)
+        # and not one player makes their mistakes faster than their own pace.
+        "gap:time_management:clock_damage_exact",
     }
     caption = {
         qid for qid in explicit_authorizations()

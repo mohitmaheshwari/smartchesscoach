@@ -343,6 +343,35 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "the 200 reviewed fires Plan-grade requires.",
         ),
     ),
+    "gap:time_management:clock_damage_exact": Authorization(
+        grade=QualityGrade.PLAN,
+        evidence_ref="docs/behavioural_focus_scope.md",
+        rationale=(
+            "Three stored facts, none of them inferred. A timeout LOSS is the "
+            "game's own result plus its termination; a time-pressure blunder "
+            "is the PGN clock under thirty seconds plus the engine's verdict; "
+            "a long think that still went wrong is the clock over ninety "
+            "seconds plus the same verdict. Nothing here is a judgement about "
+            "the player's state of mind. Measured 2026-09-26: 1,258 timeout "
+            "losses across 47 users, and 16 users lose on time in more than "
+            "one game in ten."
+        ),
+        limitations=(
+            "Moving fast is deliberately NOT part of this. Across 42 players "
+            "with enough data, mistakes are LESS rushed than ordinary moves "
+            "(13.2% against 23.5%) and not one player makes their mistakes "
+            "faster than their usual pace, so scoring a focus on speed would "
+            "tell almost everyone something untrue about themselves.",
+            "969 of 2,227 games ending on the clock were WON on time, 44%. "
+            "The measure counts losses only; anything reading `termination` "
+            "without the result would be wrong about nearly half of them.",
+            "PGN clocks are present on 78.4% of moves, so the two per-move "
+            "halves are blind on the rest. Timeout losses are unaffected.",
+            "slow_paralysis only became reachable on 2026-09-26 -- it "
+            "required `not was_critical`, unreachable for a mistake -- so "
+            "counts before the re-derive understate it.",
+        ),
+    ),
     "gap:opening_knowledge:retreated_a_developed_piece": Authorization(
         grade=QualityGrade.SHADOW,
         evidence_ref=(

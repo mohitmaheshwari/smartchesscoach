@@ -33,9 +33,14 @@ from services import detector_quality as dq  # noqa: E402
 # The topics a focus may be built on today, and the detector carrying each.
 # This list grew from one to three on 2026-09-26.
 PLANNABLE = {
-    "piece_safety":  "destination_safety_exact",
-    "king_safety":   "ignored_king_attack",
-    "missed_tactic": "missed_fork / missed_skewer",
+    "piece_safety":    "destination_safety_exact",
+    "king_safety":     "ignored_king_attack",
+    "missed_tactic":   "missed_fork / missed_skewer",
+    # The first behavioural topic. Its evidence is not a board motif but the
+    # clock costing games: timeout losses, blunders with seconds left, and long
+    # thinks that went wrong anyway. Moving fast is deliberately excluded --
+    # see the limitations on gap:time_management:clock_damage_exact.
+    "time_management": "clock_damage_exact",
 }
 
 

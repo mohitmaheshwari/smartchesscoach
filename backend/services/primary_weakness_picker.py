@@ -641,6 +641,27 @@ async def _compute_baseline_metric(
     games_analyzed = await db.games.count_documents(
         {"user_id": user_id, "is_analyzed": True}
     )
+
+    # time_management has no `missed_pattern` to count -- zero rows of 550,000
+    # carry it -- so the generic path below would hand every such focus a
+    # baseline of 0.0 and, with the outcome also 0.0, a delta of exactly zero
+    # for ever. That is precisely the wedge that took this topic offline: 18 of
+    # 38 active weakness locks stuck on it. Both halves now share one measure.
+    if topic == "time_management":
+        analysed = await db.games.find(
+            {"user_id": user_id, "is_analyzed": True},
+            {"_id": 0, "game_id": 1},
+        ).to_list(length=5000)
+        game_ids = [g["game_id"] for g in analysed if g.get("game_id")]
+        rates = await _time_management_rates(db, user_id, game_ids, game_ids)
+        if rates is None:
+            return {"name": "time_management_per_game", "value": 0.0,
+                    "occurrence_count": 0, "n_games_at_baseline": games_analyzed}
+        before, _after = rates
+        return {"name": before["name"], "value": before["value"],
+                "occurrence_count": before["occurrence_count"],
+                "n_games_at_baseline": games_analyzed}
+
     observation_query: Dict[str, Any] = {
         "user_id": user_id,
         "missed_pattern": topic,
@@ -763,7 +784,7 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         # long before this, and eight services used it. This one did not.
         #
         # Measured over every game on production 2026-09-26: the focus TOPIC
-        # changes for 14 of 57 users, 25%. Same three topics -- a quarter of
+        # changes for 15 of 53 users, 28%. Same three topics -- a quarter of
         # players were simply being coached on the wrong one of the three. For
         # comparison, the best board-motif detector promotion available would
         # have changed it for 1 of 53.
@@ -782,10 +803,8 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         # and all ten missed_tactic winners had ZERO. A pattern absent from the
         # window scores zero, because that is what absent means.
         #
-        # The real fallback is for a player with no dated games at all, who has
-        # no window to speak of. Then everything ranks on lifetime, as before.
-        # Two ways there is nothing recent to rank on, and both fall back to
-        # the lifetime total for EVERY pattern rather than for one of them:
+        # There are two ways a PLAYER has nothing recent to rank on, and
+        # both fall back to the lifetime total for every pattern at once:
         #
         #   the player has no dated games at all, or
         #   they have a window but no authorized evidence anywhere inside it.
@@ -843,7 +862,12 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     # extending 7 more days on every 6-hourly outcome check with no way out.
     # Re-enable once check_focus_outcome has a matching time_flag-based
     # branch for this topic.
-    _TIME_MANAGEMENT_OUTCOME_CHECK_FIXED = False
+    # Back on 2026-09-26. It was switched off because the outcome check had no
+    # branch for this topic, so every such focus extended for ever: 18 of 38
+    # active weakness locks were wedged on it. `_time_management_rates` above
+    # is that branch, and the 28-day time box is a second way out even if a
+    # measure ever fails.
+    _TIME_MANAGEMENT_OUTCOME_CHECK_FIXED = True
     # Score: severity-weighted flags PLUS a chronic-timeout bonus
     if _TIME_MANAGEMENT_OUTCOME_CHECK_FIXED and (n_time_flags >= MIN_EVIDENCE or timeout_loss_rate >= 0.10):
         # Build a synthetic subtype_severity dict for the narrative
@@ -1253,6 +1277,65 @@ async def _pic_proof_rates(db, user_id: str, before_ids, after_ids):
     )
 
 
+# What a time-management problem looks like when it costs something.
+#
+# `snap_decision` is deliberately NOT here. Measured 2026-09-26 across 42
+# players with enough data: mistakes are LESS rushed than ordinary moves (13.2%
+# against 23.5%) and NOT ONE player makes their mistakes faster than their usual
+# pace. Moving fast explains individual moves; it is not evidence that someone
+# has a time problem, and scoring a focus on it would tell almost every player
+# something untrue about themselves.
+#
+# What is left is the clock actually costing games: blundering with seconds
+# left, thinking so long the position went wrong anyway, and losing on time.
+TIME_MANAGEMENT_FLAGS = ("time_pressure_blunder", "slow_paralysis")
+
+
+async def _time_management_rates(db, user_id: str, before_ids, after_ids):
+    """Clock damage per game, counted identically on both halves.
+
+    `_topic_rates` cannot answer for this topic: it counts `move_observations`
+    with a matching `missed_pattern`, and `missed_pattern` is NEVER
+    "time_management" -- zero rows of 550,000. So every time-management focus
+    returned `measurement_pending` for ever, which is why 18 of 38 weakness
+    locks were once wedged on it and why the topic was switched off rather than
+    fixed.
+
+    A timeout counts only when the player LOST on time. `termination` says the
+    game ended on the clock without saying whose, and half of those are wins.
+    """
+    from services.game_outcome import user_lost
+
+    async def rate(game_ids):
+        if not game_ids:
+            return None
+        ids = list(game_ids)
+        flagged = await db.move_observations.count_documents({
+            "user_id": user_id,
+            "time_flag": {"$in": list(TIME_MANAGEMENT_FLAGS)},
+            "game_id": {"$in": ids},
+        })
+        timeout_losses = 0
+        async for game in db.games.find(
+            {"user_id": user_id, "game_id": {"$in": ids},
+             "termination": "timeout"},
+            {"_id": 0, "result": 1, "user_color": 1, "termination": 1},
+        ):
+            if user_lost(game):
+                timeout_losses += 1
+        total = flagged + timeout_losses
+        return {"value": round(total / len(ids), 3),
+                "name": "time_management_per_game",
+                "occurrence_count": total,
+                "n_games": len(ids)}
+
+    before = await rate(before_ids)
+    after = await rate(after_ids)
+    if before is None or after is None:
+        return None
+    return before, after
+
+
 async def _topic_rates(db, user_id: str, topic: str, before_ids, after_ids):
     """Occurrences per game, before and after, counted identically.
 
@@ -1320,6 +1403,9 @@ async def check_focus_outcome(db, focus: Dict[str, Any]) -> Dict[str, Any]:
 
     if focus.get("cycle_version") == 1:
         rates = await _pic_proof_rates(db, user_id, before_ids, after_ids)
+    elif topic == "time_management":
+        # Its own measure, because it has no `missed_pattern` to count.
+        rates = await _time_management_rates(db, user_id, before_ids, after_ids)
     else:
         rates = await _topic_rates(db, user_id, topic, before_ids, after_ids)
 
