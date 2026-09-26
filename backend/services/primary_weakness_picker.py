@@ -25,6 +25,7 @@ from typing import Optional, Dict, Any, List
 from bson import ObjectId
 
 from services.destination_safety_detector import FACT_VERSION
+from services.pattern_decay_service import DECAY_RATE
 
 logger = logging.getLogger(__name__)
 
@@ -516,6 +517,37 @@ async def _pic_enabled_for_user(db, user_id: str) -> bool:
     return _pic_fields_eligible((user_doc or {}).get("role"))
 
 
+# How far back the focus looks. Taken from pattern_decay_service, which has
+# owned this question since long before the picker asked it -- same window,
+# same rate, so "what you are doing lately" means one thing in this product.
+DECAY_WINDOW_GAMES = 20
+
+
+async def _recency_weights(db, user_id: str) -> Dict[str, float]:
+    """{game_id: weight}, the newest game weighing 1.0 and older ones less.
+
+    Ordered by `played_at_utc`, the typed date, never by the `date_played`
+    string: that holds ISO timestamps, chess.com's dotted `2026.04.15` and
+    nothing for coach games, and "." sorts above "-" in ASCII, so a string
+    comparison puts every dotted date after every timestamp whatever day it
+    names. Every game carries the typed field as of 2026-09-26.
+
+    A game outside the window is absent rather than present with a tiny
+    weight, which is the decay model's own behaviour: past twenty games back,
+    it is history, not a habit.
+    """
+    games = await db.games.find(
+        {"user_id": user_id, "is_analyzed": True,
+         "played_at_utc": {"$ne": None}},
+        {"_id": 0, "game_id": 1},
+    ).sort("played_at_utc", -1).to_list(length=DECAY_WINDOW_GAMES)
+    return {
+        str(game.get("game_id")): DECAY_RATE ** index
+        for index, game in enumerate(games)
+        if game.get("game_id")
+    }
+
+
 async def _get_cohort_signals(
     db, user_id: str, see_backed_only: bool = False
 ) -> Dict[str, Any]:
@@ -531,7 +563,28 @@ async def _get_cohort_signals(
     obs = await db.move_observations.find(query).to_list(length=25000)
     from services.detector_quality import sanitize_plan_observation
     obs = [sanitize_plan_observation(item) for item in obs]
-    return aggregate_user_signals(obs), len(obs)
+    signals = aggregate_user_signals(obs)
+
+    # Recency-weighted evidence, alongside the lifetime totals rather than
+    # instead of them: the totals still describe the player for the narrative,
+    # while the ranking below asks the narrower question of what they are doing
+    # NOW. `sanitize_plan_observation` has already nulled `missed_pattern` on
+    # anything the plan surface refuses, so this inherits that gate for free.
+    weights = await _recency_weights(db, user_id)
+    recency: Dict[str, float] = {}
+    for item in obs:
+        pattern = item.get("missed_pattern")
+        if not pattern:
+            continue
+        weight = weights.get(str(item.get("game_id")))
+        if weight is None:
+            continue                      # outside the window
+        recency[pattern] = recency.get(pattern, 0.0) + (
+            _SEVERITY_WEIGHT.get(item.get("severity"), 1.0) * weight
+        )
+    signals["_recency_weighted_patterns"] = recency
+    signals["_recency_window_games"] = len(weights)
+    return signals, len(obs)
 
 
 async def _resolve_user_rating(db, user_id: str) -> Optional[int]:
@@ -699,7 +752,55 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         if count < MIN_EVIDENCE:
             continue
         prior = rating_prior(pattern)
-        score = weighted * prior
+
+        # RANK BY WHAT THEY ARE DOING LATELY, not by a lifetime total.
+        #
+        # This summed a player's whole history and named whatever happened
+        # most, with no sense of when. A blunder from two hundred games ago
+        # weighed exactly as much as yesterday's, so the one thing we tell a
+        # player to work on could not tell a one-off from a habit.
+        # pattern_decay_service has computed the recency-weighted version since
+        # long before this, and eight services used it. This one did not.
+        #
+        # Measured over every game on production 2026-09-26: the focus TOPIC
+        # changes for 14 of 57 users, 25%. Same three topics -- a quarter of
+        # players were simply being coached on the wrong one of the three. For
+        # comparison, the best board-motif detector promotion available would
+        # have changed it for 1 of 53.
+        #
+        # `evidence_count` and `severity_weighted_count` below stay on the
+        # lifetime basis on purpose: they describe the player in the narrative
+        # ("this has come up across your games"), while only the RANKING asks
+        # the narrower question. Reporting a decayed count as if it were a
+        # number of events would be a third thing to get wrong.
+        # THE FALLBACK IS PER PLAYER, NOT PER PATTERN, and getting that wrong
+        # inverts the whole change. A first version fell back to the lifetime
+        # total whenever a PATTERN had no events in the window -- which handed
+        # a full historical score to exactly the patterns with nothing recent,
+        # while an active one got a small decayed number. Measured before the
+        # fix: 18 of 53 winners had fewer than three events inside the window
+        # and all ten missed_tactic winners had ZERO. A pattern absent from the
+        # window scores zero, because that is what absent means.
+        #
+        # The real fallback is for a player with no dated games at all, who has
+        # no window to speak of. Then everything ranks on lifetime, as before.
+        # Two ways there is nothing recent to rank on, and both fall back to
+        # the lifetime total for EVERY pattern rather than for one of them:
+        #
+        #   the player has no dated games at all, or
+        #   they have a window but no authorized evidence anywhere inside it.
+        #
+        # The second matters more than it looks. Without it every candidate
+        # scores zero, the sort has nothing to order by, and the winner is
+        # whichever happened to be first -- a focus chosen by list order. One
+        # user on production was in exactly that state, picked on 0 recent
+        # events out of 83 lifetime.
+        if not signals.get("_recency_window_games") or not (
+                signals.get("_recency_weighted_patterns") or {}):
+            score = weighted * prior
+        else:
+            score = (signals.get("_recency_weighted_patterns") or {}).get(
+                pattern, 0.0) * prior
         candidates.append({
             "topic": pattern,
             "score": round(score, 3),
