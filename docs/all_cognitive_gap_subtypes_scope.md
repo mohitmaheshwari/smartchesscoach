@@ -57,7 +57,7 @@ Same architecture as piece_safety:
 
 ### opening_knowledge
 - `theory_deviation_early` — user's move within first 8 moves is not in book (uses existing opening_book service)
-- `tempo_wasted_by_repeat` — user moved same piece twice in first 10 moves without capture
+- `retreated_a_developed_piece` — a knight or bishop moved back toward home through move 10, non-capture, costing 100cp+, where the engine wants a DIFFERENT piece and nothing legally attacks this one. Renamed from `tempo_wasted_by_repeat` on 2026-09-26: that label claimed "moved the same piece twice", which was true of 557/557 fires (vacuous), was never computed, and was the wrong accusation in 43.1% of them. See docs/opening_knowledge_promotion_finding_2026_09_26.md
 - `early_flank_pawn_move` — user pushed f/g/h/a/b/c pawn ≥2 squares in first 8 moves
 
 ### endgame_technique

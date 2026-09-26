@@ -491,6 +491,46 @@ def classify_piece_activity(mv, opponent_previous, opp_next) -> Tuple[Optional[s
 
 # ─── OPENING_KNOWLEDGE ────────────────────────────────────────────────
 
+def _has_legal_capture_of(board: chess.Board, square: int,
+                          by_colour: chess.Color) -> bool:
+    """Whether `by_colour` has a LEGAL capture of this square.
+
+    `board.attackers()` is PSEUDO-legal: it counts a pinned attacker that
+    cannot actually take. Using it here would report a safe piece as chased
+    and so excuse a retreat that was never forced.
+    """
+    probe = board.copy(stack=False)
+    probe.turn = by_colour
+    try:
+        return any(m.to_square == square for m in probe.legal_moves
+                   if probe.is_capture(m))
+    except Exception:
+        return False
+
+
+def _retreat_was_avoidable(board: chess.Board, move: chess.Move,
+                           mv: Dict[str, Any]) -> bool:
+    """The two gates that make "you gave back a tempo" a true accusation.
+
+    1. The engine wants a DIFFERENT piece. If its best move moves this same
+       piece, the player was right to move it and only wrong about where.
+    2. Nothing was legally attacking the piece. A chased piece must move.
+
+    With no engine best move stored there is no gate 1, so this returns False:
+    no engine truth, no accusation.
+    """
+    best_uci = _best_move_uci(mv)
+    if not best_uci:
+        return False
+    try:
+        best = chess.Move.from_uci(best_uci)
+    except Exception:
+        return False
+    if best.from_square == move.from_square:
+        return False
+    return not _has_legal_capture_of(board, move.from_square, not board.turn)
+
+
 def classify_opening_knowledge(mv, opponent_previous, opp_next) -> Tuple[Optional[str], Optional[str]]:
     fen = mv.get("fen_before")
     uci = mv.get("move_uci")
@@ -522,22 +562,40 @@ def classify_opening_knowledge(mv, opponent_previous, opp_next) -> Tuple[Optiona
         and (mv.get("cp_loss") or 0) >= 100):
         return ("early_flank_pawn_move", _promote_severity("moderate", mv))
 
-    # ── tempo_wasted_by_repeat — same piece moved twice in opening without capture
-    # Approximation: user's move is a non-capture piece move and this piece has
-    # already been moved (dest not on starting square = piece has moved before)
-    # We can't easily know from FEN alone if this specific piece moved before, but:
-    # If it's a piece move (not a pawn) and destination is close to start (near retreat),
-    # and no capture → tempo waste heuristic.
+    # ── retreated_a_developed_piece — a knight or bishop sent back toward home
+    # although nothing was attacking it, and the engine wanted a different
+    # piece entirely.
+    #
+    # This branch was called `tempo_wasted_by_repeat` and told the player he
+    # had lost a tempo "by moving the same piece twice". Measured over all 557
+    # fires on 2026-09-26, both halves of that were wrong:
+    #
+    #   The claim was VACUOUS. A knight or bishop standing off its home square
+    #   has already moved, so "you moved it twice" was true of 557 of 557
+    #   fires and carried no information. The code never tested it -- the
+    #   comment here admitted it could not -- and what it actually detected
+    #   was a RETREAT. The name is now the thing detected.
+    #
+    #   The accusation was FALSE 43.1% of the time. In 240 of 557 fires the
+    #   engine's own best move moves THAT SAME PIECE, so moving it again is
+    #   not the error; where it went is. A negative control over 4,000
+    #   opening mistakes puts "engine moves the same piece" at 13.9%, so this
+    #   is a property of retreats specifically, not of opening mistakes in
+    #   general, and it cannot be waved away as background noise.
+    #
+    # A further 163 fires (29.3%) are dropped because the piece was under
+    # attack. A chased piece has to move, and the teachable error belongs to
+    # the move that walked it into the chase, not to this one.
+    #
+    # 154 of 557 survive both gates. Do not widen them without re-running the
+    # measurement in docs/opening_knowledge_promotion_finding_2026_09_26.md.
     if (piece.piece_type in (chess.KNIGHT, chess.BISHOP) and move_number <= 10
-        and "x" not in san):
-        home_rank = 0 if piece.color == chess.WHITE else 7
-        # If retreating toward home rank
-        if piece.color == chess.WHITE and to_rank < from_rank:
-            if (mv.get("cp_loss") or 0) >= 100:
-                return ("tempo_wasted_by_repeat", _promote_severity("moderate", mv))
-        if piece.color == chess.BLACK and to_rank > from_rank:
-            if (mv.get("cp_loss") or 0) >= 100:
-                return ("tempo_wasted_by_repeat", _promote_severity("moderate", mv))
+            and "x" not in san and (mv.get("cp_loss") or 0) >= 100):
+        retreating = (to_rank < from_rank if piece.color == chess.WHITE
+                      else to_rank > from_rank)
+        if retreating and _retreat_was_avoidable(board, move, mv):
+            return ("retreated_a_developed_piece",
+                    _promote_severity("moderate", mv))
 
     # ── theory_deviation_early — punt, would need opening_book service
     # For v1 ship as unverified_hint

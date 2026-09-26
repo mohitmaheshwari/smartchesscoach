@@ -30,23 +30,52 @@ sys.path.insert(0, str(BACKEND))
 from services import detector_quality as dq  # noqa: E402
 
 
-def test_only_plan_graded_topics_are_plannable():
-    """`piece_safety` is the one topic with a plan-graded detector today.
+# The topics a focus may be built on today, and the detector carrying each.
+# This list grew from one to three on 2026-09-26.
+PLANNABLE = {
+    "piece_safety":  "destination_safety_exact",
+    "king_safety":   "ignored_king_attack",
+    "missed_tactic": "missed_fork / missed_skewer",
+}
 
-    If this starts failing because another topic became plannable, that is
-    good news -- update the list. It failing the other way means a detector
-    lost its grade and every user on that focus is about to go quiet.
+
+def test_only_plan_graded_topics_are_plannable():
+    """Update this list when a topic is promoted -- deliberately, not to make
+    a red test green. Failing the other way, a topic dropping OFF the list,
+    means a detector lost its grade and every user on that focus is about to
+    go quiet.
     """
-    assert dq.topic_can_be_planned("piece_safety")
+    for topic in PLANNABLE:
+        assert dq.topic_can_be_planned(topic), topic
     for topic in (
         "threat_awareness",
-        "missed_tactic",
         "tactical_oversight",
         "punish_blunders",
-        "king_safety",
         "calculation_depth",
+        "opening_knowledge",
+        "endgame_technique",
+        "pawn_structure",
+        "piece_activity",
     ):
         assert not dq.topic_can_be_planned(topic), topic
+
+
+def test_opening_knowledge_stays_unplannable_on_purpose():
+    """Not an oversight, and not a to-do.
+
+    `retreated_a_developed_piece` repaired the one opening subtype with real
+    volume, and promoting it was then measured rather than assumed: of the 33
+    users holding a surviving fire, 0 would see opening_knowledge outscore an
+    already-plannable topic. The closest was 19 fires against 337. Promotion
+    would have bought the appearance of a fourth plannable topic and no change
+    to any user's focus.
+
+    See docs/opening_knowledge_promotion_finding_2026_09_26.md.
+    """
+    assert not dq.topic_can_be_planned("opening_knowledge")
+    assert dq.grade_for(
+        "gap:opening_knowledge:retreated_a_developed_piece"
+    ) is dq.QualityGrade.SHADOW
 
 
 def test_plannable_agrees_with_the_gate_that_reads_the_document():

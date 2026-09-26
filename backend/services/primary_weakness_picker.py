@@ -209,8 +209,17 @@ _PS_SUBTYPE_PHRASING = {
     "queen_out_early":         "early queen moves before your minor pieces were developed",
     "piece_parked_on_start":   "pieces that stayed on their starting square well past the opening",
     # opening_knowledge subtypes
-    "tempo_wasted_by_repeat":  "opening tempi lost by moving the same piece twice",
-    "early_flank_pawn_move":   "flank pawn pushes in the first eight moves",
+    #
+    # `tempo_wasted_by_repeat` is the OLD name for retreated_a_developed_piece
+    # and is kept only so the rows already in the database still read as
+    # English. It said "by moving the same piece twice", which was never
+    # detected and was true of every fire anyway -- see the measurement in
+    # services/cognitive_gap_subtypes.classify_opening_knowledge.
+    "retreated_a_developed_piece":
+        "knights and bishops you moved back when nothing was chasing them",
+    "tempo_wasted_by_repeat":
+        "knights and bishops you moved back in the opening",
+    "early_flank_pawn_move":   "side pawn pushes early on",
     # endgame_technique subtypes
     "passive_king_in_endgame": "endgames where your king stayed passive while your opponent's king centralized",
     "passed_pawn_ignored":     "positions where your opponent had a passed pawn advancing and you didn't stop it",
@@ -252,8 +261,9 @@ _PS_SUBTYPE_PLURAL = {
     "generic_calc_gap":       "calculation gaps",
     "queen_out_early":        "early queen moves",
     "piece_parked_on_start":  "parked pieces",
-    "tempo_wasted_by_repeat": "wasted opening tempi",
-    "early_flank_pawn_move":  "early flank-pawn moves",
+    "retreated_a_developed_piece": "pieces moved back again",
+    "tempo_wasted_by_repeat": "pieces moved back again",
+    "early_flank_pawn_move":  "early side-pawn moves",
     "passive_king_in_endgame":"passive-king endgames",
     "passed_pawn_ignored":    "ignored passed pawns",
     "generic_endgame_slip":   "endgame slips",
@@ -308,8 +318,17 @@ _CLOSING_BY_SUBTYPE = {
     "queen_out_early":        "Develop knights and bishops before the queen. Early queen moves get chased and lose tempo.",
     "piece_parked_on_start":  "Every piece needs a job. If a piece hasn't moved by move 10, that's your next priority.",
     # opening_knowledge
-    "tempo_wasted_by_repeat": "In the opening, don't move the same piece twice unless it captures. Every tempo counts.",
-    "early_flank_pawn_move":  "Pushing flank pawns in the opening weakens your king. Only do it when there's a concrete tactical reason.",
+    #
+    # The old line here read "don't move the same piece twice unless it
+    # captures". That is advice about something we never detected, and it is
+    # wrong on its own terms: in 43.1% of these positions the engine's best
+    # move moves that same piece again. What we can see is a piece coming
+    # back when nothing was chasing it, so that is what this says.
+    "retreated_a_developed_piece":
+        "Before you move a piece out, look at where it can be chased to. A piece that has to come back has done no work.",
+    "tempo_wasted_by_repeat":
+        "Before you move a piece out, look at where it can be chased to. A piece that has to come back has done no work.",
+    "early_flank_pawn_move":  "Pushing side pawns early leaves your king thin. Do it only when you see a clear reason.",
     # endgame_technique
     "passive_king_in_endgame":"In endgames without queens, the king is a fighting piece. Bring it toward the center.",
     "passed_pawn_ignored":    "A passed pawn is worth material — stop the advance BEFORE it queens.",

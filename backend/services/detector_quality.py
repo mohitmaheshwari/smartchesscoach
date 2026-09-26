@@ -343,6 +343,37 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "the 200 reviewed fires Plan-grade requires.",
         ),
     ),
+    "gap:opening_knowledge:retreated_a_developed_piece": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "docs/opening_knowledge_promotion_finding_2026_09_26.md"
+        ),
+        rationale=(
+            "Replaces tempo_wasted_by_repeat, whose label was both vacuous "
+            "and false. Vacuous: a knight or bishop off its home square has "
+            "already moved, so 'you moved the same piece twice' held for 557 "
+            "of 557 fires and was never computed. False: in 240 of 557 the "
+            "engine's own best move moves that same piece, so moving it again "
+            "was not the error. Negative control over 4,000 opening mistakes "
+            "puts that at 13.9%, so 43.1% is specific to retreats. Two gates "
+            "now carry the claim -- the engine wants a different piece, and "
+            "nothing legally attacks this one -- and 154 of 557 survive."
+        ),
+        limitations=(
+            "Plan grade was MEASURED AND REJECTED, not merely withheld. Of "
+            "the 33 users holding a surviving fire, 0 would see "
+            "opening_knowledge outscore an already-plannable topic; the "
+            "closest is 19 fires against 337. Promoting this id would change "
+            "no user's focus, so it would buy the appearance of a fourth "
+            "plannable topic and nothing else.",
+            "154 fires corpus-wide, median 3 per user, against the 200 "
+            "reviewed fires Plan-grade asks for.",
+            "It says a piece came back, not what the player should have "
+            "played instead; the engine's move is deliberately not named.",
+            "Only knights and bishops, only through move 10, only "
+            "non-captures costing 100cp or more.",
+        ),
+    ),
     "tactic:discovered_attack_with_stored_payoff": Authorization(
         # REVERTED to shadow 2026-09-19, hours after promotion, at Mohit's
         # agreement. The packet said 52 reviewed / 0 wrong. One more hour of
