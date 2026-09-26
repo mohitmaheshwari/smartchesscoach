@@ -1,6 +1,7 @@
 # Behavioural focus — coach the habit, not the lifetime total
 
-**Status: DRAFT, awaiting Mohit's signoff. No code until then.**
+**Status: SHIPPED 2026-09-26/27.** Signed off by Mohit, both parts built,
+deployed and re-picked. Outcome at the bottom.
 Written 2026-09-26. Mohit: *"detectors have to be these two, like one time
 blunders, or calculation depth, time management, you know behavior detectors
 should be the focus, no?"*
@@ -241,3 +242,64 @@ And the flat check: if the recency ranking and the lifetime ranking agree for
 everyone on production after the backfill, Part A is a no-op and should not
 ship. Today it disagrees for 17 of 57, but that is measured on 82.6% of games
 and the rest could change it.
+
+
+---
+
+## Outcome
+
+Both parts are live, and the focus distribution across 52 active weakness
+focuses is now:
+
+```
+  piece_safety      30
+  king_safety       12
+  time_management    8      <- the first behavioural topic in the product
+  missed_tactic      2
+```
+
+Reaching users took a re-pick both times, for the reason this product keeps
+relearning: `pick_next_focus` refuses while an active focus exists, so a change
+to how topics are RANKED reaches nobody until their focus closes. 30 focuses
+were retired and re-picked across the two runs, each row keeping
+`retired_from_topic` and `retired_by`.
+
+### Three bugs worth remembering, all mine, all caught by measuring
+
+**Recency fell back per PATTERN instead of per PLAYER.** A pattern with no
+recent events kept its full lifetime score, so the change rewarded exactly the
+patterns that had gone quiet. It read as a 42% swap rate and looked like
+success; 18 of 53 winners had fewer than three events in the window and all ten
+`missed_tactic` winners had zero.
+
+**A player with nothing recent had every candidate scoring zero**, so the sort
+had nothing to order by and the winner was whichever came first in the list.
+
+**time_management was scored on a lifetime count while everything else had
+moved to a decayed one**, so it won 46 of 54 users. Changing one topic's
+scoring basis silently changes every comparison it takes part in.
+
+### What the data looks like now
+
+The re-derive to schema 20 finished: 551,021 of 551,054 observations, and
+`impulsive_critical` is at zero. Two flags rose sharply once the impulse branch
+stopped shadowing them:
+
+```
+  time_pressure_blunder    489  ->  1,229
+  slow_paralysis             0  ->    306      (the branch was unreachable)
+  snap_decision              -  ->  1,256
+```
+
+33 observations across 3 games stayed at an old version. Two are single orphan
+rows: the backfill upserts by `(game_id, move_number)` and never deletes, so a
+row at a move_number the new derivation no longer produces survives. The third
+is a coach game the backfill did not process. 0.006% of the corpus, recorded
+rather than chased.
+
+### What would still say this failed
+
+A player whose focus swapped, plays ten more games, and whose rate on the NEW
+topic does not move while the old one stays flat. Measurable per user from data
+already stored. The first time-boxed completions will arrive as the 28-day boxes
+expire, and they are the first real read on whether any of this coaches.
