@@ -2327,7 +2327,15 @@ const MoveCoachingCardV5 = ({
             // punishment line on our OWN mistakes -- the backend leads that
             // one with the played move, so it animates from fen_before and
             // shows the mistake followed by what the opponent does about it.
-            lineMoves = move.coach_line_moves;
+            // Respect the length hint here too. This branch used the list
+            // raw, so the one field meant to cap the line was read by the
+            // pv branch only -- and this is the branch that renders on a
+            // user's own mistake. Mohit 2026-09-26, on a one-move blunder
+            // that played out nine moves: "why play it out show up so much
+            // moves for this too".
+            const hint = move.coach_line_length_hint || 0;
+            lineMoves =
+              hint >= 1 ? move.coach_line_moves.slice(0, hint) : move.coach_line_moves;
             lineSteps = lineMoves.map((m) => ({ move: m, explanation: null }));
             lineKind = "punishment";
           } else if ((move.pv_after_best || []).length > 0 && (move.coach_line_length_hint || 0) >= 1) {
