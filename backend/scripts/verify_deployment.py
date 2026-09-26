@@ -449,6 +449,12 @@ def check_canonical_endpoint(base_url: str, session_token: str | None, game_id: 
 # Check 8 — non-admin complete coaching journey
 # =====================================================================
 
+# Grading a lesson move runs real engine work and does not fit the budget the
+# rest of these checks use. Measured against production 2026-09-26: the same
+# submission that times out at 15s returns in well under a minute.
+GRADE_TIMEOUT = 60.0
+
+
 def check_complete_coaching_journey(
     base_url: str,
     session_token: str | None,
@@ -571,160 +577,149 @@ def check_complete_coaching_journey(
                 base_url.rstrip("/")
                 + "/api/training/personalized/session/respond"
             )
-            # The fixture pins ONE move, but the lesson serves whatever the
-            # community pool picks, so the pinned move goes illegal the moment
-            # the item rotates and the gate fails for a reason that has nothing
-            # to do with the release. Observed 2026-09-16: "f5e5" against a
-            # served position with nothing on f5, which turned every
-            # deploy.sh run red.
-            #
-            # The start response does not expose the served position, but the
-            # respond verdict does, so the retry below reads the FEN the server
-            # itself just reported rather than guessing at the payload shape.
-            # NEVER submit a move that is illegal in the served position.
-            # A legal-but-wrong answer leaves current_index alone, so the
-            # session survives and can be answered again. An ILLEGAL move is
-            # scored "unmeasured", and
+            # STILL TRUE, and the reason nothing below ever invents a move:
+            # an ILLEGAL move is scored "unmeasured", and
             #
             #     next_index = index + 1 if (correct or blind or unmeasured)
             #
             # advances past the end of a one-item lesson, exhausting the
-            # session on the very first submission. The pinned fixture move
-            # goes stale whenever the community pool rotates the item, so
-            # submitting it blindly burned the gate's own fixture on every
-            # run and left nothing to retry against.
-            item_fen = str(((session.get("current_item") or {}).get("fen")) or "")
-            submitted_move = str(fixture["move"])
-            if item_fen:
-                try:
-                    import chess as _chess
-                    _board = _chess.Board(item_fen)
-                    if _chess.Move.from_uci(submitted_move) not in _board.legal_moves:
-                        _legal = next(iter(_board.legal_moves), None)
-                        if _legal is not None:
-                            detail.append(
-                                f"Pinned fixture move {submitted_move} is not legal in "
-                                f"the served position; probing with {_legal.uci()}"
-                            )
-                            submitted_move = _legal.uci()
-                except Exception as exc:
-                    detail.append(f"Could not validate the fixture move: {exc}")
-
-            interaction_id = (
-                "phase8-deploy-"
-                + hashlib.sha256(
-                    (session_id + submitted_move).encode("utf-8")
-                ).hexdigest()[:24]
-            )
-            response_payload = {
-                "session_id": session_id,
-                "move": submitted_move,
-                "interaction_id": interaction_id,
-            }
-            responded = requests.post(
-                respond_url,
+            # session on its first submission. A legal-but-wrong answer, by
+            # contrast, leaves current_index alone, so the item survives to be
+            # answered again. Every move submitted below comes from the server.
+            # The lesson serves a ROTATING community position and grades two
+            # things: the move, and the reason the learner gives for it. Both
+            # were mishandled here, and the gate failed on every deploy.
+            #
+            # THE REAL CAUSE, found 2026-09-26 by printing the whole verdict
+            # instead of only the keys this file expected:
+            #
+            #     target_result  pass
+            #     soundness      {"status": "sound", ... verified_acceptable}
+            #     misconception  reason_not_given
+            #     correct        False
+            #
+            # The MOVE was accepted. `correct` was False because the lesson
+            # gained a second step -- "what did you check before choosing the
+            # move?" -- and this check never sent a reason. So every candidate
+            # came back False for a cause no move could fix, and the old loop
+            # then spent the whole budget probing legal moves one HTTPS round
+            # trip at a time.
+            #
+            # There were TWO causes, not one. Fixing the reason alone still
+            # failed: a single grading call takes longer than the 15s this
+            # script allows every other check, so even the one correct
+            # submission timed out. GRADE_TIMEOUT below covers the calls that
+            # actually grade a move. The other checks keep the tight budget,
+            # because a slow health endpoint IS a release problem while slow
+            # grading is simply what grading costs.
+            #
+            # The pinned fixture move cannot work either and is deliberately
+            # ignored: the pool rotates, so it has been "f5e5" with nothing on
+            # f5, then "h8g8", then illegal again. `/reveal-puzzle` answers for
+            # whatever is served, out of the server's own admission record, so
+            # there is no second grader here to drift out of step.
+            item = session.get("current_item") or {}
+            item_fen = str(item.get("fen") or "")
+            item_id = str(item.get("item_id") or "")
+            if not item_id:
+                raise ValueError(
+                    "Served lesson item carries no item_id, so the accepted "
+                    "move cannot be read back from the server"
+                )
+            reveal = requests.post(
+                base_url.rstrip("/") + "/api/training/reveal-puzzle",
                 headers=headers,
                 cookies=cookies,
-                json=response_payload,
-                timeout=timeout,
+                json={"puzzle_id": item_id},
+                timeout=max(timeout, GRADE_TIMEOUT),
             )
-            if responded.status_code != 200:
+            if reveal.status_code != 200:
                 raise ValueError(
-                    f"Lesson response returned HTTP {responded.status_code}: "
-                    f"{responded.text[:200]}"
+                    f"Could not read the accepted move for the served item "
+                    f"({item_id}): HTTP {reveal.status_code}"
                 )
-            verdict = responded.json()
-            retried = False
-            if verdict.get("correct") is not True:
-                # Finding the accepted move is genuinely awkward, and both
-                # previous repairs got it wrong, so this states the whole
-                # shape of the problem:
-                #
-                #  * The fixture pins ONE move but the pool rotates the item,
-                #    so the pinned move goes stale on its own ("f5e5" with
-                #    nothing on f5, then "h8g8", then illegal again).
-                #  * Re-deriving it with grade_destination_safety_candidate
-                #    used a DIFFERENT grader from the endpoint's; it offered
-                #    h8g8 while the endpoint wanted exd4.
-                #  * `answer_uci` is only populated at the "guide" stage
-                #    (reveal_answer = not correct and stage == "guide"), so
-                #    reading it works at one stage and returns None at the
-                #    next.
-                #
-                # What is always true is that the endpoint itself can say
-                # yes or no. So ask it, over the legal moves, until it says
-                # yes. One grader, no second implementation to drift, and it
-                # keeps this an end-to-end test of the real grading path.
-                #
-                # Safe to iterate: a legal-but-wrong answer leaves
-                # current_index alone, so the session is not consumed. Only
-                # an "unmeasured" attempt advances it, which is why the
-                # pinned move is validated for legality before submission.
-                item_fen = item_fen or str(
-                    ((verdict.get("next_item") or {}).get("fen")) or ""
+            submitted_move = str(reveal.json().get("best_move_uci") or "")
+            if not submitted_move:
+                raise ValueError(
+                    "Server revealed no accepted move for the served item"
                 )
-                candidates = []
-                hinted = str(verdict.get("answer_uci") or "")
-                if hinted:
-                    candidates.append(hinted)   # the guide stage tells us outright
-                if item_fen:
-                    try:
-                        import chess as _chess
-                        candidates.extend(
-                            m.uci() for m in _chess.Board(item_fen).legal_moves
-                        )
-                    except Exception as exc:
-                        detail.append(f"Could not read the served position: {exc}")
-                seen_candidates = set()
-                for candidate in candidates:
-                    if candidate in seen_candidates or candidate == submitted_move:
-                        continue
-                    seen_candidates.add(candidate)
-                    submitted_move = candidate
-                    interaction_id = (
-                        "phase8-deploy-"
-                        + hashlib.sha256(
-                            (session_id + submitted_move).encode("utf-8")
-                        ).hexdigest()[:24]
-                    )
-                    # Rebound so the idempotency and evidence assertions
-                    # below check the submission that actually counted; the
-                    # earlier version left them on the stale pinned move.
-                    response_payload = {
-                        "session_id": session_id,
-                        "move": submitted_move,
-                        "interaction_id": interaction_id,
-                    }
-                    retry = requests.post(
-                        respond_url,
-                        headers=headers,
-                        cookies=cookies,
-                        json=response_payload,
-                        timeout=timeout,
-                    )
-                    if retry.status_code != 200:
-                        break
-                    verdict = retry.json()
-                    retried = True
-                    if verdict.get("correct") is True:
-                        detail.append(
-                            "Pinned fixture move was stale for the served "
-                            f"position; the endpoint accepted {submitted_move}"
-                        )
-                        break
-                if verdict.get("correct") is not True:
+            if str(fixture.get("move") or "") != submitted_move:
+                detail.append(
+                    f"Pinned fixture move {fixture.get('move')} ignored; the "
+                    f"server's own answer for the served item is {submitted_move}"
+                )
+
+            # Reasons come from the server, so they are never guessed and never
+            # hard-coded here. `not_sure` is skipped: it is the "I do not know"
+            # option and grades as no reason at all. At most three are offered,
+            # so trying them is bounded -- unlike the old loop over every legal
+            # move, which could not finish inside the timeout.
+            reason_ids = [
+                str(choice.get("id"))
+                for choice in (item.get("reason_choices") or [])
+                if choice.get("id") and str(choice.get("id")) != "not_sure"
+            ] or [None]
+
+            verdict = {}
+            for reason_id in reason_ids:
+                interaction_id = (
+                    "phase8-deploy-"
+                    + hashlib.sha256(
+                        (session_id + submitted_move + str(reason_id)).encode("utf-8")
+                    ).hexdigest()[:24]
+                )
+                # Rebound each time, so the idempotency and evidence assertions
+                # below check the submission that actually counted.
+                response_payload = {
+                    "session_id": session_id,
+                    "move": submitted_move,
+                    "interaction_id": interaction_id,
+                }
+                if reason_id:
+                    response_payload["reason_choice"] = reason_id
+                responded = requests.post(
+                    respond_url,
+                    headers=headers,
+                    cookies=cookies,
+                    json=response_payload,
+                    timeout=max(timeout, GRADE_TIMEOUT),
+                )
+                if responded.status_code != 200:
                     raise ValueError(
-                        f"No legal move was accepted in position "
-                        f"{item_fen or '(unknown)'} after trying "
-                        f"{len(seen_candidates)} candidate(s) (retried={retried}): "
-                        f"{str(verdict)[:400]}"
+                        f"Lesson response returned HTTP {responded.status_code}: "
+                        f"{responded.text[:200]}"
                     )
+                verdict = responded.json()
+                if verdict.get("correct") is True:
+                    detail.append(
+                        f"Endpoint accepted {submitted_move} with reason {reason_id}"
+                    )
+                    break
+                # A sound move with the wrong reason leaves the item in place,
+                # so the next reason can be tried. A move the grader rejects
+                # outright is a real failure and must not be retried into a
+                # pass.
+                if (verdict.get("soundness") or {}).get("status") != "sound":
+                    break
+
+            if verdict.get("correct") is not True:
+                raise ValueError(
+                    "Server's own answer %s was not accepted in %s. "
+                    "target_result=%s soundness=%s misconception=%s"
+                    % (
+                        submitted_move,
+                        item_fen or "(unknown position)",
+                        verdict.get("target_result"),
+                        (verdict.get("soundness") or {}).get("status"),
+                        verdict.get("misconception"),
+                    )
+                )
             duplicate = requests.post(
                 respond_url,
                 headers=headers,
                 cookies=cookies,
                 json=response_payload,
-                timeout=timeout,
+                timeout=max(timeout, GRADE_TIMEOUT),
             )
             if duplicate.status_code != 200 or duplicate.json() != verdict:
                 raise ValueError("Duplicate lesson submission was not idempotent")
