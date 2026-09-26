@@ -154,3 +154,41 @@ def test_the_outcome_check_routes_this_topic_to_its_own_measure():
         encoding="utf-8")
     assert 'elif topic == "time_management":' in source
     assert "_time_management_rates(db, user_id, before_ids, after_ids)" in source
+
+
+def test_the_topic_is_scored_on_the_same_recency_basis_as_the_others():
+    """Otherwise it wins almost everything, and not because of the players.
+
+    Part A put every missed_pattern topic on a recency-weighted score.
+    time_management kept a LIFETIME severity-weighted count, so it was being
+    compared against decayed numbers. Measured on production before the fix:
+    time_management became the focus for 46 of 54 users. After: 7 of 54, which
+    matches the 16 users who lose on time in more than one game in ten.
+    """
+    source = (BACKEND_ROOT / "services" / "primary_weakness_picker.py").read_text(
+        encoding="utf-8")
+    assert '"_recency_weighted_time"' in source
+    assert '"score": round(time_score_basis * prior, 3)' in source, (
+        "the candidate must be scored on the recency basis, not the lifetime "
+        "weighted count"
+    )
+
+
+def test_speed_is_excluded_from_the_SCORE_as_well_as_the_outcome():
+    """Excluding it from `_time_management_rates` alone is not enough: the
+    synthetic histogram that SCORES the topic was built from every time flag,
+    so a topic about the clock was ranked mostly on how fast someone moves."""
+    source = (BACKEND_ROOT / "services" / "primary_weakness_picker.py").read_text(
+        encoding="utf-8")
+    assert "if flag not in TIME_MANAGEMENT_FLAGS:\n                continue" in source, (
+        "the narrative/score histogram must filter to the clock-damage flags"
+    )
+
+
+def test_admission_counts_only_the_flags_that_score_the_topic():
+    """n_time_flags counts EVERY time flag, so it would admit a player on
+    nothing but snap decisions and then score them at zero."""
+    source = (BACKEND_ROOT / "services" / "primary_weakness_picker.py").read_text(
+        encoding="utf-8")
+    assert "n_clock_flags" in source
+    assert "n_clock_flags >= MIN_EVIDENCE" in source

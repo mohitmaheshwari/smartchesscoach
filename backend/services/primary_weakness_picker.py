@@ -583,6 +583,39 @@ async def _get_cohort_signals(
             _SEVERITY_WEIGHT.get(item.get("severity"), 1.0) * weight
         )
     signals["_recency_weighted_patterns"] = recency
+
+    # Clock damage on the SAME recency basis, or time_management would be
+    # ranked on a lifetime count while every other topic is ranked on a decayed
+    # one. Measured before this was fixed: it became the focus for 46 of 54
+    # users, which is not a finding about the players.
+    #
+    # Only the flags that mean the clock cost something -- `snap_decision` is
+    # excluded here exactly as it is in `_time_management_rates`, and for the
+    # same measured reason.
+    time_recency = 0.0
+    for item in obs:
+        if item.get("time_flag") not in TIME_MANAGEMENT_FLAGS:
+            continue
+        weight = weights.get(str(item.get("game_id")))
+        if weight is None:
+            continue
+        time_recency += _SEVERITY_WEIGHT.get(
+            item.get("time_flag_severity"), 1.0) * weight
+    if weights:
+        from services.game_outcome import user_lost
+
+        async for game in db.games.find(
+            {"user_id": user_id, "game_id": {"$in": list(weights)},
+             "termination": "timeout"},
+            {"_id": 0, "game_id": 1, "result": 1, "user_color": 1,
+             "termination": 1},
+        ):
+            # Losses only: 969 of 2,227 games ending on the clock were WON on
+            # time, so counting terminations alone is wrong about 44% of them.
+            if user_lost(game):
+                time_recency += _SEVERITY_WEIGHT["critical"] * weights.get(
+                    str(game.get("game_id")), 0.0)
+    signals["_recency_weighted_time"] = time_recency
     signals["_recency_window_games"] = len(weights)
     return signals, len(obs)
 
@@ -869,10 +902,25 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
     # measure ever fails.
     _TIME_MANAGEMENT_OUTCOME_CHECK_FIXED = True
     # Score: severity-weighted flags PLUS a chronic-timeout bonus
-    if _TIME_MANAGEMENT_OUTCOME_CHECK_FIXED and (n_time_flags >= MIN_EVIDENCE or timeout_loss_rate >= 0.10):
-        # Build a synthetic subtype_severity dict for the narrative
+    # n_time_flags counts EVERY time flag, including the ones that do not score
+    # this topic, so it is no longer the right admission test on its own.
+    n_clock_flags = sum(
+        count for flag, count in time_flag_counts.items()
+        if flag in TIME_MANAGEMENT_FLAGS
+    )
+    if _TIME_MANAGEMENT_OUTCOME_CHECK_FIXED and (
+            n_clock_flags >= MIN_EVIDENCE or timeout_loss_rate >= 0.10):
+        # Build a synthetic subtype_severity dict for the narrative.
+        #
+        # Only the flags that mean the clock cost something. `snap_decision`
+        # used to be in here, which is how a topic about the clock came to be
+        # scored mostly on how fast someone moves -- and measured across 42
+        # players, mistakes are LESS rushed than ordinary moves and not one
+        # player makes their mistakes faster than their usual pace.
         synth_hist: Dict[str, Dict[str, int]] = {}
         for flag, count in time_flag_counts.items():
+            if flag not in TIME_MANAGEMENT_FLAGS:
+                continue
             synth_hist[flag] = dict(time_flag_sev.get(flag, {})) or {"moderate": count}
         # Also add a game-level "chronic_timeout" subtype if applicable
         if timeout_loss_rate >= 0.10:
@@ -880,6 +928,13 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
             synth_hist["chronic_timeout"] = {"critical": n_timeout_loss}
 
         weighted = _severity_weighted_count(synth_hist)
+        # Rank on the recency basis, exactly like every other topic. Falls back
+        # to the lifetime total only when the player has no window at all,
+        # which is the same rule the patterns above use.
+        if signals.get("_recency_window_games"):
+            time_score_basis = float(signals.get("_recency_weighted_time") or 0.0)
+        else:
+            time_score_basis = weighted
         # Rate lookups for later narrative building — stash on signals
         signals["_time_synth_hist"] = synth_hist
         signals["_timeout_loss_rate"] = timeout_loss_rate
@@ -888,7 +943,7 @@ async def pick_next_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
         prior = 1.0  # time_management always gets neutral prior (no band table yet)
         candidates.append({
             "topic": "time_management",
-            "score": round(weighted * prior, 3),
+            "score": round(time_score_basis * prior, 3),
             "evidence_count": n_time_flags + (int(timeout_loss_rate * n_analyzed) if timeout_loss_rate >= 0.10 else 0),
             "severity_weighted_count": round(weighted, 2),
             "per_100_moves": None,
