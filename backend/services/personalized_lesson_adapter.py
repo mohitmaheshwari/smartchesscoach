@@ -733,11 +733,21 @@ async def _concept_descriptor(
         from services.puzzle_extraction_service import get_pattern_training_puzzles
 
         requested = max(1, min(int(params.get("limit") or 5), 5))
+        # Ask for more than the lesson will serve. Some candidates are dropped
+        # below because no move can answer the printed question, and a supply
+        # sized exactly to `requested` leaves nothing behind when that happens.
+        #
+        # The Home lesson asks for ONE position, and its single highest-ranked
+        # candidate was an unanswerable one, so the whole lesson 409'd with
+        # "No verified practice positions are available yet" -- a filter meant
+        # to skip one bad position closed the lesson instead. Headroom of four
+        # covers the measured 3.1% rejection rate many times over.
+        supply_size = min(requested + 4, 12)
         supply = await get_pattern_training_puzzles(
             db,
             user_id,
             "piece_safety" if pattern_key == "undefended_piece" else pattern_key,
-            requested,
+            supply_size,
             private=True,
         )
         own = [
@@ -745,10 +755,14 @@ async def _concept_descriptor(
             if not item.get("already_solved")
         ]
         pair = None
-        selected = (own + list(supply.get("community_puzzles") or []))[:requested]
+        selected = (own + list(supply.get("community_puzzles") or []))[:supply_size]
     items = []
     seen_fens = set()
     for item in selected:
+        if len(items) >= requested:
+            # The surplus above is headroom for the answerability filter, not
+            # a longer lesson. Serve what was asked for.
+            break
         if not item.get("fen") or not item.get("puzzle_id"):
             continue
         normalized_fen = " ".join(str(item["fen"]).split()[:4])
