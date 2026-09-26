@@ -1518,6 +1518,7 @@ async def get_move_why(
             played_san,
             target.get("pv_after_played") or [],
             candidates,
+            cp_loss=target.get("cp_loss"),
         )
 
     import asyncio
