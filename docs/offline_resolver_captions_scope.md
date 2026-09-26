@@ -39,8 +39,11 @@ into analysis.
 
 ## What we will do
 
-1. **During analysis**, for every user move with cp_loss >= 100, run the
-   same derivation the button runs and store the result on the move.
+1. **During analysis, after the captions are rendered**, find the cards
+   whose `rule_name` is a fallback tier, and run the same derivation the
+   button runs on just those. Storing the result on the move.
+   (Order matters: rendering first is what keeps the cost at +13%
+   rather than +47%.)
 2. **At render time**, use the stored sentence **only where the caption
    rule is one of the fallback tiers** listed above.
 3. **Everything else is untouched.** `R12_blunder`, `R01_mate` and the
@@ -68,11 +71,24 @@ by side, and check the derived one is actually better. My own record in
 this area is a reason to insist on this: "it ought to be better" is how
 every caption regression in this codebase got shipped.
 
-**A measured cost.** The derivation is ~5.4s per mistake and a game has
-~5 of them, so roughly half a minute of engine time per game. Whether
-that is acceptable depends on what analysis costs today, which I have not
-measured. If it is too slow, the fallback-tier cards alone (27%) can be
-derived instead of all mistakes.
+**The cost, now measured.** Analysing one game costs a median of
+**63.8s** today (p90 114s, max 238s), over 3,857 completed queue jobs.
+Cross-checked two ways -- subtracting the timestamps and reading the
+stored `duration_seconds` -- which agree to 0.03s at the median. 12% of
+jobs disagree by more than 2s and retries are not the cause (37 retried
+jobs, same median), so there is unexplained wall-clock on a minority of
+jobs; it does not move the median.
+
+Deriving every mistake adds ~30s, which is **+47%**. That is a lot for a
+background queue that already runs two workers.
+
+So the plan gets one refinement: **derive only for the cards that
+actually fell to a fallback tier.** Captions are already rendered during
+analysis, so by the time we would run the derivation we know each card's
+`rule_name`. Only 27% of mistake cards are eligible, so the added cost
+is ~8s per game -- **+13%** instead of +47%, for exactly the same
+user-visible result. There is no reason to derive a why for a card that
+is going to render `R12_blunder` anyway.
 
 **The mismatch gate in place first.** Measured on 108 answers, the
 resolver sometimes names a small material gain on a catastrophic move —
