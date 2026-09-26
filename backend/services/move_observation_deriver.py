@@ -23,7 +23,14 @@ import statistics
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 19  # v19 (2026-09-22): positional state stored per move.
+SCHEMA_VERSION = 20  # v20 (2026-09-26): time flags measured against the
+# player's own pace. v19 (2026-09-22): positional state stored per move.
+#
+# v20 is a bump because the DERIVATION changed, not the shape: the
+# backfill skips any row already at the current version, so without it
+# the corrected time flags would reach only rows that happened to be
+# stale for some other reason. Measured on 500 games before the bump:
+# 12,333 of 16,723 observations would have been left on the old rule.
 # v16 introduced strict SEE for simple_hang. Schemas <16 are pre-SEE and must
 # never enter PIC diagnosis/proof. v17 retains that detector and adds the
 # comparable-decision fact validated in docs/simple_hang_corpus_evidence.md.
