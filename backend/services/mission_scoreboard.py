@@ -636,7 +636,8 @@ def _ord(n: int) -> str:
 
 def _subject_for(subtype: str) -> str:
     return {
-        "impulsive_critical":     "impulsive-critical moment",
+        "snap_decision":          "move played fast for you",
+        "impulsive_critical":     "move played fast",
         "time_pressure_blunder":  "time-pressure blunder",
         "slow_paralysis":         "slow-paralysis moment",
         "simple_hang":            "simple hang",

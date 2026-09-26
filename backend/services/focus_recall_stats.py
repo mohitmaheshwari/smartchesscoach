@@ -22,7 +22,7 @@ from typing import Any, Dict, Optional
 
 
 TIME_MANAGEMENT_SUBTYPES = {
-    "impulsive_critical", "time_pressure_blunder",
+    "snap_decision", "impulsive_critical", "time_pressure_blunder",
     "slow_paralysis", "chronic_timeout",
 }
 
@@ -160,7 +160,8 @@ def build_recall_sentence(stats: Dict[str, Any]) -> Optional[str]:
 
 
 _SUBJECT_MAP = {
-    "impulsive_critical":     "impulsive-critical moments",
+    "snap_decision":          "moves you played fast for you",
+    "impulsive_critical":     "moves you played fast",
     "time_pressure_blunder":  "time-pressure blunders",
     "slow_paralysis":         "slow-paralysis blunders",
     "chronic_timeout":        "games lost on time",

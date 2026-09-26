@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 import hashlib
 import json
+import statistics
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -515,18 +516,74 @@ def _generate_coaching_takeaway(obs: Dict[str, Any]) -> str:
 
 # ---------------- The main derivation function ---------------------------
 
+# Fast "for this player, in this game". Taken from the measured distribution of
+# each move's time against the player's own median move in that game:
+#
+#     p10 0.27x   q1 0.52x   median 1.00x   q3 2.00x   p90 3.88x
+#
+# 0.25x is that p10, rounded -- the fastest tenth of a player's own moves. It
+# flags 989 of 42,604 mistakes corpus-wide (2.3%). The looser cuts were
+# measured too and rejected: 0.33x gives 2,051 (4.8%) and 0.52x gives 4,962
+# (11.6%), but at the quartile "faster than usual" is too weak to say out loud,
+# and this is an accusation about how someone played rather than a caption.
+SNAP_PACE_RATIO = 0.25
+
+# Below this, the clock was not really ticking -- an increment refresh, not a
+# human decision. Kept from the previous version, where it was added after
+# Parth's mv61 Kg7 at 0.1s showed up as impulse.
+MIN_CREDIBLE_MOVE_SECONDS = 0.5
+
+# A long think that still went wrong. Absolute on purpose: the claim is about
+# the size of the investment, not its size relative to anything.
+SLOW_THINK_SECONDS = 90
+
+
 def _classify_time_flag(
     mv: Dict[str, Any],
     time_spent: Optional[float],
     time_left: Optional[float],
     user_color: str = "white",
+    game_pace_seconds: Optional[float] = None,
 ) -> Optional[str]:
     """Per-move time flag. Returns None if the move doesn't hit any
     time-management pattern.
 
-      - impulsive_critical  — critical moment played in <3s and mistake/blunder
+      - snap_decision       — a mistake played far faster than this player's
+                              own pace in this game
       - time_pressure_blunder — <30s left and it was a blunder
-      - slow_paralysis      — >90s spent on a non-critical move that blundered
+      - slow_paralysis      — a long think that still went wrong
+
+    WHAT CHANGED, 2026-09-26, and why.
+
+    `impulsive_critical` required `is_critical` and under 3 seconds. Both were
+    wrong:
+
+      The `is_critical` half was VACUOUS. `is_critical` is set by `cp_loss >=
+      100 or evaluation in (blunder, mistake)`, which the quality gate at the
+      top of this function already guarantees. It was true on 11,984 of 11,984
+      fires, so it tested nothing.
+
+      The 3-second half was ABSOLUTE, and the median move in this corpus takes
+      3.4 seconds. So in a fast game three seconds is a LONG think. Measured
+      over all 11,984 fires: 14.6% were played at or SLOWER than that player's
+      own pace for that game. They were told they moved impulsively for
+      thinking longer than they usually do.
+
+    So the test is now relative to the player's own pace in that game, which is
+    the only thing "fast for you" can mean across bullet and rapid alike.
+
+    `slow_paralysis` could never fire. It required `not was_critical`, and
+    every mistake is critical by the definition above, so the branch was
+    unreachable -- production holds zero of them against 11,984 and 489 of the
+    other two. The contradiction is removed: a long think that still went wrong
+    is exactly what it meant to catch.
+
+    A NOTE ON WHAT THIS DOES NOT CLAIM. Measured across 42 players with enough
+    data, mistakes are LESS rushed than ordinary moves -- 13.2% of mistakes are
+    snap decisions against 23.5% of all moves -- and NOT ONE player makes their
+    mistakes faster than their usual pace. So this flag marks individual moves
+    where speed is a fair thing to point at. It is not evidence that a player
+    is impulsive, and nothing should aggregate it into that claim.
 
     Coaching-relevance gate: skip moves where the user was ALREADY LOSING
     heavily (an impulsive move when you're down a queen isn't coachable).
@@ -555,18 +612,21 @@ def _classify_time_flag(
         # losing → still losing
         if user_eval_before < -300 and user_eval_after < -300:
             return None
-    was_critical = bool(mv.get("is_critical"))
-    # v10/v14: suppress at low elapsed — clock-not-ticking data artifact,
-    # not human impulse. Real fast moves take >= 0.5s to submit (v14
-    # tightened from 0.1 after Parth mv61 Kg7 0.1s showed as impulse
-    # in what was actually an increment-refreshed clock).
-    if time_spent is not None and time_spent < 0.5:
+    if time_spent is not None and time_spent < MIN_CREDIBLE_MOVE_SECONDS:
         return None
-    if time_spent is not None and was_critical and time_spent < 3:
-        return "impulsive_critical"
+    # Fast FOR THIS PLAYER. With no pace for the game there is no claim to
+    # make, so nothing is flagged rather than falling back to an absolute
+    # threshold -- the absolute threshold is the bug being fixed.
+    if (
+        time_spent is not None
+        and game_pace_seconds
+        and game_pace_seconds > 0
+        and (time_spent / game_pace_seconds) < SNAP_PACE_RATIO
+    ):
+        return "snap_decision"
     if time_left is not None and time_left < 30 and quality == "blunder":
         return "time_pressure_blunder"
-    if time_spent is not None and time_spent > 90 and not was_critical:
+    if time_spent is not None and time_spent > SLOW_THINK_SECONDS:
         return "slow_paralysis"
     return None
 
@@ -574,7 +634,9 @@ def _classify_time_flag(
 def _time_flag_severity(flag: Optional[str], mv: Dict[str, Any]) -> Optional[str]:
     if flag is None:
         return None
-    base = {"impulsive_critical": "critical",
+    base = {"snap_decision": "critical",
+            # legacy key: rows written before 2026-09-26 carry it
+            "impulsive_critical": "critical",
             "time_pressure_blunder": "critical",
             "slow_paralysis": "moderate"}.get(flag, "minor")
     idx = ["minor", "moderate", "critical"].index(base)
@@ -621,6 +683,26 @@ def derive_observations_for_game(
         except Exception:
             clocks = []
             increment = 0
+    # This player's own pace for this game: the median time they spent on their
+    # own moves. Computed once here, and over the USER's moves only -- the
+    # clock list interleaves both players, so a median over all of it would
+    # measure the pair, not the person.
+    game_pace_seconds: Optional[float] = None
+    if clocks:
+        from services.pgn_clock_parser import (
+            halfmove_index as _hidx, time_spent_at_halfmove as _spent,
+        )
+        own_seconds = []
+        for _mv in moves:
+            if _mv.get("is_opponent_move"):
+                continue
+            _t = _spent(clocks, _hidx(_mv.get("move_number") or 0, user_color),
+                        increment)
+            if isinstance(_t, (int, float)):
+                own_seconds.append(_t)
+        if own_seconds:
+            game_pace_seconds = statistics.median(own_seconds)
+
     # Index opponent moves by move_number for O(1) lookup
     opp_by_mn: Dict[int, Dict[str, Any]] = {}
     for om in opp_moves:
@@ -870,7 +952,10 @@ def derive_observations_for_game(
             hidx = halfmove_index(mv.get("move_number") or 0, user_color)
             time_spent = time_spent_at_halfmove(clocks, hidx, increment)
             time_left = time_left_at_halfmove(clocks, hidx)
-            time_flag = _classify_time_flag(mv, time_spent, time_left, user_color=user_color)
+            time_flag = _classify_time_flag(
+                mv, time_spent, time_left, user_color=user_color,
+                game_pace_seconds=game_pace_seconds,
+            )
             time_flag_severity = _time_flag_severity(time_flag, mv)
         obs["time_spent_seconds"] = time_spent
         obs["time_left_seconds"] = time_left

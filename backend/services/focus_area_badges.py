@@ -33,7 +33,11 @@ _TOPIC_BADGE["opening_knowledge"] = ("📖", "Opening", "opening")
 
 
 _TIME_BADGE = {
-    "impulsive_critical":    ("⏱", "Time — impulse",         "played fast"),
+    "snap_decision":         ("⏱", "Moved fast",             "played fast for you"),
+    # legacy key, for rows written before 2026-09-26. Its own wording said
+    # "impulse" on an absolute 3-second rule, and 14.6% of those moves were
+    # actually at or slower than the player's own pace.
+    "impulsive_critical":    ("⏱", "Moved fast",             "played fast"),
     "time_pressure_blunder": ("⏱", "Time — pressure",        "under 30s left"),
     "slow_paralysis":        ("⏱", "Time — paralysis",       "burned clock"),
 }
