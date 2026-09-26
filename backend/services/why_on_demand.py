@@ -52,6 +52,23 @@ CANDIDATE_DEPTH = 18
 # itself explainable 25/36 times, and 31/36 land inside this bound.
 CLOSENESS_CP = 50
 
+# Mechanisms whose payoff_cp is real material, and so is comparable with a
+# move's cp_loss. The others are not: MATE and PROMOTES pay a constant, and
+# FORCES_RETREAT pays max(1, value // 10) -- a tempo proxy. A plain
+# payoff/cost ratio applied to all six would have deleted 8 sound "chases
+# your knight" captions to fix 5 bad ones, measured on 108 answers.
+MATERIAL_MECHANISMS = ("WINS_MATERIAL", "FORK", "TRAPPED")
+
+# When a move costs this much or more and the material we can name covers
+# less than MISMATCH_MIN_RATIO of it, we have not found the real reason.
+# Measured on 115 material answers: below 1000cp the claim covers at least
+# half the loss on 67-96% of answers; at 1000+ only 14% do and 86% fall
+# under a fifth. Those are mate swings, where material is not the story and
+# R01_mate already speaks. Suppressing them costs 6 of 181 answers (3.3%).
+# 20% and 25% suppress the same 6, so the edge is not knife-edge.
+MISMATCH_MIN_CP_LOSS = 1000
+MISMATCH_MIN_RATIO = 0.25
+
 
 def _phrase(p: Punishment, played_san: str) -> Optional[str]:
     """One plain sentence. Short words, one idea, no numbers.
@@ -108,6 +125,21 @@ def _phrase(p: Punishment, played_san: str) -> Optional[str]:
     return None
 
 
+def _explains_the_loss(p: Punishment, cp_loss: Optional[int]) -> bool:
+    """False when the named material is far too small for what was lost.
+
+    "After Qxa7, Rg1+ wins your pawn" on a move that cost 9246cp is true
+    and worse than silence: it tells a player a lost position is a lost
+    pawn. The only claims this can judge are the material ones -- see
+    MATERIAL_MECHANISMS.
+    """
+    if not cp_loss or cp_loss < MISMATCH_MIN_CP_LOSS:
+        return True
+    if p.mechanism not in MATERIAL_MECHANISMS:
+        return True
+    return (p.payoff_cp or 0) >= MISMATCH_MIN_RATIO * cp_loss
+
+
 def _arrows(fen_before: str, line_san: Sequence[str],
             limit: int = 3) -> List[Dict[str, str]]:
     """One arrow per move of the line we are showing, in board order.
@@ -139,6 +171,7 @@ def explain(
     played_san: str,
     pv_after_played: Sequence[str],
     candidates: Sequence[Dict[str, Any]],
+    cp_loss: Optional[int] = None,
 ) -> Optional[Dict[str, Any]]:
     """Why the played move was bad, or None if we cannot honestly say.
 
@@ -157,6 +190,8 @@ def explain(
 
     # 1. The punishment we took.
     got = resolve_received(fen_before, played_san, list(pv_after_played or []))
+    if got is not None and not _explains_the_loss(got, cp_loss):
+        got = None          # names a scrap on a catastrophe; say nothing
     if got is not None:
         text = _phrase(got, played_san)
         if text:
@@ -207,6 +242,8 @@ def explain(
         missed = resolve_missed(fen_before, san, line,
                                 material_baseline_cp=baseline)
         if missed is None:
+            continue
+        if not _explains_the_loss(missed, cp_loss):
             continue
         text = _phrase(missed, played_san)
         if not text:

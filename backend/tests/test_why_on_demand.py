@@ -366,3 +366,55 @@ def test_every_found_result_that_has_a_line_also_has_arrows():
         out = explain(fen, played, pv, cands)
         if out and out.get("line_san"):
             assert out["arrows"], (played, out["line_san"])
+
+
+# --------------------------------------------------------------------------
+# The mismatch gate: a scrap is not an explanation for a catastrophe
+# --------------------------------------------------------------------------
+
+def test_gate_keeps_a_proportionate_claim():
+    from services.punishment_resolver import Punishment
+    from services.why_on_demand import _explains_the_loss
+    # 1137cp move, queen won -> proportionate, must survive
+    p = Punishment(direction="received", mechanism="WINS_MATERIAL",
+                   agent_move="Qxc5", payoff_cp=900)
+    assert _explains_the_loss(p, 1137)
+
+
+def test_gate_drops_a_scrap_on_a_catastrophe():
+    from services.punishment_resolver import Punishment
+    from services.why_on_demand import _explains_the_loss
+    for cp, pay in ((9246, 100), (9148, 100), (8640, 100), (1239, 100),
+                    (1305, 200), (8877, 500)):
+        p = Punishment(direction="received", mechanism="WINS_MATERIAL",
+                       agent_move="Rg1+", payoff_cp=pay)
+        assert not _explains_the_loss(p, cp), (cp, pay)
+
+
+def test_gate_leaves_small_losses_alone():
+    """Below the threshold a pawn IS the proportionate answer."""
+    from services.punishment_resolver import Punishment
+    from services.why_on_demand import _explains_the_loss
+    for cp in (100, 141, 200, 349, 999):
+        p = Punishment(direction="received", mechanism="WINS_MATERIAL",
+                       agent_move="Bxe5", payoff_cp=100)
+        assert _explains_the_loss(p, cp), cp
+
+
+def test_gate_never_judges_a_synthetic_payoff():
+    """FORCES_RETREAT pays max(1, value//10) and MATE/PROMOTES pay a
+    constant. Comparing those to cp_loss is meaningless, and doing it
+    would delete sound captions."""
+    from services.punishment_resolver import Punishment
+    from services.why_on_demand import _explains_the_loss
+    for mech in ("FORCES_RETREAT", "MATE", "PROMOTES"):
+        p = Punishment(direction="received", mechanism=mech,
+                       agent_move="hxg4", payoff_cp=30)
+        assert _explains_the_loss(p, 9999), mech
+
+
+def test_gate_is_not_knife_edge():
+    """20% and 25% suppressed the same 6 answers in the measured sample."""
+    from services.why_on_demand import MISMATCH_MIN_RATIO, MISMATCH_MIN_CP_LOSS
+    assert 0.15 <= MISMATCH_MIN_RATIO <= 0.35
+    assert MISMATCH_MIN_CP_LOSS >= 500
