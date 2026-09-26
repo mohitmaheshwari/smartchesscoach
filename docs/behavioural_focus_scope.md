@@ -17,19 +17,27 @@ last spring.
 
 I spent today measuring board-motif detectors. Promoting the best of them would
 change the focus topic for **1 user of 53**. Recency alone, promoting nothing,
-changes it for **17 of 57 — 30%**:
+changes it for **14 of 57 — 25%**:
 
 ```
                     lifetime (today)      recency-weighted
   piece_safety              43                   37
-  king_safety               13                   19
-  missed_tactic              1                    1
+  king_safety               13                   20
+  missed_tactic              1                    0
 
-  swaps: piece_safety -> king_safety  11
-         king_safety  -> piece_safety  4
-         missed_tactic -> piece_safety  1
-         king_safety  -> missed_tactic  1
+  swaps: piece_safety  -> king_safety    10
+         king_safety   -> piece_safety    3
+         missed_tactic -> piece_safety    1
 ```
+
+Measured over **every** game, now that the date prerequisite below is done. An
+earlier run of the same script said 17 of 57 (30%), over the 82.6% of games that
+carried a typed date at the time. That is the honest reason the prerequisite
+came first: the partial-data answer was wrong by three users, in the flattering
+direction.
+
+Worth noting in passing: under recency `missed_tactic` falls to zero users. The
+one player it currently names has not shown it lately.
 
 Same three topics. Nothing new detected. A third of players are simply being
 coached on the wrong one of the three, because a mistake from two hundred games
@@ -117,15 +125,21 @@ one-off migration — it is a chore that silently reopens with every import. The
 evidence is exact: **all 1,553 undated games were imported this month**, and
 **all 1,553 still carry a usable `date_played`**, so every one is recoverable.
 
-So Part A has a prerequisite that is smaller and more durable than re-running a
-migration:
+So Part A had a prerequisite smaller and more durable than re-running a
+migration. **Both halves are now DONE and deployed** (`d51b76de`, `6d5cb8a9`):
 
-1. **write `played_at_utc` in the import path**, so the field is right by
-   construction and the gap cannot reopen, then
-2. run the existing backfill once for the 1,553 historical rows.
+1. **`played_at_utc` is written in the import path**, via the same
+   `services/played_at.derive` the backfill uses — the same function object,
+   asserted by a test — so the gap cannot reopen, and
+2. the backfill ran over the 1,553 historical rows: `matched=1553
+   modified=1553`, `games still without played_at_utc: 0`, **100% coverage**.
 
-Only then does the recency ranking cover every game. The 17-of-57 number below
-was measured over the 82.6% of games that are dated today.
+The backfill also reported what the string ordering had been costing: of 46
+active weakness focuses, **16 had a polluted measurement window holding 437
+games that did not belong in it**. Ordering by a BSON date makes that zero by
+construction.
+
+Rollback is `--rollback --apply`, an `$unset` of the three added fields.
 
 ## Part B — turn time management back on
 
