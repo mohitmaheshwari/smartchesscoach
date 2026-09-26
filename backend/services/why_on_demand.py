@@ -178,6 +178,7 @@ def explain(
                     fen_before, [played_san, got.agent_move] + list(got.line)),
                 "candidate_rank": None,
                 "eval_gap_cp": 0,
+                "payoff_cp": got.payoff_cp,
             }
 
     # 2. The opportunity we missed -- but only credit the better move with
@@ -223,6 +224,7 @@ def explain(
                 fen_before, [missed.agent_move] + list(missed.line)),
             "candidate_rank": rank,
             "eval_gap_cp": gap,
+            "payoff_cp": missed.payoff_cp,
         }
 
     # 3. Nothing we can stand behind.
