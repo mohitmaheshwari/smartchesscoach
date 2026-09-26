@@ -595,6 +595,39 @@ def _endgame_descriptor(content_id: str, params: Mapping[str, Any]) -> Dict[str,
     }
 
 
+def _question_is_answerable(fen: str, spec) -> bool:
+    """Whether at least one legal move would be graded correct.
+
+    Calls the same grader the endpoint uses to mark the answer, rather than a
+    second copy of its rules -- the one thing that keeps the question and the
+    verdict from drifting apart. Board-only and engine-free, so this costs
+    nothing measurable per served item.
+
+    Unknown question families return True: refusing to serve content because
+    this function has not learned to judge it would be worse than serving it.
+    """
+    from services.lesson_question_spec import ANY_SAFE
+
+    if str(getattr(spec, "accepts", "") or "") != ANY_SAFE:
+        return True
+    from services.destination_safety_detector import (
+        grade_destination_safety_candidate,
+    )
+
+    try:
+        board = chess.Board(fen)
+    except Exception:
+        return True
+    for move in board.legal_moves:
+        try:
+            if str(grade_destination_safety_candidate(
+                    fen, move.uci()).get("status")) == "pass":
+                return True
+        except Exception:
+            continue
+    return False
+
+
 async def _concept_descriptor(
     db,
     user_id: str,
@@ -723,6 +756,30 @@ async def _concept_descriptor(
             continue
         seen_fens.add(normalized_fen)
         board = chess.Board(item["fen"])
+        if not _question_is_answerable(item["fen"], spec):
+            # The printed question must be one the grader can say yes to.
+            #
+            # This lesson asks "play a move that leaves nothing of yours
+            # hanging", and correctness is exactly
+            # grade_destination_safety_candidate(...).status == "pass". That
+            # grader returns `piece_not_eligible` for every pawn and king
+            # move, so a position whose only legal replies are pawn or king
+            # moves is unanswerable as printed -- most often when the side to
+            # move is in check.
+            #
+            # Measured 2026-09-26: 92 of 3,000 positions in the served pool
+            # (3.1%). A session holds its current item until it is answered
+            # correctly, so landing on one is not a bad question, it is a dead
+            # end -- the learner can never advance. The deploy gate found this
+            # by getting pinned on
+            # rn3k2/ppp4p/6p1/2P5/2Q3bq/2P1r2N/PP3PPP/RN2KB1R w KQ - 0 14,
+            # where White is in check and every escape is a king move, a pawn
+            # capture, or Be2 losing to Rxe2+.
+            #
+            # No real user was pinned when this shipped (0 of 3 active
+            # sessions carrying a position), so nothing needs repairing; this
+            # stops it before the lesson gets traffic.
+            continue
         # A piece being ATTACKED is not the same as being in danger: a defended
         # pawn is attacked every game and is perfectly safe. Highlighting those
         # as help squares in a "keep every piece safe" lesson points the student

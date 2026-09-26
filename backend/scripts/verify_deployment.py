@@ -455,7 +455,43 @@ def check_canonical_endpoint(base_url: str, session_token: str | None, game_id: 
 GRADE_TIMEOUT = 60.0
 
 
-def check_complete_coaching_journey(
+class _UnservedItem(Exception):
+    """The served content cannot be answered correctly by anyone.
+
+    Not a release regression, so the caller retries with a fresh item instead
+    of turning the deploy red. Measured 2026-09-26: 92 of 3,000 positions in
+    the served pool (3.1%) admit no passing move, because every legal reply is
+    a pawn or king move and the grader declines those.
+    """
+
+
+def check_complete_coaching_journey(*args, **kwargs) -> None:
+    """Run the journey, retrying only when the CONTENT was unanswerable.
+
+    3.1% of the served pool admits no passing move, so about one deploy in
+    thirty used to go red for a reason that had nothing to do with the
+    release. Three attempts put that at roughly three in a hundred thousand.
+
+    Only _UnservedItem is retried. Every other failure is a real one and is
+    recorded on the first attempt, because a gate that retries its way past
+    genuine failures is worse than no gate.
+    """
+    unserved = []
+    for _attempt in range(3):
+        try:
+            return _journey_attempt(*args, **kwargs)
+        except _UnservedItem as exc:
+            unserved.append(str(exc))
+    record(
+        "8. Non-admin complete coaching journey",
+        FAIL,
+        ["Three served items in a row admitted no correct answer, which is a "
+         "content problem in the practice pool, not a release regression:",
+         *unserved],
+    )
+
+
+def _journey_attempt(
     base_url: str,
     session_token: str | None,
     auth_body: dict | None,
@@ -586,74 +622,84 @@ def check_complete_coaching_journey(
             # session on its first submission. A legal-but-wrong answer, by
             # contrast, leaves current_index alone, so the item survives to be
             # answered again. Every move submitted below comes from the server.
-            # The lesson serves a ROTATING community position and grades two
-            # things: the move, and the reason the learner gives for it. Both
-            # were mishandled here, and the gate failed on every deploy.
+            # WHICH MOVE TO SUBMIT, and why it is not the pinned one.
             #
-            # THE REAL CAUSE, found 2026-09-26 by printing the whole verdict
-            # instead of only the keys this file expected:
+            # For this lesson family the endpoint's rule is exactly:
             #
-            #     target_result  pass
-            #     soundness      {"status": "sound", ... verified_acceptable}
-            #     misconception  reason_not_given
-            #     correct        False
+            #     correct = grade_destination_safety_candidate(fen, move)
+            #                   .status == "pass"
             #
-            # The MOVE was accepted. `correct` was False because the lesson
-            # gained a second step -- "what did you check before choosing the
-            # move?" -- and this check never sent a reason. So every candidate
-            # came back False for a cause no move could fix, and the old loop
-            # then spent the whole budget probing legal moves one HTTPS round
-            # trip at a time.
+            # so that function is called here, in this container, to choose a
+            # candidate. It is the endpoint's OWN grader, not a copy of its
+            # rules, which is the only reason this cannot drift. The previous
+            # repair reimplemented the choice and offered h8g8 where the
+            # endpoint wanted exd4; the one before that read the answer from
+            # /reveal-puzzle, which answers the PUZZLE's question ("the best
+            # move") while the session asks a different one ("a move that
+            # leaves nothing of yours hanging"). Those are two graders, and
+            # they disagree: the revealed answer e5f6 is a PAWN move, and this
+            # grader returns `piece_not_eligible` for every pawn and king move.
             #
-            # There were TWO causes, not one. Fixing the reason alone still
-            # failed: a single grading call takes longer than the 15s this
-            # script allows every other check, so even the one correct
-            # submission timed out. GRADE_TIMEOUT below covers the calls that
-            # actually grade a move. The other checks keep the tight budget,
-            # because a slow health endpoint IS a release problem while slow
-            # grading is simply what grading costs.
-            #
-            # The pinned fixture move cannot work either and is deliberately
-            # ignored: the pool rotates, so it has been "f5e5" with nothing on
-            # f5, then "h8g8", then illegal again. `/reveal-puzzle` answers for
-            # whatever is served, out of the server's own admission record, so
-            # there is no second grader here to drift out of step.
+            # The pinned fixture move is ignored outright. The pool rotates, so
+            # it has been "f5e5" with nothing on f5, then "h8g8", then illegal.
             item = session.get("current_item") or {}
             item_fen = str(item.get("fen") or "")
-            item_id = str(item.get("item_id") or "")
-            if not item_id:
-                raise ValueError(
-                    "Served lesson item carries no item_id, so the accepted "
-                    "move cannot be read back from the server"
+            accepts = str(item.get("accepts") or "")
+
+            submitted_move = ""
+            if item_fen and accepts == "any_safe":
+                import chess as _chess
+                from services.destination_safety_detector import (
+                    grade_destination_safety_candidate,
                 )
-            reveal = requests.post(
-                base_url.rstrip("/") + "/api/training/reveal-puzzle",
-                headers=headers,
-                cookies=cookies,
-                json={"puzzle_id": item_id},
-                timeout=max(timeout, GRADE_TIMEOUT),
-            )
-            if reveal.status_code != 200:
-                raise ValueError(
-                    f"Could not read the accepted move for the served item "
-                    f"({item_id}): HTTP {reveal.status_code}"
+                for _move in _chess.Board(item_fen).legal_moves:
+                    local_verdict = grade_destination_safety_candidate(
+                        item_fen, _move.uci()
+                    )
+                    if str(local_verdict.get("status")) == "pass":
+                        submitted_move = _move.uci()
+                        break
+                if not submitted_move:
+                    # 3.1% of the served pool (92 of 3,000 measured
+                    # 2026-09-26) admits no passing move at all, because every
+                    # legal reply is a pawn or king move and the grader
+                    # declines those. A real learner cannot answer such an
+                    # item correctly either. That is a content bug, and it is
+                    # NOT a release regression, so it is retried with a fresh
+                    # item rather than turning the deploy red.
+                    raise _UnservedItem(
+                        "served item admits no passing move: " + item_fen
+                    )
+            if not submitted_move:
+                # Any other lesson family: ask the server for its own answer.
+                reveal = requests.post(
+                    base_url.rstrip("/") + "/api/training/reveal-puzzle",
+                    headers=headers,
+                    cookies=cookies,
+                    json={"puzzle_id": str(item.get("item_id") or "")},
+                    timeout=max(timeout, GRADE_TIMEOUT),
                 )
-            submitted_move = str(reveal.json().get("best_move_uci") or "")
+                if reveal.status_code != 200:
+                    raise ValueError(
+                        f"Could not read an accepted move for the served item: "
+                        f"HTTP {reveal.status_code}"
+                    )
+                submitted_move = str(reveal.json().get("best_move_uci") or "")
             if not submitted_move:
                 raise ValueError(
-                    "Server revealed no accepted move for the served item"
+                    "No accepted move could be found for the served item"
                 )
             if str(fixture.get("move") or "") != submitted_move:
                 detail.append(
-                    f"Pinned fixture move {fixture.get('move')} ignored; the "
-                    f"server's own answer for the served item is {submitted_move}"
+                    f"Pinned fixture move {fixture.get('move')} ignored; "
+                    f"submitting {submitted_move}, which this lesson's own "
+                    f"grader accepts"
                 )
 
-            # Reasons come from the server, so they are never guessed and never
-            # hard-coded here. `not_sure` is skipped: it is the "I do not know"
-            # option and grades as no reason at all. At most three are offered,
-            # so trying them is bounded -- unlike the old loop over every legal
-            # move, which could not finish inside the timeout.
+            # Reasons are read off the item the server served, never
+            # hard-coded, and tried in turn; at most three are offered.
+            # `not_sure` is skipped -- it is the "I do not know" option and
+            # grades as no reason at all.
             reason_ids = [
                 str(choice.get("id"))
                 for choice in (item.get("reason_choices") or [])
@@ -668,8 +714,8 @@ def check_complete_coaching_journey(
                         (session_id + submitted_move + str(reason_id)).encode("utf-8")
                     ).hexdigest()[:24]
                 )
-                # Rebound each time, so the idempotency and evidence assertions
-                # below check the submission that actually counted.
+                # Rebound each time, so the idempotency and evidence
+                # assertions below check the submission that actually counted.
                 response_payload = {
                     "session_id": session_id,
                     "move": submitted_move,
@@ -696,16 +742,16 @@ def check_complete_coaching_journey(
                     )
                     break
                 # A sound move with the wrong reason leaves the item in place,
-                # so the next reason can be tried. A move the grader rejects
-                # outright is a real failure and must not be retried into a
+                # so the next reason can be tried. A move the grader itself
+                # rejects is a real failure and must not be retried into a
                 # pass.
                 if (verdict.get("soundness") or {}).get("status") != "sound":
                     break
 
             if verdict.get("correct") is not True:
                 raise ValueError(
-                    "Server's own answer %s was not accepted in %s. "
-                    "target_result=%s soundness=%s misconception=%s"
+                    "The lesson's own grader accepted %s but the endpoint did "
+                    "not, in %s. target_result=%s soundness=%s misconception=%s"
                     % (
                         submitted_move,
                         item_fen or "(unknown position)",

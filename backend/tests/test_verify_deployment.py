@@ -153,6 +153,12 @@ def test_journey_check_accepts_completed_idempotent_fixture(monkeypatch):
         return _Response({
             "session_id": "fixture-session",
             "status": "completed",
+            # A finished session serves no item, which is indistinguishable
+            # from an EMPTY POOL unless it also reports what it completed.
+            # Without this the check bailed at the empty-pool guard, so the
+            # already-complete branch this test exists to cover was never
+            # reached.
+            "completed_items": 1,
             "lesson": {"kind": "concept", "id": "piece_safety"},
         })
 
@@ -276,6 +282,23 @@ def test_journey_check_proves_duplicate_submission_is_stored_once(monkeypatch):
             "session_id": "fixture-session",
             "status": "active",
             "lesson": {"kind": "concept", "id": "piece_safety"},
+            "current_item": {
+                "item_id": "fixture-item",
+                # An ordinary Italian position with many safe developing
+                # moves, so grade_destination_safety_candidate has something
+                # to say "pass" to. A stub without a servable item made this
+                # check bail at the empty-pool guard before reaching anything
+                # it meant to test.
+                "fen": (
+                    "r1bqkbnr/pppp1pp1/2n4p/4p3/2B1P3/5N2/"
+                    "PPPP1PPP/RNBQK2R w KQkq - 0 4"
+                ),
+                "accepts": "any_safe",
+                "reason_choices": [
+                    {"id": "checked_landing_square", "label": "I checked."},
+                    {"id": "not_sure", "label": "Not sure."},
+                ],
+            },
         }),
         _Response({"correct": True, "complete": True}),
         _Response({"correct": True, "complete": True}),
