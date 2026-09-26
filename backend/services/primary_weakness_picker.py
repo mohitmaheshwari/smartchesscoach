@@ -999,6 +999,31 @@ async def assign_focus(db, user_id: str) -> Optional[Dict[str, Any]]:
 MIN_DECISIONS_FOR_PROOF = 100   # piece-safety decisions, each side of the split
 MIN_GAMES_FOR_OUTCOME = 3       # analysed games played since the focus began
 
+# A focus ends after this long whatever the evidence says. Mohit's call,
+# 2026-09-26: "time-boxed, then re-pick".
+#
+# WITHOUT IT A FOCUS NEVER FINISHES. check_focus_outcome returns five verdicts
+# and only two of them close anything: improved and regressed. The other three
+# extend. Across all 531 outcome checks ever recorded, no_data was 55.2%,
+# measurement_pending 19.0% and stuck 11.5% -- 85.7% extended, 14.4% ended. Of
+# 284 focus documents ever written, NOT ONE closed because the player fixed
+# the thing; every terminal state was a migration we ran or a failure.
+#
+# That is why promoting three detectors reached zero users: pick_next_focus
+# returns None at gate 1 while an active focus exists, and 52 of 52 active
+# focuses were picked before the promotion. We widened the menu for people who
+# would never be shown it again.
+#
+# CALENDAR, NOT GAMES, and this is the part that matters. A game-based box
+# looks more principled and reproduces the bug: no_data at 55.2% IS "has not
+# played enough since we named this", so boxing on games leaves the least
+# active players stuck forever. Measured over the last 28 days: 36 users
+# played, median 19 games, and 75% reach MIN_GAMES_FOR_OUTCOME. So 28 days
+# gives three quarters of active players enough evidence for a real verdict,
+# and the rest close without one -- which is what a time-box means, not a
+# failure of it.
+FOCUS_MAX_DAYS = 28
+
 
 async def _games_split_by_play_date(db, user_id: str, started_at: Any):
     """The player's analysed games, split at the moment the focus was locked.
@@ -1237,14 +1262,41 @@ async def close_focus(db, focus: Dict[str, Any], outcome: Dict[str, Any]) -> Non
         update["$set"]["status"] = status
         update["$set"]["closed_at"] = now
     else:
-        # PIC's locked calendar backstop is a check-in, never an evidence
-        # verdict. Preserve BSON timestamps and its configured backstop.
-        extension_days = int(
-            focus.get("calendar_backstop_days") or (21 if use_bson_time else 7)
-        )
-        new_until_dt = now_dt + timedelta(days=extension_days)
-        new_until = new_until_dt if use_bson_time else new_until_dt.isoformat()
-        update["$set"]["locked_until"] = new_until
+        # The time box. Before extending again, ask how long this focus has
+        # already run. Past the cap it ends regardless of the verdict, so the
+        # picker gets a turn and the player gets a different topic.
+        started = focus.get("started_at")
+        if isinstance(started, str):
+            try:
+                started = datetime.fromisoformat(started.replace("Z", "+00:00"))
+            except ValueError:
+                started = None
+        if isinstance(started, datetime):
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+            age_days = (now_dt - started).days
+        else:
+            age_days = None
+
+        if age_days is not None and age_days >= FOCUS_MAX_DAYS:
+            update["$set"]["status"] = "completed"
+            update["$set"]["closed_at"] = now
+            # Kept distinct from "improved" on purpose. It says we stopped
+            # working on this, NOT that the player fixed it -- and the
+            # measured delta stays on the row either way, so a later reader
+            # can tell a quiet success from a quiet stall.
+            update["$set"]["resolution"] = "time_boxed"
+            update["$set"]["next_action"] = "repick"
+            update["$set"]["time_boxed_after_days"] = age_days
+        else:
+            # PIC's locked calendar backstop is a check-in, never an evidence
+            # verdict. Preserve BSON timestamps and its configured backstop.
+            extension_days = int(
+                focus.get("calendar_backstop_days") or (21 if use_bson_time else 7)
+            )
+            new_until_dt = now_dt + timedelta(days=extension_days)
+            new_until = new_until_dt if use_bson_time else new_until_dt.isoformat()
+            update["$set"]["locked_until"] = new_until
     await db[COLLECTION].update_one({"_id": focus["_id"]}, update)
 
 
