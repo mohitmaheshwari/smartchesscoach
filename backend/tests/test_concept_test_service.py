@@ -27,6 +27,7 @@ from services.concept_test_service import (  # noqa: E402
     grade_concept_test,
     may_promote_to_mastered,
     should_offer_test,
+    pick_concept_for_game,
 )
 
 
@@ -293,3 +294,127 @@ class TestSolutionsStaySeverSide:
         # ...but it is stored, so grading has something to check against.
         stored = db.concept_tests.written[-1]
         assert stored["positions"][0]["solution_uci"] == LICHESS_ROW["moves"][1]
+
+
+# ── which concept did this game teach? ────────────────────────────────────
+
+class _SortRecordingCursor(_Cursor):
+    """Records the sort it was asked for.
+
+    The shared _Cursor accepts .sort() and ignores it, so a test that fed
+    unsorted docs and checked the winner would pass whatever the service
+    asked the database for. Ordering is the DB's job; what this code is
+    responsible for is ASKING for it, so that is what gets asserted.
+    """
+
+    def __init__(self, docs, log):
+        super().__init__(docs)
+        self.log = log
+
+    def sort(self, *args, **kwargs):
+        self.log.append(args)
+        return self
+
+
+class _EventsCollection(_Collection):
+    def __init__(self, docs=None):
+        super().__init__(docs)
+        self.sorts = []
+
+    def find(self, query=None, projection=None):
+        self.queries = getattr(self, "queries", [])
+        self.queries.append(query)
+        return _SortRecordingCursor(self.docs, self.sorts)
+
+
+def _events(*rows):
+    return _EventsCollection(list(rows))
+
+
+def _row(concept, cp, move=10):
+    return {"concept_id": concept, "cp_loss": cp, "move_number": move}
+
+
+class TestTestableConceptForGame:
+    """The proof step never appeared because it read a retired field.
+
+    concept_id on a stored review card was hardcoded to None on 2026-05-11
+    and ConceptTestCard was built against it in September — measured null on
+    all 16,292 cards. The concept comes from the detector event log instead.
+    """
+
+    @pytest.mark.asyncio
+    async def test_returns_the_concept_the_game_taught(self):
+        db = _DB(
+            user_pattern_events=_events(_row("knight_outpost", 240)),
+            user_concept_understanding=_Collection(),
+        )
+        got = await pick_concept_for_game(db, "u1", "g1")
+        assert got["concept_id"] == "knight_outpost"
+        assert got["cp_loss"] == 240
+
+    @pytest.mark.asyncio
+    async def test_asks_the_database_for_the_biggest_mistake_first(self):
+        # If a game taught several things, the one that cost the most is the
+        # one worth proving he understood.
+        events = _events(_row("a", 400), _row("b", 90))
+        db = _DB(user_pattern_events=events,
+                 user_concept_understanding=_Collection())
+        await pick_concept_for_game(db, "u1", "g1")
+        assert ("cp_loss", -1) in events.sorts
+
+    @pytest.mark.asyncio
+    async def test_scopes_the_query_to_this_user_and_this_game(self):
+        # Without both, a user would be offered a test for someone else's
+        # mistake, or for a game he is not looking at.
+        events = _events(_row("x", 100))
+        db = _DB(user_pattern_events=events,
+                 user_concept_understanding=_Collection())
+        await pick_concept_for_game(db, "u1", "g1")
+        q = events.queries[0]
+        assert q["user_id"] == "u1"
+        assert q["game_id"] == "g1"
+        assert q["outcome"] == "miss"
+
+    @pytest.mark.asyncio
+    async def test_skips_a_concept_he_has_already_proven(self):
+        # should_offer_test reads user_concept_understanding; a row in a
+        # proven state means do not offer. Skipping here rather than offering
+        # and being refused one call later.
+        db = _DB(
+            user_pattern_events=_events(_row("already_known", 300)),
+            user_concept_understanding=_Collection(
+                [{"state": STATE_UNDERSTOOD, "tests_declined": 0}]
+            ),
+        )
+        assert await pick_concept_for_game(db, "u1", "g1") is None
+
+    @pytest.mark.asyncio
+    async def test_a_game_that_taught_nothing_returns_none(self):
+        # The ordinary case on about half of reviews, not an error.
+        db = _DB(user_pattern_events=_events(),
+                 user_concept_understanding=_Collection())
+        assert await pick_concept_for_game(db, "u1", "g1") is None
+
+    @pytest.mark.asyncio
+    async def test_blank_rows_are_not_offered_as_a_concept(self):
+        # The field being present is not the same as it having a value —
+        # which is the exact shape of the bug this replaces.
+        db = _DB(
+            user_pattern_events=_events(
+                {"concept_id": "", "cp_loss": 500},
+                {"concept_id": None, "cp_loss": 400},
+                _row("real_one", 120),
+            ),
+            user_concept_understanding=_Collection(),
+        )
+        got = await pick_concept_for_game(db, "u1", "g1")
+        assert got["concept_id"] == "real_one"
+
+    @pytest.mark.asyncio
+    async def test_missing_ids_never_hit_the_database(self):
+        db = _DB(user_pattern_events=_events(_row("x", 100)),
+                 user_concept_understanding=_Collection())
+        assert await pick_concept_for_game(db, "", "g1") is None
+        assert await pick_concept_for_game(db, "u1", "") is None
+        assert not getattr(db.user_pattern_events, "queries", [])

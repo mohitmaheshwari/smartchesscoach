@@ -449,6 +449,67 @@ async def record_test_declined(db, user_id: str, concept_id: str) -> None:
     )
 
 
+async def pick_concept_for_game(
+    db, user_id: str, game_id: str,
+) -> Optional[Dict[str, Any]]:
+    """Which concept did THIS game teach, and may we test it?
+
+    Not named testable_* : pytest collects any module-level name starting
+    with "test", so importing it into a test file made pytest try to run the
+    service function as a test case and fail on a missing "db" fixture.
+
+    The review card cannot answer this. `concept_id` on a stored card has
+    been hardcoded to None since the 2026-05-11 "legacy prose fields retired"
+    migration -- deliberately, because the V5 caption pipeline replaced that
+    prose. ConceptTestCard was then built in September reading those retired
+    fields, so the proof step has never once appeared: measured 2026-09-26,
+    concept_id is null on all 16,292 stored cards.
+
+    Reviving the retired fields would be the wrong fix twice over: it
+    resurrects a surface that was removed on purpose, and it still would not
+    speak the vocabulary the puzzle pools are keyed on.
+
+    user_pattern_events already holds the answer. Every detector miss row
+    carries user_id, game_id, concept_id and cp_loss, in exactly the
+    vocabulary build_concept_test() draws positions for. Measured on games
+    analysed in 2026-09: 51.2% carry at least one concept, and 1,596 of 1,596
+    games that carry one carry a testable one.
+
+    The biggest mistake wins. If a game taught several things, the one that
+    cost the most is the one worth proving he understood.
+    """
+    if not (user_id and game_id):
+        return None
+
+    cursor = db.user_pattern_events.find(
+        {
+            "outcome": "miss",
+            "user_id": user_id,
+            "game_id": game_id,
+            "concept_id": {"$nin": [None, ""]},
+        },
+        {"_id": 0, "concept_id": 1, "cp_loss": 1, "move_number": 1},
+    ).sort("cp_loss", -1)
+
+    seen: set = set()
+    async for ev in cursor:
+        concept_id = str(ev.get("concept_id") or "").strip()
+        if not concept_id or concept_id in seen:
+            continue
+        seen.add(concept_id)
+        # Ask the same gate the offer endpoint asks, so a concept he has
+        # already proven or declined twice is skipped rather than offered
+        # and then refused one call later.
+        if not await should_offer_test(db, user_id, concept_id):
+            continue
+        return {
+            "concept_id": concept_id,
+            "cp_loss": int(ev.get("cp_loss") or 0),
+            "move_number": ev.get("move_number"),
+        }
+    return None
+
+
 async def should_offer_test(db, user_id: str, concept_id: str) -> bool:
     """Offer after a review taught the concept, unless already proven, or
     declined twice."""
