@@ -4580,6 +4580,88 @@ def _reply_attack_arrows(
     return deduped
 
 
+def _line_sequence_arrows(
+    board_after_opp: Optional[chess.Board],
+    pv: Optional[List[str]],
+    max_arrows: int = 4,
+) -> List[Dict[str, str]]:
+    """Draw the whole idea when the point of the move lands two moves later.
+
+    Mohit 2026-09-26, on a card where the knight move and the rook that wins
+    the bishop were never connected: "could have also drawn a line between
+    rook and bishop, as rook takes it up... i would love to do that for moves
+    that shows the complete line."
+
+    The position: white knight on d5 blocks white's own rook on d1, and
+    Black's bishop on d6 is undefended. Nf6+ forces gxf6, the knight leaves
+    d5, and NOW Rxd6 wins the bishop. Engine best, +411. The old picture drew
+    what the knight attacks from f6, which is true and is not the point.
+
+    Colours carry the sequence, which is Mohit's second suggestion and the
+    thing that makes this honest:
+
+        blue      your move
+        paleGrey  their forced reply
+        green     your payoff -- the capture the whole line was for
+
+    Drawing the reply matters. Without it the rook arrow describes a path
+    that is BLOCKED on the board in front of the player, by their own knight,
+    and a picture that is only true two plies from now is the exact bug this
+    file spent 2026-09-22 removing. With the reply drawn, the three arrows
+    read as an order of events rather than a claim about the current board.
+
+    Fires only when the payoff is DELAYED. Measured over 198 opponent-mistake
+    cards carrying a 3+ ply line: 78 win material on our very first move and
+    are already drawn correctly by the single-move builders, 48 have the
+    delayed shape this is for, and 72 never capture at all.
+    """
+    if board_after_opp is None or not pv:
+        return []
+
+    board = board_after_opp.copy()
+    us = board.turn
+    steps: List[tuple] = []          # (is_ours, from, to, is_capture)
+    for san in pv:
+        try:
+            mv = board.parse_san(str(san))
+        except Exception:
+            # Stop here and use what verified, rather than discarding the
+            # whole picture. A Stockfish PV is legal by construction, but a
+            # truncated or mis-stored one should cost us the tail, not the
+            # three plies we already proved. Found by a test that appended a
+            # line which was illegal from the resulting position and got
+            # nothing back at all.
+            break
+        steps.append((
+            board.turn == us,
+            chess.square_name(mv.from_square),
+            chess.square_name(mv.to_square),
+            board.is_capture(mv),
+        ))
+        board.push(mv)
+
+    payoff = None
+    for idx, (ours, _f, _t, is_cap) in enumerate(steps):
+        if ours and is_cap:
+            payoff = idx
+            break
+
+    # Nothing to show, or the single-move builders already say it.
+    if payoff is None or payoff < 2:
+        return []
+
+    arrows: List[Dict[str, str]] = []
+    for idx, (ours, frm, to, _cap) in enumerate(steps[: payoff + 1]):
+        if len(arrows) >= max_arrows:
+            break
+        if ours:
+            colour = "green" if idx == payoff else "blue"
+        else:
+            colour = "palegrey"
+        arrows.append({"from": frm, "to": to, "color": colour, "teach": True})
+    return arrows
+
+
 def _punishment_arrows(
     board_before: Optional[chess.Board],
     played_move: Optional[chess.Move],
@@ -6370,7 +6452,18 @@ def build_move_teaching_decision(
         )
     else:
         # Their move is on the board; what the card recommends is our reply.
-        _teach_arrows = _reply_attack_arrows(
+        # When the payoff is delayed, the sequence picture explains more than
+        # the single-move one -- it is the difference between "here is what
+        # the knight attacks" and "here is why the rook gets the bishop".
+        _after_opp_board = None
+        try:
+            _after_opp_board = board_before.copy()
+            _after_opp_board.push(played_move)
+        except Exception:
+            _after_opp_board = None
+        _teach_arrows = _line_sequence_arrows(
+            _after_opp_board, inputs.pv_after_played
+        ) or _reply_attack_arrows(
             board_before, played_move, caption_facts.get("user_best_reply_san")
         )
     # One picture per card. The check picture is rarer and more striking, so it
