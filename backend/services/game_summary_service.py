@@ -375,6 +375,87 @@ def _scoreboard_text(raw: str) -> Optional[str]:
     return text
 
 
+
+#: The one template transferable_instruction is built from
+#: (caption_pipeline.py: f"Next time, before you commit, look for a move that
+#: {purpose}."). In a row the preamble is eleven identical words before the
+#: only part that differs, and five rows running start the same way. Stripping
+#: a KNOWN literal is safe in a way that parsing prose is not: if the template
+#: is ever reworded this stops matching and the full sentence is kept.
+_INSTRUCTION_PREAMBLE = "next time, before you commit, look for a move that"
+
+
+def _strip_instruction_preamble(text: str) -> str:
+    raw = str(text or "").strip()
+    if raw.lower().startswith(_INSTRUCTION_PREAMBLE):
+        rest = raw[len(_INSTRUCTION_PREAMBLE):].strip(" ,:;-—")
+        if rest:
+            return rest[0].upper() + rest[1:]
+    return raw
+
+
+def _reason_for_moment(move_data: Dict) -> Optional[str]:
+    """One line of WHY, from the live caption pipeline.
+
+    Mohit 2026-09-26, on a review whose "Where the game turned" section was
+    thirteen rows of move + badge and nothing else: "this looks very very
+    bad." Every row's text was None.
+
+    The old source was _get_short_description(move_data, plan), and every
+    field it reads -- plan.concept_id, plan.concept_type,
+    plan.current_problem -- was emptied by the 2026-05-11 "legacy prose
+    fields retired" migration. It has returned nothing since, so the section
+    decayed into a tally of failures with no reasons, on games often won.
+
+    Sources in order of how well they fit one row:
+
+      1. caption_explanation.transferable_instruction -- purpose-built, one
+         line, never restates the move. Present on 23% of moment rows.
+      2. the caption's first sentence that is not pure verdict. Captions
+         open with "Bb2 is a mistake." next to a MISTAKE badge on move Bb2,
+         which is three repetitions of one fact; the sentence after it is
+         the one that teaches. Captions are on 100% of cards.
+
+    An earlier attempt stripped the verdict with a regex on the move name.
+    It produced "Bb2 is a mistake." unchanged and "Bf6 is playable." -- the
+    filler it was written to remove. Walking sentences and reusing
+    _scoreboard_text, which already knows what filler looks like, needs no
+    new pattern and cannot silently fail the way that one did.
+    """
+    explanation = move_data.get("caption_explanation") or {}
+    instruction = str(explanation.get("transferable_instruction") or "").strip()
+    if instruction:
+        return _scoreboard_text(_strip_instruction_preamble(instruction))
+
+    caption = str(move_data.get("caption") or "").strip()
+    if not caption:
+        return None
+    for sentence in re.split(r"(?<=[.!?])\s+", caption):
+        kept = _scoreboard_text(sentence.strip())
+        if kept and not _is_bare_verdict(kept, move_data.get("move_san")):
+            return kept
+    return None
+
+
+def _is_bare_verdict(sentence: str, move_san: Optional[str]) -> bool:
+    """True when the sentence says only what the row already shows.
+
+    "Bb2 is a mistake" beside a MISTAKE badge on move Bb2. Decided by
+    counting the words that are NOT the move or a verdict word, so it does
+    not depend on matching a phrasing.
+    """
+    words = [w.strip(".,;:—-").lower() for w in str(sentence).split()]
+    san = str(move_san or "").strip().lower()
+    ignorable = {
+        "is", "isn't", "was", "a", "an", "the", "not", "but", "and", "quite",
+        "blunder", "mistake", "inaccuracy", "playable", "fine", "okay",
+        "good", "best", "serious", "major", "move", "you", "played",
+        "opponent's", san,
+    }
+    return not [w for w in words if w and w not in ignorable]
+
+
+
 def build_move_scoreboard(v5_data: List[Dict]) -> Dict:
     """Every mistake and blunder in the game, both sides, in move order.
 
@@ -405,17 +486,21 @@ def build_move_scoreboard(v5_data: List[Dict]) -> Dict:
                 continue
             you[severity] += 1
             plan = move_data.get("plan") or {}
-            text = _scoreboard_text(_get_short_description(move_data, plan))
+            text = _reason_for_moment(move_data) or _scoreboard_text(
+                _get_short_description(move_data, plan)
+            )
             band = severity
         else:
             if severity not in ("opp_blunder", "opp_mistake"):
                 continue
             band = "blunder" if severity == "opp_blunder" else "mistake"
             opp[band] += 1
-            # No sentence here. The badge already says it was their slip,
-            # and "A chance for you here" on every single opponent error
-            # is a template, not an observation.
-            text = None
+            # Their slips get a reason too, now there is a real one. The old
+            # objection was right -- "A chance for you here" on every
+            # opponent error is a template -- but the caption on an opponent
+            # card names the reply the player should have found, which is the
+            # opposite of a template.
+            text = _reason_for_moment(move_data)
 
         rows.append({
             "move_number": move_data.get("move_number", 0),
@@ -424,10 +509,29 @@ def build_move_scoreboard(v5_data: List[Dict]) -> Dict:
             "severity": band,
             "phase": move_data.get("phase", "middlegame"),
             "text": text or None,
+            "turned": bool(move_data.get("decisiveness_changed"))
+            or band == "blunder",
         })
 
-    rows.sort(key=lambda r: (r["move_number"], r["side"] != "you"))
-    return {"moments": rows, "you": you, "opponent": opp}
+    # "Where the game turned" has to mean it. Every mistake and every
+    # opponent slip put the median at SEVEN rows a game, with 24 of 150 games
+    # showing fifteen or more -- a tally of failures down the side of a game
+    # the player often won, which is the one thing this product does not do.
+    #
+    # A moment turned the game if the engine's read of who is winning moved,
+    # or if it was a blunder. Median drops to two, and the fifteen-row walls
+    # go from 24 games to 3.
+    #
+    # The counts in `you` and `opponent` are deliberately NOT filtered: those
+    # are the honest totals the header shows, and hiding rows should not
+    # quietly change the score.
+    turning = [r for r in rows if r.get("turned")]
+    for row in rows:
+        row.pop("turned", None)
+    for row in turning:
+        row.pop("turned", None)
+    turning.sort(key=lambda r: (r["move_number"], r["side"] != "you"))
+    return {"moments": turning, "you": you, "opponent": opp}
 
 
 def get_display_summary(game_summary: GameSummary) -> Dict:
