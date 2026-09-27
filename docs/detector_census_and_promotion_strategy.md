@@ -78,7 +78,7 @@ capped at 150, while count-based topics are unbounded. Two barriers, both fixabl
 
 | namespace | n | what they are | can they be promoted? |
 |---|---|---|---|
-| `concept` | 24 | concept detectors | **No.** They only fire on success — 1,639 "applied" against 5 "wrong". They are praise, not diagnosis. |
+| `concept` | 24 | concept detectors | **No, and worse — see §7.** These 24 fire ZERO times. A different, unregistered set of 14 fires 278,000 times, always on good moves. |
 | `curriculum` | 7 | exact opening/trap/endgame matchers | Yes, but they serve lessons, not focuses |
 | `gap` | 6 | weakness subtypes | 2 measured and refused, 4 open |
 | `review` | 4 | causal-proof family | Yes — caption surface |
@@ -167,16 +167,11 @@ for. Six (`interference`, `advanced_pawn`, `xray_attack`, `deflection`,
 `clearance`, `attraction`) were measured at high recall and are imported only by
 measurement scripts.
 
-### Tier E — decide the 24 concept detectors (1 day, decisions not code)
+### Tier E — concept detectors: see §7, it is not what this said
 
-They fire on success only, so they can congratulate and cannot teach. Two honest
-options, and it is a product call:
-
-- give each a "wrong" branch so it can diagnose, or
-- move them out of the detector registry entirely and treat them as praise.
-
-Leaving 24 detectors in shadow because they cannot do the job we file them under
-is the thing this list exists to stop.
+An earlier version of this section said "24 concept detectors that only
+congratulate — 1,639 applied against 5 wrong". That was from a stale note and is
+wrong twice over. §7 has the measured version.
 
 ---
 
@@ -199,3 +194,91 @@ Five were promoted in the last two days, each on its own measurement, and two
 candidates measured at the same time were refused. That is roughly the rate to
 expect: **two or three promotions a week, with a third of candidates failing.**
 A plan that promises 54 in a sprint is not describing this work.
+
+
+---
+
+## 7. Concept detectors, measured properly (correcting §4 and Tier E)
+
+### What they are
+
+They live in `services/concept_detectors/` (20 modules, 24 registered ids) and
+ask a different question from the gap detectors: not *"what went wrong?"* but
+*"did the player apply a named chess idea correctly?"* — castling early, a rook
+to an open file, king centralisation, the Lucena position, avoiding the Fried
+Liver. Their results are recorded through `coach_memory.record_skill_attempt`,
+so they feed a **skill/mastery** model, not the weakness-focus loop.
+
+### Three populations that can never meet
+
+```
+  the registry holds        concept:concept_rook_open_file       24 ids, 0 fires
+  observations produce      observation_concept:rook_on_open_file  14 names, 278,005 fires
+```
+
+Different prefix AND different spelling. Overlap between the registered names
+and the stored ones: **zero**. So the 24 registered ids govern nothing, and all
+278,005 fires fall to the unknown default — shadow — and are stripped from the
+plan surface. Nothing reaches a player either way.
+
+### They never fire on a bad move
+
+| move quality when a concept fires | share |
+|---|---|
+| best | 81.8% |
+| good | 9.9% |
+| excellent | 6.3% |
+| brilliant | 2.0% |
+| **mistake or blunder** | **0.0%** |
+
+Against a corpus where 45.3% of moves are best and 13.5% are mistakes or
+blunders. Across 278,005 fires, not one is on a move that went wrong. They
+cannot diagnose, by construction.
+
+### So they are an IMPROVEMENT signal, not a diagnosis signal — and that is
+### worth having, but the data does not currently show any improvement
+
+`/api/progress/improvement-proof` already exists and measures improvement
+**subtractively** — mistakes going down, from cognitive gaps, pattern decay and
+thinking scores. Concepts would give the additive half: *"you do this now, and
+you did not before."* Different sentence, and the better one at this scale.
+
+Measured, though, there is nothing to say yet:
+
+```
+  concept rate per move, first half of a player's games vs second half
+      47 users with 30+ games:   7 improved, 2 declined, 38 FLAT
+      median change +2%
+
+  per concept, 568 user-and-concept pairs:
+      62.3% flat, 21.1% up, 15.5% down
+
+  the biggest movers are the most GAME-DEPENDENT concepts, and they move
+  symmetrically -- winning_attack 16 up / 20 down. You cannot execute a
+  winning attack the position never offers, so that is game mix, not learning.
+
+  and with a clean denominator -- every game offers castling:
+      king_safety_castling   9 up,  8 down, 28 flat,  median -0.01
+      knight_development     3 up,  5 down, 37 flat,  median -0.04
+      center_control         6 up,  8 down, 31 flat,  median -0.03
+```
+
+**Symmetric even where the denominator is unambiguous.** These players are not
+measurably improving at these habits.
+
+That is not a broken metric. It is the correct reading, and it is the most
+useful thing on this page: **nothing has coached them yet.** The focus loop only
+started naming behavioural topics yesterday, and the product is not live. So
+this is the BASELINE — the control group a later claim gets proved against.
+
+### What building it would take
+
+1. **Register the 14-name vocabulary** so it can reach a surface at all. All
+   278,005 fires are ungoverned today.
+2. **Drop `found_best_move`** — 36% of all fires and a restatement of move
+   accuracy, which `player_profiles` already tracks.
+3. **Opportunity denominators**, or restrict the surface to the habit concepts
+   where the denominator is "every game". Without them the page reports game
+   mix as progress, which is the one thing an improvement surface must not do.
+4. **Expect it to be quiet.** Today it would have something to say for roughly
+   one player in five, and for the rest it would correctly say "not yet".
