@@ -126,3 +126,36 @@ def test_several_traits_can_speak_at_once():
     traits.update(_at("plays_on_when_lost", "low"))
     lines = describe(traits)
     assert len(lines) == 3
+
+
+def test_throwing_away_won_games_needs_more_history_before_it_speaks():
+    """Conversion is a GAME-level event, so each game is one binary observation
+    and the estimate is noise-limited at small samples. Measured half-half as
+    the bar rose: 0.41 at 10 winning positions, 0.43 at 30, 0.44 at 60, 0.59 at
+    100, 0.72 at 150 -- climbing exactly as Spearman-Brown predicts for
+    attenuation. So it is a real trait that an early reading calls weak, and it
+    must stay silent until there is enough of it.
+    """
+    from services.behaviour_profile import MIN_SAMPLE
+
+    traits = _at("throws_away_won_games", "high")
+    need = MIN_SAMPLE["throws_away_won_games"]
+    assert describe(traits, {"throws_away_won_games": need - 1}) == []
+    spoken = describe(traits, {"throws_away_won_games": need})
+    assert [l["trait"] for l in spoken] == ["throws_away_won_games"]
+
+
+def test_a_trait_without_a_sample_rule_is_unaffected():
+    """Only conversion carries the extra gate; the per-move traits already have
+    enough observations by the time the profile is built at all."""
+    assert describe(_at("thinks_long", "high"), {}) != []
+
+
+def test_the_conversion_sentence_does_not_blame_luck_or_the_opponent():
+    """It is the player's own conversion, so the wording has to own it without
+    being cruel -- and without a number, like every other line."""
+    from services.behaviour_profile import SENTENCES
+
+    high = SENTENCES["throws_away_won_games"]["high"].lower()
+    assert "unlucky" not in high and "opponent" not in high
+    assert not re.search(r"\d", high)
