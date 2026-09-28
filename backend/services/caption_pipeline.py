@@ -53,7 +53,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import chess
 
@@ -63,6 +63,7 @@ from services.severity import (
     PracticalSeverity,
 )
 from services.caption_facts import (
+    PIECE_VALUE_CP,
     LegalMaterialLossCause,
     ReviewTeachingCause,
     build_legal_material_loss_cause,
@@ -4524,6 +4525,7 @@ def _normalize_san_for_match(san: Optional[str]) -> str:
 def _check_attack_arrows(
     board_before: Optional[chess.Board],
     best_move_uci: Optional[str],
+    engine_line: Optional[Sequence[str]] = None,
 ) -> List[Dict[str, str]]:
     """Draw the two-attackers-plus-check picture, or nothing.
 
@@ -4534,12 +4536,34 @@ def _check_attack_arrows(
     lines converging on one square, and a third into the king that says why
     the defender never gets a turn.
 
-    Right-or-silent: every arrow is a legal attack on the after-board, and the
-    target must be SEE-positive, so we never draw a win that is not there. At
-    most four arrows, and only on a move that both checks and wins something,
-    which keeps this rare rather than wallpaper.
+    The MOVE was always the engine's. The TARGET, until v181, was not: it was
+    the best ``static_exchange_eval`` square on the after-board, and SEE does
+    not count king recaptures, so a piece guarded only by the king scored as
+    winnable. Mohit 2026-09-28: "it should only draw lines on stockfish backed
+    move, right? that's what will make people understand the plan, right?"
+    He is right, and the rule has to cover the claim as well as the move.
+
+    Measured 2026-09-28 over 400 games / 461 cards this fired on, checking the
+    arrowed square against the engine's OWN stored line:
+
+        engine's line does take the arrowed piece      38
+        engine's line never takes it                   94   (71%)
+        no stored line available                      329
+
+    and Stockfish run fresh at depth 16 on 60 of those 329 said 41 (68%) point
+    at a piece it never takes either. One of the plainest: on move 13 of
+    ef9f422a062d the engine plays Bxf3 Bxf3 Qxf3 Qxa1, winning the ROOK ON A1,
+    while the green arrows converged on e1.
+
+    So the target now comes from the line: the first piece our own side
+    captures in it. 461 pictures become 203, every one of them the engine's
+    plan rather than ours, and where both draw the target moves on 48 of 85 --
+    the old square was wrong more often than right.
+
+    Supporting arrows are legal captures, not ``attackers()`` hits: that set
+    is pseudo-legal and a pinned piece put 5 undeliverable arrows on the board.
     """
-    if board_before is None or not best_move_uci:
+    if board_before is None or not best_move_uci or not engine_line:
         return []
     try:
         move = chess.Move.from_uci(str(best_move_uci))
@@ -4550,20 +4574,41 @@ def _check_attack_arrows(
         after.push(move)
         if not after.is_check():
             return []
-        target = None
-        for sq in after.attacks(move.to_square):
-            piece = after.piece_at(sq)
-            if not piece or piece.color == mover or piece.piece_type == chess.KING:
-                continue
-            see = static_exchange_eval(after, sq, mover) or 0
-            if see >= 100 and (target is None or see > target[1]):
-                target = (sq, see)
-        if target is None:
+
+        # Walk the engine's line and stop at the first thing WE take.
+        walk = after.copy()
+        target_sq = None
+        for san in engine_line:
+            try:
+                step = walk.parse_san(str(san))
+            except (ValueError, AssertionError):
+                break
+            if walk.turn == mover and walk.is_capture(step):
+                victim = walk.piece_at(step.to_square)
+                if victim is not None and victim.piece_type != chess.KING:
+                    target_sq = step.to_square
+                    target_piece = victim
+                    break
+            walk.push(step)
+        if target_sq is None:
             return []
+        # The arrow is drawn on the board right after the best move, so the
+        # piece it points at has to be standing there THEN. Measured
+        # 2026-09-28: 61 of 203 lines capture on a square that only becomes
+        # occupied later, which draws an arrow into an empty square -- the
+        # same "pointing at nothing" complaint in a new disguise.
+        standing = after.piece_at(target_sq)
+        if (
+            standing is None
+            or standing.color == mover
+            or standing.piece_type != target_piece.piece_type
+        ):
+            return []
+
         king_sq = after.king(not mover)
         if king_sq is None:
             return []
-        target_sq = target[0]
+
         arrows: List[Dict[str, str]] = [{
             "from": chess.square_name(move.to_square),
             "to": chess.square_name(target_sq),
@@ -4575,6 +4620,10 @@ def _check_attack_arrows(
         # threat, a second attacker on a defended one is what wins it.
         for sq in sorted(after.attackers(mover, target_sq)):
             if sq == move.to_square or len(arrows) >= 3:
+                continue
+            # A pinned piece is in the attackers() set and cannot actually
+            # make the capture, which is how arrows for illegal moves shipped.
+            if after.is_pinned(mover, sq):
                 continue
             arrows.append({
                 "from": chess.square_name(sq),
@@ -4769,78 +4818,114 @@ def _punishment_arrows(
     *,
     mover_is_user: bool,
     cp_loss: int,
+    pv_after_played: Optional[Sequence[str]] = None,
 ) -> List[Dict[str, str]]:
-    """Show what the opponent takes after a blunder, or nothing.
+    """Draw the engine's own refutation of a blunder, or nothing.
 
     Mohit 2026-09-17: "we want to make sure we understand the blunders and
     mistakes from each game and try to arrow them, so they make sense."
 
-    Measured over 500 games: arrows were drawn on 0% of the 5,039 user-mistake
-    cards, while 7.5% of all cards drew them -- the picture was appearing
-    everywhere except where a player had just lost something. This is the
-    other half of the answer to "what did I miss": the piece that is now
-    takeable, and who takes it.
+    Until v181 the victim was chosen by ``static_exchange_eval``, and that was
+    the wrong authority twice over. Mohit 2026-09-28, on move 30 of
+    26d74ad6 (`1k2n2r/p1p5/1p5p/8/3q4/1Q3B2/PP3PP1/4R1K1 w - - 0 30`), where
+    the caption read "Qf7 lets Nd6 attack the queen on f7" and the board drew
+    d4->f2: "wrong arrow here, look at stockfish what is this suggesting and
+    what are you doing there?"
 
-    Right-or-silent, and deliberately narrow. Only the player's own mistakes
-    (>=100cp), only a target SEE proves is really winnable, and at most three
-    arrows. Drawing the consequence of a move the card has already called a
-    mistake keeps the board and the words talking about the same thing --
-    the agreement v164 had to restore after the trap cage drifted off its
-    caption.
+    Both failures are the same blind spot, SEE ignoring the king:
+
+      * as a DEFENDER -- f2 is covered only by Kg1, so SEE scored the pawn
+        +100 "free" when Qxf2+ Kxf2 simply drops the queen. The existing
+        ``legally_hanging_pieces`` fallback below was written for the mirror
+        case (king as the only ATTACKER) and never guarded this direction.
+      * ``board.attackers()`` is PSEUDO-legal, so a pinned attacker produced
+        arrows for captures that are not legal moves at all.
+
+    So the guess is gone. ``pv_after_played`` is the engine's actual answer to
+    the move the card has already called a mistake, and it is stored on 93% of
+    them, which makes it both truer and better covered than anything SEE can
+    infer from the static position.
+
+    Measured 2026-09-28 over 400 real games / 2,561 user-mistake cards, with
+    Stockfish depth 13 as an INDEPENDENT judge (an arrow is "bad" when the move
+    it draws is 100cp or more worse than the best reply):
+
+        builder                       cards drawn   bad     illegal
+        SEE guess (to v180)               1529      34%       3
+        engine refutation (this)          1475       2%       0
+
+    Coverage is unchanged, so nothing is traded away for the correctness --
+    the picture simply stops contradicting the sentence beside it. Of the two
+    residual "bad" samples both draw the engine's OWN stored line and differ
+    only because the judge ran shallower than the committed analysis.
+
+    Two shapes, and silence otherwise:
+
+      * the refutation is a capture -- one red arrow, the piece they take.
+        Judged clean on 70 of 70 samples.
+      * the refutation is quiet but creates a real threat -- red for their
+        move, yellow for what it now attacks. Gated on a LEGAL capture
+        existing after a null move, not on ``attacks()``, which is why all
+        516 of these passed the exact legality check with none failing.
+
+    A quiet reply that threatens nothing draws nothing: 30...Kg1 is not a
+    punishment picture, and v180 drew several.
     """
     if board_before is None or played_move is None:
         return []
     if not mover_is_user or (cp_loss or 0) < 100:
         return []
+    if not pv_after_played:
+        return []
     try:
-        mover = board_before.turn
         after = board_before.copy()
         after.push(played_move)
-        victim = None
-        for square, piece in after.piece_map().items():
-            if piece.color != mover or piece.piece_type == chess.KING:
+        try:
+            punish = after.parse_san(str(pv_after_played[0]))
+        except (ValueError, AssertionError):
+            return []
+        if punish not in after.legal_moves:
+            return []
+
+        move_arrow = {
+            "from": chess.square_name(punish.from_square),
+            "to": chess.square_name(punish.to_square),
+            "color": "red",
+            "teach": True,
+        }
+        if after.is_capture(punish):
+            return [move_arrow]
+
+        post = after.copy()
+        post.push(punish)
+        if post.is_check():
+            # A check is its own story and the check-arrow builder tells it.
+            return []
+        probe = post.copy()
+        probe.push(chess.Move.null())  # hand them the move to test the threat
+
+        best: Optional[tuple] = None
+        for move in probe.legal_moves:
+            if move.from_square != punish.to_square or not probe.is_capture(move):
                 continue
-            see = static_exchange_eval(after, square, not mover) or 0
-            if see >= 100 and (victim is None or see > victim[1]):
-                victim = (square, see)
-        if victim is None:
-            # SEE skips king recaptures by design, so a piece the king simply
-            # takes reads as perfectly safe -- finding 12 in the correctness
-            # review, and the reason Mohit's Bxf7+ drew nothing: the bishop on
-            # f7 scored 0 because its only attacker was the king on e8.
-            #
-            # legal_exchange_gain DOES play the king's capture out, so fall
-            # back to it when SEE has found nothing. Second pass, never a
-            # replacement: every card SEE already draws is untouched, and this
-            # only adds the ones it was blind to.
-            try:
-                hung = legally_hanging_pieces(after, mover, 100)
-            except ValueError:
-                hung = []
-            if not hung:
-                return []
-            worst = max(hung, key=lambda h: int(h.get("material_loss_cp") or 0))
-            capture_uci = str(worst.get("winning_capture_uci") or "")
-            if len(capture_uci) < 4:
-                return []
-            return [{
-                "from": capture_uci[:2],
-                "to": capture_uci[2:4],
-                "color": "red",
+            victim = probe.piece_at(move.to_square)
+            if victim is None:
+                continue
+            value = PIECE_VALUE_CP.get(victim.piece_type, 0)
+            # Pawn threats are noise on a blunder card; a piece is the lesson.
+            if value >= 320 and (best is None or value > best[0]):
+                best = (value, move.to_square)
+        if best is None:
+            return []
+        return [
+            move_arrow,
+            {
+                "from": chess.square_name(punish.to_square),
+                "to": chess.square_name(best[1]),
+                "color": "yellow",
                 "teach": True,
-            }]
-        victim_sq = victim[0]
-        arrows: List[Dict[str, str]] = []
-        for attacker in sorted(after.attackers(not mover, victim_sq)):
-            if len(arrows) >= 3:
-                break
-            arrows.append({
-                "from": chess.square_name(attacker),
-                "to": chess.square_name(victim_sq),
-                "color": "red",
-                "teach": True,
-            })
-        return arrows
+            },
+        ]
     except Exception:
         return []
 
@@ -6545,10 +6630,19 @@ def build_move_teaching_decision(
     # alternative, a move the caption never mentions and the board never
     # reaches -- and "Qe7" happened to be legal for both sides, so the two
     # readings of three characters looked like one.
+    # The engine's continuation after its own best move. v181 made this the
+    # source of the check-picture's TARGET, so both callers below need it: one
+    # draws the picture on the board the player reached, the other relocates it
+    # onto the board the best move would have reached.
+    _engine_line = list(inputs.pv_after_best or ())
+    if not _engine_line and inputs.best_move_san == inputs.played_san:
+        # They played the best move, so the line after it IS the best line.
+        _engine_line = list(inputs.pv_after_played or ())
+
     if inputs.mover_is_user:
         _played_uci = played_move.uci() if played_move else ""
         _teach_arrows = (
-            _check_attack_arrows(board_before, inputs.best_move_uci)
+            _check_attack_arrows(board_before, inputs.best_move_uci, _engine_line)
             if _played_uci and _played_uci == (inputs.best_move_uci or "")
             else []
         )
@@ -6603,6 +6697,9 @@ def build_move_teaching_decision(
             played_move,
             mover_is_user=inputs.mover_is_user,
             cp_loss=inputs.cp_loss,
+            # A real parameter, never read off `inputs` inside the builder:
+            # the narration block lost a whole section to exactly that slip.
+            pv_after_played=list(inputs.pv_after_played or ()),
         )
     if _teach_arrows:
         # On a collision the TAGGED copy wins. The old order kept the untagged
@@ -6629,7 +6726,9 @@ def build_move_teaching_decision(
     _best_arrows: List[Dict[str, str]] = []
     _best_arrows_fen = ""
     if not inputs.mover_is_user or (played_move and played_move.uci() != (inputs.best_move_uci or "")):
-        _candidate = _check_attack_arrows(board_before, inputs.best_move_uci)
+        _candidate = _check_attack_arrows(
+            board_before, inputs.best_move_uci, _engine_line
+        )
         if _candidate:
             try:
                 _bb = board_before.copy()

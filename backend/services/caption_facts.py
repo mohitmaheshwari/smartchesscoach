@@ -9968,7 +9968,35 @@ def extract_facts(
                 else:
                     _cap_pc = board_before.piece_at(_bm.to_square)
                     _cap_sq = _bm.to_square
+                # "for free" has to be earned. Until 2026-09-28 this flag was
+                # set by `is_capture` alone, so ANY capture the opponent passed
+                # up was rendered as a free piece. Mohit flagged move 4 of
+                # 26d74ad6: "Opponent's d6 is a mistake -- they had Nxe4,
+                # grabbing your pawn on e4 for free." On
+                # `r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b`
+                # the e4 pawn is defended by the knight on c3, and the whole
+                # line Nxe4 Nxe4 d5 Bd3 dxe4 Bxe4 settles dead level. Nothing
+                # was free and nothing was won.
+                #
+                # legal_exchange_gain plays the captures out on a real board,
+                # king recaptures included, so it answers the question the word
+                # "free" actually asks. Requiring the FULL value of the piece
+                # is what separates "they could have taken it and kept it"
+                # from "they could have started a trade".
+                _cap_gain = 0
                 if _cap_pc is not None:
+                    try:
+                        _cap_gain = legal_exchange_gain(
+                            board_before,
+                            _cap_sq,
+                            board_before.turn,
+                            first_move=_bm,
+                        )
+                    except (ValueError, TypeError):
+                        _cap_gain = 0
+                if _cap_pc is not None and _cap_gain >= PIECE_VALUE_CP.get(
+                    _cap_pc.piece_type, 0
+                ):
                     opp_failure_missed_capture = True
                     opp_missed_capture_san = best_move_san
                     opp_missed_capture_piece = PIECE_TYPE_NAMES.get(
