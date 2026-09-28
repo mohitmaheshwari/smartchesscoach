@@ -99,6 +99,12 @@ export default function PrescribedTraining({ user = null }) {
   const [picProjection, setPicProjection] = useState(null);
   const [picCheckPending, setPicCheckPending] = useState(picCandidate);
   const [canonicalContext, setCanonicalContext] = useState(null);
+  // The focus the SERVER says is active. /training carries no pattern, so
+  // `weakness` is the literal string "current" and the clock guard below never
+  // matched it -- a time-management player landed on the puzzle surface, which
+  // has no pool for a clock focus, and read "No puzzles for Tactical Training
+  // yet" under "Let's Practise Tactical Training". Reported live 2026-09-28.
+  const [resolvedFocusTopic, setResolvedFocusTopic] = useState(null);
   const [geometryCatalog, setGeometryCatalog] = useState(null);
 
   // Default-off discovery: reviewers and local dev receive the catalog; a
@@ -171,11 +177,13 @@ export default function PrescribedTraining({ user = null }) {
         setCanonicalContext(
           weakness === "current" ? data?.coaching_context || null : null
         );
+        setResolvedFocusTopic(data?.topic_key || null);
       })
       .catch(() => {
         if (!cancelled) {
           setPicProjection(null);
           setCanonicalContext(null);
+          setResolvedFocusTopic(null);
         }
       })
       .finally(() => {
@@ -638,7 +646,12 @@ export default function PrescribedTraining({ user = null }) {
   // ("No puzzle available") under a coach heading while Progress called time
   // discipline the player's top focus. Show their own clock instead --
   // docs/time_management_practice_scope.md.
-  if (CLOCK_FOCUSES.has(weakness)) {
+  // Check the focus the player actually HAS, not the word in the URL. On
+  // /training that word is "current", which is in no set of focus keys, so the
+  // guard silently passed and the puzzle surface rendered for a clock focus
+  // that can never have puzzles.
+  const effectiveFocus = weakness === "current" ? resolvedFocusTopic : weakness;
+  if (effectiveFocus && CLOCK_FOCUSES.has(effectiveFocus)) {
     return <TimeProfilePanel />;
   }
 

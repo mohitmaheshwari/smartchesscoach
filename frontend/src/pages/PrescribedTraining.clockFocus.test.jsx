@@ -132,3 +132,58 @@ test("a board pattern still uses the puzzle surface", async () => {
   await render();
   expect(container.querySelector('[data-testid="time-profile-panel"]')).toBeNull();
 });
+
+/**
+ * The same bug, through the other door.
+ *
+ * /training carries no pattern, so `weakness` is the literal string "current"
+ * and CLOCK_FOCUSES never matched it. A time-management player landed on the
+ * puzzle surface and read "Let's Practise Tactical Training" over "No puzzles
+ * for Tactical Training yet" and an empty board -- the exact dead end this file
+ * was written to stop, reached by a route the guard did not cover. Reported
+ * live 2026-09-28, the day after time_management became a plannable focus.
+ *
+ * The guard must test the focus the player HAS, not the word in the URL.
+ */
+test("a clock focus reached via /training with no pattern is still guarded", async () => {
+  mockPattern = undefined;               // /training, no :pattern segment
+  global.fetch = jest.fn((url) =>
+    Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve(
+          String(url).includes("/coach/active-focus")
+            ? { topic_key: "time_management" }   // what the server says
+            : profile
+        ),
+    })
+  );
+
+  await render();
+
+  expect(container.querySelector('[data-testid="time-profile-panel"]')).not.toBeNull();
+  expect(container.textContent).not.toContain("Tactical Training");
+  expect(container.textContent).not.toContain("Nothing to solve here right now");
+});
+
+test("a board focus reached the same way is NOT swallowed by the guard", async () => {
+  /** The guard must catch only clock focuses. If it swallowed every visit to
+   *  /training, every player would be shown their clock instead of puzzles. */
+  mockPattern = undefined;
+  global.fetch = jest.fn((url) => {
+    const target = String(url);
+    let body = profile;
+    if (target.includes("/coach/active-focus")) {
+      body = { topic_key: "piece_safety" };
+    } else if (target.includes("/training/")) {
+      // The puzzle surface needs a training payload; the clock profile has no
+      // `puzzles` array and the component reads its length.
+      body = { puzzles: [], coaching_intro: { lesson: "Piece safety" } };
+    }
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(body) });
+  });
+
+  await render();
+
+  expect(container.querySelector('[data-testid="time-profile-panel"]')).toBeNull();
+});
