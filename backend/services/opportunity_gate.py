@@ -51,9 +51,32 @@ import chess
 
 from services import shape_detectors as _sd
 
-# Every shape whose detector can name the move that executes it. Grouped by the
-# name a player would recognise, not by the piece doing it -- a knight fork and a
-# queen fork are the same idea to the person being coached.
+# TWO KINDS OF DETECTOR, AND ASKING THE WRONG ONE COSTS YOU THE PATTERN.
+#
+# Most shape detectors answer "does a move of this shape exist", and name the
+# move that executes it. A few answer "does this SHAPE exist on the board" --
+# a pin is a state, and you cannot take a state. Measured 2026-09-28,
+# `detect_pin` fired 5,286 times and named a move ZERO times, as did
+# `detect_skewer` on 3,462. I read that as "pin and skewer are silent" and
+# declared them so in this file. They are not: asked the right question,
+# through `verify_created_alignment` -- does THIS MOVE create one -- they are
+# the two biggest patterns we have.
+#
+#     pin            2,771 gated   42% taken     <- largest of all
+#     free_piece     2,047          83%
+#     skewer         1,840          47%
+#     fork (x5)      ~1,764        ~52%
+#     hidden_attack    492          60%
+#     remove_guard     132          61%
+#     force_the_king    30          50%
+#
+# `missed_skewer` already runs at plan grade on that same verifier at 95.4%
+# precision, so the bridge was proven before I failed to use it.
+
+# Asked "does this MOVE create one". Checked first because they are the largest.
+_CREATED_ALIGNMENTS: Tuple[str, ...] = ("pin", "skewer")
+
+# Asked "which moves execute this shape", then matched against the engine's.
 _SHAPE_DETECTORS: Tuple[Tuple[str, Any], ...] = (
     ("fork", _sd.detect_knight_fork),
     ("fork", _sd.detect_bishop_fork),
@@ -61,20 +84,27 @@ _SHAPE_DETECTORS: Tuple[Tuple[str, Any], ...] = (
     ("fork", _sd.detect_queen_fork),
     ("fork", _sd.detect_pawn_fork),
     ("free_piece", _sd.detect_free_piece),
-    ("free_piece", _sd.detect_free_pawn),
-    ("pin", _sd.detect_pin),
-    ("skewer", _sd.detect_skewer),
+    ("hidden_attack", _sd.detect_hidden_attack),
+    ("remove_the_guard", _sd.detect_remove_the_guard),
+    ("force_the_king", _sd.detect_force_the_king),
 )
 
-# Measured 2026-09-28 over 555,202 moves: of 50,251 gated opportunities,
-# free_piece produced 26,522 and fork 23,729. `pin` and `skewer` produced ZERO --
-# the engine's best move never once matched their executing move. They stay in
-# the tuple above so they light up automatically if that is fixed, and they are
-# named here so a reader is not left wondering whether they were forgotten.
-SILENT_WITH_THIS_GATE = frozenset({"pin", "skewer"})
+# Deliberately absent, having been measured rather than assumed. Fifteen
+# detectors fire and never name a move -- free_pawn, double_attack_line,
+# back_rank_trap, weak_squares, open_long_line, king_pawn_lifted and the rest.
+# They describe a position rather than a move, so there is nothing for a player
+# to "take" and they cannot form an opportunity. `detect_knight_mate` names
+# moves but produced 2 gated chances in 40,000 positions, which is not a
+# pattern. They are listed here so the next reader does not have to rediscover
+# why they are missing.
+NOT_USABLE_AS_OPPORTUNITIES = (
+    "free_pawn", "double_attack_line", "back_rank_trap", "h7_attack",
+    "queen_knight_mate", "no_safe_square", "tired_defender",
+    "strong_knight_square", "weak_squares", "open_long_line",
+    "long_diagonal_bishop", "pawn_hole_fianchetto", "king_pawn_lifted",
+    "knight_mate", "in_between_move",
+)
 
-# The lowest bar at which the pooled rate behaves like a trait (r = +0.70), and
-# it keeps 54 of 57 players. Taken from the measurement above, not chosen.
 MIN_CHANCES_TO_JUDGE = 20
 
 
@@ -94,6 +124,18 @@ def shape_of_best_move(fen: str, best_move_uci: Optional[str]) -> Optional[str]:
         return None
     if best not in board.legal_moves:
         return None
+
+    # Does the engine's move CREATE an alignment? Asked first: these are the
+    # two largest patterns, and they are invisible to the shape detectors.
+    try:
+        from services.aligned_tactic_puzzle_proof import verify_created_alignment
+
+        for kind in _CREATED_ALIGNMENTS:
+            if verify_created_alignment(board, str(best_move_uci), kind):
+                return kind
+    except Exception:
+        pass
+
     for name, detector in _SHAPE_DETECTORS:
         try:
             events = detector(board)

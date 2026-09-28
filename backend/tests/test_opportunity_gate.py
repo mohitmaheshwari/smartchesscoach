@@ -20,7 +20,7 @@ sys.path.insert(0, str(BACKEND_ROOT))
 
 from services.opportunity_gate import (  # noqa: E402
     MIN_CHANCES_TO_JUDGE,
-    SILENT_WITH_THIS_GATE,
+    NOT_USABLE_AS_OPPORTUNITIES,
     observe,
     pooled_knowledge,
     shape_of_best_move,
@@ -87,9 +87,27 @@ def test_taking_it_means_playing_the_engine_move():
 
 def test_missing_it_is_recorded_as_a_chance_not_dropped():
     """A miss is the numerator's absence, not the denominator's. Dropping it
-    would make every player look perfect."""
+    would make every player look perfect.
+
+    The pattern NAME is deliberately not asserted here -- see the precedence
+    test below. What matters for the rate is that this counts as a chance and
+    that it was not taken."""
     result = observe(MISSED_FEN, MISSED_BEST, MISSED_PLAYED)
-    assert result == {"pattern": "fork", "took": False}
+    assert result is not None
+    assert result["took"] is False
+    assert result["pattern"]
+
+
+def test_a_move_matching_two_shapes_gets_one_deterministic_name():
+    """MISSED_BEST is Qxd1, which both forks and creates a pin. A move can be
+    several things at once, so the order in the gate decides the name -- and it
+    must decide the SAME way every time or the drill choice wobbles between
+    runs. Alignments are asked first because they are the largest patterns.
+
+    The name only chooses the exercise. The rate does not depend on it."""
+    first = observe(MISSED_FEN, MISSED_BEST, MISSED_PLAYED)["pattern"]
+    again = observe(MISSED_FEN, MISSED_BEST, MISSED_PLAYED)["pattern"]
+    assert first == again == "pin"
 
 
 def test_another_sound_move_still_counts_as_missing_THIS_chance():
@@ -144,8 +162,34 @@ def test_the_drill_ignores_a_shape_with_too_few_chances():
     assert weakest_pattern(pooled_knowledge(rows)) == "fork"
 
 
-def test_the_silent_detectors_are_named_rather_than_forgotten():
-    """pin and skewer produced 0 of 50,251 gated opportunities. They stay wired
-    so they light up if fixed, and they are declared so a reader does not have to
-    wonder whether anyone noticed."""
-    assert SILENT_WITH_THIS_GATE == {"pin", "skewer"}
+def test_pin_and_skewer_are_found_by_asking_the_RIGHT_question():
+    """`detect_pin` fired 5,286 times and named a move ZERO times, because a pin
+    is a state and you cannot take a state. I read that as "pin is silent" and
+    declared it so. Asked through verify_created_alignment -- does THIS MOVE
+    create one -- pin is the largest pattern we have, at 2,771 gated chances
+    against free_piece's 2,047."""
+    from services.opportunity_gate import _CREATED_ALIGNMENTS
+
+    assert "pin" in _CREATED_ALIGNMENTS
+    assert "skewer" in _CREATED_ALIGNMENTS
+
+
+def test_the_unusable_detectors_are_named_rather_than_forgotten():
+    """Fifteen detectors fire and never name a move -- they describe a position
+    rather than a move, so there is nothing for a player to take. Listed so the
+    next reader does not have to rediscover why they are absent."""
+    assert "weak_squares" in NOT_USABLE_AS_OPPORTUNITIES
+    assert "king_pawn_lifted" in NOT_USABLE_AS_OPPORTUNITIES
+    assert len(NOT_USABLE_AS_OPPORTUNITIES) >= 15
+    # and the ones that DO work must not be in that list
+    for usable in ("pin", "skewer", "fork", "free_piece", "hidden_attack"):
+        assert usable not in NOT_USABLE_AS_OPPORTUNITIES, usable
+
+
+def test_the_new_patterns_are_wired():
+    """hidden_attack produces more gated chances (492) than knight_fork (454),
+    and I had not wired it."""
+    from services.opportunity_gate import _SHAPE_DETECTORS
+
+    names = {name for name, _fn in _SHAPE_DETECTORS}
+    assert {"hidden_attack", "remove_the_guard", "force_the_king"} <= names
