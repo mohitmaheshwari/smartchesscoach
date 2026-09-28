@@ -9573,6 +9573,95 @@ def _recommended_move_traps_piece(
     return None
 
 
+
+def clearance_reply_why(
+    board_after_opp, reply_move, pv_after_reply, cp_loss=300
+) -> Optional[str]:
+    """Why a recommended reply is good, when the reason is a clearance.
+
+    Mohit 2026-09-28, on "Opponent's Rae8 is a mistake - their bishop on d6
+    has nothing defending it... Play Nf6+ - it forces a reply": "the caption
+    becomes wrong then, because we are moving knight to check the king, so
+    undefended bishop gets attacked by rook, right?"
+
+    He had the mechanism exactly. The diagnosis was fine -- Rad8 would have
+    defended d6 and Rae8 does not, which is verifiably why it is a mistake.
+    The recommended-move WHY was the broken part. "It forces a reply" fits
+    any check ever played, and _recommended_move_why offered
+    "attacks the rook on e8", which is true and is not why the move is good.
+    Nf6+ is good because White's own knight on d5 blocks White's rook on d1,
+    and the check forces the knight off the file with tempo.
+
+    build_clearance_proof already proves exactly this and returns the squares
+    and pieces. It has been wired into the admin review queue since it was
+    written and never into the caption path.
+
+    Only speaks when the follow-up actually WINS something. The prover's own
+    note records that 44.1% of follow-ups over 400 games are quiet moves
+    achieving nothing visible -- the "Rxf2 ... Kf1" shape, where the lesson
+    is "take the free knight", not a clearance. Naming a clearance there
+    would be a true geometric statement about a move nobody should play for
+    that reason.
+    """
+    try:
+        from services.clearance_puzzle_proof import build_clearance_proof
+    except Exception:
+        return None
+    if board_after_opp is None or reply_move is None:
+        return None
+    try:
+        reply_san = board_after_opp.san(reply_move)
+    except Exception:
+        return None
+
+    # The prover compares a played move against a better one. Here the reply
+    # IS the better one, so any other legal move serves as the foil.
+    foil = next(
+        (m for m in board_after_opp.legal_moves if m != reply_move), None
+    )
+    if foil is None:
+        return None
+    try:
+        bundle = build_clearance_proof(
+            board_after_opp,
+            board_after_opp.san(foil),
+            reply_san,
+            list(pv_after_reply or []),
+            cp_loss,
+        )
+    except Exception:
+        return None
+    if not bundle:
+        return None
+
+    facts = (getattr(bundle.detector, "facts", None) or [None])[0]
+    if not isinstance(facts, dict):
+        return None
+    if not (facts.get("follow_up_is_capture")
+            or facts.get("follow_up_gives_check")
+            or facts.get("follow_up_promotes")):
+        return None
+
+    follow_uci = str(facts.get("follow_up_move") or "")
+    if len(follow_uci) < 4:
+        return None
+    target_square = follow_uci[2:4]
+    after_reply = board_after_opp.copy()
+    after_reply.push(reply_move)
+    victim = after_reply.piece_at(chess.parse_square(target_square))
+    mover = str(facts.get("follow_up_piece") or "piece")
+
+    if facts.get("follow_up_is_capture") and victim is not None:
+        taken = PIECE_TYPE_NAMES.get(victim.piece_type, "piece")
+        return (
+            f"clears the way for your {mover} to take the {taken} "
+            f"on {target_square}"
+        )
+    if facts.get("follow_up_gives_check"):
+        return f"clears the way for your {mover} to give check on {target_square}"
+    return None
+
+
 def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Optional[str]:
     """WHY a recommended move is good, as a short 3rd-person verb phrase that slots into
     'it {why}' — 'develops a piece', 'takes the center', 'trades off his bishop', 'wins a

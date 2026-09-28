@@ -261,8 +261,8 @@
     {"when": {"opp_played_queen_early_san": "present"}, "variant": "why_opp_queen_early"},
     {"when": {"opp_played_un_developed_san": "present"}, "variant": "why_opp_un_developed"},
     {"when": {"user_best_reply_san": "present", "captured_piece_type": "present"}, "variant": "why_opp_punish_capture"},
-    {"when": {"user_best_reply_san_is_forcing": true}, "variant": "why_opp_punish_check"},
     {"when": {"opp_user_reply_why": "present"}, "variant": "why_opp_punish_with_why"},
+    {"when": {"user_best_reply_san_is_forcing": true}, "variant": "why_opp_punish_check"},
     {"when": {"user_best_reply_san": "present"}, "variant": "why_opp_punish_default"},
     {"when": {"opp_pieces_now_undefended_present": true}, "variant": "why_opp_hanging"},
     {"when": {"opp_played_landed_unsafe": true, "target_square": "present"}, "variant": "why_opp_unsafe"}
