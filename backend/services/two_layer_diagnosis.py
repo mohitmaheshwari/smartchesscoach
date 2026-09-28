@@ -53,9 +53,36 @@ from typing import Any, Dict, Optional
 # the next pattern added cannot quietly do the same thing.
 CALIBRATED_FOR_GATE = "opportunity_gate.v2_seven_patterns"
 
-# The measured medians. They choose who gets coached on this, not who is good or
-# bad -- see the module docstring on the wording that follows from that.
-KNOWLEDGE_MEDIAN = 0.66
+# Measured on the seven-pattern gate, 55 judgeable players, 2026-09-28:
+#
+#     min 0.361   p10 0.434   q1 0.462   median 0.524   q3 0.554   max 0.657
+#
+# The cut is the LOWER QUARTILE, not the median, and that is a deliberate
+# choice rather than a rounding. The three candidates:
+#
+#     q1     0.462 -> 13 of 55 diagnosed, 42 told nothing
+#     median 0.524 -> 27 of 55
+#     0.550        -> 38 of 55
+#
+# A strong claim about a few people beats a weak claim about half of them. We
+# have never shown that the drill changes anything, so the first version should
+# be quiet and confident; widening is easy once the drill proves itself, while
+# retracting a diagnosis nobody needed is not.
+#
+# The previous value was 0.66, measured on a two-pattern gate. On this gate that
+# sits at the HUNDREDTH percentile -- above every player, max 0.657 -- so it
+# diagnosed all 55. Hence CALIBRATED_FOR_GATE above.
+KNOWLEDGE_LOW_CUT = 0.46
+
+# Kept as an alias so the name change does not silently break a caller. The cut
+# is no longer a median and calling it one would invite the next person to
+# "correct" it back.
+KNOWLEDGE_MEDIAN = KNOWLEDGE_LOW_CUT
+
+# Share of a player's moves taken at more than three times his own pace for that
+# game. Measured across the same players: q1 0.12, median 0.14, q3 0.17. This
+# one splits which KIND of gap, not whether there is one, so the median is right
+# here -- both sides of it get coached, just differently.
 THINKS_LONG_MEDIAN = 0.14
 
 KNOWLEDGE_GAP = "knowledge"

@@ -30,6 +30,13 @@ from services.two_layer_diagnosis import (  # noqa: E402
 
 
 def _pooled(rate, chances=MIN_CHANCES_TO_JUDGE * 2):
+    """Rates here are always written RELATIVE to KNOWLEDGE_MEDIAN.
+
+    An earlier version hardcoded 0.50, which sat below the old cut of 0.66 and
+    above the re-measured 0.46 -- so re-measuring the cut silently flipped eight
+    tests from "diagnosed" to "no gap". A fixture pinned to an absolute number
+    tests the number, not the behaviour.
+    """
     took = int(round(rate * chances))
     return pooled_knowledge(
         [{"pattern": "fork", "took": True}] * took
@@ -37,21 +44,21 @@ def _pooled(rate, chances=MIN_CHANCES_TO_JUDGE * 2):
 
 
 def test_misses_them_while_taking_his_time_is_a_knowledge_gap():
-    d = diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.15), THINKS_LONG_MEDIAN + 0.05)
+    d = diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), THINKS_LONG_MEDIAN + 0.05)
     assert d["layer"] == KNOWLEDGE_GAP
     assert "teach the shape" in d["prescription"]
 
 
 def test_misses_them_without_taking_time_is_an_attention_gap():
-    d = diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.15), THINKS_LONG_MEDIAN - 0.05)
+    d = diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), THINKS_LONG_MEDIAN - 0.05)
     assert d["layer"] == ATTENTION_GAP
     assert "NOT more puzzles" in d["prescription"]
 
 
 def test_the_two_gaps_never_prescribe_the_same_thing():
     """If they did, separating the layers would have bought nothing."""
-    a = diagnose(_pooled(0.50), THINKS_LONG_MEDIAN + 0.05)["prescription"]
-    b = diagnose(_pooled(0.50), THINKS_LONG_MEDIAN - 0.05)["prescription"]
+    a = diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), THINKS_LONG_MEDIAN + 0.05)["prescription"]
+    b = diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), THINKS_LONG_MEDIAN - 0.05)["prescription"]
     assert a != b
 
 
@@ -74,7 +81,7 @@ def test_unknown_tempo_falls_back_to_the_half_that_helps_either_way():
     """With no clock data we know he misses them and nothing about his time.
     Teaching the shape helps both kinds of player; a looking-habit drill helps
     only one, so guessing that way would be the costly guess."""
-    d = diagnose(_pooled(0.50), None)
+    d = diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), None)
     assert d["layer"] == KNOWLEDGE_GAP
     assert d["because"] is None
 
@@ -89,7 +96,7 @@ def test_every_verdict_carries_a_prescription():
 
 def test_the_card_never_shows_a_number():
     for tempo in (THINKS_LONG_MEDIAN + 0.05, THINKS_LONG_MEDIAN - 0.05):
-        text = card(diagnose(_pooled(0.50), tempo), "fork")
+        text = card(diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), tempo), "fork")
         for key, value in text.items():
             assert not re.search(r"\d", value), (key, value)
             assert "%" not in value
@@ -102,27 +109,27 @@ def test_the_card_never_compares_him_to_other_players():
     banned = ("average", "than other", "most players", "below", "worse than",
               "percentile", "rank")
     for tempo in (THINKS_LONG_MEDIAN + 0.05, THINKS_LONG_MEDIAN - 0.05):
-        text = " ".join(card(diagnose(_pooled(0.50), tempo), "fork").values())
+        text = " ".join(card(diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), tempo), "fork").values())
         for word in banned:
             assert word not in text.lower(), word
 
 
 def test_the_card_names_the_pattern_for_the_drill():
-    text = card(diagnose(_pooled(0.50), THINKS_LONG_MEDIAN + 0.05), "fork")
+    text = card(diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), THINKS_LONG_MEDIAN + 0.05), "fork")
     assert "forks" in text["next"]
-    other = card(diagnose(_pooled(0.50), THINKS_LONG_MEDIAN + 0.05), "free_piece")
+    other = card(diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), THINKS_LONG_MEDIAN + 0.05), "free_piece")
     assert "free material" in other["next"]
 
 
 def test_an_unknown_pattern_still_produces_a_card():
     """A missing drill name must not cost the player the diagnosis."""
-    text = card(diagnose(_pooled(0.50), THINKS_LONG_MEDIAN + 0.05), None)
+    text = card(diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), THINKS_LONG_MEDIAN + 0.05), None)
     assert "tactics" in text["next"]
 
 
 def test_the_two_cards_say_opposite_things_about_time():
-    knowledge = card(diagnose(_pooled(0.50), THINKS_LONG_MEDIAN + 0.05), "fork")
-    attention = card(diagnose(_pooled(0.50), THINKS_LONG_MEDIAN - 0.05), "fork")
+    knowledge = card(diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), THINKS_LONG_MEDIAN + 0.05), "fork")
+    attention = card(diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), THINKS_LONG_MEDIAN - 0.05), "fork")
     assert "not rushing" in knowledge["body"]
     assert "fast mover" in attention["body"]
     assert knowledge["headline"] != attention["headline"]
@@ -134,7 +141,7 @@ def test_the_attention_card_offers_a_hypothesis_not_a_cause():
     runs 0.00 to 0.28, median 0.15, and mistakes are LESS rushed than ordinary
     moves (13.2% against 23.5%). So the card must not say his speed caused
     this."""
-    text = card(diagnose(_pooled(0.50), THINKS_LONG_MEDIAN - 0.05), "fork")
+    text = card(diagnose(_pooled(KNOWLEDGE_MEDIAN - 0.10), THINKS_LONG_MEDIAN - 0.05), "fork")
     joined = " ".join(text.values()).lower()
     assert "we do not know yet" in joined, "must be offered as a question"
     for asserted in ("stopping to check is", "because you", "that is why",
@@ -169,3 +176,20 @@ def test_somebody_must_come_out_with_no_gap():
 
     healthy = diagnose(_pooled(min(KNOWLEDGE_MEDIAN + 0.05, 0.99)), 0.20)
     assert healthy["layer"] == NO_TACTICAL_GAP
+
+
+def test_the_cut_is_the_lower_quartile_not_the_median():
+    """Deliberate: a strong claim about few beats a weak claim about half.
+
+    Measured on the seven-pattern gate over 55 players -- q1 0.462 diagnoses 13,
+    the median 0.524 diagnoses 27. We have never shown the drill changes
+    anything, so the first version is quiet. This test exists because the
+    constant is still aliased as KNOWLEDGE_MEDIAN for compatibility, and a
+    reader who trusts that name would "correct" it upward.
+    """
+    from services.two_layer_diagnosis import KNOWLEDGE_LOW_CUT
+
+    assert KNOWLEDGE_LOW_CUT == KNOWLEDGE_MEDIAN
+    assert 0.40 <= KNOWLEDGE_LOW_CUT <= 0.50, (
+        "outside the measured q1-to-median band; re-measure rather than nudge"
+    )
