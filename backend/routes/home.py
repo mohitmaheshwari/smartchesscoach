@@ -394,6 +394,35 @@ async def get_area_grades(user: User = Depends(get_current_user)):
     return grade_areas(counts, games_played)
 
 
+@router.get("/progress/how-you-play")
+async def get_behaviour_profile(user: User = Depends(get_current_user)):
+    """How this player plays -- the behavioural traits, described not graded.
+
+    Display-only for the same reason area-grades is: it reads what is stored
+    and tells nobody what to do next, so it needs no detector authorization.
+    The focus still names exactly one thing to work on; this says who the
+    player is.
+
+    Seven traits, each of which passed the only test that makes a trait real --
+    stable within a player across time AND spread across players. Fourteen
+    candidates failed and are named in services/behaviour_profile.py so nobody
+    rebuilds them.
+
+    A player in the middle half of the population is told nothing about that
+    trait, so most people see two to four lines rather than seven. Measured on
+    production: 45 of 48 players get at least one.
+    """
+    from services.behaviour_profile import build_profile, compute_traits
+
+    measured = await compute_traits(db, user.user_id)
+    return build_profile(
+        measured["traits"],
+        moves=measured["moves"],
+        timed_moves=measured["timed_moves"],
+        samples=measured["samples"],
+    )
+
+
 @router.get("/home/dashboard-v2")
 async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
     """
