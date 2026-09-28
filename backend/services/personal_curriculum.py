@@ -661,6 +661,11 @@ def _focus_occurrence_count(focus: Mapping[str, Any]) -> int:
     return 0
 
 
+# Focus keys that describe clock use rather than a board pattern. Mirrors
+# CLOCK_FOCUSES in frontend/src/pages/PrescribedTraining.jsx.
+_CLOCK_TOPICS = frozenset({"time_management", "time_collapse", "time_pressure"})
+
+
 def _repair_candidate(focus: Mapping[str, Any]) -> Optional[CurriculumCandidate]:
     topic_key = str(focus.get("topic_key") or "").strip()
     occurrence_count = _focus_occurrence_count(focus)
@@ -679,8 +684,13 @@ def _repair_candidate(focus: Mapping[str, Any]) -> Optional[CurriculumCandidate]
         evidence_summary="I found this in several of your recent games.",
         evidence_status=EvidenceStatus.TRUSTWORTHY,
         destination=CurriculumDestination(
+            # A clock focus has no puzzle pool -- puzzles cannot train clock
+            # use. Claiming "puzzles" sent a time_management player to a board
+            # that read "No puzzles for Tactical Training yet". The frontend
+            # guard catches it now, but the card should not promise a medium
+            # that does not exist for the topic.
             href=f"/training/pattern/{topic_key}",
-            medium="puzzles",
+            medium=("time_profile" if topic_key in _CLOCK_TOPICS else "puzzles"),
             capability=LessonCapability.GUIDED_PRACTICE,
             content_kind="concept",
             content_id=topic_key,
