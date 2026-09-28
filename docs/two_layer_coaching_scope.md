@@ -302,3 +302,80 @@ The pooled 50,251 came from **two** patterns only:
 their executing move. Either they do not emit one or their shape is almost never
 the best move. §6 claimed four patterns; **two of them do not work with this
 gate**, and that must be established before they are counted.
+
+---
+
+## 11. Built and calibrated, 2026-09-28 (steps 1-3)
+
+Three of the five steps exist, are tested, and are verified against production.
+**Nothing is wired to a player.**
+
+```
+  services/opportunity_gate.py      the denominator      14 tests
+  services/coaching_landed.py       did it arrive        13 tests
+  services/two_layer_diagnosis.py   which layer + card   16 tests
+```
+
+### The gate, after the pattern set was corrected
+
+```
+  pin               38,088   42% taken
+  skewer            25,016   43%
+  free_piece        22,845   84%
+  fork              15,577   49%
+  hidden_attack      5,771   52%
+  remove_the_guard     857   60%
+  force_the_king        59   49%
+                   -------
+                   108,213   53% overall,  pooled half-half r = +0.67
+```
+
+§10 said two of the four claimed patterns did not work. That was wrong, and in
+an instructive way: `detect_pin` fires 5,286 times and names a move **zero**
+times because a pin is a STATE and you cannot take a state. Asked through
+`verify_created_alignment` -- does this MOVE create one -- pin is the largest
+pattern in the product. `missed_skewer` already ran at plan grade on that very
+verifier at 95.4% precision, so the bridge was proven before it was used.
+
+Fifteen detectors genuinely cannot feed the gate and are named in
+`NOT_USABLE_AS_OPPORTUNITIES`: they describe a position, not a move.
+
+### What it says about real players
+
+```
+  no_tactical_gap       43      he finds them; say nothing
+  attention              9
+  knowledge              3
+  not_enough_evidence    2      below the bar; stay silent
+
+  drills: skewer 4, pin 4, fork 3, remove_the_guard 1
+```
+
+Twelve of 55 get a card. That is deliberate: the cut is the lower quartile
+(0.46), not the median (0.52), because we have never shown the drill changes
+anything and a strong claim about a few beats a weak claim about half.
+
+### The bug this phase produced, and the guard against it
+
+Adding three patterns moved the take rate from 67% to 53%. `KNOWLEDGE_MEDIAN`
+was 0.66, measured on the old gate, and went from splitting the population in
+half to sitting at the **hundredth percentile** -- above every player. All 55
+were diagnosed and nothing failed.
+
+So the gate now carries `GATE_VERSION`, the diagnosis carries
+`CALIBRATED_FOR_GATE`, and a test fails when they drift apart. A second test
+asserts somebody still comes out with no gap, which guards the SHAPE of the
+failure rather than one constant.
+
+### Watch this when outcomes arrive
+
+Nine of the twelve land on the ATTENTION card, which is deliberately the weaker
+claim -- a hypothesis offered, not a cause asserted, because the fast-miss share
+refuses a causal reading. Either quick movers genuinely miss more tactics, or the
+tempo split is picking up something merely correlated with weakness. The landing
+funnel will say which, and nothing should be built on it before then.
+
+### Still to do
+
+Steps 4 and 5 -- the card surface and the drill split -- are the first things a
+player would see, and they are where this stops being inert.
