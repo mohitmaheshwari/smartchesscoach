@@ -64,7 +64,20 @@ CUTS: Dict[str, tuple] = {
     "plays_on_when_lost": (0.160, 0.237),
     "knowledge_breadth": (0.300, 0.363),
     "error_rate": (0.126, 0.170),
+    # Failing to convert a winning position. Quartiles at a sample where the
+    # measure is reliable (100+ winning positions): 0.29 / 0.33 / 0.38.
+    "throws_away_won_games": (0.29, 0.38),
 }
+
+# Traits that need more than the usual history before they may be spoken.
+#
+# Conversion is a GAME-level event, so each game is one binary observation and
+# the estimate is noise-limited at small samples. Measured half-half as the bar
+# rose: 0.41 at 10 winning positions, 0.43 at 30, 0.44 at 60, 0.59 at 100, 0.72
+# at 150 -- climbing exactly as Spearman-Brown predicts for attenuation
+# (0.43 implies 0.60 at double length and 0.75 at quadruple). So the trait is
+# real and the early reading was noise, not weakness.
+MIN_SAMPLE = {"throws_away_won_games": 60}
 
 # Carried for ranking and measurement, never rendered. See the module docstring.
 SILENT_TRAITS = frozenset({"error_rate"})
@@ -93,13 +106,19 @@ SENTENCES: Dict[str, Dict[str, str]] = {
         "high": "A lot of named ideas show up in your play.",
         "low": "The same few ideas carry most of your games.",
     },
+    "throws_away_won_games": {
+        "high": "Winning positions slip away from you more often than they should. "
+                "Getting a game won is not the same as winning it.",
+        "low": "When you get on top of a game, you finish it off.",
+    },
 }
 
 MIN_MOVES = 400
 MIN_TIMED_MOVES = 200
 
 
-def describe(traits: Optional[Dict[str, float]]) -> List[Dict[str, str]]:
+def describe(traits: Optional[Dict[str, float]],
+             samples: Optional[Dict[str, int]] = None) -> List[Dict[str, str]]:
     """The sentences a player reads, for the traits that are at an end.
 
     A trait inside the middle half of the population says nothing. That is the
@@ -107,8 +126,13 @@ def describe(traits: Optional[Dict[str, float]]) -> List[Dict[str, str]]:
     three lines, not six.
     """
     lines: List[Dict[str, str]] = []
+    samples = samples or {}
     for key, value in sorted((traits or {}).items()):
         if key in SILENT_TRAITS or key not in CUTS or value is None:
+            continue
+        needed = MIN_SAMPLE.get(key)
+        if needed is not None and samples.get(key, 0) < needed:
+            # Measurable in principle, not yet in fact for this player.
             continue
         low, high = CUTS[key]
         end = "high" if value >= high else "low" if value <= low else None
@@ -121,7 +145,8 @@ def describe(traits: Optional[Dict[str, float]]) -> List[Dict[str, str]]:
 
 
 def build_profile(traits: Optional[Dict[str, float]],
-                  moves: int, timed_moves: int) -> Dict[str, Any]:
+                  moves: int, timed_moves: int,
+                  samples: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
     """The whole payload. `measured` is false when we have not watched enough.
 
     Saying nothing is a real answer here. A profile built on a handful of games
@@ -132,7 +157,7 @@ def build_profile(traits: Optional[Dict[str, float]],
         "schema_version": "behaviour_profile.v1",
         "measured": bool(enough and traits),
         "reason": None if enough else "not enough games watched yet",
-        "lines": describe(traits) if enough else [],
+        "lines": describe(traits, samples) if enough else [],
         # internal only: rates are numbers and are never rendered
         "_traits": dict(traits or {}),
     }
