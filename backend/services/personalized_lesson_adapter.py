@@ -742,7 +742,19 @@ async def _concept_descriptor(
         # "No verified practice positions are available yet" -- a filter meant
         # to skip one bad position closed the lesson instead. Headroom of four
         # covers the measured 3.1% rejection rate many times over.
-        supply_size = min(requested + 4, 12)
+        # Always ask for the full basket, never `requested + headroom`.
+        #
+        # `get_pattern_training_puzzles` does NOT return what you ask for
+        # proportionally: measured 2026-09-29 for the deploy gate's user,
+        # asking for 5 returned ONE candidate while asking for 12 returned
+        # twelve. So a modest headroom evaporated -- the answerability filter
+        # dropped the single candidate and the lesson 409'd with "No verified
+        # practice positions are available yet", which is the second time that
+        # error has been the gate's failure.
+        #
+        # Fetching the cap and truncating after filtering costs nothing and
+        # does not depend on how the supply interprets a small number.
+        supply_size = 12
         supply = await get_pattern_training_puzzles(
             db,
             user_id,
