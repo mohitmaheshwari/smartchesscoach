@@ -257,6 +257,17 @@ _ONE_ACTION: Dict[str, str] = {
     "opening_knowledge": 'Today, ask one question before every move: "Am I following a plan I know, or just guessing?"',
     "endgame_technique": 'Today, ask one question before every move: "Have I checked this all the way to the end?"',
     "threat_awareness": 'Today, ask one question before every move: "Is anything of mine in danger right now?"',
+    # The first behavioural focus, and the first whose action is not about the
+    # board at all. Authored 2026-09-28: time_management became plannable the
+    # day before and had no entry, so every player on it read the generic
+    # fallback -- "Play one game today. Let's see what it shows us." -- while
+    # holding hundreds of measured clock events.
+    #
+    # It asks about the clock ahead rather than the clock spent, because the
+    # measured shape is a front-loaded clock: the median player spends nearly
+    # half their thinking in the first fifteen moves and then decides the hard
+    # part in seconds.
+    "time_management": 'Today, ask one question every few moves: "Will I still have time left when the position gets hard?"',
 }
 
 _FALLBACK_ACTION = "Play one game today. Let's see what it shows us."
