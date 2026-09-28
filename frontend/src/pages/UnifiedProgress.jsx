@@ -28,6 +28,7 @@ import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
 // imported by nothing, so the scores it renders reached no screen at all.
 import ThinkingScoreCard from "@/components/coach/ThinkingScoreCard";
 import AreaGradesCard from "@/components/coach/AreaGradesCard";
+import HowYouPlayCard from "@/components/coach/HowYouPlayCard";
 import {
   fadeInUp,
   revealOnScroll,
@@ -534,6 +535,7 @@ export default function UnifiedProgress({ user }) {
           className="mb-10 md:mb-14"
           data-testid="progress-thinking-habits"
         >
+          <HowYouPlayCard />
           <AreaGradesCard />
           <ThinkingScoreCard />
         </motion.section>
