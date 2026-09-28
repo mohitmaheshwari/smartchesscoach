@@ -27,9 +27,10 @@ test("it announces itself as busy rather than sitting silently", async () => {
 test("it matches the real page's width so nothing jumps on load", async () => {
   await act(async () => root.render(<HomeLoadingSkeleton />));
   const panel = container.querySelector('[data-testid="home-loading-skeleton"]');
-  // CurriculumHome renders cg-page max-w-[960px]; the skeleton must agree.
+  // CurriculumHome renders the shared .cg-page primitive (1120px) with no
+  // hardcoded pixel clamp; the skeleton must agree or the page jumps on load.
   expect(panel.className).toContain("cg-page");
-  expect(panel.className).toContain("max-w-[960px]");
+  expect(panel.className).not.toContain("max-w-[");
 });
 
 test("the rows are staggered, which is what makes it read as a wave", async () => {

@@ -280,7 +280,7 @@ const AllGames = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="experience-page experience-utility-page experience-games-page cg-page max-w-[920px]" data-testid="all-games-page">
+      <div className="experience-page experience-utility-page experience-games-page cg-page" data-testid="all-games-page">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
 
           <CurriculumStateStrip user={user} surface="game_review" />

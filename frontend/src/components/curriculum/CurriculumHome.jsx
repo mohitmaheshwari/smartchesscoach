@@ -10,7 +10,7 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
   return (
     <Layout user={user}>
       <main
-        className="cg-page max-w-[960px]"
+        className="cg-page"
         data-testid="personal-curriculum-home"
       >
         <p className="text-[12px] text-muted-foreground mb-5">{greeting}</p>

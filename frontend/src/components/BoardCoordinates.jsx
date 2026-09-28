@@ -79,6 +79,11 @@ const BoardCoordinates = ({ orientation = "white", minWidth = MIN_WIDTH_PX }) =>
               fontSize: "0.6rem",
               lineHeight: 1,
               color: sq.isDark ? DARK_SQUARE_TEXT : LIGHT_SQUARE_TEXT,
+              // 2026-09-28: kept at full contrast the 64 labels competed with
+              // the pieces for attention. The point is to match an annotation
+              // ("Nxc5") to a square at a glance, which a quieter label still
+              // does, so they recede instead of being removed.
+              opacity: 0.42,
               fontVariantNumeric: "tabular-nums",
             }}
           >
