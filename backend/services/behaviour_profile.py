@@ -179,11 +179,121 @@ def build_profile(traits: Optional[Dict[str, float]],
     describes the games, not the person.
     """
     enough = moves >= MIN_MOVES and timed_moves >= MIN_TIMED_MOVES
+    lines = describe(traits, samples) if enough else []
+    if enough and traits and not lines:
+        # Every trait inside the middle half. That is a real answer, not an
+        # empty one -- it says the player has no pronounced tendency either
+        # way -- and it beats showing a blank page to someone with hundreds of
+        # games. Measured on production: 3 of 48 players land here, and one of
+        # them has 21,126 observed moves.
+        lines = [{
+            "trait": "balanced",
+            "end": "middle",
+            "sentence": "Nothing about how you play stands out at either end. "
+                        "You take your time about as much as you rush it, and "
+                        "you finish the games you should.",
+        }]
     return {
         "schema_version": "behaviour_profile.v1",
         "measured": bool(enough and traits),
         "reason": None if enough else "not enough games watched yet",
-        "lines": describe(traits, samples) if enough else [],
+        "lines": lines,
         # internal only: rates are numbers and are never rendered
         "_traits": dict(traits or {}),
     }
+
+
+async def compute_traits(db, user_id: str) -> Dict[str, Any]:
+    """Measure this player's seven traits from stored observations and games.
+
+    Display-only, like `area_grades`: it reads what is stored and tells nobody
+    what to do next, so it needs no detector authorization. The focus still
+    names exactly one thing; this describes the person.
+
+    Returns `{"traits": {...}, "moves": int, "timed_moves": int,
+    "samples": {...}}` -- the shape `build_profile` takes.
+    """
+    import statistics
+
+    moves = await db.move_observations.find(
+        {"user_id": user_id},
+        {"_id": 0, "game_id": 1, "move_number": 1, "time_spent_seconds": 1,
+         "execution_quality": 1, "concept_used": 1, "eval_before": 1,
+         "color": 1},
+    ).to_list(60000)
+
+    per_game_times: Dict[str, List[float]] = {}
+    for move in moves:
+        seconds = move.get("time_spent_seconds")
+        if isinstance(seconds, (int, float)):
+            per_game_times.setdefault(move.get("game_id"), []).append(seconds)
+    median_pace = {g: statistics.median(v) for g, v in per_game_times.items() if v}
+
+    timed = slow = fast = 0
+    clock_split: Dict[str, List[float]] = {}
+    for move in moves:
+        seconds, game_id = move.get("time_spent_seconds"), move.get("game_id")
+        pace = median_pace.get(game_id)
+        if pace and pace > 0 and isinstance(seconds, (int, float)):
+            timed += 1
+            if seconds / pace > 3.0:
+                slow += 1
+            if seconds / pace < 0.25:
+                fast += 1
+        if isinstance(seconds, (int, float)):
+            slot = clock_split.setdefault(game_id, [0.0, 0.0])
+            slot[1] += seconds
+            if (move.get("move_number") or 99) <= 15:
+                slot[0] += seconds
+    front = [early / total for early, total in clock_split.values() if total > 0]
+
+    def own_eval(move):
+        value = move.get("eval_before")
+        if not isinstance(value, (int, float)):
+            return None
+        return value if move.get("color") == "white" else -value
+
+    total_moves = len(moves)
+    traits: Dict[str, float] = {}
+    if total_moves:
+        traits["plays_on_when_lost"] = sum(
+            1 for m in moves if (own_eval(m) or 0) < -300) / total_moves
+        traits["knowledge_breadth"] = sum(
+            1 for m in moves
+            if m.get("concept_used") and m["concept_used"] != "found_best_move"
+        ) / total_moves
+        traits["error_rate"] = sum(
+            1 for m in moves
+            if m.get("execution_quality") in ("mistake", "blunder")) / total_moves
+    if timed:
+        traits["thinks_long"] = slow / timed
+        traits["moves_fast"] = fast / timed
+    if front:
+        traits["clock_front_loaded"] = statistics.median(front)
+
+    # Conversion is a GAME-level trait: of the games where this player reached a
+    # clearly winning position, how many did they fail to win. A per-move
+    # measure cannot see it -- one catastrophic move barely moves an average.
+    peak: Dict[str, float] = {}
+    for move in moves:
+        value = own_eval(move)
+        game_id = move.get("game_id")
+        if value is not None and game_id:
+            if value > peak.get(game_id, -99999):
+                peak[game_id] = value
+    won_ids = [g for g, v in peak.items() if v >= 300]
+    samples: Dict[str, int] = {}
+    if won_ids:
+        finished = await db.games.find(
+            {"game_id": {"$in": won_ids}},
+            {"_id": 0, "game_id": 1, "result": 1, "user_color": 1},
+        ).to_list(5000)
+        if finished:
+            from services.game_outcome import user_won
+
+            failed = sum(1 for g in finished if not user_won(g))
+            traits["throws_away_won_games"] = failed / len(finished)
+            samples["throws_away_won_games"] = len(finished)
+
+    return {"traits": traits, "moves": total_moves,
+            "timed_moves": timed, "samples": samples}

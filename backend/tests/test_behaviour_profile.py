@@ -159,3 +159,24 @@ def test_the_conversion_sentence_does_not_blame_luck_or_the_opponent():
     high = SENTENCES["throws_away_won_games"]["high"].lower()
     assert "unlucky" not in high and "opponent" not in high
     assert not re.search(r"\d", high)
+
+
+def test_a_player_in_the_middle_of_everything_still_gets_a_profile():
+    """Every trait inside the middle half is a real answer, not an empty one.
+    Measured on production: 3 of 48 players land here, and one of them has
+    21,126 observed moves -- showing him a blank page would be the worst
+    outcome for the most engaged user we have."""
+    middles = {}
+    for trait, (low, high) in CUTS.items():
+        middles[trait] = (low + high) / 2
+    profile = build_profile(middles, **ENOUGH)
+    assert profile["measured"] is True
+    assert len(profile["lines"]) == 1
+    assert profile["lines"][0]["trait"] == "balanced"
+
+
+def test_the_balanced_line_never_appears_alongside_a_real_one():
+    """It is the answer when there is nothing at an end, not an extra line."""
+    traits = dict(_at("thinks_long", "high"))
+    lines = build_profile(traits, **ENOUGH)["lines"]
+    assert [l["trait"] for l in lines] == ["thinks_long"]
