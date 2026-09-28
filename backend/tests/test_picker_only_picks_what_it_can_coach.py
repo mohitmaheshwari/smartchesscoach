@@ -164,3 +164,46 @@ def test_enforcement_off_plans_everything():
         if not dq.enforcement_enabled():
             assert dq.topic_can_be_planned("threat_awareness")
             assert dq.focus_document_is_authorized({})
+
+
+def test_every_minted_id_is_one_the_picker_can_actually_stamp():
+    """The bug this catches, which shipped and reached 8 users.
+
+    `assign_focus` stamps `gap_quality_id(topic, dominant_subtype)`, so a minted
+    id only ever matches a real focus document if its subtype is one the picker
+    puts there. I minted `gap:time_management:clock_damage_exact` -- a name
+    invented for the packet and stamped by nothing. Every one of the 8
+    time_management focuses therefore failed `focus_document_is_authorized`,
+    `get_active_focus_bundle` returned None, and their home pages fell through
+    from the measured focus to a generic "useful next idea for your level"
+    suggestion the product itself labels NOT_MEASURED.
+
+    Nothing errored. The topic reported as plannable the whole time, because
+    `topic_can_be_planned` only asks whether ANY id exists at plan grade -- not
+    whether it is one that can ever be stamped.
+    """
+    import re
+
+    source = (BACKEND / "services" / "primary_weakness_picker.py").read_text(
+        encoding="utf-8")
+    known_subtypes = set(re.findall(r'^\s+"([a-z_0-9]+)":\s+"', source, re.M))
+    # Time flags are stamped as subtypes too, and live in the deriver.
+    deriver = (BACKEND / "services" / "move_observation_deriver.py").read_text(
+        encoding="utf-8")
+    known_subtypes |= set(re.findall(r'return "([a-z_0-9]+)"', deriver))
+    known_subtypes |= {"chronic_timeout"}   # synthesised in the picker itself
+
+    unstampable = []
+    for quality_id, auth in dq.explicit_authorizations().items():
+        if not quality_id.startswith("gap:"):
+            continue
+        if auth.grade is not dq.QualityGrade.PLAN:
+            continue
+        subtype = quality_id.split(":", 2)[2]
+        if subtype and subtype not in known_subtypes:
+            unstampable.append(quality_id)
+
+    assert not unstampable, (
+        "these are plan-graded but no subtype of that name is ever stamped on a "
+        "focus document, so they can never authorize one: %s" % unstampable
+    )
