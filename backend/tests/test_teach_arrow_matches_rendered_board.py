@@ -139,6 +139,11 @@ def test_every_arrow_names_real_squares():
 # White instead plays b4. The card renders the position after b4, where d5 is
 # an empty square.
 MISSED_FORK = "r5k1/7p/8/8/8/8/1P4PP/3Q2K1 w - - 0 1"
+# Stockfish depth 16 after Qd5+ (verified 2026-09-28). The fork picture is
+# drawn from the engine's OWN line -- v181 stopped choosing the target with a
+# static exchange score, so a fixture with no line now draws nothing, exactly
+# as a real card with no stored line does.
+MISSED_FORK_BEST_LINE = ["Kg7", "Qxa8", "Kf7", "b3"]
 
 
 def test_arrows_for_a_move_that_was_not_played_start_on_an_empty_square():
@@ -150,7 +155,7 @@ def test_arrows_for_a_move_that_was_not_played_start_on_an_empty_square():
     """
     before = chess.Board(MISSED_FORK)
     best = before.parse_san("Qd5+")
-    arrows = _check_attack_arrows(before, best.uci())
+    arrows = _check_attack_arrows(before, best.uci(), MISSED_FORK_BEST_LINE)
     assert _arrow_pairs(arrows) == {("d5", "a8"), ("d5", "g8")}
 
     rendered = before.copy()
@@ -165,7 +170,7 @@ def test_the_same_picture_is_honest_when_the_move_was_actually_played():
     """The 238 of 514 cards that were fine, and stay fine."""
     before = chess.Board(MISSED_FORK)
     best = before.parse_san("Qd5+")
-    arrows = _check_attack_arrows(before, best.uci())
+    arrows = _check_attack_arrows(before, best.uci(), MISSED_FORK_BEST_LINE)
 
     rendered = before.copy()
     rendered.push(best)
@@ -199,7 +204,7 @@ def test_a_picture_another_rule_already_drew_still_renders():
             full_move_number=1, move_history_san=[],
             best_move_san="Qd5+", best_move_uci=best_uci,
             eval_before_cp=100, eval_after_cp=120, cp_loss=0, opp_cp_loss=0,
-            pv_after_played=[], pv_after_best=[],
+            pv_after_played=[], pv_after_best=MISSED_FORK_BEST_LINE,
         ),
         CrossMoveState(),
     )
@@ -223,7 +228,7 @@ def test_a_mistake_card_draws_no_picture_of_the_move_not_played():
             full_move_number=1, move_history_san=[],
             best_move_san="Qd5+", best_move_uci=before.parse_san("Qd5+").uci(),
             eval_before_cp=100, eval_after_cp=-200, cp_loss=300, opp_cp_loss=0,
-            pv_after_played=[], pv_after_best=[],
+            pv_after_played=[], pv_after_best=MISSED_FORK_BEST_LINE,
         ),
         CrossMoveState(),
     )
@@ -258,7 +263,7 @@ def test_the_recommended_move_picture_ships_with_the_fen_it_is_true_of():
             full_move_number=1, move_history_san=[],
             best_move_san="Qd5+", best_move_uci=best_uci,
             eval_before_cp=100, eval_after_cp=-200, cp_loss=300, opp_cp_loss=0,
-            pv_after_played=[], pv_after_best=[],
+            pv_after_played=[], pv_after_best=MISSED_FORK_BEST_LINE,
         ),
         CrossMoveState(),
     )
@@ -296,7 +301,7 @@ def test_the_two_arrow_channels_never_carry_the_same_thing():
             full_move_number=1, move_history_san=[],
             best_move_san="Qd5+", best_move_uci=before.parse_san("Qd5+").uci(),
             eval_before_cp=100, eval_after_cp=-200, cp_loss=300, opp_cp_loss=0,
-            pv_after_played=[], pv_after_best=[],
+            pv_after_played=[], pv_after_best=MISSED_FORK_BEST_LINE,
         ),
         CrossMoveState(),
     )
@@ -323,7 +328,7 @@ def test_a_move_that_was_played_needs_no_relocated_copy():
             full_move_number=1, move_history_san=[],
             best_move_san="Qd5+", best_move_uci=best_uci,
             eval_before_cp=100, eval_after_cp=120, cp_loss=0, opp_cp_loss=0,
-            pv_after_played=[], pv_after_best=[],
+            pv_after_played=[], pv_after_best=MISSED_FORK_BEST_LINE,
         ),
         CrossMoveState(),
     )
