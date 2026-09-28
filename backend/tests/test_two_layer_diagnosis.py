@@ -140,3 +140,32 @@ def test_the_attention_card_offers_a_hypothesis_not_a_cause():
     for asserted in ("stopping to check is", "because you", "that is why",
                      "the idea is not the problem"):
         assert asserted not in joined, asserted
+
+
+def test_the_cut_is_stamped_with_the_gate_it_was_measured_against():
+    """The bug this catches, which already happened once.
+
+    KNOWLEDGE_MEDIAN was measured on a two-pattern gate with a 67% take rate.
+    Adding pin, skewer and hidden_attack moved the rate to 53%, and the constant
+    -- untouched, still 0.66 -- went from splitting the population in half to
+    sitting above nearly all of it. Every player got diagnosed and nothing
+    failed. A relative cut is only meaningful against the distribution it came
+    from.
+    """
+    from services.opportunity_gate import GATE_VERSION
+    from services.two_layer_diagnosis import CALIBRATED_FOR_GATE
+
+    assert CALIBRATED_FOR_GATE == GATE_VERSION, (
+        "the gate's pattern set changed; re-measure KNOWLEDGE_MEDIAN against "
+        "the new distribution before shipping, then update this stamp"
+    )
+
+
+def test_somebody_must_come_out_with_no_gap():
+    """A cut that diagnoses everyone is not a diagnosis. Guards the shape of the
+    failure rather than the exact number: if a future cut puts every player on
+    the wrong side again, this fails."""
+    from services.two_layer_diagnosis import KNOWLEDGE_MEDIAN
+
+    healthy = diagnose(_pooled(min(KNOWLEDGE_MEDIAN + 0.05, 0.99)), 0.20)
+    assert healthy["layer"] == NO_TACTICAL_GAP

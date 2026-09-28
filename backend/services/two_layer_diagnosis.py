@@ -43,8 +43,18 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-# The measured medians, 49 players with both axes, 2026-09-28. They choose who
-# gets coached on this, not who is good or bad. See the module docstring.
+# WHICH GATE THESE NUMBERS WERE MEASURED AGAINST.
+#
+# A knowledge cut only means something relative to the pattern set that produced
+# the rates. When the gate gained pin, skewer and hidden_attack, the overall take
+# rate fell from 67% to 53% -- and the old 0.66 cut, untouched, went from
+# splitting the population in half to sitting above almost all of it, diagnosing
+# every single player. A test asserts this matches the gate's own version, so
+# the next pattern added cannot quietly do the same thing.
+CALIBRATED_FOR_GATE = "opportunity_gate.v2_seven_patterns"
+
+# The measured medians. They choose who gets coached on this, not who is good or
+# bad -- see the module docstring on the wording that follows from that.
 KNOWLEDGE_MEDIAN = 0.66
 THINKS_LONG_MEDIAN = 0.14
 

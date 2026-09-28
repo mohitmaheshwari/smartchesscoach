@@ -73,6 +73,15 @@ from services import shape_detectors as _sd
 # `missed_skewer` already runs at plan grade on that same verifier at 95.4%
 # precision, so the bridge was proven before I failed to use it.
 
+# Bumped whenever the PATTERN SET changes, because every threshold measured
+# downstream was measured against a particular set and silently stops meaning
+# what it meant. That is not hypothetical: adding pin, skewer and hidden_attack
+# moved the overall take rate from 67% to 53%, which put
+# two_layer_diagnosis.KNOWLEDGE_MEDIAN above nearly every player and diagnosed
+# ALL of them. Downstream modules pin this value and a test fails when they
+# drift apart.
+GATE_VERSION = "opportunity_gate.v2_seven_patterns"
+
 # Asked "does this MOVE create one". Checked first because they are the largest.
 _CREATED_ALIGNMENTS: Tuple[str, ...] = ("pin", "skewer")
 
