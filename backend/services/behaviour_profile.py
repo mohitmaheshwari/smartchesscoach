@@ -32,6 +32,32 @@ stable at 0.58 but has a spread of 0.009, so everyone is identical and it
 separates nobody. Also weak and excluded: repeats-next-game 0.68,
 notices-threats 0.65, endgame-weighted 0.64, opportunism 0.50.
 
+GAME-LEVEL CANDIDATES, TESTED 2026-09-29
+---------------------------------------
+A game-level measure is one binary observation per game, so it looks weak at
+small samples whatever the truth. The test for noise versus a weak trait is
+whether the correlation CLIMBS as the bar rises.
+
+    conversion        0.43 -> 0.59 -> 0.72   CLIMBS -> real, and it is in CUTS
+    comeback          0.12, 0.07, 0.00, 0.14 flat -> saving lost games is the
+                                             opponent's doing, not a property
+                                             of the player
+    session fatigue   0.13, 0.31, 0.14, 0.22 bounces -> not a trait
+    punches up        7 players at the lowest bar -> not measurable here
+
+TILT BETWEEN GAMES IS INCONCLUSIVE, and the way it nearly fooled me is worth
+keeping. The raw after-a-loss failure rate correlates at 0.60 across halves and
+climbs beautifully -- but a control on games that did NOT follow a loss climbs
+identically, 0.30 / 0.41 / 0.54 / 0.58 / 0.62. That correlation is player
+strength, not tilt: it appears on any set of games.
+
+The honest measure is the LIFT, this player's failure rate after a loss against
+their own rate otherwise. Median 1.09, quartiles 0.99 and 1.36, range 0.67 to
+2.57, and 20 of 47 players are more than a tenth worse after a loss. But the
+lift's own stability is 0.39 over 31 players, and the sample is too thin to run
+the rising bar that settled conversion. Real population effect, unproven as a
+trait. Do not ship it as one without more games per player.
+
 ERROR RATE IS CARRIED BUT NOT SPOKEN
 ------------------------------------
 It is the most stable thing here after the clock, and it is not a diagnosis: it
