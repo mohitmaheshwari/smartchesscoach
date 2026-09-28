@@ -469,7 +469,11 @@
 }
 
 .experience-v1 .experience-games-page {
-  max-width: 52rem;
+  /* was 52rem (832px), which clamped the page BELOW the .cg-page primitive's
+     1120px and left ~45% of a 1440px viewport empty. The game list is a grid,
+     not prose, so it takes the shared width; prose measure is still held by
+     .cg-title (48rem) and .cg-lede (42rem). */
+  max-width: none;
 }
 
 .experience-v1 .experience-import-page,

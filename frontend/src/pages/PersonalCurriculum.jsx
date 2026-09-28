@@ -60,7 +60,7 @@ export default function PersonalCurriculum({ user }) {
   if (error || !curriculum?.decision?.primary) {
     return (
       <Layout user={user}>
-        <main className="cg-page max-w-[720px]">
+        <main className="cg-page">
           <section className="cg-hero">
           <p className="cg-eyebrow">Your coach</p>
           <h1 className="cg-title !text-[clamp(2rem,5vw,3.4rem)]">Your plan is taking a moment.</h1>
@@ -85,7 +85,7 @@ export default function PersonalCurriculum({ user }) {
   return (
     <Layout user={user}>
       <main
-        className="cg-page max-w-[940px]"
+        className="cg-page"
         data-testid="personal-curriculum-page"
       >
         <header className="cg-hero mb-10">

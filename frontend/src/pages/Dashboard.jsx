@@ -448,7 +448,7 @@ const Dashboard = ({ user }) => {
     return (
       <Layout user={user}>
         <div
-          className="max-w-[1040px] mx-auto px-6 md:px-10 py-10 md:py-16"
+          className="cg-page cg-page--wide"
           data-testid="lab-skeleton"
         >
           {/* Head */}
@@ -593,7 +593,7 @@ const Dashboard = ({ user }) => {
           variants={fadeInUp}
           initial="initial"
           animate="animate"
-          className="max-w-[1040px] mx-auto px-6 md:px-10 py-10 md:py-16"
+          className="cg-page cg-page--wide"
         >
           <div className="mb-9">
             <CurriculumStateStrip user={user} surface="lab" />

@@ -280,7 +280,7 @@ export default function HomePageNew({ user }) {
   if (curriculum?.paused) {
     return (
       <Layout user={user}>
-        <main className="cg-page max-w-[900px]" data-testid="phase8-paused-state">
+        <main className="cg-page" data-testid="phase8-paused-state">
           <motion.section
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
@@ -317,7 +317,7 @@ export default function HomePageNew({ user }) {
   if (!hasGames) {
     return (
       <Layout user={user}>
-        <div className="cg-page max-w-[860px]" data-testid="home-page">
+        <div className="cg-page" data-testid="home-page">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
             <div className="flex items-baseline justify-between">
               <p className="text-muted-foreground text-[13px]">
@@ -406,7 +406,7 @@ export default function HomePageNew({ user }) {
         variants={pageEnter}
         initial="initial"
         animate="animate"
-        className="cg-page max-w-[980px]"
+        className="cg-page"
         data-testid="home-page"
       >
         <motion.div variants={staggerContainer} initial="initial" animate="animate">

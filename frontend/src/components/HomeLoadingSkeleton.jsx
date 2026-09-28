@@ -34,7 +34,7 @@ function Line({ className, delay = 0 }) {
 export default function HomeLoadingSkeleton() {
   return (
     <div
-      className="cg-page max-w-[960px]"
+      className="cg-page"
       role="status"
       aria-busy="true"
       aria-live="polite"

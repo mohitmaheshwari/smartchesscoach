@@ -385,7 +385,7 @@ export default function UnifiedProgress({ user }) {
   if (loadError || (!journey?.enabled && !journey?.paused)) {
     return (
       <Layout user={user}>
-        <div className="experience-page experience-progress-page cg-page max-w-[1040px]"
+        <div className="experience-page experience-progress-page cg-page cg-page--wide"
           data-testid="progress-unavailable"
           data-tracking-reason={loadError ? "load_error" : journey?.reason || ""}>
           <header className="cg-hero">
@@ -436,7 +436,7 @@ export default function UnifiedProgress({ user }) {
         variants={staggerContainer}
         initial="initial"
         animate="animate"
-        className="experience-page experience-progress-page cg-page max-w-[1040px]"
+        className="experience-page experience-progress-page cg-page cg-page--wide"
         data-testid="progress-page"
       >
         <motion.header variants={fadeInUp} className="cg-hero mb-8 md:mb-10">

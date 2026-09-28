@@ -899,6 +899,61 @@ class SeverityComputation:
     played_is_mate: bool = False
 
 
+
+def is_quiet_opening_king_walk(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    full_move_number: Optional[int],
+    max_full_move: int = 10,
+) -> bool:
+    """A king step in the opening that throws away castling for nothing.
+
+    Mohit 2026-09-28, on a card badged GOOD with a green tick: "coach
+    shouldn't really appreciate this, king out in the open in the second or
+    third move you know, this should be criticised." The move was 2...Kf7,
+    cp_loss 71 -- four points under the 75 the rating band needs to call
+    anything an inaccuracy, because the position was already poor after
+    1...f6 so the engine saw little ADDITIONAL loss. Centipawns measure the
+    position; they do not measure having given up castling on move two.
+
+    Deliberately narrow, because the first version was not. Over 600 games,
+    38 early king moves forfeit castling -- and 25 of them have cp_loss 0
+    because they are RECAPTURES: Kxe2, Kxf7, Kxd8, usually forced and
+    perfectly correct. Criticising those would be worse than the bug.
+
+    So: not a capture, not escaping check, and it must actually destroy
+    castling rights the player still had. That leaves 5 in 600 games, and
+    all five already score 108cp or worse -- so this floor changes almost
+    nothing except the case where the engine happens to shrug.
+    """
+    if board_before is None or played_move is None:
+        return False
+    if full_move_number is not None and full_move_number > max_full_move:
+        return False
+    try:
+        piece = board_before.piece_at(played_move.from_square)
+        if piece is None or piece.piece_type != chess.KING:
+            return False
+        if board_before.is_capture(played_move):
+            return False          # a recapture is usually forced, and fine
+        if board_before.is_check():
+            return False          # moving out of check is not a choice
+        if board_before.is_castling(played_move):
+            return False          # castling IS the thing we want
+        colour = piece.color
+        had_rights = (board_before.has_kingside_castling_rights(colour)
+                      or board_before.has_queenside_castling_rights(colour))
+        if not had_rights:
+            return False
+        after = board_before.copy(stack=False)
+        after.push(played_move)
+        keeps = (after.has_kingside_castling_rights(colour)
+                 or after.has_queenside_castling_rights(colour))
+        return not keeps
+    except Exception:
+        return False
+
+
 def compute_severity_for_move(
     *,
     cp_loss: int,
@@ -923,6 +978,11 @@ def compute_severity_for_move(
     # v159: engine truth for the best-equals-played sanity downgrade.
     # Both optional - when either is missing the downgrade is skipped
     # (right-or-silent; we never guess that a move was best).
+    # Needed by the opening king-walk floor. A real parameter, not a name
+    # borrowed from a caller's scope: doing that an hour earlier threw a
+    # NameError that a bare `except` swallowed, taking a whole caption block
+    # with it silently.
+    full_move_number: Optional[int] = None,
     best_move_san: Optional[str] = None,
     played_san: Optional[str] = None,
 ) -> SeverityComputation:
@@ -1048,6 +1108,19 @@ def compute_severity_for_move(
     if played_is_mate:
         severity = "good" if is_user else "context"
         severity_canonical = "good"
+
+    # A quiet king walk in the opening is never "good", whatever the number
+    # says. It floors at inaccuracy rather than being pushed higher: the move
+    # gave something real away, and the engine is still the authority on HOW
+    # much. Mate and forced recaptures are settled above and are untouched.
+    if (
+        is_user
+        and not played_is_mate
+        and severity == "good"
+        and is_quiet_opening_king_walk(board_before, played_move, full_move_number)
+    ):
+        severity = "inaccuracy"
+        severity_canonical = "inaccuracy"
 
     return SeverityComputation(
         severity_user_facing=severity,
@@ -1620,6 +1693,7 @@ def inject_opp_side_narration_facts(
     opp_cp_loss: int,
     eval_lookup: Dict[str, Dict[str, Any]],
     user_color: str,
+    pv_after_played: Optional[List[str]] = None,
 ) -> Optional[Tuple[List[str], int]]:
     """A3: extract opp-move narration block (v76/v77/v78.4/v80/v80.2).
 
@@ -1762,8 +1836,35 @@ def inject_opp_side_narration_facts(
             # it trades off his bishop." Board-verified; SEE-gated for material.
             try:
                 from services.caption_facts import _recommended_move_why as _rmw
+                from services.caption_facts import clearance_reply_why as _crw
                 _reply_mv = _post_opp_board.parse_san(_user_reply)
-                _rwhy = _rmw(_post_opp_board, _reply_mv)
+                # A clearance beats the generic why, because the generic one
+                # names the wrong motive. On Nf6+ (Mohit 2026-09-28)
+                # _recommended_move_why returns "attacks the rook on e8":
+                # true, and not why the move is played. The move is played to
+                # get White's own knight off d5 so the rook on d1 reaches the
+                # loose bishop. Only fires when the follow-up wins something.
+                # The line AFTER our reply. It is on THIS move's record as
+                # pv_after_played -- [reply, their answer, our payoff, ...] --
+                # so the continuation is [1:].
+                #
+                # Two bugs found here, both by rendering the real game
+                # rather than reasoning about it. The first version read
+                # _next_eval["pv_after_best"] and got nothing, because an
+                # opponent position has no engine entry of its own
+                # (move_evaluations stores user moves only) -- so the
+                # clearance abstained on exactly the cards it was written
+                # for. The second read inputs.pv_after_played, which does not
+                # exist in THIS function's scope; the NameError was swallowed
+                # by the except below and took the whole narration block with
+                # it, silently. Hence a real parameter.
+                _reply_line = list(pv_after_played or [])[1:]
+                _rwhy = _crw(
+                    _post_opp_board,
+                    _reply_mv,
+                    _reply_line,
+                    opp_cp_loss or 300,
+                ) or _rmw(_post_opp_board, _reply_mv)
                 if _rwhy:
                     caption_facts["opp_user_reply_why"] = _rwhy
                 # WHY THEIR MOVE WAS THE MISTAKE, not just why ours is good.
@@ -4974,6 +5075,7 @@ def build_move_teaching_decision(
         opp_cp_loss=int(inputs.opp_cp_loss or 0),
         eval_lookup=_eval_lookup,
         user_color=inputs.user_color,
+        pv_after_played=list(inputs.pv_after_played or []),
     )
     _coach_line_moves: List[str] = []
     _coach_line_length_hint: Optional[int] = None
@@ -6461,11 +6563,38 @@ def build_move_teaching_decision(
             _after_opp_board.push(played_move)
         except Exception:
             _after_opp_board = None
-        _teach_arrows = _line_sequence_arrows(
-            _after_opp_board, inputs.pv_after_played
-        ) or _reply_attack_arrows(
-            board_before, played_move, caption_facts.get("user_best_reply_san")
+        # ...but only when the caption is actually ABOUT our reply.
+        #
+        # An opponent card can recommend one of two different moves. The R12
+        # opp-punish variants say "Play <our reply>". The fallback tiers say
+        # "<their better move> was stronger" -- caption_fallback_tiers'
+        # R_TIER_missed_principle, which names best_move_san. The arrow
+        # builders only ever knew about the first, so on a fallback card the
+        # words named THEIR move and the board drew OURS.
+        #
+        # Reported 2026-09-28 on eb189840 move 10: "Your opponent played d6;
+        # Nxe4 was stronger - it wins a pawn", drawn with g5->f6 and f6->e7,
+        # which is Bxf6. Two different moves on one card, which is the same
+        # fault fixed on 2026-09-22 arriving by a different route.
+        #
+        # Their better move is NOT drawn instead: it is legal on the board
+        # before their move, not on the board this card renders, so drawing
+        # it would trade a mismatch for a picture of a position the player
+        # cannot see. Silence beats contradiction.
+        _reply_san = caption_facts.get("user_best_reply_san")
+        _caption_text = str(caption_payload.get("caption") or "")
+        _caption_is_about_reply = bool(
+            _reply_san and _normalize_san_for_match(_reply_san)
+            in _normalize_san_for_match(_caption_text)
         )
+        if _caption_is_about_reply:
+            _teach_arrows = _line_sequence_arrows(
+                _after_opp_board, inputs.pv_after_played
+            ) or _reply_attack_arrows(
+                board_before, played_move, _reply_san
+            )
+        else:
+            _teach_arrows = []
     # One picture per card. The check picture is rarer and more striking, so it
     # wins when both are available; otherwise show what the blunder gave away.
     if not _teach_arrows:
