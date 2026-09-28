@@ -187,3 +187,77 @@ def card(diagnosis: Dict[str, Any], pattern: Optional[str]) -> Optional[Dict[str
                     "If you find more that way, we have our answer.",
         }
     return None
+
+
+# ── Per-user computation, and why it is not done on the page ──────────────
+#
+# The opportunity gate runs shape detectors over every position, at roughly a
+# millisecond each. A player with twenty thousand observed moves would wait
+# twenty seconds for a page. So the reading is computed in batch by
+# `scripts/compute_tactical_eye.py` and stored; the endpoint reads the stored
+# document and returns "not measured yet" when there is none.
+
+CACHE_COLLECTION = "user_tactical_eye"
+
+
+async def compute_for_user(db, user_id: str) -> Dict[str, Any]:
+    """The pooled knowledge reading and tempo for one player.
+
+    Returns the shape `diagnose` takes, plus the drill pattern and the counts a
+    reader needs to judge it.
+    """
+    import statistics
+
+    from services.opportunity_gate import (
+        observe, pooled_knowledge, weakest_pattern,
+    )
+
+    moves = await db.move_observations.find(
+        {"user_id": user_id, "fen_before": {"$ne": None},
+         "move_uci": {"$ne": None}},
+        {"_id": 0, "game_id": 1, "fen_before": 1, "move_uci": 1,
+         "time_spent_seconds": 1},
+    ).to_list(60000)
+    if not moves:
+        return {"measured": False, "reason": "no observed moves"}
+
+    game_ids = list({m["game_id"] for m in moves if m.get("game_id")})
+    best: Dict[tuple, str] = {}
+    async for doc in db.game_analyses.find(
+        {"game_id": {"$in": game_ids}},
+        {"_id": 0, "game_id": 1, "stockfish_analysis.move_evaluations": 1},
+    ):
+        for row in ((doc.get("stockfish_analysis") or {}).get(
+                "move_evaluations") or []):
+            if row.get("fen_before"):
+                best[(doc["game_id"], row["fen_before"])] = (
+                    row.get("best_move_uci") or row.get("best_move"))
+
+    pace_source: Dict[str, list] = {}
+    for move in moves:
+        seconds = move.get("time_spent_seconds")
+        if isinstance(seconds, (int, float)):
+            pace_source.setdefault(move.get("game_id"), []).append(seconds)
+    pace = {g: statistics.median(v) for g, v in pace_source.items() if v}
+
+    rows = []
+    timed = slow = 0
+    for move in moves:
+        seen = observe(move["fen_before"],
+                       best.get((move.get("game_id"), move["fen_before"])),
+                       move.get("move_uci"))
+        if seen:
+            rows.append(seen)
+        own_pace, seconds = pace.get(move.get("game_id")), move.get("time_spent_seconds")
+        if own_pace and own_pace > 0 and isinstance(seconds, (int, float)):
+            timed += 1
+            if seconds / own_pace > 3.0:
+                slow += 1
+
+    pooled = pooled_knowledge(rows)
+    return {
+        "measured": True,
+        "pooled": pooled,
+        "thinks_long_share": (slow / timed) if timed >= 200 else None,
+        "drill_pattern": weakest_pattern(pooled),
+    }

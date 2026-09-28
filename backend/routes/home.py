@@ -394,6 +394,60 @@ async def get_area_grades(user: User = Depends(get_current_user)):
     return grade_areas(counts, games_played)
 
 
+@router.get("/progress/tactical-eye")
+async def get_tactical_eye(user: User = Depends(get_current_user)):
+    """Whether this player sees the tactical shapes their games offer.
+
+    Two layers, from the same evidence read two ways: how OFTEN they take the
+    chances (knowledge) and whether they give themselves time (behaviour). Same
+    missed forks, opposite prescriptions -- teach the shape, or build the habit
+    of looking.
+
+    Reads a precomputed document. The opportunity gate runs shape detectors over
+    every position at roughly a millisecond each, so computing this on the page
+    would cost a player with twenty thousand moves a twenty-second wait.
+    `scripts/compute_tactical_eye.py` fills it.
+
+    This is display-and-drill, not the daily instruction: Home still names
+    exactly one thing to do today. A player reads this and may choose the drill.
+    """
+    from services.two_layer_diagnosis import (
+        CACHE_COLLECTION,
+        NOT_ENOUGH_EVIDENCE,
+        card,
+    )
+
+    stored = await db[CACHE_COLLECTION].find_one(
+        {"user_id": user.user_id}, {"_id": 0})
+    if not stored or stored.get("layer") in (None, NOT_ENOUGH_EVIDENCE):
+        return {"schema_version": "tactical_eye.v1", "measured": False,
+                "reason": "not enough tactical chances watched yet"}
+
+    text = card({"layer": stored["layer"]}, stored.get("drill_pattern"))
+    if not text:
+        # He finds them. Saying so would be a card nobody needs.
+        return {"schema_version": "tactical_eye.v1", "measured": False,
+                "reason": "no tactical gap"}
+
+    # THE DRILL SPLIT. A knowledge gap sends him to positions of that shape; a
+    # looking habit must NOT send him to more of the same puzzles, because more
+    # repetitions of an idea he already knows trains nothing.
+    drill = (
+        {"href": "/training/pattern/missed_tactic", "label": "Find the shape"}
+        if stored["layer"] == "knowledge"
+        else {"href": "/training/safety", "label": "Practise the check"}
+    )
+    return {
+        "schema_version": "tactical_eye.v1",
+        "measured": True,
+        "layer": stored["layer"],
+        "headline": text["headline"],
+        "body": text["body"],
+        "next": text["next"],
+        "drill": drill,
+    }
+
+
 @router.get("/progress/how-you-play")
 async def get_behaviour_profile(user: User = Depends(get_current_user)):
     """How this player plays -- the behavioural traits, described not graded.

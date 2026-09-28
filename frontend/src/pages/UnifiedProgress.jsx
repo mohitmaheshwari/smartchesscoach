@@ -29,6 +29,7 @@ import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
 import ThinkingScoreCard from "@/components/coach/ThinkingScoreCard";
 import AreaGradesCard from "@/components/coach/AreaGradesCard";
 import HowYouPlayCard from "@/components/coach/HowYouPlayCard";
+import TacticalEyeCard from "@/components/coach/TacticalEyeCard";
 import {
   fadeInUp,
   revealOnScroll,
@@ -536,6 +537,7 @@ export default function UnifiedProgress({ user }) {
           data-testid="progress-thinking-habits"
         >
           <HowYouPlayCard />
+          <TacticalEyeCard />
           <AreaGradesCard />
           <ThinkingScoreCard />
         </motion.section>
