@@ -68,27 +68,32 @@ specifically miss discovered attacks"*. Without it, a weakness read from a
 failed puzzle is noise — the likeliest explanation for a miss is that the
 puzzle was rated 1800 and the player is 900. It is already implemented.
 
-## 4. The funnel is the problem, not the pool
+## 4. CORRECTED: the sessions data does not show a broken funnel
 
-`diagnostic_sessions`, all 45 of them:
+**An earlier version of this document claimed completion was 4.4% and that
+"whatever is wrong is on the first screen". Both claims were wrong and are
+retracted.** They are left described here because someone would otherwise
+re-derive them from the same query.
 
-| status | sessions |
-|---|---:|
-| in_progress (started, never finished) | 35 |
-| abandoned | 4 |
-| skipped | 4 |
-| **complete** | **2** |
+`/diagnostic/start` fires inside a `useEffect` on page MOUNT
+(`DiagnosticPuzzles.jsx`), before the player does anything. A
+`diagnostic_sessions` row is written the instant somebody lands on the page.
 
-- **31 distinct real users** started (40 sessions `role=user`, 5 `super_admin`)
-- **19 of 45 sessions recorded zero attempts** — started, answered nothing
-- completion **2/45 = 4.4%**
+So the raw numbers — 45 sessions, 2 complete, 19 with zero attempts — count
+**page views**, not attempts. Comparing completions against page loads is two
+different denominators, not a funnel. Landing on a page and leaving is ordinary
+browsing, not evidence of a broken screen.
 
-**Positive control, so this is not "nobody wants puzzles":** `puzzle_attempts`
-holds 462 attempts from 20 distinct users. People do solve here. The
-diagnostic specifically loses them, and 42% of starts produce no answer at all.
+What the data actually supports: ~31 distinct real users opened the diagnostic,
+26 engaged enough to attempt at least one puzzle, 2 finished a 20-30 position
+run. For a long, unprompted assessment with no reward attached, that is not
+obviously broken.
 
-A larger or better pool changes nothing for the 19 who answer nothing.
-Whatever is wrong is on the first screen.
+**The pool is not the problem either.** `diagnostic_pool` holds 388 puzzles
+across 11 concepts x 3 tiers, roughly 12 per cell, with **no empty
+combinations**. Nobody is blocked by a missing puzzle.
+
+Two hypotheses tested, both false. There is no defect here to fix.
 
 ## 5. Order this should be done in
 
