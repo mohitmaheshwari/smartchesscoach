@@ -10,38 +10,51 @@ one.
 WHAT IS MEASURED
 ----------------
 For every cell of (phase, how level the position is, whether the opponent has
-just made a threat, whether the move was already marked critical): the average
-expected-points cost of a move there, over 519,661 user moves from 70 players.
+just made a threat): the average expected-points cost of a move there, over
+519,776 user moves from 70 players. Overall 0.0278; the cells run 0.0023 to
+0.1723, a spread of 75x.
 
-The overall average is 0.0278 points. The cells run from 0.0013 to 0.1869 -- a
-spread of 145x. Conditioning separates positions, and that was checked before
-any of this shipped: if every cell had come out near the average, difficulty
-would have been worth nothing and the right move would have been to drop it.
+WHY is_critical IS NOT A FEATURE -- IT WAS, AND IT WAS CIRCULAR
+---------------------------------------------------------------
+The first version conditioned on `is_critical` too, and on the whole corpus it
+looked better: a 145x spread rather than 75x. It was useless where it mattered.
+
+`is_critical` is set upstream FROM cp_loss. The caption layer then selects
+moves BY cp_loss. So applying an is_critical-conditioned table to captioned
+moves asks a question whose answer is already contained in the selection, and
+the split collapses:
+
+    with is_critical      routine  6.7%   testing  2.8%   hard 90.5%
+    without               routine  9.7%   testing 24.1%   hard 65.5%
+
+Nine cases in ten landing in one class is a table that tells the caller nothing
+it did not already know. Dropping the circular feature costs spread on paper
+and buys the only thing the table is for.
+
+The general trap: a feature derived from the same quantity the caller gates on
+cannot condition that caller. Check what a feature is computed FROM, not just
+whether it separates.
 
 LEAKAGE WAS MEASURED, NOT ASSUMED
 ---------------------------------
-The base rate is computed from the same players it then judges, and our largest
-account holds 12% of the corpus, so its own baseline could have been partly its
-own doing. Removing that account shifts the cell means by a median of 0.0001
-and a worst case of 0.0035. One shared table is therefore fine and the
-leave-one-player-out build it would otherwise have needed is not required.
+The base rate comes from the same players it judges, and our largest account
+holds 12% of the corpus, so its baseline could have been partly its own doing.
+Removing that account shifts cell means by a median of 0.0001 and a worst case
+of 0.0035, so one shared table is fine and the leave-one-player-out build it
+would otherwise have needed is not required.
 
 THE THREE CLASSES ARE CLUSTERS IN THE DATA
 ------------------------------------------
-Not chosen cut-points. The cells fall into three groups on their own:
-
-    quiet, no threat, not critical      0.0013 - 0.0134
-    a threat and nothing else           0.0279 - 0.0395
-    a threat AND a critical moment      0.1008 - 0.1869
-
-which is why the boundaries sit at 0.02 and 0.07, in the gaps.
+Not chosen cut-points. Quiet positions sit at 0.0023-0.0148, a threat in a
+losing or level position at 0.0101-0.0538, and a threat with something to play
+for at 0.0704-0.1723. The boundaries sit at 0.02 and 0.07, in the gaps.
 
 WHAT THIS IS NOT
 ----------------
 Not a comparison against other players -- 70 people cannot support one, and two
-of them are in the 1400 band. "Typical" here means typical for the people we
-have, which is the right reference for "most players at your level slip here"
-and the wrong one for any general claim.
+of them are in the 1400 band. "Typical" means typical for the people we have,
+which is the right reference for "most players at your level slip here" and the
+wrong one for any general claim.
 
 This module returns classes, never sentences. The words belong to the caption
 layer, which is the single place coaching prose is written.
@@ -52,13 +65,13 @@ from __future__ import annotations
 
 from typing import Optional, Tuple
 
-TABLE_VERSION = "position_difficulty.v1_measured_2026_09_29"
-TOTAL_POSITIONS = 519661
+TABLE_VERSION = "position_difficulty.v2_no_is_critical_2026_09_29"
+TOTAL_POSITIONS = 519776
 OVERALL = 0.0278
 
-# A cell thinner than this falls back to its phase-and-evaluation marginal.
-# Chosen after seeing the cell sizes, not before: seven cells sit under it, the
-# smallest holding nine positions.
+# A cell thinner than this falls back to its phase-and-evaluation marginal. No
+# cell in the v2 table is below it -- the smallest holds 427 -- but the fallback
+# stays, because a refit on a different population may well produce one.
 MIN_CELL_N = 300
 
 ROUTINE, TESTING, HARD = "routine", "testing", "hard"
@@ -69,80 +82,56 @@ HARD_FROM = 0.07
 _EVAL_BANDS = ((-600, "losing"), (-200, "worse"), (200, "level"),
                (600, "better"), (10 ** 9, "winning"))
 
-# (phase, eval band, threat, critical) -> (mean expected-points cost, n)
+# (phase, eval band, opponent has just threatened) -> (mean cost, n)
 DIFFICULTY = {
-    ("endgame", "better", False, False): (0.0066, 4999),
-    ("endgame", "better", False, True): (0.0449, 222),
-    ("endgame", "better", True, False): (0.0343, 518),
-    ("endgame", "better", True, True): (0.1836, 1371),
-    ("endgame", "level", False, False): (0.0018, 10766),
-    ("endgame", "level", False, True): (0.0702, 76),
-    ("endgame", "level", True, False): (0.0279, 704),
-    ("endgame", "level", True, True): (0.1869, 1461),
-    ("endgame", "losing", False, False): (0.0046, 5440),
-    ("endgame", "losing", False, True): (0.0031, 932),
-    ("endgame", "losing", True, True): (0.0101, 1508),
-    ("endgame", "winning", False, False): (0.0037, 5450),
-    ("endgame", "winning", False, True): (0.0120, 1444),
-    ("endgame", "winning", True, True): (0.1208, 1464),
-    ("endgame", "worse", False, False): (0.0134, 5507),
-    ("endgame", "worse", False, True): (0.0836, 113),
-    ("endgame", "worse", True, False): (0.0395, 1077),
-    ("endgame", "worse", True, True): (0.1030, 1220),
-    ("middlegame", "better", False, False): (0.0064, 38360),
-    ("middlegame", "better", False, True): (0.0718, 971),
-    ("middlegame", "better", True, False): (0.0315, 7525),
-    ("middlegame", "better", True, True): (0.1584, 12065),
-    ("middlegame", "level", False, False): (0.0033, 41874),
-    ("middlegame", "level", False, True): (0.0127, 381),
-    ("middlegame", "level", True, False): (0.0286, 13257),
-    ("middlegame", "level", True, True): (0.1236, 15161),
-    ("middlegame", "losing", False, False): (0.0049, 14101),
-    ("middlegame", "losing", False, True): (0.0042, 495),
-    ("middlegame", "losing", True, True): (0.0157, 2820),
-    ("middlegame", "winning", False, False): (0.0048, 19263),
-    ("middlegame", "winning", False, True): (0.0267, 2454),
-    ("middlegame", "winning", True, True): (0.1411, 3878),
-    ("middlegame", "worse", False, False): (0.0106, 32884),
-    ("middlegame", "worse", False, True): (0.0687, 82),
-    ("middlegame", "worse", True, False): (0.0381, 10113),
-    ("middlegame", "worse", True, True): (0.1073, 8860),
-    ("opening", "better", False, False): (0.0057, 17789),
-    ("opening", "better", False, True): (0.0793, 295),
-    ("opening", "better", True, False): (0.0296, 4720),
-    ("opening", "better", True, True): (0.1397, 8032),
-    ("opening", "level", False, False): (0.0035, 133866),
-    ("opening", "level", False, True): (0.0013, 517),
-    ("opening", "level", True, False): (0.0280, 38837),
-    ("opening", "level", True, True): (0.1008, 21344),
-    ("opening", "losing", False, False): (0.0049, 1937),
-    ("opening", "losing", False, True): (0.0117, 17),
-    ("opening", "losing", True, True): (0.0196, 427),
-    ("opening", "winning", False, False): (0.0059, 3336),
-    ("opening", "winning", False, True): (0.0394, 316),
-    ("opening", "winning", True, True): (0.1723, 785),
-    ("opening", "worse", False, False): (0.0078, 10692),
-    ("opening", "worse", False, True): (0.0653, 9),
-    ("opening", "worse", True, False): (0.0382, 4111),
-    ("opening", "worse", True, True): (0.1114, 3815),
+    ("endgame", "better", False): (0.0082, 5221),
+    ("endgame", "better", True): (0.1427, 1889),
+    ("endgame", "level", False): (0.0023, 10842),
+    ("endgame", "level", True): (0.1352, 2165),
+    ("endgame", "losing", False): (0.0044, 6373),
+    ("endgame", "losing", True): (0.0101, 1508),
+    ("endgame", "winning", False): (0.0054, 6894),
+    ("endgame", "winning", True): (0.1208, 1464),
+    ("endgame", "worse", False): (0.0148, 5626),
+    ("endgame", "worse", True): (0.0733, 2300),
+    ("middlegame", "better", False): (0.0080, 39342),
+    ("middlegame", "better", True): (0.1097, 19599),
+    ("middlegame", "level", False): (0.0034, 42263),
+    ("middlegame", "level", True): (0.0793, 28422),
+    ("middlegame", "losing", False): (0.0049, 14602),
+    ("middlegame", "losing", True): (0.0157, 2820),
+    ("middlegame", "winning", False): (0.0073, 21718),
+    ("middlegame", "winning", True): (0.1411, 3879),
+    ("middlegame", "worse", False): (0.0108, 32979),
+    ("middlegame", "worse", True): (0.0704, 18980),
+    ("opening", "better", False): (0.0069, 18085),
+    ("opening", "better", True): (0.0990, 12755),
+    ("opening", "level", False): (0.0035, 134409),
+    ("opening", "level", True): (0.0538, 60195),
+    ("opening", "losing", False): (0.0050, 1954),
+    ("opening", "losing", True): (0.0196, 427),
+    ("opening", "winning", False): (0.0088, 3652),
+    ("opening", "winning", True): (0.1723, 785),
+    ("opening", "worse", False): (0.0079, 10701),
+    ("opening", "worse", True): (0.0734, 7927),
 }
 
 BY_PHASE_EVAL = {
     ("endgame", "better"): (0.0440, 7110),
     ("endgame", "level"): (0.0244, 13007),
-    ("endgame", "losing"): (0.0055, 7880),
+    ("endgame", "losing"): (0.0055, 7881),
     ("endgame", "winning"): (0.0256, 8358),
-    ("endgame", "worse"): (0.0318, 7917),
-    ("middlegame", "better"): (0.0418, 58921),
-    ("middlegame", "level"): (0.0339, 70673),
-    ("middlegame", "losing"): (0.0067, 17416),
-    ("middlegame", "winning"): (0.0276, 25595),
-    ("middlegame", "worse"): (0.0326, 51939),
-    ("opening", "better"): (0.0450, 30836),
-    ("opening", "level"): (0.0191, 194564),
+    ("endgame", "worse"): (0.0318, 7926),
+    ("middlegame", "better"): (0.0418, 58941),
+    ("middlegame", "level"): (0.0339, 70685),
+    ("middlegame", "losing"): (0.0067, 17422),
+    ("middlegame", "winning"): (0.0276, 25597),
+    ("middlegame", "worse"): (0.0326, 51959),
+    ("opening", "better"): (0.0450, 30840),
+    ("opening", "level"): (0.0191, 194604),
     ("opening", "losing"): (0.0076, 2381),
     ("opening", "winning"): (0.0377, 4437),
-    ("opening", "worse"): (0.0358, 18627),
+    ("opening", "worse"): (0.0358, 18628),
 }
 
 
@@ -159,9 +148,9 @@ def band_of(cp: Optional[float]) -> str:
 def phase_of(move_number: Optional[int]) -> str:
     """Coarse, and deliberately so: no phase is stored on a move evaluation.
 
-    Move number is what every analysed move actually carries. Material would be
-    better for telling a middlegame from an endgame and would need the board
-    parsed for half a million positions to find out how much better.
+    Move number is what every analysed move actually carries. Material would
+    tell a middlegame from an endgame properly and would need the board parsed
+    for half a million positions to find out how much better.
     """
     if move_number is None:
         return "middlegame"
@@ -171,14 +160,14 @@ def phase_of(move_number: Optional[int]) -> str:
 
 
 def base_rate(phase: str, eval_cp: Optional[float],
-              has_threat: bool, is_critical: bool) -> Tuple[float, int, str]:
+              has_threat: bool) -> Tuple[float, int, str]:
     """(what a typical player loses here, positions behind it, where it came from).
 
-    The source matters to the caller: a rate resting on nine positions is not a
-    base rate, so thin cells fall back rather than answer confidently.
+    The source matters to the caller: a rate resting on a handful of positions
+    is not a base rate, so thin cells fall back rather than answer confidently.
     """
     band = band_of(eval_cp)
-    cell = DIFFICULTY.get((phase, band, bool(has_threat), bool(is_critical)))
+    cell = DIFFICULTY.get((phase, band, bool(has_threat)))
     if cell and cell[1] >= MIN_CELL_N:
         return cell[0], cell[1], "cell"
     marginal = BY_PHASE_EVAL.get((phase, band))
@@ -188,25 +177,28 @@ def base_rate(phase: str, eval_cp: Optional[float],
 
 
 def difficulty_class(phase: str, eval_cp: Optional[float],
-                     has_threat: bool, is_critical: bool) -> str:
+                     has_threat: bool) -> str:
     """routine / testing / hard, on the clusters in the measured table."""
-    rate, _, _ = base_rate(phase, eval_cp, has_threat, is_critical)
+    rate, _, _ = base_rate(phase, eval_cp, has_threat)
     if rate < ROUTINE_UNDER:
         return ROUTINE
     return HARD if rate >= HARD_FROM else TESTING
 
 
 def relative_error(actual_loss: Optional[float], phase: str,
-                   eval_cp: Optional[float], has_threat: bool,
-                   is_critical: bool) -> Optional[float]:
+                   eval_cp: Optional[float], has_threat: bool) -> Optional[float]:
     """This move's cost against what the position usually costs.
 
     1.0 is exactly typical. Above 1.0 is worse than the position explains, and
     that -- not the raw cost -- is what makes a mistake worth raising. A move
     losing a tenth of a point where the average is a tenth of a point is the
-    position doing the work, not the player.
+    POSITION doing the work, not the player.
+
+    Measured across the 88,714 moves that pass the caption gate today: 63.0% sit
+    at or below 1.0, and 10.2% are more than twice what the position explains.
+    That second group is the one a coach should be talking about.
     """
     if actual_loss is None:
         return None
-    rate, _, _ = base_rate(phase, eval_cp, has_threat, is_critical)
+    rate, _, _ = base_rate(phase, eval_cp, has_threat)
     return actual_loss / max(rate, 1e-6)
