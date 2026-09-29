@@ -9662,6 +9662,34 @@ def clearance_reply_why(
     return None
 
 
+def _outnumbered_target(
+    after: chess.Board, from_square: int, mover: chess.Color, enemy: chess.Color
+):
+    """The best enemy piece our move now hits that is outnumbered on its square.
+
+    Returns (square, piece_type, sole_defender_type) or None. Exactly one
+    defender, at least two of our attackers -- anything looser stops being a
+    thing worth pointing at. Counts only, no forecast: see branch 2b.
+    """
+    best = None
+    for sq in after.attacks(from_square):
+        piece = after.piece_at(sq)
+        if not piece or piece.color != enemy or piece.piece_type == chess.KING:
+            continue
+        defenders = [d for d in after.attackers(enemy, sq)
+                     if after.piece_at(d) and after.piece_at(d).piece_type != chess.KING]
+        if len(defenders) != 1:
+            continue
+        attackers = [x for x in after.attackers(mover, sq)]
+        if len(attackers) < 2:
+            continue
+        value = PIECE_VALUE_CP.get(piece.piece_type, 0)
+        if best is None or value > best[3]:
+            defender = after.piece_at(defenders[0])
+            best = (sq, piece.piece_type, defender.piece_type, value)
+    return (best[0], best[1], best[2]) if best else None
+
+
 def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Optional[str]:
     """WHY a recommended move is good, as a short 3rd-person verb phrase that slots into
     'it {why}' — 'develops a piece', 'takes the center', 'trades off his bishop', 'wins a
@@ -9733,6 +9761,35 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
         if best_threat is not None:
             return (f"attacks the {PIECE_TYPE_NAMES.get(best_threat[2], 'piece')} "
                     f"on {chess.square_name(best_threat[0])}")
+
+        # 2b) OUTNUMBERED TARGET — the target IS defended and IS worth less
+        #     than the mover, so branch 2 rightly declines it, and yet more of
+        #     our pieces hit the square than theirs defend it.
+        #
+        #     Mohit 2026-09-29, on "Opponent's Qa5 is a major blunder. Play Ra1
+        #     — it puts your rook on a line where none of your own pawns are in
+        #     the way": "again, no why here." On
+        #     `2r2rk1/p4ppp/8/q7/6P1/1P1R2QP/nKP2P2/7R w - - 6 26` the reason is
+        #     on the board: Ra1 hits the knight on a2, which the rook AND the
+        #     king on b2 attack while only the queen on a5 defends it. Branch 2
+        #     asked "is it defended?" as a boolean, got yes, and handed a real
+        #     tactic to the open-file phrase bank.
+        #
+        #     This states the COUNT, not a forecast. The first version of this
+        #     branch said "wins the knight on a2" off legal_exchange_gain, and
+        #     Stockfish refused 18 of 40 sampled claims -- correctly, because
+        #     the opponent moves next and here simply plays Nb4 or Nc3. Counting
+        #     attackers and defenders is true the moment the move is made and
+        #     stays true whatever they answer, and pointing at the lone defender
+        #     is the transferable half anyway.
+        best_defended = _outnumbered_target(after, move.to_square, mover, enemy)
+        if best_defended is not None:
+            sq, piece_type, defender_type = best_defended
+            return (
+                f"attacks the {PIECE_TYPE_NAMES.get(piece_type, 'piece')} on "
+                f"{chess.square_name(sq)}, which only their "
+                f"{PIECE_TYPE_NAMES.get(defender_type, 'piece')} defends"
+            )
 
         # 3) ESCAPE — the moved piece was hanging (enemy wins it on its old square)
         #    and is safe after the move: the move saves material.
