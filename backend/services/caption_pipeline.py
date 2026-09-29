@@ -5144,6 +5144,50 @@ def build_move_teaching_decision(
 
     inject_practical_severity_facts(caption_facts, practical)
 
+    # ─── Forced mate, BEFORE the caption is written ────────────────────
+    #
+    # Mohit 2026-09-29 on move 31 of d75acb09, a card reading "You played
+    # Rad2; Ka3 was the stronger move here -- Rad2 lets Qa1+ come in with
+    # check": "caption should clearly mention about check mate."
+    #
+    # The stored line for that move is ['Qa1+', 'Ra2', 'Qxa2#'] -- the mate is
+    # in the card's own data -- and build_verified_line_cause returns
+    # lesson_kind='allowed_forced_mate', mate_in=2 for it. The fact was never
+    # missing. It was computed AFTER the caption had already been written and
+    # attached to candidate_comparison, a different surface, so the sentence
+    # fell through to the generic floor and called a forced mate a check.
+    #
+    # So it moves up here, where the rules can still read it. Computed once
+    # and handed to the later call site rather than run twice: it replays two
+    # stored lines and runs no engine, but it is not free either.
+    exact_line_cause = None
+    if inputs.mover_is_user and inputs.best_move_san:
+        try:
+            exact_line_cause = build_verified_line_cause(
+                fen_before=inputs.fen_before,
+                played_san=inputs.played_san,
+                best_move_san=inputs.best_move_san,
+                pv_after_played=tuple(inputs.pv_after_played or ()),
+                pv_after_best=tuple(inputs.pv_after_best or ()),
+                cp_loss=int(inputs.cp_loss or 0),
+            )
+        except Exception:
+            logger.exception("[caption_pipeline] verified line cause failed")
+            exact_line_cause = None
+    if exact_line_cause is not None and exact_line_cause.mate_in:
+        if exact_line_cause.lesson_kind == "allowed_forced_mate":
+            caption_facts["allows_forced_mate"] = True
+            caption_facts["allowed_mate_in"] = int(exact_line_cause.mate_in)
+            # The move that starts it, so the sentence can name something the
+            # player can find on the board rather than assert "mate" abstractly.
+            caption_facts["allowed_mate_first_move"] = exact_line_cause.reply_san
+            caption_facts["allowed_mate_word"] = (
+                "move" if int(exact_line_cause.mate_in) == 1 else "moves"
+            )
+        elif exact_line_cause.lesson_kind == "missed_forced_mate":
+            caption_facts["missed_forced_mate_line"] = True
+            caption_facts["missed_forced_mate_in"] = int(exact_line_cause.mate_in)
+
     # ─── Order mirrors V5 service per-move loop exactly (verified
     # against game_decryption_v5_service.py callsites — zero-diff
     # depends on this ordering when V5 adopts the central entry).
@@ -6818,14 +6862,8 @@ def build_move_teaching_decision(
 
     legal_material_loss_cause = None
     if inputs.mover_is_user and inputs.best_move_san:
-        exact_line_cause = build_verified_line_cause(
-            fen_before=inputs.fen_before,
-            played_san=inputs.played_san,
-            best_move_san=inputs.best_move_san,
-            pv_after_played=tuple(inputs.pv_after_played or ()),
-            pv_after_best=tuple(inputs.pv_after_best or ()),
-            cp_loss=int(inputs.cp_loss or 0),
-        )
+        # Already built above, before the caption was written, so the rules
+        # could see a forced mate. Reused here rather than replayed twice.
         # build_legal_material_loss_cause answers a board question -- "after
         # this move, is something of mine worth >=150cp capturable for free?"
         # -- and this path used the answer as a verdict on the move, with no
