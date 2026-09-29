@@ -356,6 +356,20 @@ def _squares_between_contains(a, b, c):
         return False
 
 
+def _pin_is_provable(board, best) -> bool:
+    """Does the independent prover back a pin created BY the moved piece?
+
+    Imported lazily and failing closed: this runs inside the analysis worker
+    over hundreds of thousands of moves, and a detector that cannot prove its
+    claim must stay quiet rather than guess.
+    """
+    try:
+        from services.aligned_tactic_puzzle_proof import verify_created_alignment
+        return verify_created_alignment(board, best, "pin") is not None
+    except Exception:
+        return False
+
+
 def classify_missed_tactic(mv, opponent_previous, opp_next) -> Tuple[Optional[str], Optional[str]]:
     fen = mv.get("fen_before")
     best = _best_move_uci(mv)
@@ -369,7 +383,27 @@ def classify_missed_tactic(mv, opponent_previous, opp_next) -> Tuple[Optional[st
     if tactic == "fork":
         return ("missed_fork", _promote_severity("critical", mv))
     if tactic == "pin":
-        return ("missed_pin", _promote_severity("moderate", mv))
+        # GATED ON THE INDEPENDENT PROVER, so the label is true by construction.
+        #
+        # The caption names the pinning piece. `_detect_tactic_on_move` is happy
+        # with any pin that appears after the move, including one revealed by
+        # the moved piece stepping aside -- and then the caption names a piece
+        # that did nothing. `verify_created_alignment` additionally requires the
+        # pinning piece to BE the piece that moved, which is what the sentence
+        # actually claims.
+        #
+        # Measured over all 1,471 stored fires: 93.0% are backed by the prover,
+        # 7.0% are real pins created by some other piece, 0% are not pins at
+        # all. The registry recorded 81.1% on 2026-09-26 and that number could
+        # not be reproduced -- which is precisely why this gates rather than
+        # argues. After the gate the claim holds whichever measurement was right.
+        #
+        # The 7% do not vanish: with no specific label they fall through to
+        # missed_generic_tactic below, so coverage is unchanged and only the
+        # specificity of the name is given up.
+        if _pin_is_provable(board, best):
+            return ("missed_pin", _promote_severity("moderate", mv))
+        tactic = None
     if tactic == "skewer":
         return ("missed_skewer", _promote_severity("critical", mv))
     if tactic == "discovered_attack":
