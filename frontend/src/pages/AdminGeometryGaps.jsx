@@ -319,8 +319,10 @@ export default function AdminGeometryGaps() {
 
   const handleProbeMove = useCallback((move) => {
     if (!move?.fen) return;
-    setLine(null);
-    setPly(0);
+    // `line` and `ply` are deliberately left alone. probeFen already wins on
+    // the board, and keeping them means the line buttons still show where the
+    // reviewer branched off -- which is the thing they are trying to
+    // understand when they start playing moves of their own.
     setProbeFen(move.fen);
     setProbeMoves((prev) => [...prev, { san: move.san, fen: move.fen }]);
     askEngine(move.fen);
@@ -478,6 +480,16 @@ export default function AdminGeometryGaps() {
                 arrows={probeFen ? [] : arrows}
                 onMove={handleProbeMove}
               />
+              {/* The hint stays put. An earlier version swapped it for the
+                  Back button as soon as a line was stepped, so the affordance
+                  vanished exactly when a reviewer most wants it -- Mohit,
+                  2026-09-30: "this stops working when we start clicking the
+                  line". Dragging worked the whole time; nothing said so. */}
+              <p className="mt-2 text-xs text-muted-foreground">
+                Drag a piece to try a move from this position and see what the
+                engine answers. That works here, part-way down a line, or after
+                your own moves.
+              </p>
               {line || probeFen ? (
                 <button
                   type="button"
@@ -486,15 +498,11 @@ export default function AdminGeometryGaps() {
                     setPly(0);
                     clearProbe();
                   }}
-                  className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
                 >
                   <RotateCcw className="h-3 w-3" /> Back to the position
                 </button>
-              ) : (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Drag a piece to try a move and see what the engine answers.
-                </p>
-              )}
+              ) : null}
               {probeFen ? (
                 <div className="mt-3 rounded-lg border p-3 text-sm">
                   <p className="text-xs text-muted-foreground">

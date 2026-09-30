@@ -148,3 +148,78 @@ test("going back to the position clears the engine answer", async () => {
   expect(boardFen()).toBe(ITEM.fen);
   expect(container.textContent).not.toContain("Qxc8");
 });
+
+// ── the board must stay playable wherever it is ──────────────────────
+//
+// Mohit, 2026-09-30: "this stops working when we start clicking the line ...
+// after playing the engine line, if I want to see what happens next, I can
+// make the move on the board and it should show the stockfish answer."
+
+test("dragging works AFTER stepping into a stored line", async () => {
+  await act(async () => root.render(<AdminGeometryGaps />));
+  await clickMove("Nc4");                       // step one ply into the punishment line
+  const fenAtPly1 = boardFen();
+  expect(fenAtPly1).not.toBe(ITEM.fen);
+
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ENGINE });
+  await act(async () => {
+    lastBoardProps.onMove({ from: "d7", to: "d3", san: "Qd3", fen: "PROBE_FROM_LINE" });
+  });
+
+  expect(global.fetch).toHaveBeenCalled();
+  expect(JSON.parse(global.fetch.mock.calls[0][1].body).fen).toBe("PROBE_FROM_LINE");
+  expect(boardFen()).toBe("PROBE_FROM_LINE");
+  expect(container.textContent).toContain("Qxc8");
+});
+
+test("the line you came from is still shown after you drag off it", async () => {
+  await act(async () => root.render(<AdminGeometryGaps />));
+  await clickMove("Nc4");
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ENGINE });
+  await act(async () => {
+    lastBoardProps.onMove({ from: "d7", to: "d3", san: "Qd3", fen: "PROBE_FROM_LINE" });
+  });
+  expect(container.textContent).toContain("Qd3");
+});
+
+test("you can keep dragging: a second move asks the engine again", async () => {
+  await act(async () => root.render(<AdminGeometryGaps />));
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ENGINE });
+  await playMove("Rc6", "FEN_ONE");
+  await act(async () => {
+    lastBoardProps.onMove({ from: "d7", to: "a7", san: "Qxa7", fen: "FEN_TWO" });
+  });
+  expect(global.fetch).toHaveBeenCalledTimes(2);
+  expect(JSON.parse(global.fetch.mock.calls[1][1].body).fen).toBe("FEN_TWO");
+  expect(boardFen()).toBe("FEN_TWO");
+  expect(container.textContent).toContain("Rc6 Qxa7");
+});
+
+// The affordance itself was the bug: the hint was swapped out for the Back
+// button the moment a line was stepped, so it read as "it stopped working".
+test("the drag hint survives stepping into a line", async () => {
+  await act(async () => root.render(<AdminGeometryGaps />));
+  expect(container.textContent).toContain("Drag a piece to try a move");
+  await clickMove("Nc4");
+  expect(container.textContent).toContain("Drag a piece to try a move");
+});
+
+test("the drag hint survives playing your own move", async () => {
+  await act(async () => root.render(<AdminGeometryGaps />));
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ENGINE });
+  await playMove();
+  expect(container.textContent).toContain("Drag a piece to try a move");
+});
+
+test("branching off a line keeps that line on screen", async () => {
+  await act(async () => root.render(<AdminGeometryGaps />));
+  await clickMove("Nc4");
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ENGINE });
+  await act(async () => {
+    lastBoardProps.onMove({ from: "d7", to: "d3", san: "Qd3", fen: "PROBE_FROM_LINE" });
+  });
+  // the stored line's moves are still rendered as buttons to step back through
+  const buttons = Array.from(container.querySelectorAll("button")).map((b) => b.textContent);
+  expect(buttons).toContain("Nc4");
+  expect(buttons).toContain("Qd3");
+});
