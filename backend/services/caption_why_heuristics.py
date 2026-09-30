@@ -5,12 +5,14 @@ audit that MEASURES the why-rule and the review queue that FIXES it cannot
 drift apart. Mohit, 2026-09-22: "each blunder or mistake each side should
 explain the why ... each blunder should have the why."
 
-Three heuristics; a caption passes if ANY fires:
+Two heuristics decide it; a caption passes if EITHER fires:
   H1 concrete consequence -- names a square/piece beyond the SANs themselves
   H2 causal connector     -- because / since / loses to / walks into / hangs
-  H3 principle ending     -- the closing sentence is a transferable rule
 
-Failing all three is the "X is a mistake. Y was better." shape.
+Failing both is the "X is a mistake. Y was better." shape.
+
+H3 principle ending -- the closing sentence is a transferable rule -- is still
+measured and still exported, but it no longer counts as a why. See `has_why`.
 
 If the definition changes, change it HERE. Both consumers import from this
 module and nothing re-implements it.
@@ -96,9 +98,27 @@ def has_principle_ending(caption: str) -> bool:
 
 
 def has_why(caption: str, played_san: str = "", best_san: str | None = None) -> bool:
-    """True when the caption explains itself by any of the three routes."""
+    """True when the caption explains itself FROM THIS POSITION.
+
+    H3 is deliberately not a route. Mohit, 2026-09-30, asked whether a
+    universal principle counts as a why and answered his own question:
+    *"if they are not position specific, it might just fill in something
+    that's completely irrelevant, and universal principles also looks like
+    blubbering for no real reason."*
+
+    A principle ending is a fine closing line UNDER a caption that has already
+    said what happened here. On its own it is a sentence that would have been
+    true of a different game, which is exactly the failure he is describing.
+
+    `has_principle_ending` stays and is still exported, because the audit
+    reports the three rates separately and the split is worth seeing. It just
+    no longer buys a caption a pass.
+
+    Measured cost of the change, 2026-09-30 over 31,178 mistake and blunder
+    captions: 478 more cards join the review queue, on top of the 3,185
+    already there. Nothing is removed from the queue by this.
+    """
     if not caption or not caption.strip():
         return False
     return (has_concrete_consequence(caption, played_san, best_san)
-            or has_causal_connector(caption)
-            or has_principle_ending(caption))
+            or has_causal_connector(caption))

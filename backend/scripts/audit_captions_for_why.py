@@ -3,9 +3,9 @@
 A caption has a WHY if any of three heuristics fires:
   H1 — concrete consequence (names a square/piece/move beyond the played SAN)
   H2 — causal connector (because/since/so/—/loses to/walks into/hits/hangs)
-  H3 — principle ending (transferable rule in the closing sentence)
+  H3 — principle ending (transferable rule) — MEASURED, does not count
 
-Captions failing ALL THREE are the "X is a mistake. Y was better." shape — the
+Captions failing H1 and H2 are the "X is a mistake. Y was better." shape — the
 canonical zero-teaching caption that produced fb_ec0098264c8e ("Qe2 is a
 mistake. O-O was better." → user replied "why??").
 
@@ -105,6 +105,7 @@ async def main() -> int:
         sample_gids = all_gids
     print(f"[audit] Sampling {len(sample_gids)} games", file=sys.stderr)
 
+    principle_only = []
     total_scanned = 0
     pass_count = 0
     fail_count = 0
@@ -147,7 +148,16 @@ async def main() -> int:
                     h_hits["H2_causal"] += 1
                 if h3:
                     h_hits["H3_principle"] += 1
-                if h1 or h2 or h3:
+                if h1 or h2:
+                    h_hits["POSITION_SPECIFIC (H1 or H2)"] += 1
+                elif h3:
+                    h_hits["PRINCIPLE ONLY (H3 alone)"] += 1
+                    principle_only.append({
+                        "game_id": gid, "move_number": rec.get("move_number"),
+                        "move_san": played, "severity": sev,
+                        "caption": caption[:150]})
+                # H3 is reported but does not buy a pass -- see has_why.
+                if h1 or h2:
                     pass_count += 1
                 else:
                     fail_count += 1
