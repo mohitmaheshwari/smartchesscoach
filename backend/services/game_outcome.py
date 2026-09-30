@@ -68,5 +68,26 @@ def user_lost(game: Mapping[str, Any]) -> bool:
     return user_outcome(game) == LOSS
 
 
+def lost_on_time(game: Mapping[str, Any]) -> bool:
+    """Did the player lose this game on the clock?
+
+    The `chronic_timeout` subtype of the time_management focus is counted from
+    this and from nothing else. It is a GAME-level event: measured 2026-09-30
+    there are zero `move_observations` carrying `time_flag: "chronic_timeout"`
+    against 306 for `slow_paralysis`, so any per-move query for it returns
+    nothing and the focus card reads "0 events" for the four users whose focus
+    it is.
+
+    The rule is the picker's own, from `primary_weakness_picker` where
+    `timeout_loss_rate` is computed -- exact `termination == "timeout"`, and
+    the result read against the player's colour. It lives here so the picker
+    that CHOOSES the focus and the stats that REPORT on it cannot disagree
+    about what the focus is counting.
+    """
+    if str(game.get("termination") or "").strip().lower() != "timeout":
+        return False
+    return user_lost(game)
+
+
 def user_won(game: Mapping[str, Any]) -> bool:
     return user_outcome(game) == WIN

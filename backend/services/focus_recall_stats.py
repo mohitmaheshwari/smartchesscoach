@@ -27,6 +27,113 @@ TIME_MANAGEMENT_SUBTYPES = {
 }
 
 
+def _dominant_subtype_of(focus: Dict[str, Any]) -> Optional[str]:
+    """Which subtype this focus is actually about.
+
+    `dominant_subtype` is read from the focus document by the original code,
+    and NOTHING HAS EVER WRITTEN IT: measured 2026-09-30, 0 of 48 active
+    weakness focuses carry the field. The consequences differed by topic and
+    both were wrong:
+
+      time_management (8 users) -- the query fell through to
+        {"missed_pattern": "time_management"}, and no observation carries that
+        as a pattern, so the card read 0 events across 810 games and rendered
+        nothing. This is the "it's not showing" report.
+
+      every other topic (40 users) -- it fell through to
+        {"missed_pattern": topic}, which DOES match, so the count came back
+        non-zero but covered the whole pattern instead of the subtype the focus
+        is about. Wrong, and invisible because it looked plausible.
+
+    The subtype is not lost: the picker stamps it into `detector_quality_id`
+    as gap:<topic>:<subtype>, and `subtype_histogram` holds the counts. So it is
+    derived here rather than migrated, which fixes all 48 without a write, and
+    keeps working for documents written before the field existed.
+
+    `_pick_dominant_subtype` is imported from focus_bridge rather than
+    reimplemented -- it already owns the "highest count, ignoring the noise
+    buckets" rule and a second copy would drift.
+    """
+    stored = focus.get("dominant_subtype")
+    if stored:
+        return stored
+
+    # The id the picker stamped is the most direct evidence of what it chose.
+    quality_id = str(focus.get("detector_quality_id") or "")
+    parts = quality_id.split(":")
+    if len(parts) == 3 and parts[0] == "gap" and parts[2]:
+        return parts[2]
+
+    from services.focus_bridge import _pick_dominant_subtype
+    return _pick_dominant_subtype(focus.get("subtype_histogram") or {})
+
+
+async def _timeout_loss_stats(db, user_id: str, topic: str,
+                              focus: Dict[str, Any]) -> Dict[str, Any]:
+    """Recall stats for a focus on games lost to the clock.
+
+    Same shape as the per-move path, counted over GAMES. An "event" here is a
+    game the player lost on time, which is what the picker counted when it
+    chose this focus.
+    """
+    from services.game_outcome import lost_on_time
+
+    now = datetime.now(timezone.utc)
+    week_start = now - timedelta(days=7)
+    started_iso = focus.get("started_at")
+    started_dt = None
+    if started_iso:
+        try:
+            started_dt = datetime.fromisoformat(str(started_iso).replace("Z", "+00:00"))
+            if started_dt.tzinfo is None:
+                started_dt = started_dt.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            started_dt = None
+
+    lifetime_events = lifetime_games = 0
+    week_events = week_games = 0
+    since_events = since_games = 0
+    async for game in db.games.find(
+        {"user_id": user_id, "is_analyzed": True},
+        {"_id": 0, "result": 1, "user_color": 1, "termination": 1,
+         "played_at_utc": 1},
+    ):
+        lifetime_games += 1
+        # played_at_utc is the typed date. `date_played` holds three
+        # incompatible shapes and sorts wrongly as a string.
+        played = game.get("played_at_utc")
+        if isinstance(played, datetime) and played.tzinfo is None:
+            played = played.replace(tzinfo=timezone.utc)
+        timed_out = lost_on_time(game)
+        if timed_out:
+            lifetime_events += 1
+        if isinstance(played, datetime):
+            if played >= week_start:
+                week_games += 1
+                if timed_out:
+                    week_events += 1
+            if started_dt and played >= started_dt:
+                since_games += 1
+                if timed_out:
+                    since_events += 1
+
+    days_since_start = None
+    if started_dt:
+        days_since_start = max(0, (now - started_dt).days)
+
+    return {
+        "topic_key": topic,
+        "dominant_subtype": "chronic_timeout",
+        "lifetime_events": lifetime_events,
+        "lifetime_games": lifetime_games,
+        "week_events": week_events,
+        "week_games": week_games,
+        "since_focus_events": since_events,
+        "since_focus_games": since_games,
+        "days_since_focus_start": days_since_start,
+    }
+
+
 async def compute_focus_recall_stats(
     db, user_id: str, focus: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -46,7 +153,7 @@ async def compute_focus_recall_stats(
       }
     """
     topic = focus.get("topic_key")
-    dom = focus.get("dominant_subtype")
+    dom = _dominant_subtype_of(focus)
     if not topic:
         return {}
 
@@ -57,6 +164,12 @@ async def compute_focus_recall_stats(
         base_query = {"user_id": user_id, "missed_pattern": topic, "subtype": dom}
     else:
         base_query = {"user_id": user_id, "missed_pattern": topic}
+
+    # chronic_timeout is a GAME-level event and has no move observations at
+    # all, so it is counted from games and returns early rather than being
+    # threaded through three per-move queries that can only ever return zero.
+    if dom == "chronic_timeout":
+        return await _timeout_loss_stats(db, user_id, topic, focus)
 
     # LIFETIME
     lifetime_events = await db.move_observations.count_documents(base_query)
