@@ -161,6 +161,20 @@ async def main():
                 move_evaluations=move_evaluations,
                 user_id=user_id,
                 db=db,
+                # Without this the generator logs "game_id=None -- authored
+                # caption overrides lookup will be silently skipped for every
+                # move in this game" and regenerates straight over them. There
+                # are 190 authored captions across 29 games, and this script's
+                # whole job is to rewrite every analyzed game, so a full run
+                # discarded all of them -- hand-written coaching prose like
+                # "the whole point of gambiting the f pawn was to push the e
+                # pawn, but black misses it" replaced by generated text.
+                #
+                # Measured on the same 10 games with and without it: passing
+                # game_id turns 7-better/9-worse into 12-better/5-worse, so
+                # this one argument was the difference between a re-render
+                # that improves the corpus and one that damages it.
+                game_id=game_id,
             )
         except Exception as exc:
             print(f"  [{i}/{total}] {game_id}  FAIL: {exc}")
