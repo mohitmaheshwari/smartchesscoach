@@ -415,7 +415,9 @@ def _verified_best_move_idea(
                     f"can't be met without giving something up.")
 
         # Otherwise lean on the single-source why (threat/escape/defend/castle/principle).
-        why = _recommended_move_why(board, best_move)
+        # In a puzzle the solver is always the side to move, so the mover's
+        # own pieces are the reader's own ("moves your knight out of danger").
+        why = _recommended_move_why(board, best_move, mover_is_user=True)
         if why:
             return f"{best_san} — it {why}."
     except Exception:

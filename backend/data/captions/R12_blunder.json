@@ -9,6 +9,10 @@
     "moving_piece_type": "Type of the piece that just moved",
     "target_square": "Square the move landed on",
     "opp_reply_san": "Opponent's strongest reply (PV[0] after the played move)",
+    "line_loss_san": "Move in the stored line that captures one of the mover's pieces at ply >= 2. Computed by pushing the engine's own pv_after_played; set only when the line ENDS with the mover down at least a pawn, so an even trade inside the line is not reported as a loss.",
+    "line_loss_piece_type": "Piece type the mover loses to line_loss_san",
+    "line_loss_square": "Square on which line_loss_san makes that capture",
+    "line_loss_ply": "Ply within pv_after_played of that capture (>= 2)",
     "captured_piece_type": "Piece type the opponent's reply would capture",
     "user_best_reply_san": "User's strongest reply after an opp blunder",
     "missed_tactic_kind": "Climax of pv_after_best — 'mate' | 'piece_capture' | 'material' | absent. Set by best_move_tactic_detector by walking the engine's recommended line and finding the tactical payoff (mate / wins a piece / wins pawns).",
@@ -220,7 +224,8 @@
     {"when": {"opp_failure_missed_capture": true, "opp_missed_capture_san": "present", "opp_missed_capture_piece": "present", "opp_missed_capture_square": "present"}, "variant": "opp_failure_missed_capture"},
     {"when": {"opp_failure_missed_tactic": true, "opp_missed_tactic_san": "present", "opp_missed_tactic_desc": "present"}, "variant": "opp_failure_missed_tactic"},
     {"when": {"opp_traded_active_result": true, "opp_traded_active_piece": "present", "opp_traded_active_square": "present", "opp_traded_active_recapture": "present"}, "variant": "opp_failure_traded_active"},
-    {"when": {"opp_quiet_threat_result": true, "opp_quiet_threat_piece": "present", "opp_quiet_threat_square": "present", "opp_quiet_threat_best": "present"}, "variant": "opp_failure_quiet_threat"}
+    {"when": {"opp_quiet_threat_result": true, "opp_quiet_threat_piece": "present", "opp_quiet_threat_square": "present", "opp_quiet_threat_best": "present"}, "variant": "opp_failure_quiet_threat"},
+    {"when": {"opp_reply_san": "present", "line_loss_san": "present", "line_loss_piece_type": "present", "line_loss_square": "present"}, "variant": "opp_failure_line_material_loss"}
   ],
   "teaching_principles": {
     "failure_allows_forced_mate":         "When your king is short of squares, look at every check your opponent has before you move anything else",
@@ -239,7 +244,8 @@
     "opp_failure_missed_mate":            "they missed {opp_missed_mate_san}, which forced checkmate",
     "opp_failure_missed_tactic":          "they missed {opp_missed_tactic_san}, {opp_missed_tactic_desc}",
     "opp_failure_traded_active":          "they swapped their {opp_traded_active_piece} on {opp_traded_active_square} — a piece that was doing nothing — and gave you time to build your attack",
-    "opp_failure_quiet_threat":           "they played quietly even though their {opp_quiet_threat_piece} on {opp_quiet_threat_square} is hanging — you can play {opp_quiet_threat_best} and grab it"
+    "opp_failure_quiet_threat":           "they played quietly even though their {opp_quiet_threat_piece} on {opp_quiet_threat_square} is hanging — you can play {opp_quiet_threat_best} and grab it",
+    "opp_failure_line_material_loss":     "lets you play {opp_reply_san}, and {line_loss_san} then takes their {line_loss_piece_type} on {line_loss_square}"
   },
   "_failure_mode_promotion_note": "v100 (2026-06-02): the 'why played wrong' two-clause system. failure_mode_clauses_user is parallel to why_clauses_user — it produces a failure-mode clause (e.g. 'walks into Nb7 attacking the bishop') that the wrapper variants render BEFORE the alternative-promotion clause. When no concrete alternative-promotion fact fires but a failure clause did, teaching_principles supplies a universal teaching line instead of a naked '{best} was better.' See docs/why_played_wrong_spec.md for the design. Triggered by Mohit's 2026-06-01 feedback batch (fb_3efccdbbf15e / fb_3d530eea5dd9 / fb_1cd7562468d1 / fb_79c33cd39b67) where 'h4 was better — it attacks Bg3' was the WRONG caption because the played move Bb2 walked into Nb7. Earlier 2026-06-01 predicate reorder (commit 72f21dfe, reverted in b0694980) proved that reordering alone produces non-sequitur wrappings and doesn't cover failure modes whose victim differs from the played piece — hence the two-clause architecture.",
   "_user_engine_meta_dropped_note": "v94 (2026-05-25): why_user_missed_material ('it wins material in the resulting line') + why_user_reply ('Opponent's strongest reply: X') removed entirely. Mohit 2026-05-25 on Tier B Q2: 'stop pretending every move deserves a concrete caption. silence is NOT always worse. silence is better than fake explanation. V5's biggest strength is supposed to be: only speak when grounded. Don't betray that principle because you fear empty UI.' These two why-clauses were the last engine-speak fallbacks — they fired when no concrete detector had a reason to give, and surfaced engine moves without explaining WHY. Now: when no concrete why-clause fires on a user mistake, the why_clause stays empty and the variant selector falls to user_with_best ('X is a mistake. Y was better.') without engine-meta apologies. Result: ~30-40% more user-side mistake-tier moves render without a why-clause, but the ones that DO render are grounded.",

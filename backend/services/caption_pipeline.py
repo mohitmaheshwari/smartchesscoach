@@ -4018,8 +4018,22 @@ def _verify_and_recover_caption(
         recovery = f"{played_san} {sev_phrase}."
     elif (not mover_is_user) and sev_phrase:
         recovery = f"Opponent's {played_san} {sev_phrase}."
+    elif best_move_san and best_move_san != played_san:
+        # No phrase, but there IS a stronger move. `severity_practical` reads
+        # "good" on plenty of cards the canonical tier calls a mistake (the two
+        # tiers come from different classifiers), and every one of those used to
+        # land on the bare "Nxh3." below -- a caption that says nothing at all,
+        # which is the silence the coverage rule exists to prevent. Measured
+        # 2026-09-30: 171 cards corpus-wide rendered as a lone SAN.
+        #
+        # Naming the stronger move asserts no verdict, and this function's own
+        # contract already lists the best-move SAN among the irreducibly-true
+        # claims recovery may make. It is strictly more than the SAN alone.
+        recovery = (f"{played_san}. {best_move_san} was stronger here."
+                    if mover_is_user
+                    else f"Opponent's {played_san}. {best_move_san} was stronger.")
     else:
-        # Clean move OR no severity — just acknowledge the SAN.
+        # Clean move OR no severity and no alternative — acknowledge the SAN.
         recovery = f"{played_san}."
 
     prev_rule = caption_payload.get("rule_name") or "R_FALLBACK"
