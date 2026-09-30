@@ -68,6 +68,16 @@ export default function AdminGeometryGaps() {
   const [mode, setMode] = useState("gaps");
   const [side, setSide] = useState("");
   const [why, setWhy] = useState("");
+  // Play your own move and ask the engine what it answers. Mohit, 2026-09-30:
+  // "if I play a move on the board, can you give me stockfish response for
+  // that move, so I really know why the move I play doesn't work?" The two
+  // stored lines only cover the move played and the move the engine wanted;
+  // the question a reviewer actually has is usually about a third move.
+  const [probeFen, setProbeFen] = useState(null);
+  const [probeMoves, setProbeMoves] = useState([]);
+  const [probe, setProbe] = useState(null);
+  const [probing, setProbing] = useState(false);
+  const [probeError, setProbeError] = useState("");
 
   const loadResults = useCallback(async () => {
     try {
@@ -265,10 +275,59 @@ export default function AdminGeometryGaps() {
     }
   }, [item, line, ply, movesFor]);
 
+  const clearProbe = useCallback(() => {
+    setProbeFen(null);
+    setProbeMoves([]);
+    setProbe(null);
+    setProbeError("");
+  }, []);
+
   const step = (which, index) => {
+    clearProbe();
     setLine(which);
     setPly(index + 1);
   };
+
+  // Ask the engine what it answers. `/analyze-position` is cached server side,
+  // so walking a line back and forth is cheap after the first look.
+  const askEngine = useCallback(async (fen) => {
+    setProbing(true);
+    setProbeError("");
+    try {
+      const res = await fetch(`${API}/analyze-position`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fen, depth: 18 }),
+      });
+      if (!res.ok) throw new Error(`engine returned ${res.status}`);
+      const data = await res.json();
+      setProbe({
+        cp: data?.evaluation?.centipawns ?? null,
+        mate: data?.evaluation?.mate_in ?? null,
+        bestSan: data?.best_move?.san || null,
+        pv: Array.isArray(data?.pv) ? data.pv : [],
+        depth: data?.depth ?? null,
+      });
+    } catch (e) {
+      setProbe(null);
+      setProbeError("Could not reach the engine. Try that move again.");
+    } finally {
+      setProbing(false);
+    }
+  }, []);
+
+  const handleProbeMove = useCallback((move) => {
+    if (!move?.fen) return;
+    setLine(null);
+    setPly(0);
+    setProbeFen(move.fen);
+    setProbeMoves((prev) => [...prev, { san: move.san, fen: move.fen }]);
+    askEngine(move.fen);
+  }, [askEngine]);
+
+  // A fresh position is a fresh question.
+  useEffect(() => { clearProbe(); }, [item?.key, clearProbe]);
 
   const arrows = useMemo(() => {
     if (!item) return [];
@@ -414,21 +473,69 @@ export default function AdminGeometryGaps() {
           <div className="grid gap-6 md:grid-cols-[minmax(0,420px)_1fr]">
             <div>
               <LichessBoard
-                fen={view.fen}
+                fen={probeFen || view.fen}
                 orientation={item.side_to_move}
-                arrows={arrows}
+                arrows={probeFen ? [] : arrows}
+                onMove={handleProbeMove}
               />
-              {line ? (
+              {line || probeFen ? (
                 <button
                   type="button"
                   onClick={() => {
                     setLine(null);
                     setPly(0);
+                    clearProbe();
                   }}
                   className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
                 >
                   <RotateCcw className="h-3 w-3" /> Back to the position
                 </button>
+              ) : (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Drag a piece to try a move and see what the engine answers.
+                </p>
+              )}
+              {probeFen ? (
+                <div className="mt-3 rounded-lg border p-3 text-sm">
+                  <p className="text-xs text-muted-foreground">
+                    You played{" "}
+                    <span className="font-mono text-foreground">
+                      {probeMoves.map((m) => m.san).join(" ")}
+                    </span>
+                  </p>
+                  {probing ? (
+                    <p className="mt-2 flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Asking the engine
+                    </p>
+                  ) : probeError ? (
+                    <p className="mt-2 text-muted-foreground">{probeError}</p>
+                  ) : probe ? (
+                    <div className="mt-2 space-y-1">
+                      <p>
+                        <span className="text-muted-foreground">Engine answers</span>{" "}
+                        <strong className="font-mono">{probe.bestSan || "—"}</strong>
+                      </p>
+                      <p>
+                        <span className="text-muted-foreground">Position is now</span>{" "}
+                        <strong className="font-mono">
+                          {probe.mate != null
+                            ? `mate in ${Math.abs(probe.mate)}`
+                            : probe.cp == null
+                              ? "—"
+                              : `${probe.cp > 0 ? "+" : ""}${(probe.cp / 100).toFixed(2)}`}
+                        </strong>
+                        <span className="text-muted-foreground">
+                          {" "}(from White&rsquo;s side)
+                        </span>
+                      </p>
+                      {probe.pv?.length ? (
+                        <p className="font-mono text-xs text-muted-foreground">
+                          {probe.pv.slice(0, 10).join(" ")}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
             </div>
             <div className="space-y-4">
