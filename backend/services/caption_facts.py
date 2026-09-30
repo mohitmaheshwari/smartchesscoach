@@ -9690,14 +9690,28 @@ def _outnumbered_target(
     return (best[0], best[1], best[2]) if best else None
 
 
-def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Optional[str]:
+def _recommended_move_why(
+    board: chess.Board,
+    move: Optional[chess.Move],
+    mover_is_user: Optional[bool] = None,
+) -> Optional[str]:
     """WHY a recommended move is good, as a short 3rd-person verb phrase that slots into
     'it {why}' — 'develops a piece', 'takes the center', 'trades off his bishop', 'wins a
     pawn'. The law: every recommended move needs its why (memory
     feedback_explain_why_recommended_move_good). Board-verified; material claims SEE-gated.
-    Returns None when no clean why is derivable (caller falls back to naming the move)."""
+    Returns None when no clean why is derivable (caller falls back to naming the move).
+
+    `mover_is_user` decides the possessive for the branches that talk about the
+    MOVER's own pieces. Three of them said "your" unconditionally, which is
+    wrong on an opponent card: "Your opponent played Qd2; Qd5 was stronger — it
+    defends your pawn on b5" describes the opponent's move defending the
+    opponent's pawn. Measured 2026-09-30: 47 of 238 such opponent cards
+    (19.7%). When the caller does not know who moved, the phrasing goes neutral
+    ("the pawn") rather than guessing — a neutral phrase is never wrong."""
     if move is None:
         return None
+    # Possessive for pieces belonging to the MOVER.
+    _own = "your" if mover_is_user else ("their" if mover_is_user is False else "the")
     try:
         pr = _classify_move_principle(board, move)
         mover = board.turn
@@ -9797,7 +9811,7 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
             see_before = static_exchange_eval(board, move.from_square, enemy)
             see_after = static_exchange_eval(after, move.to_square, enemy)
             if (see_before or 0) >= 100 and (see_after or 0) <= 0:
-                return (f"moves your {PIECE_TYPE_NAMES.get(moved.piece_type, 'piece')} "
+                return (f"moves {_own} {PIECE_TYPE_NAMES.get(moved.piece_type, 'piece')} "
                         f"out of danger")
 
         # 4) DEFENDS — a DIFFERENT friendly piece was hanging before and is safe after
@@ -9811,7 +9825,7 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
             if (static_exchange_eval(board, sq, enemy) or 0) >= 100 and \
                (static_exchange_eval(after, sq, enemy) or 0) <= 0 and \
                move.to_square in after.attackers(mover, sq):
-                return (f"defends your {PIECE_TYPE_NAMES.get(fp.piece_type, 'piece')} "
+                return (f"defends {_own} {PIECE_TYPE_NAMES.get(fp.piece_type, 'piece')} "
                         f"on {chess.square_name(sq)}")
 
         # 4b) MATE / CHECK / PROMOTION — concrete forcing purposes the floor
@@ -9848,7 +9862,11 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
                     f"{chess.square_name(check_target[0])}, because the check "
                     f"has to be answered first"
                 )
-            return "gives check, forcing your opponent to respond"
+            # From the MOVER's side: the player they force is the other one.
+            if mover_is_user is None:
+                return "gives check, forcing a reply"
+            return ("gives check, forcing your opponent to respond" if mover_is_user
+                    else "gives check, forcing you to respond")
 
         # 5) PRINCIPLE — castle/center/develop/outpost/rook (transferable idea).
         if pr in _REC_PRINCIPLE_PHRASE:
@@ -10177,6 +10195,23 @@ def extract_facts(
     opp_reply_attacks_played_piece: bool = False
     opp_reply_captures_piece_type: Optional[str] = None
     opp_reply_captures_square: Optional[str] = None
+    # ── The consequence that arrives LATER than the first reply ───────────
+    # Every one of R12's nine played-move failure predicates keys on
+    # opp_reply_* — the FIRST ply of the stored line and nothing else. Measured
+    # 2026-09-30 over 12,000 stored lines: 26.8% resolve at ply 1, and a
+    # further 36.0% resolve later (ply 3 alone is 17.5%) where no predicate can
+    # see them. Those cards fall through to "X was better — it develops a
+    # piece", which is why 80% of the ALT_WHY_ONLY class comes out of R12.
+    #
+    # This walks the engine's own stored line and records the first capture of
+    # one of the MOVER's pieces at ply >= 2, but only when the line ENDS with
+    # the mover down material — so an even trade inside the line is not
+    # reported as a loss. Nothing is forecast: the moves are the engine's, and
+    # the capture and the closing balance are both computed on the board.
+    line_loss_piece_type: Optional[str] = None
+    line_loss_square: Optional[str] = None
+    line_loss_san: Optional[str] = None
+    line_loss_ply: Optional[int] = None
     # WHY-BAD enrichment (2026-06-23): the played move DROPS material — the
     # opponent's best reply wins a piece/pawn (SEE-verified), and it is NOT an
     # equal recapture of the user's own just-captured piece. Lets a quiet move
@@ -10234,6 +10269,47 @@ def extract_facts(
         if _a is not None and _b is not None:
             opp_reply_is_clear = abs(_a - _b) > 30
     if pv_after_played:
+        # ── Deeper-line material loss (see the note by line_loss_* above) ──
+        # Mover POV throughout: positive means the mover is ahead.
+        try:
+            _mover_white = board_before.turn == chess.WHITE
+            _LV = {chess.PAWN: 100, chess.KNIGHT: 300, chess.BISHOP: 300,
+                   chess.ROOK: 500, chess.QUEEN: 900, chess.KING: 0}
+
+            def _bal(bd: chess.Board) -> int:
+                t = 0
+                for _p in bd.piece_map().values():
+                    t += _LV[_p.piece_type] * (1 if _p.color == chess.WHITE else -1)
+                return t if _mover_white else -t
+
+            _sim = board_after.copy(stack=False)
+            _base = _bal(_sim)
+            _first: Optional[tuple] = None
+            for _i, _san in enumerate(pv_after_played, start=1):
+                try:
+                    _mv = _sim.parse_san((_san or "").strip())
+                except (chess.InvalidMoveError, chess.IllegalMoveError, ValueError):
+                    break
+                _victim = _sim.piece_at(_mv.to_square) if _sim.is_capture(_mv) else None
+                # A capture of the MOVER's own piece, from ply 2 on (ply 1 is
+                # already covered by the opp_reply_* predicates above).
+                if (_first is None and _i >= 2 and _victim is not None
+                        and _victim.color == board_before.turn):
+                    _first = (_i, PIECE_TYPE_NAMES.get(_victim.piece_type, "piece"),
+                              chess.SQUARE_NAMES[_mv.to_square], (_san or "").strip())
+                _sim.push(_mv)
+            # Only report it when the line actually ends with the mover worse
+            # off by at least a pawn. Without this an even trade two moves deep
+            # would be captioned as losing a piece.
+            if _first is not None and (_base - _bal(_sim)) >= 100:
+                line_loss_ply = _first[0]
+                line_loss_piece_type = _first[1]
+                line_loss_square = _first[2]
+                line_loss_san = _first[3]
+        except Exception:
+            # Facts are never load-bearing; a bad line must not break the card.
+            pass
+
         raw = (pv_after_played[0] or "").strip()
         if raw:
             opp_reply_san = raw
@@ -10628,7 +10704,7 @@ def extract_facts(
     best_move_principle = _classify_move_principle(board_before, _best_mv)
     # WHY the engine's best move is good (principle OR trade/win) — for the law that
     # every recommended move needs its why (feedback_explain_why_recommended_move_good).
-    best_move_why = _recommended_move_why(board_before, _best_mv)
+    best_move_why = _recommended_move_why(board_before, _best_mv, mover_is_user)
 
     # DISTINGUISH GATE (2026-07-01, docs/reasoning_correctness_scope.md): a "why the better
     # move is good" that is ALSO true of the move the user PLAYED explains nothing — "Be7
@@ -10638,7 +10714,11 @@ def extract_facts(
     # Mohit 2026-07-01: "Bc5 is also development, something is not good here."
     if best_move_why and played_move is not None and _best_mv is not None and played_move != _best_mv:
         try:
-            _played_move_why = _recommended_move_why(board_before, played_move)
+            # Same possessive, or the equality test below would compare
+            # "moves your bishop..." against "moves their bishop..." and the
+            # distinguish gate would stop firing on opponent cards.
+            _played_move_why = _recommended_move_why(
+                board_before, played_move, mover_is_user)
             if _played_move_why and _played_move_why == best_move_why:
                 best_move_why = None
         except Exception:
@@ -10783,6 +10863,10 @@ def extract_facts(
         "opp_reply_attacks_played_piece": opp_reply_attacks_played_piece,
         "opp_reply_captures_piece_type": opp_reply_captures_piece_type,
         "opp_reply_captures_square": opp_reply_captures_square,
+        "line_loss_piece_type": line_loss_piece_type,
+        "line_loss_square": line_loss_square,
+        "line_loss_san": line_loss_san,
+        "line_loss_ply": line_loss_ply,
         # Recapture collision (Mohit 2026-06-06, fb_22528b6266b1) —
         # when both played + opp_reply land on the same square the SANs
         # render identically; switch to a recapture-specific template.

@@ -244,10 +244,70 @@ caption still says *"Opponent's Bxe5 is a mistake."*
 
 ---
 
-## 7. The played-move reason loses to the best-move reason on branch order
+## 7. The played-move reason is gated on the punishment line, not on branch order
 
-`caption_fallback_tiers.tier23_caption` (`caption_fallback_tiers.py:104-118`)
-tries the two candidate explanations in this order:
+**This section replaced its first version on 2026-09-30 after the fix for it
+produced a zero delta.** The original claim was that
+`caption_fallback_tiers.tier23_caption` tried the best-move why before the
+played-move consequence, and that swapping two branches would convert ~8,500
+cards. The ordering bug there is real and is fixed, but re-rendering 5,000 rows
+before and after gave a byte-identical class distribution: `tier23_caption`
+renders approximately none of this corpus. The original measurement read
+`debug_facts` to see which facts were *available* and never checked which rule
+actually produced the card — an availability count is not a producer count.
+
+**`R12_blunder` produces 80.1% of ALT_WHY_ONLY**, and its template order is
+already right: `user_with_failure_and_alternative` —
+`{played_san} {failure_clause}. {best_move_san} was better — {why_clause}` —
+ranks first among the user variants. It leads with the played move's failure
+whenever `failure_clause` exists.
+
+So the question is what makes `failure_clause` exist. All nine of R12's
+`failure_mode_clauses_user` predicates key on `opp_reply_*`, which is **ply 1 of
+the stored line and nothing else**. Walking 12,000 stored lines:
+
+| the line first resolves at | rows | share |
+|---|---:|---:|
+| never | 4,460 | 37.2% |
+| **ply 1** — the only ply any predicate reads | 3,221 | 26.8% |
+| ply 2 | 1,325 | 11.0% |
+| **ply 3** | 2,103 | **17.5%** |
+| ply 4 | 762 | 6.3% |
+| ply 5+ | 129 | 1.1% |
+
+**36.0% resolve later than ply 1, where no predicate can see them.** And line
+quality gates the outcome directly — the same rows, split on their stored line:
+
+| stored line | n | PLAYED_WHY | ALT_WHY_ONLY | NO_WHY |
+|---|---:|---:|---:|---:|
+| resolves | 1,355 | 19.5% | 16.1% | 64.4% |
+| unresolved | 1,530 | 10.2% | 34.7% | 55.1% |
+| no line | 1,115 | 2.7% | 4.4% | 92.9% |
+
+A tenth predicate now walks the engine's own stored line and names the capture
+at ply ≥ 2, firing only when the line *ends* with the mover down material so a
+trade inside the line is not reported as a loss. Measured on 5,000 rows:
+PLAYED_WHY 10.4% → 12.7% (+114 cards, ≈3,480 corpus-wide) at **100% precision**
+— all 112 claims re-verified by pushing the line on the board.
+
+It is deliberately the LAST predicate. Inserted mid-list it pre-empted the
+ply-1 predicates, and where the claim verifier then rejected it the recovery
+path dropped the failure clause altogether instead of falling back: 48 cards
+into verifier recovery and **3 that lost a working played-why**. Last means it
+can only add.
+
+Two things this leaves open. The claim verifier rejects 38 of these clauses
+although every one is true by board arithmetic, so it cannot parse this shape.
+And ~0.08% of cards render as a bare move with a full stop ("Rg4+.") — 4 in
+5,000, unchanged by this work, so pre-existing.
+
+## 7a. The original branch-order finding, kept because the bug is real
+
+In `caption_fallback_tiers.tier23_caption`
+(`caption_fallback_tiers.py:104-118`) the two candidate explanations were tried
+in this order. This path renders almost nothing today, so fixing it changed no
+measured card — but the ordering was wrong and a fallback that fires tomorrow
+should not ship the bug:
 
 ```
 if why and cp >= _INACCURACY_CP:          # the BEST move's why  -> ALT_WHY_ONLY
@@ -267,8 +327,12 @@ cards and inspecting the facts each had available:
 | neither | 9.0% |
 | only the played consequence | 0.6% |
 
-So ~8,500 cards could say what went wrong today, from facts already extracted,
-by swapping two branches. What that costs now:
+Rendering 500 ALT_WHY_ONLY cards showed 24.8% held both facts. That number is
+what suggested a large win here, and it was misread: it measures fact
+availability, not which rule rendered the card. The same reorder is applied, and
+it also stops the best-move why pre-empting the forced-mate branch further down
+the same function — a move allowing mate in two could render as "Qxh4+ was
+stronger — it develops a piece". What the shape costs when it does fire:
 
 > *"Your opponent played h4; Bh4 was stronger — it moves your bishop out of
 > danger."* — while the available consequence was `hxg5 takes bishop`.
@@ -346,36 +410,44 @@ Ordered by cards affected per unit of work, against the measured cause split.
 
 **Cheap and large**
 
-2. **Swap the two branches in `tier23_caption`**
-   (`caption_fallback_tiers.py:104-118`). ~8,500 cards already hold the
-   played-move consequence and lose it to branch order. No new facts, no new
-   detector, no new evidence.
-3. **Explain the opponent's move.** The single biggest cause at 55,164 cards
+2. ~~Swap the two branches in `tier23_caption`.~~ **Done, and it moved nothing**
+   — that path renders almost none of this corpus. Kept because the ordering bug
+   is real. See section 7a for how the estimate was wrong.
+3. **Read deeper into the punishment line.** *Done, first increment:* a tenth
+   R12 predicate reads ply ≥ 2 and takes PLAYED_WHY from 10.4% to 12.7% at 100%
+   precision. 36.0% of stored lines resolve later than ply 1 and every other
+   predicate reads only ply 1, so there is more here — forks, checks and
+   deflections at depth still have no clause.
+4. **Explain the opponent's move.** The single biggest cause at 55,164 cards
    (36.2%), and for 52,468 of them a best move and a punishment line are already
-   stored and unread.
-4. **Fix `R12_blunder` going bare on user moves that have a line.** 30,311 cards
+   stored and unread. R12's opponent variants exist; the `failure_mode_clauses_opp`
+   predicates are the gap, and they have the same ply-1 blindness.
+5. **Fix `R12_blunder` going bare on user moves that have a line.** 30,311 cards
    — the largest single rule/cause cell in the table.
 
 **Correctness, small volume, high embarrassment**
 
-5. **Reconcile severity with the caption text.** A move that leaves the player
+6. **Reconcile severity with the caption text.** A move that leaves the player
    being mated must never render as "Good move" or "is playable". 514 cards, and
    the class is live.
-6. **Fix mover attribution.** 4,263 cards tell the player they made the
-   opponent's move, 359 the reverse, 47 mis-own a piece inside the why clause.
-   The flag is correct; only the text is wrong.
-7. **Make verifier recovery degrade instead of going quiet.** 6,199 cards had a
+7. **Fix mover attribution.** 4,263 cards tell the player they made the
+   opponent's move and 359 the reverse; the flag is correct, only the text is
+   wrong. *The possessive half is done*: `_recommended_move_why` hardcoded
+   "your" in three branches that describe the MOVER's pieces, and now takes
+   `mover_is_user`, going neutral when the caller does not know. The wrong-subject
+   half is still open.
+8. **Make verifier recovery degrade instead of going quiet.** 6,199 cards had a
    why, the verifier rejected the claim, and recovery fell to a bare severity
    statement rather than a weaker true one.
-8. **Point the review prompt at `move_evaluations`** for `cognitive_gap`,
+9. **Point the review prompt at `move_evaluations`** for `cognitive_gap`,
    `critical_reason`, `threat` and `mate_info`.
 
 **Bigger jobs, correctly sized now**
 
-9. **Store a punishment line where there is none.** 41,004 cards (26.9%) have
+10. **Store a punishment line where there is none.** 41,004 cards (26.9%) have
    nothing to explain from, and this does not improve across the 2026-09-25
    crossover, so it is live rather than historical.
-10. **Regenerate the corpus.** Worth doing — it moves 102,652 rows from 4-ply to
+11. **Regenerate the corpus.** Worth doing — it moves 102,652 rows from 4-ply to
     12-ply lines — but it is *not* the lever it looks like: only 8.0% of faulted
     cards render with a why under today's code.
 
@@ -416,3 +488,29 @@ Recorded because each was a wrong answer that nearly shipped:
 - Sampling caught nothing that the full pass contradicted on direction, but it
   was wrong on magnitude twice: a 47-row first sample put "stale" at 68%, a
   500-row queue sample at 17%.
+- The branch-order fix was sized from a fact-availability count and shipped
+  against the wrong file. The re-render net came back byte-identical to
+  baseline, which is the only reason it was caught: `tier23_caption` renders
+  almost none of this corpus and `R12_blunder` produces 80.1% of the class. An
+  availability count is not a producer count — always check `rule_name`.
+- The new R12 predicate was first inserted mid-list, where it pre-empted the
+  ply-1 predicates and cost 3 cards a working played-why when the verifier
+  rejected it. Moved last, it can only add.
+- Two probes read field names that do not exist. `failure_clause`/`why_clause`
+  are not in `debug_facts` (both read 0%, which would have "proved" the clause
+  was never produced), and an earlier pass read `v5_coaching_version` when the
+  field is `decryption_v5_version`. A 0% that agrees with your hypothesis
+  deserves the same positive control as a 0% that does not.
+
+## 13. Two things found in the test setup
+
+Neither is caption work, both cost time here and will cost it again:
+
+- **`tests/test_opponent_reply_ties.py` calls `sys.exit()` at module scope**, so
+  `pytest tests/` dies with `INTERNALERROR` during collection. 3,774 tests
+  collect and 3 error. The suite cannot be run as a whole until that file stops
+  being a script.
+- **`tests/test_all_flows.py` needs a live API** (`REACT_APP_BACKEND_URL`,
+  default `localhost:8001`) and **exits 0 when every request fails**. Its exit
+  code is not a pass signal. CLAUDE.md presents it as the suite to run after
+  every backend change.

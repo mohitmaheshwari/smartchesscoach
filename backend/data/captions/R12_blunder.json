@@ -9,6 +9,10 @@
     "moving_piece_type": "Type of the piece that just moved",
     "target_square": "Square the move landed on",
     "opp_reply_san": "Opponent's strongest reply (PV[0] after the played move)",
+    "line_loss_san": "Move in the stored line that captures one of the mover's pieces at ply >= 2. Computed by pushing the engine's own pv_after_played; set only when the line ENDS with the mover down at least a pawn, so an even trade inside the line is not reported as a loss.",
+    "line_loss_piece_type": "Piece type the mover loses to line_loss_san",
+    "line_loss_square": "Square on which line_loss_san makes that capture",
+    "line_loss_ply": "Ply within pv_after_played of that capture (>= 2)",
     "captured_piece_type": "Piece type the opponent's reply would capture",
     "user_best_reply_san": "User's strongest reply after an opp blunder",
     "missed_tactic_kind": "Climax of pv_after_best — 'mate' | 'piece_capture' | 'material' | absent. Set by best_move_tactic_detector by walking the engine's recommended line and finding the tactical payoff (mate / wins a piece / wins pawns).",
@@ -209,7 +213,8 @@
     {"when": {"is_exchange_losing": true, "target_square": "present", "opp_reply_san": "present"}, "variant": "failure_exchange_losing_with_reply"},
     {"when": {"is_exchange_losing": true, "target_square": "present"}, "variant": "failure_exchange_losing_no_reply"},
     {"when": {"opp_reply_san": "present", "opp_reply_attacks_played_piece": true, "target_square": "present", "moving_piece_type": "present", "cp_loss": {"gte": 50}}, "variant": "failure_played_piece_attacked"},
-    {"when": {"pieces_now_undefended_present": true, "lost_defender_lead_clause": "absent"}, "variant": "failure_hangs_piece"}
+    {"when": {"pieces_now_undefended_present": true, "lost_defender_lead_clause": "absent"}, "variant": "failure_hangs_piece"},
+    {"when": {"opp_reply_san": "present", "line_loss_san": "present", "line_loss_piece_type": "present", "line_loss_square": "present"}, "variant": "failure_line_material_loss"}
   ],
   "_failure_mode_clauses_opp_note": "2026-06-06 — opponent-side failure-mode predicates, mirror of failure_mode_clauses_user but for OPP moves. Explains WHY the opponent's move was bad (what they should have played) instead of the bare 'Opponent's X is a mistake.' shell. Requires Phase 0 (stockfish_service stores opp best_move + PV for opp errors). Canonical case fb_4899b11157fa: 9.Qe2 hangs d4, opp plays 9...Nbd7 missing 9...Qxd4 which grabs the free pawn. Facts come from caption_facts opp_failure_* block; composed in caption_templates.render_rule opp branch → sets opp_failure_clause.",
   "failure_mode_clauses_opp": [
@@ -232,6 +237,7 @@
     "failure_exchange_losing_no_reply":   "A trade that loses material is not a fair trade — count the piece values first",
     "failure_played_piece_attacked":      "Before every move, ask what your opponent's strongest reply does to your pieces",
     "failure_hangs_piece":                "Every move, scan for pieces of yours left without a defender",
+    "failure_line_material_loss":         "Play the opponent's best reply out one more move before you commit",
     "opp_failure_missed_capture":         "they had {opp_missed_capture_san}, grabbing your {opp_missed_capture_piece} on {opp_missed_capture_square} for free",
     "opp_failure_trapped_piece":          "their {opp_trapped_piece} on {opp_trapped_square} then has nowhere safe to go — {opp_trapped_lesson}",
     "opp_failure_pointless_check":        "every way out of that check also attacks their {opp_check_piece} on {opp_check_square}, so it only loses time",
@@ -324,6 +330,7 @@
     "failure_exchange_losing_no_reply": "loses material in the trade",
     "failure_played_piece_attacked": "lets {opp_reply_san} attack the {moving_piece_type} on {target_square}",
     "failure_hangs_piece": "leaves your {moving_piece_type} on {target_square} undefended",
+    "failure_line_material_loss": "runs into {opp_reply_san}, and then {line_loss_san} takes your {line_loss_piece_type} on {line_loss_square}",
 
     "opp_failure_traded_active": "traded away their {opp_traded_active_piece} for nothing — it was just sitting idle, so they freed up your attack pieces",
     "opp_failure_quiet_threat": "they left their {opp_quiet_threat_piece} hanging on {opp_quiet_threat_square}. You play {opp_quiet_threat_best} and win it",
