@@ -63,15 +63,36 @@ class TestTheFloorStopsCallingAMateACheck:
         facts.update(over)
         return facts
 
-    def test_a_forced_mate_is_named_as_checkmate(self):
+    def test_a_forced_mate_is_named_as_mate(self):
         caption, rule = tier23_caption(
             self._facts(allows_forced_mate=True, allowed_mate_in=2,
                         allowed_mate_first_move="Qa1+"),
             flagged_mistake=True,
         )
-        assert "checkmate" in caption
+        assert "allows mate in 2 moves" in caption
         assert "come in with check." not in caption
         assert rule == "R_TIER_mistake_floor_forced_mate"
+
+    def test_it_says_allows_not_delivers(self):
+        """The claim verifier reads a bare "checkmate" as the PLAYER mating.
+
+        The first wording ("starts a forced checkmate") was scored as
+        contradicting the stored "allowed" evidence, the floor was discarded,
+        and the unsoftened R01_mate sentence shipped in its place.
+        """
+        from services.narrator_claim_verifier import (
+            _MATE_ALLOWED_RX, _MATE_DELIVERED_RX,
+        )
+        caption, _ = tier23_caption(
+            self._facts(allows_forced_mate=True, allowed_mate_in=2,
+                        allowed_mate_first_move="Qa1+"),
+            flagged_mistake=True,
+        )
+        # The allowed pattern is tested first, so it must be the one that hits.
+        assert _MATE_ALLOWED_RX.search(caption), caption
+        assert not _MATE_DELIVERED_RX.search(caption), (
+            "a bare 'checkmate' reads as the player delivering it"
+        )
 
     def test_mate_in_one_is_singular(self):
         caption, _ = tier23_caption(
@@ -79,13 +100,13 @@ class TestTheFloorStopsCallingAMateACheck:
                         allowed_mate_first_move="Qa1#"),
             flagged_mistake=True,
         )
-        assert "in 1 move." in caption and "moves" not in caption
+        assert "allows mate in 1 move," in caption and "moves" not in caption
 
     def test_a_mating_reply_is_never_described_as_a_check(self):
         caption, _ = tier23_caption(
             self._facts(opp_reply_san="Qxa2#"), flagged_mistake=True
         )
-        assert "checkmate" in caption
+        assert "which is checkmate" in caption
         assert "come in with check" not in caption
 
     def test_a_plain_check_is_still_a_check(self):

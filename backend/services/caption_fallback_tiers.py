@@ -134,9 +134,17 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
                     _w = "move" if _n == 1 else "moves"
                     _start = facts.get("allowed_mate_first_move") or opp
                     if _start:
+                        # "allows mate" and not "starts a forced checkmate":
+                        # the claim verifier reads the word "checkmate" as the
+                        # PLAYER delivering it (_MATE_DELIVERED_RX is checked
+                        # before the allowed pattern), so the first wording was
+                        # scored as contradicting the stored evidence and the
+                        # whole floor was thrown away -- which left the raw
+                        # R01_mate sentence shipping unsoftened. It is also the
+                        # plainer sentence of the two.
                         return (f"{_who} played {played}; {best} was the stronger move "
-                                f"here — {played} lets {_start} start a forced "
-                                f"checkmate in {_n} {_w}.",
+                                f"here — {played} allows mate in {_n} {_w}, "
+                                f"starting with {_start}.",
                                 "R_TIER_mistake_floor_forced_mate")
                 if opp and opp.endswith("#"):
                     return (f"{_who} played {played}; {best} was the stronger move here — "
