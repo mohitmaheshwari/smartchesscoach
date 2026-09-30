@@ -542,10 +542,25 @@ WHY_SEVERITIES = {
 @router.get("/admin/geometry-gaps/no-why/next")
 async def next_missing_why(
     side: Optional[str] = Query(default=None, pattern="^(user|opponent)$"),
+    why_class: Optional[str] = Query(
+        default=None, pattern="^(NO_WHY|ALT_WHY_ONLY)$",
+        description="Work one class at a time; they need opposite fixes."),
     user: User = Depends(require_geometry_reviewer),
 ):
-    """One mistake/blunder whose caption never says why, either side."""
-    from services.caption_why_heuristics import has_why
+    """One mistake/blunder whose caption never says why, either side.
+
+    Gated on the STRUCTURAL classifier, not `has_why`. The keyword scan passed
+    87.3% of all 203,022 mistake/blunder captions while only 25.9% actually say
+    what was wrong with the move played, so it hid 92,457 bare cards and put
+    2,071 clean ones in front of a human. Measured 2026-09-30; see
+    docs/missing_why_diagnosis_2026_09_30.md.
+
+    `why_class` splits the queue because the two classes want opposite work:
+      ALT_WHY_ONLY  the card explains the recommended move and never the
+                    played one -- usually a missing slot, not a missing fact.
+      NO_WHY        the card explains neither.
+    """
+    from services.caption_why_heuristics import classify_caption_why
 
     # A "later" skip is a deferral, not an answer -- it must come back round.
     done = set(await db.caption_why_authoring.distinct(
@@ -572,13 +587,20 @@ async def next_missing_why(
             played = str(rec.get("move_san") or "")
             best = rec.get("best_move_san")
             scanned += 1
-            if has_why(caption, played, best):
+            this_class = classify_caption_why(caption, played, best or "")["why_class"]
+            # PLAYED_WHY already answers "why?" -- never queue it for a human.
+            if this_class == "PLAYED_WHY":
+                continue
+            if why_class and this_class != why_class:
                 continue
             key = f"{gid}:{rec.get('move_number')}:{played}"
             if key in done:
                 continue
             return {
                 "key": key,
+                # Which kind of gap this is, so the page can say so and the
+                # ruling records it.
+                "why_class": this_class,
                 "game_id": gid,
                 "fen": rec.get("fen_before") or rec.get("fen"),
                 "move_number": rec.get("move_number"),
@@ -648,6 +670,10 @@ async def author_missing_why(
         "best_san": payload.get("best_san"),
         "side": payload.get("side"),
         "severity": payload.get("severity"),
+        # Which structural gap this card had. Without it the results endpoint
+        # cannot tell "we never said why yours was bad" from "we said nothing
+        # at all", and those want different fixes.
+        "why_class": payload.get("why_class"),
         "original_caption": payload.get("caption"),
         "author_email": (getattr(user, "email", "") or "").lower(),
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -664,6 +690,7 @@ async def missing_why_results(user: User = Depends(require_geometry_reviewer)):
     by_action: Dict[str, int] = {}
     by_author: Dict[str, int] = {}
     skip_reasons: Dict[str, int] = {}
+    by_why_class: Dict[str, int] = {}
     for r in rows:
         a = str(r.get("action") or "skip")
         by_action[a] = by_action.get(a, 0) + 1
@@ -673,7 +700,10 @@ async def missing_why_results(user: User = Depends(require_geometry_reviewer)):
             skip_reasons[k] = skip_reasons.get(k, 0) + 1
         who = str(r.get("author_email") or "unknown")
         by_author[who] = by_author.get(who, 0) + 1
+        k2 = str(r.get("why_class") or "before_classes_existed")
+        by_why_class[k2] = by_why_class.get(k2, 0) + 1
     return {
+        "by_why_class": by_why_class,
         "total": len(rows),
         "by_action": by_action,
         "skip_reasons": skip_reasons,
