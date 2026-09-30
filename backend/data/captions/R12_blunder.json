@@ -201,6 +201,7 @@
     {"when": {"board_state_clause": "present", "failure_clause": "absent"}, "variant": "why_user_board_state"}
   ],
   "failure_mode_clauses_user": [
+    {"when": {"allows_forced_mate": true, "allowed_mate_first_move": "present"}, "variant": "failure_allows_forced_mate"},
     {"when": {"opp_reply_san_is_check": true}, "variant": "failure_walks_into_check"},
     {"when": {"opp_reply_san": "present", "opp_reply_creates_fork": true, "fork_target_1": "present", "fork_target_2": "present", "fork_target_1_square": "present", "fork_target_2_square": "present"}, "variant": "failure_allows_fork"},
     {"when": {"opp_reply_recaptures_on_played_square": true, "captured_piece_type": "present", "played_to_square": "present"}, "variant": "failure_allows_recapture"},
@@ -222,6 +223,7 @@
     {"when": {"opp_quiet_threat_result": true, "opp_quiet_threat_piece": "present", "opp_quiet_threat_square": "present", "opp_quiet_threat_best": "present"}, "variant": "opp_failure_quiet_threat"}
   ],
   "teaching_principles": {
+    "failure_allows_forced_mate":         "When your king is short of squares, look at every check your opponent has before you move anything else",
     "failure_walks_into_check":           "Check your king's escape squares before any move that opens lines toward it",
     "failure_allows_fork":                "When two of your pieces a knight's jump apart, check for forks before any move",
     "failure_allows_recapture":           "Before capturing, count attackers and defenders on the target square — if they outnumber yours, the recapture wins material",
@@ -313,6 +315,7 @@
     "opp_with_failure_and_why": "Opponent's {played_san} {severity_phrase} — {opp_failure_clause}. {why_clause}",
     "opp_with_failure": "Opponent's {played_san} {severity_phrase} — {opp_failure_clause}.",
 
+    "failure_allows_forced_mate": "lets {allowed_mate_first_move} start a forced checkmate in {allowed_mate_in} {allowed_mate_word}",
     "failure_walks_into_check": "loses to {opp_reply_san}",
     "failure_allows_fork": "allows {opp_reply_san} forking your {fork_target_1} on {fork_target_1_square} and {fork_target_2} on {fork_target_2_square}",
     "failure_allows_recapture": "leaves your {captured_piece_type} undefended — opponent recaptures on {played_to_square}",

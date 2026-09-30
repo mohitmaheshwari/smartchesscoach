@@ -120,7 +120,29 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
                     return (f"{_who} played {played}; {best} was the stronger move here — "
                             f"{played} runs into {opp}, taking {_whose} {cap_pt}.",
                             "R_TIER_mistake_floor_consequence")
-                if opp and (opp.endswith("+") or opp.endswith("#")):
+                # A forced mate is not "check". Mohit 2026-09-29 on move 31
+                # of d75acb09: "caption should clearly mention about check
+                # mate." The card's own stored line was
+                # ['Qa1+', 'Ra2', 'Qxa2#'] -- mate in two -- and this floor
+                # accepted the "#" and called it a check anyway, because the
+                # one branch handled both suffixes with one word.
+                #
+                # R12 now has a failure clause that says it properly; this is
+                # the floor beneath it, so it only has to stop lying.
+                if facts.get("allows_forced_mate") and facts.get("allowed_mate_in"):
+                    _n = facts.get("allowed_mate_in")
+                    _w = "move" if _n == 1 else "moves"
+                    _start = facts.get("allowed_mate_first_move") or opp
+                    if _start:
+                        return (f"{_who} played {played}; {best} was the stronger move "
+                                f"here — {played} lets {_start} start a forced "
+                                f"checkmate in {_n} {_w}.",
+                                "R_TIER_mistake_floor_forced_mate")
+                if opp and opp.endswith("#"):
+                    return (f"{_who} played {played}; {best} was the stronger move here — "
+                            f"{played} allows {opp}, which is checkmate.",
+                            "R_TIER_mistake_floor_consequence")
+                if opp and opp.endswith("+"):
                     return (f"{_who} played {played}; {best} was the stronger move here — "
                             f"{played} lets {opp} come in with check.",
                             "R_TIER_mistake_floor_consequence")

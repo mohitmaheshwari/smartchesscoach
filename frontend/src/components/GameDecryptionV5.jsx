@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
+import { resolveBadgeTier } from "../lib/moveBadge";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
@@ -1345,54 +1346,8 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               if (!currentMove || planMode || showingFutureMoves) return null;
               const squares = getLastMoveSquares(currentMove);
               if (!squares) return null;
-
-              // Mohit 2026-05-31: badge-vs-caption alignment. R12 picks
-              // the severity word for the caption text via severity_tiers
-              // resolution (with bumps for played_smaller_win, canonical-
-              // mistake-stayed-balanced, etc.). The badge needs to match.
-              //
-              // PRIMARY source: currentMove.caption_severity_word - the
-              // canonical field written by the V5 caption pipeline
-              // (TeachingMeta.caption_severity_word). Set to one of
-              // {"blunder","mistake","inaccuracy"} when R12 produced a
-              // severity caption, null otherwise.
-              //
-              // FALLBACK: text-parse the rendered caption. Covers legacy
-              // game_analyses documents that were written before this
-              // field was added - those records will be backfilled on
-              // next V5 re-render, but until then the text parse keeps
-              // the badge correct.
-              let tierFromCaption = currentMove.caption_severity_word || null;
-              if (!tierFromCaption) {
-                const narrative = (currentMove.narrative || "").toLowerCase();
-                if (narrative.includes("is a major blunder")) {
-                  tierFromCaption = "blunder";
-                } else if (narrative.includes("is a serious mistake")) {
-                  tierFromCaption = "mistake";
-                } else if (narrative.includes("is a mistake")) {
-                  tierFromCaption = "mistake";
-                } else if (narrative.includes("is an inaccuracy")) {
-                  tierFromCaption = "inaccuracy";
-                }
-              }
-              if (tierFromCaption) {
-                return { square: squares[1], type: tierFromCaption };
-              }
-
-              let severity = currentMove.severity;
-
-              // For opponent moves without severity, derive from cp_loss
-              if ((!severity || severity === "context" || severity === "good") && !currentMove.is_user_move) {
-                const cpLoss = Math.abs(currentMove.cp_loss || 0);
-                if (cpLoss >= 200) severity = "blunder";
-                else if (cpLoss >= 100) severity = "mistake";
-                else if (cpLoss >= 50) severity = "inaccuracy";
-                else if (cpLoss <= 5) severity = "best";
-                else severity = "good";
-              }
-
-              if (!severity || severity === "context") return null;
-              return { square: squares[1], type: severity };
+              const tier = resolveBadgeTier(currentMove);
+              return tier ? { square: squares[1], type: tier } : null;
             })()}
           />
           
