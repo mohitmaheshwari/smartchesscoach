@@ -10289,6 +10289,12 @@ def extract_facts(
                 try:
                     _mv = _sim.parse_san((_san or "").strip())
                 except (chess.InvalidMoveError, chess.IllegalMoveError, ValueError):
+                    # The stored line goes illegal partway. The claim's premise
+                    # is "the line ENDS with the mover down material", and a
+                    # truncated line cannot establish that -- 3 of 7,145 firings
+                    # were unprovable for exactly this reason on 2026-09-30.
+                    # Abandon rather than claim from a prefix.
+                    _first = None
                     break
                 _victim = _sim.piece_at(_mv.to_square) if _sim.is_capture(_mv) else None
                 # A capture of the MOVER's own piece, from ply 2 on (ply 1 is
