@@ -284,22 +284,56 @@ quality gates the outcome directly — the same rows, split on their stored line
 | unresolved | 1,530 | 10.2% | 34.7% | 55.1% |
 | no line | 1,115 | 2.7% | 4.4% | 92.9% |
 
-A tenth predicate now walks the engine's own stored line and names the capture
-at ply ≥ 2, firing only when the line *ends* with the mover down material so a
-trade inside the line is not reported as a loss. Measured on 5,000 rows:
-PLAYED_WHY 10.4% → 12.7% (+114 cards, ≈3,480 corpus-wide) at **100% precision**
-— all 112 claims re-verified by pushing the line on the board.
+A predicate that walks the engine's own stored line and names the capture at
+ply >= 2, firing only when the line *ends* with the mover down material so a
+trade inside the line is not reported as a loss. It **ships for opponent moves
+and is withdrawn for user moves**, and that difference is the lesson here.
 
-It is deliberately the LAST predicate. Inserted mid-list it pre-empted the
-ply-1 predicates, and where the claim verifier then rejected it the recovery
-path dropped the failure clause altogether instead of falling back: 48 cards
-into verifier recovery and **3 that lost a working played-why**. Last means it
-can only add.
+`line_loss_*` is mover-relative, so on an opponent move it already names a
+piece the OPPONENT loses -- which is the user's opportunity.
 
-Two things this leaves open. The claim verifier rejects 38 of these clauses
-although every one is true by board arithmetic, so it cannot parse this shape.
-And ~0.08% of cards render as a bare move with a full stop ("Rg4+.") — 4 in
-5,000, unchanged by this work, so pre-existing.
+Measured by re-rendering ALL 152,519 faulted cards, not a sample:
+
+| | firings | precision | cost |
+|---|---:|---|---|
+| opponent clause | **7,142** | **100.0000%** | none found |
+| user predicate | 2,690 | 100% | **248 cards lost their R12 caption** |
+
+The opponent side moved exactly one thing in the whole population: NO_WHY ->
+PLAYED_WHY 7,142. Zero played-why losses, zero leakage onto user cards.
+
+The user side was right about its claims and still withdrawn. It cost 248 user
+cards their R12 caption -- the card fell through to a promoted tier rule with
+weaker text, 179 of them ALT_WHY_ONLY -> NO_WHY -- plus 4 that lost a working
+played-why and 14 that crossed the word cap. It is causal, not coincidental:
+the fact is set on **14.0%** of random user cards and **100%** of those 248.
+But the mechanism is not understood -- the first hypothesis (its
+`teaching_principles` entry pulling variant selection toward a shape that drops
+the best move) was measured and wrong, and R12's suppression does not reference
+`failure_clause` -- so it does not ship on a 10:1 trade. The facts and glossary
+remain; the predicate is unwired, and
+`tests/test_line_material_loss_why.py` records why, so re-wiring is deliberate.
+
+Position matters: mid-list the predicate pre-empted the ply-1 ones, and where
+the verifier then rejected it, recovery dropped the failure clause altogether
+-- 48 cards into recovery and 3 lost played-whys. Last, it can only add.
+
+One precision gap, now closed: when a stored line goes illegal partway,
+production judged "the line ends down material" on the truncated prefix. That
+was the sole cause of 3 unprovable firings; the fact is now abandoned instead.
+
+### The floor beneath it stopped going silent
+
+Verifier recovery built its text from `severity_practical`, which reads "good"
+on cards the canonical tier calls a mistake, so its severity phrase came out
+empty and it fell through to `recovery = f"{played_san}."` -- a caption that
+says nothing at all. **171 cards corpus-wide rendered as a lone SAN.** Recovery
+now names the stronger move, which that function's own contract already lists
+among the irreducibly-true claims it may make.
+
+Bare-move captions **171 -> 0**. "Rxa7." now reads "Rxa7. Qc5+ was stronger
+here." All 151 user-side text changes in the whole population are this.
+
 
 ## 7a. The original branch-order finding, kept because the bug is real
 
@@ -398,64 +432,67 @@ were added is wrong about where the data lives.
 
 ## 11. What this says to build, in order
 
-Ordered by cards affected per unit of work, against the measured cause split.
+Updated 2026-09-30 after verifying on all 152,519 cards. Items marked DONE were
+measured, not assumed; two items shrank to nothing when dated.
 
-**Do first, because everything else is judged by it**
+**Done**
 
-1. **Point the queue at `caption_why_class` instead of `has_why`**
-   (`admin_positional_reasons.py:548,575`). Removes 2,071 clean cards from the
-   human queue and reveals 92,457 bare ones. ALT_WHY_ONLY and NO_WHY want
-   opposite fixes and should not share one queue. Until this changes, every
-   number anyone quotes about coverage is the keyword scan's number.
+1. **Queue gates on `caption_why_class`, not `has_why`**
+   (`admin_positional_reasons.py`). 2,071 clean cards leave the human queue,
+   92,457 bare ones become visible, and `why_class` splits NO_WHY from
+   ALT_WHY_ONLY because they want opposite fixes.
+2. **Opponent moves read the punishment line past ply 1.** 7,142 cards, every
+   claim proved on the board, nothing else in the population moved. This was
+   the single biggest cause at 36.2%.
+3. **Verifier recovery stops going silent.** Bare-move captions 171 -> 0.
+4. **`_recommended_move_why` stops guessing the owner** -- three branches said
+   "your" about the mover's pieces regardless of who moved.
+5. ~~tier23 branch order.~~ Fixed; changed zero cards. Section 7a.
 
-**Cheap and large**
+**Withdrawn, on evidence**
 
-2. ~~Swap the two branches in `tier23_caption`.~~ **Done, and it moved nothing**
-   — that path renders almost none of this corpus. Kept because the ordering bug
-   is real. See section 7a for how the estimate was wrong.
-3. **Read deeper into the punishment line.** *Done, first increment:* a tenth
-   R12 predicate reads ply ≥ 2 and takes PLAYED_WHY from 10.4% to 12.7% at 100%
-   precision. 36.0% of stored lines resolve later than ply 1 and every other
-   predicate reads only ply 1, so there is more here — forks, checks and
-   deflections at depth still have no clause.
-4. **Explain the opponent's move.** The single biggest cause at 55,164 cards
-   (36.2%), and for 52,468 of them a best move and a punishment line are already
-   stored and unread. R12's opponent variants exist; the `failure_mode_clauses_opp`
-   predicates are the gap, and they have the same ply-1 blindness.
-5. **Fix `R12_blunder` going bare on user moves that have a line.** 30,311 cards
-   — the largest single rule/cause cell in the table.
+6. **The user-side deeper-line predicate.** Correct claims, 248 cards worse.
+   Section 7. Re-wiring needs the mechanism understood first.
 
-**Correctness, small volume, high embarrassment**
+**Still open, but re-measure before starting**
 
-6. **Reconcile severity with the caption text.** A move that leaves the player
-   being mated must never render as "Good move" or "is playable". 514 cards, and
-   the class is live.
-7. **Fix mover attribution.** 4,263 cards tell the player they made the
-   opponent's move and 359 the reverse; the flag is correct, only the text is
-   wrong. *The possessive half is done*: `_recommended_move_why` hardcoded
-   "your" in three branches that describe the MOVER's pieces, and now takes
-   `mover_is_user`, going neutral when the caller does not know. The wrong-subject
-   half is still open.
-8. **Make verifier recovery degrade instead of going quiet.** 6,199 cards had a
-   why, the verifier rejected the claim, and recovery fell to a bare severity
-   statement rather than a weaker true one.
+7. **`R12_blunder` bare on user moves that have a line** -- 30,311 cards, the
+   largest single rule/cause cell. The withdrawn predicate was one attempt at
+   this; the cause table needs recomputing first.
+8. **Reconcile severity with the caption text.** 514 cards say "Good move"
+   where the engine says the player is being mated.
 9. **Point the review prompt at `move_evaluations`** for `cognitive_gap`,
-   `critical_reason`, `threat` and `mate_info`.
+   `critical_reason`, `threat` and `mate_info` -- present on 0 V5 records and on
+   16,064 / 16,686 / 17,113 / 9,631 analyses.
+10. **Store a punishment line where there is none** -- 41,004 cards, and this
+    does not improve across the 2026-09-25 crossover, so it is live.
 
-**Bigger jobs, correctly sized now**
+**Shrank to nothing when dated**
 
-10. **Store a punishment line where there is none.** 41,004 cards (26.9%) have
-   nothing to explain from, and this does not improve across the 2026-09-25
-   crossover, so it is live rather than historical.
-11. **Regenerate the corpus.** Worth doing — it moves 102,652 rows from 4-ply to
-    12-ply lines — but it is *not* the lever it looks like: only 8.0% of faulted
-    cards render with a why under today's code.
+11. ~~Mover attribution, 4,263 cards.~~ Games holding one fell from 104/day on
+    2026-09-22 to 1 on 2026-09-30. ~95% already fixed; what is left is stale
+    stored rows.
+12. ~~Raise the PV length.~~ `PUNISHMENT_PV_PLIES` has been 12 since
+    2026-09-25.
 
-Authoring whys by hand is not on this list. At 8 rulings in 8 days against
-25,795 cards it cannot close, and items 1–4 change what the remaining cards look
-like — so any why authored now would be written against a card that is about to
-change. The 4 whys Mohit and Farhan did author are still worth keeping as the
-voice target for whatever fills these slots.
+**The prerequisite for everything above**
+
+13. **Re-render the corpus, then re-measure.** The stored corpus spans **40
+    code versions**: 67.3% of games are at v135 and **0.4% at the current
+    v182**. Items 11 and 12 both looked like live defects in that data and were
+    not. `scripts/regen_v5_decryption.py` exists, needs no engine, and is
+    resumable -- it re-renders captions from the stored `move_evaluations`.
+    Deploy first, or it bakes the old code into fresh rows.
+
+    It does NOT lengthen the lines: **98.2% of stored
+    `move_evaluations[].pv_after_played` are exactly 4 plies**, so the short
+    lines live in the analysis. The 34.8% of lines that resolve at ply 2-4 are
+    already visible in today's data; only the **37.2% that never resolve inside
+    4 plies** need a full Stockfish re-analysis of 17,346 games at depth 18.
+    Sample what 12 plies actually buys before spending that.
+
+Authoring whys by hand is still not on this list.
+
 
 ---
 
@@ -485,6 +522,23 @@ Recorded because each was a wrong answer that nearly shipped:
 - The first mover-attribution count was inflated: the regex `^Your \w+ ` also
   matches "Your opponent played …", which is correct text. The "724 wrong-owner
   clauses" from that pass was the same contamination and is not a real number.
+- **A 5,000-row sample (3.3%) reported three regressions as zero.** The full
+  152,519-card pass found 44 cards collapsing to a bare move, 4 losing a
+  played-why, and 23 crossing the word cap. Sample said 4 bare captions before
+  and 4 after: no change. Anything that ships user-facing text gets the full
+  pass, not a sample.
+- **A 100%-of-affected-cards figure means nothing without the base rate.** "All
+  120 of the degraded cards have this fact set" only became evidence once the
+  base rate came back at 14.0% on random user cards. That control was skipped
+  first time round.
+- **A correct claim is not a safe change.** The withdrawn predicate was 100%
+  precise on 2,690 firings and still made 248 cards worse, because setting a
+  fact changes variant selection downstream. Precision of the claim and safety
+  of the change are separate measurements.
+- **Two "live bugs" were already fixed.** Mover attribution (~95% gone by
+  2026-09-26) and PV truncation (fixed 2026-09-25) both looked live in the
+  stored data. Date the defect before costing the fix.
+
 - Sampling caught nothing that the full pass contradicted on direction, but it
   was wrong on magnitude twice: a 47-row first sample put "stale" at 68%, a
   500-row queue sample at 17%.
