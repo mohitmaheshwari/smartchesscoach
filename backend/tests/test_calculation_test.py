@@ -126,3 +126,29 @@ def test_seeing_the_line_but_misjudging_the_end_is_recorded(engine):
 def test_no_verdict_asked_means_none_reported(engine):
     r = grade_line(SCHOLARS, ["Qxf7#"], engine)
     assert r["judged_the_end"] is None
+
+
+# ── the sound line must start with the best move ─────────────────────
+#
+# pv_after_best is the continuation AFTER the best move and does not contain
+# it. Handing that to the grader starts the line one half-move in, and its
+# first move is not even legal from the test position. The symptom was the
+# engine's OWN line grading as unsound at ply 1, which is the control that
+# caught it.
+
+def test_the_engine_own_line_grades_as_fully_sound(engine):
+    """If the sound line is not sound, the grader is wrong. This is the
+    control, and it is the one that found the off-by-one."""
+    fen = "5N1k/1p4p1/7p/2p1P3/1pP5/4q3/6PP/5K2 b - - 0 37"
+    best, continuation = "Kg8", ["Nd7", "Qd3+", "Kf2"]
+    r = grade_line(fen, [best] + continuation, engine)
+    assert r["sound_through"] == 4, r["plies"]
+    assert r["found_the_idea"] == FOUND
+
+
+def test_the_continuation_alone_is_not_playable_from_the_position(engine):
+    """Proves the off-by-one is real and not a quirk of one grader run."""
+    fen = "5N1k/1p4p1/7p/2p1P3/1pP5/4q3/6PP/5K2 b - - 0 37"
+    r = grade_line(fen, ["Nd7"], engine)
+    assert r["sound_through"] == 0
+    assert r["plies"][0]["verdict"] == "could not read that move"

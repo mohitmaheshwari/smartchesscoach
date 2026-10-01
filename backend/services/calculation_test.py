@@ -244,3 +244,105 @@ def _judge(board: chess.Board, engine, verdict: str, mover: chess.Color,
     actually = "winning" if cp >= 200 else ("losing" if cp <= -200 else "level")
     said = str(verdict).strip().lower()
     return {"said": said, "actually": actually, "right": said == actually}
+
+
+# ── choosing a position worth being tested on ─────────────────────────
+
+# A position with nothing to work out teaches nothing. Three half-moves is the
+# floor: your move, their answer, your follow-up.
+MIN_REQUIRED_PLY = 3
+# Already decided positions are excluded. A line you miss when the game is
+# gone is not a calculation failure worth a player's time.
+MIN_HEADROOM = 0.10
+CANDIDATE_MIN_CP_LOSS = 150
+
+
+async def pick_test_positions(db, user_id: str, count: int = 3,
+                              engine=None, depth: int = 16) -> List[Dict[str, Any]]:
+    """Positions from this player's OWN games where they missed a line.
+
+    Their own games on purpose: a position they have already sat in is one they
+    can be shown going wrong in, and it is the difference between an exercise
+    and a diagnosis.
+
+    DEPTH-MATCHED. The scope's second validation check is that the test agrees
+    with itself across positions, and three positions needing 3, 5 and 9
+    half-moves would produce three different answers from a perfectly
+    consistent player. That spread would read as noise when it is the
+    instrument. So candidates are grouped by required depth and all of them are
+    drawn from one group.
+    """
+    from services.expected_points import headroom
+
+    games = await db.games.find(
+        {"user_id": user_id, "is_analyzed": True},
+        {"_id": 0, "game_id": 1, "user_color": 1},
+    ).to_list(400)
+    colour = {g["game_id"]: str(g.get("user_color", "")).lower().startswith("w")
+              for g in games}
+    if not colour:
+        return []
+
+    raw: List[Dict[str, Any]] = []
+    async for doc in db.game_analyses.find(
+        {"game_id": {"$in": list(colour)}},
+        {"_id": 0, "game_id": 1, "stockfish_analysis.move_evaluations": 1},
+    ):
+        white = colour.get(doc.get("game_id"))
+        if white is None:
+            continue
+        for mv in (doc.get("stockfish_analysis") or {}).get("move_evaluations") or []:
+            if mv.get("is_opponent_move") or mv.get("mate_info"):
+                continue
+            cp_loss, eval_before = mv.get("cp_loss"), mv.get("eval_before")
+            fen, best = mv.get("fen_before"), mv.get("best_move")
+            pv = mv.get("pv_after_best") or []
+            if not fen or not best or len(pv) < MIN_REQUIRED_PLY:
+                continue
+            if not isinstance(cp_loss, (int, float)) or cp_loss < CANDIDATE_MIN_CP_LOSS:
+                continue
+            if not isinstance(eval_before, (int, float)):
+                continue
+            own = eval_before if white else -eval_before
+            if (headroom(own) or 0) < MIN_HEADROOM:
+                continue
+            raw.append({
+                "game_id": doc["game_id"],
+                "move_number": mv.get("move_number"),
+                "fen": fen,
+                "you_played": mv.get("move"),
+                "cp_loss": int(cp_loss),
+                # pv_after_best is the continuation AFTER the best move and
+                # does NOT contain it, so the best move is put back on the
+                # front. Without this the line starts one half-move in and its
+                # first move is not even legal from the test position -- which
+                # is what grading the engine's own line as "unsound at ply 1"
+                # was telling us.
+                "stored_line": [str(best)] + [str(x) for x in pv[:11]],
+            })
+
+    if not raw or engine is None:
+        return raw[:count]
+
+    # Measure the real depth of the best candidates, then take one depth band.
+    raw.sort(key=lambda r: -r["cp_loss"])
+    measured: List[Dict[str, Any]] = []
+    for item in raw[:40]:
+        try:
+            need = required_depth(chess.Board(item["fen"]), engine, depth)
+        except Exception:
+            continue
+        if need < MIN_REQUIRED_PLY:
+            continue
+        item["required_depth"] = need
+        measured.append(item)
+        if len(measured) >= 24:
+            break
+
+    if not measured:
+        return []
+    bands: Dict[int, List[Dict[str, Any]]] = {}
+    for item in measured:
+        bands.setdefault(item["required_depth"], []).append(item)
+    best_band = max(bands.values(), key=len)
+    return best_band[:count]
