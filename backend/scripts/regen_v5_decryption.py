@@ -87,7 +87,18 @@ async def main():
     if args.limit > 0:
         cursor = cursor.limit(args.limit)
 
-    games = await cursor.to_list(args.limit if args.limit > 0 else 10000)
+    if args.limit > 0:
+        games = await cursor.to_list(args.limit)
+    else:
+        # No cap when no --limit was asked for. This used to be
+        # `to_list(10000)`, which silently processed 10,000 of the 17,667
+        # analyzed games and reported "Found 10000 game(s) to process" as
+        # though that were all of them. Worse, the sort above is
+        # imported_at DESCENDING, so the 7,667 it dropped were the OLDEST --
+        # exactly the stalest captions the re-render exists to refresh.
+        # Caught 2026-10-01 mid-run by reading the log's own "Found" line
+        # against a count of the collection.
+        games = await cursor.to_list(await db.games.count_documents(flt))
 
     if not games:
         print("No games match the filters.")
