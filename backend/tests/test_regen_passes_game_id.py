@@ -71,3 +71,33 @@ def test_game_id_is_not_passed_as_a_literal_none():
             assert not (isinstance(kw.value, ast.Constant) and kw.value.value is None), (
                 "game_id is passed but hardcoded to None"
             )
+
+
+def test_regen_script_has_no_hardcoded_game_cap():
+    """A full run must mean all analyzed games, not the newest 10,000.
+
+    `to_list(10000)` processed 10,000 of 17,667 analyzed games and printed
+    "Found 10000 game(s) to process" as though that were the whole corpus. The
+    cursor sorts by imported_at DESCENDING, so the 7,667 it dropped were the
+    oldest -- the stalest captions, which is the entire reason to re-render.
+    Caught 2026-10-01 while the run was already in flight.
+    """
+    tree = ast.parse(open(_SCRIPT, encoding="utf-8").read())
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if getattr(node.func, "attr", None) != "to_list":
+            continue
+        # Walk INTO each argument. The original was
+        # `to_list(args.limit if args.limit > 0 else 10000)`, where the cap is
+        # a Constant inside an IfExp -- a check that only looked at the top
+        # level of node.args passed against it, which is how this test was
+        # vacuous the first time it was written.
+        for arg in node.args:
+            for sub in ast.walk(arg):
+                if isinstance(sub, ast.Constant) and isinstance(sub.value, int)                         and sub.value > 1:
+                    raise AssertionError(
+                        f"to_list() reachable literal cap {sub.value!r}; a full "
+                        "run must size itself from the collection, not a magic "
+                        "number"
+                    )
