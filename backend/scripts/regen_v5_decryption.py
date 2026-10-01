@@ -87,7 +87,18 @@ async def main():
     if args.limit > 0:
         cursor = cursor.limit(args.limit)
 
-    games = await cursor.to_list(args.limit if args.limit > 0 else 10000)
+    if args.limit > 0:
+        games = await cursor.to_list(args.limit)
+    else:
+        # No cap when no --limit was asked for. This used to be
+        # `to_list(10000)`, which silently processed 10,000 of the 17,667
+        # analyzed games and reported "Found 10000 game(s) to process" as
+        # though that were all of them. Worse, the sort above is
+        # imported_at DESCENDING, so the 7,667 it dropped were the OLDEST --
+        # exactly the stalest captions the re-render exists to refresh.
+        # Caught 2026-10-01 mid-run by reading the log's own "Found" line
+        # against a count of the collection.
+        games = await cursor.to_list(await db.games.count_documents(flt))
 
     if not games:
         print("No games match the filters.")
@@ -161,6 +172,20 @@ async def main():
                 move_evaluations=move_evaluations,
                 user_id=user_id,
                 db=db,
+                # Without this the generator logs "game_id=None -- authored
+                # caption overrides lookup will be silently skipped for every
+                # move in this game" and regenerates straight over them. There
+                # are 190 authored captions across 29 games, and this script's
+                # whole job is to rewrite every analyzed game, so a full run
+                # discarded all of them -- hand-written coaching prose like
+                # "the whole point of gambiting the f pawn was to push the e
+                # pawn, but black misses it" replaced by generated text.
+                #
+                # Measured on the same 10 games with and without it: passing
+                # game_id turns 7-better/9-worse into 12-better/5-worse, so
+                # this one argument was the difference between a re-render
+                # that improves the corpus and one that damages it.
+                game_id=game_id,
             )
         except Exception as exc:
             print(f"  [{i}/{total}] {game_id}  FAIL: {exc}")
