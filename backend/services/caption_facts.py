@@ -84,7 +84,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import sys
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 import chess
 
@@ -9690,10 +9690,112 @@ def _outnumbered_target(
     return (best[0], best[1], best[2]) if best else None
 
 
+def _line_payoff_after_sacrifice(
+    board: chess.Board, move: chess.Move, line: Optional[Sequence[str]]
+):
+    """What the engine's line actually wins, when the capture itself loses.
+
+    Returns (piece_name, square_name, enabling_san, net_cp) or None.
+
+    Mohit 2026-10-02, on "Opponent's b5 is a serious mistake. Play Bxf7+ -- it
+    wins a pawn": "no why again, also it showed me to sacrifice my bishop,
+    should show me a complete line if theory that is real coaching."
+
+    He is right on both counts. On
+    rnbqkbnr/2p1pppp/p7/1p6/2BP4/2N5/PPP2PPP/R1BQK1NR w the f7 pawn is guarded
+    only by the king on e8, so static_exchange_eval scored it +100 "free" and
+    the caption called a bishop sacrifice a won pawn -- while
+    legal_exchange_gain, which plays Kxf7 out, says -200. And the real point is
+    two moves later: Bxf7+ Kxf7 Qf3+ forks the king and the UNDEFENDED rook on
+    a8, so Qxa8 wins the exchange and the line nets +300.
+
+    So when the capture loses material on its own square, the reason comes from
+    the line instead: the biggest thing we take in it, and the move that sets it
+    up. The caption then says what a coach would say.
+    """
+    if not line:
+        return None
+    mover = board.turn
+    after = board.copy()
+    after.push(move)
+
+    def material(b: chess.Board) -> int:
+        total = 0
+        for _sq, piece in b.piece_map().items():
+            value = PIECE_VALUE_CP.get(piece.piece_type, 0)
+            total += value if piece.color == mover else -value
+        return total
+
+    start = material(board)
+    walk = after.copy()
+    best = None
+    our_last_san = None       # the move WE make that sets the payoff up
+    double_attack = None
+    for san in line:
+        try:
+            step = walk.parse_san(str(san))
+        except (ValueError, AssertionError):
+            return None
+        if walk.turn == mover:
+            if walk.is_capture(step):
+                victim = walk.piece_at(step.to_square)
+                if victim is not None and victim.piece_type != chess.KING:
+                    value = PIECE_VALUE_CP.get(victim.piece_type, 0)
+                    if best is None or value > best[2]:
+                        # The move that DOES the capturing, not the one before
+                        # it: "Bxf5 wins the bishop on e4" named our previous
+                        # move and read as though Bxf5 were the winning move.
+                        best = (
+                            PIECE_TYPE_NAMES.get(victim.piece_type, "piece"),
+                            chess.square_name(step.to_square),
+                            value,
+                            walk.san(step),
+                        )
+            elif double_attack is None and walk.gives_check(step):
+                # A check inside the line that ALSO hits something loose is the
+                # point of most sacrifices, and it is visible even when the
+                # stored line stops before the capture. Measured on the card
+                # that prompted this: pv_after_played is four plies,
+                # Bxf7+ Kxf7 Qf3+ Nf6, and ends one move before Qxa8 -- so the
+                # payoff itself is off the end of the data while the fork that
+                # earns it is inside it.
+                probe = walk.copy()
+                probe.push(step)
+                for square in probe.attacks(step.to_square):
+                    piece = probe.piece_at(square)
+                    if (piece is None or piece.color == mover
+                            or piece.piece_type == chess.KING):
+                        continue
+                    if probe.attackers(not mover, square):
+                        continue        # defended, so not loose
+                    if PIECE_VALUE_CP.get(piece.piece_type, 0) < 320:
+                        continue
+                    double_attack = (
+                        PIECE_TYPE_NAMES.get(piece.piece_type, "piece"),
+                        chess.square_name(square),
+                        walk.san(step),
+                    )
+                    break
+            our_last_san = walk.san(step)
+        walk.push(step)
+
+    if best is not None:
+        net = material(walk) - start
+        # Only worth saying when the line really does come out ahead; the
+        # sacrifice has to be paid back, not merely followed by a capture.
+        if net >= 100:
+            return (best[0], best[1], best[3], net)
+    if double_attack is not None:
+        piece_name, square_name, checking_san = double_attack
+        return (piece_name, square_name, checking_san, None)
+    return None
+
+
 def _recommended_move_why(
     board: chess.Board,
     move: Optional[chess.Move],
     mover_is_user: Optional[bool] = None,
+    line: Optional[Sequence[str]] = None,
 ) -> Optional[str]:
     """WHY a recommended move is good, as a short 3rd-person verb phrase that slots into
     'it {why}' — 'develops a piece', 'takes the center', 'trades off his bishop', 'wins a
@@ -9725,7 +9827,46 @@ def _recommended_move_why(
             if cap_pt is None:
                 return None
             name = PIECE_TYPE_NAMES.get(cap_pt, "piece")
-            see = static_exchange_eval(board, move.to_square, mover)
+            # King-aware, because static_exchange_eval skips king recaptures and
+            # therefore scores a square guarded only by the king as free. That is
+            # how "Play Bxf7+ -- it wins a pawn" was written about a bishop
+            # sacrifice: f7's only defender was the king on e8. Measured over 400
+            # games, 48 of 2,081 recommended-capture reasons claimed a win on a
+            # capture this function scores as losing, 33 of them king-only.
+            try:
+                see = legal_exchange_gain(board, move.to_square, mover, first_move=move)
+            except (ValueError, TypeError):
+                see = static_exchange_eval(board, move.to_square, mover)
+            if see is not None and see < TRADE_FLOOR_CP:
+                # The capture loses material where it lands, so the reason has to
+                # come from what the line wins afterwards -- or we say nothing
+                # about material at all.
+                payoff = _line_payoff_after_sacrifice(board, move, line)
+                if payoff is not None:
+                    piece_name, square_name, enabling_san, net = payoff
+                    if net is None and enabling_san:
+                        # The check that earns the material back.
+                        return (f"gives up material so {enabling_san} hits the king "
+                                f"and the loose {piece_name} on {square_name}")
+                    if enabling_san:
+                        return (f"gives up material, and {enabling_san} wins the "
+                                f"{piece_name} on {square_name}")
+                    return f"wins the {piece_name} on {square_name} in the line"
+            # When the capture only comes out ahead BECAUSE a later recapture
+            # costs them a piece, say that instead of "wins material". On
+            # rnbqk2r/pppp2pp/5p2/2b1p3/N3P3/3B1N2/PPPP1nPP/R1BQ1RK1 w, Rxf2
+            # Bxf2+ Kxf2 nets White +150 -- but the reason a player needs is
+            # "if he takes back it costs him the bishop", not a material
+            # verdict. Gated on the static score disagreeing with the played-out
+            # one, which is exactly the king-recapture shape and leaves every
+            # ordinary free capture on the branches below.
+            _static = static_exchange_eval(board, move.to_square, mover)
+            if (see is not None and see >= 80
+                    and _static is not None and _static < 0):
+                deflection = _recapture_costs_him(board, move)
+                if deflection is not None:
+                    lost_name, lost_square = deflection
+                    return f"costs him the {lost_name} on {lost_square} if he takes back"
             if see is not None and see >= 200:
                 return "wins material"
             if see is not None and see >= 80:
@@ -10710,7 +10851,10 @@ def extract_facts(
     best_move_principle = _classify_move_principle(board_before, _best_mv)
     # WHY the engine's best move is good (principle OR trade/win) — for the law that
     # every recommended move needs its why (feedback_explain_why_recommended_move_good).
-    best_move_why = _recommended_move_why(board_before, _best_mv, mover_is_user)
+    best_move_why = _recommended_move_why(
+        board_before, _best_mv, mover_is_user,
+        line=pv_after_best or pv_after_played,
+    )
 
     # DISTINGUISH GATE (2026-07-01, docs/reasoning_correctness_scope.md): a "why the better
     # move is good" that is ALSO true of the move the user PLAYED explains nothing — "Be7

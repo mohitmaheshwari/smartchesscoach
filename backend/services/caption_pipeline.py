@@ -65,6 +65,7 @@ from services.severity import (
 from services.caption_facts import (
     PIECE_VALUE_CP,
     LegalMaterialLossCause,
+    legal_exchange_gain,
     ReviewTeachingCause,
     build_legal_material_loss_cause,
     build_verified_line_cause,
@@ -1345,29 +1346,55 @@ def inject_user_blunder_detector_facts(
                     # win. R12 needs this so 'Nxh3+ was better — captures
                     # the pawn on h3. Material won is leverage…' stops
                     # firing on knight sacrifices.
-                    _PIECE_VAL = {
-                        chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
-                        chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100,
-                    }
+                    # A sacrifice is a move that LOSES material when the
+                    # exchange is played out -- not merely a big piece landing
+                    # on a defended square.
+                    #
+                    # The old test was "attacker worth more than target AND
+                    # something defends the square afterwards", using
+                    # board.attackers(), which is pseudo-legal and does not
+                    # play the trade out. Measured over 400 games it fired on
+                    # 422 recommended captures and 247 of them (58%) actually
+                    # WIN material -- so "it sacrifices your bishop to open up
+                    # a strong attack, the attack is worth more than the pawn"
+                    # was being said about moves that just win a piece.
+                    #
+                    # legal_exchange_gain plays every capture on the square,
+                    # king recaptures included, which is the same authority the
+                    # arrows and the recommended-move reason now use.
                     _attacker_piece = _board_cap.piece_at(_best_mv.from_square)
-                    _att_val = _PIECE_VAL.get(_attacker_piece.piece_type, 0) if _attacker_piece else 0
-                    _tgt_val = _PIECE_VAL.get(_captured.piece_type, 0)
-                    if _att_val > _tgt_val:
-                        _board_post = _board_cap.copy()
-                        _board_post.push(_best_mv)
+                    try:
+                        _sac_gain = legal_exchange_gain(
+                            _board_cap, _best_mv.to_square, _board_cap.turn,
+                            first_move=_best_mv,
+                        )
+                    except (ValueError, TypeError):
+                        _sac_gain = None
+                    # Not from a position that is already lost. The variant
+                    # this fact drives claims "the attack is worth more than
+                    # the {piece} you lose", and from a lost position that is
+                    # not true -- the engine is picking the best of bad
+                    # options, not winning an attack. Measured over 400 games:
+                    # 54 of 176 true sacrifices (31%) are played from a mover
+                    # eval at or below -300. Uses the existing user_is_losing
+                    # flag rather than a new threshold, and note that raw
+                    # eval_before is WHITE-relative (measured 97% vs 44%), so
+                    # reading its sign directly would have mis-signed every
+                    # black-to-move card.
+                    if (_sac_gain is not None and _sac_gain < 0
+                            and not caption_facts.get("user_is_losing")):
                         _opp = not _board_cap.turn
-                        if _board_post.attackers(_opp, _best_mv.to_square):
-                            caption_facts["best_move_is_sacrifice"] = True
-                            caption_facts["best_move_sac_attacker_piece"] = (
-                                chess.piece_name(_attacker_piece.piece_type)
-                                if _attacker_piece else "piece"
-                            )
-                            # Near-king sac: target within 2 squares of enemy king.
-                            _enemy_king = _board_cap.king(_opp)
-                            if _enemy_king is not None:
-                                _dist = chess.square_distance(_best_mv.to_square, _enemy_king)
-                                if _dist <= 2 and _captured.piece_type == chess.PAWN:
-                                    caption_facts["best_move_sac_near_king"] = True
+                        caption_facts["best_move_is_sacrifice"] = True
+                        caption_facts["best_move_sac_attacker_piece"] = (
+                            chess.piece_name(_attacker_piece.piece_type)
+                            if _attacker_piece else "piece"
+                        )
+                        # Near-king sac: target within 2 squares of enemy king.
+                        _enemy_king = _board_cap.king(_opp)
+                        if _enemy_king is not None:
+                            _dist = chess.square_distance(_best_mv.to_square, _enemy_king)
+                            if _dist <= 2 and _captured.piece_type == chess.PAWN:
+                                caption_facts["best_move_sac_near_king"] = True
         except Exception:
             pass
 
@@ -1865,7 +1892,7 @@ def inject_opp_side_narration_facts(
                     _reply_mv,
                     _reply_line,
                     opp_cp_loss or 300,
-                ) or _rmw(_post_opp_board, _reply_mv)
+                ) or _rmw(_post_opp_board, _reply_mv, line=_reply_line)
                 if _rwhy:
                     caption_facts["opp_user_reply_why"] = _rwhy
                 # WHY THEIR MOVE WAS THE MISTAKE, not just why ours is good.
@@ -4801,21 +4828,59 @@ def _line_sequence_arrows(
             chess.square_name(mv.from_square),
             chess.square_name(mv.to_square),
             board.is_capture(mv),
+            board.gives_check(mv),
         ))
         board.push(mv)
 
     payoff = None
-    for idx, (ours, _f, _t, is_cap) in enumerate(steps):
+    for idx, (ours, _f, _t, is_cap, _chk) in enumerate(steps):
         if ours and is_cap:
             payoff = idx
             break
+
+    # A SACRIFICE is the one case where our capture comes first and the
+    # single-move picture is actively misleading, so the "already drawn
+    # correctly" reasoning above does not apply to it.
+    #
+    # Mohit 2026-10-02, on "Opponent's b5 is a serious mistake. Play Bxf7+ —
+    # it wins a pawn", drawn as a lone arrow into f7: "it showed me to
+    # sacrifice my bishop, should show me a complete line if theory that is
+    # real coaching, you know?" One arrow into f7 shows a player giving a
+    # bishop away for a pawn and stops; the point is Bxf7+ Kxf7 Qf3+, where
+    # the check forks the king and the loose rook on a8.
+    #
+    # So when our first move is a capture that LOSES material on its own
+    # square -- king recaptures played out, which is what makes it a sacrifice
+    # rather than a win -- the line is drawn through to our last move in it.
+    if payoff == 0 and board_after_opp is not None:
+        try:
+            first = board_after_opp.parse_san(str(pv[0]))
+            gain = legal_exchange_gain(
+                board_after_opp, first.to_square, us, first_move=first
+            )
+        except (ValueError, TypeError, AssertionError, IndexError):
+            gain = 0
+        if gain is not None and gain < 0:
+            # The FIRST of our moves after their forced reply that does
+            # something -- a capture or a check -- and only inside the arrow
+            # budget. Taking the LAST of our moves instead walked a 12-ply PV
+            # to a payoff far past the four arrows we draw, so the picture was
+            # truncated mid-line and ended on THEIR move with no payoff at all
+            # (game_af4d58d0936a move 9, four arrows, no green).
+            for idx, (ours, _f, _t, is_cap, gives_chk) in enumerate(steps):
+                if idx < 2 or not ours:
+                    continue
+                if is_cap or gives_chk:
+                    if idx <= max_arrows - 1:
+                        payoff = idx
+                    break
 
     # Nothing to show, or the single-move builders already say it.
     if payoff is None or payoff < 2:
         return []
 
     arrows: List[Dict[str, str]] = []
-    for idx, (ours, frm, to, _cap) in enumerate(steps[: payoff + 1]):
+    for idx, (ours, frm, to, _cap, _chk) in enumerate(steps[: payoff + 1]):
         if len(arrows) >= max_arrows:
             break
         if ours:
@@ -6175,10 +6240,21 @@ def build_move_teaching_decision(
                 _re_pb.escape(_bm)
                 + r" (?:was (?:the )?(?:better|stronger) move(?: here)?|"
                   r"was better|would have made things harder for your opponent)"
-                  r"(?:\s*[—-]\s*[^.]*)?\."
+                  r"(?P<reason>\s*[—-]\s*[^.]*)?\."
             )
             _wb_m = _re_pb.search(_wb_pat, _cap_wb)
-            if _wb_m and " — it " not in _wb_m.group(0):
+            # Skip when the shell ALREADY carries a reason, whatever it opens
+            # with. The old guard tested for the literal " — it ", so a clause
+            # beginning "it's" slipped through the space and was overwritten --
+            # which is why "it's the textbook refutation in the Fried Liver
+            # Attack" never reached a card: 4 of 17,689 stored reviews name a
+            # trap, and 302 of 305 games where the player held the punishment
+            # say nothing. 12 of the 37 authored user why-clauses do not start
+            # with "it " and were all being replaced by the generic one:
+            # curriculum deviation, knight-on-rim, queen-chased, un-developing,
+            # blocks-pawn, position-already-losing, and the trap punishment.
+            _wb_existing = (_wb_m.group("reason") or "").strip(" —-") if _wb_m else ""
+            if _wb_m and not _wb_existing:
                 caption_payload["caption"] = (
                     _cap_wb[:_wb_m.start()]
                     + f"{_bm} was better — it {_bw}."
