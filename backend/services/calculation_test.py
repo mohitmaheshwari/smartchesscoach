@@ -150,6 +150,7 @@ def grade_line(fen: str, submitted: List[str], engine,
         "schema_version": "calculation_test.v1",
         "fen": fen,
         "plies": [],
+        "sound_continuation": [],
         "found_the_idea": None,
         "sound_through": 0,
         "stopped_early": None,
@@ -166,7 +167,8 @@ def grade_line(fen: str, submitted: List[str], engine,
         theirs = (index % 2 == 0)        # the player moves on even indices
         info = engine.analyse(board, chess.engine.Limit(depth=depth))
         best_cp = _own_cp(info.get("score"), board.turn)
-        best_move = (list(info.get("pv") or []) or [None])[0]
+        best_pv = list(info.get("pv") or [])
+        best_move = (best_pv or [None])[0]
 
         move = _parse(board, raw)
         if move is None:
@@ -200,6 +202,10 @@ def grade_line(fen: str, submitted: List[str], engine,
             out["found_the_idea"] = FOUND if ok else MISSED
 
         if not ok:
+            # The teaching, not just the verdict. Being told "c6 was the move"
+            # and nothing else is the same empty card this product has been
+            # criticised for all week; the line is what makes it a lesson.
+            out["sound_continuation"] = _line_san(board, best_pv)
             break
         out["sound_through"] = index + 1
         board = after
@@ -213,6 +219,20 @@ def grade_line(fen: str, submitted: List[str], engine,
 
     if verdict:
         out["judged_the_end"] = _judge(board, engine, verdict, mover, depth)
+    return out
+
+
+def _line_san(board: chess.Board, moves: List[chess.Move], limit: int = 6) -> List[str]:
+    """The engine's line from here, in notation a player can read."""
+    walk = board.copy(stack=False)
+    out: List[str] = []
+    for move in moves[:limit]:
+        if move not in walk.legal_moves:
+            break
+        out.append(walk.san(move))
+        walk.push(move)
+        if walk.is_game_over():
+            break
     return out
 
 

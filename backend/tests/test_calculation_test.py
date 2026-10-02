@@ -152,3 +152,19 @@ def test_the_continuation_alone_is_not_playable_from_the_position(engine):
     r = grade_line(fen, ["Nd7"], engine)
     assert r["sound_through"] == 0
     assert r["plies"][0]["verdict"] == "could not read that move"
+
+
+# ── being told the right move is not teaching ────────────────────────
+
+def test_a_wrong_move_comes_back_with_the_line_that_works(engine):
+    """"c6 was the move" and nothing else is the empty card this product has
+    been criticised for all week. The continuation is what makes it a lesson."""
+    r = grade_line(SCHOLARS, ["Qd1"], engine)
+    assert r["sound_through"] == 0
+    assert len(r["sound_continuation"]) >= 1, r
+    assert r["sound_continuation"][0] == "Qxf7#"
+
+
+def test_a_line_that_holds_needs_no_correction(engine):
+    r = grade_line(SCHOLARS, ["Qxf7#"], engine)
+    assert r["sound_continuation"] == []
