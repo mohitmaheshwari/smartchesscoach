@@ -508,6 +508,36 @@ export default function HomePageNew({ user }) {
                   <p className="text-[12.5px] leading-relaxed text-muted-foreground">
                     I have seen this same decision in more than one of your games. We’ll stay with it until your response begins to change over the board.
                   </p>
+                  {/* What else the games show. The picker already ranks these
+                      and writes them onto the focus document, and until now
+                      every one was thrown away: Home named one thing out of
+                      six the system holds. components/FocusCard.jsx had this
+                      block built and nothing ever mounted that component.
+
+                      Topics only, no counts and no scores -- a mention is not
+                      a plan, and the one instruction above stays the only
+                      thing anyone is asked to do. */}
+                  {Array.isArray(activeFocus?.runners_up) && activeFocus.runners_up.length > 0 && (
+                    <div className="mt-5 pt-4 border-t border-border/50">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                        Also showing in your games
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {activeFocus.runners_up.slice(0, 3).map((r) => (
+                          <span
+                            key={r.topic || r.topic_key}
+                            data-testid="also-showing"
+                            className="text-[11px] px-2.5 py-1 rounded-full bg-muted/60 text-muted-foreground"
+                          >
+                            {String(r.topic || r.topic_key || "").replace(/_/g, " ")}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
+                        Not this week&rsquo;s job. Just so you know I can see them.
+                      </p>
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2 mt-4">
                     <button
                       onClick={() => {
