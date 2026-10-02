@@ -184,3 +184,67 @@ test("a player with no position is told so rather than shown a made-up one", asy
   expect(text()).toContain("Nothing to work out yet");
   expect(container.querySelector('[data-testid="board"]')).toBeNull();
 });
+
+
+// ── the four things Mohit found on the live page ─────────────────────
+
+test("the board does not label every square", async () => {
+  // Coordinates in all 64 cells made the board unreadable.
+  await render();
+  expect(boardProps.showCoordinates).toBe(false);
+});
+
+test("a wrong FIRST move is not described as holding up", async () => {
+  await render();
+  await playMove("a1", "e1");
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true, status: 200,
+    json: async () => ({
+      plies: [{ ply: 1, by: "you", move: "h4", best: "c6", verdict: "unsound" }],
+      sound_through: 0, sound_continuation: ["c6", "b5", "cxb5"],
+    }),
+  });
+  await clickButton("Check my line");
+  expect(text()).toContain("That first move does not work here");
+  expect(text()).not.toContain("holds up");
+});
+
+test("being told the right move comes with the line that works", async () => {
+  await render();
+  await playMove("a1", "e1");
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true, status: 200,
+    json: async () => ({
+      plies: [{ ply: 1, by: "you", move: "h4", best: "c6", verdict: "unsound" }],
+      sound_through: 0, sound_continuation: ["c6", "b5", "cxb5"],
+    }),
+  });
+  await clickButton("Check my line");
+  expect(text()).toContain("What works instead");
+  expect(text()).toContain("c6  b5  cxb5");
+});
+
+test("the whose-turn hint disappears once the line has been checked", async () => {
+  await render();
+  await playMove("a1", "e1");
+  expect(text()).toContain("turn in your line");
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true, status: 200,
+    json: async () => ({ plies: [{ ply: 1, by: "you", move: "Re1", verdict: "sound" }],
+                         sound_through: 1, sound_continuation: [] }),
+  });
+  await clickButton("Check my line");
+  expect(text()).not.toContain("turn in your line");
+});
+
+test("a line that holds is not given a correction", async () => {
+  await render();
+  await playMove("a1", "e1");
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: true, status: 200,
+    json: async () => ({ plies: [{ ply: 1, by: "you", move: "Re1", verdict: "sound" }],
+                         sound_through: 1, sound_continuation: [] }),
+  });
+  await clickButton("Check my line");
+  expect(text()).not.toContain("What works instead");
+});

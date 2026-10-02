@@ -184,16 +184,19 @@ export default function CalculationTest() {
               fen={position.fen}
               orientation={startSide === "w" ? "white" : "black"}
               selectionOnly
+              showCoordinates={false}
               onSquareClick={onSquareClick}
               highlights={from ? [from] : []}
             />
-            <p className="mt-2 text-xs text-muted-foreground">
-              {from
-                ? `From ${from} — now click where it goes.`
-                : `Click the piece that moves. It is ${
-                    sideToMove === startSide ? "your" : "their"
-                  } turn in your line.`}
-            </p>
+            {!result && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {from
+                  ? `From ${from} — now click where it goes.`
+                  : `Click the piece that moves. It is ${
+                      sideToMove === startSide ? "your" : "their"
+                    } turn in your line.`}
+              </p>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -263,6 +266,10 @@ export default function CalculationTest() {
 function Verdict({ result, onNext, hasNext }) {
   const plies = result.plies || [];
   const broke = plies.find((p) => p.verdict && p.verdict !== "sound");
+  // "Your line holds up until that move" is nonsense when the FIRST move is
+  // the wrong one -- nothing held up.
+  const brokeAtStart = broke && broke.ply === 1;
+  const works = result.sound_continuation || [];
   return (
     <div className="rounded-lg border p-4" data-testid="verdict">
       <p className="text-sm font-medium">How that line held up</p>
@@ -278,12 +285,22 @@ function Verdict({ result, onNext, hasNext }) {
         ))}
       </ol>
       <p className="mt-3 text-sm">
-        {broke
-          ? "Your line holds up until that move."
-          : result.stopped_early
-            ? "Everything you gave was right. There was more to see past where you stopped."
-            : "That is the line."}
+        {brokeAtStart
+          ? "That first move does not work here."
+          : broke
+            ? "Your line holds up to that point, then it goes wrong."
+            : result.stopped_early
+              ? "Everything you gave was right. There was more to see past where you stopped."
+              : "That is the line."}
       </p>
+      {works.length > 0 && (
+        <div className="mt-3 rounded-md bg-muted/50 p-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            What works instead
+          </p>
+          <p className="mt-1 font-mono text-sm">{works.join("  ")}</p>
+        </div>
+      )}
       {result.judged_the_end && result.judged_the_end.right === false && (
         <p className="mt-1 text-sm text-muted-foreground">
           You read the end as {result.judged_the_end.said}; it is{" "}
