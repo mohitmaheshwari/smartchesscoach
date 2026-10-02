@@ -60,6 +60,30 @@ SHADOW_RUNTIME_VERSION = "personalized_game_review_shadow_runtime.v1"
 MINIMUM_SIMPLE_HANG_SCHEMA = 16
 SIMPLE_HANG_PATTERN = "piece_safety"
 SIMPLE_HANG_SUBTYPE = "simple_hang"
+
+# Which gap subtypes may reach a review caption.
+#
+# This was a hardcoded pair for one subtype, so a grade in detector_quality
+# changed NOTHING on screen for anything else -- the code never asked. That is
+# why promoting a detector kept being a no-op: the registry said yes and this
+# line said no.
+#
+# tactical_seq_loss added 2026-10-02. Claim: the player entered a forcing line
+# -- a capture or a check -- and it cost 150+ centipawns. Promise-checked over
+# 2,497 fires at 100%, against a small_slip control at 0.0%, so the two are
+# completely disjoint. 3,702 fires across 56 users on 18.8% of games, and it is
+# the only real calculation signal the product has: `calculation_depth` is the
+# leftovers bucket, not calculation.
+CAPTIONABLE_SUBTYPES = {
+    (SIMPLE_HANG_PATTERN, SIMPLE_HANG_SUBTYPE),
+    ("piece_safety", "tactical_seq_loss"),
+}
+
+# Reflection evidence is only accepted for the original subtype.
+# `review_learning_adapter` raises ContractViolation on any other content_ref,
+# so a new subtype asks for no reflection rather than generating evidence that
+# would be thrown away. The caption shows; mastery is untouched.
+REFLECTION_SUBTYPES = {(SIMPLE_HANG_PATTERN, SIMPLE_HANG_SUBTYPE)}
 VERIFIED_CAUSE_QUALITY_ID = "review:verified_single_game_cause"
 EXACT_ENDGAME_CAUSE_QUALITY_ID = "review:exact_endgame_result_change"
 HIDDEN_OPPORTUNITY_SHADOW_VERSION = "hidden_opportunity_shadow_runtime.v1"
@@ -410,7 +434,7 @@ def adapt_simple_hang_event(
         return None
     pattern = str(observation.get("missed_pattern") or "")
     subtype = str(observation.get("subtype") or "")
-    if pattern != SIMPLE_HANG_PATTERN or subtype != SIMPLE_HANG_SUBTYPE:
+    if (pattern, subtype) not in CAPTIONABLE_SUBTYPES:
         return None
 
     quality_id = gap_quality_id(pattern, subtype)
@@ -427,7 +451,7 @@ def adapt_simple_hang_event(
             move_number=move_number,
             san=san,
             actor=EventActor.USER,
-            concept_id="piece_safety.simple_hang",
+            concept_id=f"{pattern}.{subtype}",
             content_ref=PIC_CONTENT_ID,
             canonical_source=PIC_CANONICAL_SOURCE,
             outcome=EventOutcome.ALLOWED,
@@ -435,7 +459,7 @@ def adapt_simple_hang_event(
             provenance=(f"move_observation:{game_id}:{ply}",) + central_provenance,
             opportunity_eligible=True,
             requested_surface=QualitySurface.CAPTION,
-            reflection_requested=True,
+            reflection_requested=(pattern, subtype) in REFLECTION_SUBTYPES,
             quality_v2_requested=bool(
                 personalized_review_quality_v2_enabled(env)
                 and isinstance(decision.cause, LegalMaterialLossCause)
