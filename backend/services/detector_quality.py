@@ -743,6 +743,38 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "It does not name a broader tactical motif or claim every piece-safety mistake is covered.",
         ),
     ),
+    "gap:piece_safety:tactical_seq_loss": Authorization(
+        # PROMOTED to Caption 2026-10-02. The only real calculation signal in
+        # the product: `calculation_depth` is the leftovers bucket -- "a mistake
+        # over 100cp that nothing else explained", with "One move deeper was
+        # needed" as a hardcoded string -- and was rightly switched off in July.
+        #
+        # This one makes a narrow, checkable claim: the player entered a FORCING
+        # line, a capture or a check, and it cost 150+ centipawns. Promise check
+        # over 2,497 fires: 100% are forcing and over the bar (93.7% captures,
+        # 6.3% checks). Control on small_slip, the quiet-move bucket: 0.0%. The
+        # two are completely disjoint, so the label separates forcing mistakes
+        # from quiet ones rather than restating cp_loss.
+        #
+        # Caption grade, not Plan. It is a piece_safety subtype and promoting it
+        # to Plan would change the dominant subtype for the 26 users whose focus
+        # is destination_safety_exact. That is a separate decision with its own
+        # measurement; this one only lets the move be explained in review.
+        grade=QualityGrade.CAPTION,
+        evidence_ref="promise check + small_slip control, 2026-10-01, 2,497 fires",
+        rationale=(
+            "3,702 observations across 56 users on 18.8% of games. Names what a "
+            "600-1500 player can act on -- you started a capture or check and "
+            "did not see the end of it -- instead of a cp number."
+        ),
+        limitations=(
+            "The claim is about the SHAPE of the move, not about calculation "
+            "itself: it is verified that the move was forcing and lost, not "
+            "that the player miscalculated. Whether they calculated at all "
+            "cannot be established from a game record, which is what "
+            "docs/calculation_test_scope.md exists to measure instead.",
+        ),
+    ),
     "gap:piece_safety:simple_hang": Authorization(
         grade=QualityGrade.CAPTION,
         evidence_ref="docs/simple_hang_caption_promotion_2026_08_31.md",
