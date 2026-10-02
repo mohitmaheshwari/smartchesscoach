@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import { resolveBadgeTier } from "../lib/moveBadge";
+import { shouldTranscribeLine } from "../lib/coachLine";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
@@ -1908,11 +1909,11 @@ const WhyThisWasBad = ({ gameId, move, onArrows }) => {
         Why it was bad
       </div>
       <div className="text-sm text-gray-200 leading-relaxed">{result.text}</div>
-      {result.arrows?.length > 0 && (
-        <div className="text-[11px] text-gray-500 font-mono">
-          {result.arrows.map((a) => a.san).join("  ")}
-        </div>
-      )}
+      {/* The bare SAN list that used to sit here ("Re1 Bd2 Re2") was engine
+          output, not coaching -- Mohit 2026-10-02: "why it was bad and what
+          happens next are really bad stuff... they just run stockfish".
+          The sentence above says the thing; the arrows are already drawn on
+          the board, which is where a line belongs. */}
     </div>
   );
 };
@@ -2327,6 +2328,13 @@ const MoveCoachingCardV5 = ({
                       Back to game
                     </button>
                   </div>
+                  {/* Only transcribe a line that EXPLAINS itself. Trap lines
+                      carry an explanation per move (authored in traps.json);
+                      engine punishment lines set explanation: null, so this
+                      collapsed to "1. h4  2. h5  3. g5" -- ply numbers reading
+                      as move numbers, both sides mixed, no teaching. The board
+                      animation is the value there, not the transcript. */}
+                  {shouldTranscribeLine(lineSteps) && (
                   <ol className="space-y-0.5">
                     {lineSteps.map((s, i) => {
                       const isCurrent = i === (coachLineStepIndex ?? -1);
@@ -2344,6 +2352,7 @@ const MoveCoachingCardV5 = ({
                       );
                     })}
                   </ol>
+                  )}
                 </div>
               )}
             </div>
