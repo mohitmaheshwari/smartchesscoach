@@ -55,6 +55,7 @@ import AdminCaptionAuthoring from "@/pages/AdminCaptionAuthoring";
 import AdminPositionalReasons from "@/pages/AdminPositionalReasons";
 import AdminReasonJudge from "@/pages/AdminReasonJudge";
 import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
+import CalculationTest from "@/pages/CalculationTest";
 import AdminDetectorReview from "@/pages/AdminDetectorReview";
 import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
@@ -437,6 +438,11 @@ function AppRouter() {
           ?weakness=X query param OR :pattern URL segment.
           `/training/legacy` has been removed (zero incoming references
           per audit; it pointed to a superseded Training component). */}
+      <Route path="/calculation-test" element={
+        <ProtectedRoute>
+          {({ user }) => <CalculationTest user={user} />}
+        </ProtectedRoute>
+      } />
       <Route path="/training" element={
         <ProtectedRoute>
           {({ user }) => <PrescribedTraining user={user} />}
