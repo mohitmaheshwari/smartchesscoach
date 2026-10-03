@@ -56,6 +56,7 @@ import AdminPositionalReasons from "@/pages/AdminPositionalReasons";
 import AdminReasonJudge from "@/pages/AdminReasonJudge";
 import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
 import CalculationTest from "@/pages/CalculationTest";
+import MotifFindDrill from "@/pages/MotifFindDrill";
 import AdminDetectorReview from "@/pages/AdminDetectorReview";
 import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
@@ -441,6 +442,16 @@ function AppRouter() {
       <Route path="/calculation-test" element={
         <ProtectedRoute>
           {({ user }) => <CalculationTest user={user} />}
+        </ProtectedRoute>
+      } />
+      {/* SPOTTING a pin or skewer (docs/pin_skewer_drill_scope.md) -- the other
+          half of /training/motif/:motif, which teaches AVOIDING one. That page
+          replays positions he walked into; this one asks him to find the move.
+          Two sides of the same shape, as the motif-profile backlog asked for,
+          so they are separate routes rather than one page with a mode flag. */}
+      <Route path="/training/find/:motif" element={
+        <ProtectedRoute>
+          {({ user }) => <MotifFindDrill user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/training" element={
