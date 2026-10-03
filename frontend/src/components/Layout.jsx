@@ -362,15 +362,62 @@ const Layout = ({ children, user, fullBleed = false }) => {
         )}
 
         {/* Bottom */}
-        <div className="p-3 space-y-1 border-t border-border/50">
-          <button
-            onClick={toggleTheme}
-            className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`}
-            data-testid="sidebar-theme-toggle"
-          >
-            {theme === "dark" ? <Sun className="w-[18px] h-[18px]" strokeWidth={1.5} /> : <Moon className="w-[18px] h-[18px]" strokeWidth={1.5} />}
-            {!sidebarCollapsed && <span className="text-[13px]">{theme === "dark" ? "Light" : "Dark"}</span>}
-          </button>
+        <div className="p-3 space-y-1.5 border-t border-border/50">
+          {sidebarCollapsed ? (
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center justify-center p-2 text-muted-foreground hover:text-foreground hover:bg-slate-200/60 dark:hover:bg-white/5 transition-all rounded-xl"
+              data-testid="sidebar-theme-toggle"
+              title={theme === "dark" ? "Switch to White Studio Theme" : "Switch to Black Studio Theme"}
+            >
+              {theme === "dark" ? (
+                <span className="w-4 h-4 rounded-full bg-slate-900 border border-slate-600 shadow-[0_0_8px_rgba(255,255,255,0.2)]" />
+              ) : (
+                <span className="w-4 h-4 rounded-full bg-white border border-slate-400 shadow-sm" />
+              )}
+            </button>
+          ) : (
+            <div className="space-y-1">
+              <div className="bg-slate-200/60 dark:bg-white/5 p-1 rounded-xl flex items-center gap-1 border border-slate-300/40 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => theme !== "light" && toggleTheme()}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-mono transition-all ${
+                    theme === "light"
+                      ? "bg-white text-slate-900 shadow-sm border border-slate-200 font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="White Studio Theme"
+                  data-testid="theme-btn-white"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-white border border-slate-400 shadow-sm shrink-0" />
+                  <span>White</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => theme !== "dark" && toggleTheme()}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-mono transition-all ${
+                    theme === "dark"
+                      ? "bg-[#1d2731] text-white shadow-sm border border-white/20 font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Black Studio Theme"
+                  data-testid="theme-btn-black"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-950 border border-slate-600 shadow-sm shrink-0" />
+                  <span>Black</span>
+                </button>
+              </div>
+              <button
+                onClick={toggleTheme}
+                className="w-full flex items-center justify-between px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-slate-200/40 dark:hover:bg-white/5 transition-all rounded-lg"
+                data-testid="sidebar-theme-toggle"
+              >
+                <span className="font-mono text-[10.5px] uppercase tracking-wider">{theme === "dark" ? "Black Studio" : "White Studio"}</span>
+                {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-cyan-600" />}
+              </button>
+            </div>
+          )}
 
           <Link to="/settings">
             <div className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
@@ -490,9 +537,28 @@ const Layout = ({ children, user, fullBleed = false }) => {
                   </Link>
                 )}
                 <div className="border-t border-border my-2" />
-                <Button variant="ghost" onClick={toggleTheme} className="w-full justify-start gap-3">
-                  {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} {theme === "dark" ? "Light mode" : "Dark mode"}
-                </Button>
+                <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 dark:bg-white/5 rounded-xl border border-slate-300/40 dark:border-white/10 my-1">
+                  <button
+                    type="button"
+                    onClick={() => theme !== "light" && toggleTheme()}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-mono flex items-center justify-center gap-2 transition-all ${
+                      theme === "light" ? "bg-white text-slate-900 font-bold shadow-sm" : "text-muted-foreground"
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-white border border-slate-400 shadow-sm" />
+                    White Studio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => theme !== "dark" && toggleTheme()}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-mono flex items-center justify-center gap-2 transition-all ${
+                      theme === "dark" ? "bg-[#1d2731] text-white font-bold shadow-sm" : "text-muted-foreground"
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-950 border border-slate-600 shadow-sm" />
+                    Black Studio
+                  </button>
+                </div>
                 <Link to="/settings" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start gap-3"><Settings className="w-4 h-4" /> Settings</Button>
                 </Link>

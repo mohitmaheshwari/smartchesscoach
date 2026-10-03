@@ -19,7 +19,7 @@ import { nextLessonPrompt } from "@/lib/teachingLessonPrompt";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { toast } from "sonner";
-import { Target } from "lucide-react";
+import { Target, Play, Pause, RotateCcw, X, Sparkles, Settings2, Clock } from "lucide-react";
 import { PostGameStreakResult } from "@/components/streak";
 import EnforcementCheckboxModal from "@/components/coach-play/EnforcementCheckboxModal";
 import CoachPlaySetup from "@/components/coach/CoachPlaySetup";
@@ -100,6 +100,9 @@ const CoachPlay = ({ user }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [resumedActiveSessionMeta, setResumedActiveSessionMeta] = useState(null);
+  const [isGamePaused, setIsGamePaused] = useState(false);
   const [experienceConfig, setExperienceConfig] = useState(null);
   const [experienceLoading, setExperienceLoading] = useState(true);
   const [unifiedHelp, setUnifiedHelp] = useState(null);
@@ -1278,7 +1281,10 @@ const CoachPlay = ({ user }) => {
         if (data.active_sessions && data.active_sessions.length > 0 && !openingFromUrl && !trapFromUrl) {
           // Resume existing session (but NOT if user came with a specific opening to practice)
           const activeSession = data.active_sessions[0];
+          setResumedActiveSessionMeta(activeSession);
+          setIsGamePaused(true);
           await resumeSessionRef.current?.(activeSession.session_id);
+          setShowResumeModal(true);
         }
       }
     } catch (error) {
@@ -3843,6 +3849,53 @@ const CoachPlay = ({ user }) => {
     setOpeningTraps([]);
   };
 
+  const handleResumeGame = () => {
+    setShowResumeModal(false);
+    setIsGamePaused(false);
+    setMoveStartTime(Date.now());
+    toast.success("Resumed your game! Make your move.");
+  };
+
+  const handleRestartGame = async () => {
+    setShowResumeModal(false);
+    setIsGamePaused(false);
+    const oldSessionId = session?.session_id || resumedActiveSessionMeta?.session_id;
+    if (oldSessionId) {
+      try {
+        await fetch(`${API}/coach/play/end`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ session_id: oldSessionId, reason: "abandoned" }),
+        });
+      } catch (e) {
+        console.warn("[CoachPlay] Error ending abandoned session:", e);
+      }
+    }
+    newGame();
+    await actuallyStartGame();
+    toast.success("Game restarted! New game with Coach Jessica started.");
+  };
+
+  const handleAbandonAndSetup = async () => {
+    setShowResumeModal(false);
+    const oldSessionId = session?.session_id || resumedActiveSessionMeta?.session_id;
+    if (oldSessionId) {
+      try {
+        await fetch(`${API}/coach/play/end`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ session_id: oldSessionId, reason: "abandoned" }),
+        });
+      } catch (e) {
+        console.warn("[CoachPlay] Error ending abandoned session:", e);
+      }
+    }
+    newGame();
+    toast.info("Previous game cleared. Configure your new game.");
+  };
+
   const canUndoLastMove = () => {
     if (!session || gameOver || undoLoading) return false;
 
@@ -4133,6 +4186,7 @@ const CoachPlay = ({ user }) => {
         <div className="pwc-board-col">
         <CoachPlayBoard
           ref={boardRef}
+          user={user}
           session={session}
           currentFen={currentFen}
           boardOrientation={boardOrientation}
@@ -4171,6 +4225,10 @@ const CoachPlay = ({ user }) => {
           flipBoard={flipBoard}
           resignGame={resignGame}
           newGame={newGame}
+          restartGame={handleRestartGame}
+          isGamePaused={isGamePaused}
+          setIsGamePaused={setIsGamePaused}
+          showResumeModal={showResumeModal}
           canUndoLastMove={canUndoLastMove}
           handleUndoMove={handleUndoMove}
           handleExitLesson={handleExitLesson}
@@ -4368,6 +4426,123 @@ const CoachPlay = ({ user }) => {
             setGameOver(false);
           }}
         />
+      )}
+
+      {/* Resume / Restart Active Game Dialog */}
+      {showResumeModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
+          data-testid="resume-game-modal"
+        >
+          <div className="relative w-full max-w-lg rounded-3xl border border-white/20 bg-gradient-to-b from-[#1b2633] via-[#131d27] to-[#0b1118] text-white shadow-2xl p-6 sm:p-8 backdrop-blur-xl">
+            {/* Close / Dismiss (resumes game) */}
+            <button
+              onClick={handleResumeGame}
+              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+              title="Close and continue game"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header with Coach Jessica */}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-cyan-500/50 shadow-[0_0_20px_rgba(56,189,248,0.3)] bg-slate-800">
+                  <img
+                    src="/coach-jessica.png"
+                    alt="Coach Jessica"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80";
+                    }}
+                  />
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full ring-2 ring-[#131d27] flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                </div>
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/30 text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-300 mb-1">
+                  <Sparkles className="w-3 h-3 text-cyan-400" />
+                  Active Game Found
+                </div>
+                <h3 className="font-serif text-2xl font-bold text-white tracking-tight">
+                  Welcome Back!
+                </h3>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  You have an unfinished game with Coach Jessica.
+                </p>
+              </div>
+            </div>
+
+            {/* Position Snapshot / Game Details */}
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4 mb-6 space-y-2.5">
+              <div className="flex items-center justify-between text-xs text-slate-300 pb-2 border-b border-white/10">
+                <span className="text-slate-400 font-mono uppercase text-[10px] tracking-wider">Your Pieces</span>
+                <span className="font-semibold text-white flex items-center gap-1.5">
+                  <span className={`w-2.5 h-2.5 rounded-full inline-block ${selectedColor === "black" ? "bg-slate-900 border border-white/50" : "bg-white"}`} />
+                  {selectedColor === "black" ? "Black" : "White"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-300 pb-2 border-b border-white/10">
+                <span className="text-slate-400 font-mono uppercase text-[10px] tracking-wider">Progress</span>
+                <span className="font-mono text-cyan-300 font-medium">
+                  Move {Math.floor(((resumedActiveSessionMeta?.move_history || session?.move_history)?.length || 0) / 2) + 1} ({((resumedActiveSessionMeta?.move_history || session?.move_history)?.length || 0)} plies)
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-300 pb-2 border-b border-white/10">
+                <span className="text-slate-400 font-mono uppercase text-[10px] tracking-wider">Turn</span>
+                <span className={`font-medium ${isPlayerTurn ? "text-emerald-400" : "text-amber-300"}`}>
+                  {isPlayerTurn ? "Your turn to play" : "Coach is thinking"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-300">
+                <span className="text-slate-400 font-mono uppercase text-[10px] tracking-wider">Clock Status</span>
+                <span className="font-mono text-cyan-300 font-bold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                  Paused & Saved
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={handleResumeGame}
+                data-testid="resume-game-btn"
+                className="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm shadow-[0_0_25px_rgba(56,189,248,0.4)] transition-all flex items-center justify-center gap-2 group cursor-pointer"
+              >
+                <Play className="w-4 h-4 fill-current transition-transform group-hover:scale-110" />
+                <span>Resume Game</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRestartGame}
+                data-testid="restart-game-btn"
+                className="w-full py-3 px-5 rounded-xl bg-white/5 hover:bg-amber-500/15 border border-white/15 hover:border-amber-500/40 text-slate-200 hover:text-amber-300 font-medium text-sm transition-all flex items-center justify-center gap-2 group cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4 text-amber-400 transition-transform group-hover:-rotate-90" />
+                <span>Restart Game (Start Fresh)</span>
+              </button>
+
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  onClick={handleAbandonAndSetup}
+                  data-testid="new-setup-btn"
+                  className="text-xs text-slate-400 hover:text-cyan-400 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Settings2 className="w-3.5 h-3.5" />
+                  <span>Or change color / opening in Setup</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );

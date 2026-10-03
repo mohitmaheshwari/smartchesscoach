@@ -61,21 +61,23 @@ const UnifiedCoachPanel = ({
     };
 
     return (
-      <section className="space-y-4 p-5" data-testid="unified-coach-panel">
+      <section className="space-y-4 p-5 rounded-2xl bg-gradient-to-b from-[#1c2632]/90 to-[#151f28]/90 border border-cyan-500/30 shadow-lg backdrop-blur-md" data-testid="unified-coach-panel">
         <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-          <p className="cg-eyebrow !mb-0">Your game, one clear takeaway</p>
+          <CheckCircle2 className="h-5 w-5 text-cyan-400" />
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300 font-bold bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-0.5 rounded-full inline-block">
+            Your game, one clear takeaway
+          </span>
         </div>
         {unifiedSummary?.focus_label && (
-          <p className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+          <p className="text-sm font-medium text-cyan-300">
             Today’s work: {unifiedSummary.focus_label}
           </p>
         )}
-        <p className="font-serif text-xl leading-snug text-foreground">{story}</p>
+        <p className="font-serif text-xl leading-snug text-white">{story}</p>
         {detail && (
-          <p className="text-sm leading-relaxed text-muted-foreground">{detail}</p>
+          <p className="text-sm leading-relaxed text-slate-300/80">{detail}</p>
         )}
-        <Button className="w-full" onClick={takeNextAction}>
+        <Button className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono text-xs font-bold uppercase tracking-wider shadow-[0_0_20px_rgba(56,189,248,0.4)] transition-all" onClick={takeNextAction}>
           {actionLabel}
         </Button>
       </section>
@@ -84,13 +86,15 @@ const UnifiedCoachPanel = ({
 
   if (gameMode === "play") {
     return (
-      <section className="space-y-4 p-5" data-testid="unified-coach-panel">
+      <section className="space-y-4 p-5 rounded-2xl bg-gradient-to-b from-[#1c2632]/90 to-[#151f28]/90 border border-white/10 shadow-lg backdrop-blur-md" data-testid="unified-coach-panel">
         <div className="flex items-center gap-2">
-          <Brain className="h-5 w-5 text-muted-foreground" />
-          <p className="cg-eyebrow !mb-0">Play a Game</p>
+          <Brain className="h-5 w-5 text-cyan-400" />
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300 font-bold bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-0.5 rounded-full inline-block">
+            Play a Game
+          </span>
         </div>
-        <p className="font-serif text-xl text-foreground">Your game. No hints.</p>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="font-serif text-xl text-white">Your game. No hints.</p>
+        <p className="text-sm leading-relaxed text-slate-300/80">
           I’m saving the game for a full review afterward.
         </p>
       </section>
@@ -103,71 +107,77 @@ const UnifiedCoachPanel = ({
       data-testid="unified-coach-panel"
       aria-live="polite"
     >
-      <div className="border-b border-border pb-4">
+      <div className="border-b border-white/10 pb-4">
         <div className="flex items-center gap-2">
-          <Target className="h-4 w-4 text-emerald-700" />
-          <p className="cg-eyebrow !mb-0">Today’s work</p>
+          <Target className="h-4 w-4 text-cyan-400" />
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300 font-bold bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-full inline-block">
+            Today’s work
+          </span>
         </div>
-        <p className="mt-2 font-serif text-lg font-semibold text-foreground">
+        <p className="mt-2 font-serif text-lg font-semibold text-white">
           {primaryFocus?.label || "One useful idea from this game"}
         </p>
         {primaryFocus?.instruction_text && (
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-1 text-sm leading-relaxed text-slate-300/80">
             {primaryFocus.instruction_text}
           </p>
         )}
       </div>
 
       {activeMoment && pendingMove ? (
-        <div className="mt-5 rounded-2xl border border-red-300 bg-red-50/80 p-4 dark:bg-red-950/20">
-          <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+        <div className="mt-5 rounded-2xl border border-red-500/40 bg-gradient-to-b from-red-950/40 to-[#1e1c24]/90 p-4 shadow-md backdrop-blur-md">
+          <div className="flex items-center gap-2 text-red-400">
             <AlertTriangle className="h-4 w-4" />
-            <p className="text-xs font-semibold uppercase tracking-wider">
+            <p className="text-xs font-semibold uppercase tracking-wider font-mono">
               Pause before {pendingMove.san}
             </p>
           </div>
-          <p className="mt-3 text-sm font-medium leading-relaxed text-foreground">
+          <p className="mt-3 text-sm font-medium leading-relaxed text-slate-100">
             {activeMoment.text}
           </p>
           {activeMoment.instruction
             && !activeMoment.text?.includes(activeMoment.instruction) && (
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              <p className="mt-2 text-sm leading-relaxed text-slate-400">
                 {activeMoment.instruction}
               </p>
             )}
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <Button variant="outline" onClick={onTryAnother} data-testid="unified-try-another">
+            <Button variant="outline" onClick={onTryAnother} data-testid="unified-try-another" className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-300">
               <RotateCcw className="mr-2 h-4 w-4" />
               Try another
             </Button>
-            <Button onClick={onPlayAnyway} data-testid="unified-play-anyway">
+            <Button onClick={onPlayAnyway} data-testid="unified-play-anyway" className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold">
               Play it anyway
             </Button>
           </div>
         </div>
       ) : visibleMoment?.text ? (
-        <div className="mt-5 rounded-2xl border border-emerald-700/20 bg-emerald-50/60 p-4 dark:bg-emerald-950/20">
-          <p className="cg-eyebrow !mb-2">Coach’s note</p>
-          <p className="text-sm leading-relaxed text-foreground">
+        <div className="mt-5 rounded-2xl border border-cyan-500/30 bg-gradient-to-b from-cyan-950/30 to-[#15202b]/90 p-4 shadow-sm backdrop-blur-md">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300 font-bold mb-2 block">
+            Coach’s note
+          </span>
+          <p className="text-sm leading-relaxed text-slate-200">
             {visibleMoment.text}
           </p>
         </div>
       ) : helpAnswer?.answer ? (
-        <div className="mt-5 rounded-2xl border border-blue-700/20 bg-blue-50/60 p-4 dark:bg-blue-950/20">
-          <p className="cg-eyebrow !mb-2">Coach’s answer</p>
-          <p className="text-sm leading-relaxed text-foreground">
+        <div className="mt-5 rounded-2xl border border-blue-500/30 bg-gradient-to-b from-blue-950/30 to-[#15202b]/90 p-4 shadow-sm backdrop-blur-md">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-blue-300 font-bold mb-2 block">
+            Coach’s answer
+          </span>
+          <p className="text-sm leading-relaxed text-slate-200">
             {helpAnswer.answer}
           </p>
           {helpAnswer.instruction
             && !helpAnswer.answer.includes(helpAnswer.instruction) && (
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              <p className="mt-2 text-sm leading-relaxed text-slate-400">
                 {helpAnswer.instruction}
               </p>
             )}
           <Button
             variant="ghost"
             size="sm"
-            className="mt-3"
+            className="mt-3 bg-white/5 hover:bg-white/10 text-slate-300"
             onClick={onDismissHelp}
           >
             Got it
@@ -176,14 +186,14 @@ const UnifiedCoachPanel = ({
       ) : (
         <div className="flex flex-1 items-center py-8">
           <div className="w-full">
-            <p className="font-serif text-xl text-foreground">
+            <p className="font-serif text-xl text-white">
               {isCoachThinking
                 ? "I’m choosing my reply."
                 : isPlayerTurn
                   ? "Your turn. Take your time."
                   : "I’m watching the position."}
             </p>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-sm leading-relaxed text-slate-400">
               I’ll interrupt only when the position gives us something worth learning.
             </p>
             {helpOpen ? (
@@ -193,6 +203,7 @@ const UnifiedCoachPanel = ({
                     variant="outline"
                     disabled={helpLoading}
                     onClick={() => onAskCoach("explain_last_move")}
+                    className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-300"
                   >
                     Explain their move
                   </Button>
@@ -201,6 +212,7 @@ const UnifiedCoachPanel = ({
                   variant="outline"
                   disabled={helpLoading}
                   onClick={() => onAskCoach("focus_check")}
+                  className="bg-white/5 border-white/10 hover:bg-white/10 text-slate-300"
                 >
                   Remind me what to check
                 </Button>
@@ -209,6 +221,7 @@ const UnifiedCoachPanel = ({
                   size="sm"
                   disabled={helpLoading}
                   onClick={() => setHelpOpen(false)}
+                  className="text-slate-400 hover:text-slate-200"
                 >
                   Never mind
                 </Button>
@@ -216,7 +229,7 @@ const UnifiedCoachPanel = ({
             ) : (
               <Button
                 variant="outline"
-                className="mt-5"
+                className="mt-5 bg-white/5 border-white/15 hover:bg-white/10 hover:border-cyan-500/40 text-slate-200 rounded-xl"
                 onClick={() => setHelpOpen(true)}
                 data-testid="unified-ask-coach"
               >

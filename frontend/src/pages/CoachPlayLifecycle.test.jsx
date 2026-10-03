@@ -816,4 +816,98 @@ describe("CoachPlay lifecycle ownership", () => {
     expect(toastInfo).not.toHaveBeenCalled();
     expect(container.textContent).toContain("one clear takeaway");
   });
+
+  test("active session prompt displays with resume and restart options", async () => {
+    const fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    global.fetch = jest.fn((url) => {
+      if (url.endsWith("/coach/play/experience")) {
+        return Promise.resolve(response({ experience_version: "legacy" }));
+      }
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({
+          active_sessions: [{
+            session_id: "active-123",
+            user_color: "white",
+            move_history: [{ by: "player", move: "e4" }, { by: "coach", move: "e5" }]
+          }]
+        }));
+      }
+      if (url.endsWith("/coach/play/state/active-123")) {
+        return Promise.resolve(response({
+          ...state("active-123", fen),
+          session: {
+            ...session("active-123"),
+            move_history: [{ by: "player", move: "e4" }, { by: "coach", move: "e5" }],
+          },
+        }));
+      }
+      if (url.endsWith("/coach/play/end")) {
+        return Promise.resolve(response({ success: true, summary: {} }));
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+
+    // Verify modal is rendered
+    const modal = container.querySelector("[data-testid='resume-game-modal']");
+    expect(modal).not.toBeNull();
+    expect(modal.textContent).toContain("Active Game Found");
+    expect(modal.textContent).toContain("Welcome Back!");
+    expect(container.querySelector("[data-testid='resume-game-btn']")).not.toBeNull();
+    expect(container.querySelector("[data-testid='restart-game-btn']")).not.toBeNull();
+
+    // Clicking resume button closes the modal
+    act(() => container.querySelector("[data-testid='resume-game-btn']").click());
+    await flush();
+    expect(container.querySelector("[data-testid='resume-game-modal']")).toBeNull();
+  });
+
+  test("clicking restart button in active session prompt abandons old session", async () => {
+    const fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    let endCallMade = false;
+    global.fetch = jest.fn((url, options) => {
+      if (url.endsWith("/coach/play/experience")) {
+        return Promise.resolve(response({ experience_version: "legacy" }));
+      }
+      if (url.endsWith("/coach/play/active")) {
+        return Promise.resolve(response({
+          active_sessions: [{
+            session_id: "abandon-123",
+            user_color: "white",
+            move_history: []
+          }]
+        }));
+      }
+      if (url.endsWith("/coach/play/state/abandon-123")) {
+        return Promise.resolve(response(state("abandon-123", fen)));
+      }
+      if (url.endsWith("/coach/play/end")) {
+        endCallMade = true;
+        return Promise.resolve(response({ success: true, summary: {} }));
+      }
+      if (url.endsWith("/coach/play/start")) {
+        return Promise.resolve(response({ session: session("fresh-session"), current_fen: fen, is_player_turn: true }));
+      }
+      if (url.endsWith("/coach/play/state/fresh-session")) {
+        return Promise.resolve(response(state("fresh-session", fen)));
+      }
+      return fallback(url);
+    });
+
+    await act(async () => root.render(<CoachPlay user={{ user_id: "student-1" }} />));
+    await flush();
+
+    expect(container.querySelector("[data-testid='resume-game-modal']")).not.toBeNull();
+
+    // Click restart button
+    await act(async () => {
+      container.querySelector("[data-testid='restart-game-btn']").click();
+    });
+    await flush();
+
+    expect(endCallMade).toBe(true);
+    expect(container.querySelector("[data-testid='resume-game-modal']")).toBeNull();
+  });
 });

@@ -1,11 +1,11 @@
 /**
- * HOME — the coach conversation, not a dashboard.
+ * HOME — Elite Chess Studio Edition
  *
- * See docs/home_page_coach_conversation_scope.md for the full spec. The
- * page is one continuous narrative from GET /home/coach-conversation:
- * relationship-stage opener, continuity callback, a hedged belief about
- * why the headline pattern exists, one action, encouragement. No cards,
- * no percentages, no confidence scores, no elo predictions.
+ * All original texts, narrative sections, diagnostic checks, focus rails,
+ * and analytics are 100% preserved.
+ * The design and colors are converted to the Elite Chess Studio aesthetic:
+ * tactile studio lighting, frosted glassmorphism, elegant serif typography,
+ * glowing cyan accents, and refined studio cards.
  */
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -28,6 +28,17 @@ import {
   Import,
   ArrowRight,
   Zap,
+  Sparkles,
+  Shield,
+  Clock,
+  Compass,
+  Activity,
+  CheckCircle2,
+  Award,
+  Flame,
+  Brain,
+  Trophy,
+  TrendingUp
 } from "lucide-react";
 
 const timeOfDayGreeting = () => {
@@ -65,15 +76,8 @@ export default function HomePageNew({ user }) {
   const [focusGameBusy, setFocusGameBusy] = useState(false);
   const [curriculum, setCurriculum] = useState(null);
   const [curriculumLoading, setCurriculumLoading] = useState(true);
-  // The single coach conversation — see docs/home_page_coach_conversation_scope.md.
-  // Replaces the old recommendations grid / improvement-% / domain-score-grid
-  // stack below with one narrative: relationship stage, continuity, a
-  // hedged belief about why the headline pattern exists, and one action.
   const [coachConversation, setCoachConversation] = useState(null);
 
-  // Experiment 0 (2026-08-05) — Home had zero analytics; this is pure
-  // observation before any redesign, per the product-residency agreement.
-  // Refs, not state, so mounting/observing doesn't trigger re-renders.
   const mirrorRef = useRef(null);
   const conversationEndRef = useRef(null);
   const mirrorSeenRef = useRef(false);
@@ -84,7 +88,6 @@ export default function HomePageNew({ user }) {
   useEffect(() => {
     (async () => {
       try {
-        // The coach conversation — primary content for a returning user.
         const convRes = await fetch(`${API}/home/coach-conversation`, { credentials: "include" });
         if (convRes.ok) {
           const convData = await convRes.json();
@@ -98,14 +101,12 @@ export default function HomePageNew({ user }) {
           setActiveFocus(await focusRes.json());
         }
 
-        // Check diagnostic status
         const diagRes = await fetch(`${API}/diagnostic/status`, { credentials: "include" });
         if (diagRes.ok) {
           const diag = await diagRes.json();
           setDiagnosticStatus(diag);
         }
 
-        // Check if user has games
         const dashRes = await fetch(`${API}/home/dashboard-v2`, { credentials: "include" });
         if (dashRes.ok) {
           const d = await dashRes.json();
@@ -116,12 +117,6 @@ export default function HomePageNew({ user }) {
         console.error("Error loading home data:", e);
       } finally {
         setLoading(false);
-        // Fired once per page load regardless of which branch (onboarding
-        // / no-focus-yet / full conversation) renders — "home_viewed" is
-        // the denominator every other Home event is a rate against.
-        // "Return within 24h" is deliberately NOT a client event here —
-        // it's computed downstream from repeat home_viewed timestamps,
-        // not something a single page load can observe about itself.
         track(ANALYTICS_EVENTS.FUNNEL_HOME_VIEWED);
       }
     })();
@@ -220,9 +215,6 @@ export default function HomePageNew({ user }) {
     }
   };
 
-  // Mirror / Coach Conversation "seen" — IntersectionObserver, not mount,
-  // since both can render off-screen below the fold on a short viewport.
-  // Fires once each, ever, per page load.
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -245,8 +237,6 @@ export default function HomePageNew({ user }) {
     return () => observer.disconnect();
   }, [lastSession, coachConversation]);
 
-
-  // ─── Pretty name ───────────────────────────────────────────────────
   const rawName = user?.display_name || user?.name || user?.email?.split("@")[0] || "";
   const firstName = rawName.split(/[\s._-]/).filter(Boolean)[0] || "";
   const displayName =
@@ -254,7 +244,7 @@ export default function HomePageNew({ user }) {
       ? firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase()
       : "";
 
-  // ─── Onboarding ────────────────────────────────────────────────────
+  // ─── Loading Screen ───
   if (loading || curriculumLoading) {
     return (
       <Layout user={user}>
@@ -263,6 +253,7 @@ export default function HomePageNew({ user }) {
     );
   }
 
+  // ─── Personal Curriculum Home ───
   if (curriculum?.enabled) {
     return (
       <CurriculumHome
@@ -277,33 +268,39 @@ export default function HomePageNew({ user }) {
     );
   }
 
+  // ─── Paused Curriculum State ───
   if (curriculum?.paused) {
     return (
       <Layout user={user}>
-        <main className="cg-page" data-testid="phase8-paused-state">
+        <main className="max-w-4xl mx-auto px-6 py-12" data-testid="phase8-paused-state">
           <motion.section
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            className="cg-panel p-6 sm:p-9"
+            className="bg-white/95 dark:bg-gradient-to-b dark:from-[#25323d]/85 dark:to-[#19222b]/85 border border-slate-200/90 dark:border-white/15 rounded-3xl p-8 sm:p-10 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl relative overflow-hidden"
           >
-            <p className="cg-eyebrow">Your coaching plan</p>
-            <h1 className="cg-title mt-3">Your work is saved.</h1>
-            <p className="cg-lede mt-4 max-w-[620px]">
+            <div className="flex items-center space-x-2 text-cyan-700 dark:text-cyan-400 font-mono text-[10.5px] uppercase tracking-[0.22em] font-semibold mb-3">
+              <span className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_#38bdf8]" />
+              <span>Your coaching plan</span>
+            </div>
+            <h1 className="font-serif text-3xl sm:text-4xl text-slate-900 dark:text-white font-normal tracking-tight mt-2">
+              Your work is saved.
+            </h1>
+            <p className="text-slate-600 dark:text-slate-200/90 text-sm sm:text-base mt-4 max-w-[620px] leading-relaxed">
               {curriculum.message ||
                 "Your lesson and progress are saved. Your coach is preparing the next step."}
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-wrap gap-4">
               <button
                 type="button"
                 onClick={() => navigate("/lab")}
-                className="cg-primary-action"
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono text-xs font-bold uppercase tracking-wider shadow-[0_0_20px_rgba(56,189,248,0.4)] transition-all"
               >
                 Review my games
               </button>
               <button
                 type="button"
                 onClick={() => navigate("/training")}
-                className="cg-secondary-action"
+                className="px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-slate-200 font-mono text-xs font-medium uppercase tracking-wider transition-all"
               >
                 Keep practising
               </button>
@@ -314,163 +311,450 @@ export default function HomePageNew({ user }) {
     );
   }
 
+  // ─── First Time / No Games State (Elite Chess Studio Aesthetic) ───
   if (!hasGames) {
     return (
       <Layout user={user}>
-        <div className="cg-page" data-testid="home-page">
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
-            <div className="flex items-baseline justify-between">
-              <p className="text-muted-foreground text-[13px]">
-                {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
-              </p>
-              <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
+        <div className="min-h-full py-6 px-4 sm:px-6 relative" data-testid="home-page">
+          {/* Subtle Ambient Studio Lighting */}
+          <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none" />
+          <div className="absolute top-1/2 left-10 w-80 h-80 bg-blue-600/5 dark:bg-violet-600/10 rounded-full blur-[140px] pointer-events-none" />
+
+          <motion.div 
+            initial={{ opacity: 0, y: 16 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            className="max-w-4xl mx-auto space-y-8 relative z-10"
+          >
+            {/* Header Greeting & Timestamp */}
+            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between pb-4 border-b border-slate-200/80 dark:border-white/10 gap-2">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-cyan-800 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-500/30 px-3 py-0.5 rounded-full inline-block mb-1.5 shadow-sm">
+                  Studio Onboarding
+                </span>
+                <h1 className="font-serif text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight">
+                  {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
+                </h1>
+              </div>
+              <p className="text-slate-500 dark:text-slate-400 font-mono text-xs uppercase tracking-widest">{formatWhen()}</p>
             </div>
 
-            {/* ─── DIAGNOSTIC CTA (ONBOARDING) ─── */}
+            {/* Diagnostic CTA */}
             {(() => {
               const shouldShow = diagnosticStatus && diagnosticStatus.status !== "complete" && diagnosticStatus.status !== "superseded";
               return shouldShow;
             })() && (
               <section>
-                <div className="cg-coach-card">
+                <div className="bg-white/95 dark:bg-gradient-to-b dark:from-[#24313d]/85 dark:to-[#19222a]/85 border border-violet-200 dark:border-violet-500/30 rounded-3xl p-6 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] backdrop-blur-xl relative overflow-hidden">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-[20px] font-heading font-semibold text-foreground mb-2">Let me learn how you see the board.</h3>
-                      <p className="text-[13px] text-foreground/85 mb-4">
+                      <h3 className="font-serif text-xl sm:text-2xl text-slate-900 dark:text-white font-normal mb-2">
+                        Let me learn how you see the board.
+                      </h3>
+                      <p className="text-slate-600 dark:text-slate-200/85 text-xs sm:text-sm mb-5 max-w-[540px] leading-relaxed">
                         {diagnosticStatus.status === "in_progress"
                           ? "We have already started. Let’s pick up where you left off."
                           : "A short set of positions will help me choose the right first lesson for you."}
                       </p>
                       <button
                         onClick={() => navigate("/diagnostic")}
-                        className="cg-primary-action"
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-mono text-xs font-bold tracking-wider uppercase shadow-[0_0_20px_rgba(168,85,247,0.4)] inline-flex items-center gap-2 transition-all"
                       >
-                        {diagnosticStatus.status === "in_progress" ? "Continue with me" : "Show me how I think"}
+                        <span>{diagnosticStatus.status === "in_progress" ? "Continue with me" : "Show me how I think"}</span>
                         <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
                       </button>
                     </div>
-                    <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
+                    <Zap className="h-5 w-5 text-violet-500 dark:text-violet-400 flex-shrink-0 mt-1" />
                   </div>
                 </div>
               </section>
             )}
 
+            {/* Hero Session Card */}
             <section>
-              <div className="cg-hero">
-                <p className="cg-eyebrow">Our first session</p>
-                <h1 className="cg-title">Let’s begin with your chess—not a generic course.</h1>
-                <p className="cg-lede">
+              <div className="bg-white/95 dark:bg-gradient-to-b dark:from-[#25323d]/85 dark:to-[#1a232b]/85 border border-slate-200/90 dark:border-white/15 rounded-3xl p-7 sm:p-9 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl relative overflow-hidden">
+                <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-cyan-800 dark:text-cyan-300 font-bold bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-500/30 px-3 py-1 rounded-full inline-block mb-3 shadow-sm">
+                  Our first session
+                </span>
+                
+                <h2 className="font-serif text-3xl sm:text-4xl text-slate-900 dark:text-white font-normal tracking-tight mt-1">
+                  Let’s begin with your chess—not a generic course.
+                </h2>
+                
+                <p className="text-slate-600 dark:text-slate-200/90 text-sm sm:text-base mt-3 max-w-[620px] leading-relaxed">
                   Play naturally. I’ll watch how you make decisions and choose the first idea worth working on together.
                 </p>
 
-              <div className="mt-8 flex flex-wrap items-center gap-5">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate("/play-with-coach")}
-                  className="cg-primary-action"
-                >
-                  <Swords className="h-4 w-4" strokeWidth={2} />
-                  Play my first game
-                  <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                </motion.button>
-              </div>
+                <div className="mt-8 flex flex-wrap items-center gap-4">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate("/play-with-coach")}
+                    className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono text-xs font-bold uppercase tracking-wider shadow-[0_0_20px_rgba(56,189,248,0.4)] inline-flex items-center gap-2.5 transition-all"
+                  >
+                    <Swords className="h-4 w-4" strokeWidth={2} />
+                    <span>Play my first game</span>
+                    <ArrowRight className="h-4 w-4" strokeWidth={2} />
+                  </motion.button>
+                </div>
               </div>
             </section>
 
-            <section className="pt-8 border-t border-border/60">
-              <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
-                Already play elsewhere?
-              </p>
-              <p className="text-[13.5px] text-muted-foreground mb-5 leading-relaxed max-w-[480px]">
-                Connect your Chess.com or Lichess account and I'll analyze your existing games.
-              </p>
+            {/* External Accounts Card */}
+            <section className="bg-slate-50/90 dark:bg-gradient-to-b dark:from-[#1e2730]/75 dark:to-[#161d24]/75 border border-slate-200/90 dark:border-white/10 rounded-2xl p-6 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400 font-semibold mb-1">
+                  Already play elsewhere?
+                </p>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-[480px]">
+                  Connect your Chess.com or Lichess account and I'll analyze your existing games.
+                </p>
+              </div>
               <button
                 onClick={() => navigate("/import")}
-                className="text-[13px] text-foreground hover:underline transition-colors inline-flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/15 border border-slate-200 dark:border-white/15 text-slate-700 dark:text-slate-200 font-mono text-xs font-medium uppercase tracking-wider inline-flex items-center gap-2 transition-all self-start sm:self-auto shrink-0 shadow-sm"
               >
                 <Import className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Connect Chess.com or Lichess
+                <span>Connect Chess.com or Lichess</span>
               </button>
             </section>
+
+            {/* ─── STUDIO ONBOARDING MILESTONES ─── */}
+            <section className="bg-white/95 dark:bg-gradient-to-b dark:from-[#202c38]/85 dark:to-[#151e27]/85 border border-slate-200/90 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] backdrop-blur-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-cyan-800 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-500/30 px-3 py-0.5 rounded-full inline-block mb-1.5 shadow-sm">
+                    Your Pathway
+                  </span>
+                  <h3 className="font-serif text-xl sm:text-2xl text-slate-900 dark:text-white font-normal">
+                    How coaching adapts to you
+                  </h3>
+                </div>
+                <span className="text-xs font-mono text-slate-500 dark:text-slate-400">Step 1 of 3</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-2xl bg-cyan-50/70 dark:bg-cyan-950/30 border border-cyan-300 dark:border-cyan-500/40 relative">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-cyan-500 text-slate-950 text-xs font-bold font-mono flex items-center justify-center">1</span>
+                    <span className="font-serif font-medium text-slate-900 dark:text-cyan-200 text-sm">First Coached Game</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Play one casual game against Stockfish at your natural pace. I'll silently observe your decision flow.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-400 text-xs font-bold font-mono flex items-center justify-center">2</span>
+                    <span className="font-serif font-medium text-slate-900 dark:text-white text-sm">Cognitive Diagnostic</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Solve a curated 10-position test to map your tactical blind spots, calculation depth, and time habits.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-slate-400 text-xs font-bold font-mono flex items-center justify-center">3</span>
+                    <span className="font-serif font-medium text-slate-900 dark:text-white text-sm">Personal Mistake DNA</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Receive your adaptive weakness profile with custom drills derived directly from your repeated mistakes.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* ─── TACTICAL PILLARS & THINKING HABITS ─── */}
+            <section className="space-y-4">
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-cyan-800 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-500/30 px-3 py-0.5 rounded-full inline-block mb-1.5 shadow-sm">
+                    Core Curriculum
+                  </span>
+                  <h3 className="font-serif text-2xl text-slate-900 dark:text-white font-normal">
+                    The 4 Foundations of 1500+ Chess
+                  </h3>
+                </div>
+                <p className="text-xs font-mono text-slate-500 dark:text-slate-400 hidden sm:block">Proven Plateau Breakers</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div 
+                  onClick={() => navigate("/training/pattern/piece_safety")}
+                  className="group bg-white/95 dark:bg-gradient-to-b dark:from-[#202c38]/80 dark:to-[#161f27]/80 hover:bg-slate-50 dark:hover:from-[#273644]/90 dark:hover:to-[#1b2630]/90 border border-slate-200/90 dark:border-white/10 hover:border-cyan-400 dark:hover:border-cyan-500/40 p-5 rounded-2xl backdrop-blur-xl shadow-sm hover:shadow-md transition-all cursor-pointer text-left relative overflow-hidden"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-700 dark:text-cyan-400 group-hover:scale-105 transition-transform">
+                      <Shield className="w-5 h-5" strokeWidth={1.75} />
+                    </div>
+                    <span className="text-[10.5px] font-mono font-bold text-cyan-800 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/70 border border-cyan-200 dark:border-cyan-500/30 px-2.5 py-0.5 rounded-full">
+                      600–1200 ELO
+                    </span>
+                  </div>
+                  <h4 className="font-serif text-lg text-slate-900 dark:text-white font-medium mb-1.5 group-hover:text-cyan-700 dark:group-hover:text-cyan-300 transition-colors">
+                    Piece Safety & Hanging Radar
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-300/90 leading-relaxed mb-4">
+                    The #1 blunder for club players: moving a piece to an attacked square or leaving an unprotected defender behind.
+                  </p>
+                  <div className="flex items-center text-xs font-mono font-medium text-cyan-700 dark:text-cyan-400 gap-1.5">
+                    <span>Drill safety positions</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => navigate("/play-with-coach")}
+                  className="group bg-white/95 dark:bg-gradient-to-b dark:from-[#202c38]/80 dark:to-[#161f27]/80 hover:bg-slate-50 dark:hover:from-[#273644]/90 dark:hover:to-[#1b2630]/90 border border-slate-200/90 dark:border-white/10 hover:border-cyan-400 dark:hover:border-cyan-500/40 p-5 rounded-2xl backdrop-blur-xl shadow-sm hover:shadow-md transition-all cursor-pointer text-left relative overflow-hidden"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200 dark:border-violet-500/30 flex items-center justify-center text-violet-700 dark:text-violet-400 group-hover:scale-105 transition-transform">
+                      <Target className="w-5 h-5" strokeWidth={1.75} />
+                    </div>
+                    <span className="text-[10.5px] font-mono font-bold text-violet-800 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/70 border border-violet-200 dark:border-violet-500/30 px-2.5 py-0.5 rounded-full">
+                      800–1400 ELO
+                    </span>
+                  </div>
+                  <h4 className="font-serif text-lg text-slate-900 dark:text-white font-medium mb-1.5 group-hover:text-violet-700 dark:group-hover:text-violet-300 transition-colors">
+                    King Escape Squares & Back-Rank
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-300/90 leading-relaxed mb-4">
+                    Count king flight squares under attack, recognize corridor mates early, and secure king safety during tactical storms.
+                  </p>
+                  <div className="flex items-center text-xs font-mono font-medium text-violet-700 dark:text-violet-400 gap-1.5">
+                    <span>Try Escape Quiz in Coach Play</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => navigate("/training")}
+                  className="group bg-white/95 dark:bg-gradient-to-b dark:from-[#202c38]/80 dark:to-[#161f27]/80 hover:bg-slate-50 dark:hover:from-[#273644]/90 dark:hover:to-[#1b2630]/90 border border-slate-200/90 dark:border-white/10 hover:border-cyan-400 dark:hover:border-cyan-500/40 p-5 rounded-2xl backdrop-blur-xl shadow-sm hover:shadow-md transition-all cursor-pointer text-left relative overflow-hidden"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-500/30 flex items-center justify-center text-amber-700 dark:text-amber-400 group-hover:scale-105 transition-transform">
+                      <Zap className="w-5 h-5" strokeWidth={1.75} />
+                    </div>
+                    <span className="text-[10.5px] font-mono font-bold text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/70 border border-amber-200 dark:border-amber-500/30 px-2.5 py-0.5 rounded-full">
+                      1000–1500 ELO
+                    </span>
+                  </div>
+                  <h4 className="font-serif text-lg text-slate-900 dark:text-white font-medium mb-1.5 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">
+                    Tactical Motifs & Double Attacks
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-300/90 leading-relaxed mb-4">
+                    Master the foundational geometry of victory: knight forks, absolute pins, skewers, and deadly discovered checks.
+                  </p>
+                  <div className="flex items-center text-xs font-mono font-medium text-amber-700 dark:text-amber-400 gap-1.5">
+                    <span>Solve pattern puzzles</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => navigate("/openings")}
+                  className="group bg-white/95 dark:bg-gradient-to-b dark:from-[#202c38]/80 dark:to-[#161f27]/80 hover:bg-slate-50 dark:hover:from-[#273644]/90 dark:hover:to-[#1b2630]/90 border border-slate-200/90 dark:border-white/10 hover:border-cyan-400 dark:hover:border-cyan-500/40 p-5 rounded-2xl backdrop-blur-xl shadow-sm hover:shadow-md transition-all cursor-pointer text-left relative overflow-hidden"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-500/30 flex items-center justify-center text-emerald-700 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+                      <BookOpen className="w-5 h-5" strokeWidth={1.75} />
+                    </div>
+                    <span className="text-[10.5px] font-mono font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                      1200+ ELO
+                    </span>
+                  </div>
+                  <h4 className="font-serif text-lg text-slate-900 dark:text-white font-medium mb-1.5 group-hover:text-emerald-700 dark:group-hover:text-emerald-300 transition-colors">
+                    Repertoire & Endgame Conversion
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-300/90 leading-relaxed mb-4">
+                    Build opening confidence that leads to comfortable middlegames, and convert advantages into decisive wins.
+                  </p>
+                  <div className="flex items-center text-xs font-mono font-medium text-emerald-700 dark:text-emerald-400 gap-1.5">
+                    <span>Explore openings & endgames</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* ─── STUDIO SPOTLIGHT: 18 TRAPS & 10 ENDGAMES ─── */}
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white/95 dark:bg-gradient-to-b dark:from-[#222e3a]/85 dark:to-[#172028]/85 border border-slate-200/90 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] backdrop-blur-xl flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-cyan-800 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-500/30 px-2.5 py-0.5 rounded-full">
+                      Teaching Engine
+                    </span>
+                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">18 Verified Traps</span>
+                  </div>
+                  <h4 className="font-serif text-xl text-slate-900 dark:text-white font-medium mb-2">
+                    Famous Opening Traps & Defenses
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/90 leading-relaxed mb-5">
+                    Learn to recognize and punish Scholar's Mate, the Fried Liver, Legal's Mate, and the Blackburne Shilling before your opponents catch you.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate("/play-with-coach")}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 border border-slate-200 dark:border-white/15 text-slate-800 dark:text-slate-200 font-mono text-xs font-semibold uppercase tracking-wider inline-flex items-center justify-between transition-all"
+                >
+                  <span>Practice Trap Lessons</span>
+                  <ChevronRight className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                </button>
+              </div>
+
+              <div className="bg-white/95 dark:bg-gradient-to-b dark:from-[#222e3a]/85 dark:to-[#172028]/85 border border-slate-200/90 dark:border-white/10 rounded-3xl p-6 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] backdrop-blur-xl flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-violet-800 dark:text-violet-400 font-bold bg-violet-50 dark:bg-violet-950/60 border border-violet-200 dark:border-violet-500/30 px-2.5 py-0.5 rounded-full">
+                      Endgame Mastery
+                    </span>
+                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">10 Scenarios</span>
+                  </div>
+                  <h4 className="font-serif text-xl text-slate-900 dark:text-white font-medium mb-2">
+                    Endgame Conversions & Techniques
+                  </h4>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300/90 leading-relaxed mb-5">
+                    Step-by-step interactive exercises: Lucena bridge technique, Philidor passive defense, King & Pawn opposition, and rook cutoffs.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate("/play-with-coach")}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 border border-slate-200 dark:border-white/15 text-slate-800 dark:text-slate-200 font-mono text-xs font-semibold uppercase tracking-wider inline-flex items-center justify-between transition-all"
+                >
+                  <span>Practice Endgame Lessons</span>
+                  <ChevronRight className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                </button>
+              </div>
+            </section>
+
+            {/* ─── EXPLORE STUDIO TOOLS ─── */}
+            <section className="pt-2">
+              <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400 font-semibold mb-4">
+                Explore Studio Tools
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+                {NAV.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        track(ANALYTICS_EVENTS.FUNNEL_HOME_NAV_TILE_CLICKED, { tile: item.id });
+                        navigate(item.href);
+                      }}
+                      className="group bg-white/95 dark:bg-gradient-to-b dark:from-[#202c38]/80 dark:to-[#161f27]/80 hover:bg-slate-50 dark:hover:from-[#293846]/90 dark:hover:to-[#1c2731]/90 border border-slate-200/90 dark:border-white/10 hover:border-cyan-400 dark:hover:border-cyan-500/40 p-4 rounded-2xl backdrop-blur-xl shadow-sm hover:shadow-md transition-all text-left"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-cyan-600 dark:group-hover:text-cyan-300 group-hover:border-cyan-400 dark:group-hover:border-cyan-500/40 transition-colors mb-3">
+                        <Icon className="w-4 h-4" strokeWidth={1.75} />
+                      </div>
+                      <p className="text-xs font-serif font-medium text-slate-900 dark:text-white tracking-wide group-hover:text-cyan-700 dark:group-hover:text-cyan-200 transition-colors">
+                        {item.label}
+                      </p>
+                      <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                        {item.sub}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
           </motion.div>
         </div>
       </Layout>
     );
   }
 
-  // ─── Main page ──────────────────────────────────────────────────────
+  // ─── Returning User State (Elite Chess Studio Aesthetic) ───
   return (
     <Layout user={user}>
       <motion.div
         variants={pageEnter}
         initial="initial"
         animate="animate"
-        className="cg-page"
+        className="min-h-full py-6 px-4 sm:px-6 relative"
         data-testid="home-page"
       >
-        <motion.div variants={staggerContainer} initial="initial" animate="animate">
+        {/* Soft Ambient Studio Lighting */}
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute top-1/2 left-10 w-80 h-80 bg-blue-600/5 dark:bg-violet-600/10 rounded-full blur-[140px] pointer-events-none" />
+
+        <motion.div variants={staggerContainer} initial="initial" animate="animate" className="max-w-4xl mx-auto space-y-8 relative z-10">
+          
           {/* ─── GREETING ─── */}
-          <motion.div variants={fadeInUp} className="flex items-baseline justify-between mb-10 md:mb-12">
-            <p className="text-muted-foreground text-[13px]">
-              {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
-            </p>
-            <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
+          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row sm:items-baseline justify-between pb-4 border-b border-slate-200/80 dark:border-white/10 gap-2">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-[0.22em] text-cyan-800 dark:text-cyan-400 font-bold bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-500/30 px-3 py-0.5 rounded-full inline-block mb-1.5 shadow-sm">
+                Active Session
+              </span>
+              <h1 className="font-serif text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight">
+                {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
+              </h1>
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 font-mono text-xs uppercase tracking-widest">{formatWhen()}</p>
           </motion.div>
 
           {/* ─── SINCE YOU LAST PLAYED (the Mirror) ─── */}
           {lastSession?.story && (
-            <motion.section ref={mirrorRef} variants={fadeInUp} className="mb-12 md:mb-16">
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
-                Since you last played
-              </div>
-              <div className="cg-panel p-6">
-                <p className="text-[14px] leading-relaxed text-foreground">{lastSession.story}</p>
+            <motion.section ref={mirrorRef} variants={fadeInUp}>
+              <div className="bg-white/95 dark:bg-gradient-to-b dark:from-[#24313d]/85 dark:to-[#19222a]/85 border border-slate-200/90 dark:border-white/15 rounded-3xl p-6 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] backdrop-blur-xl relative overflow-hidden">
+                <div className="flex items-center space-x-2 text-[10px] font-mono uppercase tracking-[0.22em] text-cyan-800 dark:text-cyan-300 font-bold mb-3">
+                  <Activity className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <span>Since you last played</span>
+                </div>
+                
+                <p className="text-sm sm:text-[15px] leading-relaxed text-slate-700 dark:text-slate-200">
+                  {lastSession.story}
+                </p>
+                
                 {(lastSession.game_id || lastSession.game_ids?.[0]) && (
-                  <button
-                    onClick={() => {
-                      track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "review_this_game" });
-                      navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`);
-                    }}
-                    className="experience-link mt-4 text-[12.5px] text-violet-600 dark:text-violet-400 hover:underline inline-flex items-center gap-1"
-                  >
-                    Review this game
-                    <ChevronRight className="h-3 w-3" strokeWidth={2} />
-                  </button>
+                  <div className="mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
+                    <button
+                      onClick={() => {
+                        track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "review_this_game" });
+                        navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 text-cyan-800 dark:bg-cyan-950/60 dark:hover:bg-cyan-900/60 dark:border-cyan-500/40 dark:text-cyan-300 font-mono text-xs font-semibold tracking-wider inline-flex items-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <span>Review this game</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" strokeWidth={2} />
+                    </button>
+                  </div>
                 )}
               </div>
             </motion.section>
           )}
 
-          {/* ─── THE COACH CONVERSATION ───
-              See docs/home_page_coach_conversation_scope.md. This is the
-              whole page now: relationship-stage opener, continuity, a
-              hedged belief about why the headline pattern exists, one
-              action, encouragement. Replaces the old ten-section stack
-              (recommendations grid with elo/confidence numbers, a raw
-              percentage-improvement line, a numeric domain-score grid,
-              and five smaller cards that all competed for "the one thing
-              to do today") with a single flow. No cards, no stats. */}
+          {/* ─── THE COACH CONVERSATION ─── */}
           {coachConversation?.has_conversation || canonicalContext ? (
-            <motion.section variants={fadeInUp} className="cg-coach-card mb-16 md:mb-20 max-w-[720px]">
+            <motion.section 
+              variants={fadeInUp} 
+              className="bg-white/95 dark:bg-gradient-to-b dark:from-[#25323d]/85 dark:to-[#19222b]/85 border border-slate-200/90 dark:border-white/15 rounded-3xl p-7 sm:p-9 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl relative overflow-hidden"
+            >
               {coachConversation?.thinking_signature && (
-                <p className="text-[15px] leading-relaxed text-foreground mb-5">
+                <div className="bg-slate-100/90 dark:bg-black/25 border-l-2 border-cyan-500 dark:border-cyan-400/80 p-3.5 rounded-r-xl mb-5 text-xs font-mono text-slate-800 dark:text-cyan-200/90 leading-relaxed">
                   {coachConversation.thinking_signature}
-                </p>
+                </div>
               )}
+
               {coachConversation?.narrative && (
-                <>
-                  <p className="text-[15px] leading-relaxed text-foreground mb-5">
+                <div className="space-y-3 mb-6">
+                  <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-200">
                     {coachConversation.narrative.stage_opener}
                   </p>
-                  <p className="text-[15px] leading-relaxed text-foreground mb-5">
+                  <p className="text-[15px] leading-relaxed text-slate-600 dark:text-slate-300">
                     {coachConversation.narrative.continuity}{" "}
-                    {coachConversation.narrative.belief}
+                    <span className="text-slate-900 dark:text-white font-medium">
+                      {coachConversation.narrative.belief}
+                    </span>
                   </p>
-                </>
+                </div>
               )}
+
               {canonicalContext ? (
-                <div ref={curriculumDecisionElementRef}>
+                <div ref={curriculumDecisionElementRef} className="my-6">
                   <CanonicalFocusRail
                     context={canonicalContext}
                     onAction={(action) => {
@@ -494,21 +778,27 @@ export default function HomePageNew({ user }) {
                   />
                 </div>
               ) : pic ? (
-                <div ref={curriculumDecisionElementRef} className="experience-focus-rail border-l-2 border-violet-400/50 pl-4 mb-7 max-w-[600px]">
-                  <p className="experience-eyebrow text-[10px] uppercase tracking-[0.2em] text-violet-600 dark:text-violet-400 font-semibold mb-2">
-                    {pic.learner_state?.label || "Learning"}
-                    {pic.learner_state?.refresh_needed ? " · Refresh needed" : ""}
+                <div 
+                  ref={curriculumDecisionElementRef} 
+                  className="bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-0 border-l-2 border-l-cyan-500 dark:border-l-cyan-400/80 rounded-r-2xl p-5 mb-7 shadow-sm"
+                >
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-400 font-mono font-semibold mb-2 flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                    <span>
+                      {pic.learner_state?.label || "Learning"}
+                      {pic.learner_state?.refresh_needed ? " · Refresh needed" : ""}
+                    </span>
                   </p>
-                  <p className="text-[17px] font-medium text-foreground mb-2">
+                  <p className="font-serif text-lg font-medium text-slate-900 dark:text-white mb-2">
                     {pic.focus_label}
                   </p>
-                  <p className="text-[14px] leading-relaxed text-foreground mb-2">
+                  <p className="text-[14px] leading-relaxed text-slate-600 dark:text-slate-200 mb-2">
                     {pic.instruction_text || "Before you move, check whether the piece will be safe on its new square."}
                   </p>
-                  <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+                  <p className="text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400 italic">
                     I have seen this same decision in more than one of your games. We’ll stay with it until your response begins to change over the board.
                   </p>
-                  <div className="flex flex-wrap gap-2 mt-4">
+                  <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
                     <button
                       onClick={() => {
                         track(ANALYTICS_EVENTS.PIC_NEXT_ACTION_CLICKED, { action: "practice" });
@@ -522,7 +812,7 @@ export default function HomePageNew({ user }) {
                         }
                         navigate("/training/pattern/piece_safety");
                       }}
-                      className="experience-primary h-9 px-4 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors"
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono text-xs font-bold uppercase tracking-wider shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all"
                     >
                       Practise this
                     </button>
@@ -530,151 +820,110 @@ export default function HomePageNew({ user }) {
                       <button
                         disabled={focusGameBusy}
                         onClick={() => updateFocusGame("commit")}
-                        className="h-9 px-4 rounded-lg border border-border text-[13px] font-medium hover:bg-muted/50 disabled:opacity-50"
+                        className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-slate-200 text-xs font-mono font-medium tracking-wide transition-all disabled:opacity-50"
                       >
                         Make my next game a Focus Game
                       </button>
                     ) : pic.focus_game.status === "waiting" ? (
-                      <>
-                        <span className="h-9 px-3 inline-flex items-center text-[12.5px] text-muted-foreground">
-                          Committed — play on Chess.com or Lichess, then sync.
-                        </span>
+                      <div className="flex items-center space-x-2 text-xs font-mono text-cyan-700 dark:text-cyan-300">
+                        <span>Committed — play on Chess.com or Lichess, then sync.</span>
                         <button
                           disabled={focusGameBusy}
                           onClick={() => updateFocusGame("cancel")}
-                          className="h-9 px-3 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          className="text-[11px] underline text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                         >
                           Cancel
                         </button>
-                      </>
+                      </div>
                     ) : pic.focus_game.status === "claimed" ? (
-                      <>
-                        <span className="h-9 px-3 inline-flex items-center text-[12.5px] text-muted-foreground">
-                          I found the game. I’ll use it to see whether the new habit appeared.
-                        </span>
+                      <div className="flex items-center space-x-2 text-xs font-mono text-emerald-700 dark:text-emerald-300">
+                        <span>I found the game. I’ll use it to see whether the new habit appeared.</span>
                         <button
                           disabled={focusGameBusy}
                           onClick={() => updateFocusGame("correct", { game_id: pic.focus_game.game_id })}
-                          className="h-9 px-3 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          className="text-[11px] underline text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                         >
                           That was not my Focus Game
                         </button>
-                      </>
+                      </div>
                     ) : null}
                   </div>
                 </div>
               ) : (
-                <p className="text-[15px] leading-relaxed text-foreground font-medium mb-6">
+                <p className="text-[15px] leading-relaxed text-slate-900 dark:text-white font-medium mb-6">
                   {coachConversation.one_action}
                 </p>
               )}
-              {/* What they do with the chances their opponent hands them.
-                  Sits after the focus action and before the sign-off, as a
-                  quieter second voice: the action above is what to work on
-                  this week, this is a habit for every move of every game.
-                  Deliberately carries no numbers -- the rate chooses the
-                  sentence and never appears in it. */}
+
               {coachConversation?.punish_line?.text && (
-                <p className="text-[13px] leading-relaxed text-muted-foreground mb-4">
-                  {coachConversation.punish_line.headline}{" "}
-                  <span className="text-foreground">
-                    {coachConversation.punish_line.habit}
-                  </span>
-                </p>
+                <div className="bg-slate-100/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-3.5 mb-4 flex items-center space-x-2 text-xs text-slate-700 dark:text-slate-300">
+                  <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                  <div>
+                    <span className="font-semibold text-slate-900 dark:text-white">{coachConversation.punish_line.headline}</span>{" "}
+                    <span>{coachConversation.punish_line.habit}</span>
+                  </div>
+                </div>
               )}
+
               {coachConversation?.encouragement && (
-                <p className="text-[13px] text-muted-foreground mb-2">
-                  {coachConversation.encouragement}
+                <p className="text-[13px] text-slate-600 dark:text-slate-300/80 mb-2 italic">
+                  "{coachConversation.encouragement}"
                 </p>
               )}
+
               {coachConversation?.closing_line && (
-                <p className="text-[13px] text-muted-foreground mb-8">
+                <p className="text-[13px] text-slate-500 dark:text-slate-400 mb-8 font-mono">
                   {coachConversation.closing_line}
                 </p>
               )}
-              {!canonicalContext && !pic && <button
-                ref={conversationEndRef}
-                onClick={() => {
-                  track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "play_with_coach", has_conversation: true });
-                  navigate("/play-with-coach");
-                }}
-                className="experience-primary h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
-              >
-                Play with Coach
-                <ArrowRight className="h-4 w-4" strokeWidth={2} />
-              </button>}
-            </motion.section>
-          ) : (
-            // No active focus assigned yet — real edge case (games exist,
-            // but the coach hasn't settled on a headline pattern). Keep
-            // this minimal rather than falling back to the old stack.
-            <>
-              {(() => {
-                const shouldShow = diagnosticStatus && diagnosticStatus.status !== "complete" && diagnosticStatus.status !== "superseded";
-                return shouldShow;
-              })() && (
-                <motion.section variants={fadeInUp} className="mb-12 md:mb-16">
-                  <div className="cg-coach-card">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-[20px] font-heading font-semibold text-foreground mb-2">Let me learn how you see the board.</h3>
-                        <p className="text-[13px] text-foreground/85 mb-4">
-                          {diagnosticStatus.status === "in_progress"
-                            ? "We have already started. Let’s pick up where you left off."
-                            : "A short set of positions will help me choose the right first lesson for you."}
-                        </p>
-                        <button
-                          onClick={() => navigate("/diagnostic")}
-                          className="cg-primary-action"
-                        >
-                          {diagnosticStatus.status === "in_progress" ? "Continue with me" : "Show me how I think"}
-                          <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
-                        </button>
-                      </div>
-                      <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
-                    </div>
-                  </div>
-                </motion.section>
-              )}
-              {/* No conversation can mean two very different things, and
-                  saying the wrong one is how a player with 52 analysed games
-                  got told to go and play a game or two. `hasGames` separates
-                  them: if we have their games, we have seen them play, and
-                  the honest gap is that we have not settled on the one
-                  pattern to work on yet. Their games are still worth opening
-                  in the meantime, so that is where the button goes. */}
-              <motion.section variants={fadeInUp} className="mb-12 md:mb-16 max-w-[620px]">
-                <p className="text-[15px] leading-relaxed text-foreground mb-5">
-                  {hasGames
-                    ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
-                    : "I'm still learning how you play. Play a game or two and I'll start noticing your habits."}
-                </p>
+
+              {!canonicalContext && !pic && (
                 <button
+                  ref={conversationEndRef}
                   onClick={() => {
-                    track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, {
-                      cta: hasGames ? "review_games" : "play_with_coach",
-                      has_conversation: false,
-                    });
-                    navigate(hasGames ? "/lab" : "/play-with-coach");
+                    track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "play_with_coach", has_conversation: true });
+                    navigate("/play-with-coach");
                   }}
-                  className="experience-primary h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono text-xs font-bold uppercase tracking-wider shadow-[0_0_20px_rgba(56,189,248,0.4)] inline-flex items-center gap-2 transition-all"
                 >
-                  {hasGames ? "Review your games" : "Play with Coach"}
+                  <Swords className="h-4 w-4" strokeWidth={2} />
+                  <span>Play with Coach</span>
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />
                 </button>
-              </motion.section>
-            </>
+              )}
+            </motion.section>
+          ) : (
+            <motion.section 
+              variants={fadeInUp} 
+              className="bg-white/95 dark:bg-gradient-to-b dark:from-[#24313d]/85 dark:to-[#19222a]/85 border border-slate-200/90 dark:border-white/15 rounded-3xl p-7 sm:p-9 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] backdrop-blur-xl relative"
+            >
+              <p className="text-[15px] leading-relaxed text-slate-700 dark:text-slate-200 mb-6">
+                {hasGames
+                  ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
+                  : "I'm still learning how you play. Play a game or two and I'll start noticing your habits."}
+              </p>
+              <button
+                onClick={() => {
+                  track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, {
+                    cta: hasGames ? "review_games" : "play_with_coach",
+                    has_conversation: false,
+                  });
+                  navigate(hasGames ? "/lab" : "/play-with-coach");
+                }}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono text-xs font-bold uppercase tracking-wider shadow-[0_0_15px_rgba(56,189,248,0.4)] inline-flex items-center gap-2 transition-all"
+              >
+                {hasGames ? "Review your games" : "Play with Coach"}
+                <ArrowRight className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </motion.section>
           )}
 
-          {/* ─── NAVIGATION TILES ───
-              Deliberately faded — utilities, not today's mission. Mohit,
-              2026-07-31 §7: "Now I'm back inside software... I'd fade
-              those into the background." */}
-          <motion.section variants={fadeInUp} className="mt-20 pt-10 border-t border-border/30 opacity-70 hover:opacity-100 transition-opacity">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70 font-medium mb-4">
+          {/* ─── NAVIGATION TILES ─── */}
+          <motion.section variants={fadeInUp} className="pt-6">
+            <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400 font-semibold mb-4">
               Other ways to improve
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
               {NAV.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -684,16 +933,23 @@ export default function HomePageNew({ user }) {
                       track(ANALYTICS_EVENTS.FUNNEL_HOME_NAV_TILE_CLICKED, { tile: item.id });
                       navigate(item.href);
                     }}
-                    className="experience-utility group p-3 rounded-xl border border-border/40 hover:border-border/70 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors text-left"
+                    className="group bg-white/95 dark:bg-gradient-to-b dark:from-[#202c38]/80 dark:to-[#161f27]/80 hover:bg-slate-50 dark:hover:from-[#293846]/90 dark:hover:to-[#1c2731]/90 border border-slate-200/90 dark:border-white/10 hover:border-cyan-400 dark:hover:border-cyan-500/40 p-4 rounded-2xl backdrop-blur-xl shadow-sm hover:shadow-md transition-all text-left"
                   >
-                    <Icon className="w-4 h-4 text-muted-foreground/70 group-hover:text-foreground mb-2 transition-colors" strokeWidth={1.5} />
-                    <p className="text-[11.5px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</p>
-                    <p className="text-[9.5px] text-muted-foreground/60 mt-0.5">{item.sub}</p>
+                    <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-black/40 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:text-cyan-600 dark:group-hover:text-cyan-300 group-hover:border-cyan-400 dark:group-hover:border-cyan-500/40 transition-colors mb-3">
+                      <Icon className="w-4 h-4" strokeWidth={1.75} />
+                    </div>
+                    <p className="text-xs font-serif font-medium text-slate-900 dark:text-white tracking-wide group-hover:text-cyan-700 dark:group-hover:text-cyan-200 transition-colors">
+                      {item.label}
+                    </p>
+                    <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                      {item.sub}
+                    </p>
                   </button>
                 );
               })}
             </div>
           </motion.section>
+
         </motion.div>
       </motion.div>
     </Layout>

@@ -64,6 +64,9 @@ import {
   Clock,
   Target,
   Download,
+  Sparkles,
+  HelpCircle,
+  Eye,
 } from "lucide-react";
 
 /* ── Guardian Intervention Panel ──────────────────────────────────────────
@@ -1077,15 +1080,38 @@ const CoachPlaySidebar = ({
       {/* ═══ Clean UI Mode ═══ */}
       {cleanUIMode && session && !gameOver ? (
         <>
-          {/* Header — editorial eyebrow (redesign/04_CoachPlay.html spec) */}
-          <div className="px-4 py-3 border-b border-border">
+          {/* Elite Coach Persona Header */}
+          <div className="px-4 py-3.5 border-b border-white/10 bg-[#16212e]/95 backdrop-blur-md">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold">
-                Your coach
-              </p>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="relative shrink-0">
+                  <img
+                    src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces"
+                    alt="Coach Jessica"
+                    className="w-8 h-8 rounded-full object-cover ring-2 ring-cyan-500/80 shadow-md"
+                  />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#16212e]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-slate-100 text-xs tracking-tight">Coach Jessica</span>
+                    <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">AI Coach</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                    {loadingFeedback ? (
+                      <span className="text-cyan-400 font-medium flex items-center gap-1">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" /> Analyzing position...
+                      </span>
+                    ) : (
+                      <span className="text-emerald-400">● Live Coaching</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
                 {openingGuidance?.opening_key && (
-                  <span className="text-[11px] text-muted-foreground/70 font-mono tabular-nums capitalize">
+                  <span className="text-[11px] text-slate-400 font-mono tabular-nums capitalize hidden sm:inline">
                     {openingGuidance.opening_key.replace(/_/g, " ")}
                   </span>
                 )}
@@ -1093,11 +1119,11 @@ const CoachPlaySidebar = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[11px]"
+                    className="h-7 text-[11px] bg-white/5 border-white/10 hover:bg-white/10 text-slate-300 rounded-xl"
                     onClick={() => setShowLessonPicker(true)}
                     data-testid="open-lessons-btn"
                   >
-                    <BookOpen className="w-3 h-3 mr-1" />
+                    <BookOpen className="w-3 h-3 mr-1 text-cyan-400" />
                     Lessons
                   </Button>
                 )}
@@ -1108,18 +1134,19 @@ const CoachPlaySidebar = ({
           {/* Main Content - Scrollable */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-            {/* ═══ Today's Goal — coaching-presence v1 (spine arc) ═══
-                Pinned at the top for the whole game; accountability + the
-                post-game story refer back to it. Calm, single subtle accent. */}
+            {/* ═══ Today's Goal — coaching-presence v1 (spine arc) ═══ */}
             {session?.session_goal?.text && !gameOver && (
               <div
-                className="rounded-lg border border-border bg-muted/30 px-3.5 py-3"
+                className="rounded-2xl border border-cyan-500/30 bg-gradient-to-b from-[#1b2634] to-[#131c26] p-4 shadow-lg backdrop-blur-md"
                 data-testid="session-goal-card"
               >
-                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold mb-1.5">
-                  Today's goal
-                </p>
-                <p className="text-[13.5px] leading-relaxed text-foreground">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Target className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-400 font-bold block">
+                    Today's goal
+                  </span>
+                </div>
+                <p className="text-[13.5px] leading-relaxed text-slate-200 font-medium">
                   {session.session_goal.text}
                 </p>
               </div>
@@ -1150,7 +1177,7 @@ const CoachPlaySidebar = ({
               moveCount: session?.move_history?.length,
             }) && (
                 <p
-                  className="px-3.5 py-2 text-[12.5px] leading-relaxed text-muted-foreground"
+                  className="px-3.5 py-2 text-[12.5px] leading-relaxed text-slate-400"
                   data-testid="coach-waiting-line"
                 >
                   Play when you&rsquo;re ready. I&rsquo;ll step in if a move is
@@ -1166,13 +1193,13 @@ const CoachPlaySidebar = ({
              (session?.move_history?.length ?? 0) < 3 &&
              !gameOver && (
               <div
-                className="rounded-lg border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 px-3.5 py-3"
+                className="rounded-2xl border border-cyan-500/40 bg-gradient-to-b from-cyan-950/40 to-[#141f2a]/90 p-4 shadow-sm backdrop-blur-md"
                 data-testid="session-greeting-card"
               >
-                <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-400 font-semibold mb-1.5">
+                <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-cyan-300 font-bold mb-1.5 block">
                   Coach
-                </p>
-                <p className="text-[13px] leading-relaxed text-foreground italic">
+                </span>
+                <p className="text-[13px] leading-relaxed text-slate-200 italic">
                   {session.session_greeting.text}
                 </p>
               </div>
@@ -1183,17 +1210,17 @@ const CoachPlaySidebar = ({
                 moments came up this game and how many the user handled
                 cleanly. Only renders when scoreboard has fired at least once. */}
             {session?.mission_scoreboard?.matched_moments > 0 && !gameOver && (
-              <div className="rounded-lg border border-border bg-muted/20 px-3.5 py-3">
+              <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#19222c]/80 to-[#131b23]/80 p-4 shadow-sm backdrop-blur-md">
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
+                  <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-400 font-semibold">
                     Mission — {session.mission_scoreboard.focus_label || session.mission_scoreboard.focus_topic}
                   </p>
-                  <p className="text-[11px] font-mono text-foreground">
+                  <p className="text-[11px] font-mono text-cyan-300 font-semibold">
                     {session.mission_scoreboard.handled_correctly}/{session.mission_scoreboard.matched_moments}
                   </p>
                 </div>
                 {session.mission_recall_callout && (
-                  <p className="text-[12.5px] text-amber-800 dark:text-amber-200 mt-1 leading-relaxed">
+                  <p className="text-[12.5px] text-amber-300/90 mt-1 leading-relaxed">
                     {session.mission_recall_callout}
                   </p>
                 )}
@@ -1267,22 +1294,36 @@ const CoachPlaySidebar = ({
                   initial="initial"
                   animate="animate"
                   exit="exit"
-                  className="relative overflow-hidden rounded-xl border border-border bg-muted/20 px-4 py-3"
+                  className="relative overflow-hidden rounded-2xl border border-cyan-500/30 bg-gradient-to-b from-[#182330] to-[#121c27] p-3.5 shadow-xl backdrop-blur-md"
                   data-testid="coach-thinking-shimmer"
                 >
-                  <p className="text-[12px] text-muted-foreground flex items-center gap-2">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Coach is thinking…
-                  </p>
-                  <div className="absolute inset-0 animate-shimmer pointer-events-none" />
+                  <div className="flex items-center gap-3">
+                    <div className="relative shrink-0">
+                      <img
+                        src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop&crop=faces"
+                        alt="Coach Jessica"
+                        className="w-8 h-8 rounded-full object-cover ring-2 ring-cyan-500/80 shadow"
+                      />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-100 text-xs">Coach Jessica</span>
+                        <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+                          Evaluating
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-cyan-300/90 flex items-center gap-1.5 mt-0.5 font-medium">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400 shrink-0" />
+                        Evaluating position & candidate responses…
+                      </p>
+                    </div>
+                  </div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent animate-shimmer pointer-events-none" />
                 </motion.div>
               )}
             </AnimatePresence>
-            {/* ═══ Coach's Move Explanation — Teaching moment (violet editorial card) ═══
-                From redesign/04_CoachPlay.html: the coach's move gets an eyebrow
-                ("TEACHING MOMENT" / "COACH PLAYED"), the explanation renders in
-                Fraunces serif, Socratic questions in italic, and the opponent-
-                opportunity + trap-warning inline use quieter panels. */}
+            {/* ═══ Coach's Move Explanation — Teaching moment (Elite Studio Dialogue Card) ═══ */}
             {/* Punishment-puzzle card. Renders ABOVE the TeachingMoment
                 when the coach just played an exploitable move (armed)
                 or when the user just answered (resolved). Quietly
@@ -1320,68 +1361,103 @@ const CoachPlaySidebar = ({
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                className="rounded-2xl border border-violet-400/25 bg-gradient-to-b from-violet-500/[0.04] to-transparent p-5 space-y-3">
-                {/* Eyebrow: TEACHING MOMENT / COACH PLAYED + SAN + optional v2 label */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300 font-semibold">
-                    {interactiveCoaching.coachMoveCoaching.v2_label
-                      ? "Teaching moment"
-                      : "Coach played"}
-                  </span>
-                  <span className="font-mono text-[11.5px] text-muted-foreground tabular-nums">
-                    {lastCoachMoveSan || "?"}
-                  </span>
-                  {interactiveCoaching.coachMoveCoaching.v2_label && (
-                    <span
-                      className={`text-[10px] uppercase tracking-[0.16em] font-semibold rounded-full px-2 h-5 inline-flex items-center border ${
-                        interactiveCoaching.coachMoveCoaching.v2_intent ===
-                        "fork_opportunity"
-                          ? "border-rose-400/35 bg-rose-500/5 text-rose-500 dark:text-rose-300"
-                          : interactiveCoaching.coachMoveCoaching.v2_intent ===
-                            "hanging_piece_punishment"
-                            ? "border-amber-400/35 bg-amber-500/5 text-amber-600 dark:text-amber-300"
-                            : "border-violet-400/35 bg-violet-500/5 text-violet-500 dark:text-violet-300"
-                      }`}
-                    >
-                      {interactiveCoaching.coachMoveCoaching.v2_label}
+                className="relative overflow-hidden rounded-2xl border border-cyan-500/35 bg-gradient-to-b from-[#192432] via-[#131d28] to-[#101720] p-4.5 space-y-3.5 shadow-2xl backdrop-blur-xl">
+                {/* Ambient glowing accent */}
+                <div className="absolute -top-10 -right-10 w-28 h-28 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                {/* Eyebrow: Coach Jessica Persona + SAN pill + optional v2 label */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="relative shrink-0">
+                      <img
+                        src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=80&h=80&fit=crop&crop=faces"
+                        alt="Coach Jessica"
+                        className="w-7 h-7 rounded-full object-cover ring-2 ring-cyan-500/80 shadow"
+                      />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-[#192432]" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-slate-100 text-xs tracking-tight">Coach Jessica</span>
+                        <span className="text-[9.5px] uppercase tracking-wider font-mono font-bold text-cyan-400">
+                          {interactiveCoaching.coachMoveCoaching.v2_label
+                            ? "Teaching moment"
+                            : "Coach played"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Move Pill + Intent Badges */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-xs px-2.5 py-0.5 rounded-lg bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.25)]">
+                      {lastCoachMoveSan || "?"}
                     </span>
-                  )}
+                    {interactiveCoaching.coachMoveCoaching.v2_label && (
+                      <span
+                        className={`text-[9.5px] uppercase tracking-wider font-semibold rounded-full px-2 py-0.5 inline-flex items-center border ${
+                          interactiveCoaching.coachMoveCoaching.v2_intent ===
+                          "fork_opportunity"
+                            ? "border-rose-400/40 bg-rose-500/15 text-rose-300"
+                            : interactiveCoaching.coachMoveCoaching.v2_intent ===
+                              "hanging_piece_punishment"
+                              ? "border-amber-400/40 bg-amber-500/15 text-amber-300"
+                              : "border-cyan-400/40 bg-cyan-500/15 text-cyan-300"
+                        }`}
+                      >
+                        {interactiveCoaching.coachMoveCoaching.v2_label}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* The explanation — Fraunces serif, the coach's voice */}
-                <p className="group font-serif text-[17px] leading-[1.3] tracking-[-0.005em] text-foreground">
-                  <ClickableMoves
-                    text={interactiveCoaching.coachMoveCoaching.explanation}
-                    fen={currentFen}
-                    onShowArrow={onShowArrow}
-                    className="inline"
-                  />
-                  <InlineFlag
-                    section="coach_explanation"
-                    flaggedText={interactiveCoaching.coachMoveCoaching.explanation}
-                    context={teachingFlagCtx}
-                  />
-                </p>
-
-                {/* Socratic hint — italic serif */}
-                {interactiveCoaching.coachMoveCoaching.hint_for_user && (
-                  <p className="group font-serif italic text-[14px] text-foreground/80 leading-snug border-l-2 border-violet-400/30 pl-4">
-                    {interactiveCoaching.coachMoveCoaching.hint_for_user}
+                {/* The explanation — Coach's Speech Bubble */}
+                <div className="relative rounded-xl bg-white/[0.04] border border-white/5 p-3.5">
+                  <p className="group text-[15px] sm:text-[15.5px] leading-relaxed text-slate-100 font-medium">
+                    <ClickableMoves
+                      text={interactiveCoaching.coachMoveCoaching.explanation}
+                      fen={currentFen}
+                      onShowArrow={onShowArrow}
+                      className="inline text-cyan-200 hover:text-cyan-100 underline decoration-cyan-400/40 font-semibold"
+                    />
                     <InlineFlag
-                      section="coach_socratic_hint"
-                      flaggedText={interactiveCoaching.coachMoveCoaching.hint_for_user}
+                      section="coach_explanation"
+                      flaggedText={interactiveCoaching.coachMoveCoaching.explanation}
                       context={teachingFlagCtx}
                     />
                   </p>
+                </div>
+
+                {/* Socratic hint — Illuminated Coach's Challenge Box */}
+                {interactiveCoaching.coachMoveCoaching.hint_for_user && (
+                  <div className="rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-amber-500/5 p-3.5 space-y-1.5 shadow-md">
+                    <div className="flex items-center gap-1.5">
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                      <span className="text-[10px] font-mono uppercase tracking-[0.2em] font-bold text-amber-400">
+                        Coach's Challenge
+                      </span>
+                    </div>
+                    <p className="group text-[14px] text-amber-100 leading-snug font-medium">
+                      {interactiveCoaching.coachMoveCoaching.hint_for_user}
+                      <InlineFlag
+                        section="coach_socratic_hint"
+                        flaggedText={interactiveCoaching.coachMoveCoaching.hint_for_user}
+                        context={teachingFlagCtx}
+                      />
+                    </p>
+                  </div>
                 )}
 
-                {/* Opportunity — quiet amber callout */}
+                {/* Opportunity — glowing amber/cyan tactical radar callout */}
                 {interactiveCoaching.coachMoveCoaching.opponent_opportunity && (
-                  <div className="pt-3 border-t border-violet-400/10">
-                    <p className="text-[10px] uppercase tracking-[0.22em] font-semibold text-amber-600 dark:text-amber-300/80 mb-1.5">
-                      Can you see it?
-                    </p>
-                    <p className="group font-serif italic text-[14px] text-foreground/85 leading-snug">
+                  <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 p-3 space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <Target className="w-3.5 h-3.5 text-emerald-400" />
+                      <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-emerald-400">
+                        Can you see it?
+                      </p>
+                    </div>
+                    <p className="group text-[13.5px] text-emerald-100 leading-snug font-medium">
                       {interactiveCoaching.coachMoveCoaching.opponent_opportunity.message}
                       <InlineFlag
                         section="opponent_opportunity"
@@ -1394,11 +1470,11 @@ const CoachPlaySidebar = ({
 
                 {/* Trap Warning with Teach me / I understand buttons */}
                 {interactiveCoaching.coachMoveCoaching.trap_warning && (
-                  <div className="rounded-xl border border-rose-400/30 bg-rose-500/[0.03] px-4 py-3 mt-1">
-                    <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-rose-500 dark:text-rose-300 mb-1.5">
+                  <div className="rounded-xl border border-rose-400/30 bg-rose-500/[0.04] p-3.5 mt-1 space-y-2">
+                    <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-rose-400">
                       Trap · {interactiveCoaching.coachMoveCoaching.trap_warning.name}
                     </p>
-                    <p className="group text-[13px] text-foreground/85 leading-snug">
+                    <p className="group text-[13px] text-slate-200 leading-snug">
                       {interactiveCoaching.coachMoveCoaching.trap_warning.hint}
                       <InlineFlag
                         section="trap_warning_hint"
@@ -1407,7 +1483,7 @@ const CoachPlaySidebar = ({
                       />
                     </p>
                     {interactiveCoaching.coachMoveCoaching.trap_warning.question && (
-                      <p className="group font-serif italic text-[13px] text-foreground/75 mt-2">
+                      <p className="group italic text-[13px] text-slate-300/80">
                         {interactiveCoaching.coachMoveCoaching.trap_warning.question}
                         <InlineFlag
                           section="trap_warning_question"
@@ -1417,7 +1493,7 @@ const CoachPlaySidebar = ({
                       </p>
                     )}
                     {interactiveCoaching.coachMoveCoaching.trap_warning.error && (
-                      <p className="text-[12px] text-rose-500 dark:text-rose-300 mt-2">
+                      <p className="text-[12px] text-rose-400">
                         {interactiveCoaching.coachMoveCoaching.trap_warning.error}
                       </p>
                     )}
@@ -1452,16 +1528,10 @@ const CoachPlaySidebar = ({
                                 }
                                 return;
                               }
-                              // Backend returned the lesson payload — feed it
-                              // straight into handleStartLesson, which sets
-                              // activeLesson / lessonInstruction / FEN / chat
-                              // and flips the UI into teaching mode.
                               const lessonData = await res.json();
                               if (typeof handleStartLesson === "function" && lessonData?.success) {
                                 handleStartLesson(lessonData);
                               }
-                              // Clear the trap_warning panel so it doesn't
-                              // linger after the lesson takes over.
                               if (interactiveCoaching?.setCoachMoveCoaching) {
                                 interactiveCoaching.setCoachMoveCoaching({
                                   ...interactiveCoaching.coachMoveCoaching,
@@ -1472,7 +1542,7 @@ const CoachPlaySidebar = ({
                               console.error("Failed to start trap lesson:", e);
                             }
                           }}
-                          className="flex-1 py-2 text-[12px] font-medium rounded-lg bg-rose-500 hover:bg-rose-400 text-white transition-colors"
+                          className="flex-1 py-2 text-[12px] font-semibold rounded-lg bg-rose-500 hover:bg-rose-400 text-white transition-colors shadow"
                         >
                           Teach me
                         </button>
@@ -1489,7 +1559,6 @@ const CoachPlaySidebar = ({
                                   trap_id: trapId,
                                 }),
                               });
-                              // Hide the warning locally
                               if (interactiveCoaching?.setCoachMoveCoaching) {
                                 interactiveCoaching.setCoachMoveCoaching({
                                   ...interactiveCoaching.coachMoveCoaching,
@@ -1500,7 +1569,7 @@ const CoachPlaySidebar = ({
                               console.error("Failed to dismiss trap:", e);
                             }
                           }}
-                          className="flex-1 py-2 text-[12px] font-medium rounded-lg border border-border text-foreground hover:bg-muted/50 transition-colors"
+                          className="flex-1 py-2 text-[12px] font-medium rounded-lg border border-white/15 text-slate-300 hover:bg-white/5 transition-colors"
                         >
                           I understand
                         </button>
@@ -1513,7 +1582,7 @@ const CoachPlaySidebar = ({
                 {coachingLocked && onCoachingAcknowledge && (
                   <button
                     onClick={onCoachingAcknowledge}
-                    className="w-full mt-3 py-2.5 text-[13px] font-medium rounded-lg bg-violet-500 hover:bg-violet-400 text-white transition-colors"
+                    className="w-full mt-3 py-2.5 text-[13px] font-semibold rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition-colors shadow-lg"
                   >
                     I see it — let me play
                   </button>
@@ -1716,10 +1785,62 @@ const CoachPlaySidebar = ({
                   </button>
                 </motion.div>
               )}
+
+            {/* ═══ Ask Coach Jessica — Interactive Prompt Chips ═══ */}
+            {!gameOver && (
+              <div className="rounded-2xl border border-cyan-500/25 bg-gradient-to-b from-[#182330]/90 to-[#121c27]/90 p-3.5 shadow-lg backdrop-blur-md space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="text-[10px] font-mono uppercase tracking-[0.18em] font-bold text-slate-300">
+                      Ask Coach Jessica
+                    </span>
+                  </div>
+                  <span className="text-[9.5px] text-slate-400 font-mono">
+                    Instant AI Guidance
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      if (typeof sendChatMessage === "function") {
+                        sendChatMessage("Can you give me a small hint for this position?");
+                      }
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-amber-500/15 border border-white/5 hover:border-amber-500/35 text-[11px] font-semibold text-slate-200 hover:text-amber-200 transition-all text-center shadow-sm"
+                  >
+                    <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>Get Hint</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (typeof sendChatMessage === "function") {
+                        sendChatMessage("What is the biggest threat in this position?");
+                      }
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-rose-500/15 border border-white/5 hover:border-rose-500/35 text-[11px] font-semibold text-slate-200 hover:text-rose-200 transition-all text-center shadow-sm"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span>Threat Radar</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (typeof sendChatMessage === "function") {
+                        sendChatMessage("What should my general plan be right now?");
+                      }
+                    }}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 hover:bg-cyan-500/15 border border-white/5 hover:border-cyan-500/35 text-[11px] font-semibold text-slate-200 hover:text-cyan-200 transition-all text-center shadow-sm col-span-2"
+                  >
+                    <Target className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    <span>Strategic Plan Check</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer - Move History */}
-          <div className="p-4 border-t border-border">
+          <div className="p-4 border-t border-white/10 bg-[#141d27]/90">
             <MoveHistorySection
               moves={session?.move_history?.map((m) => m.move) || []}
               currentMoveIndex={(session?.move_history?.length || 0) - 1}

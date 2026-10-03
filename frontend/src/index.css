@@ -30,9 +30,9 @@
   --cg-sq-light: #f0d9b5;
   --cg-sq-dark:  #b58863;
 
-  --cg-accent: #7fb069;
-  --cg-accent-hi: #8fbf78;      /* hover */
-  --cg-accent-rgb: 127 176 105; /* for rgb(... / alpha) */
+  --cg-accent: #38bdf8;
+  --cg-accent-hi: #0ea5e9;      /* hover */
+  --cg-accent-rgb: 56 189 248;  /* for rgb(... / alpha) */
 }
 
 @tailwind base;
@@ -80,7 +80,7 @@
   --card-foreground: 42 24% 94%;
   --popover: 223 27% 10%;
   --popover-foreground: 42 24% 94%;
-  --primary: 38 92% 54%;
+  --primary: 199 89% 48%;
   --primary-foreground: 224 32% 7%;
   --secondary: 222 21% 15%;
   --secondary-foreground: 42 24% 94%;
@@ -90,7 +90,7 @@
   --accent-foreground: 224 32% 7%;
   --border: 220 17% 21%;
   --input: 220 17% 21%;
-  --ring: 38 92% 54%;
+  --ring: 199 89% 48%;
   background:
     radial-gradient(circle at 82% -10%, hsl(var(--primary) / 0.10), transparent 32rem),
     hsl(var(--background));
@@ -286,14 +286,22 @@
     0 1px 0 hsl(0 0% 100% / 0.06) inset;
 }
 
-.experience-v1 .experience-pwc-page .pwc-shell {
+.experience-v1 .experience-pwc-page {
   background:
-    radial-gradient(circle at 24% 22%, hsl(var(--primary) / 0.055), transparent 24rem);
+    radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.09), transparent 45rem),
+    radial-gradient(circle at 85% 20%, rgba(56, 189, 248, 0.05), transparent 35rem),
+    #111823 !important;
+  color: #f1f5f9 !important;
+}
+
+.experience-v1 .experience-pwc-page .pwc-shell {
+  background: transparent !important;
 }
 
 .experience-v1 .experience-pwc-page .pwc-coach-col {
-  border-color: hsl(var(--border) / 0.78);
-  background: hsl(var(--card) / 0.72);
+  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(18, 26, 36, 0.95) !important;
+  backdrop-filter: blur(20px);
 }
 
 .experience-v1 .experience-share-trigger:hover {
@@ -1354,7 +1362,7 @@
 }
 
 .dark .experience-v1 .cg-eyebrow {
-  color: #7ee7c2;
+  color: #38bdf8;
 }
 
 .cg-title {
@@ -1378,16 +1386,16 @@
 .cg-coach-card {
   position: relative;
   padding: clamp(1.25rem, 3vw, 2rem);
-  border: 1px solid rgb(126 231 194 / 0.45);
+  border: 1px solid rgb(56 189 248 / 0.45);
   border-radius: 1.5rem;
-  background: rgb(126 231 194 / 0.13);
+  background: rgb(56 189 248 / 0.13);
 }
 
 .cg-coach-card::before {
   content: "Your coach";
   display: block;
   margin-bottom: 0.75rem;
-  color: #287a61;
+  color: #0284c7;
   font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -1395,7 +1403,7 @@
 }
 
 .dark .experience-v1 .cg-coach-card::before {
-  color: #7ee7c2;
+  color: #38bdf8;
 }
 
 .cg-panel {
@@ -1541,3 +1549,60 @@
   );
   background-size: 25% 25%;
 }
+
+/* ─── Elite Chess Studio Metallic Slate Board Theme ─── */
+.pwc-root .cg-wrap cg-board,
+.studio-board .cg-wrap cg-board,
+.studio-chess-theme .cg-wrap cg-board {
+  background-color: #5b6c80 !important;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 80%),
+    repeating-conic-gradient(
+      #202834 0% 25%,
+      #5b6c80 0% 50%
+    ) !important;
+  background-size: 100% 100%, 25% 25% !important;
+  box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.55);
+}
+
+/* Electric Cyan Active Selection & Tactical Highlights */
+.pwc-root cg-board square.selected,
+.studio-board cg-board square.selected,
+.studio-chess-theme cg-board square.selected {
+  background-color: rgba(56, 189, 248, 0.16) !important;
+  box-shadow: inset 0 0 0 2.5px #38bdf8, 0 0 16px rgba(56, 189, 248, 0.65) !important;
+  border-radius: 4px;
+}
+
+.pwc-root cg-board square.last-move,
+.studio-board cg-board square.last-move,
+.studio-chess-theme cg-board square.last-move {
+  background-color: rgba(56, 189, 248, 0.24) !important;
+}
+
+.pwc-root cg-board square.move-dest,
+.studio-board cg-board square.move-dest,
+.studio-chess-theme cg-board square.move-dest {
+  background: radial-gradient(circle, #38bdf8 24%, transparent 26%) !important;
+}
+
+/* Studio 3D Piece Lighting & High Depth */
+.pwc-root piece,
+.studio-board piece,
+.studio-chess-theme piece {
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.65)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+  transition: transform 0.12s ease;
+}
+
+.pwc-root piece.white,
+.studio-board piece.white,
+.studio-chess-theme piece.white {
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)) brightness(1.1) contrast(1.05);
+}
+
+.pwc-root piece.black,
+.studio-board piece.black,
+.studio-chess-theme piece.black {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.25)) brightness(0.9);
+}
+

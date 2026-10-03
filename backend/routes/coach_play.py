@@ -888,6 +888,49 @@ async def submit_coach_feedback(
     }
 
 
+@router.post("/sync-clock")
+async def sync_coach_play_clock(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user)
+):
+    """
+    Sync remaining clock time for user and coach.
+    Called when game is paused, page visibility changes, or on navigation.
+    """
+    global db
+    if db is None:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    
+    session_id = request.get("session_id")
+    user_time_remaining = request.get("user_time_remaining")
+    coach_time_remaining = request.get("coach_time_remaining")
+    is_paused = request.get("is_paused")
+    
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required")
+        
+    update_data = {}
+    if user_time_remaining is not None:
+        try:
+            update_data["user_time_remaining"] = max(0.0, float(user_time_remaining))
+        except (ValueError, TypeError):
+            pass
+    if coach_time_remaining is not None:
+        try:
+            update_data["coach_time_remaining"] = max(0.0, float(coach_time_remaining))
+        except (ValueError, TypeError):
+            pass
+    if is_paused is not None:
+        update_data["is_paused"] = bool(is_paused)
+            
+    if update_data:
+        await db.coach_sessions.update_one(
+            {"session_id": session_id, "user_id": user.user_id},
+            {"$set": update_data}
+        )
+        
+    return {"success": True, "updated": update_data}
+
 
 @router.get("/state/{session_id}")
 async def get_coach_play_state(
@@ -8211,6 +8254,16 @@ async def make_coach_play_move(
             "coach_move_pending": not game_over,
             "action_revision": action_revision,
         }
+        if request.get("user_time_remaining") is not None:
+            try:
+                update_fields["user_time_remaining"] = max(0.0, float(request.get("user_time_remaining")))
+            except (ValueError, TypeError):
+                pass
+        if request.get("coach_time_remaining") is not None:
+            try:
+                update_fields["coach_time_remaining"] = max(0.0, float(request.get("coach_time_remaining")))
+            except (ValueError, TypeError):
+                pass
         if is_unified and move_number == 1:
             update_fields["unified_journey.first_move_at"] = (
                 datetime.now(timezone.utc).isoformat()

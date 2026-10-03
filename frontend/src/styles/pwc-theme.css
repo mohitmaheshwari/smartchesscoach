@@ -14,33 +14,33 @@
    under the app's `.dark` toggle).
    ───────────────────────────────────────────────────────────────────────── */
 
-/* ── Light (warm off-white) ── */
+/* ── White Studio / Slate Studio Theme ── */
 .pwc-root {
-  --background: 40 24% 96%;
-  --foreground: 240 2% 9%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 2% 9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 2% 9%;
-  --primary: 32 95% 44%;          /* deep amber #d97706 */
-  --primary-foreground: 33 100% 6%;
-  --secondary: 40 21% 93%;
-  --secondary-foreground: 240 2% 9%;
-  --muted: 40 21% 93%;
-  --muted-foreground: 225 5% 37%;
-  --accent: 40 19% 89%;           /* shadcn "accent" = subtle hover bg, not brand */
-  --accent-foreground: 240 2% 9%;
-  --border: 40 8% 86%;
-  --input: 40 8% 86%;
-  --ring: 32 95% 44%;
+  --background: 218 22% 16%;      /* #1c2430 refined studio slate */
+  --foreground: 210 20% 96%;
+  --card: 218 24% 19%;            /* #222d3b frosted card */
+  --card-foreground: 210 20% 96%;
+  --popover: 218 24% 19%;
+  --popover-foreground: 210 20% 96%;
+  --primary: 199 89% 48%;         /* #38bdf8 cyan */
+  --primary-foreground: 210 9% 4%;
+  --secondary: 218 20% 24%;
+  --secondary-foreground: 210 20% 96%;
+  --muted: 218 18% 22%;
+  --muted-foreground: 215 15% 65%;
+  --accent: 218 20% 24%;
+  --accent-foreground: 210 20% 96%;
+  --border: 218 16% 28%;          /* #354456 */
+  --input: 218 16% 28%;
+  --ring: 199 89% 48%;
 
-  /* design-named tokens (for the few inline-styled bits we author) */
-  --pwc-accent: #d97706;
-  --pwc-accent-soft: rgba(217, 119, 6, 0.12);
-  --pwc-accent-ring: rgba(217, 119, 6, 0.35);
-  --pwc-ok: #5f9e4a;
-  --pwc-warn: #c9881f;
-  --pwc-bad: #c8503f;
+  /* design-named tokens */
+  --pwc-accent: #38bdf8;
+  --pwc-accent-soft: rgba(56, 189, 248, 0.14);
+  --pwc-accent-ring: rgba(56, 189, 248, 0.45);
+  --pwc-ok: #34d399;
+  --pwc-warn: #fbbf24;
+  --pwc-bad: #f87171;
 
   /* Mobile bottom-sheet sizing. Peek is a small persistent coach bar so the
      BOARD owns the screen (in the real app you move on the board, not via
@@ -71,30 +71,30 @@
       instead of the approximations that were here. Mohit likes the board we
       already render; these tokens should not quietly disagree with it. */
 .dark .pwc-root {
-  --background: 210 9% 4%;        /* #0a0b0c */
-  --foreground: 80 11% 94%;       /* #f1f2ef */
-  --card: 210 9% 9%;              /* #141618 */
-  --card-foreground: 80 11% 94%;
-  --popover: 210 9% 9%;
-  --popover-foreground: 80 11% 94%;
-  --primary: 101 31% 55%;         /* #7fb069 — our green */
+  --background: 215 28% 10%;        /* #111720 deep studio slate */
+  --foreground: 210 20% 96%;       /* #f1f5f9 */
+  --card: 215 25% 15%;              /* #1c2632 frosted studio */
+  --card-foreground: 210 20% 96%;
+  --popover: 215 25% 15%;
+  --popover-foreground: 210 20% 96%;
+  --primary: 199 89% 48%;          /* #38bdf8 — studio cyan */
   --primary-foreground: 210 9% 4%;
-  --secondary: 210 10% 11%;       /* #1a1d20 */
-  --secondary-foreground: 80 11% 94%;
-  --muted: 210 10% 11%;
-  --muted-foreground: 212 7% 57%; /* #8a9199 */
-  --accent: 210 10% 11%;          /* shadcn "accent" = hover bg, not brand */
-  --accent-foreground: 80 11% 94%;
-  --border: 207 11% 16%;          /* #252a2e hairline */
-  --input: 207 11% 16%;
-  --ring: 101 31% 55%;
+  --secondary: 215 20% 20%;        /* #222e3b */
+  --secondary-foreground: 210 20% 96%;
+  --muted: 215 20% 20%;
+  --muted-foreground: 215 15% 65%; /* #94a3b8 */
+  --accent: 215 20% 20%;          /* shadcn "accent" = hover bg, not brand */
+  --accent-foreground: 210 20% 96%;
+  --border: 215 15% 24%;          /* #2d3b4b tactile rim */
+  --input: 215 15% 24%;
+  --ring: 199 89% 48%;
 
-  --pwc-accent: #7fb069;
-  --pwc-accent-soft: rgba(127, 176, 105, 0.12);
-  --pwc-accent-ring: rgba(127, 176, 105, 0.40);
-  --pwc-ok: #7fb069;
-  --pwc-warn: #d9a441;            /* reserved for the interruption */
-  --pwc-bad: #d96857;
+  --pwc-accent: #38bdf8;
+  --pwc-accent-soft: rgba(56, 189, 248, 0.14);
+  --pwc-accent-ring: rgba(56, 189, 248, 0.45);
+  --pwc-ok: #34d399;
+  --pwc-warn: #fbbf24;            /* reserved for the interruption */
+  --pwc-bad: #f87171;
 }
 
 /* ─── Responsive shell ───────────────────────────────────────────────────
@@ -186,16 +186,20 @@
 @media (min-width: 1024px) {
   .pwc-shell {
     flex-direction: row;
-    height: calc(100vh - 80px - 44px);
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
   }
   .pwc-board-col {
     padding-bottom: 0;
-    overflow: auto;
+    overflow: hidden;
+    height: 100%;
   }
   .pwc-coach-col {
     position: static;
     z-index: auto;
-    height: auto;
+    height: 100vh;
+    max-height: 100vh;
     width: 380px;
     flex: 0 0 380px;
     border-top: none;
@@ -203,9 +207,10 @@
     border-radius: 0;
     box-shadow: none;
     transition: none;
+    overflow: hidden;
   }
   .pwc-coach-col.pwc-sheet-open {
-    height: auto;
+    height: 100vh;
   }
   .pwc-sheet-handle {
     display: none;
