@@ -534,6 +534,7 @@ from routes import lab as lab_routes
 from routes import reflect as reflect_routes
 from routes import concept_test as concept_test_routes
 from routes import calculation_test as calculation_test_routes
+from routes import motif_drill as motif_drill_routes
 from routes import training as training_routes
 from routes import coach as coach_routes
 from routes import coach_play as coach_play_routes
@@ -584,6 +585,7 @@ lab_routes.set_llm(call_llm)
 reflect_routes.set_db(db)
 concept_test_routes.set_db(db)
 calculation_test_routes.set_db(db)
+motif_drill_routes.set_db(db)
 training_routes.set_db(db)
 coach_routes.set_db(db)
 coach_routes.set_llm(call_llm)
@@ -650,6 +652,7 @@ app.include_router(lab_routes.router, prefix="/api")
 app.include_router(reflect_routes.router, prefix="/api")
 app.include_router(concept_test_routes.router, prefix="/api")
 app.include_router(calculation_test_routes.router, prefix="/api")
+app.include_router(motif_drill_routes.router, prefix="/api")
 app.include_router(training_routes.router, prefix="/api")
 app.include_router(coach_routes.router, prefix="/api")
 app.include_router(journey_routes.router, prefix="/api")
