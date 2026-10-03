@@ -394,47 +394,245 @@ def _strip_instruction_preamble(text: str) -> str:
     return raw
 
 
-def _reason_for_moment(move_data: Dict) -> Optional[str]:
-    """One line of WHY, from the live caption pipeline.
+#: A SAN at the very start of a sentence, optionally behind "Opponent's" or
+#: "You played". Used to tell "this sentence is about THIS row's move" from
+#: "this sentence is about some other move".
+_LEADING_SAN_RE = re.compile(
+    r"^(?:opponent's\s+|you\s+played\s+|their\s+)?"
+    r"(O-O-O|O-O|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?)\b",
+    re.IGNORECASE)
 
-    Mohit 2026-09-26, on a review whose "Where the game turned" section was
-    thirteen rows of move + badge and nothing else: "this looks very very
-    bad." Every row's text was None.
+#: Any square reference. A row line that names no square and states no
+#: consequence is a general remark, not something about this position.
+_SQUARE_RE = re.compile(r"(?<![a-h])[a-h][1-8](?![0-9])")
 
-    The old source was _get_short_description(move_data, plan), and every
-    field it reads -- plan.concept_id, plan.concept_type,
-    plan.current_problem -- was emptied by the 2026-05-11 "legacy prose
-    fields retired" migration. It has returned nothing since, so the section
-    decayed into a tally of failures with no reasons, on games often won.
 
-    Sources in order of how well they fit one row:
+#: "<move> was better / was stronger / is the stronger move ..." -- a
+#: recommendation, not a claim about what that move did in this position.
+_RECOMMENDS_RE = re.compile(
+    r"^(?:was|is)\s+(?:the\s+)?(?:better|stronger|best|strongest|stronger\s+move)",
+    re.IGNORECASE)
 
-      1. caption_explanation.transferable_instruction -- purpose-built, one
-         line, never restates the move. Present on 23% of moment rows.
-      2. the caption's first sentence that is not pure verdict. Captions
-         open with "Bb2 is a mistake." next to a MISTAKE badge on move Bb2,
-         which is three repetitions of one fact; the sentence after it is
-         the one that teaches. Captions are on 100% of cards.
 
-    An earlier attempt stripped the verdict with a regex on the move name.
-    It produced "Bb2 is a mistake." unchanged and "Bf6 is playable." -- the
-    filler it was written to remove. Walking sentences and reusing
-    _scoreboard_text, which already knows what filler looks like, needs no
-    new pattern and cannot silently fail the way that one did.
+def _is_about_another_move(sentence: str, move_san: Optional[str]) -> bool:
+    """True when the sentence opens by naming a move that is not this row's.
+
+    Live on 2026-10-02: row "38. d3+  THEIR SLIP" carried the text "Bc5 leaves
+    the bishop on c5 hanging -- you can win it with bxc5", which is about Bc5.
+    Nothing checked that the borrowed sentence was about the move in the row.
+
+    Only the LEADING move name is checked. A true consequence names the
+    opponent's reply inside it ("d3+ runs into Qxh4, taking your rook") and
+    must not be rejected for that.
     """
+    text = str(sentence or "").strip()
+    m = _LEADING_SAN_RE.match(text)
+    if not m:
+        return False
+    lead = m.group(1).rstrip("+#").lower()
+    san = str(move_san or "").strip().rstrip("+#").lower()
+    if not san or lead == san:
+        return False
+    # Naming another move is fine when the sentence RECOMMENDS it -- "h4 was
+    # better." on a Bb2 row is the point of the section, not a mistake. What is
+    # wrong is a sentence that attributes an EFFECT to another move, which is
+    # how "Bc5 leaves the bishop on c5 hanging" ended up on a d3+ row.
+    rest = text[m.end():].lstrip()
+    return not _RECOMMENDS_RE.match(rest)
+
+
+def _starts_with_a_dangling_pronoun(sentence: str) -> bool:
+    """True when the sentence opens with a pronoun whose referent is elsewhere.
+
+    Live on 2026-10-02: "7. Ne4  MISTAKE  It wins the rook on a8." The "it" is
+    the move the player SHOULD have made, named in the sentence before -- which
+    the row does not show. Pulled out alone it reads as a claim about Ne4.
+    """
+    return bool(re.match(r"^(it|this|that|they|these|those)\b",
+                         str(sentence or "").strip(), re.IGNORECASE))
+
+
+def _is_position_specific(sentence: str) -> bool:
+    """True when the line says something about THIS position.
+
+    Either it states a consequence (the shared caption vocabulary, so there is
+    no second list to drift) or it names a square. "A rook needs an open file
+    or rank. Parked behind its own pawns it has almost nowhere to run." is a
+    true remark about rooks in general and tells the reader nothing about the
+    move beside it, so it does not qualify.
+    """
+    text = str(sentence or "")
+    try:
+        from services.caption_why_heuristics import CONSEQUENCE_RE
+        if CONSEQUENCE_RE.search(text):
+            return True
+    except Exception:
+        pass
+    # "Their move leaves mate next move for you." names no square and matches
+    # no consequence verb, and it is one of the most useful lines in the
+    # section. A mate or a check is about this position by definition.
+    if re.search(r"\b(mate|checkmate|check)\b", text, re.IGNORECASE):
+        return True
+    return bool(_SQUARE_RE.search(text))
+
+
+#: Wordings that deny the fault the row's badge asserts. Live on 2026-10-02:
+#: "39. Kf1  BLUNDER   Kf1 isn't a blunder, but bxc5 wins the bishop ...".
+#: The caption is hedging its own verdict; the row cannot carry both.
+#: NOTE the apostrophe class. The stored captions use U+2019, so a pattern
+#: written with a plain ' matched nothing and the contradiction shipped.
+_APOS = "['’]"
+_DENIES_FAULT_RE = re.compile(
+    rf"\b(isn{_APOS}t a (?:blunder|mistake)|is not a (?:blunder|mistake)|"
+    rf"is playable|is fine|is okay|doesn{_APOS}t change much)\b", re.IGNORECASE)
+
+#: "Bd5 isn't a blunder, but bxc5 wins the bishop on c5 for nothing" under a
+#: MISTAKE badge. The hedge contradicts the badge; the clause AFTER it is the
+#: real content. Removing the hedge keeps the row informative where dropping
+#: the whole sentence would leave it blank.
+_HEDGE_PREFIX_RE = re.compile(
+    rf"^.*?\b(?:isn{_APOS}t|is not) a (?:blunder|mistake),\s*but\s+",
+    re.IGNORECASE)
+
+
+def _drop_hedge_prefix(sentence: str) -> str:
+    """Remove the hedge, and do NOT blindly capitalise what is left.
+
+    "Kf1 isn't a blunder, but bxc5 wins the bishop" strips to "bxc5 wins the
+    bishop", and upper-casing the first letter turns bxc5 -- a pawn capture --
+    into Bxc5, a bishop capture. A different move, stated as fact. The
+    sentence only gets a capital when it does not start with a move.
+    """
+    out = _HEDGE_PREFIX_RE.sub("", str(sentence or "").strip())
+    if not out:
+        return out
+    if _LEADING_SAN_RE.match(out):
+        return out
+    return out[0].upper() + out[1:]
+
+
+def _contradicts_badge(sentence: str, severity: Optional[str]) -> bool:
+    """True when the line denies the fault the badge already states."""
+    if str(severity or "") not in ("blunder", "mistake", "serious",
+                                   "opp_blunder", "opp_mistake", "opp_serious"):
+        return False
+    return bool(_DENIES_FAULT_RE.search(str(sentence or "")))
+
+
+def _reason_for_moment(move_data: Dict) -> Optional[str]:
+    """One line about the move IN THIS ROW, or nothing.
+
+    Mohit 2026-09-26, on a section that was thirteen rows of move + badge and
+    nothing else: "this looks very very bad." The fix then was to borrow a line
+    from the caption pipeline. Mohit 2026-10-02, on what that produced: "this
+    gives no value, without context, zero value."
+
+    He was right, and the reason is mechanical. The first source used to be
+    `caption_explanation.transferable_instruction`, which caption_pipeline
+    builds as
+
+        f"Next time, before you commit, look for a move that {best_move_why}."
+
+    and `_strip_instruction_preamble` removes everything before
+    `{best_move_why}`. What is left describes the move the player SHOULD have
+    played -- printed beside the move they DID play, under a MISTAKE badge:
+
+        7.  Ne4   MISTAKE   Attacks the rook on a8.
+        24. O-O   BLUNDER   Attacks the rook on h8.
+        27. b4    MISTAKE   Attacks the rook on h8.
+
+    Ne4 does not attack the rook on a8; the recommended move does. Six of the
+    fourteen rows in that screenshot read that way, and two pairs repeated
+    verbatim because two positions shared a best_move_why. That source is gone.
+
+    What is left is the caption's own sentences, filtered three ways: not a
+    bare verdict (the badge already says it), not about a different move, and
+    position-specific. A sentence that states what the played move let happen
+    is preferred over one that merely mentions a square.
+
+    Nothing is printed when nothing qualifies. A blank row says "no note here";
+    a borrowed line says something false about the move next to it.
+    """
+    # The instruction is usable EXCEPT when it is the best_move_why template.
+    # caption_pipeline builds that one as "Next time, before you commit, look
+    # for a move that {best_move_why}." -- a property of the move NOT played,
+    # which is the whole defect. Every other instruction is a real transferable
+    # line and is the best single sentence available: dropping the field
+    # outright cost the opponent row "Their move leaves mate next move for
+    # you.", which is one of the most useful lines in the section. Matching the
+    # known literal is exact; if the template is ever reworded this stops
+    # matching and the line is kept, which is the safe direction.
     explanation = move_data.get("caption_explanation") or {}
     instruction = str(explanation.get("transferable_instruction") or "").strip()
-    if instruction:
-        return _scoreboard_text(_strip_instruction_preamble(instruction))
+
+    # When the instruction IS the best_move_why template, the sentence inside it
+    # is true -- it is just true of the move that was NOT played. Discarding it
+    # cost 28 points of coverage over 600 games (99.1% -> 70.8%), and empty rows
+    # are the complaint this section started with. So attribute it instead of
+    # dropping it: name the move it belongs to. "Attacks the rook on a8" beside
+    # Ne4 under a MISTAKE badge was a false claim; "Qf3 was stronger -- it
+    # attacks the rook on a8" is the same fact, correctly owned.
+    #
+    # This is the weakest of the three sources on purpose and sits below the
+    # played-move consequence, which is what the reader actually asked for.
+    attributed: Optional[str] = None
+    if instruction.lower().startswith(_INSTRUCTION_PREAMBLE):
+        why = _strip_instruction_preamble(instruction).rstrip(".")
+        best = str(move_data.get("best_move_san") or "").strip()
+        if why and best:
+            attributed = f"{best} was stronger — it {why[0].lower() + why[1:]}."
+
+    if instruction and not instruction.lower().startswith(_INSTRUCTION_PREAMBLE):
+        kept = _scoreboard_text(instruction)
+        # The instruction is NOT automatically about this position. "A rook
+        # needs an open file or rank. Parked behind its own pawns it has almost
+        # nowhere to run." is a true remark about rooks that told the reader
+        # nothing about Bd5 under a BLUNDER badge, live on 2026-10-02. It earns
+        # the row on the same terms as any caption sentence.
+        if (kept and _is_position_specific(kept)
+                and not _starts_with_a_dangling_pronoun(kept)
+                and not _contradicts_badge(kept, move_data.get("severity"))):
+            return kept
 
     caption = str(move_data.get("caption") or "").strip()
     if not caption:
-        return None
+        return attributed
+    san = move_data.get("move_san")
+    fallback: Optional[str] = None
+    weak: Optional[str] = None
     for sentence in re.split(r"(?<=[.!?])\s+", caption):
         kept = _scoreboard_text(sentence.strip())
-        if kept and not _is_bare_verdict(kept, move_data.get("move_san")):
+        if not kept or _is_bare_verdict(kept, san):
+            continue
+        if _is_about_another_move(kept, san):
+            continue
+        if _starts_with_a_dangling_pronoun(kept):
+            continue
+        # NOT a rejection. Position-specificity decides ORDER, not admission:
+        # the filters above remove lines that are FALSE about this row, and
+        # being vague is not being false. Rejecting the vague ones emptied 28%
+        # of rows over 600 games -- "The bishop becomes less active here." and
+        # "f5 was better." are thin, and thin beats blank. Only the instruction
+        # path, where the generic principles live, still demands specificity.
+        if not _is_position_specific(kept):
+            if weak is None:
+                weak = kept
+            continue
+        kept = _scoreboard_text(_drop_hedge_prefix(kept)) or kept
+        if _contradicts_badge(kept, move_data.get("severity")):
+            continue
+        try:
+            from services.caption_why_heuristics import CONSEQUENCE_RE
+            if CONSEQUENCE_RE.search(kept):
+                return kept
+        except Exception:
             return kept
-    return None
+        if fallback is None:
+            fallback = kept
+    # Order: what the played move let happen, then anything else true about
+    # this position, then the correctly-attributed better move, then the vague
+    # line, then nothing.
+    return fallback or attributed or weak
 
 
 def _is_bare_verdict(sentence: str, move_san: Optional[str]) -> bool:
@@ -531,6 +729,23 @@ def build_move_scoreboard(v5_data: List[Dict]) -> Dict:
     for row in turning:
         row.pop("turned", None)
     turning.sort(key=lambda r: (r["move_number"], r["side"] != "you"))
+
+    # One sentence, one row. The reason is lifted from each card's caption, and
+    # a caption still talking about an earlier opportunity repeats it: live on
+    # 2026-10-02, rows 33, 34 and 39 of one game all read "bxc5 wins the bishop
+    # on c5 for nothing". Three identical lines read as a bug, and only the
+    # first is anchored to its own move. The later rows keep their place -- they
+    # are still real moments -- they just have nothing of their own to add.
+    seen: set = set()
+    for row in turning:
+        key = (row.get("text") or "").strip().lower()
+        if not key:
+            continue
+        if key in seen:
+            row["text"] = None
+        else:
+            seen.add(key)
+
     return {"moments": turning, "you": you, "opponent": opp}
 
 
