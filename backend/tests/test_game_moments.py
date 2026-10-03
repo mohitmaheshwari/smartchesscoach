@@ -31,13 +31,27 @@ def _card(**kw):
 
 
 class TestTheRowSaysSomething:
-    def test_prefers_the_purpose_built_instruction(self):
-        row = _card(caption_explanation={
+    def test_the_best_move_reason_is_attributed_not_borrowed(self):
+        """The defect Mohit reported on 2026-10-02.
+
+        caption_pipeline builds that instruction as "Next time, before you
+        commit, look for a move that {best_move_why}", so stripping the
+        preamble leaves a property of the move NOT played. Printed bare beside
+        the played move under a MISTAKE badge it read as a claim about it:
+
+            7. Ne4  MISTAKE  Attacks the rook on a8.
+
+        Ne4 does not attack a8. The fact is kept -- it is true -- but it is
+        given its owner.
+        """
+        row = _card(best_move_san="Nf5", caption_explanation={
             "transferable_instruction":
                 "Next time, before you commit, look for a move that attacks "
                 "the knight on f3.",
         })
-        assert _reason_for_moment(row) == "Attacks the knight on f3."
+        out = _reason_for_moment(row)
+        assert out == "Nf5 was stronger — it attacks the knight on f3."
+        assert not out.startswith("Attacks")
 
     def test_falls_back_to_the_caption_when_there_is_no_instruction(self):
         row = _card(caption="Bb2 is a mistake. h4 was better — it attacks the "
@@ -57,12 +71,39 @@ class TestTheRowSaysSomething:
             _card(move_san="Bf6", caption="Bf6 is playable.")
         ) is None
 
-    def test_a_caption_naming_a_DIFFERENT_move_is_content(self):
-        # "Bf6 is playable" on a Bb2 card is not restating the row -- it is
-        # telling the player about another move, so it survives.
+    def test_an_effect_attributed_to_another_move_is_dropped(self):
+        """Live on 2026-10-02: row "38. d3+  THEIR SLIP" carried "Bc5 leaves
+        the bishop on c5 hanging -- you can win it with bxc5", which is about
+        Bc5. Nothing checked the borrowed sentence was about the row's move."""
+        assert _reason_for_moment(_card(
+            move_san="d3+",
+            caption="d3+ is a mistake. Bc5 leaves the bishop on c5 hanging.",
+        )) is None
+
+    def test_but_recommending_another_move_is_the_whole_point(self):
+        """"h4 was better." on a Bb2 row names another move and must survive --
+        it recommends it rather than claiming it did something here."""
         assert _reason_for_moment(
-            _card(move_san="Bb2", caption="Bf6 is playable.")
-        ) == "Bf6 is playable."
+            _card(move_san="Bb2", caption="Bb2 is a mistake. h4 was better.")
+        ) == "h4 was better."
+
+    def test_a_sentence_opening_with_a_pronoun_is_dropped(self):
+        """"It wins the rook on a8." -- the "it" is the better move, named in a
+        sentence the row does not show, so alone it reads as the played move."""
+        assert _reason_for_moment(_card(
+            move_san="Ne4", caption="Ne4 is a mistake. It wins the rook on a8.",
+        )) is None
+
+    def test_a_hedge_that_denies_the_badge_is_removed_not_the_sentence(self):
+        """"Kf1 isn't a blunder, but bxc5 wins the bishop" under a BLUNDER
+        badge. The hedge contradicts the badge; the clause after it is real."""
+        out = _reason_for_moment(_card(
+            move_san="Kf1", severity="blunder",
+            caption="Kf1 isn't a blunder, but bxc5 wins the bishop on c5.",
+        ))
+        assert out == "bxc5 wins the bishop on c5."
+        # bxc5 is a PAWN capture. Capitalising it would name a bishop move.
+        assert "Bxc5" not in out
 
     def test_no_caption_and_no_instruction(self):
         assert _reason_for_moment(_card()) is None
@@ -99,3 +140,30 @@ class TestBareVerdictDetection:
     def test_is_not_confused_by_a_missing_move(self):
         assert _is_bare_verdict("is a mistake", None) is True
         assert _is_bare_verdict("forks the king and rook", None) is False
+
+
+class TestNoMangledPatterns:
+    """Every regex in the module must be a regex, not a control character.
+
+    Six `\b` word boundaries in this module were once written as the literal
+    backspace character U+0008 -- the patterns compiled, matched nothing, and
+    two guards were silently dead while their tests still passed because the
+    tests exercised the functions rather than the patterns. Cheap to assert,
+    impossible to spot by reading.
+    """
+
+    def test_module_source_has_no_control_characters(self):
+        import inspect
+        import services.game_summary_service as mod
+        src = inspect.getsource(mod)
+        bad = sorted({ord(c) for c in src if ord(c) < 9 or ord(c) in (11, 12)})
+        assert not bad, f"control characters in source: {[hex(b) for b in bad]}"
+
+    def test_every_compiled_pattern_is_clean(self):
+        import re as _re
+        import services.game_summary_service as mod
+        for name in dir(mod):
+            obj = getattr(mod, name)
+            if isinstance(obj, _re.Pattern):
+                bad = [c for c in obj.pattern if ord(c) < 9 or ord(c) in (11, 12)]
+                assert not bad, f"{name} contains a control character"
