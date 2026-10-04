@@ -188,7 +188,25 @@ def _net_victim_loss(pre: chess.Board, after: chess.Board,
                 break
     if not theirs:
         return None
-    return chess.piece_name(theirs[0])
+
+    # Name the COUNT as well as the piece. Returning only the largest
+    # unmatched piece undercounted: on game_b5d23694a803 move 13, dxe5
+    # nets 200cp -- two pawns -- and this said "pawn", so the caption read
+    # "dxe5 wins their pawn" where the shipping caption said "two pawns"
+    # and was right. Verified by replaying both captures to depth 18:
+    # Nxe5 nets +100, dxe5 nets +200. Naming one piece of several is a
+    # quieter wrong answer than the vague "piece" it replaced, which is
+    # worse, because it reads precise.
+    same = [t for t in theirs
+            if PIECE_VALUE_CP.get(t, 0) == PIECE_VALUE_CP.get(theirs[0], 0)]
+    name = chess.piece_name(theirs[0])
+    if len(same) == 1:
+        return name
+    # Spelled out, never a digit, and only for counts a player can picture.
+    words = {2: "two", 3: "three", 4: "four"}
+    if len(same) in words:
+        return f"{words[len(same)]} {name}s"
+    return f"several {name}s"
 
 
 def _consequences(

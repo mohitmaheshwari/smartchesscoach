@@ -181,24 +181,55 @@ def test_scoreboard_keeps_every_moment_not_just_the_top_three():
 
 def test_scoreboard_ignores_good_moves():
     v5 = [_mv(1, "e4", "good", True), _mv(2, "e5", "good", False),
-          _mv(3, "Qh5", "mistake", True)]
+          _mv(3, "Qh5", "blunder", True)]
     out = build_move_scoreboard(v5)
     assert len(out["moments"]) == 1
     assert out["moments"][0]["move_san"] == "Qh5"
 
 
 def test_scoreboard_labels_the_two_sides():
-    v5 = [_mv(1, "Qh5", "mistake", True), _mv(2, "Nf6", "opp_mistake", False)]
+    v5 = [_mv(1, "Qh5", "blunder", True), _mv(2, "Nf6", "opp_blunder", False)]
     out = build_move_scoreboard(v5)
     sides = {m["side"] for m in out["moments"]}
     assert sides == {"you", "opponent"}
 
 
 def test_scoreboard_is_in_move_order():
-    v5 = [_mv(9, "Rd1", "blunder", True), _mv(2, "Qh5", "mistake", True),
-          _mv(5, "Nf6", "opp_mistake", False)]
+    v5 = [_mv(9, "Rd1", "blunder", True), _mv(2, "Qh5", "blunder", True),
+          _mv(5, "Nf6", "opp_blunder", False)]
     out = build_move_scoreboard(v5)
     assert [m["move_number"] for m in out["moments"]] == [2, 5, 9]
+
+
+def test_a_plain_mistake_is_not_a_turning_point():
+    """Rows are limited to moments the game actually turned on.
+
+    Mohit, on a review showing thirteen rows of move + badge: "this looks
+    very very bad." Every mistake and every opponent slip put the median
+    at seven rows a game. A row now needs decisiveness_changed or a
+    blunder. The versions of these tests above this line asserted the
+    unfiltered behaviour, so they were enshrining what he rejected.
+    """
+    out = build_move_scoreboard([_mv(3, "Qh5", "mistake", True)])
+    assert out["moments"] == []
+
+
+def test_a_mistake_that_moved_the_verdict_is_kept():
+    row = _mv(3, "Qh5", "mistake", True)
+    row["decisiveness_changed"] = True
+    out = build_move_scoreboard([row])
+    assert len(out["moments"]) == 1
+
+
+def test_hiding_rows_never_changes_the_header_counts():
+    """The totals are the honest score; filtering the list must not
+    quietly reduce it."""
+    v5 = [_mv(i, f"N{i}", "mistake", True) for i in range(1, 6)]
+    v5 += [_mv(i, f"B{i}", "opp_mistake", False) for i in range(6, 9)]
+    out = build_move_scoreboard(v5)
+    assert out["moments"] == []             # none of them turned the game
+    assert out["you"]["mistake"] == 5       # but the score still says five
+    assert out["opponent"]["mistake"] == 3
 
 
 def test_scoreboard_empty_input_is_safe():
@@ -298,12 +329,47 @@ def test_real_descriptions_survive_minus_the_move_number(raw, expected):
     assert _scoreboard_text(raw) == expected
 
 
-def test_opponent_rows_carry_no_template_sentence():
-    """"A chance for you here" on every opponent error is a template."""
-    v5 = [_mv(3, "Bxe5", "opp_mistake", False)]
-    out = build_move_scoreboard(v5)
-    assert out["moments"][0]["text"] is None
+def test_opponent_rows_carry_a_reason_when_there_is_one():
+    """Reversed on Mohit's feedback, and the reversal was right.
+
+    I made opponent rows blank on the grounds that "A chance for you
+    here" on every one of them is a template. True about THAT sentence,
+    and the wrong conclusion: the caption on an opponent card names the
+    reply the player should have found, which is the opposite of a
+    template. The old version of this test asserted text is None, so it
+    was locking in a blank row he called "very very bad".
+
+    No reason available still means no sentence -- that part holds.
+    """
+    bare = _mv(3, "Bxe5", "opp_blunder", False)
+    out = build_move_scoreboard([bare])
     assert out["moments"][0]["side"] == "opponent"
+    assert out["moments"][0]["text"] is None      # nothing to say, so silent
+
+    with_reason = _mv(3, "Bxe5", "opp_blunder", False)
+    with_reason["caption_explanation"] = {
+        # Two filters to satisfy, both earned by a round of his feedback:
+        # it must name a square (a line that fits any position is "zero
+        # value without context"), and it must not open on "It"/"This",
+        # because a standalone row gives that pronoun no antecedent.
+        "transferable_instruction": "Their knight on c6 is now undefended."
+    }
+    out2 = build_move_scoreboard([with_reason])
+    assert out2["moments"][0]["text"], "a real reason must reach the row"
+
+
+def test_a_row_reason_never_opens_on_a_dangling_pronoun():
+    """A row is shown alone, so "It leaves..." has nothing to refer to."""
+    from services.game_summary_service import _reason_for_moment
+    for bad in ("It leaves their knight on c6 undefended.",
+                "This drops the pawn on e5."):
+        mv = _mv(3, "Bxe5", "opp_blunder", False)
+        mv["caption_explanation"] = {"transferable_instruction": bad}
+        assert _reason_for_moment(mv) is None, bad
+    good = _mv(3, "Bxe5", "opp_blunder", False)
+    good["caption_explanation"] = {
+        "transferable_instruction": "The rook on a8 has no defender."}
+    assert _reason_for_moment(good) == "The rook on a8 has no defender."
 
 
 # --------------------------------------------------------------------------
@@ -418,3 +484,56 @@ def test_gate_is_not_knife_edge():
     from services.why_on_demand import MISMATCH_MIN_RATIO, MISMATCH_MIN_CP_LOSS
     assert 0.15 <= MISMATCH_MIN_RATIO <= 0.35
     assert MISMATCH_MIN_CP_LOSS >= 500
+
+
+# --------------------------------------------------------------------------
+# Counting: naming one piece of several is a quieter wrong answer
+# --------------------------------------------------------------------------
+
+def test_two_pawns_are_counted_not_reduced_to_one():
+    """game_b5d23694a803 move 13: dxe5 nets 200cp, two pawns.
+
+    The helper named only the largest unmatched piece, so the caption read
+    "dxe5 wins their pawn" while the shipping caption said "two pawns" and
+    was right. Verified by replaying both captures at depth 18: Nxe5 nets
+    +100, dxe5 nets +200.
+    """
+    pre = chess.Board()
+    after = chess.Board()
+    after.remove_piece_at(chess.A7)   # black loses two pawns
+    after.remove_piece_at(chess.B7)
+    assert _net_victim_loss(pre, after, chess.BLACK, chess.WHITE) == "two pawns"
+
+
+def test_three_pawns_are_counted():
+    pre = chess.Board()
+    after = chess.Board()
+    for sq in (chess.A7, chess.B7, chess.C7):
+        after.remove_piece_at(sq)
+    assert _net_victim_loss(pre, after, chess.BLACK, chess.WHITE) == "three pawns"
+
+
+def test_a_single_piece_is_not_pluralised():
+    pre = chess.Board()
+    after = chess.Board()
+    after.remove_piece_at(chess.G8)
+    after.remove_piece_at(chess.A2)
+    assert _net_victim_loss(pre, after, chess.BLACK, chess.WHITE) == "knight"
+
+
+def test_mixed_losses_count_only_the_same_value():
+    """A queen and a pawn is not "two queens" and not "two pawns"."""
+    pre = chess.Board()
+    after = chess.Board()
+    after.remove_piece_at(chess.D8)   # queen
+    after.remove_piece_at(chess.A7)   # pawn
+    assert _net_victim_loss(pre, after, chess.BLACK, chess.WHITE) == "queen"
+
+
+def test_counted_loss_reads_as_a_person_would_say_it():
+    from services.punishment_resolver import Punishment
+    p = Punishment(direction="missed", mechanism="WINS_MATERIAL",
+                   agent_move="dxe5", payoff_cp=200, victim_piece="two pawns")
+    text = _phrase(p, "Nxe5")
+    assert text == "dxe5 wins two of their pawns."
+    assert "their two pawns" not in text
