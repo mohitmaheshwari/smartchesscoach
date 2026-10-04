@@ -5033,11 +5033,21 @@ async def get_active_focus(user: User = Depends(get_current_user)):
         surface="home",
     )
     if coaching_context is not None:
-        return {
+        # THIS RETURN IS THE LIVE PATH, and anything added only to the legacy
+        # block below is dead for every flag-on user. The practice offer was
+        # added there first and came back null on prod, which is how this was
+        # found; `runners_up` is documented in this function's own shape above
+        # and is likewise absent from this payload.
+        from services.motif_drill_service import practice_offer
+        offer = await practice_offer(db, user.user_id)
+        resp = {
             "has_focus": coaching_context.get("primary_focus") is not None,
             "has_strength": False,
             "coaching_context": coaching_context,
         }
+        if offer:
+            resp["tactic_practice"] = offer
+        return resp
 
     from services.primary_weakness_picker import COLLECTION
     from datetime import datetime, timezone
