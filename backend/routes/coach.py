@@ -5224,6 +5224,16 @@ async def get_active_focus(user: User = Depends(get_current_user)):
             "rating_band": focus.get("rating_band"),
             "rating_confidence": focus.get("rating_confidence"),
         })
+        # The tactical-eye reading already names the shape this player takes
+        # least often, and until now it reached no screen on Home -- it was
+        # computed, stored and only rendered inside the Progress card, which
+        # itself only renders for the quarter of players the diagnosis speaks
+        # to. This is the offer, not the diagnosis; see
+        # motif_drill_service.practice_offer on why it does not read the cut.
+        from services.motif_drill_service import practice_offer
+        offer = await practice_offer(db, user.user_id)
+        if offer:
+            resp["tactic_practice"] = offer
         # PIC is an additive default-off projection from the same focus and
         # observation authorities. While enabled, suppress the legacy
         # events-per-game trend so it cannot claim improvement from incomplete
