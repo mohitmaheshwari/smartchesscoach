@@ -18,6 +18,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { API } from "@/App";
 import { Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 // Worst reads warmest, so the eye lands on what is worth working on without
 // the page turning into a wall of red.
@@ -33,9 +34,25 @@ function GradeRow({ row }) {
   const tone = row.measured
     ? (GRADE_STYLES[row.grade] || "text-foreground")
     : "text-muted-foreground";
+  // The link is rendered ONLY when the backend attached one, and it attaches
+  // one only after finding real unsolved supply for this player. A row with
+  // nothing behind it stays plain text on purpose -- 20 of 48 players once had
+  // a practice button that led to an empty page.
+  const practice = row.practice?.href ? row.practice : null;
   return (
     <div className="flex items-baseline justify-between gap-4 py-2 border-b border-border/40 last:border-0">
-      <span className="text-[14px] text-foreground">{row.label}</span>
+      <span className="text-[14px] text-foreground">
+        {row.label}
+        {practice && (
+          <Link
+            to={practice.href}
+            data-testid={`area-practice-${row.key}`}
+            className="ml-3 text-[12px] font-medium text-emerald-700 dark:text-emerald-400 hover:underline whitespace-nowrap"
+          >
+            {practice.label} &rarr;
+          </Link>
+        )}
+      </span>
       <span className={`text-[13px] font-medium whitespace-nowrap ${tone}`}>
         {grade}
       </span>
