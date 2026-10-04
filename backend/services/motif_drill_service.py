@@ -244,6 +244,53 @@ async def grade(db, user_id: str, position_id: str, move_uci: str,
     }
 
 
+async def practice_offer(db, user_id: str) -> Optional[Dict[str, Any]]:
+    """The drill to offer this player on Home, or None.
+
+    Reads the tactical-eye reading that `scripts/compute_tactical_eye.py`
+    already stores. `drill_pattern` is `opportunity_gate.weakest_pattern` --
+    literally the shape they take least often -- so "the shape you miss most
+    often" is a statement of what was measured and not a comparison with
+    anybody.
+
+    AN OFFER IS NOT A DIAGNOSIS, which is why this does not consult the
+    two-layer verdict. That verdict's cut is the LOWER QUARTILE and it exists to
+    decide whom to tell something about themselves; it deliberately says nothing
+    to most people. Practice needs no such licence -- withholding a drill from
+    someone whose own games show the shape, because he is not in the bottom
+    quarter, is the cut being used for a job it was not measured for.
+
+    Returns None rather than an empty shape when there is nothing to offer, so
+    a caller cannot render a dead link. Supply is checked because a button that
+    leads to an empty page is worse than no button.
+    """
+    try:
+        from services.two_layer_diagnosis import CACHE_COLLECTION
+        stored = await db[CACHE_COLLECTION].find_one(
+            {"user_id": user_id}, {"_id": 0, "drill_pattern": 1, "judgeable": 1})
+    except Exception:
+        return None
+    if not stored or not stored.get("judgeable"):
+        return None
+    motif = str(stored.get("drill_pattern") or "").lower()
+    if motif not in MOTIFS:
+        return None
+
+    for collection, _owner, _source in SOURCES:
+        if await db[collection].count_documents({"drill_motif": motif}, limit=1):
+            break
+    else:
+        return None
+
+    return {
+        "motif": motif,
+        "href": "/training/find/%s" % motif,
+        # Plural reads as a kind of position rather than one puzzle.
+        "label": "Practise %ss" % motif,
+        "because": "This is the shape you miss most often.",
+    }
+
+
 async def drill_supply(db) -> Dict[str, Any]:
     """How many tagged positions exist per motif per collection.
 

@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
@@ -535,6 +535,28 @@ export default function HomePageNew({ user }) {
                       </div>
                       <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
                         Not this week&rsquo;s job. Just so you know I can see them.
+                      </p>
+                    </div>
+                  )}
+                  {/* The drill for the shape this player takes least often
+                      (docs/pin_skewer_drill_scope.md). The reading behind it was
+                      already computed and stored and reached no screen here.
+                      Deliberately one quiet link and not a card: Home names ONE
+                      thing to do today, and this is not it -- it is somewhere to
+                      go when they want to practise. The backend omits the field
+                      entirely when there is no supply, so this cannot render a
+                      dead link. */}
+                  {activeFocus?.tactic_practice?.href && (
+                    <div className="mt-4">
+                      <Link
+                        to={activeFocus.tactic_practice.href}
+                        data-testid="tactic-practice-link"
+                        className="inline-flex items-center text-[13px] font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                      >
+                        {activeFocus.tactic_practice.label} &rarr;
+                      </Link>
+                      <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                        {activeFocus.tactic_practice.because}
                       </p>
                     </div>
                   )}

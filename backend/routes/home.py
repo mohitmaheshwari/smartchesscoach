@@ -432,11 +432,20 @@ async def get_tactical_eye(user: User = Depends(get_current_user)):
     # THE DRILL SPLIT. A knowledge gap sends him to positions of that shape; a
     # looking habit must NOT send him to more of the same puzzles, because more
     # repetitions of an idea he already knows trains nothing.
-    drill = (
-        {"href": "/training/pattern/missed_tactic", "label": "Find the shape"}
-        if stored["layer"] == "knowledge"
-        else {"href": "/training/safety", "label": "Practise the check"}
-    )
+    # A knowledge gap in pin or skewer now has a drill BUILT FOR THAT SHAPE
+    # (docs/pin_skewer_drill_scope.md), so sending it to the generic tactic pool
+    # would be sending him to mostly other shapes. The generic pool stays the
+    # fallback for the shapes that have no drill of their own yet.
+    motif = str(stored.get("drill_pattern") or "").lower()
+    if stored["layer"] == "knowledge":
+        drill = (
+            {"href": "/training/find/%s" % motif, "label": "Practise %ss" % motif}
+            if motif in ("pin", "skewer")
+            else {"href": "/training/pattern/missed_tactic",
+                  "label": "Find the shape"}
+        )
+    else:
+        drill = {"href": "/training/safety", "label": "Practise the check"}
     return {
         "schema_version": "tactical_eye.v1",
         "measured": True,
