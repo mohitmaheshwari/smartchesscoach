@@ -391,7 +391,14 @@ async def get_area_grades(user: User = Depends(get_current_user)):
 
     games_played = len({o.get("game_id") for o in observations if o.get("game_id")})
     counts = counts_from_observations(observations)
-    return grade_areas(counts, games_played)
+    payload = grade_areas(counts, games_played)
+
+    # The card named six areas, said "Needs work" against two of them, and gave
+    # the player nowhere to go. Each row that has real unsolved supply for THIS
+    # player now carries a `practice` link; the rest stay plain text, because a
+    # button leading to an empty page costs a click to learn nothing.
+    from services.area_practice_links import attach_practice_links
+    return await attach_practice_links(db, user.user_id, payload)
 
 
 @router.get("/progress/tactical-eye")
