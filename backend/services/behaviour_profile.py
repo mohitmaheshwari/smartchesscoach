@@ -186,12 +186,24 @@ def build_profile(traits: Optional[Dict[str, float]],
         # way -- and it beats showing a blank page to someone with hundreds of
         # games. Measured on production: 3 of 48 players land here, and one of
         # them has 21,126 observed moves.
+        # THIS SENTENCE MAY ONLY CLAIM WHAT THE MIDDLE BAND LICENSES.
+        #
+        # It used to end "and you finish the games you should", which is the
+        # `low` sentence of throws_away_won_games asserted without that trait
+        # being low. Mohit, 2026-10-04: the one player on prod receiving this
+        # line has a conversion rate in the THIRD quartile -- 0.357 against a
+        # median of 0.33 and a high cut of 0.38 -- and 68 of his analysed
+        # timeout losses were positions he was winning. The page told him he
+        # finishes what he starts.
+        #
+        # A trait sitting inside the middle half means WE ARE NOT SPEAKING
+        # about it. It does not mean the flattering end is true. Tempo is the
+        # one thing this line actually checked, so tempo is all it now says.
         lines = [{
             "trait": "balanced",
             "end": "middle",
             "sentence": "Nothing about how you play stands out at either end. "
-                        "You take your time about as much as you rush it, and "
-                        "you finish the games you should.",
+                        "You take your time about as much as you rush it.",
         }]
     return {
         "schema_version": "behaviour_profile.v1",
