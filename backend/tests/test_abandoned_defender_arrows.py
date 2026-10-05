@@ -156,3 +156,45 @@ class TestItDefersToAnImmediateCapture:
         assert out, "deferring here would throw away the second-attacker arrow"
         assert out[0]["from"] == "b2" and out[0]["to"] == "e5"
         assert len(out) == 2 and out[1]["from"] == "e2"
+
+
+class TestAWinningCaptureIsItsOwnPoint:
+    """An opponent card that names a free piece must draw the line to it.
+
+    Mohit 2026-10-05: "also, no arrow here, why the hell, i am getting angry".
+    The card read "Bc5 leaves the bishop on c5 hanging -- you can win it with
+    bxc5" and drew nothing at all.
+
+    _reply_attack_arrows asked only "what does the reply threaten NEXT". After
+    bxc5 the pawn sits on c5 attacking b6 and d6, both empty, and gives no
+    check -- so every gate failed. That is the right question for a quiet move
+    and the wrong one for a capture, where the material is already won on
+    arrival.
+    """
+
+    # The reported position, Black to move, from game 66ac48e5 move 32.
+    FEN = "B2k1b1r/7p/R5p1/5p2/1Pnp1B2/8/6PP/6K1 b - - 0 32"
+
+    def test_the_bishop_really_is_free(self):
+        """Verify the premise on the board rather than trusting the caption."""
+        board = chess.Board(self.FEN)
+        board.push_san("Bc5")
+        assert board.piece_at(chess.C5) is not None
+        assert board.attackers(chess.BLACK, chess.C5) == chess.SquareSet(), (
+            "nothing of theirs defends c5")
+        assert "bxc5" in [board.san(m) for m in board.legal_moves]
+
+    def test_the_card_now_draws_the_capture(self):
+        from services.caption_pipeline import _reply_attack_arrows
+        board = chess.Board(self.FEN)
+        arrows = _reply_attack_arrows(board, board.parse_san("Bc5"), "bxc5")
+        assert arrows, "the card named a free piece and drew nothing"
+        assert (arrows[0]["from"], arrows[0]["to"]) == ("b4", "c5")
+
+    def test_a_reply_that_wins_nothing_still_draws_nothing(self):
+        """The negative control: not every named reply earns a picture."""
+        from services.caption_pipeline import _reply_attack_arrows
+        board = chess.Board(self.FEN)
+        # h6 is a quiet pawn move that takes nothing and threatens nothing.
+        arrows = _reply_attack_arrows(board, board.parse_san("Bc5"), "h3")
+        assert arrows == []

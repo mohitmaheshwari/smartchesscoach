@@ -380,6 +380,28 @@ def classify_missed_tactic(mv, opponent_previous, opp_next) -> Tuple[Optional[st
         tactic = _detect_tactic_on_move(board, best)
     except Exception:
         return (None, None)
+
+    # Mate outranks every other name, and it is the only one checked on the
+    # board rather than inferred.
+    #
+    # Mohit 2026-10-05, on a card badged "Tactical - missed skewer" where the
+    # engine's move was Rc8#: "It is missed mate not missed skewer". The
+    # classifier asked which GEOMETRY the best move creates and never asked
+    # whether it simply ends the game. A mate that also happens to line two
+    # pieces up was being filed as the lesser pattern.
+    #
+    # This is not a probabilistic detector. `is_checkmate()` after pushing the
+    # engine's own move is a fact, so precision is 100% by construction -- no
+    # prover, no sampling, nothing to drift. That is why it sits in front of
+    # the geometry checks rather than beside them.
+    try:
+        _probe = chess.Board(fen)
+        _probe.push(chess.Move.from_uci(str(best)))
+        if _probe.is_checkmate():
+            return ("missed_mate", _promote_severity("critical", mv))
+    except (ValueError, AssertionError, TypeError):
+        pass
+
     if tactic == "fork":
         return ("missed_fork", _promote_severity("critical", mv))
     if tactic == "pin":

@@ -251,6 +251,35 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "oracle's own Lichess validation is inherited, not re-run here.",
         ),
     ),
+    "gap:missed_tactic:missed_mate": Authorization(
+        # Mohit 2026-10-05, on a card badged "missed skewer" where the engine's
+        # move was Rc8#: "It is missed mate not missed skewer."
+        #
+        # This is not promoted on a precision estimate, because it does not
+        # need one. The label is `is_checkmate()` on the board after pushing
+        # the engine's own move -- a fact, not an inference. There is no prover
+        # to disagree with, no sample to extrapolate from, and nothing that can
+        # drift as the corpus grows.
+        #
+        # Measured over all 18,513 stored analyses: 4,563 fires, 4,563
+        # board-verified mates, 0 false labels. Those 4,563 were previously
+        # being filed under the geometry labels -- a mate that happens to line
+        # two pieces up was read as a skewer -- or carried no subtype at all
+        # (3,829 of them).
+        grade=QualityGrade.PLAN,
+        evidence_ref="board-verified over 18,513 analyses 2026-10-05",
+        rationale=(
+            "4,563 fires, 4,563 board-verified mates, 0 false labels. "
+            "Precision is 100% by construction: the check is is_checkmate() "
+            "after the engine's own move, not a geometric inference."
+        ),
+        limitations=(
+            "Says a mate was available, not how to find one -- the caption "
+            "still owes the player the pattern.",
+            "Long forced mates are included; 'you missed mate in 14' is true "
+            "and not a lesson.",
+        ),
+    ),
     "gap:missed_tactic:missed_skewer": Authorization(
         # PROMOTED 2026-09-26, alongside missed_fork. Measured against
         # verify_created_alignment(kind="skewer") over 17,298 moves where the
