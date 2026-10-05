@@ -899,6 +899,13 @@ class SeverityComputation:
     # the wrong colour..." and b8=Q# "Free Pawn - push it to promote",
     # both on the move that ended the game.
     played_is_mate: bool = False
+    # v186 (2026-10-05): the mover had a forced mate before this move and
+    # still has one after it. Such a move is never an error tier, however
+    # large cp_loss looks -- in a mate position cp_loss is the gap between
+    # two clamped mate scores, so a slower mate reads like lost material.
+    # 7,714 corpus moves preserve a mate; 94 were tiered as errors and 90
+    # of those had the mate get FASTER.
+    mate_preserved: bool = False
 
 
 
@@ -1111,6 +1118,57 @@ def compute_severity_for_move(
         severity = "good" if is_user else "context"
         severity_canonical = "good"
 
+    # --- Mate preserved (v186) -------------------------------------
+    # The sibling guard above handles "this move IS checkmate". This one
+    # handles the move before it: a forced mate existed, and after the move
+    # a forced mate still exists for the same side. That is not an error,
+    # whatever cp_loss says.
+    #
+    # Mohit 2026-10-05, on a K+2B vs K+P endgame card reading "Bg5 —
+    # Blunder — Tactical · missed tactic": "look at it". At depth 22 Be6
+    # mates in 9, Ke6 in 10, and his Bg5 in 20. He was mating before the
+    # move and mating after it, and we called it a blunder.
+    #
+    # The cause is that `mate_info` is read NOWHERE in the render path.
+    # Severity comes from cp_loss, and in a mate position cp_loss is the
+    # gap between two clamped mate scores -- so "mate in 9 became mate in
+    # 20" and "you dropped a rook" are the same number to this code.
+    # Measured on the rendered cards: 3,966 are tiered as an error while the
+    # mover still has a forced mate, 3,770 of them saying BLUNDER, and in
+    # 2,609 the mate got FASTER. One player is told "blunder" on three
+    # consecutive moves (3da52c5e m36-38) while delivering mate. A lower
+    # bound -- 229,374 of 368,160 error-tier cards have no eval row to join
+    # to, because move_evaluations stores only user moves.
+    #
+    # Mate is detected from the evals this function already receives, so
+    # there is no new parameter and no second source of truth. The floor is
+    # read off the distribution rather than chosen: evals carrying a mate
+    # score run 9650..10000 (n=15,184) and evals without one top out at
+    # 8308 (n=176,928), with zero overlap either way across 192,112 values.
+    # 9000 sits in the empty gap.
+    _MATE_EVAL_FLOOR = 9000
+    mate_preserved = False
+    _mover_sign = 1 if is_white else -1
+    _mate_before = (
+        practical_eval_before * _mover_sign
+        if practical_eval_before is not None else None
+    )
+    _mate_after = (
+        practical_eval_after * _mover_sign
+        if practical_eval_after is not None else None
+    )
+    if (
+        not played_is_mate
+        and _mate_before is not None
+        and _mate_after is not None
+        and _mate_before >= _MATE_EVAL_FLOOR
+        and _mate_after >= _MATE_EVAL_FLOOR
+    ):
+        mate_preserved = True
+        if severity_canonical in ("inaccuracy", "mistake", "serious", "blunder"):
+            severity = "good" if is_user else "context"
+            severity_canonical = "good"
+
     # A quiet king walk in the opening is never "good", whatever the number
     # says. It floors at inaccuracy rather than being pushed higher: the move
     # gave something real away, and the engine is still the authority on HOW
@@ -1131,6 +1189,7 @@ def compute_severity_for_move(
         is_forced_recapture=is_forced_recapture,
         is_best_equals_played=is_best_equals_played,
         played_is_mate=played_is_mate,
+        mate_preserved=mate_preserved,
     )
 
 
