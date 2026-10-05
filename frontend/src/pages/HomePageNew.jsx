@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import ChancesCard from "@/components/coach/ChancesCard";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
@@ -546,6 +547,13 @@ export default function HomePageNew({ user }) {
                       go when they want to practise. The backend omits the field
                       entirely when there is no supply, so this cannot render a
                       dead link. */}
+                  {/* Of the chances the board gave you, how many did you
+                      take? (docs/chances_not_games_scope.md) Game-independent,
+                      so duplicate games and two-move coach stubs contribute
+                      nothing instead of needing to be filtered. */}
+                  <div className="mt-6">
+                    <ChancesCard />
+                  </div>
                   {activeFocus?.tactic_practice?.href && (
                     <div className="mt-4">
                       <Link
