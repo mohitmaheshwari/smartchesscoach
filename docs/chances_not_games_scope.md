@@ -1,159 +1,137 @@
-# The week, measured in chances taken — scope
+# The chance is the unit, not the game — scope
 
-Mohit, 2026-10-05: *"not just the game count, but the quality of games you're
-playing... what types of moves are you playing, are you learning things, if not
-we would obviously show that."*
+Mohit, 2026-10-05, after two rounds of narrowing: *"it should be game
+independent really, like quality of moves vs chances provided."*
 
 ## The idea in one line
 
-A session is not nine games. It is **the chances those games gave you, and what
-you did with them.**
+**Of the chances the board gave you, how many did you take?**
 
-Every other product counts games, rating, or puzzles solved. None of them can
-tell you that four of today's games were over before anything happened.
+- **Chances provided** is the denominator. The player does not control it. The
+  board hands it over.
+- **Chances taken** is the numerator. That part is entirely them.
 
-## A correction, made before anything is designed
+No game counts, no rating, no accuracy percentage. The game is only a container
+and it varies from one chance to sixteen, so it tells you nothing on its own.
 
-I first read the flat take rate as *"you are not improving"*. That was wrong and
-the claim must not ship in that form.
+## What a chance is, in plain words
 
-Measured over the same weeks, his rating went **1067 → 1307**. He is improving
-substantially. What is flat is one narrow thing: the share of tactical chances
-he converts.
+A moment where the engine's best move was a tactic with a name — a pin, a
+skewer, a fork, free material. `opportunity_gate.observe` already decides this,
+and "took it" means playing that exact move.
 
-So the honest reading is not "nothing is working". It is either
+Three real ones from his games, as the card would understand them:
 
-- he improved through something other than tactical conversion, and that
-  conversion is now the ceiling, **or**
-- he is converting at the same rate against steadily harder opposition, which is
-  real progress the raw rate cannot see.
+| he played | the tactic was | shape |
+|---|---|---|
+| Bf5 | Bd5 | skewer |
+| fxe6 | Qxd1 | pin |
+| b5 | Bg4 | pin |
 
-**Both are interesting. Neither is "you are not learning."** The product says the
-narrow true thing or it says nothing.
+An earlier draft called these "questions the game asked". That word needed
+explaining to Mohit, so it would fail with a 1200 player. The word is **chance**.
 
-## What the player sees
+## Why game-independence is the right call, not just a simplification
 
-```
-┌──────────────────────────────────────────────────┐
-│  YOUR WEEK                                       │
-│                                                  │
-│  Nine games. Four were over before anything       │
-│  happened.                                        │
-│                                                   │
-│  The other five tested you, and you met about     │
-│  half of what they asked.                         │
-│                                                   │
-│  ▁▁ ▃ ▂ █ ▁ ▆ █▁▁▁ ▇                              │
-│  each bar is a game — how much it asked of you    │
-├───────────────────────────────────────────────────┤
-│  Your sharpest shape this week: taking free        │
-│  material. Your weakest: skewers.                  │
-│                                                    │
-│  [ One skewer, right now → ]                       │
-└────────────────────────────────────────────────────┘
-```
+**It dissolves two data problems instead of fixing them.** The previous draft was
+going to add game de-duplication and a short-game filter: 1,054 duplicate PGN
+groups exist across 19,229 games, and 2-move coach games repeat legitimately. A
+2-move game provides no chances, so it contributes nothing to either side of the
+ratio. The bad data stops mattering rather than needing cleaning.
 
-The bar strip is the whole idea in one picture: a game that asked one question
-and a game that asked sixteen look nothing alike, and today they are counted the
-same.
+**It makes periods comparable.** Three games one week and thirty the next compare
+directly, because the denominator is chances rather than games.
 
-## The three readings
+**It separates what the player controls from what they do not.** A quiet week is
+not their fault. A low conversion is.
 
-### 1. Was this game worth playing? — chances in it
+## The readings
 
-From `opportunity_gate.observe`: a position counts when the engine's best move
-was a tactic. Measured on his last 25 games: every game tested him at least
-once, but the spread was 1 to 16 chances. A fifteen-move game with one chance is
-not practice.
+### 1. The ratio
+His last 25 games: **153 chances, 77 taken.**
 
-### 2. Did you take them? — the rate
+### 2. By shape — the actionable cut
+Across 816 analysed games:
 
-153 chances across those 25 games, 77 taken.
+| shape | chances | took |
+|---|---|---|
+| free material | 855 | **83%** |
+| fork | 663 | 51% |
+| pin | 1,471 | 44% |
+| skewer | 1,053 | **42%** |
 
-### 3. Is it moving? — the trend
+This is where the reading earns its keep: alignment tactics drag his conversion
+down and they are 59% of every chance he gets.
 
-Ten weeks, between 51% and 65%, no direction. **This reading is BLOCKED — see
-below.**
+### 3. Is it moving
+Flat between 51% and 65% over ten weeks. **The wording of this reading is
+constrained — see the correction below.**
 
-## Reading 3 is NOT blocked — the games are enough
+## A correction that must not be undone
 
-An earlier version of this scope blocked reading 3 on `opponent_rating`, which is
-missing on 48% of games. Mohit, 2026-10-05: *"I don't care about the rating on
-lichess or chess.com, we have all the data from games, we can just track games
-and find out."*
+I first read the flat rate as *"you are not improving"*. Over the same period his
+rating went **1067 → 1307**. He improved a great deal; one narrow measure did
+not move. Either tactical conversion is now his ceiling, or he is holding the
+same rate against harder positions. **The product says the narrow true thing or
+it says nothing.**
 
-He is right, and it is better than a rating anyway. A platform rating is a
-lagging proxy for difficulty; the position itself is the thing. Every analysed
-move already carries a move number and an evaluation, which is all
-`position_difficulty` needs. **Reading 3 ships without any rating.**
+## A circularity that must not be repeated
 
-### A circularity found while proving that, which must not be repeated
-
-`difficulty_class(phase, eval_cp, has_threat)` was first fed the stored `threat`
-field off the move evaluation. The result was a take rate of **0% in every
-testing and hard cell, in every month** — 0 of 1,283 — against 72% in routine.
-
-That is not a finding, it is a structural link. Measured:
+A difficulty control was first built on the stored `threat` field, and returned a
+take rate of 0% in every hard cell in every month against 72% in routine:
 
     threat=True   took=True      0
     threat=True   took=False  1283
     threat=False  took=True   2297
 
-`threat` is not a property of the position. It is written when the player missed
-or allowed something, so it is already downstream of whether they got it right.
-Keying difficulty on it guarantees that every "hard" position is one they
-failed.
+`threat` is written when the player missed or allowed something, so it is
+downstream of whether they got it right. This is the second circularity in
+`position_difficulty` after `is_critical`. **Any difficulty control uses only
+phase and eval band, both of which exist before the player moves.**
 
-This is the SECOND circularity in this module — v2 already dropped `is_critical`
-for being derived from `cp_loss`. **Any difficulty control must be built from
-(phase, eval band) only, both of which exist before the player moves.**
+## Out of scope
 
-### The valid reading
+- **Chances GIVEN to the opponent.** The mirror measure — he hands over a shape
+  about once in five moves. It needs the opponent's positions analysed, which
+  `move_evaluations` does not store; enriching 50 games took 84 minutes. Real,
+  measured, and a separate cost decision.
+- **Accuracy over all moves.** That is chess.com's number and it is noisy.
+- **Any rating.**
 
-Take rate by phase of game, month by month, no ratings and no threat field:
+## What the player sees
 
-| month | middlegame | opening |
-|---|---|---|
-| 2026-04 | 58% | 58% |
-| 2026-05 | 54% | 53% |
-| 2026-06 | 52% | 46% |
-| 2026-07 | 53% | 45% |
-| 2026-08 | 65% | 47% |
-| 2026-09 | 54% | 52% |
-| 2026-10 | 51% | 52% |
+```
+┌───────────────────────────────────────────────┐
+│  THE CHANCES YOU GOT                          │
+│                                               │
+│  You took about half of what the board         │
+│  offered you.                                  │
+│                                                │
+│  free material   ████████▌                     │
+│  forks           █████                         │
+│  pins            ████▌                         │
+│  skewers         ████▏                         │
+│                                                │
+│  Lining pieces up is what costs you.           │
+│  [ One skewer, right now → ]                   │
+└────────────────────────────────────────────────┘
+```
 
-Flat, and slightly down in the middlegame, across eight months in which his
-rating rose by about 240 points. That is the reading the product has to word
-carefully — see the correction at the top of this document.
+## Numbers
 
-## What is NOT in this
+Unresolved and deliberately deferred in the build: the authored strings carry
+**no numbers**, and the counts ride in separate fields. The bars are shapes, not
+figures. If Mohit decides plain counts may be shown, it becomes a UI change and
+no server work. If he decides they may not, nothing has to be undone.
 
-- **No claim that a player is or is not improving.** Reading 3 is a trend in one
-  narrow measure, and the wording must say which measure.
-- **No rating prediction.**
-- **Not all of chess.** The gate sees tactical shapes. It does not see endgame
-  technique or planning, so "your week" here means "the tactical content of your
-  week" and must not be worded as more than that.
+## Performance
 
-## Open decisions for Mohit
-
-1. **Numbers.** "Four of nine games" is a count, and the standing rule is no
-   numbers in user-facing text. A week reading without any counts is close to
-   useless. I think this earns an exception for plain counts of games and
-   chances — never for rates or scores. Your call, and it applies to the
-   behaviour cards too.
-
-2. **How honest about a flat trend.** Once reading 3 is unblocked, some players
-   will have a genuinely flat line. Saying so is the most valuable thing we can
-   do and the most likely to make someone leave. My view: say it, but only
-   alongside the specific thing being changed about it.
-
-3. **Who it is for.** This needs analysed games with timestamps. 46 players have
-   40+; 23 have 120+. It is a reading for engaged players, not a first-run
-   screen.
+Running the gate over one player's 21,485 moves takes about twenty seconds, so
+it is not done on a page load. `scripts/compute_tactical_eye.py` already
+batch-computes the pooled figure into `user_tactical_eye`; this extends that
+document rather than adding a collection.
 
 ## How we will know it worked
 
-Not engagement with the card. The question is whether a player's take rate moves
-after they start seeing it — which is the same standard the pin and skewer drill
-is held to, and it needs weeks of new games either way.
+Whether a player's take rate moves after they start seeing it. Same standard as
+the pin and skewer drill, and it needs weeks of new games either way.

@@ -83,6 +83,12 @@ async def main_async(apply: bool, only_user: str | None) -> int:
                 "drill_pattern": reading.get("drill_pattern"),
                 "chances": reading["pooled"].get("chances"),
                 "judgeable": reading["pooled"].get("judgeable"),
+                # `pooled_knowledge` has always returned these and this script
+                # has always dropped them, so the chances reading had to
+                # recompute a twenty-second scan to learn what was already
+                # known. docs/chances_not_games_scope.md
+                "took": reading["pooled"].get("took"),
+                "by_pattern": reading["pooled"].get("by_pattern"),
             }},
             upsert=True,
         )

@@ -401,6 +401,41 @@ async def get_area_grades(user: User = Depends(get_current_user)):
     return await attach_practice_links(db, user.user_id, payload)
 
 
+@router.get("/home/chances")
+async def get_chances_reading(user: User = Depends(get_current_user)):
+    """Of the chances the board gave you, how many did you take?
+
+    docs/chances_not_games_scope.md. Game-independent by design: the unit is the
+    chance, so duplicate games and two-move coach stubs contribute nothing to
+    either side of the ratio instead of needing to be filtered out.
+
+    Reads the precomputed `user_tactical_eye` document. Running the gate over a
+    player's twenty thousand moves takes about twenty seconds, which is not a
+    page load; `scripts/compute_tactical_eye.py` fills it.
+    """
+    from services.chances_reading import build_reading
+    from services.two_layer_diagnosis import CACHE_COLLECTION
+
+    stored = await db[CACHE_COLLECTION].find_one(
+        {"user_id": user.user_id}, {"_id": 0})
+    reading = build_reading(stored)
+    if not reading.get("measured"):
+        return reading
+
+    # The weakest shape only becomes a link when that drill actually has
+    # positions for this player. `practice_offer` does the supply check, and a
+    # button leading to an empty page is worse than no button.
+    try:
+        from services.motif_drill_service import practice_offer
+        offer = await practice_offer(db, user.user_id)
+    except Exception:
+        offer = None
+    weakest = reading.get("weakest") or {}
+    if offer and offer.get("motif") == weakest.get("shape"):
+        reading["practice"] = {"href": offer["href"], "label": offer["label"]}
+    return reading
+
+
 @router.get("/progress/tactical-eye")
 async def get_tactical_eye(user: User = Depends(get_current_user)):
     """Whether this player sees the tactical shapes their games offer.
