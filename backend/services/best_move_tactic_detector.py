@@ -75,7 +75,7 @@ def detect_missed_tactic(
         "material" (honest about magnitude without overclaiming)
       - otherwise → None
     """
-    if not chess or not fen_before or not best_move_san or not pv_after_best:
+    if not chess or not fen_before or not best_move_san:
         return None
 
     try:
@@ -95,6 +95,34 @@ def detect_missed_tactic(
         board.push(best_move_obj)
     except Exception as exc:
         logger.warning(f"[tactic_detector] bad fen or best_move: {exc}")
+        return None
+
+    # The best move may BE the mate, and then there is no PV after it.
+    #
+    # Everything below walks `pv_after_best` looking for checkmate, so a
+    # mate in ONE was invisible: nothing follows the mating move, the list
+    # arrives empty, and the guard above used to return None before any
+    # board was looked at. Mohit 2026-10-05, on a card where Rc8# was mate
+    # in 1 and he played something else: "missed mate tag should have been
+    # activated here, no detector like that". There is a detector; it could
+    # not see the one case that matters most.
+    #
+    # Measured over real missed mates in the corpus: of 1,357 moves where
+    # the player had a forced mate and played something else, the detector
+    # returned None for 1,054, and 795 of those arrived with an empty
+    # pv_after_best -- this branch. Asking the board directly costs one
+    # is_checkmate() call and needs no PV at all.
+    #
+    # ply=1 is the whole mate, which caption_rules renders through
+    # (ply + 1) // 2 as "mate in 1 move".
+    if board.is_checkmate():
+        return {
+            "kind": "mate",
+            "ply": 1,
+            "mating_move": best_move_san,
+        }
+
+    if not pv_after_best:
         return None
 
     user_piece_captures: List[Dict[str, Any]] = []

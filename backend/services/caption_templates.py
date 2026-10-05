@@ -54,7 +54,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -231,13 +231,78 @@ def resolve_severity_phrase(rule_name: str, facts: Dict[str, Any]) -> str:
     return phrases.get(tier or "", "")
 
 
+# ─── Variant observer (audit hook, off in production) ────────────────
+#
+# Authoring a variant and wiring its predicate is not the same as the
+# variant ever reaching a reader, and nothing told us the difference.
+# `why_user_missed_mate` has existed, with a correct predicate and correct
+# template slots, and fired ZERO times in 188,456 cards while its two
+# sibling mate clauses fired 894 and 313 times. Mohit found it from a
+# screenshot: "missed mate tag should have been activated here".
+#
+# This records which variant each selection actually picked, so an audit
+# can render a corpus and report the variants that never fire. It is a
+# passive counter: nothing is written, no behaviour changes, and with no
+# observer set the calls cost one `is None` check. Deliberately NOT a
+# keyword scan of rendered text -- those undercount coverage and invent
+# phantom gaps, which is how I mis-measured this very bug earlier.
+_VARIANT_OBSERVER = None
+
+
+def set_variant_observer(fn) -> None:
+    """Install (or clear, with None) a callable invoked as
+    fn(rule_name, list_key, variant_or_None). Audits and tests only."""
+    global _VARIANT_OBSERVER
+    _VARIANT_OBSERVER = fn
+
+
+def _note_variant(rule_name: str, list_key: str, variant: Optional[str]) -> None:
+    if _VARIANT_OBSERVER is None:
+        return
+    try:
+        _VARIANT_OBSERVER(rule_name, list_key, variant)
+    except Exception:  # an audit hook must never break a caption
+        pass
+
+
+def authored_variants(rule_name: str, list_key: str) -> List[str]:
+    """Every variant key the rule's `list_key` can select, in order.
+
+    The denominator for a fire-count audit: what COULD fire, against what
+    did. Without this a zero looks like absence of opportunity.
+    """
+    cfg = _load_all().get(rule_name) or {}
+    block = cfg.get(list_key)
+    out: List[str] = []
+    # Two authored shapes live side by side: the selector lists are
+    # [{"when": {...}, "variant": "x"}, ...], while `teaching_principles`
+    # and `variants` are {"x": "text", ...}. Reading one as the other
+    # yields bare strings and an AttributeError, so handle both.
+    if isinstance(block, dict):
+        return [k for k in block if not k.startswith("_")]
+    for entry in block or []:
+        if not isinstance(entry, dict):
+            continue
+        v = entry.get("variant")
+        if v and v not in out:
+            out.append(v)
+    return out
+
+
+def all_rule_names() -> List[str]:
+    """Every authored rule file, so an audit needs no hardcoded list."""
+    return sorted(_load_all().keys())
+
+
 def resolve_variant(rule_name: str, facts: Dict[str, Any]) -> Optional[str]:
     """Walk the rule's `select_variant` list, return the matched variant
     key. None when no entry matches."""
     cfg = _load_all().get(rule_name) or {}
     sel = cfg.get("select_variant") or []
     match = select_first_match(sel, facts)
-    return (match or {}).get("variant")
+    variant = (match or {}).get("variant")
+    _note_variant(rule_name, "select_variant", variant)
+    return variant
 
 
 def resolve_why_clause(
@@ -249,9 +314,8 @@ def resolve_why_clause(
     cfg = _load_all().get(rule_name) or {}
     candidates = cfg.get(list_key) or []
     match = select_first_match(candidates, facts)
-    if not match:
-        return None
-    variant = match.get("variant")
+    variant = (match or {}).get("variant")
+    _note_variant(rule_name, list_key, variant)
     if not variant:
         return None
     return render_template(rule_name, variant, facts)
