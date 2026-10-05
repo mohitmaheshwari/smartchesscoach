@@ -4790,7 +4790,31 @@ def _reply_attack_arrows(
             targets.append((square, see))
 
     gives_check = after_reply.is_check()
-    if not targets and not gives_check:
+
+    # A capture that wins material IS the point, even when the piece lands
+    # somewhere that threatens nothing afterwards.
+    #
+    # Mohit 2026-10-05, on an opponent card reading "Bc5 leaves the bishop on
+    # c5 hanging -- you can win it with bxc5" and drawing nothing at all: "also,
+    # no arrow here, why the hell, i am getting angry". He is right to be. On
+    # `B2k1b1r/7p/R5p1/5p2/1Pnp1B2/8/6PP/6K1 b` the reply bxc5 takes an
+    # undefended bishop; the pawn then sits on c5 attacking b6 and d6, both
+    # empty, and gives no check -- so every gate below failed and the card that
+    # names a free piece drew no line to it.
+    #
+    # The old shape only ever asked "what does the reply threaten NEXT", which
+    # is the right question for a quiet move and the wrong one for a capture,
+    # where the material is already won on arrival.
+    wins_material = False
+    if after_opp.is_capture(reply):
+        try:
+            wins_material = legal_exchange_gain(
+                after_opp, reply.to_square, mover, first_move=reply
+            ) >= 100
+        except (ValueError, TypeError):
+            wins_material = False
+
+    if not targets and not gives_check and not wins_material:
         return []
 
     # The MOVE first. _check_attack_arrows draws from the square the piece
@@ -4947,6 +4971,81 @@ def _line_sequence_arrows(
         else:
             colour = "palegrey"
         arrows.append({"from": frm, "to": to, "color": colour, "teach": True})
+    return arrows
+
+
+def _mate_geometry_arrows(
+    board_before: Optional[chess.Board],
+    best_move_uci: Optional[str],
+) -> List[Dict[str, str]]:
+    """Show WHY the mate is mate: who covers the king's squares, and what of
+    theirs is in the way.
+
+    Mohit 2026-10-05, on the Rc8# card: "this is a proper mating pattern, if
+    all squares of king are taken by our bishop and it's just behind it's own
+    pawn so that's also taken, you know, this is a geometry to learn and
+    remember".
+
+    On `rn2kb1r/2R1p2p/p3B1p1/5p2/3pn3/7N/1PP2PPP/2B1K2R w` the king on e8 is
+    mated by Rc8 because the bishop on e6 covers d7 and f7 while their own pawn
+    on e7 and bishop on f8 take the rest. The card drew c7->c8 and said
+    "forcing move at the exposed king", which names the move and teaches none
+    of that. A player who sees the two bishop lines learns a pattern; a player
+    who sees one rook arrow learns one move.
+
+    Right-or-silent, and board-verified: nothing is drawn unless the move
+    really is checkmate, and every cover arrow is a square the king would use,
+    attacked by the named piece of ours.
+    """
+    if board_before is None or not best_move_uci:
+        return []
+    try:
+        after = board_before.copy()
+        mate_move = chess.Move.from_uci(str(best_move_uci))
+        if mate_move not in after.legal_moves:
+            return []
+        after.push(mate_move)
+    except (ValueError, AssertionError):
+        return []
+    if not after.is_checkmate():
+        return []
+
+    mated = after.turn                      # the side now to move is mated
+    king_square = after.king(mated)
+    if king_square is None:
+        return []
+
+    arrows: List[Dict[str, str]] = [{
+        "from": chess.square_name(mate_move.from_square),
+        "to": chess.square_name(king_square),
+        "color": "red",
+        "teach": True,
+    }]
+
+    # Every square the king would run to, and the piece of ours covering it.
+    # Squares blocked by their OWN men need no arrow -- the board already shows
+    # the obstruction, and an arrow pointing at their own pawn would read as an
+    # attack on it.
+    for square in chess.SQUARES:
+        if square == king_square:
+            continue
+        if chess.square_distance(square, king_square) != 1:
+            continue
+        occupant = after.piece_at(square)
+        if occupant is not None and occupant.color == mated:
+            continue                        # their own piece is in the way
+        for coverer in after.attackers(not mated, square):
+            if coverer == mate_move.to_square:
+                continue                    # the mating piece is already drawn
+            arrows.append({
+                "from": chess.square_name(coverer),
+                "to": chess.square_name(square),
+                "color": "yellow",
+                "teach": True,
+            })
+            break
+        if len(arrows) >= 4:
+            break
     return arrows
 
 
@@ -7008,21 +7107,19 @@ def build_move_teaching_decision(
             _teach_arrows = []
     # One picture per card. The check picture is rarer and more striking, so it
     # wins when both are available; otherwise show what the blunder gave away.
-    # The abandoned-defender picture goes FIRST, because when it fires it is
-    # the picture the sentence is already describing. _punishment_arrows draws
-    # pv_after_played[0]; on the Qh5+ card that is g6, so the arrow pointed at
-    # the queen while the caption said "losing your knight on e4". Mohit: "may
-    # be one more step ahead... arrows should also show attacked knight".
+    # Their reply AND the piece it costs, in that order -- the two halves of
+    # one sentence, not a choice between them.
+    #
+    # v187 made this an either/or and Mohit caught it immediately: "now, it
+    # removed the arrow of g7 to g6 attacking the queen, the idea is to show
+    # player why this move is bad when he played Qh5, as he didn't see g6, you
+    # know while already knight is under attack, so 2 attacks and one is gone
+    # now". He is right, and the chain only reads with both: g6 blocks the
+    # check and hits the queen, so the queen has to move, so the knight it was
+    # defending falls. Drawing only the knight loses the cause; drawing only
+    # g6 was the v186 picture that never mentioned the knight.
     if not _teach_arrows:
-        _teach_arrows = _abandoned_defender_arrows(
-            board_before,
-            played_move,
-            mover_is_user=inputs.mover_is_user,
-            cp_loss=inputs.cp_loss,
-            pv_after_played=list(inputs.pv_after_played or ()),
-        )
-    if not _teach_arrows:
-        _teach_arrows = _punishment_arrows(
+        _punish = _punishment_arrows(
             board_before,
             played_move,
             mover_is_user=inputs.mover_is_user,
@@ -7031,6 +7128,25 @@ def build_move_teaching_decision(
             # the narration block lost a whole section to exactly that slip.
             pv_after_played=list(inputs.pv_after_played or ()),
         )
+        _victim = _abandoned_defender_arrows(
+            board_before,
+            played_move,
+            mover_is_user=inputs.mover_is_user,
+            cp_loss=inputs.cp_loss,
+            pv_after_played=list(inputs.pv_after_played or ()),
+        )
+        # Four is the ceiling the other builders already observe, and the
+        # punishment half comes first because it is the move they play next.
+        _seen_pairs = set()
+        _teach_arrows = []
+        for _a in list(_punish) + list(_victim):
+            _key = (_a["from"], _a["to"])
+            if _key in _seen_pairs:
+                continue
+            _seen_pairs.add(_key)
+            _teach_arrows.append(_a)
+            if len(_teach_arrows) >= 4:
+                break
     if _teach_arrows:
         # On a collision the TAGGED copy wins. The old order kept the untagged
         # one, which the suppression filter below then stripped -- so a picture
@@ -7056,7 +7172,14 @@ def build_move_teaching_decision(
     _best_arrows: List[Dict[str, str]] = []
     _best_arrows_fen = ""
     if not inputs.mover_is_user or (played_move and played_move.uci() != (inputs.best_move_uci or "")):
-        _candidate = _check_attack_arrows(
+        # When the recommended move is MATE, show the mate rather than the
+        # attack. Mohit: "this is a proper mating pattern... this is a geometry
+        # to learn and remember". _check_attack_arrows draws what the move
+        # attacks, which on a mate is the king and nothing else; the lesson is
+        # which squares the king cannot use and who covers them.
+        _candidate = _mate_geometry_arrows(
+            board_before, inputs.best_move_uci
+        ) or _check_attack_arrows(
             board_before, inputs.best_move_uci, _engine_line
         )
         if _candidate:
