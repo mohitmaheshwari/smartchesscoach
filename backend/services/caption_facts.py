@@ -9991,7 +9991,7 @@ def _recommended_move_why(
         # 2) THREAT — the moved piece now attacks an enemy piece that is UNDEFENDED
         #    or worth MORE than the moving piece (a real threat, not a defended equal).
         #    Pick the most valuable such target. (Mirrors developed_eyes gating.)
-        best_threat = None  # (square, value, piece_type)
+        _threats = []       # every (square, value, piece_type) worth naming
         for sq in after.attacks(move.to_square):
             p = after.piece_at(sq)
             if not p or p.color != enemy or p.piece_type == chess.KING:
@@ -9999,20 +9999,24 @@ def _recommended_move_why(
             val = PIECE_VALUE_CP.get(p.piece_type, 0)
             defended = bool(after.attackers(enemy, sq))
             if (not defended) or (val > my_val):
-                if best_threat is None or val > best_threat[1]:
-                    best_threat = (sq, val, p.piece_type)
-        if best_threat is not None:
-            _name = PIECE_TYPE_NAMES.get(best_threat[2], "piece")
-            _where = chess.square_name(best_threat[0])
-            _verdict, _to = _attack_outcome(board, move, best_threat[0], line)
+                _threats.append((sq, val, p.piece_type))
+        # Walk the candidates in value order instead of standing or falling on
+        # the most valuable one. Mohit 2026-10-05 flagged a card with no reason
+        # at all: after the opponent's Nd6, our Be5 hits the rook on h8, the
+        # knight on d6 and the pawn on d4, and the stored line answers Rg8 --
+        # that rook moving. Refusing the rook claim is right; returning None
+        # when d6 and d4 both survive the same reply is not, and it silenced a
+        # card that had a true reason sitting behind the first one.
+        for _sq, _val, _pt in sorted(_threats, key=lambda t: -t[1]):
+            _name = PIECE_TYPE_NAMES.get(_pt, "piece")
+            _where = chess.square_name(_sq)
+            _verdict, _to = _attack_outcome(board, move, _sq, line)
             if _verdict in ("survives", "unknown"):
                 return f"attacks the {_name} on {_where}"
             if _verdict == "retreats":
                 return f"drives the {_name} back to {_to}"
-            # "trades" and "material" have better reasons further down or in the
-            # line-payoff branch; "nothing" means the attack was never the point.
-            # Either way we do not claim an attack the reply answers.
-            return None
+            # "trades", "material" and "nothing" mean this target is not the
+            # reason; try the next one rather than giving up on all of them.
 
         # 2b) OUTNUMBERED TARGET — the target IS defended and IS worth less
         #     than the mover, so branch 2 rightly declines it, and yet more of
@@ -10047,7 +10051,11 @@ def _recommended_move_why(
             if _verdict == "retreats":
                 return (f"drives the {PIECE_TYPE_NAMES.get(piece_type, 'piece')} "
                         f"back to {_to}")
-            return None
+            # Refuted: fall through to the branches below. The same early
+            # `return None` in branch 2 is what silenced Mohit's Nd6 card, and
+            # this one became reachable the moment branch 2 stopped
+            # short-circuiting. Branches 3 and 4 speak about OUR piece's safety,
+            # which is true whatever they answer, so reaching them is safe.
 
         # 3) ESCAPE — the moved piece was hanging (enemy wins it on its old square)
         #    and is safe after the move: the move saves material.
