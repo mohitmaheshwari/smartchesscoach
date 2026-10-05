@@ -426,6 +426,20 @@ def recognize_opening_from_history(
             continue
         if moves[-1] != last_played_san:
             continue
+        # ...AND the just-played move must BE the move that completes the line,
+        # not merely a later move with the same name.
+        #
+        # Mohit, 2026-10-05, on a card at move 12: "this position is not
+        # scandavian now". The game did open 1.e4 d5 2.exd5 Qxd5, so the prefix
+        # test passed; then on move 12 someone played another Qxd5 and the SAN
+        # matched the book line's last move, so the Scandinavian caption fired
+        # again eight moves later. Both plies of that move carried it, which is
+        # how White's bishop capture came to be described as "Black recaptures
+        # with the queen".
+        #
+        # The ply was never checked. It is now.
+        if len(history) != len(moves):
+            continue
         if len(moves) > best_match_len:
             best_match = entry
             best_match_len = len(moves)
