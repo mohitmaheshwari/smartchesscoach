@@ -102,3 +102,42 @@ class TestTheOtherOutcomes:
     def test_an_unparseable_line_does_not_crash(self):
         board = chess.Board(QB5_FEN)
         assert _attack_outcome(board, board.parse_san("Qb5"), chess.E8, ["Zz9"])[0] == "unknown"
+
+
+class TestOneRefutedTargetDoesNotVetoTheRest:
+    """Mohit 2026-10-05, on a card with no reason at all: "agan missing why??"
+
+    After the opponent's Nd6 our Be5 hits three things -- the rook on h8, the
+    knight on d6, the pawn on d4 -- and the stored line answers Rg8, which is
+    that rook moving. Refusing the rook claim is right. Returning None when the
+    other targets survive the same reply is not: it silenced a card that had a
+    true reason sitting behind the first one.
+
+    Across 400 games this cost 458 reasons; walking the candidates in value
+    order instead brings 228 of them back without keeping a single refuted one.
+    """
+
+    # Our move, best is Be5, from the position after the opponent played Nd6.
+    FEN = "Bn3b1r/2k1p2p/p2n2p1/5p2/3p1B2/7N/1PP2PPP/4K2R w K - 0 24"
+    LINE = ["Rg8", "Bd5", "e6"]          # their reply moves the h8 rook
+
+    def test_the_rook_claim_is_refused(self):
+        board = chess.Board(self.FEN)
+        verdict, _ = _attack_outcome(board, board.parse_san("Be5"), chess.H8, self.LINE)
+        assert verdict != "survives"
+
+    def test_a_target_that_survives_is_still_named(self):
+        board = chess.Board(self.FEN)
+        why = _recommended_move_why(board, board.parse_san("Be5"), line=self.LINE)
+        assert why is not None, "the card had a true reason available"
+        assert "rook on h8" not in why, "and must not be the refuted one"
+
+    def test_the_named_target_really_does_survive_the_reply(self):
+        import re
+        board = chess.Board(self.FEN)
+        why = _recommended_move_why(board, board.parse_san("Be5"), line=self.LINE) or ""
+        match = re.search(r" on ([a-h][1-8])", why)
+        assert match, why
+        verdict, _ = _attack_outcome(
+            board, board.parse_san("Be5"), chess.parse_square(match.group(1)), self.LINE)
+        assert verdict in ("survives", "retreats")
