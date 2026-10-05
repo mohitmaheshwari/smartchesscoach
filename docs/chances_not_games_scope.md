@@ -75,20 +75,56 @@ not practice.
 Ten weeks, between 51% and 65%, no direction. **This reading is BLOCKED — see
 below.**
 
-## What blocks reading 3
+## Reading 3 is NOT blocked — the games are enough
 
-A take rate means nothing without knowing whether the positions got harder.
-`opponent_rating` is missing on **48% of all games** (9,918 of 19,203), and on
-every coach game. It is missing for exactly the recent weeks this reading would
-cover.
+An earlier version of this scope blocked reading 3 on `opponent_rating`, which is
+missing on 48% of games. Mohit, 2026-10-05: *"I don't care about the rating on
+lichess or chess.com, we have all the data from games, we can just track games
+and find out."*
 
-So reading 3 ships only after either
+He is right, and it is better than a rating anyway. A platform rating is a
+lagging proxy for difficulty; the position itself is the thing. Every analysed
+move already carries a move number and an evaluation, which is all
+`position_difficulty` needs. **Reading 3 ships without any rating.**
 
-- opponent rating is backfilled from the platform APIs, or
-- difficulty is taken from the board instead — `services/position_difficulty.py`
-  already grades positions routine / testing / hard without needing a rating.
+### A circularity found while proving that, which must not be repeated
 
-The second is probably the better answer and it is already built.
+`difficulty_class(phase, eval_cp, has_threat)` was first fed the stored `threat`
+field off the move evaluation. The result was a take rate of **0% in every
+testing and hard cell, in every month** — 0 of 1,283 — against 72% in routine.
+
+That is not a finding, it is a structural link. Measured:
+
+    threat=True   took=True      0
+    threat=True   took=False  1283
+    threat=False  took=True   2297
+
+`threat` is not a property of the position. It is written when the player missed
+or allowed something, so it is already downstream of whether they got it right.
+Keying difficulty on it guarantees that every "hard" position is one they
+failed.
+
+This is the SECOND circularity in this module — v2 already dropped `is_critical`
+for being derived from `cp_loss`. **Any difficulty control must be built from
+(phase, eval band) only, both of which exist before the player moves.**
+
+### The valid reading
+
+Take rate by phase of game, month by month, no ratings and no threat field:
+
+| month | middlegame | opening |
+|---|---|---|
+| 2026-04 | 58% | 58% |
+| 2026-05 | 54% | 53% |
+| 2026-06 | 52% | 46% |
+| 2026-07 | 53% | 45% |
+| 2026-08 | 65% | 47% |
+| 2026-09 | 54% | 52% |
+| 2026-10 | 51% | 52% |
+
+Flat, and slightly down in the middlegame, across eight months in which his
+rating rose by about 240 points. That is the reading the product has to word
+carefully — see the correction at the top of this document.
 
 ## What is NOT in this
 
