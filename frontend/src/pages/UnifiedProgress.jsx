@@ -536,10 +536,31 @@ export default function UnifiedProgress({ user }) {
           className="mb-10 md:mb-14"
           data-testid="progress-thinking-habits"
         >
-          <HowYouPlayCard />
-          <TacticalEyeCard />
-          <AreaGradesCard />
-          <ThinkingScoreCard />
+          {/* These four were stacked bare, with no heading and no gap, while
+              every other section on this page carries an eyebrow, an h2 and a
+              grid. That inconsistency was most of what made the page look
+              unfinished -- the cards were not the problem, the absence of a
+              section around them was.
+
+              Several of these render null by design: the tactical-eye card
+              says nothing to a player with no tactical gap, and the habits
+              card says nothing before enough games. A fixed grid would leave
+              holes where they stand, so the gap is on the flow container and
+              the cards simply close up. */}
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <p className="cg-eyebrow">Your game</p>
+              <h2 className="mt-2 font-heading text-[27px] tracking-[-0.03em] md:text-[34px]">
+                How you play, part by part.
+              </h2>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4">
+            <HowYouPlayCard />
+            <TacticalEyeCard />
+            <AreaGradesCard />
+            <ThinkingScoreCard />
+          </div>
         </motion.section>
 
         <motion.div variants={fadeInUp} className="mb-10 md:mb-14">
