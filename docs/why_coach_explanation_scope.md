@@ -168,3 +168,48 @@ trust and be misled by.
 My recommendation is to build the three, leave the rest on today's
 sentence, and re-measure the residue afterwards with better rules rather
 than authoring more templates on instinct.
+
+---
+
+## Correction: the unit is shape x DIRECTION, not shape
+
+Measured after the table above, on the same 150 answers.
+
+    shape                     missed / received     missed share
+    residue                      15 / 19                44%
+    quiet_then_capture           15 / 13                54%
+    nothing_material_happens      2 / 31                 6%
+    plain_loss                    2 / 15                12%
+    trap                          1 / 14                 7%
+    trade_ends_down               0 / 13                 0%
+
+Overall the missed direction is 37 of 150 (24.7%).
+
+**The defect this exposes.** `quiet_then_capture` is the largest named
+shape and it is **54% missed** -- but the card written for it above
+assumes the received direction ("then the knight fell because nothing
+was guarding it"). On a missed line the subject flips: it is THEIR
+knight, and the player could have won it. The card as written would
+tell more than half of those players they lost a piece they could
+actually have taken.
+
+So each shape needs a text per direction, or an explicit rule that it
+only fires in one. The honest split from the numbers:
+
+- `quiet_then_capture` -- needs BOTH texts (54/46).
+- `trap`, `plain_loss`, `trade_ends_down`, `nothing_material_happens`
+  -- effectively received-only (0-12% missed). One text each, and the
+  classifier should refuse the other direction rather than guess.
+
+The missed text for `quiet_then_capture`:
+
+> Their knight sat with nothing guarding it for several moves. The move
+> you missed would have taken it. When a piece has no defender, it is
+> worth looking for a way to attack it before it gets protected.
+
+**A claim of mine that was wrong.** I said the residue was "largely the
+missed direction". It is 44% missed. Missed lines ARE disproportionately
+unclassified -- 40% of them land in residue against 17% of received, a
+2.4x rate -- so writing missed-direction shapes does raise coverage. But
+the larger half of the residue is received lines my rules fail to name,
+and that half is not explained by direction at all.
