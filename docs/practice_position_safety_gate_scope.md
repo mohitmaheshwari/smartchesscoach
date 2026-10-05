@@ -132,6 +132,40 @@ stored proofs. Check 2 is the new one and is what the e7 card fails.
 
 ---
 
+## 3a. The proposed rule, measured (2026-10-05)
+
+Section 2's table measures a BLUNT PROXY -- "does the opponent still win
+material". The rule recommended above is different and had no measurement
+behind it, which is the kind of gap that makes a scope look finished when it
+is not. Measured properly:
+
+> Reject when, after the answer we accept, the opponent wins material on a
+> square where they could ALREADY have won it before the student moved.
+
+| | kept | rejected |
+|---|---:|---:|
+| blunt proxy | 57.8% | 42.2% |
+| **this rule** | **72.6%** | **27.4%** (24,976 of 91,009) |
+
+Both controls pass:
+
+- **negative** -- the e7 card returns `pre-existing loss untouched, 300cp`
+  and is rejected. That is the position this whole scope exists for.
+- **positive** -- `back_rank_mate_exact` stays at 38/38, 100% kept.
+
+Kept per concept: `opening_plan_exact_decision` 98.8%, `forced_mate_exact`
+95.8%, `opening_exact_position` 95.5%, `fork` 76.4%, `aligned` 73.8%,
+`(none)` 72.6%, `simple_hang` 71.9%, `destination_safety_exact` 70.4%,
+`trapped_piece` 65.9%, `free_piece` 65.6%, `discovered_attack` 65.6%,
+`remove_defender` 65.4%, `opening_exact_decision` 63.3%,
+`trap_exact_decision` 25.0%.
+
+**This corrects section 2.** `remove_defender` was flagged there as a detector
+selecting bad moments, on the strength of keeping only 26.9% under the blunt
+proxy. Under the rule we would actually ship it keeps 65.4% -- in line with
+`free_piece` and `discovered_attack`. There is no detector problem there. The
+only remaining outlier is `trap_exact_decision` at 25%, and it is 24 positions.
+
 ## 4. Decisions needed from Mohit
 
 1. **The bar.** Recommend check 2 at "≥ the drill's own piece value". The
