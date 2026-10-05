@@ -518,28 +518,7 @@ export default function HomePageNew({ user }) {
                       Topics only, no counts and no scores -- a mention is not
                       a plan, and the one instruction above stays the only
                       thing anyone is asked to do. */}
-                  {Array.isArray(activeFocus?.runners_up) && activeFocus.runners_up.length > 0 && (
-                    <div className="mt-5 pt-4 border-t border-border/50">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-2">
-                        Also showing in your games
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {activeFocus.runners_up.slice(0, 3).map((r) => (
-                          <span
-                            key={r.topic || r.topic_key}
-                            data-testid="also-showing"
-                            className="text-[11px] px-2.5 py-1 rounded-full bg-muted/60 text-muted-foreground"
-                          >
-                            {String(r.topic || r.topic_key || "").replace(/_/g, " ")}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
-                        Not this week&rsquo;s job. Just so you know I can see them.
-                      </p>
-                    </div>
-                  )}
-                  {/* The drill for the shape this player takes least often
+                                    {/* The drill for the shape this player takes least often
                       (docs/pin_skewer_drill_scope.md). The reading behind it was
                       already computed and stored and reached no screen here.
                       Deliberately one quiet link and not a card: Home names ONE
@@ -547,13 +526,6 @@ export default function HomePageNew({ user }) {
                       go when they want to practise. The backend omits the field
                       entirely when there is no supply, so this cannot render a
                       dead link. */}
-                  {/* Of the chances the board gave you, how many did you
-                      take? (docs/chances_not_games_scope.md) Game-independent,
-                      so duplicate games and two-move coach stubs contribute
-                      nothing instead of needing to be filtered. */}
-                  <div className="mt-6">
-                    <ChancesCard />
-                  </div>
                   {activeFocus?.tactic_practice?.href && (
                     <div className="mt-4">
                       <Link
@@ -725,6 +697,19 @@ export default function HomePageNew({ user }) {
               </motion.section>
             </>
           )}
+
+          {/* Of the chances the board gave you, how many did you take?
+              docs/chances_not_games_scope.md
+
+              MOUNTED OUTSIDE EVERY BRANCH, deliberately. This first went inside
+              the `pic` branch, and the branch a player takes is decided by
+              `canonicalContext ? ... : pic ? ...` — 51 of 52 users carry a
+              canonical context, so the card rendered for almost nobody. The
+              reading does not depend on which focus shape a player has, so it
+              must not live inside a test for one. */}
+          <motion.div variants={fadeInUp} className="mt-12">
+            <ChancesCard />
+          </motion.div>
 
           {/* ─── NAVIGATION TILES ───
               Deliberately faded — utilities, not today's mission. Mohit,
