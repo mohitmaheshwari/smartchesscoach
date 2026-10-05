@@ -9662,6 +9662,94 @@ def clearance_reply_why(
     return None
 
 
+def _attack_outcome(
+    board: chess.Board,
+    move: chess.Move,
+    target_square: int,
+    line: Optional[Sequence[str]],
+):
+    """What the engine's line says an attack actually achieves.
+
+    Returns one of:
+      ("survives", None)            the reply leaves the piece there -- the
+                                    attack really is the reason
+      ("retreats", square_name)     they move it back; the retreat is the lesson
+      ("trades", None)              they take instead
+      ("material", None)            the line wins material later; the caller has
+                                    a better reason than the attack
+      ("nothing", None)             none of the above -- say nothing about it
+      ("unknown", None)             no usable line; keep existing behaviour
+
+    Mohit 2026-10-03, on "Qb5 was better -- it wins the knight on e8": "the
+    question is what is the best move for opponent after Qb5, because that will
+    solve the real caption of why Qb5, as knight can be moved right?" Then:
+    "that's why stockfish lines matter so much in teaching captions, and you
+    always miss those."
+
+    He is right, and it is not a corner case. Measured over 400 games: of 1,432
+    "attacks the X" reasons on recommended moves, 663 (46%) are answered in the
+    stored line by simply moving X. Playing 60 of those out at depth 18 and
+    judging them with the engine rather than a piece count:
+
+        27%  the position is already decided (eval past +-400, move shifts <60cp)
+        30%  nothing measurable -- the attack was never the point
+        14%  the line wins material two or more moves later
+        14%  they trade the piece off
+        12%  they retreat it, and the retreat IS the lesson
+
+    52 of 60 were still the engine's top move at depth 18, so these are good
+    moves with a wrong explanation, not bad moves. On the card that prompted
+    this -- Qb5 against `1k2n2r/p1p5/1p5p/8/3q4/1Q3B2/PP3PP1/4R1K1 w` -- every
+    serious Black reply is answered by Qc6, the knight is scenery, and the real
+    point is the queen reaching c6 with the bishop on f3 behind it.
+    """
+    if not line:
+        return ("unknown", None)
+    mover = board.turn
+    after = board.copy()
+    after.push(move)
+    try:
+        reply = after.parse_san(str(line[0]))
+    except (ValueError, AssertionError):
+        return ("unknown", None)
+    if reply.from_square != target_square:
+        return ("survives", None)
+
+    if after.is_capture(reply):
+        return ("trades", None)
+
+    # Does the line win material later? Then that is the reason, not the attack.
+    walk = after.copy()
+    start = _material_for(board, mover)
+    for san in line:
+        try:
+            walk.push(walk.parse_san(str(san)))
+        except (ValueError, AssertionError):
+            break
+    if _material_for(walk, mover) - start >= 100:
+        return ("material", None)
+
+    # Driven backwards is a real gain: space, and a piece doing less.
+    # The piece belongs to the OPPONENT, so "back" is toward THEIR side. The
+    # first version measured it from the mover's side and called Bd2 a retreat
+    # on `2kr3r/ppp1nppp/6b1/4P3/P1B3P1/2N1bN1P/1PP5/RK5R w`, where the black
+    # bishop on e3 is in fact coming further in.
+    rank_before = chess.square_rank(target_square)
+    rank_after = chess.square_rank(reply.to_square)
+    went_back = (rank_after > rank_before) if mover == chess.WHITE else (rank_after < rank_before)
+    if went_back:
+        return ("retreats", chess.square_name(reply.to_square))
+    return ("nothing", None)
+
+
+def _material_for(board: chess.Board, side: chess.Color) -> int:
+    total = 0
+    for _square, piece in board.piece_map().items():
+        value = PIECE_VALUE_CP.get(piece.piece_type, 0)
+        total += value if piece.color == side else -value
+    return total
+
+
 def _outnumbered_target(
     after: chess.Board, from_square: int, mover: chess.Color, enemy: chess.Color
 ):
@@ -9914,8 +10002,17 @@ def _recommended_move_why(
                 if best_threat is None or val > best_threat[1]:
                     best_threat = (sq, val, p.piece_type)
         if best_threat is not None:
-            return (f"attacks the {PIECE_TYPE_NAMES.get(best_threat[2], 'piece')} "
-                    f"on {chess.square_name(best_threat[0])}")
+            _name = PIECE_TYPE_NAMES.get(best_threat[2], "piece")
+            _where = chess.square_name(best_threat[0])
+            _verdict, _to = _attack_outcome(board, move, best_threat[0], line)
+            if _verdict in ("survives", "unknown"):
+                return f"attacks the {_name} on {_where}"
+            if _verdict == "retreats":
+                return f"drives the {_name} back to {_to}"
+            # "trades" and "material" have better reasons further down or in the
+            # line-payoff branch; "nothing" means the attack was never the point.
+            # Either way we do not claim an attack the reply answers.
+            return None
 
         # 2b) OUTNUMBERED TARGET — the target IS defended and IS worth less
         #     than the mover, so branch 2 rightly declines it, and yet more of
@@ -9940,11 +10037,17 @@ def _recommended_move_why(
         best_defended = _outnumbered_target(after, move.to_square, mover, enemy)
         if best_defended is not None:
             sq, piece_type, defender_type = best_defended
-            return (
-                f"attacks the {PIECE_TYPE_NAMES.get(piece_type, 'piece')} on "
-                f"{chess.square_name(sq)}, which only their "
-                f"{PIECE_TYPE_NAMES.get(defender_type, 'piece')} defends"
-            )
+            _verdict, _to = _attack_outcome(board, move, sq, line)
+            if _verdict in ("survives", "unknown"):
+                return (
+                    f"attacks the {PIECE_TYPE_NAMES.get(piece_type, 'piece')} on "
+                    f"{chess.square_name(sq)}, which only their "
+                    f"{PIECE_TYPE_NAMES.get(defender_type, 'piece')} defends"
+                )
+            if _verdict == "retreats":
+                return (f"drives the {PIECE_TYPE_NAMES.get(piece_type, 'piece')} "
+                        f"back to {_to}")
+            return None
 
         # 3) ESCAPE — the moved piece was hanging (enemy wins it on its old square)
         #    and is safe after the move: the move saves material.
