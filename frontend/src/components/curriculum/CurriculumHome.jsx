@@ -1,6 +1,22 @@
+/**
+ * The curriculum home. docs/home_merge_scope.md
+ *
+ * THE RULE: the curriculum decides what you do, the evidence proves it is
+ * working. One instruction, then one card of proof, in that order.
+ *
+ * This page answered "what do I do today" better than the dashboard ever did,
+ * and had no answer at all to "is any of this working" — a player did the one
+ * thing and left, and nothing told them it was moving. That is the retention
+ * hole, because "did it work" is the only reason to come back.
+ *
+ * The evidence is ONE card, below the instruction, and must never compete with
+ * it. If it grows a second and a third, this page has turned back into the
+ * scrolling report it was built to replace.
+ */
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import CurriculumPrimary from "@/components/curriculum/CurriculumPrimary";
+import ChancesCard from "@/components/coach/ChancesCard";
 import { curriculumHeadline } from "@/lib/personalCurriculum";
 
 export default function CurriculumHome({ user, curriculum, greeting }) {
@@ -29,6 +45,12 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
             surface="home"
             onNavigate={navigate}
           />
+        </div>
+        {/* The proof, under the instruction and never above it. Renders
+            nothing at all when the player has not been offered enough
+            chances, so a new account still sees a single clean task. */}
+        <div className="mt-6">
+          <ChancesCard />
         </div>
         <button
           type="button"
