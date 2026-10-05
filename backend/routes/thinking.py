@@ -231,6 +231,15 @@ async def get_user_thinking_score(user: User = Depends(get_current_user)):
     # Get recommendations for weakest areas
     recommendations = get_weakest_habits(progress, top_n=2) if progress.get("has_enough_data") else []
 
+    # The card the Progress page renders: words, no score, and only the habits
+    # that can actually separate one player from another. See
+    # services/thinking_habits_card.py for why three of the five are silent.
+    #
+    # Added alongside the existing keys rather than replacing them, because
+    # `thinking_scores` is written by the analysis worker and read elsewhere;
+    # this endpoint's older fields stay for anything still reading them.
+    from services.thinking_habits_card import build_card
+
     return {
         "has_data": True,
         "overall_score": progress.get("overall_score"),
@@ -239,7 +248,8 @@ async def get_user_thinking_score(user: User = Depends(get_current_user)):
         "habit_progress": progress.get("habit_progress", {}),
         "games_analyzed": progress.get("games_analyzed", 0),
         "recommendations": recommendations,
-        "explanation": _get_score_explanation(progress.get("overall_score", 0))
+        "explanation": _get_score_explanation(progress.get("overall_score", 0)),
+        "card": build_card(progress.get("habit_progress")),
     }
 
 
