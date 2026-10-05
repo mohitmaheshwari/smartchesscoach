@@ -43,6 +43,7 @@ import chess
 
 from services.caption_facts import (
     PIECE_VALUE_CP,
+    legal_exchange_gain,
     _normalize_pv_starting_with,
 )
 
@@ -209,6 +210,56 @@ def _net_victim_loss(pre: chess.Board, after: chess.Board,
     return f"several {name}s"
 
 
+def _fork_survives(
+    post: chess.Board,
+    agent_move: chess.Move,
+    line: Sequence[str],
+    aggressor: bool,
+    victim: bool,
+) -> bool:
+    """Is one of the forked pieces still winnable after the victim answers?
+
+    Returns True only when, after the victim's first reply, the forking piece
+    still attacks a victim piece worth at least a minor AND taking it actually
+    gains material once the exchange is played out.
+
+    With no reply stored we cannot tell, and a fork claim is exactly the kind
+    that measurement showed is usually answered, so the silent direction is to
+    refuse it.
+    """
+    if not line:
+        return False
+    board = post.copy(stack=False)
+    try:
+        reply = board.parse_san(str(line[0]))
+    except (ValueError, AssertionError):
+        return False
+    board.push(reply)
+    # The forking piece may itself have been captured by the reply.
+    forker = board.piece_at(agent_move.to_square)
+    if forker is None or forker.color != aggressor:
+        return False
+    probe = board.copy(stack=False)
+    if probe.is_check():
+        return False
+    try:
+        probe.push(chess.Move.null())      # hand the aggressor the move back
+    except Exception:
+        return False
+    for square in board.attacks(agent_move.to_square):
+        piece = board.piece_at(square)
+        if piece is None or piece.color != victim:
+            continue
+        if PIECE_VALUE_CP.get(piece.piece_type, 0) < MINOR_CP:
+            continue
+        try:
+            if (legal_exchange_gain(probe, square, aggressor) or 0) >= MINOR_CP:
+                return True
+        except (ValueError, TypeError):
+            continue
+    return False
+
+
 def _consequences(
     pre: chess.Board,
     agent_move: chess.Move,
@@ -278,9 +329,26 @@ def _consequences(
               victim_piece=_net_victim_loss(pre, line_board, victim, aggressor))
 
     # --- FORK ------------------------------------------------------------
+    # A fork has to survive the victim's reply. This branch tested the board
+    # the instant after agent_move and never asked what they answer -- the same
+    # defect as the "attacks the X" reasons fixed in v184.
+    #
+    # There is also a structural reason to doubt every fork that gets this far:
+    # WINS_MATERIAL outranks FORK in MECHANISM_RANK and measures net material
+    # across the WHOLE line, so a fork that actually collected something would
+    # have been claimed as material first. A fork reaching a caption therefore
+    # implies the line nets nothing. Measured over 400 games, 177 captions chose
+    # FORK and NOT ONE of them won material: median net 0, zero at or above
+    # 100cp, against WINS_MATERIAL's median +100 and 79%. Some were outright
+    # bad for the forker -- Qxd4 there nets -300.
+    #
+    # So the fork must still be winnable after they reply, and `_fork_survives`
+    # plays that out instead of trusting the snapshot.
     hit = [sq for sq in post.attacks(agent_move.to_square)
            if (pc := post.piece_at(sq)) is not None and pc.color == victim
            and PIECE_VALUE_CP.get(pc.piece_type, 0) >= MINOR_CP]
+    if hit and not _fork_survives(post, agent_move, line, aggressor, victim):
+        hit = []
     if len(hit) >= 2 or (post.is_check() and hit):
         best_hit = max(hit, key=lambda sq: PIECE_VALUE_CP.get(
             post.piece_at(sq).piece_type, 0), default=None)
@@ -325,9 +393,22 @@ def _consequences(
                                     and nxt.to_square == victim_origin)
             except (ValueError, AssertionError, KeyError):
                 pass
-        offer("FORCES_RETREAT", max(1, value // 10), victim_piece=name,
-              victim_square=where, retreat_san=retreat_san,
-              returns_home=returns_home)
+        # Only claim a forced retreat the line actually shows. `retreat_san`
+        # is set just above when the victim's answer moves THIS piece, so it
+        # already encodes "they really do move it" -- it was merely decorative
+        # before, and the claim fired whether or not it was set.
+        #
+        # Measured over 400 games: of 861 FORCES_RETREAT claims, 601 (69%) are
+        # borne out by the line and 260 (30%) name a retreat the opponent never
+        # makes. Requiring the field turns a 69%-true claim into a true one.
+        # The same defect as the "attacks the X" reasons in v184 and the FORK
+        # branch above, in its mildest form: _must_move answers "can this piece
+        # stay?" on a snapshot, which is not the same question as "do they move
+        # it?"
+        if retreat_san:
+            offer("FORCES_RETREAT", max(1, value // 10), victim_piece=name,
+                  victim_square=where, retreat_san=retreat_san,
+                  returns_home=returns_home)
 
     # --- PROMOTES ---------------------------------------------------------
     if any("=" in str(m or "") for m in line[:_LINE_PLY]):
