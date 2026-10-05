@@ -4950,6 +4950,130 @@ def _line_sequence_arrows(
     return arrows
 
 
+def _abandoned_defender_arrows(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    *,
+    mover_is_user: bool,
+    cp_loss: int,
+    pv_after_played: Optional[Sequence[str]] = None,
+) -> List[Dict[str, str]]:
+    """Draw the piece the move stopped defending, and the hand that takes it.
+
+    Mohit 2026-10-05, on the Qh5+ card: "i think arrows could be better, you
+    know, may be one more step ahead... the problem was knight was already
+    under attack and he got his queen too under attack with the pawn now, but
+    arrows should also show attacked knight".
+
+    On `rn1qkbnr/1bp1p1pp/p7/5p2/1p1PN3/1B3Q2/PPP2PPP/R1B1K1NR w` the knight on
+    e4 is attacked TWICE -- the f5 pawn and the b7 bishop -- and defended once,
+    by the queen on f3. Qh5+ is the defender walking away. The caption says so
+    ("runs into fxe4, losing your knight on e4") but every arrow pointed at the
+    queen, because _punishment_arrows draws pv_after_played[0] and the engine's
+    immediate reply here is g6: a block that also hits the queen. The capture
+    the sentence is about, fxe4, is three plies further on, and nothing looked
+    that far.
+
+    So this walks the stored line for the capture of a piece this move had been
+    defending, and draws THAT. The claim still answers to the engine -- the
+    capture has to appear in the line, we never infer it from the static board,
+    which is the mistake that produced 34% bad arrows before v181.
+
+    Measured over the corpus: 18,884 user moves (3.15%) move a defender of an
+    already-attacked piece, 18,691 of them its ONLY defender, and in 3,272 the
+    engine's line really does take it. 2,095 are attacked two or more times
+    like this one, where the second attacker is drawn too so the picture says
+    "two onto one" rather than merely "this is hanging".
+    """
+    if board_before is None or played_move is None:
+        return []
+    if not mover_is_user or (cp_loss or 0) < 100:
+        return []
+    if not pv_after_played:
+        return []
+
+    mover = board_before.turn
+    enemy = not mover
+
+    # Pieces we were defending that the opponent ALREADY attacked. The move
+    # leaving is what changes the count, so a piece nobody was eyeing is not
+    # this lesson.
+    at_risk = set()
+    for square in chess.SQUARES:
+        piece = board_before.piece_at(square)
+        if not piece or piece.color != mover or piece.piece_type == chess.KING:
+            continue
+        if square == played_move.from_square:
+            continue
+        if not board_before.attackers(enemy, square):
+            continue
+        if played_move.from_square not in board_before.attackers(mover, square):
+            continue
+        at_risk.add(square)
+    if not at_risk:
+        return []
+
+    try:
+        board = board_before.copy()
+        board.push(played_move)
+    except Exception:
+        return []
+
+    # When their very next move takes something ELSE, that is the punishment
+    # and _punishment_arrows draws exactly it; reaching past it to a deeper
+    # capture makes the picture less direct, not more. When the immediate
+    # capture IS one of the pieces we stopped defending, we keep going -- the
+    # primary arrow comes out the same and the second attacker gets drawn too.
+    #
+    # Measured over 400 games. Of 156 cards this fires on, 133 drew the same
+    # primary arrow as the punishment picture and only added the second
+    # attacker, which is worth keeping. Of the 14 that genuinely differed,
+    # several were overriding an immediate capture (Bxg3, Rxb6, Bxg5) with one
+    # three plies later; this gate drops those to 3. A blanket defer-on-capture
+    # fixed the 14 but threw away all 133 enrichments, which is why the test
+    # is on the SQUARE and not merely on is_capture.
+    try:
+        first = board.parse_san(str(list(pv_after_played)[0]))
+        if board.is_capture(first) and first.to_square not in at_risk:
+            return []
+    except (ValueError, AssertionError, IndexError):
+        return []
+
+    for san in list(pv_after_played)[:6]:
+        try:
+            move = board.parse_san(str(san))
+        except (ValueError, AssertionError):
+            return []
+        if move not in board.legal_moves:
+            return []
+        if (board.turn == enemy
+                and move.to_square in at_risk
+                and board.is_capture(move)):
+            victim = chess.square_name(move.to_square)
+            arrows: List[Dict[str, str]] = [{
+                "from": chess.square_name(move.from_square),
+                "to": victim,
+                "color": "red",
+                "teach": True,
+            }]
+            # The other attacker, when there is one. "Two of theirs onto one of
+            # yours" is the countable fact the lesson rests on, and it is
+            # invisible if only the capture is drawn.
+            for other in board.attackers(enemy, move.to_square):
+                if other == move.from_square:
+                    continue
+                arrows.append({
+                    "from": chess.square_name(other),
+                    "to": victim,
+                    "color": "yellow",
+                    "teach": True,
+                })
+                break
+            return arrows
+        board.push(move)
+    return []
+
+
 def _punishment_arrows(
     board_before: Optional[chess.Board],
     played_move: Optional[chess.Move],
@@ -6884,6 +7008,19 @@ def build_move_teaching_decision(
             _teach_arrows = []
     # One picture per card. The check picture is rarer and more striking, so it
     # wins when both are available; otherwise show what the blunder gave away.
+    # The abandoned-defender picture goes FIRST, because when it fires it is
+    # the picture the sentence is already describing. _punishment_arrows draws
+    # pv_after_played[0]; on the Qh5+ card that is g6, so the arrow pointed at
+    # the queen while the caption said "losing your knight on e4". Mohit: "may
+    # be one more step ahead... arrows should also show attacked knight".
+    if not _teach_arrows:
+        _teach_arrows = _abandoned_defender_arrows(
+            board_before,
+            played_move,
+            mover_is_user=inputs.mover_is_user,
+            cp_loss=inputs.cp_loss,
+            pv_after_played=list(inputs.pv_after_played or ()),
+        )
     if not _teach_arrows:
         _teach_arrows = _punishment_arrows(
             board_before,
