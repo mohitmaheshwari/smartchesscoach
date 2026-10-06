@@ -10316,11 +10316,65 @@ def extract_facts(
     # lessons a 600-1500 player needs -- recapturing with the wrong man
     # (Qxd4 for exd4, Nxe5 for dxe5) and developing the wrong piece to a good
     # square (Qd7 where Nd7 belonged).
+    # Our own king with no way off the back rank. Mohit 2026-10-06, on a card
+    # that correctly said "Bb3 lets Rxc3 win your rook on c3" and stopped
+    # there: "this is backrank mate but doesn't show in caption or arrows".
+    #
+    # On 6k1/p4ppp/6q1/8/1PbP4/P1r2P2/5KPP/2RQ4 b the king on g8 has f7, g7
+    # and h7 all occupied by its OWN pawns, and after Bb3 Rxc3 White's rook
+    # bears down the open c-file: a quiet move like a6 then loses to Rc8#.
+    #
+    # board_concepts.back_rank_weakness already knows all of this -- it
+    # returns pawns_blocking 3, heavy_pieces_bearing_down ['c3'] and
+    # exploitable True on exactly this position -- and has never been wired to
+    # a caption. 151 of 2,539 user-mistake cards over 400 games are
+    # exploitable, 43 of them created by the move itself.
+    #
+    # Deliberately NOT a mate claim: here Black holds with Be6 or Qf6, so the
+    # honest sentence is that the king has no escape squares, not that this
+    # loses to mate.
+    back_rank_exposed = False
+    back_rank_king_square: Optional[str] = None
+    back_rank_pawn_count: Optional[int] = None
+    back_rank_attacker_square: Optional[str] = None
     opp_failure_wrong_piece = False
     opp_wrong_piece_square: Optional[str] = None
     opp_wrong_piece_played: Optional[str] = None
     opp_wrong_piece_wanted: Optional[str] = None
     opp_wrong_piece_is_recapture = False
+
+    # Computed on the board AFTER our move, and again after their best reply,
+    # because the rook usually only reaches the open file by capturing: on the
+    # reported card the weakness is not exploitable until Rxc3 has happened.
+    if mover_is_user is not False:
+        try:
+            from services.board_concepts import back_rank_weakness
+            _us = board_before.turn
+            _already = (back_rank_weakness(board_before, _us) or {}).get("exploitable")
+            _probe = board_before.copy()
+            _probe.push(board_before.parse_san(str(played_san)))
+            _states = [back_rank_weakness(_probe, _us) or {}]
+            _reply = (pv_after_played or [None])[0]
+            if _reply:
+                try:
+                    _nb = _probe.copy()
+                    _nb.push(_nb.parse_san(str(_reply)))
+                    _states.append(back_rank_weakness(_nb, _us) or {})
+                except (ValueError, AssertionError):
+                    pass
+            for _st in _states:
+                if not _st.get("exploitable"):
+                    continue
+                _heavies = _st.get("heavy_pieces_bearing_down") or []
+                if not _heavies:
+                    continue
+                back_rank_exposed = True
+                back_rank_king_square = _st.get("king_square")
+                back_rank_pawn_count = _st.get("pawns_blocking")
+                back_rank_attacker_square = _heavies[0]
+                break
+        except Exception:
+            back_rank_exposed = False
     opp_failure_missed_tactic = False
     opp_missed_tactic_san: Optional[str] = None
     opp_missed_tactic_desc: Optional[str] = None
@@ -11205,6 +11259,10 @@ def extract_facts(
         "opp_missed_capture_square": opp_missed_capture_square,
         "opp_failure_missed_mate": opp_failure_missed_mate,
         "opp_missed_mate_san": opp_missed_mate_san,
+        "back_rank_exposed": back_rank_exposed,
+        "back_rank_king_square": back_rank_king_square,
+        "back_rank_pawn_count": back_rank_pawn_count,
+        "back_rank_attacker_square": back_rank_attacker_square,
         "opp_failure_wrong_piece": opp_failure_wrong_piece,
         "opp_wrong_piece_square": opp_wrong_piece_square,
         "opp_wrong_piece_played": opp_wrong_piece_played,

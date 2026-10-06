@@ -7746,6 +7746,28 @@ def build_move_teaching_decision(
             if a.get("color") == "blue"
         ]
 
+    # The back-rank warning rides ALONG with the material reason, never instead
+    # of it. Mohit 2026-10-06: "this is backrank mate but doesn't show in
+    # caption or arrows". His card already said he drops a rook, which is true
+    # and is not the bigger danger: the king on g8 has f7, g7 and h7 all filled
+    # by its own pawns, so a rook on the back row mates. It is appended rather
+    # than substituted because losing the rook is still the first thing he
+    # needs to know.
+    #
+    # Not phrased as a mate claim: on that card Black holds with Be6 or Qf6, so
+    # the sentence says the king has no way out, which is true of the position
+    # whatever they choose.
+    if caption_facts.get("back_rank_exposed") and caption_payload.get("caption"):
+        try:
+            from services.caption_templates import render_template
+            _br = render_template("R12_blunder", "back_rank_no_escape", caption_facts)
+            if _br and _br not in caption_payload["caption"]:
+                caption_payload["caption"] = (
+                    caption_payload["caption"].rstrip() + " " + _br
+                )
+        except Exception:
+            pass
+
     visual = VisualSurface(
         arrows=_arrows_out,
         highlight_squares=caption_payload.get("highlight_squares") or [],
