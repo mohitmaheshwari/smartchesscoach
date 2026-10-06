@@ -30,6 +30,14 @@ FROM alpine:latest
 
 COPY --from=builder /app/frontend/build /build
 
-# On startup, copy build output to the bind-mounted /output directory
-# This deploys the frontend to the host nginx directory
-CMD ["sh", "-c", "rm -rf /output/* && cp -r /build/* /output/ && echo '✅ Frontend deployed to /output successfully' && ls -la /output/"]
+# On startup, publish the build into the bind-mounted /output directory.
+#
+# This used to be `rm -rf /output/* && cp -r /build/* /output/`, which deleted
+# the LIVE docroot before copying anything in. On 2026-10-06 the rm failed part
+# way, the && chain stopped, and chessguru.ai served a 500 to every visitor
+# until the bundle was restored by hand. The publish script stages the new build
+# beside the live one and swaps only after checking it -- see the file.
+COPY scripts/publish_frontend_output.sh /usr/local/bin/publish-frontend
+RUN chmod +x /usr/local/bin/publish-frontend
+
+CMD ["/usr/local/bin/publish-frontend"]
