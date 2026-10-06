@@ -4974,6 +4974,28 @@ def _line_sequence_arrows(
     return arrows
 
 
+def shape_arrows_survive_mate_picture(
+    mate_picture: Optional[List[Dict[str, str]]],
+    best_move_arrows: Optional[List[Dict[str, str]]],
+) -> bool:
+    """False when the mate picture owns the card and the shape arrows must go.
+
+    Mohit 2026-10-06, with the badge and caption both already fixed: "now shows
+    missed mate, but arrows are still showing for missed skewer". The card read
+    "Bd5 missed a checkmate" over an alignment picture (e8->d8, d8->c7, d5->a8)
+    that a shape detector had drawn independently. Two surfaces agreeing and
+    the loudest one still telling the old story.
+
+    The mate geometry cannot just be moved onto the main board: it is true of
+    the position AFTER the mating move, which is why it carries its own FEN. On
+    the board the player sees, their bishop has already left e6, so e6->d7 is
+    not a line that exists there. So the shape arrows go rather than get
+    replaced -- silence beats contradiction -- and the mate picture stays on
+    the surface whose board it is true of.
+    """
+    return not (bool(mate_picture) and bool(best_move_arrows))
+
+
 def _mate_geometry_arrows(
     board_before: Optional[chess.Board],
     best_move_uci: Optional[str],
@@ -7171,15 +7193,21 @@ def build_move_teaching_decision(
     # being dropped.
     _best_arrows: List[Dict[str, str]] = []
     _best_arrows_fen = ""
+    # Declared outside the branch on purpose: it is read again further down to
+    # decide whether the shape arrows are suppressed, and the branch does not
+    # always run. A name that only exists on some paths is how this file lost a
+    # whole caption block to a NameError swallowed by a bare except.
+    _mate_picture: List[Dict[str, str]] = []
     if not inputs.mover_is_user or (played_move and played_move.uci() != (inputs.best_move_uci or "")):
         # When the recommended move is MATE, show the mate rather than the
         # attack. Mohit: "this is a proper mating pattern... this is a geometry
         # to learn and remember". _check_attack_arrows draws what the move
         # attacks, which on a mate is the king and nothing else; the lesson is
         # which squares the king cannot use and who covers them.
-        _candidate = _mate_geometry_arrows(
+        _mate_picture = _mate_geometry_arrows(
             board_before, inputs.best_move_uci
-        ) or _check_attack_arrows(
+        )
+        _candidate = _mate_picture or _check_attack_arrows(
             board_before, inputs.best_move_uci, _engine_line
         )
         if _candidate:
@@ -7191,6 +7219,25 @@ def build_move_teaching_decision(
             except Exception:
                 _best_arrows = []
                 _best_arrows_fen = ""
+    # When the lesson is a missed mate, the mate picture is the only picture.
+    #
+    # Mohit 2026-10-06, after the badge and caption were both fixed: "now shows
+    # missed mate, but arrows are still showing for missed skewer". He was
+    # looking at a card that said "Bd5 missed a checkmate" over an alignment
+    # picture -- e8->d8, d8->c7, d5->a8 -- drawn by a shape detector that had
+    # fired independently. Three surfaces, two of them now agreeing and the
+    # loudest one still telling the old story.
+    #
+    # The mate geometry cannot simply be moved onto this board: it lives on the
+    # position AFTER the mating move, which is why it carries its own FEN. On
+    # the board the player is looking at, their bishop has already left e6, so
+    # e6->d7 is not a line that exists. So the shape arrows go rather than get
+    # replaced -- silence beats contradiction, the same rule the reply-arrow
+    # builder follows -- and the mate picture stays on the surface whose board
+    # it is true of.
+    if not shape_arrows_survive_mate_picture(_mate_picture, _best_arrows):
+        _arrows_out = []
+
     visual = VisualSurface(
         arrows=_arrows_out,
         highlight_squares=caption_payload.get("highlight_squares") or [],
