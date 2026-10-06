@@ -302,3 +302,131 @@ async def drill_supply(db) -> Dict[str, Any]:
             out["%s.%s" % (collection, motif)] = await db[
                 collection].count_documents({"drill_motif": motif})
     return out
+
+
+# ─── themed practice, for topics our own games cannot prove ──────────────────
+#
+# docs/home_session_scope.md. `king_safety` has 151 community puzzles and 341
+# coach positions and not one passes verification -- there is no king-safety
+# prover, and none of those positions involve mate, so they carry a classifier's
+# opinion rather than evidence. Instead of certifying them anyway, these serve
+# Lichess positions that already carry proof.
+#
+# THE OFF-BY-ONE IS HANDLED HERE, ONCE. `moves[0]` is the OPPONENT'S move and the
+# answer is `moves[1]`. Measured when the pin drill was built: treating moves[0]
+# as the answer gets 8% agreement against 40%. Every place that re-derives this
+# is a place it can be got wrong again.
+
+THEME_ANSWER_INDEX = 1
+
+
+async def get_themed_positions(db, user_id: str, topic: str,
+                               limit: int = 10) -> Dict[str, Any]:
+    """Lichess positions for a topic, at this player's level."""
+    import chess
+
+    from services.topic_practice_themes import (
+        blurb_for, mongo_query, question_for_themes,
+    )
+
+    query = mongo_query(topic, await _rating_for(db, user_id))
+    if not query:
+        return {"ok": False, "reason": "no_themes_for_topic", "positions": []}
+
+    solved = await _solved_ids(db, user_id)
+    spec = spec_or_fallback(topic)
+    out: List[Dict[str, Any]] = []
+    seen = 0
+    async for doc in db.lichess_puzzles.find(query, {
+            "_id": 0, "puzzle_id": 1, "fen": 1, "moves": 1, "rating": 1,
+            "themes": 1}):
+        seen += 1
+        if seen > limit * 40:
+            break
+        position_id = "lichess_puzzles:%s" % doc.get("puzzle_id")
+        if position_id in solved:
+            continue
+        moves = (doc["moves"].split() if isinstance(doc.get("moves"), str)
+                 else list(doc.get("moves") or ()))
+        if len(moves) <= THEME_ANSWER_INDEX:
+            continue
+        try:
+            board = chess.Board(doc["fen"])
+            setup = chess.Move.from_uci(moves[0])
+            if setup not in board.legal_moves:
+                continue
+            board.push(setup)
+        except Exception:
+            continue
+        out.append({
+            "position_id": position_id,
+            "fen": board.fen(),
+            "to_move": "white" if board.turn == chess.WHITE else "black",
+            "source": "lichess",
+            # From the THEME, not the topic: a defensiveMove puzzle promises
+            # that the answer is defensive and nothing about whose king is
+            # where. See topic_practice_themes.question_for_themes.
+            "question": question_for_themes(doc.get("themes")),
+            "task_line": spec.task_line_for(spec.accepts),
+            "reason_prompt": spec.reason_prompt,
+            "reason_options": [{"id": o.id, "label": o.label}
+                               for o in spec.reason_options],
+        })
+        if len(out) >= limit:
+            break
+
+    return {
+        "ok": True,
+        "topic": topic,
+        "blurb": blurb_for(topic),
+        "positions": out,
+        "state": "ready" if out else "exhausted",
+    }
+
+
+async def _rating_for(db, user_id: str):
+    profile = await db.player_profiles.find_one(
+        {"user_id": user_id}, {"_id": 0, "current_rating": 1})
+    if profile and profile.get("current_rating"):
+        return profile["current_rating"]
+    game = await db.games.find_one(
+        {"user_id": user_id, "user_rating": {"$ne": None}},
+        {"_id": 0, "user_rating": 1}, sort=[("played_at_utc", -1)])
+    return (game or {}).get("user_rating")
+
+
+async def grade_themed(db, user_id: str, position_id: str, move_uci: str,
+                       reason_id: Optional[str] = None) -> Dict[str, Any]:
+    """Mark a themed attempt. The answer never leaves the server until now."""
+    import chess
+
+    if not str(position_id).startswith("lichess_puzzles:"):
+        return {"ok": False, "reason": "bad_position_id"}
+    puzzle_id = str(position_id).split(":", 1)[1]
+    doc = await db.lichess_puzzles.find_one(
+        {"puzzle_id": puzzle_id}, {"_id": 0, "fen": 1, "moves": 1})
+    if not doc:
+        return {"ok": False, "reason": "unknown_position"}
+
+    moves = (doc["moves"].split() if isinstance(doc.get("moves"), str)
+             else list(doc.get("moves") or ()))
+    if len(moves) <= THEME_ANSWER_INDEX:
+        return {"ok": False, "reason": "unknown_position"}
+    board = chess.Board(doc["fen"])
+    board.push(chess.Move.from_uci(moves[0]))
+    answer = moves[THEME_ANSWER_INDEX]
+    correct = str(move_uci) == answer
+
+    await db.puzzle_attempts.insert_one({
+        "user_id": user_id,
+        "puzzle_id": position_id,
+        "move_uci": str(move_uci),
+        "correct": bool(correct),
+        "reason_id": reason_id or None,
+        "source": "lichess_theme",
+    })
+    try:
+        answer_san = board.san(chess.Move.from_uci(answer))
+    except Exception:
+        answer_san = ""
+    return {"ok": True, "correct": bool(correct), "answer_san": answer_san}

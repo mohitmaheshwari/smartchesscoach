@@ -454,6 +454,14 @@ function AppRouter() {
           {({ user }) => <MotifFindDrill user={user} />}
         </ProtectedRoute>
       } />
+      {/* Practice for a topic our own games cannot prove. king_safety has 151
+          community puzzles and not one passes verification, so these come from
+          Lichess where the proof already exists. docs/home_session_scope.md */}
+      <Route path="/training/theme/:topic" element={
+        <ProtectedRoute>
+          {({ user }) => <MotifFindDrill user={user} source="theme" />}
+        </ProtectedRoute>
+      } />
       <Route path="/training" element={
         <ProtectedRoute>
           {({ user }) => <PrescribedTraining user={user} />}
