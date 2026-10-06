@@ -5063,39 +5063,70 @@ def winning_plan_arrows(
 
     # Follow the victim backwards: whoever stood on the captured square got
     # there from somewhere, and that flight is the half a 1000-rated player
-    # cannot see from a single arrow.
+    # cannot see from a single arrow. Record where it stood at each ply so the
+    # hunters can be matched against it.
     victim_square = moves[payoff_idx][1].to_square
-    flight: List[chess.Move] = []
+    flight_idx: Dict[int, int] = {}          # move index -> nothing, just a set
+    stood_at: Dict[int, int] = {}            # move index -> victim square then
     for idx in range(payoff_idx - 1, 0, -1):
         ours, mv, _captured = moves[idx]
+        stood_at[idx] = victim_square
         if ours or mv.to_square != victim_square:
             continue
-        flight.append(mv)
+        flight_idx[idx] = 1
         victim_square = mv.from_square
-    flight.reverse()
+    stood_at[0] = victim_square
 
-    arrows: List[Dict[str, str]] = [{
-        "from": chess.square_name(first.from_square),
-        "to": chess.square_name(first.to_square),
-        "color": "blue",
-        "teach": True,
-    }]
-    for mv in flight:
-        if len(arrows) >= max_arrows - 1:
-            break
+    # Our moves that HUNT it. Mohit 2026-10-06, looking at the rendered card:
+    # "a8 bishop is missing, the arrow is missing there". He is right and it is
+    # the mechanism, not a detail: after Be5 Rg8, it is Bd5 -- the OTHER bishop,
+    # from a8 -- that attacks g8 through e6 and f7 and forces the rook to run
+    # again to g7, where the first bishop takes it. Two bishops cornering a
+    # rook. Drawing only the victim's flight and our first and last moves shows
+    # the rook running for no visible reason.
+    hunter_idx: Dict[int, int] = {}
+    board_at = board_before.copy()
+    board_at.push(first)
+    for idx in range(1, payoff_idx):
+        ours, mv, _captured = moves[idx]
+        target = stood_at.get(idx)
+        if ours and target is not None:
+            probe = board_at.copy()
+            probe.push(mv)
+            if target in probe.attacks(mv.to_square):
+                hunter_idx[idx] = 1
+        board_at.push(mv)
+
+    chosen = sorted({0, payoff_idx} | set(flight_idx) | set(hunter_idx))
+    # Trim from the middle if we overflow, dropping the LAST hunter first.
+    # The earliest hunter is the one that brings a new piece to bear -- Bd5
+    # from a8 is what makes the rook run a second time -- while a later one is
+    # usually that same piece shuffling (Bxe6 merely clears the blocker). The
+    # first version trimmed from the front and threw away exactly the arrow
+    # Mohit had just asked for.
+    while len(chosen) > max_arrows:
+        for idx in reversed(chosen[1:-1]):
+            if idx in hunter_idx:
+                chosen.remove(idx)
+                break
+        else:
+            chosen.remove(chosen[1])
+
+    arrows: List[Dict[str, str]] = []
+    for idx in chosen:
+        ours, mv, _captured = moves[idx]
+        if idx == payoff_idx:
+            colour = "green"
+        elif ours:
+            colour = "blue"
+        else:
+            colour = "palegrey"
         arrows.append({
             "from": chess.square_name(mv.from_square),
             "to": chess.square_name(mv.to_square),
-            "color": "palegrey",
+            "color": colour,
             "teach": True,
         })
-    payoff_move = moves[payoff_idx][1]
-    arrows.append({
-        "from": chess.square_name(payoff_move.from_square),
-        "to": chess.square_name(payoff_move.to_square),
-        "color": "green",
-        "teach": True,
-    })
     return arrows
 
 

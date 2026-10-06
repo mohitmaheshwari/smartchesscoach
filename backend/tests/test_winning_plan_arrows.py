@@ -36,12 +36,29 @@ def _plan(fen=FEN, san="Be5", line=None):
 class TestTheCompleteIdea:
 
     def test_it_draws_the_move_the_chase_and_the_capture(self):
+        """Including the OTHER bishop, which is the mechanism.
+
+        Mohit 2026-10-06, reading the rendered card: "a8 bishop is missing,
+        the arrow is missing there". Without a8->d5 the rook appears to run
+        for no reason -- it is Bd5 hitting g8 through e6 and f7 that forces
+        the second flight to g7, where the first bishop takes it. Two bishops
+        cornering a rook.
+        """
         assert [(a["from"], a["to"], a["color"]) for a in _plan()] == [
-            ("f4", "e5", "blue"),
-            ("h8", "g8", "palegrey"),
-            ("g8", "g7", "palegrey"),
-            ("e5", "g7", "green"),
+            ("f4", "e5", "blue"),       # Be5 attacks the rook on h8
+            ("h8", "g8", "palegrey"),   # it runs
+            ("a8", "d5", "blue"),       # the other bishop now hits g8
+            ("g8", "g7", "palegrey"),   # it runs again
+            ("e5", "g7", "green"),      # and the first bishop takes it
         ]
+
+    def test_the_hunter_really_does_attack_the_square_it_drove_it_from(self):
+        """Verified on the board, not assumed from the move order."""
+        board = chess.Board(FEN)
+        for san in ["Be5", "Rg8", "Bd5"]:
+            board.push_san(san)
+        assert chess.G8 in board.attacks(chess.D5), (
+            "Bd5 must actually hit g8, or the arrow explains nothing")
 
     def test_the_payoff_is_the_rook_not_the_pawn_on_the_way(self):
         """Bxe6 grabs a pawn at step four. The lesson is the rook."""
@@ -124,4 +141,4 @@ class TestARecaptureIsNotAWin:
     def test_the_reported_card_still_draws_its_plan(self):
         """The guard must not cost the case it was built for: Be5 wins a rook
         outright and gives nothing back."""
-        assert len(_plan()) == 4
+        assert len(_plan()) == 5
