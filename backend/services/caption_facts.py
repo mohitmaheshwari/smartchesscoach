@@ -10301,6 +10301,26 @@ def extract_facts(
     opp_missed_capture_square: Optional[str] = None
     opp_failure_missed_mate = False
     opp_missed_mate_san: Optional[str] = None
+    # Same square, wrong piece. Mohit 2026-10-06, on "Opponent's Qf6 is a
+    # mistake. Play Be3 -- it brings a new piece into the game": "see no
+    # teaching, i really don't understand why it was an opponent mistake".
+    #
+    # He is right that the sentence never says what was wrong with Qf6. The
+    # engine does: its best move there was Nf6 -- the KNIGHT wanted that
+    # square. The queen took it, which blocks the knight's development and
+    # parks the queen where Bg5 and e5 both hit her. Eval +81 -> +185.
+    #
+    # The fact is cheap and exact: their move and the engine's move end on the
+    # SAME square with a DIFFERENT piece. Measured over 400 games, 187 of the
+    # 3,976 moves with a different best are this shape, and it covers two
+    # lessons a 600-1500 player needs -- recapturing with the wrong man
+    # (Qxd4 for exd4, Nxe5 for dxe5) and developing the wrong piece to a good
+    # square (Qd7 where Nd7 belonged).
+    opp_failure_wrong_piece = False
+    opp_wrong_piece_square: Optional[str] = None
+    opp_wrong_piece_played: Optional[str] = None
+    opp_wrong_piece_wanted: Optional[str] = None
+    opp_wrong_piece_is_recapture = False
     opp_failure_missed_tactic = False
     opp_missed_tactic_san: Optional[str] = None
     opp_missed_tactic_desc: Optional[str] = None
@@ -10355,6 +10375,23 @@ def extract_facts(
             if pv_after_best and any("#" in m for m in pv_after_best[:6]):
                 opp_failure_missed_mate = True
                 opp_missed_mate_san = best_move_san
+            # same square, wrong piece -- see the note where these are declared
+            try:
+                _played_mv = board_before.parse_san(str(played_san))
+            except (ValueError, AssertionError):
+                _played_mv = None
+            if _played_mv is not None and _played_mv.to_square == _bm.to_square:
+                _played_pc = board_before.piece_at(_played_mv.from_square)
+                _wanted_pc = board_before.piece_at(_bm.from_square)
+                if (_played_pc is not None and _wanted_pc is not None
+                        and _played_pc.piece_type != _wanted_pc.piece_type):
+                    opp_failure_wrong_piece = True
+                    opp_wrong_piece_square = chess.SQUARE_NAMES[_bm.to_square]
+                    opp_wrong_piece_played = PIECE_TYPE_NAMES.get(
+                        _played_pc.piece_type, "piece")
+                    opp_wrong_piece_wanted = PIECE_TYPE_NAMES.get(
+                        _wanted_pc.piece_type, "piece")
+                    opp_wrong_piece_is_recapture = board_before.is_capture(_bm)
             # missed tactic: the best move is a quiet (non-capture) FORK against
             # the user — they had a strong double-attack and played something else.
             # Explains the danger the user DODGED (Na4 case: missed Nd5 forking the
@@ -11168,6 +11205,11 @@ def extract_facts(
         "opp_missed_capture_square": opp_missed_capture_square,
         "opp_failure_missed_mate": opp_failure_missed_mate,
         "opp_missed_mate_san": opp_missed_mate_san,
+        "opp_failure_wrong_piece": opp_failure_wrong_piece,
+        "opp_wrong_piece_square": opp_wrong_piece_square,
+        "opp_wrong_piece_played": opp_wrong_piece_played,
+        "opp_wrong_piece_wanted": opp_wrong_piece_wanted,
+        "opp_wrong_piece_is_recapture": opp_wrong_piece_is_recapture,
         # opp missed a quiet FORK (the danger the user dodged) — Parth QA 2026-06-22
         "opp_failure_missed_tactic": opp_failure_missed_tactic,
         "opp_missed_tactic_san": opp_missed_tactic_san,
