@@ -5097,7 +5097,27 @@ def winning_plan_arrows(
                 hunter_idx[idx] = 1
         board_at.push(mv)
 
-    chosen = sorted({0, payoff_idx} | set(flight_idx) | set(hunter_idx))
+    # Our own piece's ROUTE to the square it strikes from. Mohit 2026-10-06,
+    # pointing at a green arrow that began on an empty square: "why this
+    # arrow?". On Q7/p4ppk/7p/8/1P1P1KP1/Pb3P2/8/6q1 b the line is
+    # g5+ Ke4 Qc1 f4 Qh1+ Ke3 gxf4+ Kxf4 Qxa8 -- the capture is real, but it
+    # happens nine plies later and the queen gets to h1 by travelling
+    # g1 -> c1 -> h1. Drawn alone, h1->a8 starts where nothing stands and the
+    # journey is invisible. Same fault as the mate arrow that began on c7
+    # after the rook had moved to c8: a legal engine move drawn from a square
+    # the piece has not reached yet.
+    route_idx: Dict[int, int] = {}
+    launch_square = moves[payoff_idx][1].from_square
+    for idx in range(payoff_idx - 1, -1, -1):
+        ours, mv, _captured = moves[idx]
+        if not ours or mv.to_square != launch_square:
+            continue
+        route_idx[idx] = 1
+        launch_square = mv.from_square
+
+    chosen = sorted(
+        {0, payoff_idx} | set(flight_idx) | set(hunter_idx) | set(route_idx)
+    )
     # Trim from the middle if we overflow, dropping the LAST hunter first.
     # The earliest hunter is the one that brings a new piece to bear -- Bd5
     # from a8 is what makes the rook run a second time -- while a later one is
@@ -5105,12 +5125,20 @@ def winning_plan_arrows(
     # first version trimmed from the front and threw away exactly the arrow
     # Mohit had just asked for.
     while len(chosen) > max_arrows:
+        # Hunters go before route steps. Dropping a route step leaves the
+        # payoff arrow starting from a square the piece never visibly reached,
+        # which is the bug this whole block exists to avoid.
         for idx in reversed(chosen[1:-1]):
-            if idx in hunter_idx:
+            if idx in hunter_idx and idx not in route_idx:
                 chosen.remove(idx)
                 break
         else:
-            chosen.remove(chosen[1])
+            for idx in chosen[1:-1]:
+                if idx not in route_idx:
+                    chosen.remove(idx)
+                    break
+            else:
+                chosen.remove(chosen[1])
 
     arrows: List[Dict[str, str]] = []
     for idx in chosen:
@@ -7690,9 +7718,28 @@ def build_move_teaching_decision(
     # engine's own line actually plays, drawn in the coordinates of the
     # position before the played move.
     if not _arrows_out and inputs.mover_is_user and inputs.best_move_uci:
+        # A SACRIFICE never passes the winning-plan test, because the whole
+        # point is that material comes out level or worse while the initiative
+        # does not. Mohit 2026-10-06, on a card whose engine move was Bxf2+:
+        # "this is a sacrifice, so it should show the complete line why a
+        # sacrifice is better here".
+        #
+        # On rnbq1rk1/ppp2ppp/3p1n2/2b1p1N1/2B1P3/P1N5/1PPP1PPP/R1BQK2R b the
+        # line is Bxf2+ Kxf2 Ng4+ Kg1 Qxg5: give the bishop, the king MUST
+        # take, the knight comes with check, the queen collects the knight on
+        # g5. Net is +90 -- pawn and knight for a bishop -- so the 300cp gate
+        # refuses it, correctly and uselessly.
+        #
+        # _line_sequence_arrows already knows this shape; it was built for the
+        # Bxf7+ card in v183 and has a branch for a first capture that LOSES
+        # material on its own square. It was only ever wired to opponent cards.
+        _sac_line = (
+            [inputs.best_move_san] + list(inputs.pv_after_best or ())
+            if inputs.best_move_san else []
+        )
         _arrows_out = winning_plan_arrows(
             board_before, inputs.best_move_uci, inputs.pv_after_best
-        ) or [
+        ) or _line_sequence_arrows(board_before, _sac_line) or [
             a for a in recommended_move_arrows(
                 board_before, inputs.best_move_uci, inputs.pv_after_best
             )
