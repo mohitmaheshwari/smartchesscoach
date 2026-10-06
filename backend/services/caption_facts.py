@@ -10233,6 +10233,27 @@ def extract_facts(
     board_after = board_before.copy()
     board_after.push(played_move)
 
+    # ── Stalemate: the win given away ──────────────────────────────────
+    # Farhan, reviewing geometry gaps 2026-09-29, wrote this by hand twice
+    # because nothing computed it: "Rd1 is a checkmate winning the game on
+    # spot while playing f4 results in a stalemate (draw)".
+    #
+    # Measured over 4,000 games: in 562 winning endgames a stalemating move
+    # was on the board and 44 players took it. What those 44 were told
+    # includes "Your opponent tidys up the king, keeping it safe" -- on the
+    # move that ended a won game as a draw.
+    #
+    # Two facts, because they are different lessons. Stalemating from a dead
+    # position is nothing; stalemating a win away is the whole game.
+    played_is_stalemate = board_after.is_stalemate()
+    mover_was_winning = False
+    if played_is_stalemate and eval_before_cp is not None:
+        # eval is white-POV; ask whether the player who moved was winning.
+        _mover_cp = (int(eval_before_cp) if board_before.turn == chess.WHITE
+                     else -int(eval_before_cp))
+        mover_was_winning = _mover_cp >= 300
+    played_stalemate_threw_away_win = played_is_stalemate and mover_was_winning
+
     # ── Engine truth (pass-through) ────────────────────────────────────
     played_is_best = (
         best_move_san is not None
@@ -11122,6 +11143,8 @@ def extract_facts(
         "opp_reply_is_clear": opp_reply_is_clear,
         "opp_reply_alternatives": opp_reply_alternatives,
         "opp_reply_attacks_played_piece": opp_reply_attacks_played_piece,
+        "played_is_stalemate": played_is_stalemate,
+        "played_stalemate_threw_away_win": played_stalemate_threw_away_win,
         "opp_reply_captures_piece_type": opp_reply_captures_piece_type,
         "opp_reply_captures_square": opp_reply_captures_square,
         "line_loss_piece_type": line_loss_piece_type,
