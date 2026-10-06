@@ -4974,6 +4974,131 @@ def _line_sequence_arrows(
     return arrows
 
 
+def winning_plan_arrows(
+    board_before: Optional[chess.Board],
+    best_move_uci: Optional[str],
+    pv_after_best: Optional[Sequence[str]] = None,
+    max_arrows: int = 5,
+) -> List[Dict[str, str]]:
+    """The whole idea: our move, the piece running, and us taking it anyway.
+
+    Mohit 2026-10-06: "for a 1000, he couldn't really see Be5 attacking rook,
+    but rook can move right? and then white bishop traps him, so i want to show
+    the complete idea with arrow... the idea is to really find a move in
+    stockfish line that actually takes up the bigger piece".
+
+    Exactly so. "Be5 attacks the rook" is useless on its own, because the rook
+    moves. The lesson is the chase:
+
+        Be5    f4->e5   blue       our move
+        ...Rg8 h8->g8   palegrey   the rook runs
+        ...Rg7 g8->g7   palegrey   and runs again
+        Bxg7   e5->g7   green      the same bishop takes it anyway
+
+    _line_sequence_arrows cannot tell this story. It takes the FIRST of our
+    captures, which here is Bxe6 winning a pawn at step four, and with a
+    four-arrow budget it truncates before the green one and ends on their move.
+    So this picks the capture of the most VALUABLE piece, then follows that
+    piece backwards through the line to show where it fled from -- the moves in
+    between that are about other material are dropped, because they are not the
+    idea.
+
+    Right-or-silent: every arrow is a move the engine's own line plays, and the
+    payoff must be worth a knight or more, or the chase is not worth four
+    arrows.
+    """
+    if board_before is None or not best_move_uci or not pv_after_best:
+        return []
+    try:
+        board = board_before.copy()
+        first = chess.Move.from_uci(str(best_move_uci))
+        if first not in board.legal_moves:
+            return []
+    except (ValueError, AssertionError):
+        return []
+
+    us = board.turn
+    moves: List[tuple] = []          # (ours, move, captured_type)
+    board.push(first)
+    moves.append((True, first, None))
+    for san in list(pv_after_best):
+        try:
+            mv = board.parse_san(str(san))
+        except (ValueError, AssertionError):
+            break
+        captured = board.piece_at(mv.to_square) if board.is_capture(mv) else None
+        moves.append((board.turn == us, mv, captured.piece_type if captured else None))
+        board.push(mv)
+
+    # Our richest capture in the line. "Bigger piece" is the whole point, so a
+    # pawn grab on the way does not qualify as the payoff.
+    payoff_idx = None
+    payoff_value = 0
+    for idx, (ours, _mv, captured_type) in enumerate(moves):
+        if not ours or captured_type is None:
+            continue
+        value = PIECE_VALUE_CP.get(captured_type, 0)
+        if value >= 320 and value > payoff_value:
+            payoff_idx, payoff_value = idx, value
+    if payoff_idx is None:
+        return []
+
+    # The capture has to leave us AHEAD, not merely even. A recapture looks
+    # identical to a win when you only read the piece that came off the board.
+    #
+    # Found by inspecting the corpus rather than being told: on
+    # `5rk1/1pp3p1/3qp2p/p3p3/P3Pn2/N1P2NPP/1PQ2B2/6K1 b` the line is
+    # Qd3 Qxd3 Nxd3 -- a queen TRADE. Nxd3 takes a queen, cleared the 320
+    # threshold, and the picture would have said "play Qd3 and win the queen"
+    # about an even swap. That is the claim this file spent v184 removing from
+    # the sentences; it has no business arriving in the arrows.
+    net = 0
+    for ours, _mv, captured_type in moves[: payoff_idx + 1]:
+        if captured_type is None:
+            continue
+        value = PIECE_VALUE_CP.get(captured_type, 0)
+        net += value if ours else -value
+    if net < 300:
+        return []
+
+    # Follow the victim backwards: whoever stood on the captured square got
+    # there from somewhere, and that flight is the half a 1000-rated player
+    # cannot see from a single arrow.
+    victim_square = moves[payoff_idx][1].to_square
+    flight: List[chess.Move] = []
+    for idx in range(payoff_idx - 1, 0, -1):
+        ours, mv, _captured = moves[idx]
+        if ours or mv.to_square != victim_square:
+            continue
+        flight.append(mv)
+        victim_square = mv.from_square
+    flight.reverse()
+
+    arrows: List[Dict[str, str]] = [{
+        "from": chess.square_name(first.from_square),
+        "to": chess.square_name(first.to_square),
+        "color": "blue",
+        "teach": True,
+    }]
+    for mv in flight:
+        if len(arrows) >= max_arrows - 1:
+            break
+        arrows.append({
+            "from": chess.square_name(mv.from_square),
+            "to": chess.square_name(mv.to_square),
+            "color": "palegrey",
+            "teach": True,
+        })
+    payoff_move = moves[payoff_idx][1]
+    arrows.append({
+        "from": chess.square_name(payoff_move.from_square),
+        "to": chess.square_name(payoff_move.to_square),
+        "color": "green",
+        "teach": True,
+    })
+    return arrows
+
+
 def recommended_move_arrows(
     board_before: Optional[chess.Board],
     best_move_uci: Optional[str],
@@ -7458,10 +7583,26 @@ def build_move_teaching_decision(
         _mate_picture = _mate_geometry_arrows(
             board_before, inputs.best_move_uci
         )
-        _candidate = _mate_picture or _check_attack_arrows(
-            board_before, inputs.best_move_uci, _engine_line
-        ) or recommended_move_arrows(
-            board_before, inputs.best_move_uci, inputs.pv_after_best
+        # Order matters: mate first, then the whole winning plan, then the
+        # single-move pictures. Mohit 2026-10-06: "i want to show the complete
+        # idea with arrow... so user can see everything together". A lone
+        # arrow onto a piece that then runs away teaches a 1000-rated player
+        # nothing; the chase is the lesson.
+        # Order matters, and v166's picture keeps its place. _check_attack_arrows
+        # is the one Mohit asked for in fb_1c52480b2e9b and three tests pin its
+        # exact output; the plan and the bare move are what fill the silence
+        # BELOW it, not replacements for it.
+        _candidate = (
+            _mate_picture
+            or _check_attack_arrows(
+                board_before, inputs.best_move_uci, _engine_line
+            )
+            or winning_plan_arrows(
+                board_before, inputs.best_move_uci, inputs.pv_after_best
+            )
+            or recommended_move_arrows(
+                board_before, inputs.best_move_uci, inputs.pv_after_best
+            )
         )
         if _candidate:
             try:
@@ -7497,10 +7638,25 @@ def build_move_teaching_decision(
     # here?". The recommended move is legal on the board before the played
     # move, and that board shares its coordinates with the one on screen, so
     # the instruction can always be drawn even when no threat picture fires.
+    # A card that names a better move and draws nothing is the complaint that
+    # keeps coming back -- "no arrow here, why the hell", "now why not arrow
+    # here?". But only the MOVE goes on this board.
+    #
+    # v166 settled the rest and three tests pin it: the recommended move's
+    # consequences are true of the board AFTER that move, not the one on
+    # screen, and drawing them here is "real teaching drawn over the wrong
+    # position". On MISSED_FORK the queen never reaches d5, so a d5->a8 arrow
+    # starts on an empty square. The move itself does not have that problem --
+    # it leaves from a piece that is still standing there -- so it is the one
+    # part that can honestly be shown, and the chase ships on the
+    # "What if I played X?" board where every square of it is real.
     if not _arrows_out and inputs.mover_is_user and inputs.best_move_uci:
-        _arrows_out = recommended_move_arrows(
-            board_before, inputs.best_move_uci, inputs.pv_after_best
-        )
+        _arrows_out = [
+            a for a in recommended_move_arrows(
+                board_before, inputs.best_move_uci, inputs.pv_after_best
+            )
+            if a.get("color") == "blue"
+        ]
 
     visual = VisualSurface(
         arrows=_arrows_out,
