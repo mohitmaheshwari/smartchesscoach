@@ -5368,6 +5368,83 @@ def _punishment_arrows(
         return []
 
 
+# No hyphen or en dash in this set. These captions write square
+# references as "the b7-pawn" and "the e-file", and a hyphen here made
+# that look like the move b7. Leaving it out also stops O-O matching
+# inside O-O-O, which is the behaviour wanted.
+_SAN_TOKEN_STOPS = set(" \t\n.,;:!?()[]—’'\"")
+
+
+def _names_the_move(text, san):
+    """True when `san` appears in `text` as a standalone move token.
+
+    A token check on a SAN this code generated, not a judgement about chess.
+    Written as an explicit scan rather than a regex because SAN carries `+`,
+    `#` and `=`, which word-boundary classes split in the wrong places, and
+    because a word-boundary escape written through a shell heredoc has twice
+    arrived in this file as a literal backspace that matched nothing.
+    """
+    if not text or not san:
+        return False
+    san = san.strip()
+    start = 0
+    while True:
+        i = text.find(san, start)
+        if i < 0:
+            return False
+        before_ok = i == 0 or text[i - 1] in _SAN_TOKEN_STOPS
+        j = i + len(san)
+        after_ok = j >= len(text) or text[j] in _SAN_TOKEN_STOPS
+        if before_ok and after_ok:
+            return True
+        start = i + 1
+
+
+def _lead_with_the_stalemate(caption, *, played_san, mover_is_user,
+                             threw_away_win, best_move_san=None):
+    """Put the draw in front of whatever the rules produced.
+
+    The tail is kept only when it names the better move. Everything else on
+    these cards is floor text, written because nothing better had fired -- the
+    open file, the calm position, the tidy king -- and on the move that ended
+    the game it reads as praise.
+
+    The move is named once. All 68 user-side tails here already open with the
+    played move ("Kg3 misses mate in 3", "You played Kg3; ..."), so naming it
+    in the lead as well said it twice; the lead names it only when nothing
+    after it will. docs/stalemate_scope.md
+    """
+    tail = (caption or "").strip()
+    keep_tail = bool(tail) and _names_the_move(tail, best_move_san)
+    tail_names_played = keep_tail and _names_the_move(tail, played_san)
+    them = "your opponent" if mover_is_user else "you"
+    subject = "Your opponent" if them == "you" else "You"
+
+    if tail_names_played:
+        left = f"{them.capitalize()} was left with no legal move"
+    else:
+        left = f"{played_san} leaves {them} with no legal move"
+
+    if threw_away_win and mover_is_user:
+        lead = f"You had this won. {left[0].upper()}{left[1:]}, so the game is a draw by stalemate."
+        principle = ("When you are winning easily, check your opponent has a "
+                     "move before you play.")
+    elif threw_away_win:
+        lead = (f"Your opponent was winning. {left[0].upper()}{left[1:]}, so "
+                f"the game is a draw by stalemate.")
+        principle = ("Keep playing when you are losing. Your opponent can "
+                     "still go wrong.")
+    else:
+        lead = f"{left[0].upper()}{left[1:]}, so the game is a draw by stalemate."
+        principle = ""
+
+    if keep_tail:
+        return f"{lead} {tail}"
+    if principle:
+        return f"{lead} {principle}"
+    return lead
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -5612,6 +5689,13 @@ def build_move_teaching_decision(
         except Exception:
             logger.exception("[caption_pipeline] verified line cause failed")
             exact_line_cause = None
+    # No stalemate guard here, deliberately. 13 stored cards read "allows mate
+    # in N" about a move after which there are no moves -- but all 132 of those
+    # positions carry an EMPTY pv_after_played, because the game ended, so
+    # `allowed_forced_mate` cannot be built for them at all. A guard here moved
+    # 0 of 132. Those stored claims came from code that no longer exists; the
+    # fix for them is a re-render. See
+    # test_stalemate_threw_away_the_win.TestWhyNoMateGuardHere.
     if exact_line_cause is not None and exact_line_cause.mate_in:
         if exact_line_cause.lesson_kind == "allowed_forced_mate":
             caption_facts["allows_forced_mate"] = True
@@ -7001,6 +7085,36 @@ def build_move_teaching_decision(
                         )
                         _board_explanation = _safe
                         _rendered_personalization = False
+        # A stalemate ends the game as a draw, and 127 of the 132 corpus
+        # cards where a winning player stalemated never said so. One read
+        # "Your opponent tidys up the king, keeping it safe" on the move that
+        # turned a lost game into a draw.
+        #
+        # It lives here, not in a rule file, because it is a property of the
+        # board after the move rather than of any rule: those 132 come from 16
+        # different rules, and 64 are opponent moves carrying a stored cp_loss
+        # of 0 that every severity gate routes to the praise tiers. Patching
+        # one rule file moves 27 of 132.
+        #
+        # Leading matters twice: it is the headline, and the word cap cuts from
+        # the end, so what gets dropped is the less important half. Placed
+        # above the final verify so the result passes the same check as every
+        # other caption. docs/stalemate_scope.md
+        if caption_facts.get("played_is_stalemate"):
+            caption_payload["caption"] = _lead_with_the_stalemate(
+                caption_payload.get("caption") or "",
+                played_san=inputs.played_san,
+                mover_is_user=bool(inputs.mover_is_user),
+                threw_away_win=bool(
+                    caption_facts.get("played_stalemate_threw_away_win")
+                ),
+                best_move_san=inputs.best_move_san,
+            )
+            caption_payload["rule_name"] = (
+                (caption_payload.get("rule_name") or "") + "→STALEMATE_LEAD"
+            )
+            _board_explanation = caption_payload["caption"]
+
         _final_text = (caption_payload.get("caption") or "").strip()
         _final_verified = bool(
             _final_text and not _verify_final(_final_text)
