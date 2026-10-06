@@ -36,9 +36,21 @@ OLD="$OUT/.publish-old"
 }
 
 # 2. Stage the new build beside the live one.
+#
+# Copied with tar rather than `cp -r "$BUILD"/. "$NEW"/`. The image is Alpine,
+# and BusyBox cp does not create intermediate directories for that form -- the
+# first real run failed with "can't create
+# /output/.publish-new/./stockfish/stockfish.wasm: No such file or directory"
+# for every file in a subdirectory. tar creates the tree as it extracts and is
+# in BusyBox by default.
 rm -rf "$NEW" "$OLD"
 mkdir -p "$NEW"
-cp -r "$BUILD"/. "$NEW"/
+( cd "$BUILD" && tar cf - . ) | ( cd "$NEW" && tar xf - ) || {
+  echo "REFUSING: could not stage the build." >&2
+  echo "The live site has not been touched." >&2
+  rm -rf "$NEW"
+  exit 1
+}
 
 # 3. Check the staged copy before anything live is moved.
 [ -f "$NEW/index.html" ] || {
