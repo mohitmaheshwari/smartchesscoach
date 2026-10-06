@@ -401,6 +401,25 @@ async def get_area_grades(user: User = Depends(get_current_user)):
     return await attach_practice_links(db, user.user_id, payload)
 
 
+@router.get("/home/session")
+async def get_home_session(user: User = Depends(get_current_user)):
+    """Today's session: what the coach chose, and why.
+
+    docs/home_session_scope.md. The mode is a decision, not a readout -- measured
+    across 70 players the steady state is challenge 41%, improve 30%,
+    appreciate 29%, and the first version answered appreciate for 55 of them
+    because it treated celebration as a state rather than an event.
+    """
+    from services.home_session import build_session, record_shown
+
+    session = await build_session(db, user.user_id)
+    # Serving it counts as showing it: a celebration the player ignored is
+    # still one they have seen, and repeating it is how it stops meaning
+    # anything.
+    await record_shown(db, user.user_id, session.pop("_appreciation_key", None))
+    return session
+
+
 @router.get("/home/chances")
 async def get_chances_reading(user: User = Depends(get_current_user)):
     """Of the chances the board gave you, how many did you take?
