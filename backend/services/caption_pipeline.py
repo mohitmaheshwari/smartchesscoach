@@ -1916,6 +1916,21 @@ def inject_opp_side_narration_facts(
         # Stamp user_best_reply + is_forcing + capture facts.
         if _user_reply:
             caption_facts["user_best_reply_san"] = _user_reply
+            # The LINE behind that reply, for the picture. Opponent moves carry
+            # no engine row of their own -- move_evaluations stores user moves
+            # only -- so an opp card's pv_after_played is empty and the
+            # sequence builder gets nothing. The continuation is right here in
+            # the next position's eval, already used for the coach line, and
+            # was simply never handed to the arrows.
+            #
+            # Mohit 2026-10-06 on the Ng5 card: "the idea is missing, the main
+            # idea is bishop takes the pawn and king takes bishop, our knight
+            # checks the king and the knight now behind our knight gets
+            # captured by our queen, so that's the whole line and arrow doesn't
+            # show until there".
+            caption_facts["user_reply_pv"] = [_user_reply] + list(
+                (_next_eval.get("pv_after_best") or [])[:6]
+            )
             if _user_reply.endswith("+") or _user_reply.endswith("#"):
                 caption_facts["user_best_reply_san_is_forcing"] = True
             # WHY the recommended reply is good — every recommended move needs its why
@@ -4854,10 +4869,147 @@ def _reply_attack_arrows(
     return deduped
 
 
+# ─── One rule for drawing the engine's line ──────────────────────────
+#
+# Mohit 2026-10-06, after the fifth arrow fix in a row: "why we are not able to
+# show up the full idea, do we have to do it for all positions?? i thought you
+# understood the idea".
+#
+# He was right. This file had eight arrow builders chosen between at 22 call
+# sites, four of them written that same day, each in answer to one screenshot.
+# Every new card shape found another gap because the eighth builder repeated
+# the first one's bug instead of sharing its logic: only winning_plan_arrows
+# could follow a victim's flight, only it tracked our piece's route, only it
+# refused to call a trade a win, and only _line_sequence_arrows knew that a
+# sacrifice is drawn through to its recapture.
+#
+# His rule, which covers every case: take the engine's line from here and draw
+# it to its payoff -- the move, the forced replies, and the capture or mate
+# that is the point.
+#
+# docs/one_line_drawing_rule_scope.md carries the full reasoning and the list
+# of behaviours that must not regress.
+
+_PAYOFF_MATE = 4
+_PAYOFF_RECAPTURE = 3
+_PAYOFF_MATERIAL = 2
+_PAYOFF_FORCING = 1
+
+
+def walk_engine_line(
+    board: Optional[chess.Board], line: Optional[Sequence[str]]
+) -> List[tuple]:
+    """Replay a SAN line from `board`, one tuple per ply.
+
+    (ours, move, captured_piece_type, gives_check, is_mate). Stops at the first
+    move that will not parse rather than discarding what already verified -- a
+    Stockfish PV is legal by construction, but a truncated or mis-stored one
+    should cost the tail, not the plies already proved.
+    """
+    if board is None or not line:
+        return []
+    probe = board.copy()
+    us = probe.turn
+    steps: List[tuple] = []
+    for san in line:
+        try:
+            move = probe.parse_san(str(san))
+        except (ValueError, AssertionError):
+            break
+        # En passant takes a pawn that is NOT on the destination square, so
+        # piece_at(to_square) is None and the capture vanishes. Caught by
+        # diffing 11,890 corpus rows against the pre-refactor snapshot: four
+        # sequences lost their payoff entirely, every one of them ending in an
+        # e.p. capture (h4xg3, exd6, dxc6, bxa3).
+        if probe.is_en_passant(move):
+            captured = chess.Piece(chess.PAWN, not probe.turn)
+        else:
+            captured = probe.piece_at(move.to_square) if probe.is_capture(move) else None
+        gives_check = probe.gives_check(move)
+        after = probe.copy()
+        after.push(move)
+        steps.append((
+            probe.turn == us,
+            move,
+            captured.piece_type if captured else None,
+            gives_check,
+            after.is_checkmate(),
+        ))
+        probe.push(move)
+    return steps
+
+
+def find_line_payoff(
+    board: Optional[chess.Board],
+    steps: List[tuple],
+    max_arrows: int = 5,
+) -> Optional[tuple]:
+    """Which ply is the point of the line, and why. (index, kind) or None.
+
+    Ranked, because the same line can satisfy several and the strongest one is
+    the lesson:
+
+      mate       the move ends the game
+      recapture  our first move gave material away on its own square and a
+                 later capture of ours wins it back -- the sacrifice case,
+                 where stopping at the first check showed a bishop given away
+                 for a check (Mohit, the Ng5 card)
+      material   our capture worth a knight or more that leaves us net ahead;
+                 the net test is what stops a queen TRADE reading as winning a
+                 queen (Qd3 Qxd3 Nxd3)
+      forcing    a check or capture of ours, when nothing above applies
+    """
+    if not steps:
+        return None
+
+    for idx, (ours, _mv, _cap, _chk, is_mate) in enumerate(steps):
+        if ours and is_mate:
+            return (idx, _PAYOFF_MATE)
+
+    sacrificed = False
+    if board is not None and steps and steps[0][0]:
+        first = steps[0][1]
+        if board.is_capture(first):
+            try:
+                gain = legal_exchange_gain(
+                    board, first.to_square, board.turn, first_move=first
+                )
+                sacrificed = gain is not None and gain < 0
+            except (ValueError, TypeError):
+                sacrificed = False
+    if sacrificed:
+        for idx, (ours, _mv, cap, _chk, _m) in enumerate(steps):
+            if idx >= 2 and ours and cap is not None and idx <= max_arrows:
+                return (idx, _PAYOFF_RECAPTURE)
+
+    best_idx = None
+    best_value = 0
+    for idx, (ours, _mv, cap, _chk, _m) in enumerate(steps):
+        if not ours or cap is None:
+            continue
+        value = PIECE_VALUE_CP.get(cap, 0)
+        if value >= 320 and value > best_value:
+            best_idx, best_value = idx, value
+    if best_idx is not None:
+        net = 0
+        for ours, _mv, cap, _chk, _m in steps[: best_idx + 1]:
+            if cap is None:
+                continue
+            value = PIECE_VALUE_CP.get(cap, 0)
+            net += value if ours else -value
+        if net >= 300:
+            return (best_idx, _PAYOFF_MATERIAL)
+
+    for idx, (ours, _mv, cap, chk, _m) in enumerate(steps):
+        if idx >= 2 and ours and (cap is not None or chk):
+            return (idx, _PAYOFF_FORCING)
+    return None
+
+
 def _line_sequence_arrows(
     board_after_opp: Optional[chess.Board],
     pv: Optional[List[str]],
-    max_arrows: int = 4,
+    max_arrows: int = 5,
 ) -> List[Dict[str, str]]:
     """Draw the whole idea when the point of the move lands two moves later.
 
@@ -4892,29 +5044,20 @@ def _line_sequence_arrows(
     if board_after_opp is None or not pv:
         return []
 
-    board = board_after_opp.copy()
-    us = board.turn
-    steps: List[tuple] = []          # (is_ours, from, to, is_capture)
-    for san in pv:
-        try:
-            mv = board.parse_san(str(san))
-        except Exception:
-            # Stop here and use what verified, rather than discarding the
-            # whole picture. A Stockfish PV is legal by construction, but a
-            # truncated or mis-stored one should cost us the tail, not the
-            # three plies we already proved. Found by a test that appended a
-            # line which was illegal from the resulting position and got
-            # nothing back at all.
-            break
-        steps.append((
-            board.turn == us,
-            chess.square_name(mv.from_square),
-            chess.square_name(mv.to_square),
-            board.is_capture(mv),
-            board.gives_check(mv),
-        ))
-        board.push(mv)
-
+    # The walk and the payoff choice now live in one place, shared with every
+    # other line-drawing builder. See the note above walk_engine_line.
+    _steps = walk_engine_line(board_after_opp, pv)
+    if not _steps:
+        return []
+    # `us` is still needed below, for the sacrifice test. Dropping it when the
+    # walk moved out is exactly the undefined-name slip this file warns about
+    # three functions up, and it cost 8 tests.
+    us = board_after_opp.turn
+    steps: List[tuple] = [
+        (ours, chess.square_name(mv.from_square), chess.square_name(mv.to_square),
+         cap is not None, chk)
+        for ours, mv, cap, chk, _mate in _steps
+    ]
     payoff = None
     for idx, (ours, _f, _t, is_cap, _chk) in enumerate(steps):
         if ours and is_cap:
@@ -4950,13 +5093,30 @@ def _line_sequence_arrows(
             # to a payoff far past the four arrows we draw, so the picture was
             # truncated mid-line and ended on THEIR move with no payoff at all
             # (game_af4d58d0936a move 9, four arrows, no green).
+            # Prefer the move that WINS THE MATERIAL BACK over the first
+            # thing that merely does something.
+            #
+            # Mohit 2026-10-06 on the Ng5 card: "the main idea is bishop takes
+            # the pawn and king takes bishop, our knight checks the king and
+            # the knight now behind our knight gets captured by our queen, so
+            # that's the whole line and arrow doesn't show until there".
+            #
+            # Bxf2+ Kxf2 Ng4+ Kg1 Qxg5: the check at ply 3 is the mechanism,
+            # the capture at ply 5 is the point. Stopping on the first check
+            # showed him giving a bishop away and getting a check for it.
+            _recapture = None
+            _forcing = None
             for idx, (ours, _f, _t, is_cap, gives_chk) in enumerate(steps):
                 if idx < 2 or not ours:
                     continue
-                if is_cap or gives_chk:
-                    if idx <= max_arrows - 1:
-                        payoff = idx
-                    break
+                if is_cap and _recapture is None and idx <= max_arrows:
+                    _recapture = idx
+                if (is_cap or gives_chk) and _forcing is None:
+                    _forcing = idx
+            if _recapture is not None:
+                payoff = _recapture
+            elif _forcing is not None and _forcing <= max_arrows - 1:
+                payoff = _forcing
 
     # Nothing to show, or the single-move builders already say it.
     if payoff is None or payoff < 2:
@@ -7557,6 +7717,8 @@ def build_move_teaching_decision(
         if _caption_is_about_reply:
             _teach_arrows = _line_sequence_arrows(
                 _after_opp_board, inputs.pv_after_played
+            ) or _line_sequence_arrows(
+                _after_opp_board, caption_facts.get("user_reply_pv")
             ) or _reply_attack_arrows(
                 board_before, played_move, _reply_san
             )

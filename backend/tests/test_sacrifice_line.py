@@ -95,12 +95,26 @@ class TestThePicture:
         assert arrows and arrows[-1]["color"] == "green"
 
     def test_a_long_line_is_not_truncated_mid_sequence(self):
-        """A 12-ply PV once walked to a payoff past the four arrows drawn, so
-        the picture ended on the opponent's move with no payoff at all."""
+        """A 12-ply PV once walked to a payoff past the arrows drawn, so the
+        picture ended on the opponent's move with no payoff at all.
+
+        Budget raised 4 -> 5 in v199, deliberately. Mohit on the Ng5 card: "the
+        knight now behind our knight gets captured by our queen, so that's the
+        whole line and arrow doesn't show until there". A sacrifice needs one
+        more arrow than a plain threat to reach the move that wins the material
+        back, and stopping on the first check showed a bishop given away for a
+        check.
+
+        Here that means the long line now runs Bxf7+ Kxf7 Qf3+ Nf6 Qxa8 and
+        ends on the rook being collected rather than on the check. The SHORT
+        line is unchanged at three arrows, because it contains no later
+        capture -- checked by the test above.
+        """
         long_pv = STORED_PV + ["Qxa8", "Bb7", "Qf3", "e6", "Nf3", "Bd6"]
         arrows = _line_sequence_arrows(chess.Board(AFTER_B5), long_pv)
         assert arrows[-1]["color"] == "green"
-        assert len(arrows) <= 4
+        assert len(arrows) <= 5
+        assert (arrows[-1]["from"], arrows[-1]["to"]) == ("f3", "a8")
 
     def test_a_line_that_is_not_a_sacrifice_still_abstains_early(self):
         # Our first move wins material outright: the single-move builders
