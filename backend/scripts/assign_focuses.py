@@ -72,7 +72,13 @@ async def main_async(apply: bool, user_id: str, limit: int):
         uid = row["_id"]
         seen_users.add(uid)
         # Already has active focus?
-        existing = await db[COLLECTION].find_one({"user_id": uid, "status": "active"})
+        # `user_active_focus` holds STRENGTHS as well as weaknesses, and 39
+        # players have an active strength document. Without the type filter this
+        # lookup saw that and concluded they already had a focus, so they were
+        # skipped forever -- `assign_focus` called directly for one of them
+        # returned king_safety immediately.
+        existing = await db[COLLECTION].find_one(
+            {"user_id": uid, "status": "active", "type": {"$ne": "strength"}})
         if existing:
             skipped += 1
             continue
