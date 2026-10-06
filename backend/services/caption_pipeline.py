@@ -7638,20 +7638,30 @@ def build_move_teaching_decision(
     # here?". The recommended move is legal on the board before the played
     # move, and that board shares its coordinates with the one on screen, so
     # the instruction can always be drawn even when no threat picture fires.
-    # A card that names a better move and draws nothing is the complaint that
-    # keeps coming back -- "no arrow here, why the hell", "now why not arrow
-    # here?". But only the MOVE goes on this board.
+    # The whole plan goes on the board the player is looking at.
     #
-    # v166 settled the rest and three tests pin it: the recommended move's
-    # consequences are true of the board AFTER that move, not the one on
-    # screen, and drawing them here is "real teaching drawn over the wrong
-    # position". On MISSED_FORK the queen never reaches d5, so a d5->a8 arrow
-    # starts on an empty square. The move itself does not have that problem --
-    # it leaves from a piece that is still standing there -- so it is the one
-    # part that can honestly be shown, and the chase ships on the
-    # "What if I played X?" board where every square of it is real.
+    # v166 kept the recommended move's consequences off this board because
+    # drawing them here was "real teaching drawn over the wrong position". That
+    # rule was written against arrows that CONTRADICT what is on screen -- an
+    # arrow starting where a piece no longer stands, describing a line that is
+    # blocked right now.
+    #
+    # Mohit 2026-10-06 drew the distinction the rule was missing: "it's not
+    # wrong teaching, it's what was missed from the player and it's what makes
+    # him see things". A plan he did not play is not a false claim about the
+    # position; it is the lesson, and the caption beside it already says
+    # "Be5 was better". Putting it one click away under "What if I played X?"
+    # defeats the point of showing it -- he asked to "see everything together".
+    #
+    # So the contract changes deliberately, with its tests, rather than being
+    # broken by accident: this board may carry the plan for the move we are
+    # recommending. What has NOT changed is that every arrow must be a move the
+    # engine's own line actually plays, drawn in the coordinates of the
+    # position before the played move.
     if not _arrows_out and inputs.mover_is_user and inputs.best_move_uci:
-        _arrows_out = [
+        _arrows_out = winning_plan_arrows(
+            board_before, inputs.best_move_uci, inputs.pv_after_best
+        ) or [
             a for a in recommended_move_arrows(
                 board_before, inputs.best_move_uci, inputs.pv_after_best
             )
