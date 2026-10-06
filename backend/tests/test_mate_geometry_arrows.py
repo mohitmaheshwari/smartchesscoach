@@ -82,3 +82,31 @@ class TestItOnlyFiresOnRealMate:
         assert _mate_geometry_arrows(board, "not-a-move") == []
         assert _mate_geometry_arrows(None, "c7c8") == []
         assert _mate_geometry_arrows(board, None) == []
+
+
+class TestTheMatePictureOwnsTheCard:
+    """Mohit 2026-10-06, badge and caption already fixed: "now shows missed
+    mate, but arrows are still showing for missed skewer".
+
+    A shape detector had drawn e8->d8, d8->c7, d5->a8 on the main board while
+    the caption said "Bd5 missed a checkmate". The mate geometry lives on a
+    different board -- the one after the mating move, which is why it carries
+    its own FEN -- so the contradiction is resolved by dropping the shape
+    arrows, not by moving the mate ones.
+    """
+
+    def test_shape_arrows_go_when_there_is_a_mate_picture(self):
+        from services.caption_pipeline import shape_arrows_survive_mate_picture
+        mate = _arrows()
+        assert mate, "precondition: the reported card has a mate picture"
+        assert shape_arrows_survive_mate_picture(mate, mate) is False
+
+    def test_shape_arrows_stay_on_an_ordinary_card(self):
+        from services.caption_pipeline import shape_arrows_survive_mate_picture
+        assert shape_arrows_survive_mate_picture([], [{"from": "a1", "to": "a8"}]) is True
+
+    def test_shape_arrows_stay_when_the_mate_board_was_not_built(self):
+        """Both halves are required: a mate picture that never reached the
+        best-move surface must not silence the main board for nothing."""
+        from services.caption_pipeline import shape_arrows_survive_mate_picture
+        assert shape_arrows_survive_mate_picture(_arrows(), []) is True
