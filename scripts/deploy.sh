@@ -117,7 +117,23 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "frontend" ]; then
   # `build` is NOT optional: without it a stale builder image re-emits the old
   # bundle and the deploy looks clean while shipping nothing.
   docker compose build frontend-builder || die "frontend builder image failed to build"
-  docker compose run --rm frontend-builder || die "frontend build failed; docroot untouched"
+
+  # The old message here said "docroot untouched" on failure. That was false and
+  # it cost an outage on 2026-10-06: the builder deleted the live docroot before
+  # copying, the copy never ran, chessguru.ai served a 500 to every visitor, and
+  # this line reported that nothing had been touched. The publish step now stages
+  # and swaps (scripts/publish_frontend_output.sh), but the message must not
+  # claim anything it has not checked.
+  if ! docker compose run --rm frontend-builder; then
+    if [ -f "$DOCROOT/index.html" ]; then
+      die "frontend build failed. The live docroot still has index.html, so the previous bundle is still being served."
+    fi
+    die "frontend build failed AND $DOCROOT/index.html is missing -- THE SITE IS DOWN. Restore a known-good build into $DOCROOT before anything else."
+  fi
+
+  # Belt and braces: a publish that exits 0 and leaves no index.html has still
+  # taken the site down, and that is exactly the shape of the 2026-10-06 outage.
+  [ -f "$DOCROOT/index.html" ]     || die "publish reported success but $DOCROOT/index.html is missing -- THE SITE IS DOWN."
 
   BUNDLE_AFTER="$(grep -oE 'main\.[a-f0-9]+\.js' "$DOCROOT/index.html" 2>/dev/null | head -1 || true)"
   [ -n "$BUNDLE_AFTER" ] || die "no bundle in $DOCROOT/index.html after build"
