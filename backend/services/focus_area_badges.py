@@ -53,6 +53,10 @@ _SUBTYPE_SHORT = {
     "weakened_shelter":         "weakened shelter",
     "king_in_center":           "king in center",
     "king_walked_into_attack":  "king ran into attack",
+    # Mohit 2026-10-05: "It is missed mate not missed skewer." Without a
+    # label here the badge would fall back to the topic short ("missed
+    # tactic"), which is how a mate reads as a lesser pattern.
+    "missed_mate":              "missed mate",
     "missed_fork":              "missed fork",
     "missed_pin":               "missed pin",
     "missed_skewer":            "missed skewer",
