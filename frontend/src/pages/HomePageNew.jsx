@@ -11,6 +11,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ChancesCard from "@/components/coach/ChancesCard";
+import SessionCard from "@/components/coach/SessionCard";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
@@ -707,7 +708,13 @@ export default function HomePageNew({ user }) {
               canonical context, so the card rendered for almost nobody. The
               reading does not depend on which focus shape a player has, so it
               must not live inside a test for one. */}
+          {/* MOUNTED OUTSIDE EVERY BRANCH, like the chances card and for the
+              same reason: 51 of 52 users carry a canonical context, and a
+              surface wired into the other arm reaches almost nobody. */}
           <motion.div variants={fadeInUp} className="mt-12">
+            <SessionCard />
+          </motion.div>
+          <motion.div variants={fadeInUp} className="mt-6">
             <ChancesCard />
           </motion.div>
 

@@ -160,6 +160,33 @@ async def build_session(db, user_id: str) -> Dict[str, Any]:
     blocks = build_blocks(decision["mode"], decision["evidence"], focus,
                           has_practice)
 
+    # Each block gets a destination that EXISTS. There is no session runner, so
+    # there is no "start today's session" button -- inventing one would be the
+    # dead-button problem this codebase already has twelve instances of.
+    practice_href = None
+    if focus and has_practice:
+        link = await practice_link(db, user_id, str(focus.get("topic_key") or ""))
+        practice_href = (link or {}).get("href")
+    focus_label = clean_label(
+        (focus or {}).get("topic_label"), (focus or {}).get("topic_key"))
+    for block in blocks:
+        if block["kind"] == "improve":
+            if focus_label:
+                block["title"] = focus_label
+            block["href"] = practice_href
+        elif block["kind"] == "challenge":
+            # The drill the player's own weakest shape points at, when there is
+            # one; otherwise the generic pattern page.
+            try:
+                from services.motif_drill_service import practice_offer
+                offer = await practice_offer(db, user_id)
+            except Exception:
+                offer = None
+            block["href"] = (offer or {}).get("href") or "/training"
+        elif block["kind"] == "appreciate" and decision["evidence"].get("game_id"):
+            block["href"] = "/game/%s" % decision["evidence"]["game_id"]
+    blocks = [b for b in blocks if b["kind"] == "appreciate" or b.get("href")]
+
     return {
         "schema_version": "home_session.v1",
         "mode": decision["mode"],

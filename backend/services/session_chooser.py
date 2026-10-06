@@ -107,6 +107,7 @@ def _appreciate_from_good_move(good_move: Optional[Mapping[str, Any]]
         "kind": "good_move",
         "fen": good_move.get("fen"),
         "move_san": good_move.get("move_san"),
+        "game_id": good_move.get("game_id"),
         "headline": "You found something here worth keeping.",
         "line": "You gave up material and it was still the best move on the board.",
     }
@@ -190,10 +191,14 @@ def build_blocks(mode: str, evidence: Mapping[str, Any],
     """
     blocks: List[Dict[str, Any]] = []
 
-    if mode == APPRECIATE:
+    # An appreciate BLOCK only earns its place when there is something to look
+    # at. When the celebration is "a pattern has gone quiet" there is no board
+    # and no position, and the headline above already says it -- a block
+    # repeating it in smaller type is noise.
+    if mode == APPRECIATE and evidence.get("fen"):
         blocks.append({
             "kind": APPRECIATE,
-            "title": "The thing you got right",
+            "title": "The move you got right",
             "detail": evidence.get("line", ""),
             "minutes": 2,
             "fen": evidence.get("fen"),
