@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import CurriculumPrimary from "@/components/curriculum/CurriculumPrimary";
 import ChancesCard from "@/components/coach/ChancesCard";
+import SessionCard from "@/components/coach/SessionCard";
 import { curriculumHeadline } from "@/lib/personalCurriculum";
 
 export default function CurriculumHome({ user, curriculum, greeting }) {
@@ -45,6 +46,12 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
             surface="home"
             onNavigate={navigate}
           />
+        </div>
+        {/* Today's session: what the coach chose and why. Above the proof,
+            because the decision is the point of the page and the evidence is
+            the reason to believe it. docs/home_session_scope.md */}
+        <div className="mt-6">
+          <SessionCard />
         </div>
         {/* The proof, under the instruction and never above it. Renders
             nothing at all when the player has not been offered enough

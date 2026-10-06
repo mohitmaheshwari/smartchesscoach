@@ -104,10 +104,23 @@ def test_the_decision_is_always_explainable():
 def test_an_appreciate_day_still_contains_work():
     """A day that only celebrates teaches nothing."""
     out = choose(patterns=CLEAN, focus=FOCUS, focus_has_practice=True)
-    blocks = build_blocks(out["mode"], out["evidence"], FOCUS, True)
-    kinds = [b["kind"] for b in blocks]
-    assert kinds[0] == APPRECIATE
+    kinds = [b["kind"] for b in build_blocks(out["mode"], out["evidence"], FOCUS, True)]
     assert IMPROVE in kinds and CHALLENGE in kinds
+
+
+def test_a_celebration_with_a_board_gets_a_block():
+    out = choose(good_move=GOOD, focus=FOCUS, focus_has_practice=True)
+    blocks = build_blocks(out["mode"], out["evidence"], FOCUS, True)
+    assert blocks[0]["kind"] == APPRECIATE
+    assert blocks[0]["fen"] == GOOD["fen"]
+
+
+def test_a_celebration_with_no_board_gets_no_block():
+    """"A pattern has gone quiet" has no position to look at, and the headline
+    above already says it. A block repeating it in smaller type is noise."""
+    out = choose(patterns=CLEAN, focus=FOCUS, focus_has_practice=True)
+    blocks = build_blocks(out["mode"], out["evidence"], FOCUS, True)
+    assert all(b["kind"] != APPRECIATE for b in blocks)
 
 
 def test_blocks_never_offer_practice_that_does_not_exist():
