@@ -4974,6 +4974,88 @@ def _line_sequence_arrows(
     return arrows
 
 
+def recommended_move_arrows(
+    board_before: Optional[chess.Board],
+    best_move_uci: Optional[str],
+    pv_after_best: Optional[Sequence[str]] = None,
+) -> List[Dict[str, str]]:
+    """Draw the move the card tells them to play.
+
+    Mohit 2026-10-06, on a card reading "O-O is a major blunder. Be5 was better
+    -- it wins the rook" with a bare board: "now why not arrow here?".
+
+    The best-move picture came only from _check_attack_arrows, which requires
+    the move to give CHECK. Be5 does not, so a card naming a concrete prize
+    drew nothing at all -- the same shape as the "you can win it with bxc5"
+    card, on the other side of the board.
+
+    The move arrow is always true: it is the instruction the sentence just
+    gave. A target arrow is added only when the engine's own continuation
+    leaves that piece where it is. On the reported card Be5 hits the rook on
+    h8, the knight on d6 and the pawn on d4, and the stored line answers Rg8 --
+    the rook walks. It IS won nine plies later, so the caption is fair, but
+    drawing e5->h8 would say it is won on arrival, which is the claim v184
+    stopped making.
+    """
+    if board_before is None or not best_move_uci:
+        return []
+    try:
+        best = chess.Move.from_uci(str(best_move_uci))
+        if best not in board_before.legal_moves:
+            return []
+        after = board_before.copy()
+        after.push(best)
+    except (ValueError, AssertionError):
+        return []
+
+    arrows: List[Dict[str, str]] = [{
+        "from": chess.square_name(best.from_square),
+        "to": chess.square_name(best.to_square),
+        "color": "blue",
+        "teach": True,
+    }]
+
+    # Which squares does their reply vacate? Anything on one of those is not
+    # won here, whatever the caption promises later in the line.
+    vacated = set()
+    line = list(pv_after_best or ())
+    if line:
+        try:
+            probe = after.copy()
+            reply = probe.parse_san(str(line[0]))
+            vacated.add(reply.from_square)
+        except (ValueError, AssertionError):
+            # An unreadable line is not permission to claim the target.
+            return arrows
+
+    mover = board_before.turn
+    best_target = None
+    for square in after.attacks(best.to_square):
+        if square in vacated:
+            continue
+        piece = after.piece_at(square)
+        if not piece or piece.color == mover or piece.piece_type == chess.KING:
+            continue
+        gain = 0
+        try:
+            gain = legal_exchange_gain(after, square, mover) or 0
+        except (ValueError, TypeError):
+            gain = 0
+        if gain < 100:
+            continue
+        value = PIECE_VALUE_CP.get(piece.piece_type, 0)
+        if best_target is None or value > best_target[1]:
+            best_target = (square, value)
+    if best_target is not None:
+        arrows.append({
+            "from": chess.square_name(best.to_square),
+            "to": chess.square_name(best_target[0]),
+            "color": "green",
+            "teach": True,
+        })
+    return arrows
+
+
 def mate_arrows_for_played_board(
     board_before: Optional[chess.Board],
     played_move: Optional[chess.Move],
@@ -7378,6 +7460,8 @@ def build_move_teaching_decision(
         )
         _candidate = _mate_picture or _check_attack_arrows(
             board_before, inputs.best_move_uci, _engine_line
+        ) or recommended_move_arrows(
+            board_before, inputs.best_move_uci, inputs.pv_after_best
         )
         if _candidate:
             try:
@@ -7407,6 +7491,15 @@ def build_move_teaching_decision(
     if not shape_arrows_survive_mate_picture(_mate_picture, _best_arrows):
         _arrows_out = mate_arrows_for_played_board(
             board_before, played_move, inputs.best_move_uci
+        )
+    # A card that names a better move and draws nothing is the complaint that
+    # keeps coming back -- "no arrow here, why the hell", "now why not arrow
+    # here?". The recommended move is legal on the board before the played
+    # move, and that board shares its coordinates with the one on screen, so
+    # the instruction can always be drawn even when no threat picture fires.
+    if not _arrows_out and inputs.mover_is_user and inputs.best_move_uci:
+        _arrows_out = recommended_move_arrows(
+            board_before, inputs.best_move_uci, inputs.pv_after_best
         )
 
     visual = VisualSurface(
