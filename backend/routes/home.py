@@ -414,12 +414,24 @@ async def get_chances_reading(user: User = Depends(get_current_user)):
     page load; `scripts/compute_tactical_eye.py` fills it.
     """
     from services.chances_reading import build_reading
+    from services.chess_habit_reading import build_habits
     from services.two_layer_diagnosis import CACHE_COLLECTION
 
     stored = await db[CACHE_COLLECTION].find_one(
-        {"user_id": user.user_id}, {"_id": 0})
+        {"user_id": user.user_id}, {"_id": 0}) or {}
     reading = build_reading(stored)
+
+    # The context the bars were missing. "Half" means nothing without "against
+    # what" -- Mohit asked how the week is going, how regular he is and whether
+    # he is learning, and the first build shipped none of it.
+    # scripts/compute_habit_reading.py fills these.
+    reading["habits"] = build_habits(
+        stored.get("week"), stored.get("rhythm"),
+        stored.get("session"), stored.get("results"))
+
     if not reading.get("measured"):
+        # The habits stand on their own: a player with too few chances to rate
+        # can still be told how regular they have been.
         return reading
 
     # The weakest shape only becomes a link when that drill actually has
