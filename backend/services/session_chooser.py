@@ -158,7 +158,8 @@ def choose(patterns: Optional[Mapping[str, Any]] = None,
                 "kind": "focus",
                 "topic_key": focus.get("topic_key"),
                 "headline": "Let us keep working on the one thing.",
-                "line": focus.get("coaching_label") or focus.get("topic_label") or "",
+                # NOT coaching_label: 30 of 52 contain a number.
+                "line": focus.get("topic_label") or "",
             },
         }
 
@@ -201,9 +202,7 @@ def build_blocks(mode: str, evidence: Mapping[str, Any],
     if focus and focus_has_practice:
         blocks.append({
             "kind": IMPROVE,
-            "title": (focus.get("coaching_label")
-                      or focus.get("topic_label")
-                      or "Your focus"),
+            "title": (focus.get("topic_label") or "Your focus"),
             "detail": "Positions from your own games.",
             "minutes": 5,
             "topic_key": focus.get("topic_key"),

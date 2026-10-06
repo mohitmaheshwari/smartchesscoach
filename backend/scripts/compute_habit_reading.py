@@ -31,6 +31,7 @@ sys.path.insert(0, str(BACKEND))
 
 from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
 
+from services.pattern_decay_service import refresh_user_pattern_decay  # noqa: E402
 from services.chess_habit_reading import (  # noqa: E402
     LATER_FROM_GAME, results_fade, rhythm, session_curve, week_vs_usual,
 )
@@ -164,7 +165,22 @@ async def compute(db, user_id):
     for part in (sessions[:half], sessions[half:]):
         r_halves.append(_fade_points(*_fade(part, per_game_result)))
 
+    # Cached for the home session, which must not spend two seconds
+    # recomputing decay on a page load. `refresh_user_pattern_decay` persists
+    # nothing of its own, so this is the only store there is.
+    try:
+        decay = await refresh_user_pattern_decay(db, user_id) or {}
+    except Exception:
+        decay = {}
+    from services.home_session import _recent_good_move
+    try:
+        good = await _recent_good_move(db, user_id)
+    except Exception:
+        good = None
+
     return {
+        "decay": decay,
+        "good_move": good,
         "week": week_vs_usual(this_week, prior),
         "rhythm": rhythm(recent_days, per_day),
         "session": session_curve(early, later, halves),
@@ -201,6 +217,9 @@ async def main_async(apply, only_user):
             {"$set": {
                 "user_id": user_id,
                 "habits_computed_at": datetime.datetime.now(UTC),
+                "decay": reading["decay"],
+                "good_move": reading["good_move"],
+                "decay_computed_at": datetime.datetime.now(UTC),
                 "week": reading["week"],
                 "rhythm": reading["rhythm"],
                 "session": reading["session"],
