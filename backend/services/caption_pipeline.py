@@ -4974,6 +4974,58 @@ def _line_sequence_arrows(
     return arrows
 
 
+def mate_arrows_for_played_board(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    best_move_uci: Optional[str],
+) -> List[Dict[str, str]]:
+    """The same mate, drawn on the board the player is actually looking at.
+
+    Mohit 2026-10-06: "now, no arrow at all, what's wrong with you". Removing
+    the contradictory shape arrows and leaving the board blank was the wrong
+    call -- he asked to SEE the mating pattern, not to see less. Silence beats
+    contradiction, but a true picture beats both.
+
+    The card renders the position AFTER the played move, so the mate picture
+    built for the post-mate board cannot be reused: after Bd5 the rook has not
+    gone to c8 and the bishop has left e6. What IS true of this board, and is
+    exactly the lesson:
+
+      c7 -> c8   the move that was mate
+      e6 -> d7   the squares the bishop was covering from the square it just
+      e6 -> f7   left, which is why the mate is gone
+
+    e6 is already highlighted as the from-square, so the two yellow lines read
+    as "your bishop was here, holding these". Every arrow is drawn in
+    board_before coordinates, which is the frame both boards share.
+    """
+    if board_before is None or played_move is None or not best_move_uci:
+        return []
+    geometry = _mate_geometry_arrows(board_before, best_move_uci)
+    if not geometry:
+        return []
+    try:
+        mate_move = chess.Move.from_uci(str(best_move_uci))
+    except (ValueError, AssertionError):
+        return []
+    # The mating move itself, not the piece-to-king line: on this board the
+    # mating piece has not moved yet, so showing where it would GO is the
+    # instruction.
+    arrows: List[Dict[str, str]] = [{
+        "from": chess.square_name(mate_move.from_square),
+        "to": chess.square_name(mate_move.to_square),
+        "color": "red",
+        "teach": True,
+    }]
+    # Keep the cover lines, minus any that start from a square the played move
+    # has since filled or emptied in a way that makes them unreadable.
+    for arrow in geometry[1:]:
+        if arrow["from"] == chess.square_name(mate_move.to_square):
+            continue
+        arrows.append(dict(arrow))
+    return arrows[:4]
+
+
 def shape_arrows_survive_mate_picture(
     mate_picture: Optional[List[Dict[str, str]]],
     best_move_arrows: Optional[List[Dict[str, str]]],
@@ -5037,8 +5089,11 @@ def _mate_geometry_arrows(
     if king_square is None:
         return []
 
+    # The arrow starts where the mating piece ENDS UP. This picture renders on
+    # the board after the mating move, where c7 is empty and the rook is on c8
+    # -- the first version drew from c7 and so began on a bare square.
     arrows: List[Dict[str, str]] = [{
-        "from": chess.square_name(mate_move.from_square),
+        "from": chess.square_name(mate_move.to_square),
         "to": chess.square_name(king_square),
         "color": "red",
         "teach": True,
@@ -7236,7 +7291,9 @@ def build_move_teaching_decision(
     # builder follows -- and the mate picture stays on the surface whose board
     # it is true of.
     if not shape_arrows_survive_mate_picture(_mate_picture, _best_arrows):
-        _arrows_out = []
+        _arrows_out = mate_arrows_for_played_board(
+            board_before, played_move, inputs.best_move_uci
+        )
 
     visual = VisualSurface(
         arrows=_arrows_out,

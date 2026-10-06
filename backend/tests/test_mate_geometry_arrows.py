@@ -48,10 +48,23 @@ class TestTheReportedMate:
         assert chess.E6 in board.attackers(chess.WHITE, chess.F7)
 
     def test_the_mating_piece_points_at_the_king(self):
+        """From where the rook ENDS UP, because this picture renders on the
+        board after the mating move: c7 is empty there and the rook is on c8.
+        The first version drew from c7 and so began on a bare square."""
         arrows = _arrows()
-        assert arrows[0]["from"] == "c7"
+        assert arrows[0]["from"] == "c8"
         assert arrows[0]["to"] == "e8"
         assert arrows[0]["color"] == "red"
+
+    def test_every_arrow_starts_from_a_real_piece_on_the_mate_board(self):
+        board = chess.Board(FEN)
+        mate = board.parse_san("Rc8#")
+        after = board.copy()
+        after.push(mate)
+        for arrow in _arrows():
+            square = chess.parse_square(arrow["from"])
+            assert after.piece_at(square) is not None, (
+                f"{arrow['from']}->{arrow['to']} starts on an empty square")
 
     def test_the_bishop_lines_are_drawn(self):
         covers = {(a["from"], a["to"]) for a in _arrows()[1:]}
@@ -110,3 +123,57 @@ class TestTheMatePictureOwnsTheCard:
         best-move surface must not silence the main board for nothing."""
         from services.caption_pipeline import shape_arrows_survive_mate_picture
         assert shape_arrows_survive_mate_picture(_arrows(), []) is True
+
+
+class TestTheBoardThePlayerIsLookingAt:
+    """Mohit 2026-10-06: "now, no arrow at all, what's wrong with you".
+
+    Suppressing the contradictory shape arrows and leaving the board blank was
+    the wrong call. He asked to SEE the mating pattern. Silence beats
+    contradiction, but a true picture beats both -- and the post-mate picture
+    cannot be reused here, because on this board the rook has not reached c8
+    and the bishop has left e6.
+    """
+
+    def _played(self):
+        board = chess.Board(FEN)
+        return board, board.parse_san("Bd5"), board.parse_san("Rc8#")
+
+    def test_it_draws_the_move_that_was_mate(self):
+        from services.caption_pipeline import mate_arrows_for_played_board
+        board, played, mate = self._played()
+        arrows = mate_arrows_for_played_board(board, played, mate.uci())
+        assert arrows, "the board must not be blank on a missed mate"
+        assert (arrows[0]["from"], arrows[0]["to"]) == ("c7", "c8")
+
+    def test_the_rook_is_really_still_on_c7_here(self):
+        """Unlike the mate board, where it has already moved."""
+        board, played, _ = self._played()
+        after = board.copy()
+        after.push(played)
+        piece = after.piece_at(chess.C7)
+        assert piece is not None and piece.piece_type == chess.ROOK
+
+    def test_it_keeps_the_cover_lines(self):
+        from services.caption_pipeline import mate_arrows_for_played_board
+        board, played, mate = self._played()
+        covers = {(a["from"], a["to"])
+                  for a in mate_arrows_for_played_board(board, played, mate.uci())[1:]}
+        assert ("e6", "d7") in covers
+        assert ("e6", "f7") in covers
+
+    def test_the_cover_lines_start_from_the_square_the_bishop_left(self):
+        """e6 is empty on this board, and that is the lesson: it is already
+        highlighted as the from-square, so the lines read 'your bishop was
+        here, holding these'."""
+        board, played, _ = self._played()
+        after = board.copy()
+        after.push(played)
+        assert after.piece_at(chess.E6) is None
+        assert played.from_square == chess.E6
+
+    def test_a_move_that_is_not_mate_draws_nothing_here_either(self):
+        from services.caption_pipeline import mate_arrows_for_played_board
+        board, played, _ = self._played()
+        assert mate_arrows_for_played_board(
+            board, played, board.parse_san("Bb3").uci()) == []
