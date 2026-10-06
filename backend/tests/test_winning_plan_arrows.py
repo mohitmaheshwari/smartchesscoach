@@ -142,3 +142,51 @@ class TestARecaptureIsNotAWin:
         """The guard must not cost the case it was built for: Be5 wins a rook
         outright and gives nothing back."""
         assert len(_plan()) == 5
+
+
+class TestOurPieceGetsThereVisibly:
+    """An arrow may not start from a square our piece has not reached.
+
+    Mohit 2026-10-06, pointing at a lone green arrow: "why this arrow?". The
+    card drew h1->a8 for a capture that is real but nine plies away, after the
+    queen travels g1 -> c1 -> h1. On the board he was looking at the queen is
+    on g1, so the arrow began on an empty square with no way to see how it got
+    there -- the same fault as the mate arrow that started on c7 after the rook
+    had already moved to c8.
+    """
+
+    FEN37 = "Q7/p4ppk/7p/8/1P1P1KP1/Pb3P2/8/6q1 b - - 3 37"
+    LINE37 = ["Ke4", "Qc1", "f4", "Qh1+", "Ke3", "gxf4+", "Kxf4", "Qxa8"]
+
+    def _plan37(self):
+        board = chess.Board(self.FEN37)
+        return winning_plan_arrows(
+            board, board.parse_san("g5+").uci(), self.LINE37)
+
+    def test_the_first_arrow_of_the_route_stands_on_the_real_queen(self):
+        board = chess.Board(self.FEN37)
+        piece = board.piece_at(chess.G1)
+        assert piece is not None and piece.piece_type == chess.QUEEN
+        froms = [a["from"] for a in self._plan37()]
+        assert "g1" in froms, "the route must start where the queen actually is"
+
+    def test_the_whole_route_is_drawn(self):
+        pairs = [(a["from"], a["to"]) for a in self._plan37()]
+        assert ("g1", "c1") in pairs
+        assert ("c1", "h1") in pairs
+        assert ("h1", "a8") in pairs
+
+    def test_each_step_is_reached_by_the_one_before_it(self):
+        """So no arrow appears from nowhere, even on squares empty right now."""
+        route = [(a["from"], a["to"]) for a in self._plan37()
+                 if a["from"] != "g7"]
+        for (_prev_from, prev_to), (nxt_from, _nxt_to) in zip(route, route[1:]):
+            assert prev_to == nxt_from, f"{prev_to} does not lead to {nxt_from}"
+
+    def test_the_payoff_really_takes_the_queen(self):
+        board = chess.Board(self.FEN37)
+        board.push_san("g5+")
+        for san in self.LINE37[:-1]:
+            board.push_san(san)
+        target = board.piece_at(chess.A8)
+        assert target is not None and target.piece_type == chess.QUEEN
