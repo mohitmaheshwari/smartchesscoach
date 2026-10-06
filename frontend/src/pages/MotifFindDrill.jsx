@@ -34,14 +34,33 @@ import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { ArrowRight, Check, X } from "lucide-react";
 
+// Two sources, one page. `motif` serves pin and skewer from positions this
+// player's own games produced; `theme` serves topics our own games cannot prove
+// -- king_safety has 151 community puzzles and 341 coach positions and not one
+// passes verification, because there is no king-safety prover. Those come from
+// Lichess, where the proof already exists. docs/home_session_scope.md
+const SOURCES = {
+  motif: { list: "training/motif-drill", attempt: "training/motif-drill/attempt" },
+  theme: { list: "training/theme", attempt: "training/theme/attempt" },
+};
+
+const TOPIC_TITLES = {
+  king_safety: "Keeping your king safe",
+  tactical_oversight: "Seeing one move deeper",
+  missed_tactic: "Spotting tactics",
+  piece_safety: "Keeping pieces safe",
+};
+
 const TITLES = {
   pin: "Pins",
   skewer: "Skewers",
 };
 
-export default function MotifFindDrill({ user }) {
+export default function MotifFindDrill({ user, source = "motif" }) {
+  const api = SOURCES[source] || SOURCES.motif;
   const navigate = useNavigate();
-  const { motif: raw } = useParams();
+  const { motif: rawMotif, topic: rawTopic } = useParams();
+  const raw = source === "theme" ? rawTopic : rawMotif;
   const motif = String(raw || "").toLowerCase();
 
   const [loading, setLoading] = useState(true);
@@ -59,7 +78,7 @@ export default function MotifFindDrill({ user }) {
   useEffect(() => {
     let live = true;
     setLoading(true);
-    fetch(`${API}/training/motif-drill/${motif}?count=10`, { credentials: "include" })
+    fetch(`${API}/${api.list}/${motif}?count=10`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("unavailable"))))
       .then((data) => {
         if (!live) return;
@@ -107,7 +126,7 @@ export default function MotifFindDrill({ user }) {
       if (!position) return;
       setError("");
       try {
-        const res = await fetch(`${API}/training/motif-drill/attempt`, {
+        const res = await fetch(`${API}/${api.attempt}`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -135,7 +154,8 @@ export default function MotifFindDrill({ user }) {
     setIdx((i) => i + 1);
   }, []);
 
-  if (!TITLES[motif]) {
+  const title = source === "theme" ? TOPIC_TITLES[motif] : TITLES[motif];
+  if (!title) {
     return (
       <Layout user={user}>
         <div className="max-w-[620px] mx-auto px-6 py-8">
@@ -189,7 +209,7 @@ export default function MotifFindDrill({ user }) {
         data-testid="motif-find-drill"
       >
         <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
-          {TITLES[motif]}
+          {title}
         </span>
 
         <div className="mt-4 rounded-lg border border-amber-200/60 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50 p-3 mb-4">

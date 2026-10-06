@@ -136,9 +136,35 @@ async def practice_link(db, user_id: str, key: str) -> Optional[Dict[str, str]]:
     pattern = _POOL_AREA_PATTERNS.get(key)
     if not pattern:
         return None
-    if not await _has_pool_supply(db, user_id, pattern):
-        return None
-    return {"href": "/training/pattern/%s" % pattern, "label": "Practise this"}
+    if await _has_pool_supply(db, user_id, pattern):
+        return {"href": "/training/pattern/%s" % pattern, "label": "Practise this"}
+
+    # Our own games cannot always prove a topic. `king_safety` has 151
+    # community puzzles and 341 coach positions and not one passes
+    # verification, because there is no king-safety prover and none of them
+    # involve mate -- they carry a classifier's opinion, not evidence.
+    #
+    # Rather than certify them anyway, serve positions that already carry
+    # proof. See services/topic_practice_themes.py for which themes are
+    # allowed for which topic, and which obvious-looking ones are not.
+    from services.topic_practice_themes import mongo_query
+
+    query = mongo_query(pattern, await _rating_of(db, user_id))
+    if query and await db.lichess_puzzles.count_documents(query, limit=1):
+        return {"href": "/training/theme/%s" % pattern, "label": "Practise this"}
+    return None
+
+
+async def _rating_of(db, user_id: str):
+    """The player's own rating, for choosing a difficulty band."""
+    profile = await db.player_profiles.find_one(
+        {"user_id": user_id}, {"_id": 0, "current_rating": 1})
+    if profile and profile.get("current_rating"):
+        return profile["current_rating"]
+    game = await db.games.find_one(
+        {"user_id": user_id, "user_rating": {"$ne": None}},
+        {"_id": 0, "user_rating": 1}, sort=[("played_at_utc", -1)])
+    return (game or {}).get("user_rating")
 
 
 async def attach_practice_links(db, user_id: str, payload: Dict[str, Any]
