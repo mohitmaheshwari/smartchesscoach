@@ -5959,6 +5959,162 @@ _OPP_MISSED_SAN_FACTS = (
 )
 
 
+# ── Which story is this card? ────────────────────────────────────────
+#
+# Mohit's rule, 2026-10-07: "when an arrow tells mistake or blunder any side
+# (me or opponent) you should first find out if it's a bad move that opponent
+# can punish or an opportunity lost... once you have that, build on it with my
+# rule."
+#
+# One decision per card, made before any arrow is chosen, so every builder
+# answers to the same verdict instead of each guessing on its own.
+#
+# cp_loss cannot tell these apart -- it is the same number in both. What tells
+# them apart is WHERE the material moves, and Stockfish already stored both
+# lines:
+#
+#   PUNISHMENT  the played line loses us material      -> draw what they do to us
+#   OPPORTUNITY the played line is level, the best      -> draw the move we missed
+#               line wins material
+#   NEITHER     neither line moves material            -> claim nothing about material
+#
+# NEITHER is not a failure case, it is the honest one. Measured 2026-10-07 over
+# 4,000 user mistakes: the material story is simply absent on most of them, and
+# that is where the fabricated captions come from -- "you simply lose it for
+# nothing" on a move that traded knight for knight.
+#
+# No engine call: both lines are already on the card. 0.79ms per move measured
+# over 2,000 real cards.
+
+_STORY_PIECE_VALUES = {
+    chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+    chess.ROOK: 5, chess.QUEEN: 9,
+}
+
+# Two pawns, picked from the distribution and not by taste. Measured
+# 2026-10-07 over 4,000 user mistakes against 4,946 engine-approved moves:
+#
+#   played_swing <= -1 : 34.0% of mistakes,  0.2% of good moves   168x
+#   played_swing <= -2 : 21.3% of mistakes,  0.1% of good moves   210x
+#   played_swing <= -3 : 15.6% of mistakes,  0.0% of good moves   770x
+#   (best-played) >= +1: 36.5% of mistakes,  1.4% of good moves    25x
+#   (best-played) >= +2: 19.8% of mistakes,  1.0% of good moves    20x
+#
+# One pawn already discriminates, but a 12-ply line that happens to stop in
+# the middle of an exchange shows a spurious one-pawn swing -- truncation
+# noise, not a punishment. Two pawns is out of that artifact's reach, and it
+# puts the Nxd2 card (knight traded for knight, -1 over twelve plies) in
+# `neither`, which is where reading the board by hand had already put it.
+#
+# For contrast, the positional detector measured the same day -- "traded a
+# protected outpost for a passive piece" -- ran at 1.2x to 1.7x against its
+# own base rate and was NOT built. A control run is the price of admission.
+# The two axes take different floors, and the distribution is why.
+#
+# PUNISHMENT reads one absolute number off the end of a 12-ply line, so a line
+# that stops mid-exchange shows a spurious one-pawn loss. Two pawns is out of
+# that artifact's reach, and it puts Nxd2 (knight for knight, -1 over twelve
+# plies) in `neither`, where reading the board by hand had already put it.
+#
+# OPPORTUNITY is a DIFFERENCE between two lines, where that artifact largely
+# cancels, and a clean free pawn is worth exactly 1 -- the Nxe4 card. The
+# measurement agrees: >= +1 gives 25x lift, better than >= +2's 20x. Raising
+# it would throw away free pawns to buy nothing.
+STORY_PUNISHMENT_FLOOR = 2
+STORY_OPPORTUNITY_FLOOR = 1
+
+
+def _story_material(board, side):
+    ours = theirs = 0
+    for piece in board.piece_map().values():
+        v = _STORY_PIECE_VALUES.get(piece.piece_type, 0)
+        if piece.color == side:
+            ours += v
+        else:
+            theirs += v
+    return ours - theirs
+
+
+def _story_swing(board_before, first_san, line, side):
+    """Net material for `side` across first_san + line. None if unplayable.
+
+    `start` is measured BEFORE the first move, not after. Measuring it after
+    silently drops the material that move itself takes, which classified a
+    free pawn grab as "nothing happened" (the Nxe4 card) and an even knight
+    trade as a 4-point loss (the Nxd2 card).
+    """
+    board = board_before.copy()
+    start = _story_material(board, side)
+    try:
+        if first_san:
+            board.push_san(str(first_san))
+    except (ValueError, AssertionError):
+        return None
+    for san in line or ():
+        try:
+            board.push_san(str(san))
+        except (ValueError, AssertionError):
+            break
+    return _story_material(board, side) - start
+
+
+def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
+                        best_move_san=None):
+    """Return (story, detail). story is 'punishment' | 'opportunity' | 'neither'.
+
+    `detail` carries what the arrows need: for a punishment, the line the
+    opponent plays; for an opportunity, the move that was missed.
+    """
+    try:
+        board = chess.Board(str(fen_before))
+        mover = board.turn
+    except Exception:
+        return "neither", {}
+
+    played_swing = _story_swing(board, played_san, pv_after_played, mover)
+    best_swing = _story_swing(board, best_move_san, pv_after_best, mover)
+
+    # The opportunity is judged at SHORT range: the missed move plus the one
+    # reply to it. That is the least you need to see whether a capture gets
+    # answered, and it is what separates a real chance from line drift.
+    #
+    # Measured on three cards read by hand first. Nxe4 -- a genuinely free
+    # pawn -- shows +1 at every horizon including the move itself. Nxd2 and
+    # Nc4 show 0 at short range and only reach +1 at ply 12, where the two
+    # lines have wandered into different positions and the difference is an
+    # artifact of where each one stopped. Comparing endpoints of two 12-ply
+    # lines measures the lines, not the choice.
+    _short = 2
+    played_short = _story_swing(board, played_san,
+                                list(pv_after_played or ())[:_short], mover)
+    best_short = _story_swing(board, best_move_san,
+                              list(pv_after_best or ())[:_short], mover)
+
+    detail = {
+        "played_material_swing": played_swing,
+        "best_material_swing": best_swing,
+        "played_material_swing_short": played_short,
+        "best_material_swing_short": best_short,
+    }
+
+    # They take something off us because of the move we played.
+    if played_swing is not None and played_swing <= -STORY_PUNISHMENT_FLOOR:
+        detail["punishment_line"] = list(pv_after_played or ())
+        return "punishment", detail
+
+    # Nothing happens to us, but the move we did not play wins materially
+    # MORE. It has to be a difference: on move 12 of 043d6b9c both lines win
+    # material (+5 played, +6 best), so "the best line gains" is true there and
+    # says nothing. What matters is what the choice cost.
+    if (best_short is not None and played_short is not None
+            and best_short - played_short >= STORY_OPPORTUNITY_FLOOR
+            and (played_swing is None or played_swing > -STORY_PUNISHMENT_FLOOR)):
+        detail["missed_move"] = best_move_san
+        return "opportunity", detail
+
+    return "neither", detail
+
+
 def _missed_move_arrow(board_before, board_after, facts, caption):
     """One arrow for the move they missed, when the board still shows it.
 
@@ -6241,6 +6397,21 @@ def build_move_teaching_decision(
             caption_facts = {}
 
     inject_practical_severity_facts(caption_facts, practical)
+
+    # ── Which story is this card? One decision, before any arrow. ──────
+    # Mohit 2026-10-07: "when an arrow tells mistake or blunder any side (me or
+    # opponent) you should first find out if it's a bad move that opponent can
+    # punish or an opportunity lost... once you have that, build on it with my
+    # rule." Every builder answers to this verdict instead of each deciding on
+    # its own, which is how one card ended up with words about c4 and an arrow
+    # for Bb5.
+    _story, _story_detail = classify_move_story(
+        inputs.fen_before, inputs.played_san,
+        list(inputs.pv_after_played or ()), list(inputs.pv_after_best or ()),
+        inputs.best_move_san,
+    )
+    caption_facts["move_story"] = _story
+    caption_facts["move_story_detail"] = _story_detail
 
     # ─── Forced mate, BEFORE the caption is written ────────────────────
     #
@@ -7974,9 +8145,12 @@ def build_move_teaching_decision(
         else:
             # Not about our reply -- but it may be about the move THEY missed,
             # and that is the whole lesson of an opp-mistake card.
-            _teach_arrows = _missed_move_arrow(
-                board_before, _after_opp_board, caption_facts,
-                caption_payload.get("caption"),
+            _teach_arrows = (
+                _missed_move_arrow(
+                    board_before, _after_opp_board, caption_facts,
+                    caption_payload.get("caption"),
+                )
+                if _story == "opportunity" else []
             )
     # One picture per card. The check picture is rarer and more striking, so it
     # wins when both are available; otherwise show what the blunder gave away.
@@ -8021,7 +8195,10 @@ def build_move_teaching_decision(
                 _seq_board, list(inputs.pv_after_played or ())
             )
 
-    if not _teach_arrows:
+    # Only a punishment card draws a punishment. On Nxd2 -- knight traded for
+    # knight, no material story -- this drew a red arrow for Qxd2, which is a
+    # recapture, not a refutation.
+    if not _teach_arrows and _story == "punishment":
         _punish = _punishment_arrows(
             board_before,
             played_move,
@@ -8186,8 +8363,11 @@ def build_move_teaching_decision(
     _best_move_is_named = _names_the_move(
         str(caption_payload.get("caption") or ""), inputs.best_move_san
     )
+    # ...and never on a card with no material story at all. That is the Nc4
+    # card: five arrows of a queen walking through empty squares, under the
+    # words "Nc4 doesn't change much here".
     if (not _arrows_out and inputs.mover_is_user and inputs.best_move_uci
-            and _best_move_is_named):
+            and _best_move_is_named and _story != "neither"):
         # A SACRIFICE never passes the winning-plan test, because the whole
         # point is that material comes out level or worse while the initiative
         # does not. Mohit 2026-10-06, on a card whose engine move was Bxf2+:

@@ -61,6 +61,15 @@ async def main():
                    help="Run V5 generation but don't write anything to MongoDB.")
     p.add_argument("--game-id", default=None,
                    help="Regenerate just this game (overrides other filters).")
+    p.add_argument("--llm-polish", action="store_true",
+                   help="Call the v67 LLM polish layer during the re-render. "
+                        "OFF by default: it makes one network call per mistake "
+                        "card, has no timeout, and produced a polished caption "
+                        "on 7 of 3,770 stored cards (0.2%). Leaving it on made "
+                        "one 42-move game take 47 minutes at 0.7%% CPU -- the "
+                        "process was idle, waiting on calls that return "
+                        "nothing. Pass this only when measuring the layer "
+                        "itself.")
     p.add_argument("--skip-stockfish-candidates", action="store_true",
                    help="Skip the per-mistake Stockfish call that fetches top-3 "
                         "alternative moves. ~20x faster but the 'Better Approach' "
@@ -186,6 +195,9 @@ async def main():
                 # this one argument was the difference between a re-render
                 # that improves the corpus and one that damages it.
                 game_id=game_id,
+                # Default OFF -- see --llm-polish. A re-render reads stored
+                # engine truth; it should not be making network calls.
+                allow_llm_polish=bool(args.llm_polish),
             )
         except Exception as exc:
             print(f"  [{i}/{total}] {game_id}  FAIL: {exc}")
