@@ -2968,29 +2968,22 @@ def inject_socratic_user_facts(
     opp_threat_text: str = ""
     if severity == "blunder":
         try:
-            from services.move_comparison import _find_opponent_threats
-            verify_engine = None
-            if allow_fresh_engine_verification:
-                try:
-                    from services.threat_verifier import _get_singleton_engine
-                    verify_engine = _get_singleton_engine()
-                except Exception:
-                    verify_engine = None
+            # Stockfish is the truth table. The opponent's answer to this move
+            # is pv_after_played[0], chosen at depth 18 during analysis; the
+            # detector only names its shape. The old path enumerated every
+            # legal opponent move, guessed which looked dangerous, and ran a
+            # depth-10 search per guess to check -- 47 minutes to re-render one
+            # 42-move game, to re-derive something already stored.
+            # Mohit 2026-10-07: "detectors can't really find anything that
+            # engine top moves can't, stockfish is the truth table, pens down."
+            from services.move_comparison import threat_from_engine_reply
             post = board_before.copy()
             post.push(move)
             user_color_bool = chess.WHITE if user_color == "white" else chess.BLACK
-            threats = _find_opponent_threats(
-                post, not user_color_bool, engine=verify_engine,
+            _reply = (list(pv_after_played or ()) or [None])[0]
+            opp_threat_type, opp_threat_text = threat_from_engine_reply(
+                post, _reply, not user_color_bool,
             )
-            if threats:
-                opp_threat_text = threats[0]
-                threat_low = threats[0].lower()
-                if "fork" in threat_low:
-                    opp_threat_type = "fork"
-                elif "checkmate" in threat_low or "mate" in threat_low:
-                    opp_threat_type = "mate"
-                elif "taken for free" in threat_low or "can be taken" in threat_low:
-                    opp_threat_type = "capture"
         except Exception:
             pass
     caption_facts["socratic_opponent_threat_type"] = opp_threat_type
