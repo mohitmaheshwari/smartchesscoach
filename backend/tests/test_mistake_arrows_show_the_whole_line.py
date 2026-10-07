@@ -119,3 +119,69 @@ class TestItStaysOffEverythingElse:
                 board.push(mv)
             for frm, to, _colour in _arrows(pv):
                 assert (frm, to) in legal, (frm, to, pv)
+
+
+class TestAPlanWhosePointIsOffScreenIsNotDrawn:
+    """Mohit 2026-10-07, on move 5 of 413fcce2 -- opponent castles, the engine
+    answers d4 Be7 Re1 d6 h3, and the card drew all five of those quiet moves
+    with nothing at the end of them: "what is this arrow??"
+
+    The payoff in that line is cxd4 at step 8 and the budget is 5 arrows, so
+    the walk drew its first five steps and never reached the green. The note
+    inside the sacrifice branch describes this failure already -- "truncated
+    mid-line and ended on THEIR move with no payoff at all" -- but the guard
+    it added only covered sacrifices.
+
+    It stayed invisible while 85% of stored lines were 4 plies: a payoff at
+    step 8 was never FOUND, so the builder returned nothing and the
+    single-move builders drew instead. Re-analysing at 12 plies made it live.
+    Measured over 3,000 stored long-line cards: 610 drew five arrows with no
+    green, and 985 reached their payoff and are untouched.
+    """
+
+    # Opponent has just castled. The engine's reply is a slow positional plan
+    # and the first capture of ours is cxd4, the NINTH step.
+    QUIET_FEN = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2P2N2/PP1P1PPP/RNBQ1RK1 b kq - 0 5"
+    QUIET_PV = ["d4", "Be7", "Re1", "d6", "h3", "a5", "Bb3",
+                "exd4", "cxd4", "d5", "e5", "Ne4"]
+
+    def _board(self):
+        b = chess.Board(self.QUIET_FEN)
+        b.push_san("O-O")
+        return b
+
+    def test_the_payoff_really_is_past_the_budget(self):
+        """If this stops being true the test below proves nothing."""
+        from services.caption_pipeline import _line_sequence_arrows
+        full = _line_sequence_arrows(self._board(), self.QUIET_PV, max_arrows=99)
+        assert len(full) > 5
+
+    def test_nothing_is_drawn_when_the_payoff_cannot_be_reached(self):
+        from services.caption_pipeline import _line_sequence_arrows
+        assert _line_sequence_arrows(self._board(), self.QUIET_PV) == []
+
+    def test_the_short_line_drew_nothing_either_so_this_is_not_a_loss(self):
+        """Before the lines were lengthened this card drew no sequence at all,
+        because a payoff at step 8 was never found. The guard restores that."""
+        from services.caption_pipeline import _line_sequence_arrows
+        assert _line_sequence_arrows(self._board(), self.QUIET_PV[:4]) == []
+
+    def test_a_line_whose_payoff_fits_is_still_drawn(self):
+        """The guard must not silence the cards this builder exists for."""
+        arrows = _arrows(FULL_PV)
+        assert len(arrows) == 5
+        assert arrows[-1] == ("g5", "e6", "green")
+
+    def test_every_drawn_sequence_ends_on_the_payoff(self):
+        """The invariant the guard buys: if a sequence is drawn at all, its
+        last arrow is the green one. No more five-arrow plans with no point."""
+        from services.caption_pipeline import _line_sequence_arrows
+        for fen, played, pv in (
+            (FEN, "Be6", FULL_PV),
+            (self.QUIET_FEN, "O-O", self.QUIET_PV),
+        ):
+            b = chess.Board(fen)
+            b.push_san(played)
+            arrows = _line_sequence_arrows(b, pv)
+            if arrows:
+                assert arrows[-1]["color"] == "green", (fen, played)

@@ -5119,7 +5119,24 @@ def _line_sequence_arrows(
                 payoff = _forcing
 
     # Nothing to show, or the single-move builders already say it.
-    if payoff is None or payoff < 2:
+    #
+    # And nothing to show when the payoff is past the arrow budget. The note
+    # inside the sacrifice branch above describes this failure already --
+    # "truncated mid-line and ended on THEIR move with no payoff at all" --
+    # but the guard it added only covered sacrifices. Everywhere else a long
+    # line could still draw its first `max_arrows` steps and simply never
+    # reach the green.
+    #
+    # It stayed invisible while 85% of stored lines were 4 plies: a payoff at
+    # step 8 was never FOUND, so this returned nothing and the single-move
+    # builders drew instead. Re-analysing at 12 plies made it live, and Mohit
+    # saw it the same hour, on move 5 of 413fcce2 -- opponent castles, the
+    # engine answers d4 Be7 Re1 d6 h3, and the card drew all five of those
+    # quiet moves with no point at the end of them: "what is this arrow??"
+    #
+    # Half a plan whose payoff cannot be shown is worse than the single honest
+    # arrow it displaces, so hand it back.
+    if payoff is None or payoff < 2 or payoff >= max_arrows:
         return []
 
     arrows: List[Dict[str, str]] = []
