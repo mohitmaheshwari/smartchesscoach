@@ -7900,6 +7900,36 @@ def build_move_teaching_decision(
     # check and hits the queen, so the queen has to move, so the knight it was
     # defending falls. Drawing only the knight loses the cause; drawing only
     # g6 was the v186 picture that never mentioned the knight.
+    # The sequence picture, for OUR mistakes too.
+    #
+    # Mohit 2026-10-07, on move 17 of 043d6b9c ("Be6 loses to Bxh7+", drawn as
+    # a lone d3->h7): "i want arrow to show up complete posisoin and i don't
+    # undresatnd why arrow missed this one... it just showed the first Bxh7+,
+    # why it stopped building further arrows?"
+    #
+    # Because _punishment_arrows returns after the first move when that move
+    # is a capture, and Bxh7+ is a capture. It was built to stop the picture
+    # CONTRADICTING the sentence, and it does that well; it was never built to
+    # tell a story. _line_sequence_arrows was, and it already knows this exact
+    # shape -- the sacrifice branch inside it carries Mohit's 2026-10-02 and
+    # 2026-10-06 notes -- but it was only ever wired on opponent cards.
+    #
+    # Same gate as _punishment_arrows (our move, real loss) so this cannot
+    # start drawing on quiet moves. It self-limits: it returns nothing unless
+    # our payoff is at least the third step, which is precisely the case the
+    # single-move builders cannot draw.
+    if not _teach_arrows and inputs.mover_is_user and (inputs.cp_loss or 0) >= 100:
+        _seq_board = None
+        try:
+            _seq_board = board_before.copy()
+            _seq_board.push(played_move)
+        except Exception:
+            _seq_board = None
+        if _seq_board is not None:
+            _teach_arrows = _line_sequence_arrows(
+                _seq_board, list(inputs.pv_after_played or ())
+            )
+
     if not _teach_arrows:
         _punish = _punishment_arrows(
             board_before,
