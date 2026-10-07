@@ -119,6 +119,13 @@ services:
       - PERSONAL_IMPROVEMENT_CYCLE_ENABLED=${PERSONAL_IMPROVEMENT_CYCLE_ENABLED:-false}
       - PERSONAL_IMPROVEMENT_CYCLE_ROLES=${PERSONAL_IMPROVEMENT_CYCLE_ROLES:-admin,super_admin}
       - PWC_SURVIVING_INSTRUCTION_ENABLED=${PWC_SURVIVING_INSTRUCTION_ENABLED:-false}
+      # Focus outcomes. With this off the loop still measures every active
+      # focus daily and records the observation, but never CLOSES one -- so a
+      # lock is re-extended forever, the 28-day time box never fires, and a
+      # player is never moved to a different topic. That was the original
+      # disease ("no focus could ever finish"), so default-off perpetuates it.
+      # On, closing is additionally gated on the lock having expired.
+      - FOCUS_OUTCOME_RENDER_ENABLED=${FOCUS_OUTCOME_RENDER_ENABLED:-false}
       # Unified Play with Coach remains fail-closed. Staging and production
       # may opt in only an explicit role or per-user cohort through .env.
       - PWC_UNIFIED_EXPERIENCE_V1_ENABLED=${PWC_UNIFIED_EXPERIENCE_V1_ENABLED:-false}

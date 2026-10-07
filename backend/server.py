@@ -206,23 +206,33 @@ async def focus_outcome_loop():
             # clauses cannot share one object, hence the explicit $and.
             type_clause = {"$or": [{"type": {"$exists": False}},
                                    {"type": "weakness"}]}
-            due_clause = {"$or": [
-                {"locked_until": {"$type": "date", "$lte": now}},
-                {"locked_until": {"$type": "string", "$lte": now_iso}},
-            ]}
-            # Shadow mode measures every active focus; render mode keeps the
-            # original due-only selection so nothing closes early.
+            # THE SELECTOR STAYS WIDE IN BOTH MODES, and the due check gates
+            # only the close. It used to gate the selector too, so enabling
+            # render would have stopped measuring the 27 focuses whose lock
+            # has not expired -- they would have gone dark at exactly the
+            # moment the measurement started being used. Closing early is the
+            # thing that must not happen; measuring early costs nothing.
+            # `_lock_is_due` below is the single due test. The Mongo
+            # equivalent is gone rather than left unused: `locked_until` is a
+            # BSON date on some rows and an ISO string on others, so there
+            # were two ways to ask the same question and only one of them
+            # handled both types.
             selector = {"status": "active", "$and": [type_clause]}
-            if render:
-                selector["$and"].append(due_clause)
 
             async for f in db[COLLECTION].find(selector):
                 try:
                     outcome = await check_focus_outcome(db, f)
-                    if not render:
-                        is_due = _lock_is_due(f.get("locked_until"), now, now_iso)
-                        await _record_shadow_outcome(f, outcome, now, is_due)
-                        n_shadowed += 1
+                    is_due = _lock_is_due(f.get("locked_until"), now, now_iso)
+                    # THE DAILY OBSERVATION IS RECORDED IN BOTH MODES. This
+                    # used to be the shadow's *alternative* to closing, so
+                    # turning render on would have silently ended the series.
+                    # That series is 21 consecutive days deep and is the only
+                    # per-focus history that exists anywhere -- it is what a
+                    # progress chain reads to say "then, then, now", and a
+                    # closure alone gives one point, not a trajectory.
+                    await _record_shadow_outcome(f, outcome, now, is_due)
+                    n_shadowed += 1
+                    if not render or not is_due:
                         continue
                     await close_focus(db, f, outcome)
                     if outcome.get("resolution") == "improved":
