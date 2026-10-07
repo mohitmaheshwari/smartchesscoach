@@ -13,7 +13,6 @@ Handles:
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
 import re
 import os
 import logging
@@ -437,7 +436,8 @@ async def answer_todays_question(
     The reply names the belief back before correcting it. The player chose a
     real rule that works most of the time, not a wrong answer.
     """
-    from services.coach_today_position import answer_for
+    from services.coach_today_position import (
+        answer_for, record_answer, repeat_note)
 
     topic = str(request.get("topic") or "").strip()
     reason_id = request.get("reason_id")
@@ -445,23 +445,27 @@ async def answer_todays_question(
     if not answer.get("ok"):
         raise HTTPException(status_code=400, detail="unknown reason")
 
-    # Record the misconception so the coach can stop re-teaching one it has
-    # already corrected. Four readers look for `misconception_id` and until now
-    # nothing wrote it -- this is the first writer.
-    if answer.get("misconception_id"):
-        try:
-            await db.user_misconceptions.update_one(
-                {"user_id": user.user_id,
-                 "misconception_id": answer["misconception_id"]},
-                {"$inc": {"times_held": 1},
-                 "$set": {"last_held_at": datetime.now(timezone.utc).isoformat(),
-                          "topic": topic},
-                 "$setOnInsert": {"first_held_at":
-                                  datetime.now(timezone.utc).isoformat()}},
-                upsert=True)
-        except Exception:
-            # Losing the record is not worth losing the teaching moment over.
-            pass
+    # THE ANSWER HAS TO BE REMEMBERED OR THE PAGE NEVER MOVES. Mohit,
+    # 2026-10-07: *"it won't change over time, or would it?"* It would not --
+    # the first version of this endpoint wrote only the misconception counter,
+    # and the board's filter reads a different collection, so the same position
+    # came back forever. `record_answer` writes the per-position row that
+    # retires it AND the counter, which is what later lets the coach say "you
+    # keep telling me this".
+    try:
+        times_held = await record_answer(
+            db, user.user_id, request.get("position_id"), topic,
+            str(reason_id), answer)
+        # And if this is the same belief as last time, the coach notices
+        # instead of re-reading its script. Three simulated sessions on real
+        # data produced the identical correction three times, which is the
+        # static feeling even after the board started moving.
+        answer["repeat"] = repeat_note(times_held)
+    except Exception:
+        # Losing the record is not worth losing the teaching moment over --
+        # but it does mean the same board comes back, so it is logged.
+        logger.warning("could not record home answer for %s", user.user_id,
+                       exc_info=True)
 
     return answer
 

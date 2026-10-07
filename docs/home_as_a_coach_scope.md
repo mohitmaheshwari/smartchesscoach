@@ -136,6 +136,34 @@ picked from one player's 0.59 before anyone looked at the spread, and
 passed too. A finding every player gets is a fact about chess in a finding's
 clothes. The function is kept, unwired, with the numbers in its docstring.
 
+## The loop (added 2026-10-07 after Mohit: *"it won't change over time, or would it?"*)
+
+It would not have. The first version was a better-written static report, and
+three separate things were frozen:
+
+| | |
+|---|---|
+| the board | answering wrote `user_misconceptions`; the board's filter reads `puzzle_attempts`. Two collections, no overlap, so the same position at move 49 came back forever |
+| the strength | all 39 written 2026-07-02, 96 days old, no refresh job |
+| the finding | recomputed from every timeout loss ever, no window. 71 becomes 72. It can never resolve |
+
+A coach's process is a loop with four beats. Three are now built:
+
+1. **ASK** — board and question. Was built.
+2. **RETIRE** — `home_today_answers` holds one row per position answered, and
+   `todays_position` excludes them. Verified over four simulated sessions on
+   real data: four distinct boards, 77 of his own positions still in hand.
+3. **REMEMBER** — "Last time you told me: *I picked the move that looked
+   strongest on this move*." Absent on a first visit, which is correct.
+4. **NOTICE A REPEAT** — the same belief twice gets *"you told me the same
+   thing last time, that is a habit not a slip"*; a third gets *"let us make it
+   mechanical"*. No count is ever printed — that is a failure scoreboard.
+   **And a right answer pays the count back down** by one, not a reset, the
+   same shape as the recovery credit in `pattern_decay_service`. A counter that
+   only rises can never resolve, which is the disease the finding still has.
+
+The fourth beat, **RESOLVE** — "you have stopped doing this" — is not built.
+
 ## Still open
 
 - **Showing the brilliant move.** "Brilliant moves" is the most common stored
@@ -146,6 +174,21 @@ clothes. The function is kept, unwired, with the numbers in its docstring.
   at their rating, which the no-comparison rule forbids. Within-player ("of
   everything I watch, this is what you are best at") says the same thing
   without it. Only the *narrative* has been fixed so far, not the derivation.
+
+- **Nothing refreshes a strength.** All 39 are 96 days old and no job writes
+  them. Whatever was true of a player in July is what the page still says.
+  `primary_strength_picker` exists and runs on demand; it needs the same
+  periodic job treatment the decay cache got.
+
+- **The finding cannot resolve, and it is the loudest thing on the page.** It
+  counts every timeout loss ever: "seventy-one games" becomes seventy-two and
+  never goes the other way. The payoff beat of coaching is *"you have stopped
+  doing this"*, and a lifetime counter can never say it. Two routes, both
+  real: window it to recent games so it falls out when the behaviour stops, or
+  drive it off `pattern_decay_service`, which already has ACTIVE → DECLINING →
+  FADING with recovery credit per clean game — the exact semantics needed, and
+  already built. **Mohit's call, because windowing changes what the headline
+  number means.**
 
 ## How we will know it worked
 

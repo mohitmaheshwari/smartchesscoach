@@ -239,16 +239,31 @@ class _Coll:
     def __init__(self, rows):
         self._rows = rows
 
-    def find(self, query, projection=None):
+    def _matching(self, query):
         def matches(row):
             return all(row.get(k) == v for k, v in query.items())
-        return _Cursor([r for r in self._rows if matches(r)])
+        return [r for r in self._rows if matches(r)]
+
+    def find(self, query, projection=None):
+        return _Cursor(self._matching(query))
+
+    async def find_one(self, query, projection=None, sort=None):
+        rows = self._matching(query)
+        if sort:
+            key, direction = sort[0]
+            rows.sort(key=lambda r: r.get(key) or "", reverse=direction < 0)
+        return rows[0] if rows else None
 
 
 class _DB:
     def __init__(self, puzzles=(), positions=()):
         self.community_puzzles = _Coll(list(puzzles))
         self.community_training_positions = _Coll(list(positions))
+        self.home_today_answers = _Coll([])
+
+    # `db[ANSWERS]` is a subscript on the real motor database object.
+    def __getitem__(self, name):
+        return getattr(self, name)
 
 
 @pytest.mark.asyncio
@@ -290,6 +305,125 @@ async def test_positions_from_the_coach_pool_count_towards_the_topic():
         {"source_user_id": "u", "pattern_type": "hanging_piece"},
     ])
     assert await today.choose_topic(db, "u", None) == "piece_safety"
+
+
+# ------------------------------------------------- does the page move at all?
+
+def test_answering_writes_the_row_that_retires_the_board():
+    """Mohit, 2026-10-07: *"it won't change over time, or would it?"*
+
+    It would not. The first version of the answer endpoint wrote only
+    `user_misconceptions`, keyed by misconception, while the supply function's
+    `already_solved` filter reads `puzzle_attempts` -- a collection nothing on
+    this path writes. The same position at move 49 came back every day.
+
+    This is a source contract because the failure is that two collections
+    disagree, which no unit of either one can see.
+    """
+    import inspect
+
+    from services import coach_today_position as mod
+
+    # The reader and the writer must name the same collection.
+    reader = inspect.getsource(mod._answered_position_ids)
+    writer = inspect.getsource(mod.record_answer)
+    assert "db[ANSWERS]" in reader, reader
+    assert "db[ANSWERS]" in writer, writer
+
+    # And the position filter must actually consult it.
+    picker = inspect.getsource(mod.todays_position)
+    assert "_answered_position_ids" in picker
+    assert "not in answered" in picker
+
+    # It must NOT fake a solve: solve_rate orders every other pool.
+    assert "puzzle_attempts" not in writer
+    assert '"correct": True' not in writer
+
+
+def test_the_endpoint_records_the_answer():
+    """The route has to call it. The endpoint existed and recorded nothing
+    that moved the page, which is the whole bug."""
+    import inspect
+
+    from routes import home
+
+    source = inspect.getsource(home.answer_todays_question)
+    assert "record_answer(" in source
+    assert "position_id" in source
+
+
+@pytest.mark.asyncio
+async def test_the_board_advances_once_a_position_is_answered():
+    """The behaviour, not just the wiring."""
+    rows = [{"user_id": "u", "position_id": "p1", "topic": "piece_safety",
+             "reason_id": "checked_landing_square", "expected": True}]
+    db = _DB()
+    db.home_today_answers = _Coll(rows)
+    answered = await today._answered_position_ids(db, "u")
+    assert answered == {"p1"}
+    # and a different player's answer must not retire this player's board
+    assert await today._answered_position_ids(db, "someone_else") == set()
+
+
+def test_the_coach_does_not_repeat_itself():
+    """Three sessions on real data gave the identical correction three times.
+
+    Saying the same paragraph again is what a worksheet does. The first answer
+    gets no note; a repeat gets noticed; a third gets something mechanical.
+    """
+    assert today.repeat_note(0) is None
+    assert today.repeat_note(1) is None, "the first time is not a repeat"
+    second = today.repeat_note(2)
+    third = today.repeat_note(5)
+    assert second and third and second != third
+
+
+def test_a_right_answer_pays_the_count_back_down():
+    """A counter that only rises can never resolve.
+
+    That is the same disease as the finding that counts every timeout loss
+    ever: "this keeps being your answer" would follow someone around for a
+    habit they fixed months ago. One credit per right answer, not a reset --
+    the shape pattern_decay_service already uses.
+    """
+    import inspect
+
+    from services import coach_today_position as mod
+
+    source = inspect.getsource(mod.record_answer)
+    # The credit is applied on the path where there is no misconception, i.e.
+    # they gave the expected reason.
+    assert '"times_held": -1' in source, source
+    assert "update_many" in source
+    # And it must not drop below zero, or a diligent player banks credit
+    # against a habit they have not shown yet.
+    assert '"times_held": {"$gt": 0}' in source
+
+
+def test_the_repeat_note_is_never_a_scoreboard():
+    """No "that is your third time". The standing rule, and it matters most
+    here because the counter makes the number so easy to reach for."""
+    for n in range(0, 12):
+        text = today.repeat_note(n)
+        if text:
+            assert not DIGIT.search(text), (n, text)
+            for word in ("third", "fourth", "fifth", "times", "again and"):
+                assert word not in text.lower(), (n, word, text)
+
+
+@pytest.mark.asyncio
+async def test_the_coach_remembers_what_they_said_last_time():
+    rows = [{"user_id": "u", "position_id": "p1", "topic": "piece_safety",
+             "reason_id": "moved_the_attacked_piece", "expected": False,
+             "answered_at": "2026-10-06T10:00:00+00:00"}]
+    db = _DB()
+    db.home_today_answers = _Coll(rows)
+    last = await today.last_answer(db, "u", "piece_safety")
+    assert last["said"] == "I moved the piece that was already under attack."
+    assert last["was_expected"] is False
+    # Nothing to remember on a topic they have never answered, and no
+    # invented continuity.
+    assert await today.last_answer(db, "u", "calculation_depth") is None
 
 
 @pytest.mark.asyncio

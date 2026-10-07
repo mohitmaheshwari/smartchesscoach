@@ -136,6 +136,77 @@ test("the answer arrives only after a belief is chosen, and names it back", asyn
   expect(container.querySelectorAll('[data-testid="coach-today-option"]').length).toBe(0);
 });
 
+test("the position id is sent, which is what retires the board", async () => {
+  // Mohit: "it won't change over time, or would it?" Without this the same
+  // position comes back forever, which is what the first version did.
+  await mountWith(PAYLOAD);
+  global.fetch = jest.fn(() => Promise.resolve({
+    ok: true, json: () => Promise.resolve({ ok: true, expected: true, belief: "x" }),
+  }));
+  await act(async () => {
+    container.querySelectorAll('[data-testid="coach-today-option"]')[0].click();
+  });
+  const body = JSON.parse(global.fetch.mock.calls[0][1].body);
+  expect(body.position_id).toBe("p1");
+  expect(body.topic).toBe("calculation_depth");
+});
+
+test("a returning player is greeted with what they said last time", async () => {
+  await mountWith({
+    coach: {
+      ...PAYLOAD.coach,
+      today: {
+        ...PAYLOAD.coach.today,
+        last_time: { said: "It looked strongest.", was_expected: false },
+      },
+    },
+  });
+  const line = container.querySelector('[data-testid="coach-today-last-time"]');
+  expect(line.textContent).toContain("It looked strongest.");
+  // and the question stops saying "before I tell you anything", because it is
+  // no longer the first thing said.
+  expect(container.textContent).toContain("Same question on this one");
+  expect(container.textContent).not.toContain("Before I tell you anything");
+});
+
+test("a first-time player is not told about a last time", async () => {
+  await mountWith(PAYLOAD);
+  expect(container.querySelector('[data-testid="coach-today-last-time"]')).toBeNull();
+  expect(container.textContent).toContain("Before I tell you anything");
+});
+
+test("the same belief twice gets noticed, not repeated at", async () => {
+  await mountWith(PAYLOAD);
+  global.fetch = jest.fn(() => Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({
+      ok: true, expected: false,
+      belief: "You judged it on this move alone.",
+      correction: "Play their best reply first.",
+      repeat: "You told me the same thing last time.",
+    }),
+  }));
+  await act(async () => {
+    container.querySelectorAll('[data-testid="coach-today-option"]')[1].click();
+  });
+  expect(container.querySelector('[data-testid="coach-today-repeat"]').textContent)
+    .toContain("same thing last time");
+});
+
+test("a first answer gets no repeat note", async () => {
+  await mountWith(PAYLOAD);
+  global.fetch = jest.fn(() => Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({
+      ok: true, expected: false, belief: "b", correction: "c", repeat: null,
+    }),
+  }));
+  await act(async () => {
+    container.querySelectorAll('[data-testid="coach-today-option"]')[1].click();
+  });
+  expect(container.querySelector('[data-testid="coach-today-repeat"]')).toBeNull();
+});
+
 test("a movement with nothing to say renders nothing", async () => {
   await mountWith({ coach: { known: null, today: null, play: null } });
   expect(container.querySelector('[data-testid="coach-known"]')).toBeNull();

@@ -137,7 +137,14 @@ function Today({ today }) {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: today.topic, reason_id: optionId }),
+        // `position_id` is what retires this board so tomorrow is a different
+        // one. Without it the same position comes back forever — which is
+        // exactly what the first version of this did.
+        body: JSON.stringify({
+          topic: today.topic,
+          reason_id: optionId,
+          position_id: today.position_id,
+        }),
       });
       setAnswer(response.ok ? await response.json() : null);
     } catch {
@@ -171,10 +178,25 @@ function Today({ today }) {
 
           {!answer && (
             <>
+              {/* THE CONTINUITY BEAT. This is what makes it the second session
+                  rather than the first one again — not because the fact is
+                  interesting, but because being remembered is the difference
+                  between a coach and a worksheet. Absent on the first visit,
+                  which is correct: there is nothing to remember yet. */}
+              {today.last_time?.said && (
+                <p
+                  data-testid="coach-today-last-time"
+                  className="mt-5 border-l-2 border-muted pl-4 text-[14px] leading-relaxed text-muted-foreground"
+                >
+                  Last time you told me: “{today.last_time.said}”
+                </p>
+              )}
               {/* Asked before anything is explained, and about his thinking
                   rather than about the position. */}
               <p className="mt-5 text-[15px] leading-relaxed text-foreground">
-                Before I tell you anything — {lowerFirst(today.ask)}
+                {today.last_time?.said
+                  ? `Same question on this one — ${lowerFirst(today.ask)}`
+                  : `Before I tell you anything — ${lowerFirst(today.ask)}`}
               </p>
               <div className="mt-4 space-y-2">
                 {today.options.map((option) => (
@@ -212,6 +234,17 @@ function Today({ today }) {
               {answer.correction && (
                 <p className="mt-4 border-l-2 border-primary/50 pl-4 text-[15px] leading-relaxed text-foreground">
                   {answer.correction}
+                </p>
+              )}
+              {/* When it is the same belief as last time, the coach notices
+                  rather than repeating itself. No count is ever printed —
+                  "that is the third time" is a failure scoreboard. */}
+              {answer.repeat && (
+                <p
+                  data-testid="coach-today-repeat"
+                  className="mt-4 text-[14px] leading-relaxed text-muted-foreground"
+                >
+                  {answer.repeat}
                 </p>
               )}
             </div>
