@@ -103,6 +103,50 @@ so it is not forgotten.
 **Nothing links anywhere empty.** Every destination is supply-checked server
 side, as the session blocks already are.
 
+## Reach, measured on prod after shipping (2026-10-07)
+
+Of 128 users:
+
+| | |
+|---|---|
+| movement 3, play me | **128** |
+| movement 2, a board and a question | **59** |
+| movement 1, what I know about you | **55** — 39 with a strength, 53 with the costly thing |
+| neither movement 1 nor a board | 62 |
+
+The 62 are not a hole: 57 have **no games at all**, and the other 5 have exactly
+one. There is nothing true to say about a player from one game, so they get the
+invitation and nothing else, which is the right answer.
+
+Movement 2's board is keyed to the focus topic only when the player's own games
+can show it. Strict reaches 33 of the 49 focused players; focus-else-largest
+reaches 48. Everyone the strict rule missed was focused on `time_management`,
+which has no board positions by construction — Mohit included.
+
+Verified by maths, not by eye: on all 42 boards the named move is legal in the
+position shown and the side to move matches the player's colour, with a negative
+control proving the check can reject a board shown one move late.
+
+## What was taken out of the finding chooser
+
+`one_family_dominates` fired for **42 of 42** evaluable players with the
+identical sentence. `alignment_share` runs 0.550–0.764 and the bar was 0.4,
+picked from one player's 0.59 before anyone looked at the spread, and
+`free_piece` is the largest shape for every player so the second condition
+passed too. A finding every player gets is a fact about chess in a finding's
+clothes. The function is kept, unwired, with the numbers in its docstring.
+
+## Still open
+
+- **Showing the brilliant move.** "Brilliant moves" is the most common stored
+  strength (8 of 39) and movement 1 only *says* so. 487 moves per 600 games are
+  flagged and not one has been put in front of the player who played it. The
+  board belongs in movement 1 next to the sentence.
+- **Strengths come from a cohort.** The mechanism compares the player to others
+  at their rating, which the no-comparison rule forbids. Within-player ("of
+  everything I watch, this is what you are best at") says the same thing
+  without it. Only the *narrative* has been fixed so far, not the derivation.
+
 ## How we will know it worked
 
 Whether a player answers the question. A board that is looked at and scrolled
