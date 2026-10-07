@@ -67,7 +67,9 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
             because the decision is the point of the page and the evidence is
             the reason to believe it. docs/home_session_scope.md */}
         <div className="mt-6">
-          <SessionCard />
+          {/* The lesson card above already carries the why, directly under the
+              topic it explains. */}
+          <SessionCard showFocusWhy={false} />
         </div>
         {/* The proof, under the instruction and never above it. Renders
             nothing at all when the player has not been offered enough

@@ -97,6 +97,23 @@ test("no board when there is no position", async () => {
   expect(container.querySelector('[data-testid="board"]')).toBeNull();
 });
 
+test("the why renders by default", async () => {
+  respond({ ...SESSION, focus_why: "Most of it is one thing. X." });
+  await render();
+  expect(container.textContent).toContain("Most of it is one thing");
+});
+
+test("the why can be suppressed when another card already shows it", async () => {
+  // On the curriculum home the lesson card carries the why directly under the
+  // topic. Printing it here too put the same sentence on screen twice.
+  respond({ ...SESSION, focus_why: "Most of it is one thing. X." });
+  act(() => root.render(<SessionCard showFocusWhy={false} />));
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  expect(container.textContent).not.toContain("Most of it is one thing");
+  // positive control: the rest of the card is still there
+  expect(container.textContent).toContain("You found something here worth keeping.");
+});
+
 test("renders nothing without a headline", async () => {
   respond({});
   await render();
