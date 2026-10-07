@@ -79,6 +79,32 @@ def test_no_strength_sentence_uses_a_word_a_1200_player_lacks():
     assert offenders == [], offenders
 
 
+def test_no_user_facing_string_contains_a_typists_dash():
+    """A literal `--` renders as two hyphens on screen and reads as a typo.
+
+    Two slipped through and shipped: "moves that happened to work -- moves you
+    had to see" and "about yourself -- it is a habit". Both are now two short
+    sentences, which is the house style anyway. Every published string, not
+    just the one I happened to notice.
+    """
+    offenders = []
+    for name, text in words.STRENGTH_WORDS.items():
+        if "--" in text:
+            offenders.append(("strength", name, text))
+    for n in range(0, 8):
+        note = today.repeat_note(n)
+        if note and "--" in note:
+            offenders.append(("repeat_note", n, note))
+    for topic in today.ASKABLE_TOPICS:
+        spec = spec_mod.get_spec(topic)
+        for option in spec.reason_options:
+            for field in ("label", "belief_lead", "correction"):
+                value = getattr(option, field, "") or ""
+                if "--" in value:
+                    offenders.append((topic, option.id + "." + field, value))
+    assert offenders == [], offenders
+
+
 def test_an_unauthored_strength_label_stays_silent():
     """Silence beats dressing up the unshippable narrative as a fallback."""
     assert words.strength_words({"label": "Some new metric nobody wrote for"}) is None

@@ -36,7 +36,7 @@ STRENGTH_WORDS: Mapping[str, str] = {
     # is Movement 1's next piece of work, not a line of text.
     "Brilliant moves":
         "You have played moves I would not expect at your level. Not safe "
-        "moves that happened to work -- moves you had to see.",
+        "moves that happened to work. Moves you had to see.",
     "Low blunder rate":
         "You are hard to beat by accident. You blunder less than almost "
         "anything else you do.",

@@ -273,7 +273,7 @@ def repeat_note(times_held: int) -> Optional[str]:
         return None
     if times_held == 2:
         return ("You told me the same thing last time. That is worth knowing "
-                "about yourself -- it is a habit, not a slip.")
+                "about yourself. It is a habit, not a slip.")
     return ("This keeps being your answer. Let us make it mechanical: before "
             "you commit, say out loud what their best reply is.")
 
