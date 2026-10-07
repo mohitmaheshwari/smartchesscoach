@@ -11,8 +11,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ChancesCard from "@/components/coach/ChancesCard";
-import FindingCard from "@/components/coach/FindingCard";
-import SessionCard from "@/components/coach/SessionCard";
+import CoachMovements from "@/components/coach/CoachMovements";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
@@ -421,9 +420,33 @@ export default function HomePageNew({ user }) {
             <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
           </motion.div>
 
-          {/* ─── SINCE YOU LAST PLAYED (the Mirror) ─── */}
-          {/* Above everything, and outside every branch. */}
-          <FindingCard />
+          {/* ─── THE COACHING SESSION ───
+              docs/home_as_a_coach_scope.md
+
+              Mohit, 2026-10-07: *"it is still not looking like a coach, it
+              looks like a report"* — and then the process itself: a coach reads
+              your games, tells you what is good and what is bad, trains the
+              bad, and plays you.
+
+              THIS IS MOUNTED HERE BECAUSE THIS IS THE PAGE PEOPLE SEE. It went
+              into CurriculumHome first, which looked right — that component is
+              the newer, better-written home — and reaches NOBODY: measured
+              2026-10-07, all 128 users fall through to this branch, because
+              PERSONAL_CURRICULUM_ENABLED is not set on prod at all, so
+              `curriculum.enabled` is false for everyone including admins. It is
+              mounted in both, and this is the one that counts.
+
+              That is the fourth time this session a finished surface was wired
+              into a branch users do not take. The lesson is not "check the
+              branch" — it is that "mounted" and "reaching a person" are
+              different claims and only the second one is worth making.
+
+              It absorbs FindingCard (the finding is now movement one's second
+              line), SessionCard (its celebrated good move is the board inside
+              movement one) and ChancesCard (passed in as movement one's
+              assessment, because the reading IS part of what the coach knows
+              about you). Three cards became one movement; nothing was dropped. */}
+          <CoachMovements assessment={<ChancesCard />} />
           {lastSession?.story && (
             <motion.section ref={mirrorRef} variants={fadeInUp} className="mb-12 md:mb-16">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
@@ -702,24 +725,17 @@ export default function HomePageNew({ user }) {
             </>
           )}
 
-          {/* Of the chances the board gave you, how many did you take?
-              docs/chances_not_games_scope.md
+          {/* The session card and the chances card used to sit here, below
+              everything, each fetching /home/session for itself. Both are now
+              inside the coaching session at the top of the page: the good move
+              the session card celebrated is the board in movement one, and the
+              chances reading is movement one's assessment slot.
 
-              MOUNTED OUTSIDE EVERY BRANCH, deliberately. This first went inside
-              the `pic` branch, and the branch a player takes is decided by
-              `canonicalContext ? ... : pic ? ...` — 51 of 52 users carry a
-              canonical context, so the card rendered for almost nobody. The
-              reading does not depend on which focus shape a player has, so it
-              must not live inside a test for one. */}
-          {/* MOUNTED OUTSIDE EVERY BRANCH, like the chances card and for the
-              same reason: 51 of 52 users carry a canonical context, and a
-              surface wired into the other arm reaches almost nobody. */}
-          <motion.div variants={fadeInUp} className="mt-12">
-            <SessionCard />
-          </motion.div>
-          <motion.div variants={fadeInUp} className="mt-6">
-            <ChancesCard />
-          </motion.div>
+              Their mounting note is kept because it is still the rule: both
+              had been wired inside the `canonicalContext ? ... : pic ? ...`
+              ternary, where 51 of 52 users take the other arm, so they rendered
+              for almost nobody. Nothing on this page that does not depend on a
+              player's focus shape may sit inside a test for one. */}
 
           {/* ─── NAVIGATION TILES ───
               Deliberately faded — utilities, not today's mission. Mohit,

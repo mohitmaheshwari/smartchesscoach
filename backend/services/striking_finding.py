@@ -104,10 +104,34 @@ def results_fade_in_a_sitting(fade_points: Optional[float]
 
 def one_family_dominates(shapes: Optional[List[Mapping[str, Any]]]
                          ) -> Optional[Dict[str, Any]]:
-    """Most of what the board offers is one family of tactic, and they miss it.
+    """RETIRED as a finding. Kept because the measurement is still true.
 
-    Only said when the family is both the LARGEST source of chances and among
-    the worst taken. A weak shape they rarely meet is not worth a headline.
+    It read as the strongest thing on the page and it is not a finding at all.
+    Measured 2026-10-07 across the 70 players with a chances reading, 42 of
+    whom are evaluable:
+
+        alignment_share   min 0.550   median 0.594   max 0.764
+        share >= 0.4 ..... 42 of 42
+        share >= 0.5 ..... 42 of 42
+        biggest shape .... free_piece, for all 42
+
+    The 0.4 bar sits below the population floor, so it selects nobody, and
+    free_piece being the largest shape for every player means the second
+    condition passes for everyone too. It fired for 42 of 42, and three
+    consecutive players on screen got the identical sentence.
+
+    So "most of what the board hands YOU is one idea" is a fact about the
+    gate's shape mix. It is a true and useful thing to teach -- pins and
+    skewers really are most of what the board offers, and really are taken
+    less often than free material -- but it is not news about the person, and
+    presenting it as the one thing worth interrupting them with is a lie about
+    where it came from.
+
+    This is the same sin as picking a threshold before seeing the histogram,
+    which I did: 0.4 was chosen from one player's 0.59.
+
+    Left in place, unwired, so the next reader sees the numbers rather than
+    rediscovering the idea and re-shipping it. It is not in `choose_finding`.
     """
     if not shapes:
         return None

@@ -10,9 +10,10 @@ Handles:
 - Data freshness (refresh, status)
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+from datetime import datetime, timezone
 import re
 import os
 import logging
@@ -418,6 +419,51 @@ async def get_home_session(user: User = Depends(get_current_user)):
     # anything.
     await record_shown(db, user.user_id, session.pop("_appreciation_key", None))
     return session
+
+
+@router.post("/home/today/answer")
+async def answer_todays_question(
+    request: Dict[str, Any],
+    user: User = Depends(get_current_user),
+):
+    """What the coach says once the player has committed to a reason.
+
+    docs/home_as_a_coach_scope.md, Movement 2. ASKING BEFORE TELLING IS THE
+    MECHANISM -- a conclusion handed over is nodded at and forgotten, and a
+    belief you committed to and got wrong is remembered. So nothing about the
+    answer is in the payload `/home/session` serves; it lives here, behind the
+    player having said what they were checking.
+
+    The reply names the belief back before correcting it. The player chose a
+    real rule that works most of the time, not a wrong answer.
+    """
+    from services.coach_today_position import answer_for
+
+    topic = str(request.get("topic") or "").strip()
+    reason_id = request.get("reason_id")
+    answer = answer_for(topic, reason_id)
+    if not answer.get("ok"):
+        raise HTTPException(status_code=400, detail="unknown reason")
+
+    # Record the misconception so the coach can stop re-teaching one it has
+    # already corrected. Four readers look for `misconception_id` and until now
+    # nothing wrote it -- this is the first writer.
+    if answer.get("misconception_id"):
+        try:
+            await db.user_misconceptions.update_one(
+                {"user_id": user.user_id,
+                 "misconception_id": answer["misconception_id"]},
+                {"$inc": {"times_held": 1},
+                 "$set": {"last_held_at": datetime.now(timezone.utc).isoformat(),
+                          "topic": topic},
+                 "$setOnInsert": {"first_held_at":
+                                  datetime.now(timezone.utc).isoformat()}},
+                upsert=True)
+        except Exception:
+            # Losing the record is not worth losing the teaching moment over.
+            pass
+
+    return answer
 
 
 @router.get("/home/chances")

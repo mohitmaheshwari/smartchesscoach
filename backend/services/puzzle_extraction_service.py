@@ -544,6 +544,12 @@ async def get_pattern_training_puzzles(
             "puzzle_id": pid,
             "fen": p["fen"],
             "best_move_san": p["best_move_san"],
+            # The move the player actually played. Populated on 100% of both
+            # pools (measured 2026-10-07 over 8,000 rows) and dropped by this
+            # shape until now, which is why no surface could say "you played
+            # Nd4 here" -- the home page's Movement 2 is built on that sentence.
+            # Not an answer, so it is not in _PRIVATE_PUZZLE_FIELDS.
+            "played_move": p.get("played_move"),
             "issue_type": p["issue_type"],
             "difficulty": p.get("difficulty", "intermediate"),
             "move_number": p.get("move_number"),
@@ -589,6 +595,9 @@ async def get_pattern_training_puzzles(
             "puzzle_id": pid,
             "fen": p["fen"],
             "best_move_san": p["best_move_san"],
+            # Carried for symmetry with own_puzzles. Nothing says "you played
+            # X" about someone else's game, so no surface should narrate it.
+            "played_move": p.get("played_move"),
             "issue_type": p["issue_type"],
             "difficulty": p.get("difficulty", "intermediate"),
             "move_number": p.get("move_number"),
@@ -619,6 +628,9 @@ async def get_pattern_training_puzzles(
                 "puzzle_id": pid,
                 "fen": p.get("fen"),
                 "best_move_san": p.get("best_move_san") or "",
+                # This pool spells it `user_move_san`; community_puzzles spells
+                # it `played_move`. Normalised here so callers see one name.
+                "played_move": p.get("user_move_san") or p.get("played_move"),
                 "issue_type": pattern,
                 "difficulty": p.get("difficulty", "intermediate"),
                 "move_number": _pwc_int(p.get("move_number")),

@@ -1,44 +1,39 @@
 /**
- * The curriculum home. docs/home_merge_scope.md
+ * The home page, as a coaching session. docs/home_as_a_coach_scope.md
  *
- * THE RULE: the curriculum decides what you do, the evidence proves it is
- * working. One instruction, then one card of proof, in that order.
+ * Mohit, 2026-10-07, after four rounds of layouts: *"it is still not looking
+ * like a coach, it looks like a report"* — and then the process itself: a coach
+ * reads your games, tells you what is good and what is bad, trains the bad, and
+ * plays you.
  *
- * This page answered "what do I do today" better than the dashboard ever did,
- * and had no answer at all to "is any of this working" — a player did the one
- * thing and left, and nothing told them it was moving. That is the retention
- * hole, because "did it work" is the only reason to come back.
+ * So this page is now read top to bottom as one session rather than scanned as
+ * a stack of cards:
  *
- * The evidence is ONE card, below the instruction, and must never compete with
- * it. If it grows a second and a third, this page has turned back into the
- * scrolling report it was built to replace.
+ *   what I know about you   (the good thing first, then the costly one)
+ *   today                   (your board, your move, a question before an answer)
+ *   now go and do it        (the lesson, which is the only part with a drill)
+ *   play me                 (the part a puzzle cannot do)
+ *
+ * WHAT WAS REMOVED AND WHERE IT WENT. FindingCard, SessionCard and ChancesCard
+ * each fetched /home/session separately — three identical round trips for one
+ * page — and each added a card. The finding and the focus-why are now the
+ * second line of movement one; the good move the session card celebrated is the
+ * board inside movement one; the chances reading sits inside movement one too,
+ * because it is an assessment and Mohit asked for it specifically — *"quality
+ * of moves vs chances provided"* — so taking it off the page would have undone
+ * his own ask. Nothing was dropped; three cards became one movement.
+ *
+ * IF THIS GROWS A FOURTH AND FIFTH CARD it has turned back into the report it
+ * was built to replace, which has now happened twice.
  */
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { API } from "@/App";
 import Layout from "@/components/Layout";
 import CurriculumPrimary from "@/components/curriculum/CurriculumPrimary";
+import CoachMovements from "@/components/coach/CoachMovements";
 import ChancesCard from "@/components/coach/ChancesCard";
-import FindingCard from "@/components/coach/FindingCard";
-import SessionCard from "@/components/coach/SessionCard";
-import { curriculumHeadline } from "@/lib/personalCurriculum";
 
 export default function CurriculumHome({ user, curriculum, greeting }) {
   const navigate = useNavigate();
-
-  // Why this topic, fetched once and shown NEXT TO THE TOPIC rather than in a
-  // card further down. Mohit, 2026-10-07: "nothing has changed on home page" --
-  // it had, but only below the fold, and the part he reads was untouched.
-  const [focusWhy, setFocusWhy] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${API}/home/session`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (!cancelled) setFocusWhy(d?.focus_why || null); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-  const outcome = curriculum?.decision?.primary?.outcome;
 
   return (
     <Layout user={user}>
@@ -46,42 +41,25 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
         className="cg-page"
         data-testid="personal-curriculum-home"
       >
-        <p className="text-[12px] text-muted-foreground mb-5">{greeting}</p>
-        {/* The one thing worth interrupting them with, above everything else.
-            A weekly summary is something a player can work out for themselves;
-            this is not. services/striking_finding.py */}
-        <FindingCard />
-        <header className="cg-hero mb-6">
-          <p className="cg-eyebrow">I’ve been thinking about your games</p>
-          <h1 className="cg-title">
-            {curriculumHeadline(outcome)}
-          </h1>
-          <p className="cg-lede">
-            Here's today's one thing. We'll keep working on it until it shows up differently in a real game.
-          </p>
-        </header>
-        <div className="cg-panel p-5 sm:p-7">
-          <CurriculumPrimary
-            curriculum={curriculum}
-            surface="home"
-            onNavigate={navigate}
-            focusWhy={focusWhy}
-          />
-        </div>
-        {/* Today's session: what the coach chose and why. Above the proof,
-            because the decision is the point of the page and the evidence is
-            the reason to believe it. docs/home_session_scope.md */}
-        <div className="mt-6">
-          {/* The lesson card above already carries the why, directly under the
-              topic it explains. */}
-          <SessionCard showFocusWhy={false} />
-        </div>
-        {/* The proof, under the instruction and never above it. Renders
-            nothing at all when the player has not been offered enough
-            chances, so a new account still sees a single clean task. */}
-        <div className="mt-6">
-          <ChancesCard />
-        </div>
+        <p className="text-[12px] text-muted-foreground mb-7">{greeting}</p>
+
+        {/* Movements one and two, then the lesson, then the invitation last.
+            CoachMovements renders its children between movements two and
+            three, so the order on screen is know → think → practise → play. */}
+        <CoachMovements assessment={<ChancesCard />}>
+          {/* The lesson. Movement two asks the question; this is the only part
+              of the page with positions to actually practise behind it, so it
+              stays — a coach does not ask what you were thinking and then leave
+              you with nothing to do about it. */}
+          <div className="cg-panel mb-10 p-5 sm:p-7">
+            <CurriculumPrimary
+              curriculum={curriculum}
+              surface="home"
+              onNavigate={navigate}
+            />
+          </div>
+        </CoachMovements>
+
         <button
           type="button"
           onClick={() => navigate("/learn")}

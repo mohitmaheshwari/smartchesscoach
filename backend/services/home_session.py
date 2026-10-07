@@ -203,8 +203,18 @@ async def build_session(db, user_id: str) -> Dict[str, Any]:
             if block["kind"] == "improve":
                 block["why"] = "%s %s" % (why_focus["lead"], why_focus["line"])
 
+    # THE THREE MOVEMENTS. Mohit, 2026-10-07, after rejecting four rounds of
+    # card layouts: *"it still looks like a report"*, and then the process
+    # itself -- a coach reads your games, tells you what is good AND what is
+    # bad, and plays you. docs/home_as_a_coach_scope.md
+    #
+    # Returned alongside the existing keys rather than instead of them, so the
+    # surface can move over without the current page going dark mid-deploy.
+    coach = await _movements(db, user_id, focus, finding, why_focus, decision)
+
     return {
         "schema_version": "home_session.v1",
+        "coach": coach,
         "finding": finding,
         "focus_why": ("%s %s" % (why_focus["lead"], why_focus["line"]))
                      if why_focus else None,
@@ -222,6 +232,66 @@ async def build_session(db, user_id: str) -> Dict[str, Any]:
         "minutes": total_minutes(blocks),
         "_appreciation_key": (appreciation_key(decision["evidence"])
                               if decision["mode"] == APPRECIATE else None),
+    }
+
+
+async def _movements(db, user_id: str, focus, finding, why_focus,
+                     decision) -> Dict[str, Any]:
+    """What I know about you, today's board, and the invitation.
+
+    A movement that has nothing to say is LEFT OUT rather than padded. Three
+    sections with one real sentence between them is the report again.
+    """
+    from services.session_chooser import APPRECIATE
+    from services.coach_invitation import build as build_invitation
+    from services.coach_opening_words import opening_words
+    from services.coach_today_position import todays_position
+
+    strength = await db.user_active_focus.find_one(
+        {"user_id": user_id, "status": "active", "type": "strength"},
+        {"_id": 0, "label": 1})
+
+    known = opening_words(
+        strength, finding,
+        ("%s %s" % (why_focus["lead"], why_focus["line"])) if why_focus else None)
+
+    # A GOOD MOVE THEY ACTUALLY PLAYED, when the chooser has a fresh one.
+    #
+    # This is the only thing the retired session card carried that nothing else
+    # does, and it reached 29% of players. Movement 1's whole job is the good
+    # and the bad, so it belongs here rather than in a panel of its own -- and
+    # a position they played well is a better "what I know about you" than any
+    # sentence, because they can see it.
+    #
+    # Still one per player and still retired after it is seen: `appreciation_key`
+    # and `record_shown` are untouched, which is what keeps a celebration rare
+    # enough to mean something.
+    evidence = decision.get("evidence") or {}
+    if decision.get("mode") == APPRECIATE and evidence.get("fen"):
+        known["good_game"] = {
+            "headline": evidence.get("headline"),
+            "line": evidence.get("line"),
+            "fen": evidence.get("fen"),
+            "move_san": evidence.get("move_san"),
+            "href": ("/game/%s" % evidence["game_id"]
+                     if evidence.get("game_id") else None),
+        }
+        known["measured"] = True
+
+    # The board is keyed to the focus topic only when their own games can show
+    # it. Measured: the strict rule reaches 33 of 49 focused players and misses
+    # everyone focused on time_management -- which includes Mohit, the person
+    # looking at the page. See coach_today_position.
+    try:
+        position = await todays_position(
+            db, user_id, str((focus or {}).get("topic_key") or "") or None)
+    except Exception:
+        position = None
+
+    return {
+        "known": known if known.get("measured") else None,
+        "today": position,
+        "play": await build_invitation(db, user_id),
     }
 
 
@@ -243,11 +313,9 @@ async def record_shown(db, user_id: str, key: Optional[str]) -> None:
 
 async def _finding_for(db, user_id: str) -> Optional[Dict[str, Any]]:
     """The strongest true thing we can say about this player, or None."""
-    from services.chances_reading import build_reading
     from services.game_outcome import user_lost
     from services.striking_finding import (
-        choose_finding, one_family_dominates, results_fade_in_a_sitting,
-        won_games_lost_on_time,
+        choose_finding, results_fade_in_a_sitting, won_games_lost_on_time,
     )
 
     # Won positions lost on the clock. Reaches 18 of 70 players at the bar set
@@ -277,10 +345,15 @@ async def _finding_for(db, user_id: str) -> Optional[Dict[str, Any]]:
 
     reading = await db[READING_COLLECTION].find_one(
         {"user_id": user_id}, {"_id": 0}) or {}
-    chances = build_reading(reading)
 
+    # `one_family_dominates` USED to be third here and is deliberately gone.
+    # It fired for 42 of 42 evaluable players with the identical sentence,
+    # because the shape mix it reads barely varies between people -- the
+    # numbers are in its docstring. A finding every player gets is a fact about
+    # chess wearing a finding's clothes. Dropping it leaves 31 of 49 focused
+    # players with no finding, and movement 1 still has their strength and the
+    # reason for their focus, which are both actually theirs.
     return choose_finding([
         won_games_lost_on_time(winning, analysed),
         results_fade_in_a_sitting((reading.get("results") or {}).get("fade_points")),
-        one_family_dominates(chances.get("shapes") if chances.get("measured") else None),
     ])
