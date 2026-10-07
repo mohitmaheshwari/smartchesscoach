@@ -1542,6 +1542,91 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           />
         )}
 
+        {/* Engine paths — the two Stockfish lines and the verdict read off
+            them, shown so the rules can be written against what the engine
+            actually said rather than against a caption. Mohit 2026-10-07:
+            "give me the stockfish paths for the mistakes, somewhere there on
+            the UI, so i can write the algorithm for you... like opportunity or
+            punishment lines for both user and opponent." Same ?show_facts=1
+            flag as the raw dump below it. */}
+        {showFacts && currentMove && (() => {
+          const rec =
+            factsByMove[`${currentMove.move_number}|${currentMove.move_san}`] ||
+            currentMove;
+          const played = rec.pv_after_played || [];
+          const best = rec.pv_after_best || [];
+          const detail = rec.move_story_detail || {};
+          const story = rec.move_story || null;
+          const mover = rec.is_user_move ? "you" : "opponent";
+          const tone =
+            story === "punishment"
+              ? "text-rose-300"
+              : story === "opportunity"
+              ? "text-amber-300"
+              : "text-zinc-400";
+          const Line = ({ label, first, rest, hint }) => (
+            <div className="mb-2">
+              <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+                {label}
+                {hint ? <span className="normal-case tracking-normal"> — {hint}</span> : null}
+              </p>
+              {first || rest.length ? (
+                <p className="text-[12px] font-mono text-zinc-200 break-words">
+                  {first ? <span className="text-white font-semibold">{first}</span> : null}
+                  {rest.length ? " " + rest.join(" ") : ""}
+                  <span className="text-zinc-600"> ({rest.length + (first ? 1 : 0)} ply)</span>
+                </p>
+              ) : (
+                <p className="text-[12px] font-mono text-zinc-600">not stored</p>
+              )}
+            </div>
+          );
+          const swing = (v) => (v === null || v === undefined ? "—" : (v > 0 ? "+" : "") + v);
+          return (
+            <div
+              className="mt-3 p-3 rounded border border-zinc-700 bg-zinc-900/50"
+              data-testid="engine-paths-panel"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] uppercase tracking-wider text-zinc-400">
+                  engine paths · move {rec.move_number} {rec.move_san} ({mover})
+                </p>
+                <p className="text-[11px] font-mono">
+                  <span className="text-zinc-500">cp_loss </span>
+                  <span className="text-zinc-200">{rec.cp_loss ?? "—"}</span>
+                  <span className="text-zinc-500"> · {rec.severity || "—"}</span>
+                </p>
+              </div>
+
+              <div className="mb-3 pb-2 border-b border-zinc-800">
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500">verdict</p>
+                <p className={`text-[13px] font-semibold ${tone}`}>
+                  {story || "not stored — re-render this game"}
+                </p>
+                <p className="text-[11px] font-mono text-zinc-500">
+                  material over the played line {swing(detail.played_material_swing)}
+                  {"  ·  over the best line "}{swing(detail.best_material_swing)}
+                  {"  ·  short range "}
+                  {swing(detail.played_material_swing_short)}/{swing(detail.best_material_swing_short)}
+                </p>
+              </div>
+
+              <Line
+                label="punishment line"
+                hint={`what happens after ${rec.move_san}`}
+                first={rec.move_san}
+                rest={played}
+              />
+              <Line
+                label="opportunity line"
+                hint="what the engine wanted instead"
+                first={rec.best_move_san}
+                rest={best}
+              />
+            </div>
+          );
+        })()}
+
         {/* Authoring fact-dump panel — only when ?show_facts=1 is on URL.
             Shows the raw per-move record from decryption_v5_data so the
             caption author can see exactly which facts the extractor

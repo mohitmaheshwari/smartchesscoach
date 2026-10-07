@@ -4758,6 +4758,19 @@ async def generate_game_decryption_v5(
                 "caption_llm": caption_llm_polished,
                 "rule_name": caption_payload["rule_name"],
                 "caption_arrows": caption_payload["arrows"],
+                # The verdict, stored so it can be read on the card rather
+                # than only inside a render. Mohit 2026-10-07: "give me the
+                # stockfish paths for the mistakes, somewhere there on the UI,
+                # so i can write the algorithm for you... like opportunity or
+                # punishment lines for both user and opponent."
+                #
+                # Both engine lines (pv_after_played, pv_after_best) and
+                # best_move_san were already stored; only the classification
+                # and the material arithmetic behind it were not, so the one
+                # thing you could not check from the card was WHY it decided
+                # what it decided.
+                "move_story": caption_facts.get("move_story"),
+                "move_story_detail": caption_facts.get("move_story_detail"),
                 "caption_highlight_squares": caption_payload["highlight_squares"],
                 # The "what if I played X?" picture, with the FEN it is true
                 # of. The review page draws it only on that board.
