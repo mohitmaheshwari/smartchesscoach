@@ -5400,6 +5400,77 @@ def recommended_move_arrows(
     return arrows
 
 
+def back_rank_threat_arrows(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    pv_after_played: Optional[List[str]],
+) -> List[Dict[str, str]]:
+    """The back-rank mate the played move allows, drawn on the shown board.
+
+    Mohit 2026-10-07, on a card reading "Bb3 lets Rxc3 win your rook on c3":
+    "back rank misses too". Losing the rook is the smaller half of that move.
+    On 6k1/p4ppp/6q1/8/1PbP4/P1r2P2/5KPP/2RQ4 b the rook on c3 is the only
+    thing between White's rook and a back row where f7, g7 and h7 are all
+    filled by Black's own pawns, so after Bb3 Rxc3 a quiet move loses to Rc8#.
+
+    The caption says the king has no way out; this is the same statement in
+    arrows. It is a THREAT, not a forced mate -- Black still holds with Be6 or
+    Qf6 -- so the question the board is asked is the one a threat answers: if
+    we spend a move elsewhere, does a heavy piece mate on our back rank? The
+    null move asks exactly that, and the mate is proved on the board rather
+    than inferred, so the arrow cannot outrun the position.
+
+    Drawn in board_before coordinates, the frame the rendered board shares.
+    """
+    if board_before is None or played_move is None:
+        return []
+    try:
+        probe = board_before.copy()
+        probe.push(played_move)
+    except (ValueError, AssertionError):
+        return []
+    us = board_before.turn
+    boards = [probe]
+    # Their best reply is usually what OPENS the file -- here the rook only
+    # reaches c3 by capturing -- so the board after it is checked too.
+    reply = (list(pv_after_played or []) or [None])[0]
+    if reply:
+        try:
+            after_reply = probe.copy()
+            after_reply.push(after_reply.parse_san(str(reply)))
+            boards.append(after_reply)
+        except (ValueError, AssertionError):
+            pass
+    back_rank = 0 if us == chess.WHITE else 7
+    for board in boards:
+        if board.turn == us:
+            # A null move is illegal out of check, and "what if we do nothing"
+            # is not the question to ask of a position where we must respond.
+            if board.is_check():
+                continue
+            quiet = board.copy()
+            quiet.push(chess.Move.null())
+        else:
+            quiet = board
+        for move in quiet.legal_moves:
+            if chess.square_rank(move.to_square) != back_rank:
+                continue
+            piece = quiet.piece_at(move.from_square)
+            if piece is None or piece.piece_type not in (chess.ROOK, chess.QUEEN):
+                continue
+            landed = quiet.copy()
+            landed.push(move)
+            if not landed.is_checkmate():
+                continue
+            return [{
+                "from": chess.square_name(move.from_square),
+                "to": chess.square_name(move.to_square),
+                "color": "red",
+                "teach": True,
+            }]
+    return []
+
+
 def mate_arrows_for_played_board(
     board_before: Optional[chess.Board],
     played_move: Optional[chess.Move],
@@ -7425,6 +7496,29 @@ def build_move_teaching_decision(
     # later and could bypass it.  If the composed text fails, first retain the
     # already-verified board explanation; only then use the deterministic floor.
     _final_verified = False
+    # ONE proof licenses both the sentence and the arrow, so they cannot
+    # disagree. Measured over 400 games before shipping: back_rank_exposed is
+    # true on 136 of 2,312 mistake cards, and only 3 of those can show a mate.
+    # The other 133 are geometrically true and coachingly empty -- the same
+    # sentence landed up to six times in one game, and once onto an opening
+    # card about the Sicilian and the Caro-Kann. That is the principle bank
+    # all over again: text that looks like teaching and is not.
+    #
+    # A weaker gate was measured and rejected rather than guessed at: "the
+    # engine's own line sends a rook or queen to our back rank" fires on 25
+    # cards, and the first three inspected were Qxd1, Qxh8+ and Rxd8 -- plain
+    # captures that happen to land on the back row, nothing to do with mate.
+    #
+    # So the gate is the mate itself. Rare is the honest answer here; a motif
+    # this scarce is a puzzle problem, not a caption problem.
+    _back_rank_proof = (
+        back_rank_threat_arrows(board_before, played_move, inputs.pv_after_played)
+        if caption_facts.get("back_rank_exposed") else []
+    )
+    # Declared OUTSIDE the try: the arrows read it ~400 lines down, and a name
+    # that only exists on the happy path is a NameError waiting for a bad card
+    # -- this file has already lost a whole caption block that way.
+    _back_rank_said = False
     try:
         from services.narrator_claim_verifier import verify_caption as _stage4_verify
         from services.caption_fallback_tiers import tier23_caption as _stage4_floor
@@ -7540,6 +7634,75 @@ def build_move_teaching_decision(
                 (caption_payload.get("rule_name") or "") + "→STALEMATE_LEAD"
             )
             _board_explanation = caption_payload["caption"]
+
+        # The back-rank warning rides ALONG with the material reason, never
+        # instead of it. Mohit 2026-10-06: "this is backrank mate but doesn't
+        # show in caption or arrows". His card already said he drops a rook,
+        # which is true and is not the bigger danger: the king on g8 has f7, g7
+        # and h7 all filled by its OWN pawns, so a rook reaching the back row
+        # mates. Appended rather than substituted because losing the rook is
+        # still the first thing he needs to know.
+        #
+        # Not phrased as a mate claim: on that card Black holds with Be6 or
+        # Qf6, so the sentence says the king has no way out, which is true of
+        # the position whatever they choose.
+        #
+        # v198 ran this append ~400 lines further down, AFTER TextSurface had
+        # already copied caption_payload["caption"] into the decision. The
+        # sentence rendered correctly and was written into a dict nothing read
+        # again, so not one card ever carried it -- Mohit 2026-10-07: "you
+        # said, this was fixed, but not". It now sits where the stalemate
+        # lead-in sits, above the final verify, so the joined caption passes
+        # the same check as every other caption; a join that fails the check
+        # is dropped rather than dragging a verified card down with it.
+        # ...unless the mate rule is already teaching this exact lesson. On
+        # 3664ffcd m14 the card read "Your own pawns sealed the first rank and
+        # left your king nowhere to go -- that is a back-rank mate", and the
+        # append said it a second time in different words. The test is
+        # structural, not a search for words: R01_mate picks its variant from
+        # services/mate_lesson, the same module /admin/detector-review asks, so
+        # asking it here cannot drift from what the card actually said. That
+        # card already draws the mating move too, so suppressing both surfaces
+        # loses nothing.
+        _mate_rule_owns_it = False
+        if (caption_payload.get("rule_name") or "").startswith("R01_mate"):
+            try:
+                from services.mate_lesson import lesson_from_caption_facts
+                _mate_rule_owns_it = lesson_from_caption_facts({
+                    "fen_before": inputs.fen_before,
+                    "played_san": inputs.played_san,
+                    "pv_after_played": list(inputs.pv_after_played or []),
+                    "mate_info": caption_facts.get("mate_info"),
+                }) == "back_rank"
+            except Exception:
+                _mate_rule_owns_it = False
+        # Once per game, on the same restraint the conductor threads use. The
+        # mate proof alone does not stop the nag: on 7b966897 the king sat on
+        # e1 behind its own pawns for five straight moves, so Qc1# stayed
+        # provable and five cards in a row carried the identical sentence. A
+        # lesson repeated every move is a scoreboard, not coaching.
+        _BACK_RANK_KEY = ("back_rank_warning",)
+        _said_already = _BACK_RANK_KEY in state.fired_state_keys
+        if (_back_rank_proof and not _mate_rule_owns_it and not _said_already
+                and caption_payload.get("caption")):
+            try:
+                from services.caption_templates import render_template
+                _br = render_template(
+                    "R12_blunder", "back_rank_no_escape", caption_facts
+                )
+            except Exception:
+                _br = ""
+            if _br and _br not in caption_payload["caption"]:
+                _joined = caption_payload["caption"].rstrip() + " " + _br
+                if not _verify_final(_joined):
+                    caption_payload["caption"] = _joined
+                    if _board_explanation:
+                        _board_explanation = _joined
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "") + "→BACK_RANK"
+                    )
+                    _back_rank_said = True
+                    _fired_state_keys_added.add(_BACK_RANK_KEY)
 
         _final_text = (caption_payload.get("caption") or "").strip()
         _final_verified = bool(
@@ -7908,27 +8071,19 @@ def build_move_teaching_decision(
             if a.get("color") == "blue"
         ]
 
-    # The back-rank warning rides ALONG with the material reason, never instead
-    # of it. Mohit 2026-10-06: "this is backrank mate but doesn't show in
-    # caption or arrows". His card already said he drops a rook, which is true
-    # and is not the bigger danger: the king on g8 has f7, g7 and h7 all filled
-    # by its own pawns, so a rook on the back row mates. It is appended rather
-    # than substituted because losing the rook is still the first thing he
-    # needs to know.
-    #
-    # Not phrased as a mate claim: on that card Black holds with Be6 or Qf6, so
-    # the sentence says the king has no way out, which is true of the position
-    # whatever they choose.
-    if caption_facts.get("back_rank_exposed") and caption_payload.get("caption"):
-        try:
-            from services.caption_templates import render_template
-            _br = render_template("R12_blunder", "back_rank_no_escape", caption_facts)
-            if _br and _br not in caption_payload["caption"]:
-                caption_payload["caption"] = (
-                    caption_payload["caption"].rstrip() + " " + _br
-                )
-        except Exception:
-            pass
+    # The same warning, drawn. The caption above says the king has no way out;
+    # a card that says it and shows nothing is the complaint that keeps coming
+    # back. back_rank_threat_arrows draws the mating move itself, on the board
+    # the card is showing, and only when the board proves the mate.
+    # Gated on the SENTENCE, not on the fact: an arrow the words never explain
+    # is the "why this arrow?" complaint, and the caption can still come out
+    # empty here -- the final verify silences a card whose truth boundary threw.
+    if _back_rank_said:
+        _seen_pairs = {(a.get("from"), a.get("to")) for a in _arrows_out}
+        for _a in _back_rank_proof:
+            if (_a["from"], _a["to"]) not in _seen_pairs:
+                _arrows_out = _arrows_out + [_a]
+                _seen_pairs.add((_a["from"], _a["to"]))
 
     visual = VisualSurface(
         arrows=_arrows_out,
