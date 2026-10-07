@@ -237,3 +237,57 @@ class TestTheStoryChoosesTheBranchNotTheWords:
         assert len(drawn) == 1
         # d2->d4 is our plan. It must not be what this card shows.
         assert ("d2", "d4") not in [(a[0], a[1]) for a in drawn]
+
+
+class TestTheArrowTakesTheMoveFromTheVerdict:
+    """Mohit, 2026-10-07, on the O-O arrow: "is this from stockfish code that i
+    asked you?"
+
+    The branch decision was, but the MOVE was not. It came from
+    opp_missed_capture_san and its siblings -- detector facts gated far more
+    narrowly than the verdict. Measured over 486 opponent cards the classifier
+    calls an opportunity, the detector fact was absent on 287 (59%) and the
+    card drew nothing, while 286 of those 287 missed moves are plain captures:
+    Rxa8, Bxc5, Rxf5, Bxg5. The engine knew, the verdict agreed, and the arrow
+    asked a third party that said nothing.
+
+    Taking the move from the verdict took that from 199 drawn to 304, with no
+    arrow that is not the engine's own move.
+    """
+
+    def test_the_verdict_alone_is_enough_to_draw(self):
+        """No detector fact present at all -- only the story."""
+        from services.caption_pipeline import _missed_move_arrow
+        board = chess.Board(OO["fen"])
+        after = board.copy()
+        after.push_san("O-O")
+        _story_name, detail = _story(OO)
+        facts = {"move_story": "opportunity", "move_story_detail": detail}
+        drawn = _missed_move_arrow(board, after, facts, "they had Nxe4 for free")
+        assert [(a["from"], a["to"]) for a in drawn] == [("f6", "e4")]
+
+    def test_the_detector_facts_still_work_as_a_fallback(self):
+        """They carry missed MATES and tactics the material classifier records
+        differently, so removing them would lose coverage."""
+        from services.caption_pipeline import _missed_move_arrow
+        board = chess.Board(OO["fen"])
+        after = board.copy()
+        after.push_san("O-O")
+        drawn = _missed_move_arrow(board, after,
+                                   {"opp_missed_capture_san": "Nxe4"},
+                                   "they had Nxe4 for free")
+        assert [(a["from"], a["to"]) for a in drawn] == [("f6", "e4")]
+
+    def test_a_card_that_is_not_an_opportunity_draws_nothing_from_the_verdict(self):
+        from services.caption_pipeline import _missed_move_arrow
+        board = chess.Board(OO["fen"])
+        after = board.copy()
+        after.push_san("O-O")
+        facts = {"move_story": "neither",
+                 "move_story_detail": {"missed_move": "Nxe4"}}
+        assert _missed_move_arrow(board, after, facts, "they had Nxe4 for free") == []
+
+    def test_the_drawn_move_is_the_engines_best_move(self):
+        """The whole point of the change: one source, and it is Stockfish."""
+        _story_name, detail = _story(OO)
+        assert detail["missed_move"] == OO["best"] == "Nxe4"

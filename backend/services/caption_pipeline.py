@@ -6151,14 +6151,30 @@ def _missed_move_arrow(board_before, board_after, facts, caption):
     """
     if board_before is None or board_after is None or not isinstance(facts, dict):
         return []
+    # The move comes from the VERDICT, which holds Stockfish's own best move.
+    #
+    # It used to come from the detector facts below, and they are gated far
+    # more narrowly than the verdict: measured over 486 opponent cards the
+    # classifier calls an opportunity, the detector fact was absent on 287
+    # (59%) and the card drew nothing -- while 286 of those 287 missed moves
+    # are plain captures. Rxa8, Bxc5, Rxf5, Bxg5. The engine knew, the verdict
+    # agreed, and the arrow asked a third party that said nothing.
+    #
+    # The detector facts stay as a fallback, because they also carry missed
+    # MATES and tactics that the material classifier records differently.
     best_san = None
-    for key in _OPP_MISSED_SAN_FACTS:
-        value = facts.get(key)
-        if value:
-            best_san = str(value)
-            break
+    story_detail = facts.get("move_story_detail")
+    if facts.get("move_story") == "opportunity" and isinstance(story_detail, dict):
+        best_san = story_detail.get("missed_move") or None
+    if not best_san:
+        for key in _OPP_MISSED_SAN_FACTS:
+            value = facts.get(key)
+            if value:
+                best_san = str(value)
+                break
     if not best_san:
         return []
+    best_san = str(best_san)
     # The fact licenses the chess claim; this only asks that the words on the
     # card explain the picture beside them. 42 of 230 cards carrying the fact
     # rendered a variant that never mentions the move, and an arrow nobody
