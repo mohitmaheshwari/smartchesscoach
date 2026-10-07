@@ -134,10 +134,28 @@ already exists — `check_focus_outcome` is the single evaluator and
 `games.date_played` holds ISO strings, chess.com dotted dates and nothing at
 all, and the window split compares them as **strings**: "." sorts above "-", so
 every dotted date landed after every ISO timestamp regardless of the real date.
-Measured: **16 of 49 active focuses had a polluted after-window containing 437
-games that predated the focus.** `scripts/backfill_played_at_utc.py` existed,
-dry-run-by-default with rollback, and had never been applied — 693 rows to
-write, 0 unresolvable, 0 disagreeing with the PGN by more than a day. Applied.
+`scripts/backfill_played_at_utc.py` existed, dry-run-by-default with rollback,
+and had never been applied — 693 rows to write, 0 unresolvable, 0 disagreeing
+with the PGN by more than a day. Applied; a re-run now writes 0.
+
+**Verified against the old comparator, not against the script's own claim.**
+The script prints "pollution → 0 by construction", which is an assertion in the
+code's own voice. Running the same pollution probe through both comparators on
+the same data:
+
+| | after-window games | focuses polluted | games wrongly in the after-window |
+|---|---|---|---|
+| old string comparator | 2,961 | **16 of 49** | **445** |
+| shipped typed date | 2,494 | 0 | 0 |
+
+445 rather than the script's 437 — my probe walks each active focus from its own
+`started_at`, so the focus set differs slightly; the conclusion does not.
+
+This took three broken probes to get right. The first crashed on the return
+shape; the second returned zero for *both* real and control, because shifting a
+focus start ten years forward **empties** the after-window instead of polluting
+it — two zeros that read like a pass. A control that cannot fire is worse than
+none, and the only honest control here was re-running against the bug itself.
 
 **NOT FIXED — the measurement is computed daily and thrown away.**
 
