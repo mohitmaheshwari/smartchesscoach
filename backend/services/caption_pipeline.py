@@ -8140,11 +8140,33 @@ def build_move_teaching_decision(
 
     if inputs.mover_is_user:
         _played_uci = played_move.uci() if played_move else ""
+        # The move WE missed, drawn on our own cards too.
+        #
+        # Mohit 2026-10-07, on move 13 c5 of 043d6b9c, reading the engine-paths
+        # panel: "verdict is opportunity, but no arrows." The verdict was right
+        # and nothing acted on it, because _missed_move_arrow was only ever
+        # wired on the opponent branch. His rule is "any side (me or
+        # opponent)", and this was only one side.
+        _user_after_board = None
+        if _story == "opportunity":
+            try:
+                _user_after_board = board_before.copy()
+                _user_after_board.push(played_move)
+            except Exception:
+                _user_after_board = None
         _teach_arrows = (
-            _check_attack_arrows(board_before, inputs.best_move_uci, _engine_line)
-            if _played_uci and _played_uci == (inputs.best_move_uci or "")
-            else []
+            _missed_move_arrow(
+                board_before, _user_after_board, caption_facts,
+                caption_payload.get("caption"),
+            )
+            if _user_after_board is not None else []
         )
+        if not _teach_arrows:
+            _teach_arrows = (
+                _check_attack_arrows(board_before, inputs.best_move_uci, _engine_line)
+                if _played_uci and _played_uci == (inputs.best_move_uci or "")
+                else []
+            )
     else:
         # Their move is on the board; what the card recommends is our reply.
         # When the payoff is delayed, the sequence picture explains more than

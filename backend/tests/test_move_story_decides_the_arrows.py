@@ -350,3 +350,52 @@ class TestTheWordsObeyTheVerdictToo:
                 seen.add(rule["variant"])
                 assert rule["when"].get("move_story") == "punishment", rule["variant"]
         assert seen == gated, gated - seen
+
+
+class TestOurOwnOpportunitiesAreDrawnToo:
+    """Mohit 2026-10-07, reading the engine-paths panel on move 13 c5 of
+    043d6b9c: "verdict is opportunity, but no arrows."
+
+    The verdict was right and nothing acted on it. _missed_move_arrow was only
+    ever wired on the opponent branch; on our own moves _teach_arrows was set
+    only when we had played the best move, and was otherwise empty. His rule is
+    "any side (me or opponent)" and this was one side.
+
+    Measured over 1,017 of our own cards the classifier calls an opportunity:
+    684 gained an arrow (from zero), 0 of them anything but the engine's own
+    best move.
+    """
+
+    # Move 13 of 043d6b9c. We played c5; f5 was the move.
+    C5 = dict(
+        fen="r1bq1rk1/ppp2ppp/1b6/3pP3/2nP1B2/2PB1N2/PP3QPP/1R3RK1 b - - 4 13",
+        played="c5", best="f5", mine=True, cp=105,
+        pvp=["dxc5", "Ba5", "Ng5", "g6", "Qh4", "h5", "Qg3", "Qe7",
+             "e6", "f6", "b4", "fxg5"],
+        pvb=["Rbe1", "Qe7", "Bg5", "Qe8", "b3", "Na5", "Nh4", "c5",
+             "dxc5", "Bc7", "e6", "Bxe6"],
+        story="opportunity")
+
+    def test_our_own_missed_chance_is_an_opportunity(self):
+        assert _story(self.C5)[0] == "opportunity"
+
+    def test_it_draws_the_move_we_missed(self):
+        drawn, decision = _arrows(self.C5)
+        assert decision.debug_facts["move_story"] == "opportunity"
+        assert drawn == [("f7", "f5", "blue")]
+
+    def test_the_square_is_the_one_on_screen(self):
+        """f5 is legal before c5 and still legal after it, because c5 is a
+        queenside pawn move that touches neither f7 nor f5. That is the whole
+        test the arrow has to pass."""
+        board = chess.Board(self.C5["fen"])
+        after = board.copy()
+        after.push_san("c5")
+        assert after.piece_at(chess.parse_square("f7")) is not None
+        assert after.piece_at(chess.parse_square("f5")) is None
+
+    def test_a_punishment_of_ours_still_draws_the_line_not_the_missed_move(self):
+        """The branch must not swallow the punishment picture."""
+        drawn, decision = _arrows(BE6)
+        assert decision.debug_facts["move_story"] == "punishment"
+        assert len(drawn) == 5

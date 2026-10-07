@@ -1564,23 +1564,63 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               : story === "opportunity"
               ? "text-amber-300"
               : "text-zinc-400";
-          const Line = ({ label, first, rest, hint }) => (
-            <div className="mb-2">
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500">
-                {label}
-                {hint ? <span className="normal-case tracking-normal"> — {hint}</span> : null}
-              </p>
-              {first || rest.length ? (
-                <p className="text-[12px] font-mono text-zinc-200 break-words">
-                  {first ? <span className="text-white font-semibold">{first}</span> : null}
-                  {rest.length ? " " + rest.join(" ") : ""}
-                  <span className="text-zinc-600"> ({rest.length + (first ? 1 : 0)} ply)</span>
+          // Replay either engine line on the board, up to and including the
+          // move clicked. Mohit 2026-10-07: "can you make the stockfish
+          // opportunity, punishment line clickable too, so i can play on the
+          // board and help you better." Both lines start from fen_before --
+          // the punishment line opens with the move played, the opportunity
+          // line with the move the engine wanted -- so one replay serves both.
+          const playTo = (moves, idx) => {
+            if (!rec.fen_before) return;
+            try {
+              const game = new Chess(rec.fen_before);
+              let last = null;
+              for (let i = 0; i <= idx; i += 1) {
+                const done = game.move(moves[i]);
+                if (!done) break;
+                last = done;
+              }
+              setBoardFen(game.fen());
+              setShowingFutureMoves(true);
+              setFutureMoveIndex(0);
+              if (last) setArrows([[last.from, last.to, "amber"]]);
+            } catch (err) {
+              console.warn("engine-line replay failed:", moves[idx], err);
+            }
+          };
+          const Line = ({ label, first, rest, hint }) => {
+            const all = [first, ...rest].filter(Boolean);
+            return (
+              <div className="mb-2">
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+                  {label}
+                  {hint ? <span className="normal-case tracking-normal"> — {hint}</span> : null}
                 </p>
-              ) : (
-                <p className="text-[12px] font-mono text-zinc-600">not stored</p>
-              )}
-            </div>
-          );
+                {all.length ? (
+                  <p className="text-[12px] font-mono text-zinc-200 break-words leading-relaxed">
+                    {all.map((san, i) => (
+                      <button
+                        key={`${label}-${i}-${san}`}
+                        type="button"
+                        onClick={() => playTo(all, i)}
+                        title={`Play the line up to ${san}`}
+                        className={
+                          "mr-1 px-1 rounded hover:bg-amber-400/20 hover:text-amber-200 " +
+                          "transition-colors cursor-pointer " +
+                          (i === 0 ? "text-white font-semibold" : "text-zinc-300")
+                        }
+                      >
+                        {san}
+                      </button>
+                    ))}
+                    <span className="text-zinc-600">({all.length} ply)</span>
+                  </p>
+                ) : (
+                  <p className="text-[12px] font-mono text-zinc-600">not stored</p>
+                )}
+              </div>
+            );
+          };
           const swing = (v) => (v === null || v === undefined ? "—" : (v > 0 ? "+" : "") + v);
           return (
             <div
