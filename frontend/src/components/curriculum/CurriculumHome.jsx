@@ -19,6 +19,7 @@ import { API } from "@/App";
 import Layout from "@/components/Layout";
 import CurriculumPrimary from "@/components/curriculum/CurriculumPrimary";
 import ChancesCard from "@/components/coach/ChancesCard";
+import FindingCard from "@/components/coach/FindingCard";
 import SessionCard from "@/components/coach/SessionCard";
 import { curriculumHeadline } from "@/lib/personalCurriculum";
 
@@ -46,6 +47,10 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
         data-testid="personal-curriculum-home"
       >
         <p className="text-[12px] text-muted-foreground mb-5">{greeting}</p>
+        {/* The one thing worth interrupting them with, above everything else.
+            A weekly summary is something a player can work out for themselves;
+            this is not. services/striking_finding.py */}
+        <FindingCard />
         <header className="cg-hero mb-6">
           <p className="cg-eyebrow">I’ve been thinking about your games</p>
           <h1 className="cg-title">

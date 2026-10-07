@@ -187,6 +187,11 @@ async def build_session(db, user_id: str) -> Dict[str, Any]:
             block["href"] = "/game/%s" % decision["evidence"]["game_id"]
     blocks = [b for b in blocks if b["kind"] == "appreciate" or b.get("href")]
 
+    # The one thing worth interrupting them with. Mohit, 2026-10-07: the data on
+    # the page was not worth reading -- a weekly summary is something a player
+    # can work out for themselves. services/striking_finding.py
+    finding = await _finding_for(db, user_id)
+
     # Why this topic and not another one. Mohit, 2026-10-07: the card gave no
     # reason to care. Built from the SHAPE of the evidence rather than its size,
     # because the stored narrative is "235 events across 800 games, 68% of
@@ -200,6 +205,7 @@ async def build_session(db, user_id: str) -> Dict[str, Any]:
 
     return {
         "schema_version": "home_session.v1",
+        "finding": finding,
         "focus_why": ("%s %s" % (why_focus["lead"], why_focus["line"]))
                      if why_focus else None,
         "mode": decision["mode"],
@@ -233,3 +239,48 @@ async def record_shown(db, user_id: str, key: Optional[str]) -> None:
         {"$addToSet": {SHOWN_FIELD: key}},
         upsert=True,
     )
+
+
+async def _finding_for(db, user_id: str) -> Optional[Dict[str, Any]]:
+    """The strongest true thing we can say about this player, or None."""
+    from services.chances_reading import build_reading
+    from services.game_outcome import user_lost
+    from services.striking_finding import (
+        choose_finding, one_family_dominates, results_fade_in_a_sitting,
+        won_games_lost_on_time,
+    )
+
+    # Won positions lost on the clock. Reaches 18 of 70 players at the bar set
+    # in striking_finding; the worst case on prod is 96 games.
+    winning = analysed = 0
+    timeouts = await db.games.find(
+        {"user_id": user_id, "termination": "timeout"},
+        {"_id": 0, "game_id": 1, "result": 1, "user_color": 1}).to_list(3000)
+    lost_ids = [g["game_id"] for g in timeouts if user_lost(g)]
+    if lost_ids:
+        async for doc in db.game_analyses.find(
+            {"game_id": {"$in": lost_ids}},
+            {"_id": 0, "stockfish_analysis.move_evaluations": 1},
+        ):
+            own = [m for m in ((doc.get("stockfish_analysis") or {}).get(
+                "move_evaluations") or []) if not m.get("is_opponent_move")]
+            evals = [m.get("eval_after") for m in own
+                     if isinstance(m.get("eval_after"), (int, float))]
+            if not evals:
+                continue
+            analysed += 1
+            # eval_after is USER-relative -- confirmed against wins by
+            # checkmate, both colours positive. mate_info is NOT, and that
+            # distinction has cost two bugs.
+            if evals[-1] >= 200:
+                winning += 1
+
+    reading = await db[READING_COLLECTION].find_one(
+        {"user_id": user_id}, {"_id": 0}) or {}
+    chances = build_reading(reading)
+
+    return choose_finding([
+        won_games_lost_on_time(winning, analysed),
+        results_fade_in_a_sitting((reading.get("results") or {}).get("fade_points")),
+        one_family_dominates(chances.get("shapes") if chances.get("measured") else None),
+    ])

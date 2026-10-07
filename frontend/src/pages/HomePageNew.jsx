@@ -11,6 +11,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import ChancesCard from "@/components/coach/ChancesCard";
+import FindingCard from "@/components/coach/FindingCard";
 import SessionCard from "@/components/coach/SessionCard";
 import { motion } from "framer-motion";
 import { API } from "@/App";
@@ -421,6 +422,8 @@ export default function HomePageNew({ user }) {
           </motion.div>
 
           {/* ─── SINCE YOU LAST PLAYED (the Mirror) ─── */}
+          {/* Above everything, and outside every branch. */}
+          <FindingCard />
           {lastSession?.story && (
             <motion.section ref={mirrorRef} variants={fadeInUp} className="mb-12 md:mb-16">
               <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
