@@ -527,7 +527,8 @@
       "when": {
         "opp_reply_recaptures_on_played_square": true,
         "captured_piece_type": "present",
-        "played_to_square": "present"
+        "played_to_square": "present",
+        "move_story": "punishment"
       },
       "variant": "failure_allows_recapture"
     },
@@ -535,7 +536,8 @@
       "when": {
         "opp_reply_san": "present",
         "opp_reply_captures_piece_type": "present",
-        "opp_reply_captures_square": "present"
+        "opp_reply_captures_square": "present",
+        "move_story": "punishment"
       },
       "variant": "failure_allows_capture"
     },
@@ -543,14 +545,16 @@
       "when": {
         "is_exchange_losing": true,
         "target_square": "present",
-        "opp_reply_san": "present"
+        "opp_reply_san": "present",
+        "move_story": "punishment"
       },
       "variant": "failure_exchange_losing_with_reply"
     },
     {
       "when": {
         "is_exchange_losing": true,
-        "target_square": "present"
+        "target_square": "present",
+        "move_story": "punishment"
       },
       "variant": "failure_exchange_losing_no_reply"
     },
@@ -569,7 +573,8 @@
     {
       "when": {
         "pieces_now_undefended_present": true,
-        "lost_defender_lead_clause": "absent"
+        "lost_defender_lead_clause": "absent",
+        "move_story": "punishment"
       },
       "variant": "failure_hangs_piece"
     }
@@ -1157,5 +1162,6 @@
     "opp_failure_wrong_recapture": "they took back with the {opp_wrong_piece_played} when the {opp_wrong_piece_wanted} should have taken on {opp_wrong_piece_square}",
     "opp_failure_wrong_piece_square": "their {opp_wrong_piece_played} took {opp_wrong_piece_square}, the square their own {opp_wrong_piece_wanted} wanted",
     "back_rank_no_escape": "Your king on {back_rank_king_square} has no escape squares — your own pawns block them all. Make one before a rook reaches the back row."
-  }
+  },
+  "_failure_mode_clauses_user_story_note": "2026-10-07 - the five clauses that ASSERT we lose material now require move_story == 'punishment'. Mohit: \"worry about the foundation, the logic, the core that keeps it working perfectly.\" move_story is the one verdict the arrows already answer to; it walks BOTH stored engine lines and says whether material moved and in which direction. These clauses were gated on single-move board geometry, which is true and not the same thing: on move 10 of 043d6b9c our knight captured a knight on d2 and was recaptured, an even trade, and 'leaves your knight on d2 undefended' plus 'you simply lose it for nothing' both fired because the knight standing on d2 has no defender. Geometry describes the square; the verdict describes the exchange."
 }

@@ -7533,6 +7533,36 @@ def build_move_teaching_decision(
                 import dataclasses as _dcs
                 _tdc_inputs = _dcs.replace(inputs, move_was_our_recommendation=True)
             _dc = _tdc(_tdc_inputs)
+            # ── The words answer to the same verdict as the picture. ───────
+            #
+            # Mohit, 2026-10-07: "worry about the foundation, the logic, the
+            # core that keeps it working perfectly."
+            #
+            # These templates are fixed sentences that ASSERT material moved.
+            # They cannot describe a trade honestly, so they may only speak
+            # when the verdict says material actually moved, and in the
+            # direction they claim.
+            #
+            # `one_move_blunder` already carried a guard: abstain unless the
+            # opponent's reply wins the piece outright. It measures ONE move
+            # from the board after ours, and on move 10 of 043d6b9c Qxd2 really
+            # does win a knight there with no recapture -- gain 300 against a
+            # threshold of 240, so it fired. What it cannot see is that our
+            # knight reached d2 by taking a knight: the exchange began a move
+            # earlier and the sequence is even. The card then read "you simply
+            # lose it for nothing" about a knight traded for a knight, and
+            # closed by telling the player to "count the trade first".
+            #
+            # The verdict already walks the whole line, so it is the thing to
+            # ask. Same blind spot, same answer as the arrows got.
+            _CLAIMS_WE_LOSE = ("one_move_blunder", "walked_into_tactic")
+            _CLAIMS_WE_MISSED = ("missed_free_material",)
+            if _dc and _dc[0]:
+                _label = str(_dc[1] or "").split(":")[-1]
+                if _label in _CLAIMS_WE_LOSE and _story != "punishment":
+                    _dc = None
+                elif _label in _CLAIMS_WE_MISSED and _story != "opportunity":
+                    _dc = None
             if _dc and _dc[0]:
                 caption_payload["caption"] = _dc[0]
                 caption_payload["rule_name"] = _dc[1]

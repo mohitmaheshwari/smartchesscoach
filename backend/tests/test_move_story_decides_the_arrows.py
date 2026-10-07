@@ -291,3 +291,62 @@ class TestTheArrowTakesTheMoveFromTheVerdict:
         """The whole point of the change: one source, and it is Stockfish."""
         _story_name, detail = _story(OO)
         assert detail["missed_move"] == OO["best"] == "Nxe4"
+
+
+class TestTheWordsObeyTheVerdictToo:
+    """Mohit, 2026-10-07: "worry about the foundation, the logic, the core that
+    keeps it working perfectly."
+
+    The arrows answered to the verdict; the words did not. Move 10 of 043d6b9c
+    traded knight for knight and the card read "Nxd2 leaves your knight on d2
+    undefended, and after Qxd2 you simply lose it for nothing" -- then closed
+    by telling the player to "count the trade first".
+
+    That template already carried a guard: abstain unless the opponent's reply
+    wins the piece outright. It measures ONE move from the board after ours,
+    where Qxd2 genuinely does win a knight with no recapture (gain 300 against
+    a threshold of 240), so it fired. It cannot see that our knight reached d2
+    by taking a knight. Geometry describes the square; the verdict walks the
+    whole line.
+
+    Measured over 1,500 user-mistake cards: 181 unlicensed material claims
+    removed, 0 captions emptied, and 0 punishment cards lost a claim they were
+    entitled to.
+    """
+
+    def test_an_even_trade_is_not_described_as_losing_material(self):
+        _drawn, decision = _arrows(NXD2)
+        caption = decision.text.caption or ""
+        assert decision.debug_facts["move_story"] == "neither"
+        for lie in ("for nothing", "undefended", "hangs"):
+            assert lie not in caption.lower(), caption
+
+    def test_a_real_loss_still_says_so(self):
+        """The gate must not silence the cards that earned the claim."""
+        _drawn, decision = _arrows(BE6)
+        assert decision.debug_facts["move_story"] == "punishment"
+        assert "Bxh7+" in (decision.text.caption or "")
+
+    def test_the_card_still_says_something_useful(self):
+        """Removing a false claim must not leave an empty card."""
+        for case in ALL:
+            _drawn, decision = _arrows(case)
+            assert (decision.text.caption or "").strip(), case["played"]
+
+    def test_the_five_material_clauses_are_gated_in_the_authored_file(self):
+        """The gate is declared as data, next to the clause it governs, so an
+        author adding a sixth sees the pattern."""
+        import json
+        import pathlib
+        path = (pathlib.Path(_BACKEND_ROOT) / "data" / "captions"
+                / "R12_blunder.json")
+        rules = json.loads(path.read_text(encoding="utf-8"))["failure_mode_clauses_user"]
+        gated = {"failure_allows_recapture", "failure_allows_capture",
+                 "failure_exchange_losing_with_reply",
+                 "failure_exchange_losing_no_reply", "failure_hangs_piece"}
+        seen = set()
+        for rule in rules:
+            if rule.get("variant") in gated:
+                seen.add(rule["variant"])
+                assert rule["when"].get("move_story") == "punishment", rule["variant"]
+        assert seen == gated, gated - seen
