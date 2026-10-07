@@ -185,3 +185,89 @@ class TestAPlanWhosePointIsOffScreenIsNotDrawn:
             arrows = _line_sequence_arrows(b, pv)
             if arrows:
                 assert arrows[-1]["color"] == "green", (fen, played)
+
+
+class TestTheMoveTheyMissed:
+    """Mohit 2026-10-07 on move 5 of 413fcce2, after the five-arrow picture was
+    dropped and the card drew nothing: "you already saw a knight could take the
+    pawn and then there is no action, so there is no recapture, so obviously it
+    was winning, in that case there should have only been one arrow, correct?"
+
+    Nothing recaptures on e4, so the idea is complete in one move. One arrow.
+    """
+
+    OPP_FEN = "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2P2N2/PP1P1PPP/RNBQ1RK1 b kq - 0 5"
+    CAPTION = ("Opponent's O-O is a mistake — they had Nxe4, grabbing your "
+               "pawn on e4 for free.")
+    FACTS = {"opp_missed_capture_san": "Nxe4"}
+
+    def _boards(self, played="O-O"):
+        before = chess.Board(self.OPP_FEN)
+        after = before.copy()
+        after.push_san(played)
+        return before, after
+
+    def test_the_pawn_really_is_free(self):
+        """The premise. If something recaptured, a single arrow would be a lie
+        and the card would need a line instead."""
+        before, _ = self._boards()
+        after_nxe4 = before.copy()
+        after_nxe4.push_san("Nxe4")
+        assert not after_nxe4.attackers(chess.WHITE, chess.parse_square("e4"))
+
+    def test_one_arrow_for_the_move_they_missed(self):
+        from services.caption_pipeline import _missed_move_arrow
+        before, after = self._boards()
+        arrows = _missed_move_arrow(before, after, self.FACTS, self.CAPTION)
+        assert [(a["from"], a["to"]) for a in arrows] == [("f6", "e4")]
+
+    def test_the_whole_card_draws_exactly_that(self):
+        d = build_move_teaching_decision(
+            MoveInputs(
+                fen_before=self.OPP_FEN, played_san="O-O", mover_is_user=False,
+                mover_is_white=False, user_color="white", full_move_number=5,
+                move_history_san=[], best_move_san="Nxe4",
+                eval_before_cp=-10, eval_after_cp=115, cp_loss=125,
+                pv_after_played=["d4", "Be7", "Re1", "d6", "h3", "a5", "Bb3",
+                                 "exd4", "cxd4", "d5", "e5", "Ne4"],
+                pv_after_best=[], allow_fresh_engine_verification=False,
+            ),
+            CrossMoveState(),
+        )
+        assert [(a["from"], a["to"]) for a in (d.visual.arrows or [])] == [("f6", "e4")]
+
+    def test_the_move_comes_from_the_fact_never_from_the_sentence(self):
+        """The first attempt read the SAN out of the caption text. Over 3,311
+        opponent cards that drew g1->f3 for "Bishop out before Nf3 keeps the f4
+        option open", and drew THEIR king castling for "Play O-O -- it tucks
+        your king away", which is an instruction to US. A string match cannot
+        license a claim about the board."""
+        from services.caption_pipeline import _missed_move_arrow
+        before, after = self._boards()
+        assert _missed_move_arrow(before, after, {},
+                                  "Bishop out before Nf3 keeps the f4 option open.") == []
+
+    def test_the_words_must_still_explain_the_arrow(self):
+        """42 of 230 cards carrying the fact rendered a variant that never
+        mentions the move. An arrow nobody explained is where this started."""
+        from services.caption_pipeline import _missed_move_arrow
+        before, after = self._boards()
+        assert _missed_move_arrow(before, after, self.FACTS,
+                                  "Opponent castles.") == []
+
+    def test_nothing_is_drawn_once_the_board_has_moved_on(self):
+        """The standing rule -- never draw their better move -- exists because
+        it is legal before their move, not on the board the card renders. That
+        is right when the played move disturbed the squares and too blunt when
+        it did not. Castling moved e8->g8 and h8->f8; the knight is still on f6
+        and the pawn still on e4."""
+        from services.caption_pipeline import _missed_move_arrow
+        before, _ = self._boards()
+        moved_on = before.copy()
+        moved_on.push_san("Nxe4")          # the knight is no longer on f6
+        assert _missed_move_arrow(before, moved_on, self.FACTS, self.CAPTION) == []
+
+    def test_the_squares_the_arrow_uses_are_the_ones_on_screen(self):
+        _before, after = self._boards()
+        assert after.piece_at(chess.parse_square("f6")).symbol() == "n"
+        assert after.piece_at(chess.parse_square("e4")).symbol() == "P"

@@ -5959,6 +5959,82 @@ def _lead_with_the_stalemate(caption, *, played_san, mover_is_user,
     return lead
 
 
+_OPP_MISSED_SAN_FACTS = (
+    "opp_missed_capture_san",
+    "opp_missed_mate_san",
+    "opp_missed_tactic_san",
+)
+
+
+def _missed_move_arrow(board_before, board_after, facts, caption):
+    """One arrow for the move they missed, when the board still shows it.
+
+    Mohit 2026-10-07, on move 5 of 413fcce2 -- "Opponent's O-O is a mistake --
+    they had Nxe4, grabbing your pawn on e4 for free": "you already saw a
+    knight could take the pawn and then there is no action, so there is no
+    recapture, so obviously it was winning, in that case there should have
+    only been one arrow, correct?"
+
+    He is right. Nothing recaptures on e4, so the idea is complete in one move
+    and there is no line to walk. The card drew five arrows of the engine's
+    plan for the OTHER side, and once those were dropped it drew none.
+
+    The move is taken from the FACT the sentence was built from, never from
+    the sentence. The first attempt asked whether the caption contained the
+    SAN, and over 3,311 opponent cards that admitted plain wrong pictures: a
+    card reading "Bishop out before Nf3 keeps the f4 option open" drew g1->f3,
+    and one reading "Play O-O -- it tucks your king away" -- an instruction to
+    US -- drew THEIR king castling. A string match cannot license a claim
+    about the board. `opp_missed_capture_san` and its two siblings are what
+    `R12_blunder.opp_failure_missed_capture` renders from, so an arrow built
+    from them is drawing the move the sentence is actually about.
+
+    The board is still asked as well. The standing rule was never to draw
+    their better move, because it is legal before their move and not on the
+    board the card renders, and "a picture of a position the player cannot
+    see" is the fault this file has spent months removing. That rule is right
+    whenever the played move disturbed the squares involved and too blunt when
+    it did not: castling moved e8->g8 and h8->f8, the knight is still on f6
+    and the pawn still on e4, so f6->e4 reads exactly as it should. A null
+    move hands the turn back -- the same technique the threat test uses -- and
+    the move must still be legal after it. That fails precisely when the piece
+    has moved, the target is gone, or the path is now blocked.
+    """
+    if board_before is None or board_after is None or not isinstance(facts, dict):
+        return []
+    best_san = None
+    for key in _OPP_MISSED_SAN_FACTS:
+        value = facts.get(key)
+        if value:
+            best_san = str(value)
+            break
+    if not best_san:
+        return []
+    # The fact licenses the chess claim; this only asks that the words on the
+    # card explain the picture beside them. 42 of 230 cards carrying the fact
+    # rendered a variant that never mentions the move, and an arrow nobody
+    # explained is the complaint that started all of this.
+    if not _names_the_move(str(caption or ""), best_san):
+        return []
+    try:
+        move = board_before.parse_san(best_san)
+    except (ValueError, AssertionError):
+        return []
+    probe = board_after.copy()
+    try:
+        probe.push(chess.Move.null())
+    except (ValueError, AssertionError):
+        return []
+    if move not in probe.legal_moves:
+        return []
+    return [{
+        "from": chess.square_name(move.from_square),
+        "to": chess.square_name(move.to_square),
+        "color": "blue",
+        "teach": True,
+    }]
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -7903,7 +7979,12 @@ def build_move_teaching_decision(
                 board_before, played_move, _reply_san
             )
         else:
-            _teach_arrows = []
+            # Not about our reply -- but it may be about the move THEY missed,
+            # and that is the whole lesson of an opp-mistake card.
+            _teach_arrows = _missed_move_arrow(
+                board_before, _after_opp_board, caption_facts,
+                caption_payload.get("caption"),
+            )
     # One picture per card. The check picture is rarer and more striking, so it
     # wins when both are available; otherwise show what the blunder gave away.
     # Their reply AND the piece it costs, in that order -- the two halves of
@@ -8089,7 +8170,31 @@ def build_move_teaching_decision(
     # recommending. What has NOT changed is that every arrow must be a move the
     # engine's own line actually plays, drawn in the coordinates of the
     # position before the played move.
-    if not _arrows_out and inputs.mover_is_user and inputs.best_move_uci:
+    # ...but only when the caption actually NAMES the move being drawn.
+    #
+    # Mohit 2026-10-07, on move 3 of 413fcce2 -- he played Bc4, graded good at
+    # 5cp, and the card drew f1->b5: "why arrow shows up here?" The words were
+    # "Italian Game. The bishop on c4 eyes f7, the weakest square in Black's
+    # camp." Nothing on that card mentions Bb5. The reasoning above assumes
+    # "the caption beside it already says 'Be5 was better'", and on a good-move
+    # card it says no such thing -- so the picture showed one move while the
+    # sentence taught another.
+    #
+    # Two routes get here with no better-move sentence: a good move keeps its
+    # engine best_move_uci (Bb5 over Bc4) even at 5cp, and the distilled
+    # opening captions swap the TEXT only, by design, leaving whatever arrows
+    # the pipeline had already built. Measured over 463 stored user cards that
+    # draw ONLY the best move: 187 (40.4%) never name it, and 182 of those 187
+    # are moves graded good.
+    #
+    # This is the same fault the opponent path fixed on 2026-09-28 with the
+    # same test, arriving by a third route, so it gets the same answer rather
+    # than a new one.
+    _best_move_is_named = _names_the_move(
+        str(caption_payload.get("caption") or ""), inputs.best_move_san
+    )
+    if (not _arrows_out and inputs.mover_is_user and inputs.best_move_uci
+            and _best_move_is_named):
         # A SACRIFICE never passes the winning-plan test, because the whole
         # point is that material comes out level or worse while the initiative
         # does not. Mohit 2026-10-06, on a card whose engine move was Bxf2+:
