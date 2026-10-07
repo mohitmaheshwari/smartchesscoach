@@ -10,6 +10,7 @@
  */
 
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
+import { motion } from "framer-motion";
 import { resolveBadgeTier } from "../lib/moveBadge";
 import { shouldTranscribeLine } from "../lib/coachLine";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -181,6 +182,23 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [posCommentary, setPosCommentary] = useState({}); // {moveIndex: commentary}
   const [showingFutureMoves, setShowingFutureMoves] = useState(false);
   const [futureMoveIndex, setFutureMoveIndex] = useState(0);
+
+  // Engine-line playback. Mohit 2026-10-07 asked for the lines to animate;
+  // react-chessboard draws its own arrows, so a single arrow cannot be stroked
+  // in -- what it can do is receive them one at a time, which makes the plan
+  // assemble move by move instead of appearing whole. {key, idx} says which
+  // line is running and how far it has got; the ref holds the timer so it can
+  // be stopped on unmount, on a new line, or when the move changes.
+  const [playingLine, setPlayingLine] = useState(null);
+  const lineTimerRef = useRef(null);
+  const stopLinePlayback = useCallback(() => {
+    if (lineTimerRef.current) {
+      clearTimeout(lineTimerRef.current);
+      lineTimerRef.current = null;
+    }
+    setPlayingLine(null);
+  }, []);
+  useEffect(() => stopLinePlayback, [stopLinePlayback]);
   const [highlights, setHighlights] = useState([]);
   const [arrows, setArrows] = useState([]);
 
@@ -1564,61 +1582,129 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               : story === "opportunity"
               ? "text-amber-300"
               : "text-zinc-400";
-          // Replay either engine line on the board, up to and including the
-          // move clicked. Mohit 2026-10-07: "can you make the stockfish
-          // opportunity, punishment line clickable too, so i can play on the
-          // board and help you better." Both lines start from fen_before --
-          // the punishment line opens with the move played, the opportunity
-          // line with the move the engine wanted -- so one replay serves both.
-          const playTo = (moves, idx) => {
+          // Replay either engine line on the board. Mohit 2026-10-07: "can you
+          // make the stockfish opportunity, punishment line clickable too, so i
+          // can play on the board and help you better" and then "add any real
+          // cool animations... rows drawing up, arrows animating up".
+          //
+          // Both lines start from fen_before -- the punishment line opens with
+          // the move played, the opportunity line with the move the engine
+          // wanted -- so one replay serves both.
+          //
+          // The arrows ACCUMULATE as the line runs. react-chessboard owns its
+          // arrow drawing, so a single arrow cannot be stroked in; handing it
+          // one more arrow per step makes the whole plan assemble in front of
+          // you, which is the thing worth seeing.
+          //
+          // Both lines alternate from the side that MOVED on this card, so the
+          // even plies belong to them and the odd plies to their opponent --
+          // on an opponent card that means the even plies are theirs, not
+          // yours. The last arrow drawn is always the move just played, in
+          // amber, so the eye lands on it whoever owns it.
+          const seekTo = (moves, idx, running) => {
             if (!rec.fen_before) return;
             try {
               const game = new Chess(rec.fen_before);
-              let last = null;
+              const drawn = [];
               for (let i = 0; i <= idx; i += 1) {
                 const done = game.move(moves[i]);
                 if (!done) break;
-                last = done;
+                const moverSide = i % 2 === 0;   // the side this card is about
+                const last = i === idx;
+                drawn.push([
+                  done.from,
+                  done.to,
+                  last
+                    ? "amber"
+                    : moverSide
+                    ? "blue"
+                    : "palegrey",
+                ]);
               }
               setBoardFen(game.fen());
               setShowingFutureMoves(true);
               setFutureMoveIndex(0);
-              if (last) setArrows([[last.from, last.to, "amber"]]);
+              setArrows(drawn);
+              if (!running) stopLinePlayback();
             } catch (err) {
               console.warn("engine-line replay failed:", moves[idx], err);
             }
           };
-          const Line = ({ label, first, rest, hint }) => {
+          const runLine = (key, moves) => {
+            stopLinePlayback();
+            const step = (i) => {
+              if (i >= moves.length) {
+                lineTimerRef.current = null;
+                setPlayingLine(null);
+                return;
+              }
+              setPlayingLine({ key, idx: i });
+              seekTo(moves, i, true);
+              lineTimerRef.current = setTimeout(() => step(i + 1), 750);
+            };
+            step(0);
+          };
+          const Line = ({ label, lineKey, first, rest, hint }) => {
             const all = [first, ...rest].filter(Boolean);
+            const live = playingLine && playingLine.key === lineKey;
             return (
-              <div className="mb-2">
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">
-                  {label}
-                  {hint ? <span className="normal-case tracking-normal"> — {hint}</span> : null}
-                </p>
+              <motion.div
+                className="mb-2"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: lineKey === "best" ? 0.08 : 0 }}
+              >
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+                    {label}
+                    {hint ? <span className="normal-case tracking-normal"> — {hint}</span> : null}
+                  </p>
+                  {all.length ? (
+                    <button
+                      type="button"
+                      onClick={() => (live ? stopLinePlayback() : runLine(lineKey, all))}
+                      className="text-[10px] px-1.5 rounded border border-zinc-700 text-zinc-300 hover:border-amber-400 hover:text-amber-200 transition-colors"
+                      title={live ? "Stop" : "Play this line out on the board"}
+                      data-testid={`play-line-${lineKey}`}
+                    >
+                      {live ? "stop" : "play"}
+                    </button>
+                  ) : null}
+                </div>
                 {all.length ? (
                   <p className="text-[12px] font-mono text-zinc-200 break-words leading-relaxed">
-                    {all.map((san, i) => (
-                      <button
-                        key={`${label}-${i}-${san}`}
-                        type="button"
-                        onClick={() => playTo(all, i)}
-                        title={`Play the line up to ${san}`}
-                        className={
-                          "mr-1 px-1 rounded hover:bg-amber-400/20 hover:text-amber-200 " +
-                          "transition-colors cursor-pointer " +
-                          (i === 0 ? "text-white font-semibold" : "text-zinc-300")
-                        }
-                      >
-                        {san}
-                      </button>
-                    ))}
+                    {all.map((san, i) => {
+                      const isNow = live && playingLine.idx === i;
+                      const isPast = live && playingLine.idx > i;
+                      return (
+                        <motion.button
+                          key={`${lineKey}-${i}-${san}`}
+                          type="button"
+                          onClick={() => seekTo(all, i, false)}
+                          title={`Play the line up to ${san}`}
+                          animate={isNow ? { scale: [1, 1.18, 1] } : { scale: 1 }}
+                          transition={{ duration: 0.35 }}
+                          className={
+                            "mr-1 px-1 rounded transition-colors cursor-pointer " +
+                            (isNow
+                              ? "bg-amber-400/25 text-amber-200 font-semibold"
+                              : isPast
+                              ? "text-zinc-500"
+                              : i === 0
+                              ? "text-white font-semibold hover:bg-amber-400/20"
+                              : "text-zinc-300 hover:bg-amber-400/20 hover:text-amber-200")
+                          }
+                        >
+                          {san}
+                        </motion.button>
+                      );
+                    })}
                     <span className="text-zinc-600">({all.length} ply)</span>
                   </p>
                 ) : (
                   <p className="text-[12px] font-mono text-zinc-600">not stored</p>
                 )}
-              </div>
+              </motion.div>
             );
           };
           const swing = (v) => (v === null || v === undefined ? "—" : (v > 0 ? "+" : "") + v);
@@ -1653,12 +1739,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
               <Line
                 label="punishment line"
+                lineKey="played"
                 hint={`what happens after ${rec.move_san}`}
                 first={rec.move_san}
                 rest={played}
               />
               <Line
                 label="opportunity line"
+                lineKey="best"
                 hint="what the engine wanted instead"
                 first={rec.best_move_san}
                 rest={best}
