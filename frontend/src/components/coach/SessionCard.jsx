@@ -76,6 +76,14 @@ function Block({ block }) {
             {block.detail}
           </span>
         )}
+        {/* Why this topic and not another. Mohit, 2026-10-07: the card gave no
+            reason to care, and a coach that cannot say why it chose is a
+            random topic generator with a nice voice. */}
+        {block.why && (
+          <span className="mt-1.5 block border-l-2 border-emerald-600/40 pl-3 text-[12.5px] leading-relaxed text-foreground">
+            {block.why}
+          </span>
+        )}
       </span>
       <span className="flex shrink-0 items-center gap-2 text-[12px] text-muted-foreground">
         {block.minutes} min
@@ -144,6 +152,13 @@ export default function SessionCard() {
       {data.line && (
         <p className="mt-3 max-w-[620px] text-[14px] leading-relaxed text-foreground">
           {data.line}
+        </p>
+      )}
+      {/* On an improve day the headline IS the focus, so the reason belongs
+          directly under it rather than buried in a block. */}
+      {data.mode === "improve" && data.focus_why && (
+        <p className="mt-3 max-w-[620px] border-l-2 border-emerald-600/40 pl-3 text-[13.5px] leading-relaxed text-muted-foreground">
+          {data.focus_why}
         </p>
       )}
 

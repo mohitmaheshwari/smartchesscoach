@@ -187,8 +187,21 @@ async def build_session(db, user_id: str) -> Dict[str, Any]:
             block["href"] = "/game/%s" % decision["evidence"]["game_id"]
     blocks = [b for b in blocks if b["kind"] == "appreciate" or b.get("href")]
 
+    # Why this topic and not another one. Mohit, 2026-10-07: the card gave no
+    # reason to care. Built from the SHAPE of the evidence rather than its size,
+    # because the stored narrative is "235 events across 800 games, 68% of
+    # them..." and none of that can be rendered. services/focus_why.py
+    from services.focus_why import build_why
+    why_focus = build_why(focus)
+    if why_focus:
+        for block in blocks:
+            if block["kind"] == "improve":
+                block["why"] = "%s %s" % (why_focus["lead"], why_focus["line"])
+
     return {
         "schema_version": "home_session.v1",
+        "focus_why": ("%s %s" % (why_focus["lead"], why_focus["line"]))
+                     if why_focus else None,
         "mode": decision["mode"],
         # `why` is returned so the decision can be read back. A chooser whose
         # reasoning cannot be inspected is a random number generator with
