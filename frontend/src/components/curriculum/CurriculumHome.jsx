@@ -13,7 +13,9 @@
  * it. If it grows a second and a third, this page has turned back into the
  * scrolling report it was built to replace.
  */
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API } from "@/App";
 import Layout from "@/components/Layout";
 import CurriculumPrimary from "@/components/curriculum/CurriculumPrimary";
 import ChancesCard from "@/components/coach/ChancesCard";
@@ -22,6 +24,19 @@ import { curriculumHeadline } from "@/lib/personalCurriculum";
 
 export default function CurriculumHome({ user, curriculum, greeting }) {
   const navigate = useNavigate();
+
+  // Why this topic, fetched once and shown NEXT TO THE TOPIC rather than in a
+  // card further down. Mohit, 2026-10-07: "nothing has changed on home page" --
+  // it had, but only below the fold, and the part he reads was untouched.
+  const [focusWhy, setFocusWhy] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/home/session`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled) setFocusWhy(d?.focus_why || null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const outcome = curriculum?.decision?.primary?.outcome;
 
   return (
@@ -45,6 +60,7 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
             curriculum={curriculum}
             surface="home"
             onNavigate={navigate}
+            focusWhy={focusWhy}
           />
         </div>
         {/* Today's session: what the coach chose and why. Above the proof,

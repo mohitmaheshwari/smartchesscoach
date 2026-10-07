@@ -156,7 +156,10 @@ export default function SessionCard() {
       )}
       {/* On an improve day the headline IS the focus, so the reason belongs
           directly under it rather than buried in a block. */}
-      {data.mode === "improve" && data.focus_why && (
+      {/* Shown whatever the mode is. It explains the FOCUS, and the focus
+          exists on a challenge day too -- gating it on `improve` meant the one
+          player whose focus has no drill never saw the reason for it. */}
+      {data.focus_why && (
         <p className="mt-3 max-w-[620px] border-l-2 border-emerald-600/40 pl-3 text-[13.5px] leading-relaxed text-muted-foreground">
           {data.focus_why}
         </p>
