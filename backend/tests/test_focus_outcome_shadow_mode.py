@@ -145,3 +145,20 @@ def test_a_naive_bson_date_does_not_explode():
 
 def test_a_null_lock_is_not_due():
     assert _is_due(None, datetime.now(timezone.utc)) is False
+
+def test_the_log_line_does_not_lie_about_the_mode():
+    """`n_shadowed` counts every measured focus in BOTH modes now, so the old
+    single message would have printed "nothing rendered; the flag is off"
+    while the flag was on. A log that lies is worse than no log; that exact
+    shape cost real time in a deploy script that reported the docroot
+    untouched while deleting it."""
+    src = _loop_source()
+    split = src.index("elif n_shadowed:")
+    on_msg, off_msg = src[:split], src[split:]
+    # the off path must still say so
+    assert "is off" in off_msg, off_msg
+    # the render path must not, and must report what it actually did
+    render_msg = on_msg[on_msg.rindex("if render:"):]
+    assert "is off" not in render_msg, render_msg
+    assert "closed" in render_msg, render_msg
+    assert "not due yet" in render_msg, render_msg

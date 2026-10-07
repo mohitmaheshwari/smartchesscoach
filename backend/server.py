@@ -244,15 +244,23 @@ async def focus_outcome_loop():
                     n_processed += 1
                 except Exception as e:
                     logger.warning(f"focus_outcome_loop: error on {f.get('user_id')}: {e}")
-            if n_processed:
+            # ONE LINE, AND IT HAS TO BE TRUE IN BOTH MODES. `n_shadowed`
+            # now counts every focus measured, in render mode too, so the old
+            # message would have printed "nothing rendered; the flag is off"
+            # while the flag was on. A log that lies is worse than no log --
+            # that exact shape cost real time today, in a deploy script that
+            # reported the docroot untouched while deleting it.
+            if render:
                 logger.info(
-                    f"focus_outcome_loop: processed {n_processed} focuses "
-                    f"(improved={n_improved} regressed={n_regressed} stuck={n_stuck})"
+                    f"focus_outcome_loop: measured {n_shadowed}, closed "
+                    f"{n_processed} due (improved={n_improved} "
+                    f"regressed={n_regressed} stuck={n_stuck}); "
+                    f"{n_shadowed - n_processed} not due yet"
                 )
-            if n_shadowed:
+            elif n_shadowed:
                 logger.info(
-                    f"focus_outcome_loop: SHADOW measured {n_shadowed} focuses "
-                    f"(nothing rendered; FOCUS_OUTCOME_RENDER_ENABLED is off)"
+                    f"focus_outcome_loop: measured {n_shadowed} in shadow "
+                    f"(nothing closed; FOCUS_OUTCOME_RENDER_ENABLED is off)"
                 )
         except Exception as e:
             logger.error(f"focus_outcome_loop error: {e}")
