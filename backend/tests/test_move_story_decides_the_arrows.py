@@ -194,3 +194,46 @@ class TestItNeedsNoEngine:
 
     def test_a_broken_fen_is_neither_not_a_crash(self):
         assert classify_move_story("not a fen", "Be6", [], [], "Bf5")[0] == "neither"
+
+
+class TestTheStoryChoosesTheBranchNotTheWords:
+    """Mohit, 2026-10-07, asked twice why the O-O card still drew the wrong
+    thing after the classifier said `opportunity`.
+
+    The branch was `if the caption mentions our reply: draw our plan`, with the
+    story bolted onto the else arm -- so a text test still outranked the
+    verdict. That card's caption says both things, so it matched and the
+    opportunity arrow was never asked for.
+
+    The first draft of this test passed anyway, because the isolated harness
+    renders a caption WITHOUT the "Play d4" clause. A test that cannot
+    reproduce the production text cannot catch a bug caused by it, so the
+    production caption is pinned here as a literal.
+    """
+
+    PROD_CAPTION = (
+        "Opponent's O-O is a mistake — they had Nxe4, grabbing your pawn "
+        "on e4 for free. Play d4 — your pawn kicks their bishop on c5."
+    )
+
+    def test_the_production_caption_really_does_name_both_moves(self):
+        """If this stops being true the test below proves nothing."""
+        assert "Nxe4" in self.PROD_CAPTION      # the move they missed
+        assert "d4" in self.PROD_CAPTION        # the move we are told to play
+
+    def test_the_missed_move_still_wins_when_the_words_name_our_reply(self):
+        from services.caption_pipeline import _missed_move_arrow
+        board = chess.Board(OO["fen"])
+        after = board.copy()
+        after.push_san("O-O")
+        drawn = _missed_move_arrow(board, after,
+                                   {"opp_missed_capture_san": "Nxe4"},
+                                   self.PROD_CAPTION)
+        assert [(a["from"], a["to"]) for a in drawn] == [("f6", "e4")]
+
+    def test_one_arrow_not_the_plan(self):
+        drawn, decision = _arrows(OO)
+        assert decision.debug_facts["move_story"] == "opportunity"
+        assert len(drawn) == 1
+        # d2->d4 is our plan. It must not be what this card shows.
+        assert ("d2", "d4") not in [(a[0], a[1]) for a in drawn]

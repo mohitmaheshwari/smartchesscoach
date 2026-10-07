@@ -8134,7 +8134,26 @@ def build_move_teaching_decision(
             _reply_san and _normalize_san_for_match(_reply_san)
             in _normalize_san_for_match(_caption_text)
         )
-        if _caption_is_about_reply:
+        # The STORY chooses the branch. The text does not.
+        #
+        # This was `if the caption mentions our reply: draw our plan`, with the
+        # story bolted onto the else arm -- so the old text test still outranked
+        # it. On move 5 of 413fcce2 the caption says BOTH things: "they had
+        # Nxe4, grabbing your pawn on e4 for free. Play d4 -- your pawn kicks
+        # their bishop on c5." It saw "d4", took the first branch, and drew our
+        # plan on a card whose lesson is the move THEY missed. Mohit, twice:
+        # "there should have only been one arrow".
+        #
+        # An opportunity is about the move that was missed, full stop. Only
+        # when there is no opportunity does the card fall back to what we
+        # should do next, and only then does it matter whether the words name
+        # it.
+        if _story == "opportunity":
+            _teach_arrows = _missed_move_arrow(
+                board_before, _after_opp_board, caption_facts,
+                caption_payload.get("caption"),
+            )
+        elif _caption_is_about_reply:
             _teach_arrows = _line_sequence_arrows(
                 _after_opp_board, inputs.pv_after_played
             ) or _line_sequence_arrows(
@@ -8143,15 +8162,7 @@ def build_move_teaching_decision(
                 board_before, played_move, _reply_san
             )
         else:
-            # Not about our reply -- but it may be about the move THEY missed,
-            # and that is the whole lesson of an opp-mistake card.
-            _teach_arrows = (
-                _missed_move_arrow(
-                    board_before, _after_opp_board, caption_facts,
-                    caption_payload.get("caption"),
-                )
-                if _story == "opportunity" else []
-            )
+            _teach_arrows = []
     # One picture per card. The check picture is rarer and more striking, so it
     # wins when both are available; otherwise show what the blunder gave away.
     # Their reply AND the piece it costs, in that order -- the two halves of
