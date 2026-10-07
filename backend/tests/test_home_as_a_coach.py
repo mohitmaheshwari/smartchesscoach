@@ -49,6 +49,26 @@ def test_no_strength_sentence_compares_to_other_players():
     assert offenders == [], offenders
 
 
+def test_something_actually_runs_the_strength_picker():
+    """`assign_strength()` had ZERO callers anywhere in the codebase.
+
+    It was written, it works, it is idempotent, and nothing ever ran it -- so
+    all 39 stored strengths were from 2026-07-02 and the first line a player
+    reads was 96 days old. `assign_focuses.py` has run daily since it was
+    written; the weakness half of the picture refreshed and the strength half
+    froze on day one.
+
+    A picker with no caller looks completely healthy from every angle except
+    the one that matters, which is why this is a test and not a note.
+    """
+    from pathlib import Path
+
+    scripts = Path(__file__).resolve().parents[1] / "scripts"
+    callers = [p.name for p in scripts.glob("*.py")
+               if "assign_strength" in p.read_text(encoding="utf-8")]
+    assert callers, "nothing in backend/scripts runs the strength picker"
+
+
 def test_every_strength_the_picker_can_produce_has_words():
     """The gap this test exists for was invisible and was the biggest one.
 
