@@ -524,3 +524,77 @@ class TestAPunishmentPaysOffSoon:
             assert landed is not None and landed <= self.PUNISHMENT_PAYOFF_PLIES, (
                 case["played"], landed
             )
+
+
+class TestTheWordsNameTheChanceToo:
+    """Mohit 2026-10-08, after the arrows started obeying the verdict.
+
+    An `opportunity` card whose caption never names the move the engine wanted
+    knows the lesson and withholds it -- and the arrow is suppressed as well,
+    because the picture may not say what the words do not. 171 of 1,322 such
+    cards were in that state, saying things like "Bb7." while the engine had a
+    move worth up to eight pawns.
+
+    It speaks only where the board can say WHY: the move is mate, or the move
+    captures and the capture stands up. 446 cards gained the sentence,
+    0 over the word cap, 0 failing the truth check, 0 whose piece/square or
+    "for free" claim disagrees with the board.
+    """
+
+    def test_a_card_that_never_named_the_chance_now_does(self):
+        from services.caption_pipeline import _say_the_missed_chance
+        board = chess.Board(OO["fen"])
+        said = _say_the_missed_chance(board, "Nxe4", False, "Opponent castles.")
+        assert "Nxe4" in said
+        assert "pawn on e4" in said
+
+    def test_it_says_nothing_when_the_card_already_names_it(self):
+        from services.caption_pipeline import _say_the_missed_chance
+        board = chess.Board(OO["fen"])
+        assert _say_the_missed_chance(
+            board, "Nxe4", False, "they had Nxe4, grabbing your pawn") == ""
+
+    def test_a_sacrifice_is_never_sold_as_a_capture(self):
+        """Nxh7 on move 20 of 043d6b9c takes a pawn and loses a knight to
+        Kxh7; its point is the deflection that wins the rook two plies later.
+        "taking your pawn on h7" is true about the first move and false about
+        the idea, which is the fault this whole thread is about."""
+        from services.caption_pipeline import _say_the_missed_chance
+        board = chess.Board(TestWhichStoryWinsWhenBothFire.QH4["fen"])
+        assert _say_the_missed_chance(board, "Nxh7", False, "a caption") == ""
+
+    def test_a_quiet_move_gets_no_invented_reason(self):
+        """"Qf6 was better" with no reason is the thing we are stopping.
+        Silence beats a bare SAN."""
+        from services.caption_pipeline import _say_the_missed_chance
+        board = chess.Board(BE6["fen"])
+        assert _say_the_missed_chance(board, "Bf5", True, "a caption") == ""
+
+    def test_free_is_claimed_only_when_nothing_defends(self):
+        from services.caption_pipeline import _say_the_missed_chance
+        board = chess.Board(OO["fen"])
+        said = _say_the_missed_chance(board, "Nxe4", False, "x")
+        after = board.copy()
+        after.push_san("Nxe4")
+        defended = bool(after.attackers(after.turn, chess.parse_square("e4")))
+        assert ("for free" in said) is (not defended)
+
+    def test_mate_outranks_material_on_the_whole_card(self):
+        """One card allowed mate next move and this wanted to open with "You
+        had Bxd5, taking their knight on d5". A knight is not the subject of
+        that card, and the classifier cannot see mate -- it only counts
+        pieces."""
+        case = dict(OO, cp=600)
+        board = chess.Board(case["fen"])
+        decision = build_move_teaching_decision(
+            MoveInputs(
+                fen_before=case["fen"], played_san=case["played"],
+                mover_is_user=False, mover_is_white=False, user_color="white",
+                full_move_number=5, move_history_san=[], best_move_san=case["best"],
+                eval_before_cp=-10, eval_after_cp=9500,   # a mate score
+                cp_loss=600, pv_after_played=case["pvp"], pv_after_best=case["pvb"],
+                allow_fresh_engine_verification=False,
+            ),
+            CrossMoveState(),
+        )
+        assert "MISSED_CHANCE_SAID" not in (decision.text.rule_name or "")

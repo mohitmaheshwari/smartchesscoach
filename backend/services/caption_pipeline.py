@@ -6222,6 +6222,82 @@ def _missed_move_arrow(board_before, board_after, facts, caption):
     }]
 
 
+def _say_the_missed_chance(board_before, best_san, mover_is_user, caption):
+    """Name the chance that was there, and what it takes. Or say nothing.
+
+    Mohit 2026-10-07, after the arrows started obeying the verdict: the words
+    still did not. A card whose verdict is `opportunity` knows the move the
+    engine wanted, and 171 of 1,322 such cards never mentioned it -- they said
+    "Bb7.", or "you still have 4 pieces waiting at home", while the engine had
+    a move worth up to eight pawns. The arrow was then suppressed too, because
+    an arrow nobody explains is the fault this file exists to prevent, so the
+    lesson reached the player in neither form.
+
+    This speaks ONLY where the board can say why:
+
+        the move is mate          -> say it is mate
+        the move captures         -> name the piece and square it takes
+        quiet, or a check whose   -> say NOTHING. "Qf6 was better" with no
+        point lands later            reason is the thing we are trying to
+                                     stop; silence is better than a bare SAN.
+
+    That covers 129 of the 171 (75%). The other 42 keep their caption as it is
+    and still draw no arrow, which is honest: we cannot explain the move, so we
+    do not point at it.
+
+    Returns the sentence, or "" .
+    """
+    if board_before is None or not best_san:
+        return ""
+    if _names_the_move(str(caption or ""), best_san):
+        return ""          # the card already says it
+    try:
+        move = board_before.parse_san(str(best_san))
+    except (ValueError, AssertionError):
+        return ""
+    if move not in board_before.legal_moves:
+        return ""
+
+    after = board_before.copy()
+    after.push(move)
+    subject = "You had" if mover_is_user else "Your opponent had"
+
+    if after.is_checkmate():
+        return f"{subject} {best_san}, which is checkmate."
+
+    if not board_before.is_capture(move):
+        return ""          # nothing the board can point at
+
+    # A SACRIFICE must not be sold as a capture. Nxh7 on move 20 of 043d6b9c
+    # takes a pawn and loses a knight to Kxh7; its point is the deflection
+    # that wins the rook two plies later. "taking your pawn on h7" is true
+    # about the first move and false about the idea, which is the exact
+    # failure this whole thread has been about. If the capture does not stand
+    # up on its own square, the board cannot say why the move was good here,
+    # so nothing is said.
+    try:
+        from services.caption_facts import legal_exchange_gain
+        _gain = legal_exchange_gain(
+            board_before, move.to_square, board_before.turn, first_move=move
+        )
+    except Exception:
+        _gain = None
+    if _gain is not None and _gain < 0:
+        return ""
+
+    victim = board_before.piece_at(move.to_square)
+    if victim is None:     # en passant: the pawn is not on the landing square
+        return f"{subject} {best_san}, taking a pawn."
+    piece_name = chess.piece_name(victim.piece_type)
+    square = chess.square_name(move.to_square)
+    owner = "their" if mover_is_user else "your"
+    # Nothing defends it -- the strongest, simplest version of the fact.
+    if not after.attackers(after.turn, move.to_square):
+        return (f"{subject} {best_san}, taking {owner} {piece_name} on "
+                f"{square} for free.")
+    return f"{subject} {best_san}, taking {owner} {piece_name} on {square}."
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -8028,6 +8104,45 @@ def build_move_teaching_decision(
                     )
                     _back_rank_said = True
                     _fired_state_keys_added.add(_BACK_RANK_KEY)
+
+        # The verdict speaks in the words too, not only in the arrows.
+        #
+        # An `opportunity` card whose caption never names the move the engine
+        # wanted is a card that knows the lesson and withholds it -- and the
+        # arrow is then suppressed as well, because the picture may not say
+        # what the words do not. 171 of 1,322 opportunity cards were in that
+        # state. This leads with the chance, because it IS the lesson, and
+        # keeps whatever the card already said after it.
+        # Mate outranks material, and the classifier cannot see mate -- it
+        # only counts pieces. On one card the played move allowed mate next
+        # move and this wanted to open with "You had Bxd5, taking their
+        # knight on d5". A knight is not the subject of that card.
+        try:
+            from services.severity import MATE_SENTINEL_CP as _MATE_CP
+        except Exception:
+            _MATE_CP = 9000
+        _mate_on_the_board = bool(
+            caption_facts.get("allows_forced_mate")
+            or caption_facts.get("missed_forced_mate_line")
+            or (inputs.eval_after_cp is not None
+                and abs(int(inputs.eval_after_cp)) >= _MATE_CP)
+        )
+        if _story == "opportunity" and not _mate_on_the_board:
+            _missed_line = _say_the_missed_chance(
+                board_before,
+                (_story_detail or {}).get("missed_move"),
+                bool(inputs.mover_is_user),
+                caption_payload.get("caption"),
+            )
+            if _missed_line:
+                _tail = (caption_payload.get("caption") or "").strip()
+                caption_payload["caption"] = (
+                    f"{_missed_line} {_tail}" if _tail else _missed_line
+                )
+                caption_payload["rule_name"] = (
+                    (caption_payload.get("rule_name") or "") + "\u2192MISSED_CHANCE_SAID"
+                )
+                _board_explanation = caption_payload["caption"]
 
         _final_text = (caption_payload.get("caption") or "").strip()
         _final_verified = bool(
