@@ -7496,6 +7496,29 @@ def build_move_teaching_decision(
     # later and could bypass it.  If the composed text fails, first retain the
     # already-verified board explanation; only then use the deterministic floor.
     _final_verified = False
+    # ─── Board lessons ──────────────────────────────────────────────────
+    # Mohit 2026-10-07: "from the board pick the thing and end the lesson,
+    # these are our templates". Six of them, derived from 100 of his games
+    # analysed on both sides rather than from what I expected to find; they
+    # cover 640 of 1,056 mistakes and blunders.
+    #
+    # This producer owns the whole card when it fires, because the bug it
+    # exists to kill is the caption and the arrows coming from different
+    # places. One slots dict writes both. Taking only its sentence, or only
+    # its arrows, would put the drift straight back.
+    #
+    # Behind BOARD_LESSONS because it displaces the existing writer on 61% of
+    # flagged cards, and a change that size gets looked at before it ships.
+    _board_lesson = None
+    if (os.environ.get("BOARD_LESSONS", "false").strip().lower() == "true"
+            and inputs.cp_loss and int(inputs.cp_loss) >= 100):
+        try:
+            from services.board_lessons import find_board_lesson
+            _board_lesson = find_board_lesson(
+                inputs.fen_before, inputs.played_san,
+                list(inputs.pv_after_played or []), inputs.best_move_san)
+        except Exception:
+            _board_lesson = None
     # ONE proof licenses both the sentence and the arrow, so they cannot
     # disagree. Measured over 400 games before shipping: back_rank_exposed is
     # true on 136 of 2,312 mistake cards, and only 3 of those can show a mate.
@@ -7703,6 +7726,12 @@ def build_move_teaching_decision(
                     )
                     _back_rank_said = True
                     _fired_state_keys_added.add(_BACK_RANK_KEY)
+
+        if _board_lesson is not None:
+            caption_payload["caption"] = _board_lesson.caption
+            caption_payload["rule_name"] = (
+                "board_lesson:" + _board_lesson.template_id)
+            _board_explanation = _board_lesson.caption
 
         _final_text = (caption_payload.get("caption") or "").strip()
         _final_verified = bool(
@@ -8084,6 +8113,12 @@ def build_move_teaching_decision(
             if (_a["from"], _a["to"]) not in _seen_pairs:
                 _arrows_out = _arrows_out + [_a]
                 _seen_pairs.add((_a["from"], _a["to"]))
+
+    if _board_lesson is not None:
+        _arrows_out = list(_board_lesson.arrows)
+        if _board_lesson.plan_arrows:
+            _best_arrows = list(_board_lesson.plan_arrows)
+            _best_arrows_fen = _board_lesson.plan_fen
 
     visual = VisualSurface(
         arrows=_arrows_out,

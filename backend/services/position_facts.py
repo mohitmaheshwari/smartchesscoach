@@ -1,373 +1,426 @@
+"""Deterministic facts for a move, for the cards no capture can explain.
+
+Mohit 2026-10-08: "whenever you're not able to determine from punishment or
+opportunity, we need to understand from these concepts". 358 of 1,748 flagged
+moves in his last 100 games have no capture of his in the engine's line and no
+capture on offer -- every material-shaped caption is blind on them, which is
+why one of them told him his rook was "passive -- squeezed for space".
+
+Two batches of 60 were explained by Claude against measured numbers, and both
+independently reported the SAME missing facts. Those are what this module adds.
+The ranking was a surprise and it is the reason the module looks like this:
+
+    make their good piece move / stop ignoring it   23%
+    time: the piece has to move again               20%
+    the piece stopped doing its job                 16%
+    the centre                                      14%
+    king and development                            13%
+    your own pieces get in each other's way         10%
+    pawn structure                                   4%   <- what I had built
+
+Tempo and initiative, not structure. The doubled-pawn, passed-pawn and
+king-air numbers I wrote first were never once the reason a move was bad.
+
+Everything here is counted on a board. Nothing infers, because the one thing
+measured today is that I am reliable reporting what a probe printed and
+unreliable the moment I work it out in my head.
+docs/board_lesson_templates_scope.md
 """
-PositionFacts — single source of truth for "what is this position/move?"
+from __future__ import annotations
 
-Composes existing extractors into one typed object. Does NOT reimplement anything.
-Every downstream classifier, template, LLM prompt should read from PositionFacts
-instead of peeking at the board directly.
-
-Delegates to:
-  - coach_play.teaching.pattern_detectors  (hanging, fork, forcing moves)
-  - mistake_classifier                     (pins, skewers, discovered, overload, phase)
-  - services.position_reader               (pawn shield, center control, development)
-  - services.escape_squares_service        (king mobility)
-  - services.opening_mastery               (opening name/key/variation)
-  - stockfish_service (optional)           (eval, best move, cp_loss)
-
-Adds ONE thing new: `move_category` — classifies where the move went, which the
-old dispatchers ignored (the a3-labeled-as-center bug).
-"""
+from typing import Any, Dict, List, Optional, Sequence
 
 import chess
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import List, Dict, Optional, Any
 
-from coach_play.teaching.pattern_detectors import (
-    find_hanging_pieces as _find_hanging,
-    find_fork_opportunities as _find_forks,
-    count_forcing_moves as _count_forcing,
-)
-from coach_play.teaching.types import HangingPieceInfo, ForkInfo
-from mistake_classifier import (
-    find_pins as _find_pins,
-    find_skewers as _find_skewers,
-    find_discovered_attacks as _find_discovered,
-    find_overloaded_defenders as _find_overloaded,
-    determine_phase as _determine_phase,
-    GamePhase,
-)
+VALUE = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+         chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
+
+CENTRE = (chess.D4, chess.E4, chess.D5, chess.E5)
+BIG_CENTRE = CENTRE + (chess.C4, chess.C5, chess.F4, chess.F5,
+                       chess.D3, chess.E3, chess.D6, chess.E6)
 
 
-CENTER_SQUARES = {chess.D4, chess.D5, chess.E4, chess.E5}
-EXTENDED_CENTER = CENTER_SQUARES | {chess.C4, chess.C5, chess.F4, chess.F5}
-FLANK_FILES = {0, 1, 6, 7}  # a, b, g, h
+# ── helpers ────────────────────────────────────────────────────────────────
+
+def mobility_of(board: chess.Board, square: int) -> int:
+    """How many moves the piece on this square has, whoever's turn it is."""
+    piece = board.piece_at(square)
+    if piece is None:
+        return 0
+    probe = board.copy()
+    probe.turn = piece.color
+    probe.clear_stack()
+    return sum(1 for m in probe.legal_moves if m.from_square == square)
 
 
-class MoveCategory(str, Enum):
-    CASTLE_KINGSIDE = "castle_kingside"
-    CASTLE_QUEENSIDE = "castle_queenside"
-    CENTRAL_PAWN_PUSH = "central_pawn_push"       # pawn to e4/d4/e5/d5
-    EXTENDED_CENTER_PAWN = "extended_center_pawn" # pawn to c4/c5/f4/f5
-    FLANK_PAWN_PUSH = "flank_pawn_push"            # pawn to a/b/g/h file
-    BISHOP_PAWN_PUSH = "bishop_pawn_push"          # pawn to c/f file non-central
-    KNIGHT_DEVELOP = "knight_develop"              # knight from home to active square
-    KNIGHT_RETREAT = "knight_retreat"
-    BISHOP_DEVELOP = "bishop_develop"
-    BISHOP_RETREAT = "bishop_retreat"
-    ROOK_LIFT = "rook_lift"
-    ROOK_MOVE = "rook_move"
-    QUEEN_DEVELOP = "queen_develop"
-    QUEEN_MOVE = "queen_move"
-    KING_MOVE = "king_move"
-    CAPTURE = "capture"
-    PAWN_PROMOTION = "pawn_promotion"
-    EN_PASSANT = "en_passant"
-    OTHER = "other"
+def can_a_pawn_ever_attack(board: chess.Board, square: int, by: bool) -> bool:
+    """Is any enemy pawn still able, ever, to attack this square?
 
-
-HOME_SQUARES = {
-    chess.KNIGHT: {chess.B1, chess.G1, chess.B8, chess.G8},
-    chess.BISHOP: {chess.C1, chess.F1, chess.C8, chess.F8},
-    chess.QUEEN: {chess.D1, chess.D8},
-    chess.ROOK: {chess.A1, chess.H1, chess.A8, chess.H8},
-}
-
-
-def classify_move(board_before: chess.Board, move: chess.Move) -> MoveCategory:
-    """Classify WHAT kind of move this is based on piece, from_square, to_square.
-
-    This is the signal the old dispatchers (match_coach_scenario) were missing.
-    Every caller that wants "is this a developing move / a flank push / a retreat"
-    should use this instead of branching on `piece` alone.
+    Pure geometry: a pawn can only attack diagonally forward, so only pawns on
+    the two neighbouring files, behind the square, can ever do it. This is the
+    outpost test and the permanent-hole test, which are the same question
+    asked from the two sides.
     """
-    piece = board_before.piece_at(move.from_square)
-    if not piece:
-        return MoveCategory.OTHER
-
-    if board_before.is_castling(move):
-        return (MoveCategory.CASTLE_KINGSIDE
-                if chess.square_file(move.to_square) > 4
-                else MoveCategory.CASTLE_QUEENSIDE)
-
-    if move.promotion:
-        return MoveCategory.PAWN_PROMOTION
-
-    if board_before.is_en_passant(move):
-        return MoveCategory.EN_PASSANT
-
-    if board_before.is_capture(move):
-        return MoveCategory.CAPTURE
-
-    pt = piece.piece_type
-    to_file = chess.square_file(move.to_square)
-
-    if pt == chess.PAWN:
-        if move.to_square in CENTER_SQUARES:
-            return MoveCategory.CENTRAL_PAWN_PUSH
-        if move.to_square in EXTENDED_CENTER:
-            return MoveCategory.EXTENDED_CENTER_PAWN
-        if to_file in FLANK_FILES:
-            return MoveCategory.FLANK_PAWN_PUSH
-        return MoveCategory.BISHOP_PAWN_PUSH  # c/f file, non-central
-
-    if pt == chess.KNIGHT:
-        from_home = move.from_square in HOME_SQUARES[chess.KNIGHT]
-        to_home = move.to_square in HOME_SQUARES[chess.KNIGHT]
-        if from_home and not to_home:
-            return MoveCategory.KNIGHT_DEVELOP
-        if to_home and not from_home:
-            return MoveCategory.KNIGHT_RETREAT
-        return MoveCategory.KNIGHT_DEVELOP  # generic knight move — treat as active
-
-    if pt == chess.BISHOP:
-        from_home = move.from_square in HOME_SQUARES[chess.BISHOP]
-        to_home = move.to_square in HOME_SQUARES[chess.BISHOP]
-        if from_home and not to_home:
-            return MoveCategory.BISHOP_DEVELOP
-        if to_home and not from_home:
-            return MoveCategory.BISHOP_RETREAT
-        return MoveCategory.BISHOP_DEVELOP
-
-    if pt == chess.ROOK:
-        to_rank = chess.square_rank(move.to_square)
-        rook_rank_own = 0 if piece.color == chess.WHITE else 7
-        if to_rank != rook_rank_own and to_rank not in (0, 7):
-            return MoveCategory.ROOK_LIFT
-        return MoveCategory.ROOK_MOVE
-
-    if pt == chess.QUEEN:
-        if move.from_square in HOME_SQUARES[chess.QUEEN]:
-            return MoveCategory.QUEEN_DEVELOP
-        return MoveCategory.QUEEN_MOVE
-
-    if pt == chess.KING:
-        return MoveCategory.KING_MOVE
-
-    return MoveCategory.OTHER
-
-
-@dataclass
-class ThreatFact:
-    """A piece attacked after the move. is_new=True if threat didn't exist before."""
-    square: int
-    piece_type: int
-    defender_count: int
-    attacker_count: int
-    is_new: bool
-
-
-@dataclass
-class PositionFacts:
-    """Complete typed truth of a move in a position. Read, don't rebuild."""
-
-    # ─── Move classification (THE new signal) ───
-    move_san: str
-    move_category: MoveCategory
-    piece_moved: int                  # chess.PAWN, KNIGHT, ...
-    from_square: int
-    to_square: int
-    is_check: bool
-    is_capture: bool
-
-    # ─── Phase & opening ───
-    phase: GamePhase
-    move_number: int
-    opening_key: Optional[str] = None
-    opening_name: Optional[str] = None   # pretty name, e.g. "King's Pawn Opening"
-    opening_variation: Optional[str] = None
-
-    # ─── Tactical facts about the resulting position ───
-    # "us" = side that just moved, "them" = the opponent (side to move now)
-    hanging_ours: List[HangingPieceInfo] = field(default_factory=list)
-    underdefended_ours: List[HangingPieceInfo] = field(default_factory=list)
-    hanging_theirs: List[HangingPieceInfo] = field(default_factory=list)
-    underdefended_theirs: List[HangingPieceInfo] = field(default_factory=list)
-
-    forks_by_us: List[ForkInfo] = field(default_factory=list)
-    forks_by_them: List[ForkInfo] = field(default_factory=list)
-
-    pins_against_them: List[Dict] = field(default_factory=list)
-    pins_against_us: List[Dict] = field(default_factory=list)
-    skewers_on_them: List[Dict] = field(default_factory=list)
-    skewers_on_us: List[Dict] = field(default_factory=list)
-    discovered_by_us: List[Dict] = field(default_factory=list)
-    discovered_by_them: List[Dict] = field(default_factory=list)
-    overloaded_theirs: List[Dict] = field(default_factory=list)
-    overloaded_ours: List[Dict] = field(default_factory=list)
-
-    # ─── Threats ───
-    new_threats: List[ThreatFact] = field(default_factory=list)    # threats created by this move
-    forcing_moves_us: Dict = field(default_factory=dict)           # checks/captures for side that just moved
-    forcing_moves_them: Dict = field(default_factory=dict)         # what opponent can do now
-
-    # ─── Engine facts (optional — only if Stockfish eval passed in) ───
-    eval_before_cp: Optional[int] = None
-    eval_after_cp: Optional[int] = None
-    cp_loss: Optional[int] = None
-    best_move_san: Optional[str] = None
-    principal_variation: List[str] = field(default_factory=list)
-
-    # ─── Raw access for escape hatches ───
-    fen_before: str = ""
-    fen_after: str = ""
-
-
-def _to_color(c) -> chess.Color:
-    """Normalize 'white'/'black' str or chess.Color to chess.Color."""
-    if isinstance(c, str):
-        return chess.WHITE if c.lower().startswith("w") else chess.BLACK
-    return c
-
-
-def _diff_threats(board_before: chess.Board, board_after: chess.Board,
-                  victim_color: chess.Color) -> List[ThreatFact]:
-    """Find pieces of victim_color newly attacked after the move."""
-    attacker = not victim_color
-    out = []
-    for sq in chess.SQUARES:
-        target = board_after.piece_at(sq)
-        if not target or target.color != victim_color or target.piece_type == chess.KING:
+    f, r = chess.square_file(square), chess.square_rank(square)
+    rng = range(r + 1, 8) if by == chess.BLACK else range(0, r)
+    for ff in (f - 1, f + 1):
+        if not 0 <= ff <= 7:
             continue
-        now = board_after.is_attacked_by(attacker, sq)
-        if not now:
-            continue
-        before = board_before.is_attacked_by(attacker, sq)
-        defenders = len(list(board_after.attackers(victim_color, sq)))
-        attackers = len(list(board_after.attackers(attacker, sq)))
-        out.append(ThreatFact(
-            square=sq,
-            piece_type=target.piece_type,
-            defender_count=defenders,
-            attacker_count=attackers,
-            is_new=not before,
-        ))
+        for rr in rng:
+            p = board.piece_at(chess.square(ff, rr))
+            if p and p.piece_type == chess.PAWN and p.color == by:
+                return True
+    return False
+
+
+def _in_our_half(square: int, us: bool) -> bool:
+    r = chess.square_rank(square)
+    return r <= 3 if us == chess.WHITE else r >= 4
+
+
+def _settle(board: chess.Board) -> chess.Board:
+    """Let the obvious recapture happen before counting material.
+
+    110 of 1,056 engine lines stop on a capture the other side answers at once.
+    Material read at the raw last ply is wrong on every one of them -- it is
+    what made me tell Mohit a losing line came out level.
+    """
+    out = board.copy()
+    if not out.move_stack:
+        return out
+    last = out.peek().to_square
+    recaps = [m for m in out.legal_moves if m.to_square == last]
+    if recaps:
+        out.push(min(recaps, key=lambda m: VALUE[out.piece_at(m.from_square).piece_type]))
     return out
 
 
-def _detect_opening_safe(move_history_san: List[str]) -> Dict:
-    """Best-effort opening detection. Returns empty dict on failure."""
-    if not move_history_san:
-        return {}
-    try:
-        from services.opening_mastery import detect_opening_from_moves
-        det = detect_opening_from_moves(move_history_san)
-        return det or {}
-    except Exception:
-        return {}
+def _walk(board: chess.Board, line: Sequence[str]) -> chess.Board:
+    out = board.copy()
+    for san in line:
+        try:
+            out.push_san(str(san))
+        except (ValueError, AssertionError):
+            break
+    return out
 
 
-def extract_facts(
-    board_before: chess.Board,
-    move: chess.Move,
-    move_san: str,
-    *,
-    board_after: Optional[chess.Board] = None,
-    move_history_san: Optional[List[str]] = None,
-    stockfish_eval: Optional[Dict[str, Any]] = None,
-) -> PositionFacts:
-    """Compose all fact extractors into one typed object.
+# ── the facts both agents asked for ────────────────────────────────────────
 
-    Args:
-        board_before: position before the move
-        move: the move played
-        move_san: SAN notation of the move
-        board_after: optional — will be computed if not passed
-        move_history_san: full game move list for opening detection
-        stockfish_eval: optional {eval_before_cp, eval_after_cp, best_move_san, pv:[san]}
+def moves_again(board_after: chess.Board, square: int, line: Sequence[str],
+                origin: Optional[int] = None) -> Optional[Dict[str, Any]]:
+    """Does the piece that just moved have to move AGAIN inside the line?
 
-    Returns:
-        PositionFacts with all deterministic facts populated.
+    The most-used reason in both batches, about 20 of 120, and nothing saw it.
+    A move that is answered by having to move the same piece again is a move
+    that lost time, whatever else is true of it.
     """
-    if board_after is None:
-        board_after = board_before.copy()
-        board_after.push(move)
+    probe = board_after.copy()
+    here = square
+    for ply, san in enumerate(list(line or [])[:8], start=1):
+        try:
+            mv = probe.parse_san(str(san))
+        except (ValueError, AssertionError):
+            return None
+        if mv.from_square == here:
+            return {
+                "ply": ply,
+                "to": chess.square_name(mv.to_square),
+                # Computed, not hardcoded. The first version shipped this as a
+                # literal False on every row, including one where the queen
+                # walked straight back to d8 -- a field that always says the
+                # same thing is a field nobody can trust.
+                "returns_home": mv.to_square == origin,
+            }
+        probe.push(mv)
+    return None
 
-    us = board_before.turn          # who just moved
-    them = not us
 
-    piece = board_before.piece_at(move.from_square)
-    piece_type = piece.piece_type if piece else chess.PAWN
+def pawn_can_kick(board_after: chess.Board, square: int, us: bool) -> Optional[Dict[str, Any]]:
+    """An enemy pawn one move away from attacking the square we just landed on.
 
-    # Hanging & forks — use pattern_detectors (richest version)
-    hanging_ours, underdef_ours = _find_hanging(board_after, us)
-    hanging_theirs, underdef_theirs = _find_hanging(board_after, them)
-    forks_us = _find_forks(board_after, us)
-    forks_them = _find_forks(board_after, them)
+    The CAUSE behind the time-loss family, and knowable at the moment of the
+    move without any engine line at all.
+    """
+    for pawn_sq in board_after.pieces(chess.PAWN, not us):
+        probe = board_after.copy()
+        probe.turn = not us
+        probe.clear_stack()
+        for mv in probe.legal_moves:
+            if mv.from_square != pawn_sq:
+                continue
+            landed = probe.copy()
+            landed.push(mv)
+            if square in landed.attacks(mv.to_square):
+                return {
+                    "pawn_on": chess.square_name(pawn_sq),
+                    "goes_to": chess.square_name(mv.to_square),
+                    "hits": chess.square_name(square),
+                }
+    return None
 
-    # Pins/skewers/discovered/overload — use mistake_classifier (complete suite)
-    # Signature: find_X(board, color) returns attacks against `color`
-    pins_on_them = _find_pins(board_after, them)
-    pins_on_us = _find_pins(board_after, us)
-    skewers_on_them = _find_skewers(board_after, them)
-    skewers_on_us = _find_skewers(board_after, us)
-    # discovered attacks BY a color — pass side that could execute
-    discovered_us = _find_discovered(board_after, us, move)
-    discovered_them = _find_discovered(board_after, them)
-    overloaded_theirs = _find_overloaded(board_after, them)
-    overloaded_ours = _find_overloaded(board_after, us)
 
-    # Forcing moves for both sides in the resulting position
-    forcing_us = _count_forcing(board_after, us)
-    forcing_them = _count_forcing(board_after, them)
+def unchallenged_enemy_pieces(board: chess.Board, us: bool) -> List[Dict[str, str]]:
+    """Their pieces sitting in our half or the centre that no pawn of ours hits.
 
-    # Threats created by this move (pieces of `them` newly attacked)
-    new_threats = _diff_threats(board_before, board_after, them)
+    Drove the single biggest family (23%). A 600-1500 player's commonest
+    positional error is not noticing that a piece has simply moved in.
+    """
+    out = []
+    for sq, piece in board.piece_map().items():
+        if piece.color == us or piece.piece_type in (chess.PAWN, chess.KING):
+            continue
+        if not (_in_our_half(sq, us) or sq in BIG_CENTRE):
+            continue
+        hit_now = any(board.piece_at(a) and board.piece_at(a).piece_type == chess.PAWN
+                      for a in board.attackers(us, sq))
+        if hit_now:
+            continue
+        out.append({
+            "piece": chess.piece_name(piece.piece_type),
+            "square": chess.square_name(sq),
+            "can_ever_be_hit_by_a_pawn": can_a_pawn_ever_attack(board, sq, us),
+        })
+    return out
 
-    # Phase (deterministic by piece count)
-    phase = _determine_phase(board_after)
 
-    # Opening (best-effort — only populated if we have move history)
-    opening = _detect_opening_safe(move_history_san or [])
+def guard_changes(before: chess.Board, after: chess.Board, us: bool) -> List[Dict[str, Any]]:
+    """Our own squares that lost a defender, including 'two guards became one'.
 
-    # Engine facts (optional)
-    eval_before = stockfish_eval.get("eval_before_cp") if stockfish_eval else None
-    eval_after = stockfish_eval.get("eval_after_cp") if stockfish_eval else None
-    cp_loss = None
-    if eval_before is not None and eval_after is not None:
-        # cp_loss is from the mover's perspective: positive = loss
-        sign = 1 if us == chess.WHITE else -1
-        cp_loss = max(0, sign * (eval_before - eval_after))
+    A strict attackers>defenders test misses this, which is why the biggest
+    Tier-1 family kept being described by the wrong fact.
+    """
+    out = []
+    for sq, piece in before.piece_map().items():
+        if piece.color != us or piece.piece_type == chess.KING:
+            continue
+        if after.piece_at(sq) is None or after.piece_at(sq).color != us:
+            continue
+        d0, d1 = len(before.attackers(us, sq)), len(after.attackers(us, sq))
+        if d1 < d0:
+            out.append({
+                "square": chess.square_name(sq),
+                "piece": chess.piece_name(piece.piece_type),
+                "guards_before": d0, "guards_after": d1,
+                "attackers_after": len(after.attackers(not us, sq)),
+            })
+    return out
 
-    return PositionFacts(
-        move_san=move_san,
-        move_category=classify_move(board_before, move),
-        piece_moved=piece_type,
-        from_square=move.from_square,
-        to_square=move.to_square,
-        is_check=board_after.is_check(),
-        is_capture=board_before.is_capture(move),
 
-        phase=phase,
-        move_number=board_before.fullmove_number,
-        opening_key=opening.get("opening_key") or None,
-        opening_name=opening.get("opening_name") or None,
-        opening_variation=opening.get("variation") or None,
+def best_move_covers_extra(board: chess.Board, played: chess.Move,
+                           best: Optional[chess.Move], us: bool) -> List[str]:
+    """Squares the better move would watch that the played move does not.
 
-        hanging_ours=hanging_ours,
-        underdefended_ours=underdef_ours,
-        hanging_theirs=hanging_theirs,
-        underdefended_theirs=underdef_theirs,
-        forks_by_us=forks_us,
-        forks_by_them=forks_them,
-        pins_against_them=pins_on_them,
-        pins_against_us=pins_on_us,
-        skewers_on_them=skewers_on_them,
-        skewers_on_us=skewers_on_us,
-        discovered_by_us=discovered_us,
-        discovered_by_them=discovered_them,
-        overloaded_theirs=overloaded_theirs,
-        overloaded_ours=overloaded_ours,
+    One agent called this the most informative number it computed, because it
+    says what the better move was FOR, rather than only what the played move
+    was against.
+    """
+    if best is None or best == played:
+        return []
+    a, b = board.copy(), board.copy()
+    a.push(played)
+    b.push(best)
+    return sorted(chess.square_name(s) for s in
+                  (set(b.attacks(best.to_square)) - set(a.attacks(played.to_square))))
 
-        new_threats=new_threats,
-        forcing_moves_us=forcing_us,
-        forcing_moves_them=forcing_them,
 
-        eval_before_cp=eval_before,
-        eval_after_cp=eval_after,
-        cp_loss=cp_loss,
-        best_move_san=(stockfish_eval or {}).get("best_move_san"),
-        principal_variation=(stockfish_eval or {}).get("pv") or [],
+def outpost_change(before: chess.Board, after: chess.Board, played: chess.Move,
+                   us: bool) -> Dict[str, Any]:
+    """Did we leave a square nothing can chase us off -- capture or not?
 
-        fen_before=board_before.fen(),
-        fen_after=board_after.fen(),
-    )
+    The first cut only fired when the move was a capture, so a knight quietly
+    walking off an outpost registered as nothing at all.
+    """
+    out: Dict[str, Any] = {"left_own_outpost": None}
+    piece = before.piece_at(played.from_square)
+    if piece is not None and not can_a_pawn_ever_attack(before, played.from_square, not us):
+        if _in_our_half(played.from_square, not us) or played.from_square in BIG_CENTRE:
+            out["left_own_outpost"] = {
+                "square": chess.square_name(played.from_square),
+                "piece": chess.piece_name(piece.piece_type),
+                "moves_there": mobility_of(before, played.from_square),
+                "moves_now": mobility_of(after, played.to_square),
+            }
+    return out
+
+
+def enemy_gains_outpost(before: chess.Board, end: chess.Board, us: bool) -> List[Dict[str, str]]:
+    """Their piece ends the line on a square our pawns can never attack."""
+    out = []
+    for sq, piece in end.piece_map().items():
+        if piece.color == us or piece.piece_type in (chess.PAWN, chess.KING):
+            continue
+        if not (_in_our_half(sq, us) or sq in BIG_CENTRE):
+            continue
+        if can_a_pawn_ever_attack(end, sq, us):
+            continue
+        was = before.piece_at(sq)
+        if was is not None and was.color != us:
+            continue           # already sat there before our move
+        out.append({"piece": chess.piece_name(piece.piece_type),
+                    "square": chess.square_name(sq)})
+    return out
+
+
+
+def own_pieces_blocked(before: chess.Board, after: chess.Board, played: chess.Move,
+                       us: bool) -> List[Dict[str, Any]]:
+    """Our OTHER pieces that lost moves because of where this one went.
+
+    Carries 10 of 160 labelled positions and both agents had to work it out by
+    hand. mobility_* only ever described the piece that moved, so "the square
+    you took is one your own piece needed" was invisible.
+    """
+    out = []
+    for sq, piece in before.piece_map().items():
+        if piece.color != us or sq == played.from_square:
+            continue
+        if after.piece_at(sq) is None or after.piece_at(sq).color != us:
+            continue
+        m0, m1 = mobility_of(before, sq), mobility_of(after, sq)
+        if m1 < m0:
+            out.append({
+                "square": chess.square_name(sq),
+                "piece": chess.piece_name(piece.piece_type),
+                "moves_before": m0, "moves_after": m1,
+                "frozen": m1 == 0,
+            })
+    out.sort(key=lambda d: d["moves_after"] - d["moves_before"])
+    return out[:3]
+
+
+def development_state(board: chess.Board, us: bool) -> Dict[str, Any]:
+    """Minor pieces still at home, castling rights, where the king stands.
+
+    Eleven development_delayed rows and five king_safety_postponed rows were
+    read off the FEN by eye because nothing computed this.
+    """
+    home = 0 if us == chess.WHITE else 7
+    minors = [sq for sq in list(board.pieces(chess.KNIGHT, us)) + list(board.pieces(chess.BISHOP, us))
+              if chess.square_rank(sq) == home]
+    king = board.king(us)
+    return {
+        "minors_still_home": len(minors),
+        "can_castle_short": board.has_kingside_castling_rights(us),
+        "can_castle_long": board.has_queenside_castling_rights(us),
+        "king_square": chess.square_name(king) if king is not None else None,
+        "king_still_home": king is not None and king == (chess.E1 if us == chess.WHITE else chess.E8),
+    }
+
+
+def best_move_played_later(board_after: chess.Board, best: Optional[chess.Move],
+                           line: Sequence[str], us: bool) -> Optional[int]:
+    """Do we play the engine's move anyway, a few plies late?
+
+    The exact signature of losing a tempo: not a different plan, the same plan
+    one move slower. moves_again saw the second move but never that it WAS the
+    recommended one.
+    """
+    if best is None:
+        return None
+    probe = board_after.copy()
+    for ply, san in enumerate(list(line or [])[:8], start=1):
+        try:
+            mv = probe.parse_san(str(san))
+        except (ValueError, AssertionError):
+            return None
+        if probe.turn == us and mv == best:
+            return ply
+        probe.push(mv)
+    return None
+
+
+def squares_a_pawn_stopped_guarding(before: chess.Board, after: chess.Board,
+                                    played: chess.Move, us: bool) -> List[str]:
+    """A pawn push gives up the squares it used to watch.
+
+    enemy_gains_outpost only sees squares no pawn can EVER reach, so everyday
+    give-aways -- e5 no longer covering d4 and f4 -- were invisible.
+    """
+    piece = before.piece_at(played.from_square)
+    if piece is None or piece.piece_type != chess.PAWN:
+        return []
+    lost = set(before.attacks(played.from_square)) - set(after.attacks(played.to_square))
+    return sorted(chess.square_name(s) for s in lost
+                  if not can_a_pawn_ever_attack(after, s, us))
+
+
+def pawn_can_kick_anything(board_after: chess.Board, us: bool,
+                           exclude: Optional[int] = None) -> Optional[Dict[str, str]]:
+    """An enemy pawn one move from hitting ANY of our pieces, not just the
+    one that just moved. The mirror the second agent asked for."""
+    for sq, piece in board_after.piece_map().items():
+        if piece.color != us or piece.piece_type in (chess.PAWN, chess.KING):
+            continue
+        if exclude is not None and sq == exclude:
+            continue
+        hit = pawn_can_kick(board_after, sq, us)
+        if hit:
+            return {**hit, "piece": chess.piece_name(piece.piece_type)}
+    return None
+
+
+# ── entry point ────────────────────────────────────────────────────────────
+
+def extract(fen_before: str, played_san: str,
+            line_after_played: Optional[Sequence[str]] = None,
+            best_move_san: Optional[str] = None) -> Dict[str, Any]:
+    """Every fact, measured. No conclusions -- the ordering is not mine to pick.
+
+    Which fact outranks which, when several fire, comes out of the labelled
+    corpus. Guessing that ordering is how a fork detector came to fire on a
+    quarter of his games.
+    """
+    before = chess.Board(fen_before)
+    us = before.turn
+    played = before.parse_san(str(played_san))
+    after = before.copy()
+    after.push(played)
+
+    best = None
+    if best_move_san:
+        try:
+            best = before.parse_san(str(best_move_san))
+        except (ValueError, AssertionError):
+            best = None
+
+    line = list(line_after_played or [])
+    end = _settle(_walk(after, line))
+
+    def bal(b: chess.Board) -> int:
+        return (sum(VALUE[p.piece_type] for p in b.piece_map().values() if p.color == us)
+                - sum(VALUE[p.piece_type] for p in b.piece_map().values() if p.color != us))
+
+    f: Dict[str, Any] = {
+        "material_before": bal(before),
+        "material_end": bal(end),
+        "material_swing": bal(end) - bal(before),
+        "moved_piece": chess.piece_name(before.piece_at(played.from_square).piece_type),
+        "from_square": chess.square_name(played.from_square),
+        "to_square": chess.square_name(played.to_square),
+        "mobility_from": mobility_of(before, played.from_square),
+        "mobility_to": mobility_of(after, played.to_square),
+        # The SAME line the caller will display. Handing extract() a longer
+        # list than the reader sees puts facts on the card that point at moves
+        # off the end of it: 23 of 164 rows claimed a ply-8 retreat nobody
+        # could check.
+        "moves_again": moves_again(after, played.to_square, line, played.from_square),
+        "pawn_can_kick": pawn_can_kick(after, played.to_square, us),
+        "unchallenged_before": unchallenged_enemy_pieces(before, us),
+        "unchallenged_after": unchallenged_enemy_pieces(after, us),
+        "guards_lost": guard_changes(before, after, us),
+        "best_covers_extra": best_move_covers_extra(before, played, best, us),
+        "enemy_gains_outpost": enemy_gains_outpost(before, end, us),
+        "played_is_capture": before.is_capture(played),
+        "played_gives_check": after.is_check(),
+        "we_were_in_check": before.is_check(),
+        "own_pieces_blocked": own_pieces_blocked(before, after, played, us),
+        "development_before": development_state(before, us),
+        "development_after": development_state(after, us),
+        "best_move_played_later": best_move_played_later(after, best, line, us),
+        "pawn_stopped_guarding": squares_a_pawn_stopped_guarding(before, after, played, us),
+        "pawn_can_kick_another": pawn_can_kick_anything(after, us, exclude=played.to_square),
+    }
+    f.update(outpost_change(before, after, played, us))
+    f["mobility_change"] = f["mobility_to"] - f["mobility_from"]
+    return f

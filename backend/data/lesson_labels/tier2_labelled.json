@@ -1,0 +1,3271 @@
+[
+ {
+  "id": 0,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's queen stands on d4 with no black pawn touching it, and Qf6 would have covered d4.",
+  "lesson": "When an enemy piece parks in the middle, look first for a move that attacks it.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 1,
+  "concept": "piece_loses_a_move",
+  "board_fact": "The g8 knight goes to the rim and has to move again to g4, while the f8 bishop and king are still at home.",
+  "lesson": "Choose the square your knight really wants before you move it; moving the same piece twice gives the other side a free move.",
+  "facts_used": [
+   "moves_again",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 2,
+  "concept": "queen_out_too_early",
+  "board_fact": "The queen leaves d1 on move 6 and Black's c8 bishop can come to g4 to hit it, which h3 would have prevented.",
+  "lesson": "Bring the queen out only when it has a job, or it will be pushed around while they develop.",
+  "facts_used": []
+ },
+ {
+  "id": 3,
+  "concept": "center_neglected",
+  "board_fact": "On move 2 nothing is settled in the middle, and d4 would have covered c5 and e5.",
+  "lesson": "Play in the middle of the board in the first few moves; edge pawn moves can wait.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 4,
+  "concept": "pointless_check",
+  "board_fact": "White answers with Kc1 and the bishop goes back to d7 two moves later.",
+  "lesson": "A check they simply step away from costs you a move; only check when it gains something.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 5,
+  "concept": "piece_with_no_moves",
+  "board_fact": "The e-pawn is stopped by Black's pawn on e5 and has no moves left, and d7-d5 can come and hit it.",
+  "lesson": "Don't push a pawn to a square where it is frozen and an enemy pawn can attack it.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "mobility_change",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 6,
+  "concept": "queen_out_too_early",
+  "board_fact": "The queen takes f6 from the g8 knight and is back on d8 one move later, with c7 and the c8 bishop losing a guard.",
+  "lesson": "Develop knights and bishops before the queen; a queen that comes straight home has lost you a move.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 7,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The b1 knight's square is c3 and the pawn takes it, while Nc3 would have covered b5, d5 and e4.",
+  "lesson": "Before pushing a pawn, check whether a knight or bishop wanted that square.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 8,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The queen gives up c6, where it had 20 moves, for a square with 9.",
+  "lesson": "Keep your strongest piece where it sees the most squares; drifting to the edge halves its power.",
+  "facts_used": [
+   "left_own_outpost",
+   "mobility_from",
+   "mobility_to",
+   "mobility_change"
+  ]
+ },
+ {
+  "id": 9,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The knight takes c3, the square White's c-pawn needs to keep Black out of d4, and the knight has to move on to e2.",
+  "lesson": "Don't put a knight on the square your own pawn needs; the pawn is what keeps enemy knights out.",
+  "facts_used": [
+   "moves_again"
+  ]
+ },
+ {
+  "id": 10,
+  "concept": "center_neglected",
+  "board_fact": "Black answers d6 and the bishop's diagonal from a3 is shut, while e5 would have taken f6 from Black's knight.",
+  "lesson": "A centre pawn push that takes squares from their pieces usually beats a bishop move they can block.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 11,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's knight on d5 and bishop on c4 are both untouched by a pawn, and c6 would have hit the knight.",
+  "lesson": "A knight planted in your half is the first thing to chase away.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 12,
+  "concept": "pressure_released",
+  "board_fact": "The bishop steps back from f4 and stops watching Black's pawn on g5, while Qg6+ would have covered f5, f6, f7, g5, g7, g8 and h5 around the king.",
+  "lesson": "When your pieces already crowd their king, keep adding to it; a quiet retreat hands them time to get organised.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 13,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "The h2 pawn can come to h3 and hit the bishop, which is back on c8 next move.",
+  "lesson": "Before putting a bishop beside their king, check whether a pawn can simply push and chase it home.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 14,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The knight comes back from d4 to f3, while from f5 it would have watched d6, e7, g7 and h6, with Black's bishop on d6 untouched by any pawn.",
+  "lesson": "Don't pull a knight back from a strong central square while it still has good work to do forward.",
+  "facts_used": [
+   "mobility_change",
+   "best_covers_extra",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 15,
+  "concept": "piece_loses_a_move",
+  "board_fact": "The b1 knight starts a three-move trip to d2, f1 and g3, and moves again at once, while d4 drops to two guards with one attacker.",
+  "lesson": "A knight that needs three moves to find a job is three moves the other side can use.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 16,
+  "concept": "king_safety_postponed",
+  "board_fact": "Black meets the check by walking the king to d7 and on to c8, losing castling, while Rf7 would have blocked on f7.",
+  "lesson": "If a check can be blocked by a piece, block it; walking the king out of its shelter costs you more.",
+  "facts_used": [
+   "we_were_in_check",
+   "moves_again",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 17,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The knight goes back to b1 with two moves left instead of six, and e4 drops to one guard with Black's knight on f6 watching it.",
+  "lesson": "Retreating a piece to the back row usually makes it the weakest thing on the board.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "mobility_change",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 18,
+  "concept": "center_neglected",
+  "board_fact": "From f3 the knight would have covered d4 and e5, the squares Black's pawn on e5 and bishop on c5 use; from c3 it covers neither.",
+  "lesson": "Develop toward the middle: the knight that touches the central squares is worth more than the one that does not.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 19,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "In this line Black plays h6 and White's knight on g5 is driven to h3 and then g1, while Qe2 would have covered f3 for it.",
+  "lesson": "If one of your pieces is about to be chased, give it a good square to go to before you develop elsewhere.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 20,
+  "concept": "enemy_outpost_allowed",
+  "board_fact": "The knight leaves d7 with one guard fewer and White's knight comes to d6, a square no black pawn can ever attack.",
+  "lesson": "Before a natural knight move, ask which square it stops guarding; a knight landing in your camp is hard to remove.",
+  "facts_used": [
+   "guards_lost",
+   "enemy_gains_outpost",
+   "unchallenged_after",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 21,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The king on e7 was one of two guards of d6, and after it steps away d6 has one guard left with White's knight on e4 hitting it.",
+  "lesson": "Count what your king is guarding before you move it; in the late middlegame the king is a real defender.",
+  "facts_used": [
+   "guards_lost",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 22,
+  "concept": "development_delayed",
+  "board_fact": "Black's bishops and the b8 knight are still at home, and White's c4 pawn can push to c5 to hit the pawn on b6.",
+  "lesson": "Get a piece out on every opening move you can; a quiet pawn move just hands them a target.",
+  "facts_used": [
+   "pawn_can_kick",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 23,
+  "concept": "development_delayed",
+  "board_fact": "Black's f8 bishop and king have not moved, and Bd6 would have developed and allowed castling.",
+  "lesson": "Finish getting your pieces out and your king castled before you start lining up rooks.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 24,
+  "concept": "center_neglected",
+  "board_fact": "White's pawn on e4 holds the centre and nothing of Black's touches it, while f5 would have hit it.",
+  "lesson": "Strike at the pawn that holds their centre together instead of making another quiet piece move.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 25,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White plays Bf4, which hits d6, and the queen has to move again to e6.",
+  "lesson": "Put your queen where their pieces cannot reach it; every time it is chased they develop for free.",
+  "facts_used": [
+   "moves_again"
+  ]
+ },
+ {
+  "id": 26,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The pawn takes f6 from the g8 knight, and White's e4 pawn can push to e5 to hit it.",
+  "lesson": "Keep f6 free for your knight; a pawn there blocks your own development and loosens your king.",
+  "facts_used": [
+   "pawn_can_kick",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 27,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "Black's pawn on e6 can come to e5 and hit the bishop, which ends up on g5 in this line anyway.",
+  "lesson": "Check for a pawn that can push and hit your bishop before you place it.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 28,
+  "concept": "queen_out_too_early",
+  "board_fact": "The queen drops from 17 squares to 11, White's g-pawn can come to g4 to hit it, and it ends up on g6.",
+  "lesson": "An early queen looks active but is really a target; bring it home and develop instead.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "mobility_change",
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 29,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The pawn takes f3 and e2 from White's bishop on h5, which drops from six squares to four.",
+  "lesson": "Don't push a pawn onto the square your own bishop wants to use.",
+  "facts_used": []
+ },
+ {
+  "id": 30,
+  "concept": "development_delayed",
+  "board_fact": "White's f1 bishop and b1 knight have never moved and the king is still on d1, while Black's queen walks in to b2 in this line.",
+  "lesson": "Get your last pieces out before you move the ones that are already working.",
+  "facts_used": [
+   "enemy_gains_outpost",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 31,
+  "concept": "queen_out_too_early",
+  "board_fact": "The queen takes f6 from the g8 knight and has to move again to b6, and c7 and the c8 bishop lose their guard.",
+  "lesson": "The queen belongs behind the other pieces in the opening, not in front of them.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 32,
+  "concept": "center_neglected",
+  "board_fact": "On move 2 no white pawn is in the middle, d4 would have covered c5 and e5, and b7-b5 can come and hit the bishop.",
+  "lesson": "Put a centre pawn out first; a bishop placed before the centre can be pushed around.",
+  "facts_used": [
+   "best_covers_extra",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 33,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White's e4 pawn can push to e5 and hit the knight, which in this line is driven from f6 to e5 to g6 and back to g8.",
+  "lesson": "If a pawn can push and kick your knight, the knight is not really developed.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 34,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's knights on e4 and e3 sit in the middle with no black pawn touching them, and f5 would have hit the one on e4.",
+  "lesson": "Use a pawn to push an enemy knight out of the centre; pawns do that job better than pieces.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 35,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The knight goes back to b8 with two moves instead of five, and d8, c8, e7 and a7 each lose a guard.",
+  "lesson": "Never undevelop a piece without a reason; you hand over two moves for nothing.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "mobility_change",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 36,
+  "concept": "pointless_check",
+  "board_fact": "White answers c3, the queen's squares drop from 19 to 16, and the b2 pawn can later come to b4 to hit it.",
+  "lesson": "A check they answer with a move they wanted to play anyway helps them, not you.",
+  "facts_used": [
+   "played_gives_check",
+   "mobility_change",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 37,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The bishop stands in front of White's unmoved pawn on d2, while Nf3 would have covered d4 and e5.",
+  "lesson": "Don't park a bishop in front of your own unmoved pawn; the pawn and the bishop both get stuck.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 38,
+  "concept": "endgame_king_too_passive",
+  "board_fact": "The king stays on d2 while Kd3 would have covered c2, c3, c4, d4, e2, e3 and e4, and the bishop moves again to g7 anyway.",
+  "lesson": "In an endgame the king is a fighting piece; walk it toward the middle before you fiddle with other pieces.",
+  "facts_used": [
+   "best_covers_extra",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 39,
+  "concept": "rook_off_open_file",
+  "board_fact": "No pawn of either side is on the d-file, and Rd1 would have covered d2 up to d8; castling leaves the file to Black.",
+  "lesson": "When a file has no pawns on it, grab it with a rook before they do.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 40,
+  "concept": "center_neglected",
+  "board_fact": "White's pawn on e4 is unchallenged and d5 would have hit it and opened the c8 bishop.",
+  "lesson": "Castling is good, but if your pawn can challenge their centre right now, that often comes first.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 41,
+  "concept": "pawn_hole_created",
+  "board_fact": "Once the c-pawn goes past c3, no white pawn can ever cover d4, and Black's knight comes there.",
+  "lesson": "Every pawn push leaves a square behind it that no pawn can guard again; check which square before you push.",
+  "facts_used": [
+   "enemy_gains_outpost",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 42,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White's h2 pawn comes to h3 and hits the knight, and Black has to spend h5 just to hold it there.",
+  "lesson": "A knight on g4 that a pawn can push at is only visiting; holding it there costs you more moves.",
+  "facts_used": [
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 43,
+  "concept": "development_delayed",
+  "board_fact": "Nothing is developed yet, and Nf3 would have covered d4 and e5, which the g-pawn move touches neither of.",
+  "lesson": "Use your early moves to bring pieces out, not to arrange pawns.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 44,
+  "concept": "center_neglected",
+  "board_fact": "The d-pawn could have gone to d5 and taken c6 and e6 from Black's knight; after the knight move Black settles with Nf6 and e6.",
+  "lesson": "When a centre pawn push takes squares from their pieces, take the space.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 45,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White's b2 pawn can come to b4 and hit the knight, which drops from eight squares to six and then goes to d7.",
+  "lesson": "A knight is only well placed if a pawn cannot chase it off.",
+  "facts_used": [
+   "pawn_can_kick",
+   "mobility_change",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 46,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's knight on e5 and bishops on f4 and c4 all sit with no black pawn touching them, and b5 would have hit the one on c4.",
+  "lesson": "With three enemy pieces aimed at your king, hit one of them with a pawn rather than adding another defender.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 47,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's queen sits on d7 inside Black's camp where no pawn can reach it, and Rad8 would have attacked it; instead d3-d4 can hit the queen.",
+  "lesson": "When their queen is sitting in your position, attack it; driving it out is worth more than your own queen trip.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 48,
+  "concept": "pointless_check",
+  "board_fact": "White just plays Kb1, and in this line the rook reaches d6 and the knight c7, squares no black pawn can ever attack.",
+  "lesson": "A check that only nudges their king is a free move for them; improve your worst piece instead.",
+  "facts_used": [
+   "played_gives_check",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 49,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's queen stands on d4 with no black pawn touching it, Nc6 would have hit it, and the g4 pawn can come to g5 to hit h6.",
+  "lesson": "Develop with a move that also attacks something; a knight to c6 gets a piece out and asks the queen a question.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 50,
+  "concept": "center_neglected",
+  "board_fact": "The b-pawn move touches nothing in the middle, while d4 would have covered c5 and e5.",
+  "lesson": "Fight for the two big central squares before arranging pawns on the wing.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 51,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "Black's bishop on g4 has no white pawn touching it and h3 would have hit it; instead Black's d6 pawn can come to d5 and hit the bishop on c4.",
+  "lesson": "When their bishop pesters you from g4, a simple h3 asks it a question; do that before placing your own bishop.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 52,
+  "concept": "development_delayed",
+  "board_fact": "Black's king, both bishops and the g8 knight are all at home, and Nf6 would have developed and covered d5 and e4.",
+  "lesson": "Spend opening moves getting pieces out; a rook's-pawn move does not.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 53,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "After the two-square push no black pawn can ever attack White's knight on g5, while h6 would have hit it at once.",
+  "lesson": "Push a pawn one square when that attacks their piece; two squares can mean you never get to attack it.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 54,
+  "concept": "piece_with_no_moves",
+  "board_fact": "The bishop drops from six squares to one, shut in by White's own pawns on g4 and h3.",
+  "lesson": "Count a bishop's squares before you place it; a bishop behind your own pawns does nothing.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "mobility_change"
+  ]
+ },
+ {
+  "id": 55,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "Black's knight sits on d4 with no white pawn touching it, c3 would have hit it, and b7-b5 can come and hit the bishop on c4.",
+  "lesson": "Kick the enemy knight out of the middle with a pawn before you improve your own pieces.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 56,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "Black's knight on d5 has no white pawn touching it, and c4 would have hit it.",
+  "lesson": "Chase a knight off its central square while you still can; castling can wait a move.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 57,
+  "concept": "unclear",
+  "board_fact": "Both moves develop the same c8 bishop and no measured fact separates them; I cannot tell why e6 is worse than g4.",
+  "lesson": "Not clear from this position.",
+  "facts_used": []
+ },
+ {
+  "id": 58,
+  "concept": "development_delayed",
+  "board_fact": "Black's b8 knight and c8 bishop are still at home, White's a2 pawn can come to a4 to hit the pawn on b5, and the pawn then goes on to b4.",
+  "lesson": "Flank pawn pushes before your pieces are out only give the other side targets.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 59,
+  "concept": "development_delayed",
+  "board_fact": "Black's king and both bishops have not moved while White's queen sits on d4, and Be7 would have developed and allowed castling.",
+  "lesson": "Get a bishop out and the king castled before you touch the queenside pawns.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 60,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "Black's h7 pawn can come to h6 and hit the bishop, while from e3 it would have guarded d4.",
+  "lesson": "Place a bishop where a pawn cannot push at it, especially when it has a job holding the centre.",
+  "facts_used": [
+   "pawn_can_kick",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 61,
+  "concept": "unclear",
+  "board_fact": "The pawn move opens White's c1 bishop and no measured fact counts against it; the engine's queen move is a direct attack rather than a better square.",
+  "lesson": "Not clear from this position.",
+  "facts_used": []
+ },
+ {
+  "id": 62,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White plays Nd5, which hits f6, and the queen is back on d8 next move, with a8 and c7 left unguarded.",
+  "lesson": "Before the queen steps out, check whether a knight can jump to a square that hits it.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 63,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The queen takes d2, the only free square of White's unmoved c1 bishop, which then has no moves at all.",
+  "lesson": "Don't put your queen on the one square your undeveloped bishop needs to get out.",
+  "facts_used": []
+ },
+ {
+  "id": 64,
+  "concept": "endgame_king_too_passive",
+  "board_fact": "Kc4 would have covered b3, b4, b5, c3, c5, d3, d4 and d5, while the pawn move puts a pawn where f5-f4 can hit it.",
+  "lesson": "In a pawn endgame march the king forward first; pawn moves on the wing can only create targets.",
+  "facts_used": [
+   "best_covers_extra",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 65,
+  "concept": "development_delayed",
+  "board_fact": "Every black piece except the queen is on its starting square, and White's d4 pawn can push to d5 to hit the pawn on c6.",
+  "lesson": "Bring out a knight before you make small pawn moves; a pawn move can be attacked, a knight is harder to send home.",
+  "facts_used": [
+   "pawn_can_kick",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 66,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The rook leaves a7 with no guard at all while White's queen on b7 attacks it, and the rook has to move again to b6.",
+  "lesson": "Before you move a rook off its file, check what it was the only defender of.",
+  "facts_used": [
+   "guards_lost",
+   "moves_again",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 67,
+  "concept": "queen_out_too_early",
+  "board_fact": "The queen comes out on move 5 and is back on d1 by the end of this line, and the f3 knight, d2 and the c1 bishop each lose a guard.",
+  "lesson": "If your queen's trip ends back on its starting square, that was a lost move; develop a piece instead.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 68,
+  "concept": "piece_loses_a_move",
+  "board_fact": "The knight goes to the edge and is back on b1 next move, while Bg2 would have covered f1, f3, h1 and h3.",
+  "lesson": "A knight on the edge reaches fewer squares; work out its real square before you move it.",
+  "facts_used": [
+   "moves_again",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 69,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "Black's f7 pawn can come to f6 and hit the knight, which goes on to g4, and d4 is left with no guard.",
+  "lesson": "A knight deep in their camp is only strong if their pawns cannot push it away.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 70,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "The bishop moves a second time, to a square Black's b7 pawn can hit by coming to b5, while a3 would have covered b4 next to Black's queen on a5.",
+  "lesson": "Moving the same bishop again to a square a pawn can hit wastes the move twice over.",
+  "facts_used": [
+   "pawn_can_kick",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 71,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White's g2 pawn can come to g3 and hit the queen, and g7 and the f5 bishop each lose a guard, while f6 would have hit the pawn on e5.",
+  "lesson": "Check for a pawn that can push at your queen before you move it to the edge.",
+  "facts_used": [
+   "pawn_can_kick",
+   "guards_lost",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 72,
+  "concept": "piece_loses_a_move",
+  "board_fact": "White plays Ne1 and the bishop drops back to e6 next move, with b7 left unguarded.",
+  "lesson": "If a bishop has to come back two moves later, the first move was the mistake; place it where it can stay.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 73,
+  "concept": "center_neglected",
+  "board_fact": "No white pawn is in the middle yet, d4 would have covered c5 and e5, and b7-b5 can come and hit the bishop.",
+  "lesson": "Put a pawn in the centre early; a bishop out before the centre pawns can be pushed around.",
+  "facts_used": [
+   "best_covers_extra",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 74,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The b-pawn was the only guard of c6, which now has none, and White's a2 pawn can come to a4 to hit the pawn on b5.",
+  "lesson": "When all your pieces are out, improve the worst one; a wing pawn push only leaves holes behind it.",
+  "facts_used": [
+   "guards_lost",
+   "pawn_can_kick",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 75,
+  "concept": "rook_on_blocked_file",
+  "board_fact": "White's own pawn on e4 and Black's on e5 block the e-file, so the rook looks at nothing, while Qd2 would have covered b4, c3, f4, g5 and h6.",
+  "lesson": "A rook on a file blocked by pawns is doing no work; put it where the file can open.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 76,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "Black plays h6 and the bishop is on f4 next move, and the f7 pawn can also come to f6 to hit g5.",
+  "lesson": "A bishop a pawn can push at has not developed; it will be sent back and the move is gone.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 77,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The rook leaves f1, so f2 drops from two guards to one with Black's bishop on c5 aiming at it.",
+  "lesson": "A rook beside your king is often a defender; check what it is holding before you move it.",
+  "facts_used": [
+   "guards_lost",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 78,
+  "concept": "piece_with_no_moves",
+  "board_fact": "Blocking the check on g6 leaves the knight with no moves at all, and f7 drops to two guards with one attacker.",
+  "lesson": "When you block a check, make sure the blocking piece still has somewhere to go.",
+  "facts_used": [
+   "we_were_in_check",
+   "mobility_from",
+   "mobility_to",
+   "mobility_change",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 79,
+  "concept": "king_safety_postponed",
+  "board_fact": "The f-pawn move empties f7, so Qh5+ comes at once and the king has to step to d8 and give up castling.",
+  "lesson": "Moving the pawn in front of your uncastled king opens a line straight to it; castle first.",
+  "facts_used": []
+ },
+ {
+  "id": 80,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "The knight went to the a-file edge with 3 moves instead of 7, and b5 is one move from hitting it.",
+  "lesson": "A knight at the side of the board does less, and one pawn push can send it back.",
+  "facts_used": [
+   "pawn_can_kick",
+   "mobility_from",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 81,
+  "concept": "outpost_abandoned",
+  "board_fact": "The knight gave up e5, where it had 8 moves and no white pawn can ever reach it, and the line walks it straight back to e5.",
+  "lesson": "If your piece stands on a square no enemy pawn can attack, leave it there.",
+  "facts_used": [
+   "left_own_outpost",
+   "moves_again",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 82,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The queen took f3 with the knight still sitting on g1, and the line has to move her on to g3.",
+  "lesson": "Do not park your queen on a square your own knight needs.",
+  "facts_used": [
+   "moves_again"
+  ]
+ },
+ {
+  "id": 83,
+  "concept": "development_delayed",
+  "board_fact": "The pawn advanced while the knight was still on b1, and Nbd2 would have brought that last piece out.",
+  "lesson": "Finish bringing your pieces out before you push pawns up the board.",
+  "facts_used": []
+ },
+ {
+  "id": 84,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook dropped back to b7 and the line then plays Rb4 anyway, while e5 is left with one defender and one attacker.",
+  "lesson": "If you play a move one turn later anyway, the move in between was a free turn for your opponent.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 85,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The knight's moves fall from 7 to 1, and it now stands between the queen on d8 and the rook on f8.",
+  "lesson": "Pulling a piece back to your own back row usually takes away its own moves.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 86,
+  "concept": "enemy_outpost_allowed",
+  "board_fact": "White's knight goes to c7 next move, where it hits the bishop on e6, and Na6 was the move that watched c7.",
+  "lesson": "Watch the square an enemy piece wants to jump to, even when your own move looks more active.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 87,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The h2 pawn was the only thing guarding the queen on g3, and after the push she has no defender at all.",
+  "lesson": "Before you push a pawn, check whether it is the only guard of one of your pieces.",
+  "facts_used": [
+   "guards_lost",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 88,
+  "concept": "castled_to_the_wrong_side",
+  "board_fact": "White's g- and h-pawns are ready to run, and the line goes g4, g5, h4, h5 straight at the king's new corner.",
+  "lesson": "Look at where the opponent's pawns are heading before you decide which side to castle.",
+  "facts_used": []
+ },
+ {
+  "id": 89,
+  "concept": "enemy_outpost_allowed",
+  "board_fact": "Black's knight lands on e4, a square no white pawn can ever attack, and Nbd2 was the move that covered e4.",
+  "lesson": "Cover the square an enemy knight is heading for before you make quiet pawn moves.",
+  "facts_used": [
+   "enemy_gains_outpost",
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 90,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The queen stopped guarding g5, which now has one defender and one attacker, and left a8 with none.",
+  "lesson": "When you move your queen, check which of your own squares she was holding together.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 91,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The queen stopped guarding c7, which white's bishop on g3 already looks at down the diagonal.",
+  "lesson": "Count the defenders of the pawns near your king before you move the piece that holds them.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 92,
+  "concept": "center_neglected",
+  "board_fact": "The pawn stopped one square short: from f4 it would attack the black pawn on e5 and cover g5.",
+  "lesson": "A pawn move that touches the opponent's centre pawns is worth more than one that only shuffles.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 93,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "The bishop's moves fall from 9 to 6 and b4 is one move from hitting it, while from e5 it would face the knight on d4.",
+  "lesson": "Put your bishop where a pawn cannot push it away.",
+  "facts_used": [
+   "pawn_can_kick",
+   "mobility_from",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 94,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's bishop on f4 has no black pawn attacking it, and Bd6 would have faced it down the same diagonal.",
+  "lesson": "An enemy bishop on a strong square should be met or traded, not walked around.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 95,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The rook left f1, so the f2 pawn drops from two defenders to one, and black's bishop comes to h4 to look at it.",
+  "lesson": "Before you move a rook, see what it was quietly guarding.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 96,
+  "concept": "pointless_check",
+  "board_fact": "Black answers the check with Rd6, and e7-e5 is one move from kicking the bishop away.",
+  "lesson": "A check the opponent answers with a move they wanted anyway just gives them a free turn.",
+  "facts_used": [
+   "played_gives_check",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 97,
+  "concept": "king_safety_postponed",
+  "board_fact": "The king is still on e8 with the rooks apart, and after Qf5 the line castles long two moves later.",
+  "lesson": "Get your king out of the middle before you shuffle your queen around.",
+  "facts_used": []
+ },
+ {
+  "id": 98,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "Nothing of white's touches the black rook on b5, and a4 would attack it, while the bishop goes where h5 can kick it.",
+  "lesson": "Deal with an enemy rook that has got into your half before improving a quiet piece.",
+  "facts_used": [
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 99,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "Black's a5 pawn is free to come to a4 and hit the knight on b3, and white's own a4 would have frozen that pawn for good.",
+  "lesson": "Stop the pawn that is coming to push your piece away before it gets there.",
+  "facts_used": []
+ },
+ {
+  "id": 100,
+  "concept": "pointless_check",
+  "board_fact": "White blocks with Be3 and the queen has to go back to f6 next move.",
+  "lesson": "A check that only makes the opponent place a piece where it wants to be costs you a move.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 101,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The pawn shuts the c8 bishop's diagonal: that bishop had five squares and now has one.",
+  "lesson": "Do not block your own bishop in with a pawn before you have given it a way out.",
+  "facts_used": []
+ },
+ {
+  "id": 102,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "a6 is one move from hitting the bishop, and the line ends with it back on e2.",
+  "lesson": "Do not place a bishop where a single pawn move sends it home again.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 103,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's knights on e4 and e3 have no black pawn attacking them, and f5 would have hit the one on e4.",
+  "lesson": "A pawn is the cheapest way to chase a knight out of your half.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 104,
+  "concept": "unclear",
+  "board_fact": "Three black pieces sit unchallenged on c5, g4 and f2 and the knight's moves rise from 2 to 6, so I cannot tell why rescuing it is worse than Qd2.",
+  "lesson": "When a move looks natural and the engine still dislikes it, say so instead of inventing a reason.",
+  "facts_used": [
+   "unchallenged_before",
+   "mobility_from",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 105,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The queen was the only guard of d4 and c2, and after she leaves, c2 has an attacker on g6 and no defender.",
+  "lesson": "Count what your queen is holding before you move her across the board.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 106,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The bishop on d3 still blocks the d2 pawn, which has no move at all, and Bc2 would have freed it.",
+  "lesson": "Move the piece that is standing in front of your own pawn before you do anything else.",
+  "facts_used": []
+ },
+ {
+  "id": 107,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The rook left the h-file, so the h6 pawn now has black's rook on h7 attacking it and no defender.",
+  "lesson": "A pawn deep in enemy ground needs its guard; do not step away with a check instead.",
+  "facts_used": [
+   "guards_lost",
+   "played_gives_check"
+  ]
+ },
+ {
+  "id": 108,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "f5 is one move from hitting the queen, and the knight on c3 loses a guard as she goes.",
+  "lesson": "Keep your queen off squares a pawn can reach, or she will spend the game running.",
+  "facts_used": [
+   "pawn_can_kick",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 109,
+  "concept": "pointless_check",
+  "board_fact": "White just steps to c1 and the queen moves on to b3 next.",
+  "lesson": "Checks that the opponent answers with a normal move only lose you time.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 110,
+  "concept": "outpost_abandoned",
+  "board_fact": "The knight gave up d4, which no white pawn can ever attack, for a square g4 can hit.",
+  "lesson": "Never swap a square no pawn can reach for one a pawn can push you off.",
+  "facts_used": [
+   "left_own_outpost",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 111,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The king walked off h8 and h7, so the rook on h8 is left with no defender and the h7 pawn with one.",
+  "lesson": "Count what your king is guarding before you walk it to another square.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 112,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "b4 is one move from hitting the bishop, and the line puts it on e7 the very next move.",
+  "lesson": "If a pawn can chase your bishop, go straight to the square you will end up on.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 113,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's rook sits on d6 with nothing attacking it, and Ke7 would have attacked it.",
+  "lesson": "With the queens gone your king is a fighting piece, so use it to chase an intruder.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 114,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "Black's knight on c5 has no white pawn attacking it, and d4 would have hit it, while the bishop goes to d2 and then on to e3.",
+  "lesson": "Hit the enemy knight that has settled in your half instead of shuffling a bishop.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 115,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The bishop's moves fall from 6 to 4 and the queen on e2 loses a defender.",
+  "lesson": "Tucking a bishop back for safety often leaves it looking at nothing.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 116,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The knight's moves fall from 6 to 4 on the edge, and the d7 pawn loses a defender.",
+  "lesson": "A knight on the edge of the board covers half as much as one in the middle.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 117,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "Black's queen sits on a5 untouched, and a3 would let the b3 pawn come to b4 and hit her with the a-pawn holding it.",
+  "lesson": "When the enemy queen comes out early, gain time by preparing a pawn that attacks her.",
+  "facts_used": []
+ },
+ {
+  "id": 118,
+  "concept": "pointless_check",
+  "board_fact": "White blocks with c3, which also attacks the bishop, and the bishop goes to d6 next move.",
+  "lesson": "A check your opponent blocks with a move they wanted anyway loses you a turn.",
+  "facts_used": [
+   "played_gives_check",
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 119,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's queen on g6 and bishop on f4 can never be hit by a black pawn, and Qf7 would have faced the queen.",
+  "lesson": "When an enemy queen settles next to your king, challenge it instead of hunting pawns.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 120,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "Black's knight on d4 has no pawn attacking it, and the knight took c3, the square white's c2 pawn needed to hit it.",
+  "lesson": "Leave the pawn's square free when a pawn is the piece that should do the chasing.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 121,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "f5 is one move from hitting the knight, and the line pushes it on to g3.",
+  "lesson": "A knight that a pawn can hit is not placed, it is only visiting.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 122,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The bishop's moves fall from 7 to 3 and the line walks it on to f7.",
+  "lesson": "A bishop in the corner of the board sees very little; give it open lines.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 123,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The queen took f3 with the knight still on g1, and Bg4 drives her on to g3.",
+  "lesson": "Keep f3 free for your knight; the queen there invites a bishop to chase her.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 124,
+  "concept": "pawn_hole_created",
+  "board_fact": "The f-pawn's advance gives up e3 for good, and black's bishop takes that square next to white's king.",
+  "lesson": "Once a pawn goes past a square, nothing can guard it again, so check what you are giving up.",
+  "facts_used": [
+   "enemy_gains_outpost",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 125,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The knight's moves fall from 5 to 2, and f8, h7 and d7 each lose a defender.",
+  "lesson": "Retreating a knight to the back row undoes the development you already did.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 126,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's bishop on c4 has no black pawn attacking it, and Na5 would have hit it.",
+  "lesson": "Push the enemy bishop that is aiming at your king away before you settle your king.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 127,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The bishop's moves fall from 9 to 5 on the edge of the board.",
+  "lesson": "Count the squares a piece will have on its new home before you send it there.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 128,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "a3 is one move from hitting the bishop, and e5 drops to one defender with an attacker on it.",
+  "lesson": "A bishop that a pawn can chase gains you nothing and loosens what it left behind.",
+  "facts_used": [
+   "pawn_can_kick",
+   "guards_lost",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 129,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "The king stepped to a square f4 can push it off again, and from c4 it would attack the c5 pawn.",
+  "lesson": "In pawn endings walk your king towards the pawns that will decide the game.",
+  "facts_used": [
+   "pawn_can_kick",
+   "mobility_from",
+   "mobility_to",
+   "we_were_in_check"
+  ]
+ },
+ {
+  "id": 130,
+  "concept": "king_safety_postponed",
+  "board_fact": "Black's king is still on e8 and the line never castles, while g4 is one move from hitting the advanced h-pawn.",
+  "lesson": "Castle before you start pushing pawns on the wing.",
+  "facts_used": [
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 131,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The king steps to e2 and then to f1 next move anyway.",
+  "lesson": "When your king has to step aside, go to the square you actually want it on.",
+  "facts_used": [
+   "moves_again",
+   "we_were_in_check"
+  ]
+ },
+ {
+  "id": 132,
+  "concept": "outpost_abandoned",
+  "board_fact": "The knight gave up d4, which no white pawn can ever attack, for a square g4 can hit, and the line brings it back to d4.",
+  "lesson": "A square no pawn can attack is worth keeping; moving off it just wastes moves.",
+  "facts_used": [
+   "left_own_outpost",
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 133,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "c3 is one move from hitting the knight, and the line sends it back to c6.",
+  "lesson": "Check for the pawn that chases you before you jump a knight forward.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 134,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The bishop has one move in the corner and the line brings it back to b7.",
+  "lesson": "A piece in the corner has almost nothing to do; keep it where it has squares.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 135,
+  "concept": "pawn_hole_created",
+  "board_fact": "The g-pawn's advance stops guarding f6 and h6, and white's bishop goes to e7, a square no black pawn can reach.",
+  "lesson": "A pawn that advances gives up the squares it used to guard behind it.",
+  "facts_used": [
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 136,
+  "concept": "development_delayed",
+  "board_fact": "The king shuffles to the corner while the knight is still on b1, and the line brings the king back to g1.",
+  "lesson": "Bring your last pieces out before you make small king moves.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 137,
+  "concept": "unclear",
+  "board_fact": "The queen gains squares, from 13 to 16, and only f2 and g2 lose a defender with no attacker on them, so I cannot say why Ng3 is better.",
+  "lesson": "If the board does not show a reason, do not make one up.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 138,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The queen's moves fall from 23 to 13, and the line has to move her again to b2.",
+  "lesson": "Count how much your queen will see from the new square before you move her.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "moves_again",
+   "left_own_outpost"
+  ]
+ },
+ {
+  "id": 139,
+  "concept": "center_neglected",
+  "board_fact": "Black's pawn on e4 is left alone; f3 would attack it, while the pawn move only pushes the bishop to d6.",
+  "lesson": "Challenge the enemy pawn that is cramping you instead of chasing a piece to a better square.",
+  "facts_used": [
+   "best_covers_extra",
+   "unchallenged_before",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 140,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "Black's bishop on c5 has no white pawn attacking it, and Be3 would have faced it.",
+  "lesson": "Offer to trade the enemy bishop that is the better of the two, rather than sliding past it.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 141,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The c7 pawn stopped guarding d6, which white's queen on g3 attacks, leaving it one defender.",
+  "lesson": "Pushing a pawn past its neighbour leaves the square it used to guard thin.",
+  "facts_used": [
+   "guards_lost",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 142,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The bishop's moves fall from 8 to 4 and white's knight on a4 attacks its new square.",
+  "lesson": "Do not tuck a bishop behind your own pawns where it has half the squares.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 143,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "Black's rook on a4 is behind white's lines with nothing attacking it, and Ra1 would have met it.",
+  "lesson": "When an enemy rook gets behind your lines, challenge it at once.",
+  "facts_used": [
+   "unchallenged_before",
+   "unchallenged_after",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 144,
+  "concept": "development_delayed",
+  "board_fact": "White pushed a pawn with the bishop on f1, the knight on g1 and the rook on h1 all still at home.",
+  "lesson": "Pawn moves can wait; the pieces still on their starting squares cannot.",
+  "facts_used": []
+ },
+ {
+  "id": 145,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "b3 is one move from hitting the knight, and the line pushes it on to a3.",
+  "lesson": "A knight that a pawn can chase ends up on the edge, where it does nothing.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 146,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The queen was the only guard of the c2 pawn, which now has none.",
+  "lesson": "Before moving your queen, note the pawns she alone is guarding.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 147,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "The king went to the edge with 4 moves instead of 6, and the line brings it back to g6.",
+  "lesson": "In pawn endings the king belongs in the middle, not on the edge.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 148,
+  "concept": "pawn_hole_created",
+  "board_fact": "The e5 pawn used to guard d4 and f4; after the push white's bishop and queen can both use those squares.",
+  "lesson": "A pawn only guards the two squares in front of it, so each push hands something back.",
+  "facts_used": []
+ },
+ {
+  "id": 149,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "b4 is one move from hitting the bishop, whose moves fall from 11 to 7, and the line drops it back to b6.",
+  "lesson": "Going to a square a pawn attacks costs you the move and the squares.",
+  "facts_used": [
+   "pawn_can_kick",
+   "mobility_from",
+   "mobility_to",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 150,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The queen stopped guarding the rook on f8 while white's bishop is coming to g5 with check.",
+  "lesson": "With your king stuck in the middle, keep your queen on the squares she is covering.",
+  "facts_used": [
+   "guards_lost",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 151,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The bishop goes to e3 and then on to g5, and the line plays Nf5 anyway two moves later.",
+  "lesson": "If a move is the right one now, playing something else first just hands over a turn.",
+  "facts_used": [
+   "moves_again",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 152,
+  "concept": "outpost_abandoned",
+  "board_fact": "The bishop left d3, which no white pawn can ever reach, for a square f2-f3 can hit.",
+  "lesson": "Keep a piece on the square pawns cannot touch; that is what makes it strong.",
+  "facts_used": [
+   "left_own_outpost",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 153,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "h6 is one move from hitting the bishop, and the line sends it to e3 the very next move.",
+  "lesson": "Go straight to the square the opponent cannot kick you off.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 154,
+  "concept": "center_neglected",
+  "board_fact": "The pawn stopped on e6 when from e5 it would guard d4 and f4.",
+  "lesson": "In the centre, one extra square of pawn reach is worth more than playing safe.",
+  "facts_used": [
+   "best_covers_extra"
+  ]
+ },
+ {
+  "id": 155,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "a4 is one move from hitting the king on b3, and the line drives it on to a3.",
+  "lesson": "Do not step in front of an enemy pawn that can advance and push you back.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 156,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "The king walks to d8 and on to c7, while g6 would have met the check with a pawn that also hits the queen on h5.",
+  "lesson": "When a pawn can block a check and hit the checking piece, that beats running with the king.",
+  "facts_used": [
+   "we_were_in_check",
+   "moves_again",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 157,
+  "concept": "castled_to_the_wrong_side",
+  "board_fact": "The line castles the other way, long, after breaking up black's kingside pawns.",
+  "lesson": "Decide which side will be the safer home before you commit your king.",
+  "facts_used": []
+ },
+ {
+  "id": 158,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "c4 is one move from hitting the queen, and the line sends her straight back to d8.",
+  "lesson": "An early queen trip forward usually ends with her walking home again.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 159,
+  "concept": "king_safety_postponed",
+  "board_fact": "White's king is still on e1, g2 is left with no defender, and the line castles only four moves later.",
+  "lesson": "Castle first; a knight jump into their half can wait a move.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 160,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The knight blocks the f7 pawn, which drops from two moves to none.",
+  "lesson": "Develop a piece to a square where it does not freeze one of your own pawns.",
+  "facts_used": [
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 161,
+  "concept": "king_safety_postponed",
+  "board_fact": "The king is still on e8 with both castling rights, and White's a3 pawn can hit the pushed pawn with a4.",
+  "lesson": "Get the king safe first; a pawn move on the wing can wait.",
+  "facts_used": [
+   "development_before",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 162,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "Black's b7 pawn comes to b5 to hit the bishop, which is back on f1 two moves later with six moves instead of ten.",
+  "lesson": "Do not put a piece where a pawn can chase it; the moves you spent getting there are gone.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again",
+   "mobility_from",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 163,
+  "concept": "pointless_check",
+  "board_fact": "Black just steps to e7, g4 follows next move anyway, and the rook cuts the g7 bishop from four moves to two.",
+  "lesson": "A check the king simply steps away from only delays the move you wanted to play.",
+  "facts_used": [
+   "played_gives_check",
+   "best_move_played_later",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 164,
+  "concept": "piece_loses_a_move",
+  "board_fact": "Nd5, the engine's move, is played next move anyway, and Black's f7 pawn can hit the queen with f5.",
+  "lesson": "If a strong move is there now, play it now; a move later the chance is often gone.",
+  "facts_used": [
+   "best_move_played_later",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 165,
+  "concept": "pointless_check",
+  "board_fact": "White blocks with Rc1, the queen goes straight back to b3, and Rd8 follows two moves later.",
+  "lesson": "A check that gets blocked gains nothing; move the piece that is doing nothing instead.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 166,
+  "concept": "outpost_abandoned",
+  "board_fact": "The knight gives up e3, a square no pawn can reach, falling from eight moves to six, and has to move again to d4.",
+  "lesson": "A piece standing where no pawn can touch it is doing a job; do not move it without a reason.",
+  "facts_used": [
+   "left_own_outpost",
+   "moves_again",
+   "mobility_from",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 167,
+  "concept": "outpost_abandoned",
+  "board_fact": "The knight gives up d5, where no pawn can reach it, and stops guarding f4, which Black's g7 pawn can hit with g5.",
+  "lesson": "Before moving a knight off a safe square, check what it was guarding.",
+  "facts_used": [
+   "left_own_outpost",
+   "guards_lost",
+   "pawn_can_kick_another"
+  ]
+ },
+ {
+  "id": 168,
+  "concept": "pawn_hole_created",
+  "board_fact": "The pawn stops guarding d3 for good, and Black's bishop settles there where no pawn can hit it.",
+  "lesson": "Every pawn move gives up the squares that pawn used to guard; check them first.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "enemy_gains_outpost",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 169,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The bishop is back on e3 next move and in the meantime cuts the d6 rook from twelve moves to eight.",
+  "lesson": "If you cannot say what a move improves, you will put the piece back and lose the move.",
+  "facts_used": [
+   "moves_again",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 170,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "Black's a7 pawn can hit the bishop with a5, and it ends on c3 two moves later with five moves instead of eight.",
+  "lesson": "Look for the pawn that can chase your bishop before you choose its square.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again",
+   "mobility_from",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 171,
+  "concept": "development_delayed",
+  "board_fact": "The knights are still on b1 and g1, castling short is given up, and Nc3 follows two moves later.",
+  "lesson": "Bring the knights and bishops out before you start moving rooks.",
+  "facts_used": [
+   "development_before",
+   "development_after",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 172,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The queen stops guarding the f5 bishop, which White's g2 pawn can hit with g4, and she moves again to e6.",
+  "lesson": "Before you move a piece, check what it was defending.",
+  "facts_used": [
+   "guards_lost",
+   "pawn_can_kick_another",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 173,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The knight cuts the f6 queen from eleven moves to nine and takes one from the c6 knight, and Nd8 follows three moves later.",
+  "lesson": "A developing move that gets in your own pieces' way is not real development.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 174,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook has six moves instead of twelve and is back on d1 three moves later.",
+  "lesson": "If a piece already stands on its best square, moving it only loses time.",
+  "facts_used": [
+   "moves_again",
+   "mobility_from",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 175,
+  "concept": "castled_to_the_wrong_side",
+  "board_fact": "White castles short, while the engine's line plays Qd2 and castles long; no white pawn attacks Black's bishop on c5 or knight on d4.",
+  "lesson": "Castle on the side the opponent's pieces are not aiming at.",
+  "facts_used": [
+   "development_after",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 176,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook moves again to e1 two moves later and stops guarding f2 on the way.",
+  "lesson": "Choose the rook's file once; shuffling it hands the opponent free moves.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 177,
+  "concept": "endgame_king_too_passive",
+  "board_fact": "Both queens are gone and the king's moves fall from five to one in the corner, while the engine walks it to e2.",
+  "lesson": "Once the queens are off, the king is a fighting piece; walk it towards the middle.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "development_after"
+  ]
+ },
+ {
+  "id": 178,
+  "concept": "unclear",
+  "board_fact": "Be3 is played two moves later and the king reaches d8 in both lines; nothing measured separates the two move orders.",
+  "lesson": "Move order can matter even when both moves get played.",
+  "facts_used": [
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 179,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The bishop cuts the d1 queen off from d4 and leaves g2 with no defender.",
+  "lesson": "A piece standing in front of your own queen takes away the squares she was covering.",
+  "facts_used": [
+   "guards_lost",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 180,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "No black pawn attacks White's bishop on c4, while White's c2 pawn can hit the d4 knight with c3.",
+  "lesson": "When an enemy piece sits in your position, kick it with a pawn instead of making a quiet move.",
+  "facts_used": [
+   "unchallenged_after",
+   "pawn_can_kick_another"
+  ]
+ },
+ {
+  "id": 181,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White's b2 pawn can hit the queen with b3, and she retreats to d7 next move.",
+  "lesson": "A queen raid a pawn can chase away just gives the opponent a free move.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 182,
+  "concept": "pawn_hole_created",
+  "board_fact": "The pawn stops guarding f6 and h6 for good, and White's rook reaches g7 and the knight h6.",
+  "lesson": "A pawn push next to your king leaves holes it can never guard again.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "enemy_gains_outpost",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 183,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "White answers g4 to hit the pawn, h7 no longer guards g6, and the king walks to e6 next move anyway.",
+  "lesson": "In a pawn endgame, check whether the opponent's pawn can answer your push.",
+  "facts_used": [
+   "pawn_can_kick",
+   "pawn_stopped_guarding",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 184,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The rook leaves a2 with no defender and one attacker, and cuts the e1 rook from four moves to two.",
+  "lesson": "Check what the rook was holding before you swing it across the board.",
+  "facts_used": [
+   "guards_lost",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 185,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "On f8 the king no longer guards the d8 queen, while the engine's e7 is next to it.",
+  "lesson": "When you must move the king, pick the square that keeps it near your own pieces.",
+  "facts_used": [
+   "guards_lost",
+   "we_were_in_check"
+  ]
+ },
+ {
+  "id": 186,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The rook stops guarding h4, which is left with no defender and two attackers.",
+  "lesson": "Before you swing a rook across the board, check what it was defending.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 187,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The queen stops covering d5, which now has two attackers and one defender.",
+  "lesson": "Count the attackers and defenders of a weak pawn before you move its guard.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 188,
+  "concept": "pointless_check",
+  "board_fact": "White's king just steps to g2, the knight is back on d2 next move, and the c6 bishop lost three moves meanwhile.",
+  "lesson": "A check the king walks away from gains nothing.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 189,
+  "concept": "outpost_abandoned",
+  "board_fact": "The bishop gives up d3, where no pawn can reach it, falling from eleven moves to five, and ends on b7 three moves later.",
+  "lesson": "Do not swap a strong square for a quiet one; count the moves the piece has in each place.",
+  "facts_used": [
+   "left_own_outpost",
+   "mobility_from",
+   "mobility_to",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 190,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "White's g2 pawn can hit the pawn with g4, and the push also takes a square from the g5 queen.",
+  "lesson": "Push a pawn only when the opponent cannot simply meet it with a pawn.",
+  "facts_used": [
+   "pawn_can_kick",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 191,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook goes on to d1 next move anyway, and the a6 and g6 pawns are left with fewer guards.",
+  "lesson": "If the piece is going to that square anyway, go there now and do not stop halfway.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 192,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "White answers f3 to hit the pawn, and d4 is given up for good.",
+  "lesson": "A pawn push the opponent can meet with a pawn usually just costs you the squares yours was guarding.",
+  "facts_used": [
+   "pawn_can_kick",
+   "pawn_stopped_guarding"
+  ]
+ },
+ {
+  "id": 193,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The knight takes the e6 pawn's only square and has to move on to g6 next move.",
+  "lesson": "A knight that lands in front of your own pawn blocks it and usually gets pushed away.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 194,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "Black's b6 pawn can hit the pawn with b5, and no white pawn attacks the bishop on c5.",
+  "lesson": "A wing pawn push that a pawn can answer does not improve anything.",
+  "facts_used": [
+   "pawn_can_kick",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 195,
+  "concept": "piece_loses_a_move",
+  "board_fact": "The bishop's moves fall from eight to four, and f4, the engine's move, follows next move anyway.",
+  "lesson": "Play the move that has to be made now; the other one will still be there.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 196,
+  "concept": "development_delayed",
+  "board_fact": "The bishops on c1 and f1 and the knight on g1 are still home with the king uncastled, and Qg4 follows next move anyway.",
+  "lesson": "Get the pieces out before pushing pawns on the wing.",
+  "facts_used": [
+   "development_before",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 197,
+  "concept": "pointless_check",
+  "board_fact": "White's king steps to b3, the rook moves on to d2 next move, and Nf3 follows three moves later.",
+  "lesson": "Do not check just because you can; ask what is left once the king has moved.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 198,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "Stepping to d1 leaves f2 uncovered and Black's queen lands there next move; from f1 the king would guard f2.",
+  "lesson": "When you move out of check, pick the square that covers the hole beside your king.",
+  "facts_used": [
+   "we_were_in_check"
+  ]
+ },
+ {
+  "id": 199,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The rook drops back behind its own king, taking a move from the king and one from the a8 rook.",
+  "lesson": "Retreat only as far as you need; a piece on the back rank gets in your own way.",
+  "facts_used": [
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 200,
+  "concept": "pawn_hole_created",
+  "board_fact": "The pawn stops guarding e5 for good and Black answers with e5; b4 follows two moves later.",
+  "lesson": "A pawn can never guard again the square it has gone past.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 201,
+  "concept": "pawn_hole_created",
+  "board_fact": "The pawn stops guarding d7 for good, Black's knight gets e4 where no pawn can hit it, and b4 follows next move anyway.",
+  "lesson": "Pushing a pawn gives up the squares behind it for good.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "enemy_gains_outpost",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 202,
+  "concept": "unclear",
+  "board_fact": "The rook's moves fall from twelve to nine and a2 loses its only defender; nothing measured explains the rest.",
+  "lesson": "Count what a piece will actually do on the new square before you move it.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 203,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The king steps into the corner and back out to g2 next move, and c5 follows three moves later.",
+  "lesson": "Shuffling the king does nothing; if a pawn break is ready, play it.",
+  "facts_used": [
+   "moves_again",
+   "best_move_played_later",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 204,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "White's g2 pawn can hit the pawn with g4, and the g6 queen loses one of her two defenders.",
+  "lesson": "One square is often enough; two leaves the pawn where a pawn can hit it.",
+  "facts_used": [
+   "pawn_can_kick",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 205,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The king stops helping c3 and a2, leaving the knight with one defender against two attackers.",
+  "lesson": "In the endgame the king is a defender too; moving it can leave two things loose at once.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 206,
+  "concept": "pointless_check",
+  "board_fact": "Black's king steps to c7 and Rf8, the engine's check, follows next move anyway.",
+  "lesson": "When two checks are there, pick the one that brings a new piece into the attack.",
+  "facts_used": [
+   "played_gives_check",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 207,
+  "concept": "pawn_hole_created",
+  "board_fact": "The pawn gives up d6 for good, and Kh8, the engine's move, follows two moves later.",
+  "lesson": "Count the squares a pawn stops guarding before you push it.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 208,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The queen leaves the g7 pawn with no moves and has to move again to f5, with both bishops still on c8 and f8.",
+  "lesson": "Do not park the queen in front of your own pawn while your bishops are still at home.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "moves_again",
+   "development_before"
+  ]
+ },
+ {
+  "id": 209,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The queen's moves halve from twelve to six, the king on e8 is left with none, and g7, f7, c6 and e5 each lose a defender.",
+  "lesson": "A piece dropped back to the last rank stops defending and blocks your own king.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "own_pieces_blocked",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 210,
+  "concept": "piece_loses_a_move",
+  "board_fact": "Rb8, the engine's move, follows next move anyway, and the h8 rook's trip costs the right to castle short.",
+  "lesson": "If you are going to play a move next turn anyway, play it now.",
+  "facts_used": [
+   "best_move_played_later",
+   "development_after"
+  ]
+ },
+ {
+  "id": 211,
+  "concept": "development_delayed",
+  "board_fact": "The knights on b1 and g1 and the bishop on c1 are still home, both castling rights go, and the king is back on e1 two moves later.",
+  "lesson": "In check, look first at blocking with a piece you needed to develop anyway.",
+  "facts_used": [
+   "development_before",
+   "development_after",
+   "moves_again",
+   "we_were_in_check"
+  ]
+ },
+ {
+  "id": 212,
+  "concept": "piece_loses_a_move",
+  "board_fact": "b4, the engine's move, follows next move anyway, and the a-pawn gives up b6 for good.",
+  "lesson": "Push the pawn that makes progress; the other push only gives up squares.",
+  "facts_used": [
+   "best_move_played_later",
+   "pawn_stopped_guarding"
+  ]
+ },
+ {
+  "id": 213,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The queen blocks the check and has to move again to c7, while Ke1, the engine's move, follows two moves later.",
+  "lesson": "Blocking a check with your strongest piece usually means moving it again; step the king aside.",
+  "facts_used": [
+   "we_were_in_check",
+   "moves_again",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 214,
+  "concept": "pawn_hole_created",
+  "board_fact": "The pawn gives up g6 for good, and no black pawn attacks White's bishop on f4.",
+  "lesson": "A quiet pawn move near your king gives up a square forever and helps no piece.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "unchallenged_after"
+  ]
+ },
+ {
+  "id": 215,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The knight leaves the c7 pawn with no moves.",
+  "lesson": "Develop the knight where it does not block a pawn you still want to push.",
+  "facts_used": [
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 216,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "Black's g6 pawn can meet the push with g5.",
+  "lesson": "Before a wing pawn push, look for the pawn that can stop it.",
+  "facts_used": [
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 217,
+  "concept": "rook_off_open_file",
+  "board_fact": "The rook leaves the open b-file for the h-file, falling from thirteen moves to seven, and moves again to g8.",
+  "lesson": "A rook is worth more sitting on an open file than chasing pawns.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 218,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The bishop's moves fall from nine to six and White's rook settles on f4, where no pawn can hit it.",
+  "lesson": "Put a bishop where it stares at something; a step backwards hands over a free square.",
+  "facts_used": [
+   "mobility_from",
+   "mobility_to",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 219,
+  "concept": "piece_loses_a_move",
+  "board_fact": "h5, the engine's move, follows two moves later anyway, and the rook stops guarding h6 in the meantime.",
+  "lesson": "Play the move the position needs now, not the one you can always play later.",
+  "facts_used": [
+   "best_move_played_later",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 220,
+  "concept": "pointless_check",
+  "board_fact": "The king steps aside, the bishop's moves fall from thirteen to eight, and it goes back to f2 three moves later.",
+  "lesson": "A check that shrinks your own piece is not worth giving.",
+  "facts_used": [
+   "played_gives_check",
+   "mobility_from",
+   "mobility_to",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 221,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White's f3 pawn can hit the queen with f4, and she is back on f4 next move anyway.",
+  "lesson": "Do not move the queen to a square a pawn can hit; you only have to come back.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again",
+   "left_own_outpost"
+  ]
+ },
+ {
+  "id": 222,
+  "concept": "development_delayed",
+  "board_fact": "The knights on b8 and g8 and the bishop on f8 are still home with the king uncastled, and White's f3 pawn can hit the pushed pawn with f4.",
+  "lesson": "In the opening, bring a piece out before pushing pawns beside your king.",
+  "facts_used": [
+   "development_before",
+   "pawn_can_kick",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 223,
+  "concept": "unclear",
+  "board_fact": "The move played is the engine's own first choice; the two lines only differ from the seventh move on.",
+  "lesson": "A small drop in the number is not always a mistake.",
+  "facts_used": []
+ },
+ {
+  "id": 224,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook reaches b6 two moves later anyway, and in between White's rook gets a5 and the knight e3.",
+  "lesson": "If a piece belongs on a square, put it there at once; the detour is two free moves for the opponent.",
+  "facts_used": [
+   "moves_again",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 225,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The bishop reaches e4 next move anyway and halves its own rook's moves from twelve to six on the way.",
+  "lesson": "Go straight to the square you want; a stop on the way can block your own pieces.",
+  "facts_used": [
+   "moves_again",
+   "own_pieces_blocked",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 226,
+  "concept": "king_safety_postponed",
+  "board_fact": "The king is still on e8 with both castling rights, and castling comes next move anyway.",
+  "lesson": "Castle before you start a pawn storm; the king is what the attack will cost you.",
+  "facts_used": [
+   "development_before",
+   "best_move_played_later",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 227,
+  "concept": "pointless_check",
+  "board_fact": "The king steps to d7, the rook has to come back to e1 next move, and Black's h-pawn reaches h1.",
+  "lesson": "In a pawn race, a check that only moves the king costs you the move you needed.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 228,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "Black's a7 pawn can hit the knight with a6, and the knight stops helping e4 and a4.",
+  "lesson": "A knight on the edge that a pawn can chase is worth less than one in the middle.",
+  "facts_used": [
+   "pawn_can_kick",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 229,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White's d5 pawn can hit the bishop with d6, it moves on to a5 next move, and a7 loses its only guard.",
+  "lesson": "Do not stand in front of an enemy pawn that can simply push.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 230,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook steps on to c1 next move, and f7 is left with one defender instead of two.",
+  "lesson": "Going somewhere in two moves when one would do gives the opponent a free move.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 231,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "The king walks away from the e6 pawn, which loses its only defender, and White's b2 pawn can hit the king with b4.",
+  "lesson": "In the endgame keep the king next to your own pawns; it is their only defender.",
+  "facts_used": [
+   "guards_lost",
+   "pawn_can_kick",
+   "left_own_outpost"
+  ]
+ },
+ {
+  "id": 232,
+  "concept": "pointless_check",
+  "board_fact": "White blocks with Re3, the rook moves on to f2 next move, and the d5 bishop drops from eight moves to five.",
+  "lesson": "A check that gets blocked gains nothing; improve a piece instead.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 233,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook is back on c8 next move and takes two moves from the g6 queen while it is away.",
+  "lesson": "A raid that gets sent straight back costs a free move; check the reply first.",
+  "facts_used": [
+   "moves_again",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 234,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White's g5 pawn can hit the bishop with g6, and it is back on g8 next move.",
+  "lesson": "If a pawn can push you back, the move you spent going there is lost.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 235,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The pawn stops guarding b3, which now has one defender and one attacker, and Black's knight gets c2.",
+  "lesson": "A pawn guards the squares beside it; pushing it can leave the pawn behind it loose.",
+  "facts_used": [
+   "guards_lost",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 236,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "Black's b7 pawn can answer with b5, hitting the pushed pawn and the c4 bishop, and b3 is given up.",
+  "lesson": "A wing push the opponent can answer with a pawn helps him, not you.",
+  "facts_used": [
+   "pawn_can_kick",
+   "pawn_can_kick_another",
+   "pawn_stopped_guarding"
+  ]
+ },
+ {
+  "id": 237,
+  "concept": "development_delayed",
+  "board_fact": "The bishop on c1 and knight on g1 are still home with the king uncastled, and Ne2 follows three moves later.",
+  "lesson": "In the opening a pawn move that develops nothing is a free move for the opponent.",
+  "facts_used": [
+   "development_before",
+   "best_move_played_later",
+   "pawn_stopped_guarding"
+  ]
+ },
+ {
+  "id": 238,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "Black's b7 pawn can hit the bishop with b5, and the bishop's moves fall from six to four.",
+  "lesson": "Retreat a bishop to a square no pawn can reach.",
+  "facts_used": [
+   "pawn_can_kick",
+   "mobility_from",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 239,
+  "concept": "pawn_hole_created",
+  "board_fact": "The pawn gives up b6 for good.",
+  "lesson": "A pawn can never guard a square again once it has moved past it.",
+  "facts_used": [
+   "pawn_stopped_guarding"
+  ]
+ },
+ {
+  "id": 240,
+  "concept": "development_delayed",
+  "board_fact": "The bishop on f8 is still home, and the knight blocking the check cuts the c4 queen off from f7, leaving that pawn one defender instead of two.",
+  "lesson": "When you block a check, block with the piece that still needs to come out.",
+  "facts_used": [
+   "development_before",
+   "guards_lost",
+   "we_were_in_check"
+  ]
+ },
+ {
+  "id": 241,
+  "concept": "outpost_abandoned",
+  "board_fact": "The bishop leaves d4, where it had eight moves, and now has four; b4 is played anyway at ply 6.",
+  "lesson": "A piece sitting on a strong central square is already working, so do not trade that square for a corner.",
+  "facts_used": [
+   "left_own_outpost",
+   "mobility_to",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 242,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "Black's h6 pawn can step to h5 and hit that pawn at once.",
+  "lesson": "Before you push a pawn, look for the enemy pawn that can meet it head-on.",
+  "facts_used": [
+   "pawn_can_kick",
+   "pawn_stopped_guarding"
+  ]
+ },
+ {
+  "id": 243,
+  "concept": "pointless_check",
+  "board_fact": "The knight checks, the king steps to d2, and the knight is back on d4 two plies later.",
+  "lesson": "A check the king just walks away from only costs you a move.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 244,
+  "concept": "pawn_hole_created",
+  "board_fact": "The b7 pawn no longer covers a6 or c6, and a6 is down to one defender.",
+  "lesson": "A pawn can never guard the squares behind it again, so check what you give up before you push.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 245,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The a7 pawn was b6's only defender, and after the push b6 has none.",
+  "lesson": "Do not move the pawn that is the only thing holding your other pawn together.",
+  "facts_used": [
+   "guards_lost",
+   "pawn_stopped_guarding"
+  ]
+ },
+ {
+  "id": 246,
+  "concept": "piece_loses_a_move",
+  "board_fact": "h4, the engine's move, is played anyway one move later, and the king's moves drop from four to three.",
+  "lesson": "In an endgame with pawns racing, a move that changes nothing hands them a free one.",
+  "facts_used": [
+   "best_move_played_later",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 247,
+  "concept": "unclear",
+  "board_fact": "The packet lists the played move and the engine's move as the same move, a5, yet reports a 50cp loss.",
+  "lesson": "",
+  "facts_used": []
+ },
+ {
+  "id": 248,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The bishop leaves f7, Black's rook on f8 gets the whole file, and the king on g1 drops from three moves to one.",
+  "lesson": "A piece standing in front of their rook is doing a job, and moving it hands them the file.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "left_own_outpost"
+  ]
+ },
+ {
+  "id": 249,
+  "concept": "pointless_check",
+  "board_fact": "The queen checks and then has to move again, to f8, two plies later.",
+  "lesson": "Checking just because you can usually means moving the same piece twice.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 250,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The pawn shuts the d7 bishop's diagonal: that bishop drops from five moves to one.",
+  "lesson": "Do not put a pawn on the square your own bishop needs to see through.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 251,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook has to move again at ply 4, on to e4, and it stops guarding the queen on b5.",
+  "lesson": "If a piece's real job needs a different square, go there now instead of making a staging move.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 252,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook is back on a2 six plies later, and Be4 is played anyway at ply 4.",
+  "lesson": "If you cannot say what a move changed, it was probably a lost move.",
+  "facts_used": [
+   "moves_again",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 253,
+  "concept": "enemy_piece_unchallenged",
+  "board_fact": "White's knight on f5 can never be hit by a black pawn, and the pawn move does nothing about it.",
+  "lesson": "When their piece sits where your pawns can never reach, plan to trade it off or you live with it all game.",
+  "facts_used": [
+   "unchallenged_after",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 254,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The rook crowds its own king on h6, which drops from four moves to three, and the rook's own moves fall from thirteen to nine.",
+  "lesson": "A piece that boxes in your king and loses its own range is on the wrong square.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "left_own_outpost",
+   "mobility_change"
+  ]
+ },
+ {
+  "id": 255,
+  "concept": "piece_with_no_moves",
+  "board_fact": "Blocking the check on d2 leaves that bishop with no legal moves, and the d6 pawn loses both defenders.",
+  "lesson": "When you answer a check, pick the reply that keeps your pieces free rather than burying one.",
+  "facts_used": [
+   "we_were_in_check",
+   "mobility_to",
+   "guards_lost",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 256,
+  "concept": "endgame_king_too_passive",
+  "board_fact": "The pawn moved while the king sat on g6, and Kf5 was played anyway one move later.",
+  "lesson": "With king and pawn against king, walk the king up first and push the pawn behind it.",
+  "facts_used": [
+   "best_move_played_later",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 257,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook moves again two plies later, on to a8, and its moves drop from nine to seven.",
+  "lesson": "Pick the square you actually want, because a stop on the way gives them a free move.",
+  "facts_used": [
+   "moves_again",
+   "left_own_outpost"
+  ]
+ },
+ {
+  "id": 258,
+  "concept": "outpost_abandoned",
+  "board_fact": "The rook leaves f3, where no white pawn could ever reach it, and its moves fall from ten to five.",
+  "lesson": "Make the useful pawn push first; your rook keeps its range and the grab is still there later.",
+  "facts_used": [
+   "left_own_outpost",
+   "mobility_change"
+  ]
+ },
+ {
+  "id": 259,
+  "concept": "pointless_check",
+  "board_fact": "The queen checks, the king steps to h7, and the queen leaves for a3 next move; Ne4 comes anyway at ply 4.",
+  "lesson": "Only check when the check changes something, or their king just gets a better square.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 260,
+  "concept": "enemy_outpost_allowed",
+  "board_fact": "Once the pawn leaves g2, no white pawn can ever attack e4, and the bishop takes it.",
+  "lesson": "A pawn move can hand them a square for the rest of the game, so look at what your pawns can still cover.",
+  "facts_used": [
+   "enemy_gains_outpost",
+   "pawn_stopped_guarding"
+  ]
+ },
+ {
+  "id": 261,
+  "concept": "pointless_check",
+  "board_fact": "The queen checks and is back on d4 two plies later, with its moves down from nineteen to fifteen.",
+  "lesson": "If the check does not change their position, you have handed them a move.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again",
+   "left_own_outpost"
+  ]
+ },
+ {
+  "id": 262,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The bishop steps into its own rook's path on the a-file: the rook on a5 drops from twelve moves to ten and the bishop from four to two.",
+  "lesson": "Never park a piece on your own rook's file or rank.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 263,
+  "concept": "enemy_outpost_allowed",
+  "board_fact": "With the a7 pawn pushed, White's queen walks into a7 and a8, where no black pawn can reach it.",
+  "lesson": "Moving a pawn off its home square can open a path straight into your corner.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 264,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "White's c3 pawn can step to c4 and hit it straight away, and Bg4 was played anyway two plies later.",
+  "lesson": "Before a wing pawn move, find the enemy pawn that can hit it, and develop a piece instead.",
+  "facts_used": [
+   "pawn_can_kick",
+   "best_move_played_later",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 265,
+  "concept": "unclear",
+  "board_fact": "The engine's Nb6 leaves d7 just as the played Nc5 does, and the king on e8 is down to two moves after either.",
+  "lesson": "",
+  "facts_used": []
+ },
+ {
+  "id": 266,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The bishop stands on its own queen's file and the queen on d3 drops from eighteen moves to fifteen.",
+  "lesson": "Keep your own lines clear, because a piece in front of your queen quietly cuts her range.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 267,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The rook moves again at once, on to b8.",
+  "lesson": "If a piece needs two moves to reach its square, ask whether another piece needed the move more.",
+  "facts_used": [
+   "moves_again"
+  ]
+ },
+ {
+  "id": 268,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "White's a2 pawn can step to a3 and hit the knight, which goes back to c6 at ply 4.",
+  "lesson": "A knight next to their pawns on the edge gets poked back, so put it where no pawn can reach.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 269,
+  "concept": "rook_on_blocked_file",
+  "board_fact": "The rook ends up behind its own pawn on d2 while the a-file stands open.",
+  "lesson": "Put your rook on the file that is open, not on the one your own pawn has shut.",
+  "facts_used": []
+ },
+ {
+  "id": 270,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The rook takes the eighth-rank squares its own rook on f8 wanted: that rook drops from four moves to two.",
+  "lesson": "When both rooks want the same rank, move the one that has nothing else to do.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 271,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The c4 pawn was guarding d3; after the push d3 is down to the king alone, and the king loses a square too.",
+  "lesson": "A pawn push can never be taken back, so check what the pawn was protecting first.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "guards_lost",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 272,
+  "concept": "piece_loses_a_move",
+  "board_fact": "The a1 rook goes to b1 first, and the engine's Rfb1 is played anyway six plies later.",
+  "lesson": "When two pieces can reach the same square, work out which one belongs there, because the other has its own job.",
+  "facts_used": [
+   "best_move_played_later",
+   "moves_again",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 273,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "Black's g7 pawn steps to g6, hits the knight, and the knight is back on g3 two plies later.",
+  "lesson": "Check whether a pawn can chase your piece off a square before you put it there.",
+  "facts_used": [
+   "pawn_can_kick",
+   "moves_again",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 274,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "The king is driven straight back to c6 two plies later after Qf7+, and the b5 pawn loses a defender.",
+  "lesson": "When you answer a check with the king, pick the square that does not invite the next check.",
+  "facts_used": [
+   "we_were_in_check",
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 275,
+  "concept": "piece_loses_a_move",
+  "board_fact": "Na6, the engine's move, is played anyway two plies later while the king just stepped up a rank.",
+  "lesson": "In a pawn race every move must push your own plan, since a waiting move gives them a tempo.",
+  "facts_used": [
+   "best_move_played_later",
+   "mobility_change"
+  ]
+ },
+ {
+  "id": 276,
+  "concept": "pressure_released",
+  "board_fact": "Black answers with Bf6 and the rook ends up on b1 six plies later anyway.",
+  "lesson": "Keep them busy: a quiet repositioning move gives them the one move they needed to untangle.",
+  "facts_used": [
+   "moves_again"
+  ]
+ },
+ {
+  "id": 277,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The rook's own moves fall from six to two, and it has to move again at ply 6.",
+  "lesson": "Count a piece's moves on the new square, because a move that cuts them in half is usually wrong.",
+  "facts_used": [
+   "mobility_to",
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 278,
+  "concept": "endgame_king_too_passive",
+  "board_fact": "The king steps back off g2, leaving the g3 pawn with no defender and the rook on d1 down from seven moves to four.",
+  "lesson": "In the endgame the king should walk forward; backwards it only gets in its own rook's way.",
+  "facts_used": [
+   "guards_lost",
+   "own_pieces_blocked",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 279,
+  "concept": "piece_loses_a_move",
+  "board_fact": "The bishop's moves drop from eight to four and Re3 is played anyway two plies later, by which time the a-pawn has reached a3.",
+  "lesson": "When one plan is forced, play it now, because a filler move lets their pawn get a square closer.",
+  "facts_used": [
+   "mobility_change",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 280,
+  "concept": "unclear",
+  "board_fact": "The packet lists the played move and the engine's move as the same move, Qd4+, with identical follow-up lines, yet reports a 73cp loss.",
+  "lesson": "",
+  "facts_used": []
+ },
+ {
+  "id": 281,
+  "concept": "outpost_abandoned",
+  "board_fact": "The bishop gives up d5 in the middle of the board and its moves fall from thirteen to eleven.",
+  "lesson": "A bishop in the centre sees the most squares, and stepping off costs you that for nothing.",
+  "facts_used": [
+   "left_own_outpost",
+   "mobility_change"
+  ]
+ },
+ {
+  "id": 282,
+  "concept": "pointless_check",
+  "board_fact": "The check only sends the king to b6, and the queen's own moves fall from twenty to seventeen.",
+  "lesson": "Do not check unless it improves something, or their king simply gets a better square.",
+  "facts_used": [
+   "played_gives_check",
+   "mobility_to",
+   "left_own_outpost"
+  ]
+ },
+ {
+  "id": 283,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "Once d1 is taken, the rook on f1 drops from four moves to one, and the d1 rook moves on to e1 next move.",
+  "lesson": "Two of your pieces fighting over the same squares are worth less than one, so give each its own line.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 284,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The knight sits right in front of the c3 pawn, which now has no move at all.",
+  "lesson": "A piece parked in front of your own pawn stops the pawn dead, so find a square that does not.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 285,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "The king heads off to h4, leaving the g7 pawn with no defender while White's d-pawn runs.",
+  "lesson": "Send your endgame king toward their passed pawn, not away from it.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 286,
+  "concept": "pointless_check",
+  "board_fact": "The knight check only sends the king to e7, and Rc1 is played anyway one move later.",
+  "lesson": "If you were going to play the other move anyway, the check just helped their king find a square.",
+  "facts_used": [
+   "played_gives_check",
+   "best_move_played_later",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 287,
+  "concept": "pawn_hole_created",
+  "board_fact": "The pawn push gives up a4 for good, and White's knight goes straight there.",
+  "lesson": "Every pawn push leaves a square behind it forever, so look for the piece that will jump in.",
+  "facts_used": [
+   "pawn_stopped_guarding"
+  ]
+ },
+ {
+  "id": 288,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The rook leaves f8, so the f7 pawn is down to the king alone while White's rook on d7 looks straight at it.",
+  "lesson": "Before a rook leaves its file, check which pawn it was the extra defender of.",
+  "facts_used": [
+   "guards_lost",
+   "played_gives_check"
+  ]
+ },
+ {
+  "id": 289,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The queen stops guarding a7, which now has no defender, and White's queen later lands on a8.",
+  "lesson": "Check what a piece is quietly protecting before you reposition it.",
+  "facts_used": [
+   "guards_lost",
+   "enemy_gains_outpost",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 290,
+  "concept": "pointless_check",
+  "board_fact": "The queen checks and goes back to f8 two plies later.",
+  "lesson": "A check that gains nothing is simply two moves with the same piece.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 291,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The king stands right in front of its own d6 pawn, which now has no move, and the king's own moves fall from seven to four.",
+  "lesson": "Do not put your king on the square your own pawn has to use.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "left_own_outpost",
+   "mobility_change"
+  ]
+ },
+ {
+  "id": 292,
+  "concept": "pointless_check",
+  "board_fact": "The check only moves the king to c1, and the rook goes on to e2 next move.",
+  "lesson": "A check that changes nothing hands your opponent a free move at the worst time.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 293,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The rook steps onto its own bishop's diagonal and the bishop on d5 drops from eight moves to six; a3 is played anyway two plies later.",
+  "lesson": "Look along your own bishop's diagonal before you put a rook on it.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 294,
+  "concept": "piece_with_no_moves",
+  "board_fact": "Blocking the check on f2 leaves the rook with no legal moves at all.",
+  "lesson": "Blocking a check can bury the blocking piece, so see whether the king can just step aside.",
+  "facts_used": [
+   "we_were_in_check",
+   "mobility_to"
+  ]
+ },
+ {
+  "id": 295,
+  "concept": "outpost_abandoned",
+  "board_fact": "The bishop gives up c4 and its moves fall from eleven to seven, while the rook on f5 loses two.",
+  "lesson": "Before moving a well-placed piece, count its moves on both squares.",
+  "facts_used": [
+   "left_own_outpost",
+   "mobility_change",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 296,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "The king is pushed on to c7 two plies later, and the b7 pawn is left with no defender.",
+  "lesson": "When your king must move, choose the square it will not have to leave again next move.",
+  "facts_used": [
+   "we_were_in_check",
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 297,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The bishop lands on its own rook's file: the rook on e1 drops from nine moves to six.",
+  "lesson": "Check your own rook's file before you place a piece on it.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 298,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "Black's g7 pawn can come to g5 and hit the bishop, and the bishop also freezes its own f3 pawn.",
+  "lesson": "A bishop placed in front of their pawns can be pushed away, and the move you wanted will still be there.",
+  "facts_used": [
+   "pawn_can_kick",
+   "own_pieces_blocked",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 299,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "The king leaves d5 and walks away from Black's king on g5 and the g7 and h6 pawns.",
+  "lesson": "March your endgame king toward their pawns, because distance from the action is a lost move.",
+  "facts_used": []
+ },
+ {
+  "id": 300,
+  "concept": "tempo_lost_moving_twice",
+  "board_fact": "The bishop moves on to g3 two plies later, and meanwhile its own e4 pawn has no move at all.",
+  "lesson": "If the piece has to come back, the first move was not worth playing.",
+  "facts_used": [
+   "moves_again",
+   "own_pieces_blocked",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 301,
+  "concept": "piece_chased_loses_time",
+  "board_fact": "White's f2 pawn can step to f4 and hit the knight, whose moves have already dropped from eight to three.",
+  "lesson": "A knight that lands where a pawn can hit it loses both the square and the time.",
+  "facts_used": [
+   "pawn_can_kick",
+   "mobility_change",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 302,
+  "concept": "piece_loses_a_move",
+  "board_fact": "The king step costs it a move, four down to three, and the king goes on to g3 at ply 6 anyway.",
+  "lesson": "A waiting king move while your rook sits passive is a move given away.",
+  "facts_used": [
+   "mobility_change",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 303,
+  "concept": "pawn_hole_created",
+  "board_fact": "The d4 pawn stops covering c5 and e5, and Black's bishop walks to f4, d6 and then c5.",
+  "lesson": "When you push a pawn, the squares it used to cover become their squares.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 304,
+  "concept": "pointless_check",
+  "board_fact": "The bishop checks, the king steps to c7, and the bishop is back on f4 two plies later.",
+  "lesson": "Before a check, ask what it changes; if the answer is nothing, you have lost a move.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 305,
+  "concept": "piece_loses_a_move",
+  "board_fact": "Bf5, the engine's move, is played anyway two plies later, by which time Black's f-pawn has moved.",
+  "lesson": "Place the piece where it must go first, because pawn moves can wait.",
+  "facts_used": [
+   "best_move_played_later",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 306,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The b5 pawn was the one stopping a3-a4, and White plays a4 at once; c4 also loses a defender.",
+  "lesson": "A pawn that is holding back their pawn should usually stay where it is.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "guards_lost",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 307,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The pawn takes the square its own king needed: the king on f4 drops from two moves to one, and Kg5 comes at ply 4 anyway.",
+  "lesson": "Do not put a pawn on the square your king has to use.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "best_move_played_later",
+   "pawn_can_kick"
+  ]
+ },
+ {
+  "id": 308,
+  "concept": "unclear",
+  "board_fact": "The packet lists the played move and the engine's move as the same move, Kf6, with identical follow-up lines, yet reports a 54cp loss.",
+  "lesson": "",
+  "facts_used": []
+ },
+ {
+  "id": 309,
+  "concept": "pointless_check",
+  "board_fact": "The check only sends the king to c3, and the bishop's moves fall from nine to seven before it retreats to f8 at ply 4.",
+  "lesson": "A check that improves nothing costs you both the move and the square.",
+  "facts_used": [
+   "played_gives_check",
+   "moves_again",
+   "left_own_outpost"
+  ]
+ },
+ {
+  "id": 310,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The knight on a4 was the queen's only guard on b2, and it left.",
+  "lesson": "Ask what a piece is protecting before you send it somewhere more exciting.",
+  "facts_used": [
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 311,
+  "concept": "enemy_pawn_kick_allowed",
+  "board_fact": "White's g2 pawn can come to g4 and hit it, and Rhe8 was played anyway two plies later.",
+  "lesson": "A pawn push their pawn can meet head-on just wastes the move.",
+  "facts_used": [
+   "pawn_can_kick",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 312,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "From d1 the queen no longer guards a4, which White attacks twice and Black now defends once; from a1 she still would.",
+  "lesson": "When you have a choice of checking squares, pick the one that keeps doing your other jobs.",
+  "facts_used": [
+   "guards_lost",
+   "played_gives_check",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 313,
+  "concept": "king_goes_wrong_way",
+  "board_fact": "The king comes back to f6 two plies later, after White's pawn has already gone to d5.",
+  "lesson": "In a pawn race, a king move you have to undo costs you the race.",
+  "facts_used": [
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 314,
+  "concept": "piece_retreats_to_passivity",
+  "board_fact": "The rook gives up the seventh rank behind the b6 and h6 pawns, and its king loses a square as well.",
+  "lesson": "A rook behind their pawns does far more than a rook tucked in beside your king.",
+  "facts_used": [
+   "left_own_outpost",
+   "own_pieces_blocked",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 315,
+  "concept": "pointless_check",
+  "board_fact": "The check only sends the king to h1, and the knight stops guarding e6, f7 and h7.",
+  "lesson": "A knight covering squares near your king is worth more there than one spare check.",
+  "facts_used": [
+   "played_gives_check",
+   "guards_lost",
+   "best_move_played_later"
+  ]
+ },
+ {
+  "id": 316,
+  "concept": "pointless_check",
+  "board_fact": "The check sends White's king to e4, the active square it wanted anyway, and the rook's moves fall from ten to eight.",
+  "lesson": "A check that pushes their king toward where it wants to go is helping them.",
+  "facts_used": [
+   "played_gives_check",
+   "mobility_change",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 317,
+  "concept": "enemy_outpost_allowed",
+  "board_fact": "With the rook on c1 instead of the open a-file, Black's rook settles on a3 where no white pawn can reach it.",
+  "lesson": "If they own the open file, meet them on it, or they walk in behind your pawns.",
+  "facts_used": [
+   "enemy_gains_outpost",
+   "moves_again",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 318,
+  "concept": "endgame_king_too_passive",
+  "board_fact": "The king steps back to the second rank, leaving the d4 pawn with one defender and the rook on e2 with none.",
+  "lesson": "In a rook endgame your king belongs in front of your pawn, not behind it.",
+  "facts_used": [
+   "we_were_in_check",
+   "guards_lost",
+   "enemy_gains_outpost"
+  ]
+ },
+ {
+  "id": 319,
+  "concept": "defender_leaves_its_post",
+  "board_fact": "The f7 pawn was e6's only defender, and after the push e6 has none.",
+  "lesson": "Pawns can never move back, so check what yours is defending before you push it.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "guards_lost"
+  ]
+ },
+ {
+  "id": 320,
+  "concept": "pawn_hole_created",
+  "board_fact": "The b6 pawn stops covering a5 and c5, and White's rook checks from c5.",
+  "lesson": "A pawn push gives up the squares it used to cover, so look for the check that opens.",
+  "facts_used": [
+   "pawn_stopped_guarding",
+   "enemy_gains_outpost",
+   "own_pieces_blocked"
+  ]
+ },
+ {
+  "id": 321,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "On a3 the king lines up with the e7 bishop, so the b4 pawn has no move at all, and b3 is played anyway at ply 4.",
+  "lesson": "Keep your king off the diagonal your own pawn needs to move along.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "best_move_played_later",
+   "moves_again"
+  ]
+ },
+ {
+  "id": 322,
+  "concept": "blocks_own_piece_square",
+  "board_fact": "The bishop steps onto the sixth rank in front of its own rook, which falls from twelve moves to seven.",
+  "lesson": "Keep your rook's rank clear, because a bishop parked on it costs the rook half its reach.",
+  "facts_used": [
+   "own_pieces_blocked",
+   "left_own_outpost"
+  ]
+ }
+]

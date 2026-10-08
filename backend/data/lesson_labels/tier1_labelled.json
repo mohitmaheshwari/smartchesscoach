@@ -1,0 +1,992 @@
+[
+ {
+  "id": 0,
+  "mechanism": "tempo_lost_quiet_pawn_move",
+  "lesson": "When the enemy queen is parked in the middle, win time by developing a piece that attacks her instead of making a quiet pawn move.",
+  "board_fact": "Black's queen could step to f6 and hit the white queen on d4; after b6 White instead gets Nc3, Bf4 and castling for free."
+ },
+ {
+  "id": 1,
+  "mechanism": "removed_defender",
+  "lesson": "Before you move a piece, check what it is holding.",
+  "board_fact": "The bishop on f8 was the only guard of the g7 pawn, so Qxg7 takes it the moment the bishop leaves."
+ },
+ {
+  "id": 2,
+  "mechanism": "bishop_behind_own_pawn",
+  "lesson": "Develop a piece to a square where it attacks something, especially while the enemy king has not castled.",
+  "board_fact": "On d3 the bishop runs into White's own pawn on e4, while from g5 it would attack the knight on f6 in front of the black king still on e8."
+ },
+ {
+  "id": 3,
+  "mechanism": "key_square_lost_its_only_guard",
+  "lesson": "A square is only covered while the piece guarding it stays there, so give an important square a second guard.",
+  "board_fact": "The knight on f6 is the only piece watching d5; once it is chased to g4, White's knight lands on d5 and takes c7, which nothing defends."
+ },
+ {
+  "id": 4,
+  "mechanism": "missed_knight_outpost",
+  "lesson": "A knight that lands deep in the enemy position is worth more than a rook on a file your own pawn blocks.",
+  "board_fact": "The knight on c3 could go to d5 and hit the c7 pawn, which no black piece guards, while the rook on e1 sits behind White's own pawn on e4."
+ },
+ {
+  "id": 5,
+  "mechanism": "pawn_grab_costs_time",
+  "lesson": "A pawn is not worth winning if the piece that takes it has to walk all the way back home afterwards.",
+  "board_fact": "White's knight travels c3-b5-a7-b5-c3 for the a7 pawn while Black's knight reaches e5 and the f-pawn comes to f5."
+ },
+ {
+  "id": 6,
+  "mechanism": "undefended_pawn_push",
+  "lesson": "Do not push a pawn onto a square an enemy pawn attacks and none of your pieces guards.",
+  "board_fact": "On f5 the pawn is attacked by White's e4 pawn and defended by nothing, and White's knight collects it after Nd4."
+ },
+ {
+  "id": 7,
+  "mechanism": "pawn_unblocked_bishop_diagonal",
+  "lesson": "Before you move a pawn, look at which enemy bishop's line that pawn is blocking.",
+  "board_fact": "The e4 pawn was the only thing between the bishop on b7 and g2, so after exf5 Black plays Rxg2+ and the king can only go to h1 or f1."
+ },
+ {
+  "id": 8,
+  "mechanism": "recapture_declined",
+  "lesson": "When the opponent leaves a pawn sitting in your half of the board, win it back before you go hunting.",
+  "board_fact": "Black's pawn stays on d4 and the knight comes straight back from g5 to f3 two moves later, so White is a pawn down for nothing."
+ },
+ {
+  "id": 9,
+  "mechanism": "knight_on_rim",
+  "lesson": "A knight on the edge of the board needs several moves to reach the squares that matter, so develop it towards the middle.",
+  "board_fact": "The same knight could have reached f6 in one move; from h6 it needs g4 and then e5, three moves, to get back into the game."
+ },
+ {
+  "id": 10,
+  "mechanism": "knight_jump_hits_two",
+  "lesson": "Before you pick a square for your queen, look for a knight jump that would hit her and another piece at the same time.",
+  "board_fact": "Black's knight comes from c6 to e5 attacking both the queen on f3 and the bishop on c4, and nothing guards c4, so the queen must drop back to e2 to cover it."
+ },
+ {
+  "id": 11,
+  "mechanism": "capture_opens_own_king",
+  "lesson": "Taking a piece with a pawn from in front of your own king can cost more than the piece is worth, so count the holes it leaves.",
+  "board_fact": "After gxh6 nothing is left on g7, the king on h7 has doubled h-pawns, and White's queen reaches f5 hitting the king and the undefended bishop on c5 at once."
+ },
+ {
+  "id": 12,
+  "mechanism": "left_attack_on_loose_piece",
+  "lesson": "Do not move a piece away from a square where it is already attacking something the opponent cannot defend.",
+  "board_fact": "From e5 the knight attacked the bishop on c4, which no white piece guards; from g6 it attacks no white piece at all."
+ },
+ {
+  "id": 13,
+  "mechanism": "retreat_invites_another_attack",
+  "lesson": "Retreating a piece to a square the opponent can attack again just loses more time; look for a trade instead.",
+  "board_fact": "On e2 the bishop is hit again by the knight coming to f4 and ends up back on d1, while from c4 it could simply have traded itself for the bishop on e6."
+ },
+ {
+  "id": 14,
+  "mechanism": "attack_on_defended_piece",
+  "lesson": "Attacking a piece that is already defended is not a threat, so count its defenders before you call it an attack.",
+  "board_fact": "The knight on g6 is guarded by the f7 pawn and the king on g7, so the bishop threatens nothing while Black answers Qa5 and c5-c4-c3 at the white king on c1."
+ },
+ {
+  "id": 15,
+  "mechanism": "attack_dropped",
+  "lesson": "When the enemy king has little cover on one side, send your pieces and pawns at it instead of shuffling a piece back.",
+  "board_fact": "White's king on c1 has only the b2 and c2 pawns near it, and Black's queen can come to a5 with c5-c4-c3 behind it."
+ },
+ {
+  "id": 16,
+  "mechanism": "ignored_opponent_threat",
+  "lesson": "When both sides are attacking, work out whose attack lands first before you add another slow pawn move.",
+  "board_fact": "Black's queen reaches a5 and then a1 with check, where White's only legal answer is Nb1."
+ },
+ {
+  "id": 17,
+  "mechanism": "missed_trade_when_defending",
+  "lesson": "When your king is the one under pressure, swapping queens is worth more than activating a rook.",
+  "board_fact": "White's bishop on h5 and queen on g3 both hit g6 beside the king on g7, and the engine's line swaps queens on b6 instead."
+ },
+ {
+  "id": 18,
+  "mechanism": "trade_relieved_pressure",
+  "lesson": "Do not trade off the piece doing the most work in your attack just because the capture is there.",
+  "board_fact": "The f7 pawn simply takes back, opening the f-file for Black's rook on f8 and removing White's bishop from the attack."
+ },
+ {
+  "id": 19,
+  "mechanism": "attack_dropped",
+  "lesson": "One pawn is small change while you have an attack; grabbing it often lets the defender swap queens and escape.",
+  "board_fact": "Black answers with Qb6, hitting the queen on d6 that nothing guards, and the queens come off."
+ },
+ {
+  "id": 20,
+  "mechanism": "allowed_check_with_tempo",
+  "lesson": "Keep your king off squares where the opponent's next capture arrives with check, because a check buys them a free move.",
+  "board_fact": "With the king on h7, hxg6 comes with check, so Black has no time to save the pawn on d4."
+ },
+ {
+  "id": 21,
+  "mechanism": "wrong_piece_recaptured",
+  "lesson": "When two of your pieces can take on the same square, choose the one that also guards your king.",
+  "board_fact": "White's rook on h1 looks down the open h-file at the h6 pawn; a rook on g6 would guard h6, the bishop does not."
+ },
+ {
+  "id": 22,
+  "mechanism": "attacked_piece_left_to_fall",
+  "lesson": "If one of your pawns is already attacked, develop the piece that defends it.",
+  "board_fact": "The pawn on e5 is attacked by the knight on f3 and no black piece guards it, while a knight on c6 would."
+ },
+ {
+  "id": 23,
+  "mechanism": "missed_capture",
+  "lesson": "When the opponent leaves a pawn with no defender, take it before carrying on with development.",
+  "board_fact": "Black's pawn on e5 is attacked by the knight on f3 and no black piece defends it."
+ },
+ {
+  "id": 24,
+  "mechanism": "capture_onto_guarded_square",
+  "lesson": "A piece guarded only by your queen is not safe, because the queen can be attacked and has to leave.",
+  "board_fact": "The knight is held only by the queen on f5, and Black's Nd4 attacks that queen."
+ },
+ {
+  "id": 25,
+  "mechanism": "knight_to_poor_square",
+  "lesson": "Put knights where they cover central squares; from the edge a knight reaches half as much.",
+  "board_fact": "From a4 the knight only reaches b6, c5 and c3, while the pawn push d4 would hit both c5 and e5."
+ },
+ {
+  "id": 26,
+  "mechanism": "hung_piece",
+  "lesson": "Before pushing a pawn forward, check that one of your own pieces covers the square it lands on.",
+  "board_fact": "Only Black's h7 pawn can take there, and no white piece covers that square."
+ },
+ {
+  "id": 27,
+  "mechanism": "hung_piece",
+  "lesson": "An attacked pawn that cannot be defended should be pushed past the attacker while it still can.",
+  "board_fact": "Black's pawn on g6 is attacked by the h5 pawn with nothing able to recapture, and g5 would have put it out of reach."
+ },
+ {
+  "id": 28,
+  "mechanism": "ignored_opponent_threat",
+  "lesson": "When the enemy queen has a clear path to the squares beside your king, cover that path instead of grabbing a pawn.",
+  "board_fact": "White's pawn on g6 covers h7, so the queen comes to h5 and then h8; the knight on d7 could have gone to f6 and covered h5."
+ },
+ {
+  "id": 29,
+  "mechanism": "missed_bigger_win",
+  "lesson": "Before taking a pawn with check, look for the check that wins a whole piece or the queen.",
+  "board_fact": "Bg5 checks the king on e7, and once it steps aside Bxd8 takes the queen."
+ },
+ {
+  "id": 30,
+  "mechanism": "tempo_lost",
+  "lesson": "Choose the right square for your king the first time, because every extra king move is a free move for the attacker.",
+  "board_fact": "The king comes out to e6 and then has to go back to d6 anyway."
+ },
+ {
+  "id": 31,
+  "mechanism": "missed_capture",
+  "lesson": "A check the king simply steps away from wins nothing, and a free pawn is worth more than a check.",
+  "board_fact": "Black's pawn on e4 is attacked by the d3 pawn and nothing defends it."
+ },
+ {
+  "id": 32,
+  "mechanism": "missed_capture",
+  "lesson": "Take the free pawn first; a quiet developing move can wait one move.",
+  "board_fact": "Black's pawn on e4 is attacked by the d3 pawn with no black piece guarding it."
+ },
+ {
+  "id": 33,
+  "mechanism": "missed_trade_when_defending",
+  "lesson": "When you are being attacked, offering to swap queens takes the main attacker off the board.",
+  "board_fact": "Black's queen could step to f6 and hit White's queen on g7, which nothing defends."
+ },
+ {
+  "id": 34,
+  "mechanism": "knight_to_poor_square",
+  "lesson": "Develop knights towards the middle of the board, where they control far more squares than on the edge.",
+  "board_fact": "From h6 the knight reaches only f5 and g4, while from f6 it would also hit e4, d5 and h5."
+ },
+ {
+  "id": 35,
+  "mechanism": "king_stuck_in_centre",
+  "lesson": "A capture that opens the file your king stands on can cost you the right to castle, so look down the file first.",
+  "board_fact": "The capture clears the d-file, so Qxd8 forces the king to d8 and then the bishop on c4 takes the f7 pawn that nothing guards."
+ },
+ {
+  "id": 36,
+  "mechanism": "hung_piece",
+  "lesson": "Count how many enemy pieces cover a square before you push a pawn onto it.",
+  "board_fact": "The knight on c6 and the bishop on f8 both cover b4, and no white piece does."
+ },
+ {
+  "id": 37,
+  "mechanism": "ignored_opponent_threat",
+  "lesson": "When a check is coming down a diagonal at your king, look for a move that blocks it and improves a piece at the same time.",
+  "board_fact": "White's bishop checks from b5 along b5-c6-d7 to the king on e8, and a knight on c6 would block that line."
+ },
+ {
+  "id": 38,
+  "mechanism": "ignored_opponent_threat",
+  "lesson": "Before you make a slow pawn move, check which of your pieces the opponent is already aiming at.",
+  "board_fact": "Black's bishop on g7 already looks through f6 at the knight on e5, which only the f4 pawn holds."
+ },
+ {
+  "id": 39,
+  "mechanism": "attacked_piece_left_to_fall",
+  "lesson": "When one of your pawns is attacked and cannot be defended, attack the piece that is attacking it.",
+  "board_fact": "The pawn on e5 is attacked by the knight on c6 with nothing guarding it, and Bd5 would hit that knight."
+ },
+ {
+  "id": 40,
+  "mechanism": "tempo_lost",
+  "lesson": "If a piece already stands on its best square, leave it there, because moving it out and back gives the opponent two free moves.",
+  "board_fact": "The knight leaves e5 and in the engine's line comes straight back there while White doubles rooks on the f-file."
+ },
+ {
+  "id": 41,
+  "mechanism": "missed_trade_when_defending",
+  "lesson": "When you are behind, trade off the opponent's most active piece; fewer attackers mean fewer problems.",
+  "board_fact": "White's rook can go to a1 and face Black's rook on a4 down the empty a-file."
+ },
+ {
+  "id": 42,
+  "mechanism": "missed_bigger_win",
+  "lesson": "A check the king just steps away from gains nothing; prefer the move that creates a real threat.",
+  "board_fact": "The knight can jump to f3 and attack the rook on e1, while after the check the rook has to come back to d2."
+ },
+ {
+  "id": 43,
+  "mechanism": "attacked_piece_left_to_fall",
+  "lesson": "Move the piece that is attacked, not a different one.",
+  "board_fact": "The rook on f1 is attacked by the knight on d2 and only the knight on e3 guards it, and Black's rook joins in from a1."
+ },
+ {
+  "id": 44,
+  "mechanism": "trade_relieved_pressure",
+  "lesson": "When you are winning, keep your attacking pieces on the board instead of trading one for a piece the opponent can just recapture.",
+  "board_fact": "The king on c1 recaptures on b2 and steps out, while Ra1 with check first keeps the rook and still wins on f1."
+ },
+ {
+  "id": 45,
+  "mechanism": "tempo_lost",
+  "lesson": "Attacking the enemy queen only helps if she has nowhere good to go; otherwise you just lose time.",
+  "board_fact": "The queen steps to g3 and Be2 then offers to swap the bishop off, while c6 would put three attackers on the d5 pawn."
+ },
+ {
+  "id": 46,
+  "mechanism": "trade_relieved_pressure",
+  "lesson": "A trade that brings the opponent's queen to a strong square for free is a bad trade.",
+  "board_fact": "The queen on d8 recaptures on f6, and White's bishop that was pressing that knight is gone."
+ },
+ {
+  "id": 47,
+  "mechanism": "king_stuck_in_centre",
+  "lesson": "Castle before you go pawn hunting, because a king still in the middle gives the opponent targets.",
+  "board_fact": "White's king is still on e1 and Black's bishop on c5 and queen on b6 line up at f2, so Bxf2 comes with check."
+ },
+ {
+  "id": 48,
+  "mechanism": "capture_onto_guarded_square",
+  "lesson": "Count the defenders before you capture: if they outnumber your attackers, the capture just loses the piece.",
+  "board_fact": "f2 is guarded by the king on e1 and the queen on g3, and only the queen on f6 backs the bishop up."
+ },
+ {
+  "id": 49,
+  "mechanism": "hung_piece",
+  "lesson": "A square none of your pieces defends is only safe until the opponent finds a check, so count the defenders first.",
+  "board_fact": "No white piece covers c7, and Black's Qa5 comes with check and then takes the knight."
+ },
+ {
+  "id": 50,
+  "mechanism": "king_stuck_in_centre",
+  "lesson": "A king on a file the enemy rooks can reach needs to move; a pawn push on the far wing does not help it.",
+  "board_fact": "White's king on d1 sits behind the queen on d2 and the d3 pawn, and Black's rooks come to the d-file."
+ },
+ {
+  "id": 51,
+  "mechanism": "trade_relieved_pressure",
+  "lesson": "Do not offer a trade of your best attacking piece when you have a move that opens lines at the enemy king.",
+  "board_fact": "Nxd4 just takes the knight, while Bxe4 would clear the d-file where White's king stands on d1 behind the queen."
+ },
+ {
+  "id": 52,
+  "mechanism": "queen_out_early",
+  "lesson": "In the opening bring out knights and bishops first; an early queen takes their squares and gets chased back.",
+  "board_fact": "The queen takes f6, the square the knight on g8 wants, and after Nc3 she has to return to d8."
+ },
+ {
+  "id": 53,
+  "mechanism": "missed_bigger_win",
+  "lesson": "Look for the square where one piece attacks two things at once before you settle for a square that attacks one.",
+  "board_fact": "A knight on d5, backed by the bishop on c4 and the e4 pawn, hits the queen on f6 and the knight on e7 together."
+ },
+ {
+  "id": 54,
+  "mechanism": "gambit_pawn_returned",
+  "lesson": "If you have won a pawn in the opening, defend it, or it comes straight back.",
+  "board_fact": "The extra pawn on f4 has no black piece or pawn behind it, and g5 would have held it."
+ },
+ {
+  "id": 55,
+  "mechanism": "king_approach_left_open",
+  "lesson": "Keep a piece covering the squares next to your own king; a knight on the edge cannot get back in time.",
+  "board_fact": "White's bishop on d3 looks through e4, f5 and g6 at h7 beside the king on g8, and a knight on e7 would cover f5 and g6."
+ },
+ {
+  "id": 56,
+  "mechanism": "passive_defence",
+  "lesson": "When a pawn can chase an enemy piece away for good, that usually beats defending with a piece.",
+  "board_fact": "Black's knight on c4 attacks b2, which the queen on f2 already guards, and b3 would drive that knight off."
+ },
+ {
+  "id": 57,
+  "mechanism": "missed_capture",
+  "lesson": "When two pawns can take each other, the side that takes first usually comes out ahead, so do not spend the move on a quiet king step.",
+  "board_fact": "White's d4 pawn can take on c5, and after the king move Black takes first with cxd4."
+ },
+ {
+  "id": 58,
+  "mechanism": "wrong_piece_recaptured",
+  "lesson": "When two of your pieces can take, prefer the one that lands on a strong square and leaves your centre pawn where it is.",
+  "board_fact": "Both the d4 pawn and the knight on f3 can take on e5, and the pawn capture gives up d4 and leaves the knight passive."
+ },
+ {
+  "id": 59,
+  "mechanism": "king_approach_left_open",
+  "lesson": "When an enemy bishop points at the square next to your king, block it or offer to trade it instead of developing elsewhere.",
+  "board_fact": "White's bishop on d3 aims through e4, f5 and g6 at h7 beside the king on g8, and a bishop on f5 would block that line."
+ },
+ {
+  "id": 60,
+  "mechanism": "removed_defender",
+  "lesson": "Before you move a piece, check everything it is holding up, because a queen often guards two pieces at once.",
+  "board_fact": "The queen on g3 guards both the knight on g5 and the bishop on f4; once it leaves, h6 drives the knight away and only the rook on f1 holds f4."
+ },
+ {
+  "id": 61,
+  "mechanism": "central_pawns_let_through",
+  "lesson": "Before you grab a piece, check whether the opponent's answer sets his centre pawns running.",
+  "board_fact": "Black's pawn on d5 is attacked by the c4 pawn with nothing to recapture, so cxd5 and then e6 send two joined pawns forward."
+ },
+ {
+  "id": 62,
+  "mechanism": "attack_dropped",
+  "lesson": "Do not pull a piece back from a square where it already attacks something undefended.",
+  "board_fact": "The bishop on f4 looks at the h6 pawn, which nothing guards with the king on g8."
+ },
+ {
+  "id": 63,
+  "mechanism": "trade_relieved_pressure",
+  "lesson": "A check that forces a trade is not automatically good; count what you have left on the board afterwards.",
+  "board_fact": "Rxf8 answers at once, and after exf8 White has handed over a rook and the e7 pawn for one rook."
+ },
+ {
+  "id": 64,
+  "mechanism": "allowed_check_with_tempo",
+  "lesson": "Keep your king off the square an enemy pawn's push would check from; that one free move is often all they need.",
+  "board_fact": "With the king on e8, d7 comes with check and d8 promotes, and after Bxd8 the bishop checks from g5 and takes the bishop back."
+ },
+ {
+  "id": 65,
+  "mechanism": "king_stuck_in_centre",
+  "lesson": "When you can take the enemy queen with check, do it - if their king must take back, they lose the right to castle.",
+  "board_fact": "Black's queen on d8 faces White's queen on d1 down an empty file, and after Qxd1+ the only legal answer is Kxd1."
+ },
+ {
+  "id": 66,
+  "mechanism": "knight_fork",
+  "lesson": "Before you pick a square for your queen, look for a knight jump that hits her and another piece at the same time.",
+  "board_fact": "Black's knight on c6 can jump to e5, hitting the queen on f3 and the bishop on c4, and nothing of White's covers c4."
+ },
+ {
+  "id": 67,
+  "mechanism": "own_pawn_blocks_own_line",
+  "lesson": "Before you push a pawn, check which of your own pieces' lines that square closes.",
+  "board_fact": "The b7 pawn is attacked by the queen on b5 and guarded by nothing; the queen on d8 could have come to d7 to hit b5, but the pawn on c6 blocks that diagonal."
+ },
+ {
+  "id": 68,
+  "mechanism": "ignored_enemy_threat",
+  "lesson": "Answer a direct threat against your own camp before you develop another piece.",
+  "board_fact": "The bishop on d5 looks straight at g2, which nothing of White's defends, with the rook on h1 behind it."
+ },
+ {
+  "id": 69,
+  "mechanism": "line_opens_onto_target",
+  "lesson": "Do not park your queen on a square that one enemy pawn move will open a line onto.",
+  "board_fact": "After e5 the bishop on f8 sees the queen on b4 down an empty diagonal, so the queen must move and there is no time left for the bishop on f4, which the e5 pawn attacks."
+ },
+ {
+  "id": 70,
+  "mechanism": "removed_defender",
+  "lesson": "A pawn grab is not free if the piece that grabs it was the only guard of something else.",
+  "board_fact": "The queen on a4 was the only defender of the b4 pawn, and the bishop that takes there stands behind the rook on c3, which can step aside to uncover a check on the king on e1."
+ },
+ {
+  "id": 71,
+  "mechanism": "hung_piece",
+  "lesson": "When you step a piece aside to uncover a check, choose a square where it still guards the piece giving the check.",
+  "board_fact": "The bishop on b4 has no defender once the rook leaves c3, so Qxb4 answers the check; from b3 the rook would still guard b4."
+ },
+ {
+  "id": 72,
+  "mechanism": "tempo_lost_queen_moves_twice",
+  "lesson": "Put your queen on the square you actually want her on, and count how many times each piece has moved.",
+  "board_fact": "In the line after Qf3 White's queen goes to e2 two moves later anyway, so the trip to f3 handed Black a free move."
+ },
+ {
+  "id": 73,
+  "mechanism": "knight_fork",
+  "lesson": "A knight that reaches f7 hits the queen on d8 and the corner at once, so check that jump before you move another piece.",
+  "board_fact": "White's knight on g5 can take f7, where it attacks the queen on d8 and the knight on h6, and Black's best answer only trades queens."
+ },
+ {
+  "id": 74,
+  "mechanism": "knight_fork",
+  "lesson": "Castle early: a knight that reaches a square beside your king can check it and hit a rook in the same move.",
+  "board_fact": "The knight on d4 can take c2, which nothing of White's defends, and from there it hits the king on e1 and the rook on a1."
+ },
+ {
+  "id": 75,
+  "mechanism": "capture_order",
+  "lesson": "When an enemy piece is attacking one of yours, trade that attacker off first and collect the material afterwards.",
+  "board_fact": "The bishop on e3 attacks the bishop on c5, so taking the rook on a1 first allows Bxc5; Bxe3+ first and then Nxa1 keeps both."
+ },
+ {
+  "id": 76,
+  "mechanism": "unsupported_pawn_advance",
+  "lesson": "Before you push a pawn, check which enemy pieces reach that square and whether anything of yours guards it.",
+  "board_fact": "Nothing of Black's covers b5, while White's knight on c3 and bishop on c4 both do, so Nxb5 simply takes the pawn."
+ },
+ {
+  "id": 77,
+  "mechanism": "free_capture_missed",
+  "lesson": "If a capture wins a piece now, take it - a quiet move first gives the opponent time to arrange compensation.",
+  "board_fact": "The h3 pawn attacks the bishop on g4; after Rf1 Black gets Qe7 in, so hxg4 is answered by Qxc5 taking the undefended knight."
+ },
+ {
+  "id": 78,
+  "mechanism": "ignored_enemy_threat",
+  "lesson": "When a pawn attacks your bishop, extra defenders do not help - move the bishop or get something back for it.",
+  "board_fact": "White's h3 pawn attacks the bishop on g4, and Rab8 neither moves it nor wins anything, so hxg4 nets a bishop for a pawn."
+ },
+ {
+  "id": 79,
+  "mechanism": "removed_defender",
+  "lesson": "Before you move a piece, check what it is holding.",
+  "board_fact": "The bishop on c4 was one of three defenders of the d3 pawn that Black's rook on d8 attacks; after Bb3 only the knight on c5 and the king on d2 are left."
+ },
+ {
+  "id": 80,
+  "mechanism": "removed_defender",
+  "lesson": "Before you move a knight, check whether it is the second defender of a pawn beside your king.",
+  "board_fact": "The knight on c5 was helping the king guard d3, so once it goes to a4 the rook on d8 can take there with check."
+ },
+ {
+  "id": 81,
+  "mechanism": "missed_winning_tactic",
+  "lesson": "Before you make a quiet pawn move, look at every capture with check that you have.",
+  "board_fact": "Black's rook on d8 can take d3 with check, and after Kc2 Bd1+ Rxd1 the g-file opens so Qxg3 wins the queen."
+ },
+ {
+  "id": 82,
+  "mechanism": "free_capture_missed",
+  "lesson": "Take the free pawn while it is free; a quiet move gives the opponent a turn to defend it.",
+  "board_fact": "The c4 pawn is attacked by the bishop on b3 and the d3 pawn with nothing guarding it, and Bc2 instead leaves g4 for Nxg4."
+ },
+ {
+  "id": 83,
+  "mechanism": "pointless_check",
+  "lesson": "A check is only worth playing if it helps you - never give one that invites the king onto a square where it wins a pawn.",
+  "board_fact": "After Rxg2+ the king answers with Kxd3, taking Black's far-advanced pawn that nothing defends."
+ },
+ {
+  "id": 84,
+  "mechanism": "hung_piece",
+  "lesson": "When one of your pawns is deep in enemy ground and undefended, choose the move that defends it.",
+  "board_fact": "Black's pawn on d3 is attacked by the king on d2 and guarded by nothing; a pawn on e4 would have covered it, while f4 does not."
+ },
+ {
+  "id": 85,
+  "mechanism": "free_capture_missed",
+  "lesson": "In an endgame, use your king to pick up loose enemy pawns - it wins material and brings the king forward.",
+  "board_fact": "The pawn on d3 sits next to the king on d2 and nothing of Black's defends it."
+ },
+ {
+  "id": 86,
+  "mechanism": "bad_trade",
+  "lesson": "Do not trade off the pawn that is cramping your opponent, especially when the trade hands their worst piece a good square.",
+  "board_fact": "White's pawn on e5 held d6 and f6 against Black's knight on e8; after exd6 that knight recaptures and reaches b5, c4, e4 and f5."
+ },
+ {
+  "id": 87,
+  "mechanism": "moved_onto_attacked_square",
+  "lesson": "A piece is not safe just because a pawn can take back - check whether that pawn is holding your king's cover.",
+  "board_fact": "The rook on e1 looks down an empty e-file at e6, and the only black piece that can take back there is the f7 pawn beside the king on g8."
+ },
+ {
+  "id": 88,
+  "mechanism": "missed_winning_tactic",
+  "lesson": "When an enemy piece is guarded only by a pawn that shields its king, taking it anyway often wins material.",
+  "board_fact": "The bishop on e6 is attacked by the rook on e1 and the bishop on c4 and defended only by the f7 pawn."
+ },
+ {
+  "id": 89,
+  "mechanism": "knight_on_rim",
+  "lesson": "A knight on the edge covers fewer squares - ask which useful square you are giving up before you put it there.",
+  "board_fact": "From c7 the knight covered b5 and d5; from a6 it only reaches b4, b8, c5 and c7."
+ },
+ {
+  "id": 90,
+  "mechanism": "ignored_enemy_threat",
+  "lesson": "Rescue your own attacked piece before you take a pawn.",
+  "board_fact": "The bishop on b7 is attacked by the rook on b8 and the queen on b2 and defended only by the queen on f3, and after Rxa7 Black plays Qb6 to chase the rook off."
+ },
+ {
+  "id": 91,
+  "mechanism": "ignored_enemy_threat",
+  "lesson": "When one of your pieces is attacked and undefended, deal with that before you improve another piece.",
+  "board_fact": "The queen on b6 attacks the rook on a7 and nothing of White's defends it, so Qxa7 just takes it."
+ },
+ {
+  "id": 92,
+  "mechanism": "unsupported_pawn_advance",
+  "lesson": "An advanced pawn needs another pawn behind it, or it becomes a target instead of extra space.",
+  "board_fact": "White meets c5 with c3, hitting the bishop on b4, and the pawn that follows to c4 is attacked by the knight on d2 and the bishop on d3 with no black pawn behind it."
+ },
+ {
+  "id": 93,
+  "mechanism": "removed_defender",
+  "lesson": "When one of your pieces is kicked, check whether a capture is better than a retreat.",
+  "board_fact": "The bishop on b4 was the only defender of the c5 pawn that White's d4 pawn attacks, and from a5 it no longer guards it."
+ },
+ {
+  "id": 94,
+  "mechanism": "free_capture_missed",
+  "lesson": "Take a free pawn before you spend the move on a quiet pawn push of your own.",
+  "board_fact": "Black's c5 pawn is attacked by the d4 pawn and nothing of Black's guards it."
+ },
+ {
+  "id": 95,
+  "mechanism": "hung_piece",
+  "lesson": "Check that one of your own pawns is not blocking the piece you are counting on as a defender.",
+  "board_fact": "Black's a7 pawn and queen on d4 both cover b6, and White's rook on b2 cannot help because its own pawn on b3 is in the way."
+ },
+ {
+  "id": 96,
+  "mechanism": "removed_defender",
+  "lesson": "Before you move a piece, check what it is holding.",
+  "board_fact": "The bishop on d7 was the only guard of the e6 pawn, and the rook that takes there also hits the queen on b6 along the sixth rank."
+ },
+ {
+  "id": 97,
+  "mechanism": "missed_winning_tactic",
+  "lesson": "When a pawn is attacked twice and defended once, take it, even if your capturing piece looks loose afterwards.",
+  "board_fact": "The e6 pawn is attacked by the rook on e2 and the bishop on c4 and defended only by the queen on b6, which the rook then hits from e6."
+ },
+ {
+  "id": 98,
+  "mechanism": "bad_trade",
+  "lesson": "Count the defenders before you capture: a rook for a defended knight loses material.",
+  "board_fact": "The knight on e4 is defended by the f5 pawn, so Rxe4 fxe4 hands over a rook for a knight."
+ },
+ {
+  "id": 99,
+  "mechanism": "enemy_outpost_tolerated",
+  "lesson": "Drive an enemy knight out of the middle of your position before you castle, or it will arrive with check.",
+  "board_fact": "White's knight on d5 reaches c7, e7, b6 and f6; from e7 it would check a king on g8 and hit the bishop on c8, while the move c6 attacks it at once."
+ },
+ {
+  "id": 100,
+  "mechanism": "pointless_check",
+  "lesson": "A check is not a free move: if the king simply steps aside, your own attacked piece is still attacked.",
+  "board_fact": "The bishop on g5 attacks the queen on d8, and after Bxf2+ Kd2 that attack is still there."
+ },
+ {
+  "id": 101,
+  "mechanism": "removed_defender",
+  "lesson": "Before you move a piece, check what it is holding.",
+  "board_fact": "The knight on h3 was the only defender of the bishop on g5, which the queen on d8 attacks."
+ },
+ {
+  "id": 102,
+  "mechanism": "capture_order",
+  "lesson": "When two captures are available and one of your pieces is attacked, take with the attacked piece.",
+  "board_fact": "The bishop on g5 attacks the queen on d8 and has no defender, so Qxg5 wins it, while after Nxf2 the queen is still under attack."
+ },
+ {
+  "id": 103,
+  "mechanism": "knight_fork",
+  "lesson": "When an enemy knight hits your queen and a rook at once, move the queen first - grabbing material elsewhere lets the fork happen.",
+  "board_fact": "The knight on f2 attacks the queen on d1 and the rook on h1, so Bxd8 is met by Nxd1."
+ },
+ {
+  "id": 104,
+  "mechanism": "knight_fork",
+  "lesson": "Before you recapture, look at the squares an enemy knight can jump to that hit two things at once.",
+  "board_fact": "Nothing of Black's guards c7, and a knight that takes there attacks the rook on a8 as well."
+ },
+ {
+  "id": 105,
+  "mechanism": "line_opens_onto_target",
+  "lesson": "A piece is only safe while something blocks the line to it - check what happens when that blocker gets traded off.",
+  "board_fact": "Black's knight on h5 has no defender, and White's own knight on f3 is the only thing standing between it and the queen on d1."
+ },
+ {
+  "id": 106,
+  "mechanism": "capture_order",
+  "lesson": "When two of your pieces can take the same piece, pick the one whose departure opens a line you want.",
+  "board_fact": "Taking on d4 with the knight on f3 clears the line from d1 to h5 so the undefended knight on h5 drops, while taking with the bishop keeps that line blocked."
+ },
+ {
+  "id": 107,
+  "mechanism": "pawn_attacks_piece",
+  "lesson": "If an enemy pawn can advance to chase your bishop, spend your move on a threat instead of quiet development.",
+  "board_fact": "Black's g7 pawn can come to g5 to hit the bishop on f4, and after Be5 the pawn f6 drives it again."
+ },
+ {
+  "id": 108,
+  "mechanism": "pawn_attacks_piece",
+  "lesson": "When a pawn move chases an enemy piece and gains you time, play it before a safe routine move.",
+  "board_fact": "Black's g7 pawn can come to g5 to hit the bishop on f4; after O-O instead White plays Ne1 and trades off the strong knight on e4."
+ },
+ {
+  "id": 109,
+  "mechanism": "capture_order",
+  "lesson": "When several enemy pieces sit in your camp, capture the one that is actually threatening something.",
+  "board_fact": "The knight on e4 is the piece with the threat: it takes f2, and after Rxf2 the bishop on f5 collects the bishop on d3, which nothing defends."
+ },
+ {
+  "id": 110,
+  "mechanism": "missed_winning_tactic",
+  "lesson": "Before a quiet pawn move, check whether your knight has a capture that pulls a defender away.",
+  "board_fact": "The knight on e4 can take f2, and after Rxf2 the bishop on f5 takes the bishop on d3, which has no defender."
+ },
+ {
+  "id": 111,
+  "mechanism": "ignored_enemy_threat",
+  "lesson": "Remove the piece that is threatening you instead of stepping out of its way.",
+  "board_fact": "The knight on e4 takes f2, and after Rxf2 the bishop on f5 wins the bishop on d3, which nothing defends."
+ },
+ {
+  "id": 112,
+  "mechanism": "missed_winning_tactic",
+  "lesson": "Look for your own tactic in the centre before you start pushing pawns on the wing.",
+  "board_fact": "The knight on e4 can take f2 and open the f5 bishop's line to the undefended bishop on d3, while after h5 White trades on e4 and the queen takes that pawn."
+ },
+ {
+  "id": 113,
+  "mechanism": "capture_order",
+  "lesson": "When two of your pieces can take the same piece, think about which one you want left on the board.",
+  "board_fact": "Taking with the knight leaves the bishop on d3 attacked by the new black pawn on e4, while taking with the bishop trades it off and frees the queen to take h5."
+ },
+ {
+  "id": 114,
+  "mechanism": "bad_trade",
+  "lesson": "When a pawn attacks your bishop, consider stepping the bishop back instead of taking - a capture can leave your pawns broken.",
+  "board_fact": "After hxg4 the bishops come off on f5 and the e6 pawn has to recapture, leaving Black with pawns on f5 and f6 on the same file."
+ },
+ {
+  "id": 115,
+  "mechanism": "ignored_threat",
+  "lesson": "If one of your own pieces is already attacked, deal with that first; the pawn you want to grab is not running away.",
+  "board_fact": "The bishop on f4 was attacked by the pawn on g5, and Bg3 steps it aside and still takes the g4 pawn next move."
+ },
+ {
+  "id": 116,
+  "mechanism": "wrong_capture_choice",
+  "lesson": "When two enemy pieces are both attacked, take the one you win, not the one that only trades.",
+  "board_fact": "The pawn on g5 was attacking the bishop on f4, so gxf4 wins a bishop for a pawn, while Bxg4 only swaps bishops."
+ },
+ {
+  "id": 117,
+  "mechanism": "allowed_tempo_check",
+  "lesson": "When an enemy queen is hunting your king, put the king where she has no check.",
+  "board_fact": "On g8 the king lets the queen come to g6 with check; with the king on g7 that square is right next to it and the queen is simply taken."
+ },
+ {
+  "id": 118,
+  "mechanism": "missed_forcing_check",
+  "lesson": "A safe check that pushes the enemy king to a worse square comes before any tidying-up move.",
+  "board_fact": "Qg6+ drives the king to h8 and then h4 wins the pawn on g5 anyway; Bg3 gave Black time for Kg7."
+ },
+ {
+  "id": 119,
+  "mechanism": "allowed_tempo_check",
+  "lesson": "A loose pawn is safe only while the opponent cannot gain time; a check that also hits it wins it.",
+  "board_fact": "No black piece guarded the pawn on e4, and from g6 the white queen both checked the king on g8 and attacked e4 on the same diagonal."
+ },
+ {
+  "id": 120,
+  "mechanism": "missed_forcing_check",
+  "lesson": "Before pushing a pawn, look for a check that also attacks something; forcing moves come first.",
+  "board_fact": "The pawn on e4 had no guard and Qg6+ hit it with check; f4 instead let Black take the pawn in passing."
+ },
+ {
+  "id": 121,
+  "mechanism": "hung_piece",
+  "lesson": "Before you capture, count who guards the square you are landing on.",
+  "board_fact": "The capturing pawn ends up attacked by the pawn on e3, the rook on f1 and the bishop on g3, with no black piece guarding it."
+ },
+ {
+  "id": 122,
+  "mechanism": "missed_forcing_check",
+  "lesson": "If a loose pawn cannot run away, play your check first and take it a move later.",
+  "board_fact": "Qg4+ forces the king to f8, and the pawn on f4 is still there to be taken next move."
+ },
+ {
+  "id": 123,
+  "mechanism": "pointless_check",
+  "lesson": "A check is only worth playing if it wins something; otherwise you just hand the enemy king a new square.",
+  "board_fact": "After Rg7+ Kh1 no white piece is attacked and the only change is that the white king sits on h1 instead of g1."
+ },
+ {
+  "id": 124,
+  "mechanism": "ignored_threat",
+  "lesson": "When enemy pieces are closing in on your king, bring up a defender instead of pushing a pawn.",
+  "board_fact": "The rook on g7 is guarded only by the king and the bishop on f4 can already come to h6 to hit it; f5 adds no guard and also gives up e5 and g5."
+ },
+ {
+  "id": 125,
+  "mechanism": "wrong_queen_trade",
+  "lesson": "When you are the one attacking, the defender's best hope is a queen trade, so do not hand him one.",
+  "board_fact": "Black's rook on g7 is guarded only by the king and Rg1 piles up on the g-file; Bh6 instead let Black play Qe8 and offer the queens off."
+ },
+ {
+  "id": 126,
+  "mechanism": "discovered_attack",
+  "lesson": "Do not park a piece on the same line as the enemy queen when only one of her own pieces is in the way.",
+  "board_fact": "The rook on h7 stands on the h-file in front of the queen on h5 with only White's bishop on h6 between them, and that bishop leaves with check."
+ },
+ {
+  "id": 127,
+  "mechanism": "discovered_attack",
+  "lesson": "When your own piece is the only thing blocking your queen's line to a loose enemy piece, move that piece with check instead of moving the queen.",
+  "board_fact": "The rook on h7 is loose on the h-file behind White's bishop on h6; Bg7+ and Bf6+ open the line, while Qg6+ takes the queen off the h-file."
+ },
+ {
+  "id": 128,
+  "mechanism": "overloaded_defender",
+  "lesson": "A piece that is defending something and is itself attacked is doing two jobs; trade it off before it fails.",
+  "board_fact": "The queen on h5 was the only guard of the bishop on h6 and was herself attacked by the queen on f7, and Qxf7 trades those queens off."
+ },
+ {
+  "id": 129,
+  "mechanism": "removed_defender",
+  "lesson": "Before you move a piece, check what it is holding.",
+  "board_fact": "The queen on f7 was the only guard of the pawn on e6, so after she leaves White plays Qf6+ and then takes it."
+ },
+ {
+  "id": 130,
+  "mechanism": "missed_forcing_check",
+  "lesson": "When the same check is available from two squares, pick the one that shuts the enemy king in.",
+  "board_fact": "After Qf6+ the king escapes to h7; Qh6+ first takes that square away, and only then does Qf6+ win the pawn on e6."
+ },
+ {
+  "id": 131,
+  "mechanism": "wrong_queen_trade",
+  "lesson": "Work out the pawn ending before you offer a queen trade; a pawn down with only pawns left is usually just lost.",
+  "board_fact": "Qf7 stands right in front of the white queen on c7, and after Qxf7+ Kxf7 only pawns are left with Black one pawn short."
+ },
+ {
+  "id": 132,
+  "mechanism": "wrong_queen_trade",
+  "lesson": "When you are a pawn up, trading queens usually makes the win easier, not harder.",
+  "board_fact": "Qxf7+ swaps the queens and leaves White a pawn up with nothing but pawns on the board; Qg3+ kept the queens on."
+ },
+ {
+  "id": 133,
+  "mechanism": "pawn_push_weakens_squares",
+  "lesson": "With queens still on, leave the pawns next to your own king where they are.",
+  "board_fact": "After h4 the square h2 is empty and the king on h1 has nothing in front of it, and the black queen heads for h5 and then d1."
+ },
+ {
+  "id": 134,
+  "mechanism": "wrong_queen_trade",
+  "lesson": "Before you offer a queen trade, count the pawn ending that is left behind.",
+  "board_fact": "After Qxf3 exf3 the pawn on f3 has no defender and White's king walks over through f2 and takes it."
+ },
+ {
+  "id": 135,
+  "mechanism": "king_too_slow_in_pawn_endgame",
+  "lesson": "In a pawn ending, walk your king forward first; pawns that run ahead alone get stopped.",
+  "board_fact": "After d5 Black answers e5 and blocks it while White's king stays on f3, whereas b4 and Kf4-e5 marches the king in."
+ },
+ {
+  "id": 136,
+  "mechanism": "unneeded_pawn_trade",
+  "lesson": "When you are a pawn up, the extra pawn is the whole advantage, so avoid swapping pawns off.",
+  "board_fact": "Taking at once with dxe6 Kxe6 removes one pair of pawns, while after e4 two more pairs come off and White ends with only three pawns."
+ },
+ {
+  "id": 137,
+  "mechanism": "hung_piece",
+  "lesson": "A check that drops a pawn is still just dropping a pawn; count the guards of the square first.",
+  "board_fact": "The pawn that gives the check has no guard at all and the white king on f3 simply takes it."
+ },
+ {
+  "id": 138,
+  "mechanism": "wrong_capture_choice",
+  "lesson": "When a pawn and the king can both make the same capture, the pawn capture usually gains ground.",
+  "board_fact": "cxd5 leaves a white pawn on d5 that Black has no pawn left to stop, while Kxd5 leaves the other pawn back on c4."
+ },
+ {
+  "id": 139,
+  "mechanism": "unneeded_pawn_trade",
+  "lesson": "Push the pawn that cannot be swapped off and make a runner, instead of offering pairs of pawns.",
+  "board_fact": "After a4 Black plays b6 and a pair comes off on a5; c5 and c6 instead leaves Black with pawns only on a7 and b5, neither of which can touch the c-pawn."
+ },
+ {
+  "id": 140,
+  "mechanism": "unneeded_pawn_trade",
+  "lesson": "Never trade off your most advanced pawn; it is the one the enemy king has to keep watching.",
+  "board_fact": "cxb6+ swaps the far advanced pawn for the one on b6 and the black king takes it back, while c6 keeps that pawn running to c7."
+ },
+ {
+  "id": 141,
+  "mechanism": "hung_piece",
+  "lesson": "Before pushing a pawn forward, count how many pieces hit the square and how many of yours guard it.",
+  "board_fact": "The pawn on e5 is attacked by the pawn on d4 and the knight on f3 but guarded only by the bishop on g7."
+ },
+ {
+  "id": 142,
+  "mechanism": "missed_material_win",
+  "lesson": "When an enemy pawn is attacked twice and guarded once, take it.",
+  "board_fact": "Black's pawn on e5 was attacked by the pawn on d4 and the knight on f3 and guarded only by the bishop on g7; d5 let it live."
+ },
+ {
+  "id": 143,
+  "mechanism": "enemy_knight_outpost",
+  "lesson": "Trade off an enemy knight that has reached a square none of your pawns can ever attack, before you start play on the side.",
+  "board_fact": "Black has no c-pawn and no e6 pawn, so nothing can ever chase the knight on d5; after a5 it jumps to b6, hits the rook on a8, and the pawn on d6 drops."
+ },
+ {
+  "id": 144,
+  "mechanism": "missed_material_win",
+  "lesson": "Before you make a safety move, check whether your best-placed piece has a jump that wins something.",
+  "board_fact": "From b6 the knight attacks the rook on a8, and once the rook steps aside the queen takes the pawn on d6."
+ },
+ {
+  "id": 145,
+  "mechanism": "enemy_knight_outpost",
+  "lesson": "A knight parked deep in your position must be traded off; shuffling your other pieces around it only makes things worse.",
+  "board_fact": "No black pawn can reach d5 to chase the knight away, so after Nb4 White plays Nxf6+ and then takes the pawn on d6."
+ },
+ {
+  "id": 146,
+  "mechanism": "missed_material_win",
+  "lesson": "Cash in your pressure while it is there instead of spending a move poking at a piece on the edge.",
+  "board_fact": "After Nxf6+ Bxf6 the pawn on d6 is held only by the queen on d8, and White's queen on d2 has the rook on d1 right behind her."
+ },
+ {
+  "id": 147,
+  "mechanism": "pawn_push_weakens_squares",
+  "lesson": "A pawn can never guard again the squares it has just walked past.",
+  "board_fact": "The pawn on e5 was the only black guard of d4 and f4, and after it pushes on, nothing covers those squares and the pawn itself needs the knight on f6."
+ },
+ {
+  "id": 148,
+  "mechanism": "wrong_queen_trade",
+  "lesson": "If you are the side with the pressure, keep the pieces on; mass trades help the defender.",
+  "board_fact": "Bd4 lines up in front of the queen on f6, so Black trades on d4 and the queens and both dark-squared bishops all come off."
+ },
+ {
+  "id": 149,
+  "mechanism": "unneeded_pawn_trade",
+  "lesson": "Do not attack a weak enemy pawn with a pawn; you only help him swap his weakness off.",
+  "board_fact": "Black's pawn on e4 was his weak point, attacked by the rooks on d4 and e1, and after f3 exf3 gxf3 it is gone and White's g-pawn with it."
+ },
+ {
+  "id": 150,
+  "mechanism": "wrong_capture_choice",
+  "lesson": "With two captures to choose from, start with the one that stops the opponent getting a pawn next to your king.",
+  "board_fact": "After fxe4 Black plays bxa3 and that pawn sits beside the white king on b1; taking with axb4 first removes it."
+ },
+ {
+  "id": 151,
+  "mechanism": "hung_piece",
+  "lesson": "Before you move a piece, check whether an enemy pawn covers the square.",
+  "board_fact": "The pawn on b3 and the rook on d4 both cover a4 and no black piece guards it, so the knight that lands there is just taken."
+ },
+ {
+  "id": 152,
+  "mechanism": "missed_material_win",
+  "lesson": "Look for the loose enemy piece before you carry on with your plan; it will not wait.",
+  "board_fact": "The knight on a4 had no defender while the pawn on b3 and the rook on d4 both attacked it; e5 let it escape with a check from c3."
+ },
+ {
+  "id": 153,
+  "mechanism": "ignored_threat",
+  "lesson": "If one of your pawns is attacked and nobody guards it, settle that before starting something on the other wing.",
+  "board_fact": "The pawn on d6 was attacked by the pawn on e5 and no black piece guarded it, so exd6 simply wins it."
+ },
+ {
+  "id": 154,
+  "mechanism": "missed_material_win",
+  "lesson": "Take the free pawn instead of pushing past it; a pawn in hand beats a pawn one square further on.",
+  "board_fact": "The pawn on d6 had no guard, so exd6 wins it, while pushing to e6 lets Black answer with fxe6."
+ },
+ {
+  "id": 155,
+  "mechanism": "wrong_capture_choice",
+  "lesson": "When a pawn or a bishop can make the same capture, check which one leaves your bishop's diagonal open.",
+  "board_fact": "After Bxb3 the bishop covers c4 and d5, while cxb3 puts White's own pawn in front of the bishop on a2, which then sees only b1 and b3."
+ },
+ {
+  "id": 156,
+  "mechanism": "missed_material_win",
+  "lesson": "Take the pawn that is already attacked while your pieces still point at the rest; a quiet move lets the target get defended.",
+  "board_fact": "The pawn on f7 could take on e6, and the knight on c3 was also attacking the pawn on d5; Nb5 gave up the attack on d5."
+ },
+ {
+  "id": 157,
+  "mechanism": "knight_fork",
+  "lesson": "Before you place a piece, look for the square where an enemy knight would hit two of your pieces at once.",
+  "board_fact": "From c3 the black knight attacks both e4 and d5, so the rook on e4 must move again and the pawn on d5 has no other guard."
+ },
+ {
+  "id": 158,
+  "mechanism": "missed_passed_pawn_push",
+  "lesson": "A pawn one step from promoting ties an enemy rook down, so push it instead of defending elsewhere.",
+  "board_fact": "After e7 Black's only way to stop the pawn is to put a rook on e8; Rd4 instead let Black take with fxe6."
+ },
+ {
+  "id": 159,
+  "mechanism": "missed_material_win",
+  "lesson": "Grab the pawn you are already attacking before you reposition a rook.",
+  "board_fact": "The pawn on f7 could take on e6 and the knight on c3 was attacking the pawn on d5; Rb5 left both of White's pawns standing."
+ },
+ {
+  "id": 160,
+  "mechanism": "pawn_too_far_to_support",
+  "lesson": "A pawn that runs ahead with nothing behind it just gets blocked and collected later.",
+  "board_fact": "After e7 Black's rook sits in front of it on e8 and the pawn never moves again for the rest of the line."
+ },
+ {
+  "id": 161,
+  "mechanism": "removed_defender",
+  "lesson": "Before you move a rook along a file, check whether it is the only thing guarding a pawn on that file.",
+  "board_fact": "The rook on d4 was the only guard of the pawn on d5, which both the knight on c3 and the rook on b5 attack."
+ },
+ {
+  "id": 162,
+  "mechanism": "wrong_capture_choice",
+  "lesson": "When your attacked piece can take two things, take the one that is unguarded, not the one that is guarded.",
+  "board_fact": "The bishop on a2 was guarded by the king on a1, so taking it is only a trade, while the pawn on d5 had no guard at all."
+ },
+ {
+  "id": 163,
+  "mechanism": "missed_material_win",
+  "lesson": "In a rook ending take the free pawn; the extra pawn is what decides the race.",
+  "board_fact": "The rook on g3 was already attacking the pawn on h3 and nothing guarded it."
+ },
+ {
+  "id": 164,
+  "mechanism": "removed_defender",
+  "lesson": "Before you move a pawn, check what it is guarding.",
+  "board_fact": "The pawn on h7 was the only guard of the pawn on g6, so once it advances the white king on f6 just takes on g6."
+ }
+]

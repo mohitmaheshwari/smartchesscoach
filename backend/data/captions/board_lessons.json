@@ -1,0 +1,41 @@
+{
+  "_doc": "Board lesson templates. Mohit 2026-10-07: 'from the board pick the thing and end the lesson, these are our templates'. Sentence one names something measured on the board; sentence two is the lesson and never changes, because that is the part the player keeps. docs/board_lesson_templates_scope.md",
+  "templates": {
+    "hanging_ignored": {
+      "board": "Your {victim} on {victim_square} was attacked by the {attacker} on {attacker_square}, and nothing was defending it.",
+      "lesson": "Look at what they attack before you start your own plan."
+    },
+    "moved_the_guard": {
+      "board": "Your {mover} on {from_square} was defending your {victim} on {victim_square}. It left, and {capture} takes it.",
+      "lesson": "Before you move a piece, check what it is holding."
+    },
+    "landed_uncounted": {
+      "board": "{attack_phrase} {defend_phrase}",
+      "lesson": "Count attackers and defenders before you put a piece on a square."
+    },
+    "opened_line": {
+      "board": "Moving off {from_square} opened the line from the {attacker} on {attacker_square} to your {victim} on {victim_square}.",
+      "lesson": "When a piece steps aside, look down the line it just left."
+    },
+    "capture_available": {
+      "board": "{best_san} takes the {target} on {target_square}.",
+      "lesson": "Look at every capture before anything else."
+    },
+    "king_square_theirs": {
+      "board": "The {enemy} comes to {landing_square}, next to your king. Your king cannot take it there, because the {guard} on {guard_square} guards that square. Then it takes your {victim} on {victim_square}.",
+      "lesson": "A square next to your king is only safe if nothing of theirs guards it."
+    },
+    "king_square_theirs_check": {
+      "board": "The {enemy} comes to {landing_square}, next to your king, with check. Your king cannot take it there, because the {guard} on {guard_square} guards that square. You have to answer the check, and then it takes your {victim} on {victim_square}.",
+      "lesson": "A square next to your king is only safe if nothing of theirs guards it."
+    },
+    "forked": {
+      "board": "Their {attacker} lands on {landing_square} and attacks your {first} on {first_square} and your {second} on {second_square} at the same time.",
+      "lesson": "One piece can attack two of yours at once. Before you move, look for the squares that would hit two of your pieces."
+    },
+    "capture_window_closed": {
+      "board": "{best_san} takes the {target} on {target_square}, and right now more of your pieces hit that square than theirs defend it. After {reply} that is no longer true.",
+      "lesson": "A capture that is there now is often gone next move, so count before you play something else."
+    }
+  }
+}
