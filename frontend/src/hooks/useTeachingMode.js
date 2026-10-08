@@ -10,6 +10,7 @@
  */
 
 import { useState, useCallback } from "react";
+import { playForSan } from "@/lib/chessSounds";
 import { Chess } from "chess.js";
 import { API } from "@/App";
 import { nextLessonPrompt } from "@/lib/teachingLessonPrompt";
@@ -306,6 +307,11 @@ const useTeachingMode = ({
         return false;
       }
       if (!moveObj) return false;
+
+      // Trap and endgame lessons are a whole mode that had no sound at all:
+      // this hook never imported chessSounds. The piece lands here exactly
+      // as it does on the main board, so it should sound the same.
+      playForSan(moveObj.san);
 
       try {
         const response = await fetch(`${API}/coach/play/teaching/move`, {

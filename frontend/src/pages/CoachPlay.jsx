@@ -3411,6 +3411,12 @@ const CoachPlay = ({ user }) => {
       } catch { return false; }
       if (!moveObj) return false;
 
+      // The piece landed here too. This branch returns before the shared
+      // sound call below, so without this the board is silent for exactly
+      // the moves made while the coach is holding one for review -- which
+      // is when the player is most engaged. Reported 2026-10-08.
+      playForSan(moveObj.san);
+
       // Cancel current hold and re-evaluate with new move
       cancelFlowPendingMove();
       // Reset board to pre-pending state
