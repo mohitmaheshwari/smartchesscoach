@@ -6097,20 +6097,42 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
         "best_material_swing_short": best_short,
     }
 
-    # They take something off us because of the move we played.
+    # OPPORTUNITY IS ASKED FIRST, and the order is the whole point.
+    #
+    # Mohit 2026-10-08 on move 20 Qh4 of 043d6b9c, an opponent blunder:
+    # "i don't think this is punishment, this is opportunity... read out
+    # stockfish". He was right and the engine says so plainly: before Qh4
+    # white is +4.80 with Nxh7 Kxh7 Qh3+ Kg8 Qxf5 winning a rook, and after
+    # Qh4 it is -0.98. Nobody refutes Qh4. Black plays h6 and consolidates.
+    #
+    # Both axes fired on that card, and punishment used to win because it was
+    # tested first. But its -4 does not exist until ply 8 -- slow drift long
+    # after the moment -- while the missed win is on the board at ply 0. A
+    # horizon cut cannot separate the two: the real punishment on move 17 Be6
+    # is also only -1 by ply 6 and -3 by ply 8, the same shape. What differs
+    # is that Qh4 has a large EARLY opportunity beside it and Be6 has none.
+    #
+    # So when a move both throws away a win and drifts into material later,
+    # the win it threw away is the lesson, and the drift is its consequence.
+    # Asking opportunity first says that, and it is measured at short range
+    # already, so it only wins when the chance was really there and visible.
+    # The best move must actually WIN something, not merely avoid a loss.
+    # Testing the DIFFERENCE alone was wrong: it goes large whenever the
+    # PLAYED move loses material, so asking opportunity first made it swallow
+    # punishments -- 508 of 1,578 cards called an opportunity were also losing
+    # 2+ immediately ("b5, short played -3, best +0"). A missed chance means
+    # there was something there to take.
+    if (best_short is not None and played_short is not None
+            and best_short >= STORY_OPPORTUNITY_FLOOR
+            and best_short - played_short >= STORY_OPPORTUNITY_FLOOR
+            and played_short > -STORY_PUNISHMENT_FLOOR):
+        detail["missed_move"] = best_move_san
+        return "opportunity", detail
+
+    # Otherwise: they take something off us because of the move we played.
     if played_swing is not None and played_swing <= -STORY_PUNISHMENT_FLOOR:
         detail["punishment_line"] = list(pv_after_played or ())
         return "punishment", detail
-
-    # Nothing happens to us, but the move we did not play wins materially
-    # MORE. It has to be a difference: on move 12 of 043d6b9c both lines win
-    # material (+5 played, +6 best), so "the best line gains" is true there and
-    # says nothing. What matters is what the choice cost.
-    if (best_short is not None and played_short is not None
-            and best_short - played_short >= STORY_OPPORTUNITY_FLOOR
-            and (played_swing is None or played_swing > -STORY_PUNISHMENT_FLOOR)):
-        detail["missed_move"] = best_move_san
-        return "opportunity", detail
 
     return "neither", detail
 

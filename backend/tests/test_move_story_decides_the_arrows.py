@@ -353,49 +353,113 @@ class TestTheWordsObeyTheVerdictToo:
 
 
 class TestOurOwnOpportunitiesAreDrawnToo:
-    """Mohit 2026-10-07, reading the engine-paths panel on move 13 c5 of
-    043d6b9c: "verdict is opportunity, but no arrows."
+    """Mohit 2026-10-07, reading the engine-paths panel: "verdict is
+    opportunity, but no arrows."
 
-    The verdict was right and nothing acted on it. _missed_move_arrow was only
-    ever wired on the opponent branch; on our own moves _teach_arrows was set
-    only when we had played the best move, and was otherwise empty. His rule is
-    "any side (me or opponent)" and this was one side.
-
-    Measured over 1,017 of our own cards the classifier calls an opportunity:
-    684 gained an arrow (from zero), 0 of them anything but the engine's own
-    best move.
+    _missed_move_arrow was only ever wired on the opponent branch; on our own
+    moves _teach_arrows was set only when we had played the best move. His rule
+    is "any side (me or opponent)" and this was one side of it.
     """
 
-    # Move 13 of 043d6b9c. We played c5; f5 was the move.
-    C5 = dict(
+    # Our g5 (cp 417). Qd3 was there and wins the knight on f3: short-range
+    # material +3 for us, 0 if we play what we played.
+    G5 = dict(
+        fen="5rk1/1pp3p1/3qp2p/p3p3/P3P3/N1P2NP1/1P3QK1/8 b - - 0 26",
+        played="g5", best="Qd3", mine=True, cp=417,
+        pvp=["Qe2", "Rd8", "Nc4", "Qd1"],
+        pvb=["Nc2", "Rxf3", "Qxf3", "Qxc2+", "Kh3", "Qxa4", "Qe2", "Qc6"],
+        story="opportunity")
+
+    # Our c5 (move 13 of 043d6b9c). f5 was better, but f5 WINS NOTHING -- it is
+    # a positional preference, short-range material 0. Mohit read "opportunity"
+    # off the panel here when the classifier still tested only the DIFFERENCE
+    # between the two lines. A material classifier calling this a missed
+    # chance was wrong, and requiring the best move to actually gain moved it
+    # to `neither`, where it belongs. Kept as a case so it cannot drift back.
+    C5_IS_NOT_A_MATERIAL_CHANCE = dict(
         fen="r1bq1rk1/ppp2ppp/1b6/3pP3/2nP1B2/2PB1N2/PP3QPP/1R3RK1 b - - 4 13",
         played="c5", best="f5", mine=True, cp=105,
         pvp=["dxc5", "Ba5", "Ng5", "g6", "Qh4", "h5", "Qg3", "Qe7",
              "e6", "f6", "b4", "fxg5"],
         pvb=["Rbe1", "Qe7", "Bg5", "Qe8", "b3", "Na5", "Nh4", "c5",
              "dxc5", "Bc7", "e6", "Bxe6"],
-        story="opportunity")
+        story="neither")
 
     def test_our_own_missed_chance_is_an_opportunity(self):
-        assert _story(self.C5)[0] == "opportunity"
+        assert _story(self.G5)[0] == "opportunity"
 
     def test_it_draws_the_move_we_missed(self):
-        drawn, decision = _arrows(self.C5)
+        drawn, decision = _arrows(self.G5)
         assert decision.debug_facts["move_story"] == "opportunity"
-        assert drawn == [("f7", "f5", "blue")]
+        assert drawn == [("d6", "d3", "blue")]      # Qd3, winning the knight
 
-    def test_the_square_is_the_one_on_screen(self):
-        """f5 is legal before c5 and still legal after it, because c5 is a
-        queenside pawn move that touches neither f7 nor f5. That is the whole
-        test the arrow has to pass."""
-        board = chess.Board(self.C5["fen"])
-        after = board.copy()
-        after.push_san("c5")
-        assert after.piece_at(chess.parse_square("f7")) is not None
-        assert after.piece_at(chess.parse_square("f5")) is None
+    def test_a_better_move_that_wins_nothing_is_not_an_opportunity(self):
+        """The distinction that cost two rewrites: 'the engine prefers X' is
+        not 'X wins something'. Only the second is a material chance."""
+        story, detail = _story(self.C5_IS_NOT_A_MATERIAL_CHANCE)
+        assert story == "neither"
+        assert detail["best_material_swing_short"] < STORY_OPPORTUNITY_FLOOR
 
     def test_a_punishment_of_ours_still_draws_the_line_not_the_missed_move(self):
         """The branch must not swallow the punishment picture."""
         drawn, decision = _arrows(BE6)
         assert decision.debug_facts["move_story"] == "punishment"
         assert len(drawn) == 5
+
+
+class TestWhichStoryWinsWhenBothFire:
+    """Mohit 2026-10-08 on move 20 Qh4 of 043d6b9c, an opponent blunder:
+    "i don't think this is punishment, this is opportunity... read out
+    stockfish."
+
+    The engine agreed with him. Before Qh4 white is +4.80 and Nxh7 Kxh7 Qh3+
+    Kg8 Qxf5 wins a rook; after Qh4 it is -0.98. Nobody refutes Qh4 -- Black
+    plays h6 and consolidates. The eval collapses because a winning tactic was
+    thrown away, not because the move was punished.
+
+    Both axes fired, and punishment won only because it was asked first. Its -4
+    does not exist until ply 8; the missed win is on the board at ply 0.
+
+    A horizon cut cannot separate them -- the genuine punishment on Be6 is also
+    only -1 by ply 6 and -3 by ply 8, the same shape. What differs is that Qh4
+    has a large EARLY chance beside it and Be6 has none. So opportunity is
+    asked first, and it has to prove a real gain.
+    """
+
+    QH4 = dict(
+        fen="r2q2k1/pp4pp/1b6/3pPrN1/2n2B2/6Q1/PP4PP/1R3R1K w - - 0 20",
+        played="Qh4", best="Nxh7", mine=False, cp=600,
+        pvp=["h6", "Nf3", "Qf8", "g3", "Be3", "b3", "Bxf4", "Nd4",
+             "Bxg3", "Qh3", "Rxf1+", "Rxf1"],
+        pvb=["Bd4", "Qg6", "Rxf4", "Rxf4", "Nxe5", "Qe6+", "Kxh7", "Rxd4",
+             "Qf6", "Qxd5", "Re8", "Qe4+"],
+        story="opportunity")
+
+    def test_the_thrown_away_win_beats_the_later_drift(self):
+        assert _story(self.QH4)[0] == "opportunity"
+
+    def test_the_drift_really_is_late_and_the_chance_really_is_early(self):
+        """If this stops holding, the case above proves nothing."""
+        _story_name, detail = _story(self.QH4)
+        assert detail["played_material_swing"] <= -2        # the late drift is real
+        assert detail["played_material_swing_short"] == 0   # nothing happens early
+        assert detail["best_material_swing_short"] >= 1     # the chance is immediate
+
+    def test_a_real_punishment_is_not_stolen_by_the_reorder(self):
+        """Be6 has no chance beside it, so punishment still wins there even
+        though it is asked second."""
+        assert _story(BE6)[0] == "punishment"
+
+    def test_an_immediate_loss_is_never_called_a_missed_chance(self):
+        """Asking opportunity first on the DIFFERENCE alone made it swallow
+        punishments: 508 of 1,578 opportunity cards were also losing 2+
+        immediately, because the difference goes large whenever the PLAYED move
+        loses. Requiring the best move to actually gain, and the played move
+        not to be bleeding already, took that to 0."""
+        losing_now = dict(
+            BE6,
+            pvb=["Ng5", "Be3", "Bxc4", "Bxf4"],
+        )
+        story, detail = _story(losing_now)
+        assert story == "punishment"
+        assert detail["played_material_swing_short"] is not None
