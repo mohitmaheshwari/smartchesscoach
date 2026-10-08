@@ -30,7 +30,7 @@ import useTeachingMode from "@/hooks/useTeachingMode";
 import usePlayerData from "@/hooks/usePlayerData";
 import useGuardian from "@/hooks/useGuardian";
 import { isOnAuthoredLine } from "@/pages/openingLineGuard";
-import { playForSan } from "@/lib/chessSounds";
+import { playForSan, playBlunder } from "@/lib/chessSounds";
 import useStockfishEval from "@/hooks/useStockfishEval";
 import { useCoachFlow, INTERACTION_STATES, CLOCK_STATES } from "@/coachFlow";
 import ActiveCoachingCard from "@/components/coach/ActiveCoachingCard";
@@ -1470,7 +1470,7 @@ const CoachPlay = ({ user }) => {
           if (data.coach_move && data.message) {
             toast.success(data.message || `Coach played ${data.coach_move}`);
             // Update last move highlight
-            // The move format is UCI, parse it
+            // coach_move is SAN (the endpoint returns coach_move_san).
             if (data.coach_move.length >= 4) {
               // For SAN moves, we need to get UCI from the API response
               // For now, just refetch the state to get proper lastMove
@@ -1911,6 +1911,15 @@ const CoachPlay = ({ user }) => {
 
           // Determine severity from quality
           const quality = data.feedback.user_move_quality || data.feedback.quality || "neutral";
+
+          // A move that cost material gets its own sound. Fires only on
+          // mistake/blunder, never on an inaccuracy -- a 900 plays a lot of
+          // slightly imprecise moves and a noise on each one is nagging, not
+          // coaching. Deliberately after the move sound, so the player hears
+          // the piece land and THEN that it was expensive.
+          if (quality === "mistake" || quality === "blunder") {
+            try { playBlunder(); } catch { /* audio is never load-bearing */ }
+          }
           const severity = quality === "best" ? "good" :
                           quality === "good" ? "good" :
                           quality === "inaccuracy" ? "inaccuracy" :
@@ -3475,6 +3484,14 @@ const CoachPlay = ({ user }) => {
 
     if (!moveObj) return false;
 
+    // The piece has landed locally, so the sound belongs to THIS moment in
+    // every mode. It used to sit inside the `gameMode === "play"` branch
+    // below, and gameMode defaults to "coach" -- so the mode almost everyone
+    // plays in had silent user moves while the coach's moves were audible.
+    // Reported 2026-10-08. Deriving from SAN keeps capture and check
+    // distinct without each caller re-deriving it.
+    playForSan(moveObj.san);
+
     // PLAY MODE: pure chess, no coaching — skip the entire evaluate-pending /
     // guardian / coaching-hold pipeline below and commit instantly. That
     // pipeline can enter a "critical hold" (coachFlow) or a guardian
@@ -3488,10 +3505,6 @@ const CoachPlay = ({ user }) => {
       highlightMove(moveObj.from + moveObj.to);
       setUserLastMoveSquare(moveObj.to);
       setCoachLastMoveSquare(null);
-      // The piece has landed locally; the sound belongs to that moment rather
-      // than to the server round trip. Deriving it from the SAN keeps capture
-      // and check distinct without each caller re-deriving it.
-      playForSan(moveObj.san);
 
       await executeMoveForSession(session?.session_id, moveObj.san, timeSpentPlay);
       setIsPlayerTurn(false);

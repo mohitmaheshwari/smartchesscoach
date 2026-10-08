@@ -1460,6 +1460,24 @@ async def get_personalized_greeting(db, user_id: str) -> str:
     return greetings.get(context, greetings["normal"])
 
 
+# Behaviour phrases for the improvement note. Says what the player
+# STOPPED DOING, in the words a 600-1500 player uses, instead of naming
+# the internal category. Keys are habit_id / cognitive_gap values.
+WEAKNESS_BEHAVIOUR_PHRASE = {
+    "piece_safety": "left a piece loose",
+    "king_safety": "left your king exposed",
+    "missed_tactic": "missed a tactic",
+    "tactical_oversight": "missed what your opponent was threatening",
+    "threat_awareness": "moved without checking their threat",
+    "calculation_depth": "stopped calculating too early",
+    "endgame_technique": "slipped in the endgame",
+    "opening_knowledge": "drifted in the opening",
+    "pawn_structure": "damaged your own pawns",
+    "piece_activity": "left a piece doing nothing",
+    "time_management": "rushed a critical move",
+}
+
+
 async def get_realtime_pattern_context(
     db, 
     user_id: str, 
@@ -1541,9 +1559,36 @@ async def get_realtime_pattern_context(
 
                 # Check if improving
                 if is_improving:
-                    result["improvement_note"] = (
-                        f"You're getting better at {weakness.name} — the pattern is fading."
+                    # Voice: name the behaviour and the streak, not the
+                    # label. "You're getting better at Piece Safety" is a
+                    # category name; "you haven't left a piece loose in your
+                    # last four games" is the thing that actually happened.
+                    _clean = 0
+                    try:
+                        _clean = int((decay_info or {}).get("clean_streak", 0) or 0)
+                    except Exception:
+                        _clean = 0
+                    _behaviour = WEAKNESS_BEHAVIOUR_PHRASE.get(
+                        habit_id, f"run into {weakness.name.lower()}"
                     )
+                    # Gate on the decay model's OWN state, not a second
+                    # threshold invented here. pattern_decay_service defines
+                    # declining as clean_streak >= 3 AND effective_score <= 2,
+                    # and fading as score < 1. Two clean games is thin --
+                    # is_improving above fires at >= 2, which would tell a
+                    # player they had stopped after one quiet pair.
+                    _state = str((decay_info or {}).get("state") or "")
+                    if _state not in ("declining", "fading"):
+                        result["improvement_note"] = None
+                    elif _clean >= 2:
+                        result["improvement_note"] = (
+                            f"You haven't {_behaviour} in your last "
+                            f"{_clean} games."
+                        )
+                    else:
+                        result["improvement_note"] = (
+                            f"You haven't {_behaviour} lately."
+                        )
                 break
     
     # Get recent game reference if available

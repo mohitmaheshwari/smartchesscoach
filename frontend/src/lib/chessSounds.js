@@ -114,6 +114,36 @@ export const playCheck = () => {
 };
 
 /**
+ * A move that cost material or the game. Deliberately NOT an alarm: lower
+ * and a little longer than check, falling rather than rising, so it reads
+ * as "that one hurt" and not as a buzzer. Mohit's rule is undramatic
+ * coaching -- the sound should not be the loudest thing that happens when
+ * a 900 hangs a piece.
+ */
+export const playBlunder = () => {
+  click({ freq: 320, duration: 0.09, gain: 0.2, decay: 12 });
+  const ctx = getCtx();
+  if (!ctx || isMuted()) return;
+  try {
+    const osc = ctx.createOscillator();
+    const vol = ctx.createGain();
+    osc.type = "sine";
+    // A short fall, not a sting.
+    osc.frequency.setValueAtTime(330, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(190, ctx.currentTime + 0.22);
+    vol.gain.setValueAtTime(0.0001, ctx.currentTime);
+    vol.gain.exponentialRampToValueAtTime(0.07, ctx.currentTime + 0.02);
+    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.26);
+    osc.connect(vol);
+    vol.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.27);
+  } catch {
+    /* ignore */
+  }
+};
+
+/**
  * Pick the sound from the move itself, so callers do not each re-derive it.
  * `san` is the move in algebraic notation.
  */

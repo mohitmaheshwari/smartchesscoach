@@ -2973,15 +2973,21 @@ async def trigger_coach_move_endpoint(
             fen_before=current_fen,
             fen_after=new_fen,
             expected_history_length=len(move_history),
-            extra_set={
-                "coach_move_pending": False,
-                "last_coach_move": {
-                    "move": coach_move_san,
-                    "san": coach_move_san,
-                    "uci": coach_move_uci,
-                    "explanation": get_coach_move_explanation(coach_move_san, current_fen),
+            extra_set=apply_game_over_to_update(
+                board,
+                {
+                    "coach_move_pending": False,
+                    "last_coach_move": {
+                        "move": coach_move_san,
+                        "san": coach_move_san,
+                        "uci": coach_move_uci,
+                        "explanation": get_coach_move_explanation(coach_move_san, current_fen),
+                    },
+                    # the coach just moved, so a mate here is the USER mated
+                    "_user_is_mated": True,
                 },
-            },
+                session_doc,
+            ),
         )
         if not landed:
             # Another writer played this turn. Report the stored truth rather
@@ -8716,6 +8722,50 @@ async def _promote_session_to_game(db, session_id: str, user_id: str):
                 f"({len(pgn_moves)} moves, {blunders}B {mistakes}M, acc={accuracy}%)")
 
 
+def apply_game_over_to_update(board, update: dict, surface_session: dict | None = None) -> dict:
+    """Stamp completion onto `update` when `board` is a finished game.
+
+    ONE definition, called by every path that applies a move. There were
+    three such paths on 2026-10-04 and only two carried this block:
+    _apply_coach_move had it, the line-10814 path had it, and
+    trigger_coach_move_endpoint did not. Mohit was checkmated by the coach
+    (Qf2# in session a93e2bea, 56 moves) and the session stayed
+    status=active / result=None, so the board said checkmate and the
+    product did not. The caption layer then narrated it as an ordinary
+    check and asked him which of three escapes he had.
+
+    `result` is from the USER's point of view: the caller passes the board
+    after whoever just moved, and checkmate there means the side to move is
+    mated. Callers tell us who that is via `user_is_mated`.
+    """
+    if not board.is_game_over():
+        return update
+    if board.is_checkmate():
+        update["status"] = "completed"
+        # No silent default. A caller that does not say who was mated gets a
+        # completed game with no result, and a log line -- rather than a
+        # confident "loss" that might be a win. The whole reason this helper
+        # exists is that a missing branch shipped quietly for weeks.
+        if "_user_is_mated" in update:
+            update["result"] = "loss" if update["_user_is_mated"] else "win"
+        else:
+            logger.warning(
+                "[coach_play] game over stamped without _user_is_mated; "
+                "result left unset rather than guessed"
+            )
+    elif board.is_stalemate() or board.is_insufficient_material():
+        update["status"] = "completed"
+        update["result"] = "draw"
+    update.pop("_user_is_mated", None)
+    if (
+        update.get("status") == "completed"
+        and (surface_session or {}).get("experience_version") == "unified_v1"
+    ):
+        update["unified_journey.completed_at"] = datetime.now(timezone.utc).isoformat()
+        update["unified_journey.completion_result"] = update.get("result")
+    return update
+
+
 async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, move_history: list) -> bool:
     """
     ONE function to apply a coach move. ALL paths use this.
@@ -8761,22 +8811,10 @@ async def _apply_coach_move(db, session_id: str, fen: str, coach_move_san: str, 
             },
         }
 
-        # Check game over
-        if board.is_game_over():
-            if board.is_checkmate():
-                update["status"] = "completed"
-                update["result"] = "loss"
-            elif board.is_stalemate() or board.is_insufficient_material():
-                update["status"] = "completed"
-                update["result"] = "draw"
-            if (
-                update.get("status") == "completed"
-                and surface_session.get("experience_version") == "unified_v1"
-            ):
-                update["unified_journey.completed_at"] = datetime.now(
-                    timezone.utc
-                ).isoformat()
-                update["unified_journey.completion_result"] = update.get("result")
+        # Check game over — ONE definition, shared with every other path
+        # that applies a move. See apply_game_over_to_update.
+        update["_user_is_mated"] = True  # the coach just moved, so the user is mated
+        update = apply_game_over_to_update(board, update, surface_session)
 
         # Compare-and-swap, not read-modify-write: trigger_coach_move_endpoint
         # and _process_move_and_respond can be resolving the same turn right now.

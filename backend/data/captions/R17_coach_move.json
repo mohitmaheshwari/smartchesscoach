@@ -31,6 +31,7 @@
     }
   },
   "select_variant": [
+    { "when": { "is_checkmate": true }, "variant": "coach_delivers_mate" },
     {
       "when": {
         "coach_move_is_sound": false
@@ -201,6 +202,12 @@
       "plan": "You can only save one. Pick the more valuable target — accept losing the other or find a counter-threat.",
       "teaching_point": "Double attacks (forks) win material because the opponent can't save everything in one move.",
       "hint_for_user": "You cannot save both. Which is worth more — and do you have a check or a capture that changes the picture?"
+    },
+    "coach_delivers_mate": {
+      "explanation": "{played_san} — checkmate. That is the game.",
+      "plan": "Nothing to find here. Look at the move before this one: that is where it was still savable.",
+      "teaching_point": "Mate never arrives in one move. The move that loses is the one that let the attacker in.",
+      "hint_for_user": "Go back two moves and look at your king. What could have been given a square, or taken, or blocked?"
     },
     "coach_gives_check": {
       "explanation": "{played_san} — check.",
