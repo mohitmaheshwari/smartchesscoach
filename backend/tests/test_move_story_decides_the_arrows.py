@@ -463,3 +463,64 @@ class TestWhichStoryWinsWhenBothFire:
         story, detail = _story(losing_now)
         assert story == "punishment"
         assert detail["played_material_swing_short"] is not None
+
+
+class TestAPunishmentPaysOffSoon:
+    """Mohit 2026-10-08: "if there is a blunder then it should give you result
+    in next 4 moves, if not then look for other line."
+
+    He is right, and measuring it showed the rule is already satisfied. Over
+    4,000 user mistakes, of the 791 the classifier calls a punishment, the loss
+    first reaches two pawns at:
+
+        ply 1   527   66.6%     the opponent's very first reply
+        ply 3   263   99.9%
+        ply 7     1  100.0%
+        after ply 8: 0
+
+    So a horizon gate would move nothing, and a gate that moves nothing is not
+    a gate. It is held as an invariant instead: if a card is a punishment, the
+    material has to be gone within four moves. If that ever stops being true,
+    something upstream has started calling slow drift a refutation again --
+    which is exactly what move 20 Qh4 was, landing at ply 8 against a
+    distribution where 99.9% land by ply 3.
+
+    It is NOT the rule that separates Qh4 from Be6, and that is worth recording
+    so it is not tried as one: the real punishment on Be6 also only completes
+    at ply 8, when Nxf8 Rxf8 resolves. Any cut tight enough to exclude Qh4
+    excludes Be6 too.
+    """
+
+    PUNISHMENT_PAYOFF_PLIES = 8      # "next 4 moves"
+
+    def _first_ply_the_loss_lands(self, case):
+        from services.caption_pipeline import _story_swing
+        board = chess.Board(case["fen"])
+        mover = board.turn
+        for horizon in range(0, len(case["pvp"]) + 1):
+            swing = _story_swing(board, case["played"], case["pvp"][:horizon], mover)
+            if swing is not None and swing <= -STORY_PUNISHMENT_FLOOR:
+                return horizon
+        return None
+
+    def test_a_punishment_card_is_punished_within_four_moves(self):
+        landed = self._first_ply_the_loss_lands(BE6)
+        assert landed is not None
+        assert landed <= self.PUNISHMENT_PAYOFF_PLIES, landed
+
+    def test_the_card_that_was_not_punished_only_drifts_there_late(self):
+        """Qh4 reaches -2 at ply 8 and never before. That is the shape the
+        classifier must not read as a refutation."""
+        qh4 = TestWhichStoryWinsWhenBothFire.QH4
+        landed = self._first_ply_the_loss_lands(qh4)
+        assert landed is not None and landed >= 7, landed
+        assert _story(qh4)[0] != "punishment"
+
+    def test_every_case_in_this_file_that_claims_punishment_pays_off_in_time(self):
+        for case in ALL + [TestWhichStoryWinsWhenBothFire.QH4]:
+            if _story(case)[0] != "punishment":
+                continue
+            landed = self._first_ply_the_loss_lands(case)
+            assert landed is not None and landed <= self.PUNISHMENT_PAYOFF_PLIES, (
+                case["played"], landed
+            )
