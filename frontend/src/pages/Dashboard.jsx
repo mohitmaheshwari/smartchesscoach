@@ -45,6 +45,7 @@ import {
   Target,
   ArrowRight,
   Search,
+  Sparkles,
 } from "lucide-react";
 
 // ─── Copy fallbacks ──────────────────────────────────────────────────────────
@@ -446,9 +447,9 @@ const Dashboard = ({ user }) => {
     // Skeleton shimmer while loading (scope §Lab) — page-shaped rows
     // instead of a spinner so the layout doesn't jump when data lands.
     return (
-      <Layout user={user}>
+      <Layout user={user} fullBleed={true}>
         <div
-          className="cg-page cg-page--wide"
+          className="w-full px-4 sm:px-6 md:px-8 lg:px-10 py-6"
           data-testid="lab-skeleton"
         >
           {/* Head */}
@@ -490,9 +491,9 @@ const Dashboard = ({ user }) => {
 
   if (games.length === 0) {
     return (
-      <Layout user={user}>
+      <Layout user={user} fullBleed={true}>
         <div
-          className="max-w-[520px] mx-auto px-6 py-24 text-center"
+          className="w-full max-w-[640px] mx-auto px-6 py-24 text-center"
           data-testid="lab-page"
         >
           <div className="mb-8 text-left">
@@ -580,33 +581,38 @@ const Dashboard = ({ user }) => {
   }
 
   return (
-    <Layout user={user}>
+    <Layout user={user} fullBleed={true}>
       <motion.div
         variants={pageEnter}
         initial="initial"
         animate="animate"
         exit="exit"
-        className="experience-page experience-lab-page min-h-screen text-foreground"
+        className="experience-page experience-lab-page min-h-screen text-foreground w-full"
         data-testid="lab-page"
       >
         <motion.div
           variants={fadeInUp}
           initial="initial"
           animate="animate"
-          className="cg-page cg-page--wide"
+          className="w-full px-4 sm:px-6 md:px-8 lg:px-10 py-5 sm:py-7"
         >
-          <div className="mb-9">
+          <div className="mb-8">
             <CurriculumStateStrip user={user} surface="lab" />
           </div>
           {/* ─── Page head ─── */}
-          <div className="cg-hero mb-10 md:mb-14">
-            <div>
-              <p className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
-                Your coaching room
-              </p>
-              <h1 className="experience-coach-copy font-serif text-[28px] md:text-[40px] leading-[1.05] tracking-[-0.02em] font-medium text-foreground">
+          <div className="rounded-3xl border border-cyan-500/20 bg-gradient-to-r from-[#0d1e2d]/90 via-[#102433]/80 to-[#0c1622]/90 p-6 sm:p-8 md:p-10 mb-8 md:mb-10 shadow-[0_20px_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/30 text-[11px] font-mono uppercase tracking-[0.22em] text-cyan-300 font-bold mb-3 shadow-[0_0_15px_rgba(56,189,248,0.2)]">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span>Your Coaching Studio</span>
+              </div>
+              <h1 className="font-heading font-extrabold text-3xl sm:text-4xl md:text-5xl tracking-tight text-white">
                 Let’s choose what will help next.
               </h1>
+              <p className="text-slate-300 text-sm sm:text-base font-medium mt-2 max-w-3xl leading-relaxed">
+                Study curated theory, drill core positions, and review real moments from your games.
+              </p>
             </div>
           </div>
 
@@ -618,40 +624,49 @@ const Dashboard = ({ user }) => {
               learn next.) 2026-07-07. */}
           {learnNext && (
             <motion.section ref={recommendationElementRef} {...revealOnScroll} className="mb-12 md:mb-16">
-              <div className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
-                Learn next
+              <div className="text-xs font-mono uppercase tracking-[0.22em] text-cyan-400 font-bold mb-3 flex items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Recommended Next Step</span>
               </div>
-              <div className="experience-focus-card experience-surface rounded-2xl border border-violet-500/20 bg-violet-500/[0.04] p-6 md:p-7">
-                <p className="font-serif text-[22px] md:text-[28px] leading-[1.15] tracking-[-0.015em] font-medium text-foreground mb-2">
-                  {learnNext.label}
-                </p>
-                {learnNext.reason && (
-                  <p className="text-[13.5px] text-muted-foreground mb-1">{learnNext.reason}</p>
-                )}
-                {learnNext.fixes && (
-                  <p className="text-[13px] text-muted-foreground/80 mb-5">
-                    Fixes: {learnNext.fixes}
-                  </p>
-                )}
-                <button
-                  onClick={() => {
-                    trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_PRIMARY_CLICKED, {
-                      surface: "legacy_lab",
-                      decision_id: `legacy_engine2:${learnNext.skill_id}`,
-                      decision_source: "engine2_learn_next",
-                      recommendation_kind: "expand",
-                      content_type: "skill",
-                      content_id: learnNext.skill_id,
-                      origin: "recommendation",
-                      is_recommended: true,
-                    });
-                    navigate(`/training/skill/${learnNext.skill_id}`);
-                  }}
-                  className="experience-primary h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
-                >
-                  Start this lesson
-                  <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                </button>
+              <div className="rounded-3xl border border-cyan-500/30 bg-gradient-to-r from-[#0b2b28]/60 via-[#10232c]/80 to-[#0e1724]/90 p-6 sm:p-8 shadow-[0_20px_40px_rgba(0,0,0,0.6)] backdrop-blur-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-cyan-500/15 transition-all duration-700" />
+                <div className="relative z-10">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold uppercase tracking-wider mb-3">
+                    Top Recommendation
+                  </div>
+                  <h3 className="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight mb-2">
+                    {learnNext.label}
+                  </h3>
+                  {learnNext.reason && (
+                    <p className="text-sm sm:text-base text-slate-300 mb-2 font-medium leading-relaxed max-w-2xl">
+                      {learnNext.reason}
+                    </p>
+                  )}
+                  {learnNext.fixes && (
+                    <p className="text-xs sm:text-sm text-cyan-300/80 mb-6 font-mono font-medium">
+                      🎯 Fixes: {learnNext.fixes}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => {
+                      trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_PRIMARY_CLICKED, {
+                        surface: "legacy_lab",
+                        decision_id: `legacy_engine2:${learnNext.skill_id}`,
+                        decision_source: "engine2_learn_next",
+                        recommendation_kind: "expand",
+                        content_type: "skill",
+                        content_id: learnNext.skill_id,
+                        origin: "recommendation",
+                        is_recommended: true,
+                      });
+                      navigate(`/training/skill/${learnNext.skill_id}`);
+                    }}
+                    className="h-12 px-7 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-extrabold text-sm uppercase tracking-wider transition-all inline-flex items-center gap-2.5 shadow-[0_0_20px_rgba(56,189,248,0.4)] cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <span>Start this lesson</span>
+                    <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
+                  </button>
+                </div>
               </div>
             </motion.section>
           )}

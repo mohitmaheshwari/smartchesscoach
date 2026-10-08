@@ -4450,24 +4450,24 @@ const CoachPlay = ({ user }) => {
       {/* Resume / Restart Active Game Dialog */}
       {showResumeModal && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 md:p-8 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
           data-testid="resume-game-modal"
         >
-          <div className="relative w-full max-w-lg rounded-3xl border border-white/20 bg-gradient-to-b from-[#1b2633] via-[#131d27] to-[#0b1118] text-white shadow-2xl p-6 sm:p-8 backdrop-blur-xl">
+          <div className="relative w-full max-w-2xl sm:max-w-3xl rounded-3xl border border-white/20 bg-gradient-to-b from-[#1c2938] via-[#131d27] to-[#0b1118] text-white shadow-[0_25px_70px_rgba(0,0,0,0.85)] p-6 sm:p-10 md:p-12 backdrop-blur-2xl">
             {/* Close / Dismiss (resumes game) */}
             <button
               onClick={handleResumeGame}
-              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
+              className="absolute top-5 right-5 sm:top-6 sm:right-6 p-2.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors cursor-pointer"
               title="Close and continue game"
               aria-label="Close"
             >
-              <X className="w-5 h-5" />
+              <X className="w-6 h-6" />
             </button>
 
             {/* Header with Coach Jessica */}
-            <div className="flex items-center gap-4 mb-6">
-              <div className="relative">
-                <div className="w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-cyan-500/50 shadow-[0_0_20px_rgba(56,189,248,0.3)] bg-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-6 mb-8">
+              <div className="relative shrink-0">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-3xl overflow-hidden ring-2 ring-cyan-400/60 shadow-[0_0_30px_rgba(56,189,248,0.35)] bg-slate-800">
                   <img
                     src="/coach-jessica.png"
                     alt="Coach Jessica"
@@ -4478,63 +4478,63 @@ const CoachPlay = ({ user }) => {
                     }}
                   />
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full ring-2 ring-[#131d27] flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full ring-4 ring-[#131d27] flex items-center justify-center">
+                  <div className="w-2 h-2 bg-white rounded-full animate-ping" />
                 </div>
               </div>
-              <div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/30 text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-300 mb-1">
-                  <Sparkles className="w-3 h-3 text-cyan-400" />
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-300">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
                   Active Game Found
                 </div>
-                <h3 className="font-serif text-2xl font-bold text-white tracking-tight">
+                <h3 className="font-serif text-3xl sm:text-4xl font-bold text-white tracking-tight">
                   Welcome Back!
                 </h3>
-                <p className="text-xs text-slate-300 mt-0.5">
-                  You have an unfinished game with Coach Jessica.
+                <p className="text-sm sm:text-base text-slate-300">
+                  You have an unfinished game with Coach Jessica. Pick up where you left off or start a new challenge.
                 </p>
               </div>
             </div>
 
             {/* Position Snapshot / Game Details */}
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-4 mb-6 space-y-2.5">
-              <div className="flex items-center justify-between text-xs text-slate-300 pb-2 border-b border-white/10">
-                <span className="text-slate-400 font-mono uppercase text-[10px] tracking-wider">Your Pieces</span>
-                <span className="font-semibold text-white flex items-center gap-1.5">
-                  <span className={`w-2.5 h-2.5 rounded-full inline-block ${selectedColor === "black" ? "bg-slate-900 border border-white/50" : "bg-white"}`} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 rounded-3xl bg-white/[0.04] border border-white/10 p-5 sm:p-6 mb-8 shadow-inner">
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.03] border border-white/5">
+                <span className="text-slate-400 font-mono uppercase text-xs tracking-wider">Your Pieces</span>
+                <span className="font-semibold text-sm sm:text-base text-white flex items-center gap-2">
+                  <span className={`w-3.5 h-3.5 rounded-full inline-block shadow-sm ${selectedColor === "black" ? "bg-slate-900 border border-white/60" : "bg-white"}`} />
                   {selectedColor === "black" ? "Black" : "White"}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-300 pb-2 border-b border-white/10">
-                <span className="text-slate-400 font-mono uppercase text-[10px] tracking-wider">Progress</span>
-                <span className="font-mono text-cyan-300 font-medium">
-                  Move {Math.floor(((resumedActiveSessionMeta?.move_history || session?.move_history)?.length || 0) / 2) + 1} ({((resumedActiveSessionMeta?.move_history || session?.move_history)?.length || 0)} plies)
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.03] border border-white/5">
+                <span className="text-slate-400 font-mono uppercase text-xs tracking-wider">Progress</span>
+                <span className="font-mono text-cyan-300 font-semibold text-sm sm:text-base">
+                  Move {Math.floor(((resumedActiveSessionMeta?.move_history || session?.move_history)?.length || 0) / 2) + 1} <span className="text-xs text-slate-400">({((resumedActiveSessionMeta?.move_history || session?.move_history)?.length || 0)} plies)</span>
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-300 pb-2 border-b border-white/10">
-                <span className="text-slate-400 font-mono uppercase text-[10px] tracking-wider">Turn</span>
-                <span className={`font-medium ${isPlayerTurn ? "text-emerald-400" : "text-amber-300"}`}>
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.03] border border-white/5">
+                <span className="text-slate-400 font-mono uppercase text-xs tracking-wider">Turn</span>
+                <span className={`font-semibold text-sm sm:text-base ${isPlayerTurn ? "text-emerald-400" : "text-amber-300"}`}>
                   {isPlayerTurn ? "Your turn to play" : "Coach is thinking"}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-300">
-                <span className="text-slate-400 font-mono uppercase text-[10px] tracking-wider">Clock Status</span>
-                <span className="font-mono text-cyan-300 font-bold flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-cyan-400" />
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.03] border border-white/5">
+                <span className="text-slate-400 font-mono uppercase text-xs tracking-wider">Clock Status</span>
+                <span className="font-mono text-cyan-300 font-bold text-sm sm:text-base flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-cyan-400" />
                   Paused & Saved
                 </span>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               <button
                 type="button"
                 onClick={handleResumeGame}
                 data-testid="resume-game-btn"
-                className="w-full py-3.5 px-5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm shadow-[0_0_25px_rgba(56,189,248,0.4)] transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                className="w-full py-4 sm:py-4.5 px-6 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-bold text-base sm:text-lg shadow-[0_0_35px_rgba(56,189,248,0.45)] hover:shadow-[0_0_45px_rgba(56,189,248,0.6)] transition-all flex items-center justify-center gap-3 group cursor-pointer"
               >
-                <Play className="w-4 h-4 fill-current transition-transform group-hover:scale-110" />
+                <Play className="w-5 h-5 fill-current transition-transform group-hover:scale-110" />
                 <span>Resume Game</span>
               </button>
 
@@ -4542,20 +4542,20 @@ const CoachPlay = ({ user }) => {
                 type="button"
                 onClick={handleRestartGame}
                 data-testid="restart-game-btn"
-                className="w-full py-3 px-5 rounded-xl bg-white/5 hover:bg-amber-500/15 border border-white/15 hover:border-amber-500/40 text-slate-200 hover:text-amber-300 font-medium text-sm transition-all flex items-center justify-center gap-2 group cursor-pointer"
+                className="w-full py-3.5 sm:py-4 px-6 rounded-2xl bg-white/5 hover:bg-amber-500/15 border border-white/15 hover:border-amber-500/40 text-slate-200 hover:text-amber-300 font-semibold text-sm sm:text-base transition-all flex items-center justify-center gap-2.5 group cursor-pointer"
               >
-                <RotateCcw className="w-4 h-4 text-amber-400 transition-transform group-hover:-rotate-90" />
+                <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 transition-transform group-hover:-rotate-90" />
                 <span>Restart Game (Start Fresh)</span>
               </button>
 
-              <div className="text-center pt-1">
+              <div className="text-center pt-2">
                 <button
                   type="button"
                   onClick={handleAbandonAndSetup}
                   data-testid="new-setup-btn"
-                  className="text-xs text-slate-400 hover:text-cyan-400 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                  className="text-xs sm:text-sm text-slate-400 hover:text-cyan-300 transition-colors inline-flex items-center gap-1.5 cursor-pointer font-medium"
                 >
-                  <Settings2 className="w-3.5 h-3.5" />
+                  <Settings2 className="w-4 h-4" />
                   <span>Or change color / opening in Setup</span>
                 </button>
               </div>

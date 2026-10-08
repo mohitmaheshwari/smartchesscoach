@@ -351,8 +351,31 @@ async def get_opening_lesson(
         player_color=requested_player_color,
     )
 
+    # Determine next opening in curriculum
+    from services.opening_library_service import OPENING_DATABASE
+    next_opening = None
+    if OPENING_DATABASE:
+        db_keys = list(OPENING_DATABASE.keys())
+        current_pub_key = lesson_resolution.get("public_lesson_key")
+        if current_pub_key in db_keys:
+            cur_idx = db_keys.index(current_pub_key)
+            next_pub_key = db_keys[(cur_idx + 1) % len(db_keys)]
+        else:
+            next_pub_key = db_keys[0] if db_keys else None
+        
+        if next_pub_key and next_pub_key in OPENING_DATABASE:
+            next_op_data = OPENING_DATABASE[next_pub_key]
+            next_opening = {
+                "key": next_op_data.get("canonical_key", next_pub_key),
+                "name": next_op_data.get("name", next_pub_key.replace("-", " ").title()),
+                "eco": next_op_data.get("eco", ""),
+                "color": next_op_data.get("color", "white"),
+                "description": next_op_data.get("description", ""),
+            }
+
     return {
         "opening": lesson_data,
+        "next_opening": next_opening,
         "user_progress": user_progress,
         "user_mistakes": user_mistakes,
         "learning_progress": user_progress,

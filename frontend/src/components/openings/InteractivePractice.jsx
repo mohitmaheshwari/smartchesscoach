@@ -80,7 +80,7 @@ const MoveIndicator = ({ type, square, orientation, boardSize }) => {
   );
 };
 
-const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) => {
+const InteractivePractice = ({ openingKey, openingName, userColor, onClose, nextOpening, onNextLesson }) => {
   const boardRef = useRef(null);
   const boardContainerRef = useRef(null);
   const groundRef = useRef(null);
@@ -695,13 +695,25 @@ const InteractivePractice = ({ openingKey, openingName, userColor, onClose }) =>
             Start Practice
           </Button>
         ) : completed ? (
-          <Button 
-            onClick={startSession} 
-            className="flex-1"
-          >
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Practice Again
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2.5 w-full">
+            <Button 
+              onClick={startSession} 
+              variant="outline"
+              className="flex-1 h-12 font-heading font-bold border-slate-700 bg-slate-800/80 text-slate-200 hover:bg-slate-700"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Practice Again
+            </Button>
+            {onNextLesson && (
+              <Button 
+                onClick={onNextLesson} 
+                className="flex-1 h-12 font-heading font-black bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.35)] rounded-xl"
+              >
+                <Play className="w-4 h-4 mr-2 fill-current" />
+                Next Lesson {nextOpening?.name ? `: ${nextOpening.name}` : ""} →
+              </Button>
+            )}
+          </div>
         ) : (
           <>
             <Button 

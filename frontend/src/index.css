@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 @import "@fontsource/outfit/400.css";
 @import "@fontsource/outfit/500.css";
 @import "@fontsource/outfit/600.css";
@@ -5,6 +6,18 @@
 @import "@fontsource/manrope/400.css";
 @import "@fontsource/manrope/500.css";
 @import "@fontsource/manrope/600.css";
+
+body {
+  font-family: 'Plus Jakarta Sans', 'Inter', 'Manrope', system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 800;
+}
 
 /* ---------------------------------------------------------------------------
    Brand accent.

@@ -63,8 +63,10 @@ const GuidedOpeningLesson = ({
   openingKey,
   opening,
   plan,
+  nextOpening,
   onComplete,
-  onStartPractice
+  onStartPractice,
+  onNextLesson,
 }) => {
   const boardRef = useRef(null);
   const chessRef = useRef(new Chess());
@@ -313,380 +315,469 @@ const GuidedOpeningLesson = ({
   
   const isComplete = currentMoveIndex === mainLine.length - 1;
   return (
-    <div className="guided-opening-lesson space-y-4">
+    <div className="guided-opening-lesson space-y-5 font-sans">
       {/* The spine. It shows where the student is and what is coming, and it
           is deliberately not a menu: a chapter only becomes clickable once it
           has been reached, so you can go back over something but you are
           never asked to choose between lines you have not seen yet. */}
       {chapters.length > 1 && (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-2" data-testid="lesson-spine">
-          {chapters.map((c, i) => {
-            const reached = i <= chapterIndex;
-            const current = i === chapterIndex;
-            return (
-              <button
-                key={c.key || i}
-                type="button"
-                disabled={!reached}
-                onClick={() => reached && goToChapter(i)}
-                data-testid={`lesson-chapter-${i}`}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] transition-colors sm:text-xs ${
-                  current
-                    ? "border-primary bg-primary/10 text-primary"
-                    : reached
-                    ? "border-border bg-background/60 text-foreground hover:border-primary/45"
-                    : "border-border/50 bg-background/30 text-muted-foreground/50 cursor-default"
-                }`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    reached ? "bg-primary" : "bg-muted-foreground/40"
+        <div className="flex flex-wrap items-center justify-between gap-2" data-testid="lesson-spine">
+          <div className="flex flex-wrap items-center gap-2">
+            {chapters.map((c, i) => {
+              const reached = i <= chapterIndex;
+              const current = i === chapterIndex;
+              return (
+                <button
+                  key={c.key || i}
+                  type="button"
+                  disabled={!reached}
+                  onClick={() => reached && goToChapter(i)}
+                  data-testid={`lesson-chapter-${i}`}
+                  className={`group flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-heading font-bold transition-all duration-200 sm:text-sm ${
+                    current
+                      ? "border-primary/60 bg-primary/15 text-primary shadow-[0_0_15px_rgba(16,185,129,0.25)] ring-2 ring-primary/20"
+                      : reached
+                      ? "border-slate-700/80 bg-slate-900/70 text-slate-200 hover:border-primary/40 hover:bg-slate-800/80"
+                      : "border-slate-800/50 bg-slate-950/30 text-slate-500/50 cursor-default"
                   }`}
-                />
-                {c.title}
-              </button>
-            );
-          })}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full transition-all ${
+                      current
+                        ? "bg-primary shadow-[0_0_8px_rgba(52,211,153,0.9)]"
+                        : reached
+                        ? "bg-primary/60"
+                        : "bg-slate-700"
+                    }`}
+                  />
+                  {c.title}
+                </button>
+              );
+            })}
+          </div>
+
+          {nextOpening && onNextLesson && (
+            <button
+              type="button"
+              onClick={onNextLesson}
+              className="flex items-center gap-1.5 rounded-full border border-cyan-500/40 bg-cyan-950/50 hover:bg-cyan-900/70 text-cyan-300 hover:text-white px-4 py-1.5 text-xs sm:text-sm font-heading font-black shadow-[0_0_15px_rgba(6,182,212,0.25)] transition-all cursor-pointer active:scale-95 ml-auto"
+              data-testid="spine-next-lesson"
+            >
+              <span>Next: {nextOpening.name}</span>
+              <ChevronRight className="w-4 h-4 text-cyan-400" />
+            </button>
+          )}
         </div>
       )}
 
       {chapter?.coach_intro && (
-        <p className="text-sm text-muted-foreground" data-testid="chapter-intro">
+        <p className="text-sm sm:text-base font-medium text-slate-300/90 leading-relaxed" data-testid="chapter-intro">
           {chapter.coach_intro}
         </p>
       )}
 
-      <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.72fr)] lg:gap-7">
-      <div className="min-w-0 space-y-3">
-        {/* Board */}
-        <Card className="experience-board-stage max-w-full overflow-hidden border-border/70 bg-card p-1.5 shadow-[0_24px_64px_hsl(var(--experience-shadow)/0.18)] sm:p-3">
-          <CardContent className="p-0">
-            <div className="relative overflow-hidden rounded-md sm:rounded-lg">
-              <div className="aspect-square w-full max-w-full">
-                <LichessBoard
-                  ref={boardRef}
-                  fen={currentFen}
-                  orientation={userColor}
-                  lastMove={lastMoveSquares}
-                  viewOnly={true}
-                  interactive={false}
-                />
-              </div>
+      <div className="grid min-w-0 items-stretch gap-6 lg:grid-cols-[1.1fr_0.9fr] xl:grid-cols-[1.15fr_0.85fr] lg:gap-8 w-full">
+        {/* Left Column: Big Chessboard Card */}
+        <div className="min-w-0 flex flex-col justify-between space-y-4">
+          {/* Board Frame Card */}
+          <div className="relative mx-auto w-full max-w-[720px] rounded-3xl p-4 sm:p-6 bg-gradient-to-b from-slate-800/95 via-slate-900/98 to-slate-950 border border-slate-700/80 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_35px_rgba(16,185,129,0.08)] flex flex-col justify-between">
+            <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-black/40 shadow-2xl">
+              <LichessBoard
+                ref={boardRef}
+                fen={currentFen}
+                orientation={userColor}
+                lastMove={lastMoveSquares}
+                viewOnly={true}
+                interactive={false}
+              />
 
               {/* Move badge overlay */}
               {currentMoveIndex >= 0 && coachMessage && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="absolute left-2 top-2"
+                  className="absolute left-3.5 top-3.5 z-30 pointer-events-none"
                 >
-                  <Badge className="bg-black/70 px-2 py-1 text-[11px] text-white backdrop-blur sm:px-3 sm:text-xs">
-                    {coachMessage.moveNumber}.
-                    {coachMessage.isWhite ? "" : "..."}
-                    <span className="ml-1 font-mono font-bold">{coachMessage.move}</span>
-                  </Badge>
+                  <div className="flex items-center gap-2 rounded-2xl bg-black/90 px-4 py-2 text-sm sm:text-base font-heading font-black text-white backdrop-blur-md border border-white/25 shadow-2xl">
+                    <span className="text-primary font-bold">
+                      {coachMessage.moveNumber}.{coachMessage.isWhite ? "" : ".."}
+                    </span>
+                    <span className="font-mono font-black tracking-wide text-white">{coachMessage.move}</span>
+                  </div>
                 </motion.div>
               )}
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Progress bar */}
-        <div className="flex items-center gap-3 px-1">
-          <span className="text-xs font-medium tabular-nums text-muted-foreground">
-            {currentMoveIndex + 1} / {mainLine.length}
-          </span>
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-            <motion.div
-              className="h-full bg-primary"
-              initial={{ width: 0 }}
-              animate={{
-                width: `${((currentMoveIndex + 1) / mainLine.length) * 100}%`
-              }}
-              transition={{ duration: 0.3 }}
-            />
+            {/* Progress bar and move count */}
+            <div className="mt-4 flex w-full items-center gap-4 px-1">
+              <span className="text-xs sm:text-sm font-heading font-black tabular-nums text-slate-300 min-w-[50px]">
+                {currentMoveIndex + 1} / {mainLine.length}
+              </span>
+              <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-800/90 border border-slate-700/50">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 shadow-[0_0_15px_rgba(45,212,191,0.6)]"
+                  initial={{ width: 0 }}
+                  animate={{
+                    width: `${((currentMoveIndex + 1) / Math.max(mainLine.length, 1)) * 100}%`
+                  }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="min-w-0 space-y-4 lg:sticky lg:top-6">
-      {/* Coach Message Panel */}
-      <Card className="experience-surface overflow-hidden border-border/70 bg-card shadow-[0_18px_48px_hsl(var(--experience-shadow)/0.08)]">
-        <div className="border-b border-border/60 bg-muted/40 px-4 py-3 sm:px-5">
-          <p className="experience-eyebrow text-[10px] font-bold uppercase">Your coach</p>
-        </div>
-        <CardContent className="p-4 sm:p-6">
-          <AnimatePresence mode="wait">
-            {showIntro ? (
-              <motion.div
-                key="intro"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-3"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <MessageCircle className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="mb-1 text-sm font-semibold text-foreground">Ready when you are</p>
-                    <p className="experience-coach-copy text-base leading-relaxed text-foreground sm:text-lg">{introMessage}</p>
-                  </div>
-                </div>
-                
-                {keyIdeas.length > 0 && (
-                  <div className="mt-4 sm:pl-13">
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">Key ideas to watch for</p>
-                    <div className="flex flex-wrap gap-2">
-                      {keyIdeas.slice(0, 3).map((idea, i) => (
-                        <Badge 
-                          key={i} 
-                          variant="outline" 
-                          className="max-w-full border-border bg-muted/60 text-xs font-normal text-foreground"
-                        >
-                          <Target className="mr-1 h-3 w-3 text-primary" />
-                          {idea.length > 40 ? idea.substring(0, 40) + "..." : idea}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <Button 
-                  onClick={startLesson} 
-                  className="experience-primary mt-4 h-11 w-full"
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  Start Lesson
-                </Button>
-              </motion.div>
-            ) : coachMessage ? (
-              <motion.div
-                key={`move-${currentMoveIndex}`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-3"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <MessageCircle className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-primary">{coachMessage.transition}</p>
-                    <p className="text-lg text-foreground">
-                      <span className="font-mono font-bold text-primary">
-                        {coachMessage.moveNumber}.{coachMessage.isWhite ? "" : ".."}{coachMessage.move}
-                      </span>
-                    </p>
-                    <p className="experience-coach-copy mt-2 leading-relaxed text-foreground">{coachMessage.explanation}</p>
-                  </div>
-                </div>
-                
-                {/* Deeper explanation */}
-                <AnimatePresence>
-                  {showingWhy && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
-                    >
-                      {loadingDeeper ? (
-                        <div className="flex items-center gap-2 p-3 text-muted-foreground">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span className="text-sm">Thinking deeper...</span>
+        {/* Right Column: Coach & Narration Card (Large Height & Width) */}
+        <div className="min-w-0 flex flex-col justify-between space-y-4">
+          {/* Coach Message Panel */}
+          <Card className="min-h-[580px] sm:min-h-[640px] lg:min-h-[660px] h-full flex flex-col justify-between overflow-hidden border border-slate-700/80 bg-slate-900/95 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] backdrop-blur-2xl rounded-3xl">
+            <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/70 px-6 py-4">
+              <div className="flex items-center gap-2.5">
+                <span className="relative flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+                </span>
+                <p className="text-xs font-heading font-black uppercase tracking-widest text-emerald-400">
+                  Your Coach
+                </p>
+              </div>
+              <Badge variant="outline" className="border-slate-700 bg-slate-800/80 px-3 py-1 text-xs font-heading font-bold text-slate-200">
+                {userColor === "white" ? "Playing White" : "Playing Black"}
+              </Badge>
+            </div>
+            
+            <CardContent className="p-6 sm:p-8 flex-1 flex flex-col justify-between space-y-6">
+              <AnimatePresence mode="wait">
+                {showIntro ? (
+                  <motion.div
+                    key="intro"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex-1 flex flex-col justify-between space-y-6"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
+                          <MessageCircle className="h-6 w-6" />
                         </div>
-                      ) : deeperExplanation && (
-                        <div className="mt-2 rounded-xl border border-accent/20 bg-accent/10 p-3 sm:p-4">
-                          <div className="flex items-start gap-2">
-                            <Brain className="mt-0.5 h-4 w-4 text-accent-foreground" />
-                            <div>
-                              <p className="mb-1 text-xs font-semibold text-accent-foreground">
-                                {deeperExplanation.question}
-                              </p>
-                              <p className="text-sm leading-relaxed text-foreground">
-                                {deeperExplanation.insight}
-                              </p>
-                              {deeperExplanation.keyPoint && (
-                                <p className="mt-2 text-xs text-muted-foreground">
-                                  <Lightbulb className="mr-1 inline h-3 w-3 text-primary" />
-                                  {deeperExplanation.keyPoint}
-                                </p>
-                              )}
-                            </div>
+                        <div className="min-w-0">
+                          <p className="text-lg sm:text-xl font-heading font-black text-white">Ready when you are</p>
+                          <p className="mt-2 text-base sm:text-lg lg:text-xl font-medium leading-relaxed text-slate-200">
+                            {introMessage}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {keyIdeas.length > 0 && (
+                        <div className="mt-5 space-y-3 rounded-2xl border border-slate-800/90 bg-slate-950/60 p-4 sm:p-5">
+                          <p className="text-xs sm:text-sm font-heading font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                            <Target className="h-4 w-4 text-emerald-400" />
+                            Key ideas to watch for
+                          </p>
+                          <div className="space-y-2.5">
+                            {keyIdeas.map((idea, i) => (
+                              <div 
+                                key={i} 
+                                className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/70 p-3 sm:p-3.5 text-xs sm:text-sm font-semibold text-slate-200 shadow-sm"
+                              >
+                                <div className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-[11px] font-black text-emerald-400">
+                                  {i + 1}
+                                </div>
+                                <span className="leading-relaxed">{idea}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                
-                {/* Why button, and — once the line is done — the way onward.
-                    The finish has to live HERE, on the last move's card. The
-                    `isComplete` branch below never renders: coachMessage is set
-                    for every in-range move including the last one, so the
-                    branch above it always wins. Proved by playing a chapter to
-                    its end in a test -- what the student is left with is this
-                    card and a Replay button, which is why both "Practice Now"
-                    and any next-chapter action were invisible. */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {!showingWhy && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={getWhyExplanation}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <HelpCircle className="w-4 h-4 mr-1" />
-                      Why this move?
-                    </Button>
-                  )}
-
-                  {isComplete && !isLastChapter && (
-                    <Button
-                      size="sm"
-                      onClick={goToNextChapter}
-                      className="experience-primary"
-                      data-testid="lesson-next-chapter"
-                    >
-                      <Play className="mr-1 h-4 w-4" />
-                      Next: {nextChapterTitle || "keep going"}
-                    </Button>
-                  )}
-
-                  {isComplete && isLastChapter && onStartPractice && (
-                    <Button
-                      size="sm"
-                      onClick={onStartPractice}
-                      className="experience-primary"
-                      data-testid="lesson-start-practice"
-                    >
-                      <Play className="mr-1 h-4 w-4" />
-                      Practice Now
-                    </Button>
-                  )}
-                </div>
-              </motion.div>
-            ) : isComplete ? (
-              <motion.div
-                key="complete"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-4"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <Target className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-primary">
-                      {isLastChapter ? "Lesson complete" : "Section complete"}
-                    </p>
-                    <p className="mt-1 text-muted-foreground">
-                      {isLastChapter
-                        ? "That's the whole lesson. Ready to test yourself?"
-                        : `Next: ${nextChapterTitle}.`}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <Button
-                    onClick={reset}
-                    variant="outline"
-                    className="w-full border-border"
+                    </div>
+                    
+                    <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                      <Button 
+                        onClick={startLesson} 
+                        className="h-14 flex-1 text-base sm:text-lg font-heading font-black bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 shadow-[0_0_28px_rgba(16,185,129,0.4)] rounded-2xl transition-all duration-200 active:scale-[0.98]"
+                      >
+                        <Play className="w-5 h-5 mr-2 fill-current" />
+                        Start Lesson
+                      </Button>
+                      {nextOpening && onNextLesson && (
+                        <Button
+                          onClick={onNextLesson}
+                          variant="outline"
+                          className="h-14 px-5 text-sm sm:text-base font-heading font-black border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 hover:text-white shadow-[0_0_20px_rgba(6,182,212,0.25)] rounded-2xl transition-all active:scale-[0.98] whitespace-nowrap"
+                          data-testid="intro-next-lesson"
+                        >
+                          <span>Next: {nextOpening.name}</span>
+                          <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                      )}
+                    </div>
+                  </motion.div>
+                ) : coachMessage ? (
+                  <motion.div
+                    key={`move-${currentMoveIndex}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="flex-1 flex flex-col justify-between space-y-6"
                   >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Watch Again
-                  </Button>
-                  {onStartPractice && (
-                    <Button
-                      onClick={onStartPractice}
-                      className="experience-primary w-full"
-                    >
-                      <Play className="w-4 h-4 mr-2" />
-                      Practice Now
-                    </Button>
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
+                          <MessageCircle className="h-6 w-6" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="mb-1 text-xs sm:text-sm font-heading font-black uppercase tracking-wider text-emerald-400">
+                            {coachMessage.transition}
+                          </p>
+                          <p className="text-2xl sm:text-3xl lg:text-4xl font-heading font-black text-white">
+                            <span className="text-emerald-400 font-mono">
+                              {coachMessage.moveNumber}.{coachMessage.isWhite ? "" : ".."}
+                            </span>
+                            <span className="ml-1.5 font-mono font-black text-white">{coachMessage.move}</span>
+                          </p>
+                          <p className="mt-3 text-base sm:text-lg lg:text-xl font-medium leading-relaxed text-slate-200">
+                            {coachMessage.explanation}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Deeper explanation */}
+                      <AnimatePresence>
+                        {showingWhy && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            {loadingDeeper ? (
+                              <div className="flex items-center gap-2.5 rounded-2xl border border-indigo-500/20 bg-indigo-950/30 p-5 text-indigo-300">
+                                <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                                <span className="text-sm font-semibold">Thinking deeper...</span>
+                              </div>
+                            ) : deeperExplanation && (
+                              <div className="mt-3 rounded-2xl border border-indigo-500/30 bg-indigo-950/40 p-5 sm:p-6 shadow-xl">
+                                <div className="flex items-start gap-3.5">
+                                  <Brain className="mt-0.5 h-6 w-6 flex-shrink-0 text-indigo-400" />
+                                  <div>
+                                    <p className="mb-2 text-sm sm:text-base font-heading font-bold text-indigo-300">
+                                      {deeperExplanation.question}
+                                    </p>
+                                    <p className="text-sm sm:text-base lg:text-lg font-medium leading-relaxed text-slate-200">
+                                      {deeperExplanation.insight}
+                                    </p>
+                                    {deeperExplanation.keyPoint && (
+                                      <p className="mt-3 text-xs sm:text-sm font-semibold text-emerald-300/90 flex items-center gap-2">
+                                        <Lightbulb className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                                        {deeperExplanation.keyPoint}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                    
+                    {/* Action buttons */}
+                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                      {!showingWhy && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={getWhyExplanation}
+                          className="h-11 px-4 border-indigo-500/30 bg-indigo-950/30 text-indigo-300 hover:bg-indigo-900/50 hover:text-white font-heading font-black text-xs sm:text-sm rounded-xl"
+                        >
+                          <HelpCircle className="w-4 h-4 mr-2 text-indigo-400" />
+                          Why this move?
+                        </Button>
+                      )}
+
+                      {isComplete && !isLastChapter && (
+                        <Button
+                          size="sm"
+                          onClick={goToNextChapter}
+                          className="h-11 px-5 font-heading font-black text-sm bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-[0_0_24px_rgba(16,185,129,0.35)] rounded-xl"
+                          data-testid="lesson-next-chapter"
+                        >
+                          <Play className="mr-2 h-4 w-4 fill-current" />
+                          Next: {nextChapterTitle || "keep going"}
+                        </Button>
+                      )}
+
+                      {isComplete && isLastChapter && onStartPractice && (
+                        <Button
+                          size="sm"
+                          onClick={onStartPractice}
+                          className="h-11 px-5 font-heading font-black text-sm bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-[0_0_24px_rgba(16,185,129,0.35)] rounded-xl"
+                          data-testid="lesson-start-practice"
+                        >
+                          <Play className="mr-2 h-4 w-4 fill-current" />
+                          Practice Now
+                        </Button>
+                      )}
+
+                      {isComplete && isLastChapter && onNextLesson && (
+                        <Button
+                          size="sm"
+                          onClick={onNextLesson}
+                          className="h-11 px-5 font-heading font-black text-sm bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-[0_0_24px_rgba(6,182,212,0.35)] rounded-xl"
+                          data-testid="lesson-next-opening"
+                        >
+                          <ChevronRight className="mr-1.5 h-4 w-4" />
+                          Next Lesson {nextOpening?.name ? `: ${nextOpening.name}` : ""} →
+                        </Button>
+                      )}
+                    </div>
+                  </motion.div>
+                ) : isComplete ? (
+                  <motion.div
+                    key="complete"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex-1 flex flex-col justify-between space-y-6"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                        <Target className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-xl sm:text-2xl font-heading font-black text-emerald-400">
+                          {isLastChapter ? "Lesson complete" : "Section complete"}
+                        </p>
+                        <p className="mt-2 text-base sm:text-lg font-medium text-slate-300">
+                          {isLastChapter
+                            ? (nextOpening?.name 
+                                ? `That's the whole lesson. Ready for the next opening: ${nextOpening.name}?` 
+                                : "That's the whole lesson. Ready to test yourself?")
+                            : `Next: ${nextChapterTitle}.`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5 pt-4">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <Button
+                          onClick={reset}
+                          variant="outline"
+                          className="h-12 border-slate-700 bg-slate-800/60 font-heading font-black text-slate-200 hover:bg-slate-700/80 rounded-xl text-base"
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Watch Again
+                        </Button>
+                        {onStartPractice && (
+                          <Button
+                            onClick={onStartPractice}
+                            className="h-12 font-heading font-black bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-[0_0_24px_rgba(16,185,129,0.35)] rounded-xl text-base"
+                          >
+                            <Play className="w-4 h-4 mr-2 fill-current" />
+                            Practice Now
+                          </Button>
+                        )}
+                      </div>
+                      {onNextLesson && (
+                        <Button
+                          onClick={onNextLesson}
+                          className="w-full h-12 font-heading font-black bg-gradient-to-r from-cyan-500 via-teal-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-[0_0_24px_rgba(6,182,212,0.35)] rounded-xl text-base"
+                        >
+                          <ChevronRight className="w-5 h-5 mr-1" />
+                          Next Lesson: {nextOpening?.name || "Continue Learning"} →
+                        </Button>
+                      )}
+                    </div>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
+            </CardContent>
+          </Card>
+          
+          {/* Controls Bar */}
+          {!showIntro && (
+            <div className="space-y-3 pt-1">
+              <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2.5">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={reset}
+                  className="h-12 w-12 border-slate-700/80 bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white rounded-2xl shadow-md"
+                  title="Reset to start"
+                >
+                  <RotateCcw className="h-5 w-5" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => goToMove(currentMoveIndex - 1)}
+                  disabled={currentMoveIndex <= 0}
+                  className="h-12 w-12 border-slate-700/80 bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40 rounded-2xl shadow-md"
+                  title="Previous move"
+                >
+                  <SkipBack className="h-5 w-5" />
+                </Button>
+
+                <Button
+                  onClick={togglePlay}
+                  className={`h-12 min-w-0 px-5 font-heading font-black text-base rounded-2xl transition-all duration-200 ${
+                    isPlaying 
+                      ? "bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30" 
+                      : "bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-[0_0_24px_rgba(16,185,129,0.35)]"
+                  }`}
+                >
+                  {isPlaying ? (
+                    <>
+                      <Pause className="mr-2 h-5 w-5 fill-current" />
+                      Pause
+                    </>
+                  ) : (
+                    <>
+                      <Play className="mr-2 h-5 w-5 fill-current" />
+                      {isComplete ? "Replay" : "Continue"}
+                    </>
                   )}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => goToMove(currentMoveIndex + 1)}
+                  disabled={currentMoveIndex >= mainLine.length - 1}
+                  className="h-12 w-12 border-slate-700/80 bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white disabled:opacity-40 rounded-2xl shadow-md"
+                  title="Next move"
+                >
+                  <SkipForward className="h-5 w-5" />
+                </Button>
+              </div>
+
+              {/* Speed control */}
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3">
+                <span className="text-xs font-heading font-black text-slate-400">Auto-play speed</span>
+                <div className="flex items-center gap-2.5">
+                  <Volume2 className="h-4 w-4 text-slate-400" />
+                  <Slider
+                    value={[playSpeed]}
+                    onValueChange={([val]) => setPlaySpeed(val)}
+                    min={1000}
+                    max={5000}
+                    step={500}
+                    className="w-24 sm:w-32"
+                  />
+                  <span className="text-xs font-mono font-bold text-slate-300 w-10 text-right">
+                    {(playSpeed / 1000).toFixed(1)}s
+                  </span>
                 </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </CardContent>
-      </Card>
-      
-      {/* Controls */}
-      {!showIntro && (
-        <div className="space-y-3">
-          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={reset}
-              className="border-border"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => goToMove(currentMoveIndex - 1)}
-              disabled={currentMoveIndex <= 0}
-              className="border-border"
-            >
-              <SkipBack className="h-4 w-4" />
-            </Button>
-
-            <Button
-              onClick={togglePlay}
-              className={`min-w-0 px-2 sm:px-4 ${isPlaying ? "bg-secondary text-secondary-foreground hover:bg-secondary/90" : "experience-primary"}`}
-            >
-              {isPlaying ? (
-                <>
-                  <Pause className="mr-1.5 h-4 w-4 sm:mr-2" />
-                  Pause
-                </>
-              ) : (
-                <>
-                  <Play className="mr-1.5 h-4 w-4 sm:mr-2" />
-                  {isComplete ? "Replay" : "Continue"}
-                </>
-              )}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => goToMove(currentMoveIndex + 1)}
-              disabled={currentMoveIndex >= mainLine.length - 1}
-              className="border-border"
-            >
-              <SkipForward className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Speed control */}
-          <div className="flex items-center justify-end gap-2 rounded-lg border border-border/60 bg-muted/35 px-3 py-2">
-            <span className="text-xs text-muted-foreground">Playback speed</span>
-            <Volume2 className="h-4 w-4 text-muted-foreground" />
-            <Slider
-              value={[playSpeed]}
-              onValueChange={([val]) => setPlaySpeed(val)}
-              min={1000}
-              max={5000}
-              step={500}
-              className="w-24 sm:w-28"
-            />
-          </div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
       </div>
-    </div>
     </div>
   );
 };
 
 export default GuidedOpeningLesson;
+
+
