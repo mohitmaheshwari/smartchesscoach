@@ -61,107 +61,116 @@ export const setMuted = (muted) => {
   }
 };
 
-/** A short noise burst through a band-pass — a piece landing on wood. */
-const click = ({ freq, duration, gain, decay }) => {
+/**
+ * A piece landing on a wooden board, built from what that actually is:
+ *
+ *   1. a very short broadband TRANSIENT (the contact), ~6ms, high-passed so
+ *      it reads as "tap" and not "hiss"
+ *   2. a damped low BODY resonance (the board itself ringing), a sine around
+ *      150-260Hz falling slightly as it decays
+ *
+ * The previous version was a single band-passed noise burst at 1100Hz, which
+ * is a thin "tick" -- the sound of a fingernail, not of a piece. Mohit,
+ * 2026-10-08: "i hear the sound but don't like it". Two layers is the
+ * smallest change that makes it read as wood.
+ */
+const thock = ({ body, bodyEnd, bodyGain, tap, tapGain, duration }) => {
   const ctx = getCtx();
   if (!ctx || isMuted()) return;
   try {
-    const frames = Math.floor(ctx.sampleRate * duration);
-    const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < frames; i += 1) {
-      // Noise shaped by an exponential decay: the percussive part.
-      data[i] = (Math.random() * 2 - 1) * Math.exp((-decay * i) / frames);
+    const now = ctx.currentTime;
+
+    // --- 1. contact transient -------------------------------------------
+    const tapFrames = Math.floor(ctx.sampleRate * 0.006);
+    const tapBuf = ctx.createBuffer(1, tapFrames, ctx.sampleRate);
+    const tapData = tapBuf.getChannelData(0);
+    for (let i = 0; i < tapFrames; i += 1) {
+      tapData[i] = (Math.random() * 2 - 1) * Math.exp((-9 * i) / tapFrames);
     }
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
+    const tapSrc = ctx.createBufferSource();
+    tapSrc.buffer = tapBuf;
+    const tapHp = ctx.createBiquadFilter();
+    tapHp.type = "highpass";
+    tapHp.frequency.value = tap;
+    const tapVol = ctx.createGain();
+    tapVol.gain.setValueAtTime(tapGain, now);
+    tapVol.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+    tapSrc.connect(tapHp); tapHp.connect(tapVol); tapVol.connect(ctx.destination);
+    tapSrc.start(now); tapSrc.stop(now + 0.04);
 
-    const band = ctx.createBiquadFilter();
-    band.type = "bandpass";
-    band.frequency.value = freq;
-    band.Q.value = 1.1;
-
+    // --- 2. board body ---------------------------------------------------
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(body, now);
+    osc.frequency.exponentialRampToValueAtTime(bodyEnd, now + duration);
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 1400;
     const vol = ctx.createGain();
-    vol.gain.setValueAtTime(gain, ctx.currentTime);
-    vol.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-
-    src.connect(band);
-    band.connect(vol);
-    vol.connect(ctx.destination);
-    src.start();
-    src.stop(ctx.currentTime + duration);
+    // Percussive envelope: near-instant attack, exponential fall, no tail.
+    vol.gain.setValueAtTime(0.0001, now);
+    vol.gain.exponentialRampToValueAtTime(bodyGain, now + 0.004);
+    vol.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    osc.connect(lp); lp.connect(vol); vol.connect(ctx.destination);
+    osc.start(now); osc.stop(now + duration + 0.02);
   } catch {
     /* audio is never load-bearing; a failure must not break a move */
   }
 };
 
-/**
- * Every exported sound is wrapped so a caller can never be broken by audio.
- * The board calls these on the move path; an exception there costs the move.
- */
-const _safe = (fn) => (...args) => {
-  try {
-    return fn(...args);
-  } catch {
-    return undefined;
-  }
-};
-
-/** A quiet move. */
+/** A quiet move: a soft knock. */
 const _playMove_raw = () =>
-  click({ freq: 1100, duration: 0.045, gain: 0.16, decay: 22 });
+  thock({ body: 190, bodyEnd: 120, bodyGain: 0.26, tap: 2600, tapGain: 0.1, duration: 0.085 });
 
-/** A capture: lower and a touch fuller, so the two are distinguishable. */
+/** A capture: heavier and a touch longer, so the two are distinguishable. */
 const _playCapture_raw = () =>
-  click({ freq: 700, duration: 0.07, gain: 0.22, decay: 16 });
+  thock({ body: 150, bodyEnd: 92, bodyGain: 0.34, tap: 1900, tapGain: 0.17, duration: 0.125 });
 
-/** Check: the same click with a short tone over it, still not an alarm. */
+/** Check: the knock, then a clear two-note rise. Attention, not alarm. */
 const _playCheck_raw = () => {
-  click({ freq: 900, duration: 0.05, gain: 0.18, decay: 20 });
+  thock({ body: 190, bodyEnd: 130, bodyGain: 0.24, tap: 2600, tapGain: 0.1, duration: 0.08 });
   const ctx = getCtx();
   if (!ctx || isMuted()) return;
   try {
-    const osc = ctx.createOscillator();
-    const vol = ctx.createGain();
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(660, ctx.currentTime);
-    vol.gain.setValueAtTime(0.0001, ctx.currentTime);
-    vol.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.012);
-    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.16);
-    osc.connect(vol);
-    vol.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.17);
+    const now = ctx.currentTime;
+    [[660, 0.055], [880, 0.12]].forEach(([f, at]) => {
+      const osc = ctx.createOscillator();
+      const vol = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(f, now + at);
+      vol.gain.setValueAtTime(0.0001, now + at);
+      vol.gain.exponentialRampToValueAtTime(0.075, now + at + 0.012);
+      vol.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.13);
+      osc.connect(vol); vol.connect(ctx.destination);
+      osc.start(now + at); osc.stop(now + at + 0.15);
+    });
   } catch {
     /* ignore */
   }
 };
 
 /**
- * A move that cost material or the game. Deliberately NOT an alarm: lower
- * and a little longer than check, falling rather than rising, so it reads
- * as "that one hurt" and not as a buzzer. Mohit's rule is undramatic
- * coaching -- the sound should not be the loudest thing that happens when
- * a 900 hangs a piece.
+ * A move that cost material. Deliberately NOT an alarm: a dull low knock and
+ * a short fall, so it reads as "that one hurt" rather than a buzzer. Mohit's
+ * rule is undramatic coaching -- the sound must not be the loudest thing
+ * that happens when a 900 hangs a piece.
  */
 const _playBlunder_raw = () => {
-  click({ freq: 320, duration: 0.09, gain: 0.2, decay: 12 });
+  thock({ body: 120, bodyEnd: 70, bodyGain: 0.3, tap: 1200, tapGain: 0.12, duration: 0.16 });
   const ctx = getCtx();
   if (!ctx || isMuted()) return;
   try {
+    const now = ctx.currentTime;
     const osc = ctx.createOscillator();
     const vol = ctx.createGain();
     osc.type = "sine";
-    // A short fall, not a sting.
-    osc.frequency.setValueAtTime(330, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(190, ctx.currentTime + 0.22);
-    vol.gain.setValueAtTime(0.0001, ctx.currentTime);
-    vol.gain.exponentialRampToValueAtTime(0.07, ctx.currentTime + 0.02);
-    vol.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.26);
-    osc.connect(vol);
-    vol.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.27);
+    osc.frequency.setValueAtTime(300, now + 0.04);
+    osc.frequency.exponentialRampToValueAtTime(165, now + 0.34);
+    vol.gain.setValueAtTime(0.0001, now + 0.04);
+    vol.gain.exponentialRampToValueAtTime(0.06, now + 0.07);
+    vol.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
+    osc.connect(vol); vol.connect(ctx.destination);
+    osc.start(now + 0.04); osc.stop(now + 0.38);
   } catch {
     /* ignore */
   }
@@ -179,6 +188,13 @@ const _playForSan_raw = (san) => {
   return playMove();
 };
 
+const _safe = (fn) => (...args) => {
+  try {
+    return fn(...args);
+  } catch {
+    return undefined;
+  }
+};
 
 export const playMove = _safe(_playMove_raw);
 export const playCapture = _safe(_playCapture_raw);
