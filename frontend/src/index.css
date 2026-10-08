@@ -1541,3 +1541,65 @@
   );
   background-size: 25% 25%;
 }
+
+/* ── Engine-line arrows draw themselves, in order ──────────────────────
+   Mohit 2026-10-07: "something fancy that looks good on board... something
+   with arrows, that atleast explains the sequence without playing there".
+
+   The numbers on the arrows (chessground `label`) make the order readable at
+   rest. This makes it readable at a glance: each arrow strokes itself in from
+   tail to head, one after the next, then stays put. It runs once on render,
+   not on a loop -- a board that never stops moving is harder to read, not
+   easier.
+
+   Scoped to `.engine-line-board` so the rest of the app's arrows are
+   untouched. chessground wraps each shape in its own <g> inside svg.cg-shapes,
+   so nth-of-type gives the stagger without needing a per-arrow variable. The
+   board's viewBox is 8x8 board units, so a dash of 12 covers the longest
+   possible arrow. */
+@keyframes cg-arrow-draw {
+  from { stroke-dashoffset: 12; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes cg-arrow-fade {
+  from { opacity: 0; transform: scale(0.72); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.engine-line-board svg.cg-shapes g line {
+  stroke-dasharray: 12;
+  animation: cg-arrow-draw 0.42s ease-out both;
+}
+.engine-line-board svg.cg-shapes g:nth-of-type(1) line { animation-delay: 0s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(2) line { animation-delay: 0.16s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(3) line { animation-delay: 0.32s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(4) line { animation-delay: 0.48s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(5) line { animation-delay: 0.64s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(n + 6) line { animation-delay: 0.8s; }
+
+/* The order number pops in just after its own arrow lands. */
+.engine-line-board svg.cg-shapes g circle,
+.engine-line-board svg.cg-shapes g text {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cg-arrow-fade 0.22s ease-out both;
+}
+.engine-line-board svg.cg-shapes g:nth-of-type(1) circle,
+.engine-line-board svg.cg-shapes g:nth-of-type(1) text { animation-delay: 0.34s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(2) circle,
+.engine-line-board svg.cg-shapes g:nth-of-type(2) text { animation-delay: 0.50s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(3) circle,
+.engine-line-board svg.cg-shapes g:nth-of-type(3) text { animation-delay: 0.66s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(4) circle,
+.engine-line-board svg.cg-shapes g:nth-of-type(4) text { animation-delay: 0.82s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(n + 5) circle,
+.engine-line-board svg.cg-shapes g:nth-of-type(n + 5) text { animation-delay: 0.98s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .engine-line-board svg.cg-shapes g line,
+  .engine-line-board svg.cg-shapes g circle,
+  .engine-line-board svg.cg-shapes g text {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

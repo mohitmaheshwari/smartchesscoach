@@ -212,10 +212,19 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const applyCaptionArrows = useCallback((card) => {
     const capArrows = card?.caption_arrows;
     if (capArrows?.length) {
+      // Number a SEQUENCE so the order reads without playing it out. Mohit
+      // 2026-10-07: "something with arrows, that atleast explains the sequence
+      // without playing there". The backend emits these in line order, so the
+      // index is the ply. A lone arrow is not a sequence and stays unnumbered
+      // -- a "1" on its own says nothing.
+      const drawable = capArrows.filter((a) => a?.from && a?.to);
       setArrows(
-        capArrows
-          .filter((a) => a?.from && a?.to)
-          .map((a) => [a.from, a.to, a.color || "red"])
+        drawable.map((a, i) => [
+          a.from,
+          a.to,
+          a.color || "red",
+          drawable.length > 1 ? String(i + 1) : undefined,
+        ])
       );
     } else {
       setArrows([]);
@@ -1351,7 +1360,15 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               orientation={orientation}
             />
           )}
-        <div className="aspect-square w-full max-w-[500px] relative">
+        {/* engine-line-board scopes the staggered arrow draw-in to this
+            review board; see index.css.
+            No React key here on purpose: keying this div on the arrow set
+            would remount chessground on every arrow change -- flicker, lost
+            piece animation, the board rebuilt to replay a 400ms effect.
+            Unnecessary too, because chessground diffs shapes by cgHash and
+            appends fresh <g> elements for changed ones, so the CSS animation
+            fires on them by itself. */}
+        <div className="aspect-square w-full max-w-[500px] relative engine-line-board">
           <LichessBoard
             ref={boardRef}
             fen={planMode && planBoard ? planBoard.fen() : boardFen}
@@ -1619,6 +1636,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                     : moverSide
                     ? "blue"
                     : "palegrey",
+                  String(i + 1),
                 ]);
               }
               setBoardFen(game.fen());

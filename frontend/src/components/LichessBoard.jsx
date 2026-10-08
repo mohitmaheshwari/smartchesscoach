@@ -436,7 +436,7 @@ const LichessBoard = forwardRef(({
         drawable: {
           enabled: true,
           visible: true,
-          autoShapes: (!disableArrows && arrows.length > 0) ? arrows.map(([from, to, color]) => {
+          autoShapes: (!disableArrows && arrows.length > 0) ? arrows.map(([from, to, color, label]) => {
             // Coach geometry overlay: green = your plan, yellow = coach's plan,
             // pale variants = latent "line to watch". docs/coach_geometry_arrows_scope.md
             let brush = "blue";
@@ -448,7 +448,17 @@ const LichessBoard = forwardRef(({
               else if (c.includes("red") || c.includes("239")) brush = "red";
               else if (c.includes("green")) brush = "green";
             }
-            return { orig: from, dest: to, brush };
+            // A 4th tuple slot carries an order number, drawn on the arrow
+            // itself. Mohit 2026-10-07 wanted the sequence readable without
+            // playing it out: "something with arrows, that atleast explains
+            // the sequence without playing there". chessground 9.2 positions
+            // labels along the line and slots them so they do not collide, so
+            // a five-arrow plan reads 1 2 3 4 5 in place.
+            const shape = { orig: from, dest: to, brush };
+            if (label !== undefined && label !== null && label !== "") {
+              shape.label = { text: String(label) };
+            }
+            return shape;
           }) : [],
         },
       });
