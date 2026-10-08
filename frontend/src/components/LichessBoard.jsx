@@ -106,6 +106,19 @@ const chessgroundBrushFor = (color) => {
 // A 4th tuple slot carries an order number, drawn on the arrow itself.
 // chessground 9.2 positions labels along the line and slots them so they do
 // not collide, so a five-arrow plan reads 1 2 3 4 5 in place.
+// A square painted red, for "this piece is gone". chessground 9.2 has no
+// customHighlights, but a shape may carry customSvg, and a 100x100 rect in
+// its 0-100 viewBox fills exactly one square. Mohit 2026-10-08: "the piece
+// that is under attack should have a red background or something, so we see
+// that this is gone".
+const LOST_PIECE_SQUARE_SVG =
+  '<rect width="100" height="100" fill="#c0262d" opacity="0.42" />';
+
+const chessgroundLostSquareShape = (square) => ({
+  orig: square,
+  customSvg: { html: LOST_PIECE_SQUARE_SVG, center: "orig" },
+});
+
 const chessgroundShapeFor = ([from, to, color, label], vivid = false) => {
   const token = String(color || "").toLowerCase();
   const brush = vivid && VIVID_BRUSH_BY_TOKEN[token]
@@ -677,14 +690,14 @@ const LichessBoard = forwardRef(({
       return;
     }
 
-    const arrowsKey = JSON.stringify(arrows);
+    const arrowsKey = JSON.stringify([arrows, highlights]);
     const circlesKey = JSON.stringify(circles);
     const prevArrowsKey = JSON.stringify(prevArrowsRef.current);
     const prevCirclesKey = JSON.stringify(prevCirclesRef.current);
 
     if (arrowsKey === prevArrowsKey && circlesKey === prevCirclesKey) return;
 
-    prevArrowsRef.current = arrows;
+    prevArrowsRef.current = [arrows, highlights];
     prevCirclesRef.current = circles;
 
     const applyShapes = () => {
@@ -693,17 +706,24 @@ const LichessBoard = forwardRef(({
         return;
       }
       const arrowShapes = (arrows || []).map((a) => chessgroundShapeFor(a, vividArrows));
+      // `highlights` has been accepted as a prop and silently dropped since
+      // this component was written -- declared, never read, so every
+      // caption_highlight_squares value computed upstream went nowhere.
+      const lostShapes = (highlights || [])
+        .map((h) => (typeof h === "string" ? h : h && h.square))
+        .filter(Boolean)
+        .map(chessgroundLostSquareShape);
       // Circles are chessground shapes with no `dest` — they draw as a ring on the square.
       const circleShapes = (circles || []).map(([square, color]) => ({
         orig: square,
         brush: brushFor(color),
       }));
-      const combined = [...arrowShapes, ...circleShapes];
+      const combined = [...lostShapes, ...arrowShapes, ...circleShapes];
       groundRef.current.setAutoShapes(combined);
     };
 
     applyShapes();
-  }, [arrows, circles, disableArrows, vividArrows]);
+  }, [arrows, circles, highlights, disableArrows, vividArrows]);
 
   // Compute icon position for move classification
   const classIcon = moveClassification && CLASSIFICATION_ICONS[moveClassification.type];

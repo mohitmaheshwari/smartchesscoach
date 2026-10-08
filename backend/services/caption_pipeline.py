@@ -6222,6 +6222,121 @@ def _missed_move_arrow(board_before, board_after, facts, caption):
     }]
 
 
+try:  # used by describe_line_steps to tell a sacrifice from a capture
+    from services.caption_facts import legal_exchange_gain
+except Exception:  # pragma: no cover - keeps import order faults non-fatal
+    legal_exchange_gain = None
+
+_STEP_PIECE_WORD = {
+    chess.PAWN: "Pawn", chess.KNIGHT: "Knight", chess.BISHOP: "Bishop",
+    chess.ROOK: "Rook", chess.QUEEN: "Queen", chess.KING: "King",
+}
+
+
+def describe_line_steps(fen_before, first_san, line, max_steps=6):
+    """Turn an engine line into one short sentence per move.
+
+    Mohit 2026-10-08, looking at a five-arrow board: "can we write short
+    sentences there, like bishop sacrifices on h7 and then checks king, king
+    takes back, fork, something very easy to explain, very short sentences."
+
+    Arrows show WHERE. They cannot show what kind of thing is happening, and a
+    player who does not already see the tactic cannot read it off three lines.
+    So each ply gets a sentence of a few words, in the order they happen.
+
+    Every sentence is derived from the board after that move -- the piece that
+    moved, what it took, whether the king is in check, whether it now attacks
+    two pieces worth taking. Nothing is inferred from the caption or from the
+    evaluation.
+
+    Each step also carries `captured_square`: where a piece just died. The card
+    paints that square red, because Mohit's other half of the same note was
+    "the piece that is under attack should have a red background or something,
+    so we see that this is gone".
+
+    Returns a list of dicts: san, text, from, to, captured_square, side.
+    """
+    try:
+        board = chess.Board(str(fen_before))
+    except Exception:
+        return []
+    moves = [first_san] + list(line or ())
+    mover = board.turn
+    steps = []
+    previous_to = None
+    for san in moves[:max_steps]:
+        if not san:
+            break
+        try:
+            move = board.parse_san(str(san))
+        except (ValueError, AssertionError):
+            break
+        piece = board.piece_at(move.from_square)
+        if piece is None:
+            break
+        word = _STEP_PIECE_WORD.get(piece.piece_type, "Piece")
+        square = chess.square_name(move.to_square)
+        is_capture = board.is_capture(move)
+        victim = board.piece_at(move.to_square)
+        captured_square = square if is_capture else None
+
+        # Does this capture lose material where it lands? Then it is a
+        # sacrifice, and saying "takes the pawn" hides the whole point.
+        sacrifice = False
+        if is_capture:
+            try:
+                gain = legal_exchange_gain(board, move.to_square, board.turn,
+                                           first_move=move)
+                sacrifice = gain is not None and gain < 0
+            except Exception:
+                sacrifice = False
+
+        after = board.copy()
+        after.push(move)
+
+        if after.is_checkmate():
+            text = f"{word} mates on {square}."
+        elif sacrifice:
+            text = f"{word} gives itself up on {square}."
+        elif is_capture and previous_to == move.to_square:
+            text = f"{word} takes back on {square}."
+        elif is_capture and victim is not None:
+            text = f"{word} takes the {chess.piece_name(victim.piece_type)} on {square}."
+        elif is_capture:
+            text = f"{word} takes on {square}."
+        elif after.is_check():
+            text = f"{word} checks the king from {square}."
+        else:
+            text = f"{word} goes to {square}."
+
+        if after.is_check() and not after.is_checkmate() and "check" not in text:
+            text += " Check."
+
+        # A fork is the thing a player most often cannot see, so it is named.
+        hit = []
+        for sq in after.attacks(move.to_square):
+            target = after.piece_at(sq)
+            if (target and target.color != piece.color
+                    and _STORY_PIECE_VALUES.get(target.piece_type, 0) >= 3):
+                hit.append(target.piece_type)
+        if len(hit) >= 2:
+            names = [chess.piece_name(t) for t in sorted(
+                hit, key=lambda t: _STORY_PIECE_VALUES.get(t, 0), reverse=True)[:2]]
+            text += f" It forks the {names[0]} and the {names[1]}."
+
+        steps.append({
+            "san": str(san),
+            "text": text,
+            "from": chess.square_name(move.from_square),
+            "to": square,
+            "captured_square": captured_square,
+            "side": "mover" if piece.color == mover else "opponent",
+        })
+        previous_to = move.to_square
+        board.push(move)
+    return steps
+
+
 def _say_the_missed_chance(board_before, best_san, mover_is_user, caption):
     """Name the chance that was there, and what it takes. Or say nothing.
 
