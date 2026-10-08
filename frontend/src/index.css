@@ -1545,60 +1545,59 @@
 /* ── Engine-line arrows draw themselves, in order ──────────────────────
    Mohit 2026-10-07: "something fancy that looks good on board... something
    with arrows, that atleast explains the sequence without playing there".
+   Then 2026-10-08: "can we add slight delay there?? like a one sec delay
+   between this arrow and next arrow".
 
    The numbers on the arrows (chessground `label`) make the order readable at
    rest. This makes it readable at a glance: each arrow strokes itself in from
-   tail to head, one after the next, then stays put. It runs once on render,
-   not on a loop -- a board that never stops moving is harder to read, not
-   easier.
+   tail to head a second after the one before, its number landing behind it,
+   and then everything stays put. It runs ONCE on render, not on a loop -- a
+   board that never stops moving is harder to read, not easier.
 
-   Scoped to `.engine-line-board` so the rest of the app's arrows are
-   untouched. chessground wraps each shape in its own <g> inside svg.cg-shapes,
-   so nth-of-type gives the stagger without needing a per-arrow variable. The
-   board's viewBox is 8x8 board units, so a dash of 12 covers the longest
-   possible arrow. */
+   Scoped to `.engine-line-board` so no other board in the app changes.
+   chessground wraps each arrow in its own <g> inside svg.cg-shapes, so
+   nth-of-type gives the stagger without a per-arrow variable. The board's
+   viewBox is 8x8 board units, so a dash of 12 covers the longest arrow.
+
+   The NUMBERS live in a different layer: renderLabel is pushed with
+   isCustom: true, so they land in svg.cg-custom-svgs, not cg-shapes. They get
+   their own selector for that reason -- styling them under cg-shapes matched
+   nothing. */
 @keyframes cg-arrow-draw {
   from { stroke-dashoffset: 12; }
   to   { stroke-dashoffset: 0; }
 }
-@keyframes cg-arrow-fade {
-  from { opacity: 0; transform: scale(0.72); }
+@keyframes cg-arrow-label-in {
+  from { opacity: 0; transform: scale(0.6); }
   to   { opacity: 1; transform: scale(1); }
 }
 
 .engine-line-board svg.cg-shapes g line {
   stroke-dasharray: 12;
-  animation: cg-arrow-draw 0.42s ease-out both;
+  animation: cg-arrow-draw 0.55s ease-out both;
 }
 .engine-line-board svg.cg-shapes g:nth-of-type(1) line { animation-delay: 0s; }
-.engine-line-board svg.cg-shapes g:nth-of-type(2) line { animation-delay: 0.16s; }
-.engine-line-board svg.cg-shapes g:nth-of-type(3) line { animation-delay: 0.32s; }
-.engine-line-board svg.cg-shapes g:nth-of-type(4) line { animation-delay: 0.48s; }
-.engine-line-board svg.cg-shapes g:nth-of-type(5) line { animation-delay: 0.64s; }
-.engine-line-board svg.cg-shapes g:nth-of-type(n + 6) line { animation-delay: 0.8s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(2) line { animation-delay: 1s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(3) line { animation-delay: 2s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(4) line { animation-delay: 3s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(5) line { animation-delay: 4s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(n + 6) line { animation-delay: 5s; }
 
-/* The order number pops in just after its own arrow lands. */
-.engine-line-board svg.cg-shapes g circle,
-.engine-line-board svg.cg-shapes g text {
+/* The order number lands just after its own arrow finishes drawing. */
+.engine-line-board .cg-custom-svgs g {
   transform-box: fill-box;
   transform-origin: center;
-  animation: cg-arrow-fade 0.22s ease-out both;
+  animation: cg-arrow-label-in 0.28s ease-out both;
 }
-.engine-line-board svg.cg-shapes g:nth-of-type(1) circle,
-.engine-line-board svg.cg-shapes g:nth-of-type(1) text { animation-delay: 0.34s; }
-.engine-line-board svg.cg-shapes g:nth-of-type(2) circle,
-.engine-line-board svg.cg-shapes g:nth-of-type(2) text { animation-delay: 0.50s; }
-.engine-line-board svg.cg-shapes g:nth-of-type(3) circle,
-.engine-line-board svg.cg-shapes g:nth-of-type(3) text { animation-delay: 0.66s; }
-.engine-line-board svg.cg-shapes g:nth-of-type(4) circle,
-.engine-line-board svg.cg-shapes g:nth-of-type(4) text { animation-delay: 0.82s; }
-.engine-line-board svg.cg-shapes g:nth-of-type(n + 5) circle,
-.engine-line-board svg.cg-shapes g:nth-of-type(n + 5) text { animation-delay: 0.98s; }
+.engine-line-board .cg-custom-svgs g:nth-of-type(1) { animation-delay: 0.5s; }
+.engine-line-board .cg-custom-svgs g:nth-of-type(2) { animation-delay: 1.5s; }
+.engine-line-board .cg-custom-svgs g:nth-of-type(3) { animation-delay: 2.5s; }
+.engine-line-board .cg-custom-svgs g:nth-of-type(4) { animation-delay: 3.5s; }
+.engine-line-board .cg-custom-svgs g:nth-of-type(n + 5) { animation-delay: 4.5s; }
 
 @media (prefers-reduced-motion: reduce) {
   .engine-line-board svg.cg-shapes g line,
-  .engine-line-board svg.cg-shapes g circle,
-  .engine-line-board svg.cg-shapes g text {
+  .engine-line-board .cg-custom-svgs g {
     animation: none;
     stroke-dashoffset: 0;
   }

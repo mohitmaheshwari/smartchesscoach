@@ -30,6 +30,42 @@ const CLASSIFICATION_ICONS = {
   miss:         { symbol: "Miss",     bg: "bg-red-400",     text: "text-white" },
 };
 
+// ONE mapping from our [from, to, color, label] tuple to a chessground shape.
+//
+// There were two, and they had drifted. The INIT path handled paleGrey and
+// paleGreen and (after 2026-10-07) the label; the UPDATE path -- the one that
+// actually runs every time a card changes -- handled neither. It dropped the
+// 4th tuple slot entirely and mapped both "amber" and "palegrey" to plain
+// blue. So the numbered arrows never appeared and the playback colours were
+// never right. Mohit 2026-10-08: "there is no number, it just starts showing
+// up in sequence."
+//
+// Order matters: "palegreen" contains "green" and "palered" contains "red",
+// so the pale variants are tested first.
+const chessgroundBrushFor = (color) => {
+  if (!color) return "blue";
+  const c = String(color).toLowerCase();
+  if (c.includes("palegreen")) return "paleGreen";
+  if (c.includes("palegrey") || c.includes("palegray")) return "paleGrey";
+  if (c.includes("paleblue")) return "paleBlue";
+  if (c.includes("palered")) return "paleRed";
+  if (c.includes("yellow") || c.includes("amber") || c.includes("255, 200")) return "yellow";
+  if (c.includes("red") || c.includes("239")) return "red";
+  if (c.includes("green") || c.includes("34,") || c.includes("200, 83")) return "green";
+  return "blue";
+};
+
+// A 4th tuple slot carries an order number, drawn on the arrow itself.
+// chessground 9.2 positions labels along the line and slots them so they do
+// not collide, so a five-arrow plan reads 1 2 3 4 5 in place.
+const chessgroundShapeFor = ([from, to, color, label]) => {
+  const shape = { orig: from, dest: to, brush: chessgroundBrushFor(color) };
+  if (label !== undefined && label !== null && label !== "") {
+    shape.label = { text: String(label) };
+  }
+  return shape;
+};
+
 const LichessBoard = forwardRef(({
   fen: fenProp = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
   orientation = "white",
@@ -436,30 +472,10 @@ const LichessBoard = forwardRef(({
         drawable: {
           enabled: true,
           visible: true,
-          autoShapes: (!disableArrows && arrows.length > 0) ? arrows.map(([from, to, color, label]) => {
-            // Coach geometry overlay: green = your plan, yellow = coach's plan,
-            // pale variants = latent "line to watch". docs/coach_geometry_arrows_scope.md
-            let brush = "blue";
-            if (color) {
-              const c = color.toLowerCase();
-              if (c.includes("palegreen")) brush = "paleGreen";
-              else if (c.includes("palegrey") || c.includes("palegray")) brush = "paleGrey";
-              else if (c.includes("yellow") || c.includes("amber")) brush = "yellow";
-              else if (c.includes("red") || c.includes("239")) brush = "red";
-              else if (c.includes("green")) brush = "green";
-            }
-            // A 4th tuple slot carries an order number, drawn on the arrow
-            // itself. Mohit 2026-10-07 wanted the sequence readable without
-            // playing it out: "something with arrows, that atleast explains
-            // the sequence without playing there". chessground 9.2 positions
-            // labels along the line and slots them so they do not collide, so
-            // a five-arrow plan reads 1 2 3 4 5 in place.
-            const shape = { orig: from, dest: to, brush };
-            if (label !== undefined && label !== null && label !== "") {
-              shape.label = { text: String(label) };
-            }
-            return shape;
-          }) : [],
+          autoShapes:
+            !disableArrows && arrows.length > 0
+              ? arrows.map(chessgroundShapeFor)
+              : [],
         },
       });
     }
@@ -591,14 +607,7 @@ const LichessBoard = forwardRef(({
   const prevCirclesRef = useRef([]);
 
   // Helper: normalize color string → chessground brush name
-  const brushFor = (color) => {
-    if (!color) return "blue";
-    const c = color.toLowerCase();
-    if (c.includes("red") || c.includes("239")) return "red";
-    if (c.includes("green") || c.includes("34,") || c.includes("200, 83")) return "green";
-    if (c.includes("yellow") || c.includes("255, 200")) return "yellow";
-    return "blue";
-  };
+  const brushFor = chessgroundBrushFor;
 
   // Update arrows + circles — only when either changes
   useEffect(() => {
@@ -629,11 +638,7 @@ const LichessBoard = forwardRef(({
         setTimeout(applyShapes, 50);
         return;
       }
-      const arrowShapes = (arrows || []).map(([from, to, color]) => ({
-        orig: from,
-        dest: to,
-        brush: brushFor(color),
-      }));
+      const arrowShapes = (arrows || []).map(chessgroundShapeFor);
       // Circles are chessground shapes with no `dest` — they draw as a ring on the square.
       const circleShapes = (circles || []).map(([square, color]) => ({
         orig: square,
