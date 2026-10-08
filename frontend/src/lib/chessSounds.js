@@ -22,10 +22,22 @@ const getCtx = () => {
   if (typeof window === "undefined") return null;
   const Ctor = window.AudioContext || window.webkitAudioContext;
   if (!Ctor) return null;
-  if (!ctxRef) ctxRef = new Ctor();
-  // Browsers start the context suspended until a user gesture. A move IS a
-  // gesture, so resuming here is allowed and is why the first move is audible.
-  if (ctxRef.state === "suspended") ctxRef.resume().catch(() => {});
+  // NOTHING here may throw. 2026-10-08: playForSan runs on every move in
+  // every mode, and `new AudioContext()` can throw -- browsers cap the
+  // number of contexts (~6 in Chrome) and block construction without a
+  // gesture. That exception propagated through click -> playForSan ->
+  // makeMove, and because onPieceDrop must return true for a move to stick,
+  // the piece snapped back: SOUND BROKE THE BOARD. Audio is never
+  // load-bearing, so failure here must be silence, not a dead board.
+  try {
+    if (!ctxRef) ctxRef = new Ctor();
+    // Browsers start the context suspended until a user gesture. A move IS a
+    // gesture, so resuming here is allowed and is why the first move is audible.
+    if (ctxRef.state === "suspended") ctxRef.resume().catch(() => {});
+  } catch {
+    ctxRef = null;
+    return null;
+  }
   return ctxRef;
 };
 
@@ -83,16 +95,28 @@ const click = ({ freq, duration, gain, decay }) => {
   }
 };
 
+/**
+ * Every exported sound is wrapped so a caller can never be broken by audio.
+ * The board calls these on the move path; an exception there costs the move.
+ */
+const _safe = (fn) => (...args) => {
+  try {
+    return fn(...args);
+  } catch {
+    return undefined;
+  }
+};
+
 /** A quiet move. */
-export const playMove = () =>
+const _playMove_raw = () =>
   click({ freq: 1100, duration: 0.045, gain: 0.16, decay: 22 });
 
 /** A capture: lower and a touch fuller, so the two are distinguishable. */
-export const playCapture = () =>
+const _playCapture_raw = () =>
   click({ freq: 700, duration: 0.07, gain: 0.22, decay: 16 });
 
 /** Check: the same click with a short tone over it, still not an alarm. */
-export const playCheck = () => {
+const _playCheck_raw = () => {
   click({ freq: 900, duration: 0.05, gain: 0.18, decay: 20 });
   const ctx = getCtx();
   if (!ctx || isMuted()) return;
@@ -120,7 +144,7 @@ export const playCheck = () => {
  * coaching -- the sound should not be the loudest thing that happens when
  * a 900 hangs a piece.
  */
-export const playBlunder = () => {
+const _playBlunder_raw = () => {
   click({ freq: 320, duration: 0.09, gain: 0.2, decay: 12 });
   const ctx = getCtx();
   if (!ctx || isMuted()) return;
@@ -147,12 +171,19 @@ export const playBlunder = () => {
  * Pick the sound from the move itself, so callers do not each re-derive it.
  * `san` is the move in algebraic notation.
  */
-export const playForSan = (san) => {
+const _playForSan_raw = (san) => {
   const s = String(san || "");
   if (!s) return playMove();
   if (s.includes("#") || s.includes("+")) return playCheck();
   if (s.includes("x")) return playCapture();
   return playMove();
 };
+
+
+export const playMove = _safe(_playMove_raw);
+export const playCapture = _safe(_playCapture_raw);
+export const playCheck = _safe(_playCheck_raw);
+export const playBlunder = _safe(_playBlunder_raw);
+export const playForSan = _safe(_playForSan_raw);
 
 export default playForSan;
