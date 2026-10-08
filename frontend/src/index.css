@@ -1572,6 +1572,14 @@
   from { stroke-dashoffset: 12; }
   to   { stroke-dashoffset: 0; }
 }
+/* chessground puts the whole shapes layer at opacity 0.6, which multiplies
+   with each brush's own alpha -- paleGrey landed at 0.21 on a tan board and
+   simply was not there. These arrows are the content of this panel, so they
+   are painted at full strength. Scoped: every other board keeps the 0.6. */
+.engine-line-board svg.cg-shapes {
+  opacity: 1;
+}
+
 .engine-line-board svg.cg-shapes g line {
   stroke-dasharray: 12;
   animation: cg-arrow-draw 0.55s ease-out both;

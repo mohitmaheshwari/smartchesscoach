@@ -1367,6 +1367,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         <div className="aspect-square w-full max-w-[500px] relative engine-line-board">
           <LichessBoard
             ref={boardRef}
+            vividArrows
             fen={planMode && planBoard ? planBoard.fen() : boardFen}
             orientation={orientation}
             viewOnly={!planMode}
