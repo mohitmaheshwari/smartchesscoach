@@ -1946,6 +1946,11 @@ async def generate_move_feedback(
                 _top = _hanging[0]
                 _san = _top.get("winning_capture_san")
                 if _san:
+                    # allow-noncentral-caption -- deliberate. This tier
+                    # exists precisely BECAUSE the central layer abstained:
+                    # it had no provable teaching claim, and the alternative
+                    # is a blunder with no message at all. The sentence
+                    # asserts only what legally_hanging_pieces proved.
                     coaching_message = (
                         f"{_san} wins your {_top['piece_type']} on "
                         f"{_top['square']}, and nothing can take back."
