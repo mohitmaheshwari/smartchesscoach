@@ -8640,12 +8640,25 @@ def build_move_teaching_decision(
                 board_before, _after_opp_board, caption_facts,
                 caption_payload.get("caption"),
             )
-        elif _caption_is_about_reply:
+        elif _story == "punishment" and _caption_is_about_reply:
+            # The whole plan, but only when there IS a plan -- material moves
+            # our way and the card is about our reply.
             _teach_arrows = _line_sequence_arrows(
                 _after_opp_board, inputs.pv_after_played
             ) or _line_sequence_arrows(
                 _after_opp_board, caption_facts.get("user_reply_pv")
             ) or _reply_attack_arrows(
+                board_before, played_move, _reply_san
+            )
+        elif _caption_is_about_reply:
+            # `neither`: no material story, so no five-move plan. Mohit
+            # 2026-10-08 on move 4 Nf6 of dfe1055c: "why so many arrows and
+            # didn't understand the reason". The verdict was `neither` and the
+            # card drew Nf3, Qh5, O-O, Bxc3, bxc3 -- with bxc3, an ordinary
+            # recapture, painted green as the payoff -- while the words
+            # mentioned Nf3 and nothing else. The recommended move is drawn,
+            # because the caption names it, and nothing more is claimed.
+            _teach_arrows = _reply_attack_arrows(
                 board_before, played_move, _reply_san
             )
         else:

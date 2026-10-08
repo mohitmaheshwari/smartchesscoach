@@ -598,3 +598,61 @@ class TestTheWordsNameTheChanceToo:
             CrossMoveState(),
         )
         assert "MISSED_CHANCE_SAID" not in (decision.text.rule_name or "")
+
+
+class TestANeitherCardDrawsNoPlan:
+    """Mohit 2026-10-08 on move 4 Nf6 of dfe1055c: "why so many arrows and
+    didn't understand the reason".
+
+    The verdict was `neither` -- no material moves either way -- and the card
+    drew five: Nf3, Qh5, O-O, Bxc3, bxc3, with bxc3 painted GREEN as the
+    payoff. bxc3 recaptures the bishop that just took a knight. It is an even
+    trade, not a point. And the caption mentioned exactly one of the five.
+
+    _line_sequence_arrows ran on the opponent branch regardless of the
+    verdict; the punishment and best-move-plan builders had been gated and
+    this one was missed. Measured on live data: 493 `neither` opponent cards
+    were drawing a 3-to-5 move plan this way, against 113 punishment cards
+    that have earned one.
+
+    A `neither` card now draws the recommended move and what it hits, because
+    the caption names that move and nothing else.
+    """
+
+    NF6 = dict(
+        fen="rnb1k1nr/pppp1ppp/4p3/8/1b1PP2q/2NB4/PPP2PPP/R1BQK1NR b KQkq - 4 4",
+        played="Nf6", best="d5", mine=False, cp=76,
+        pvp=["Nf3", "Qh5", "O-O", "Bxc3", "bxc3", "d5", "exd5", "Qxd5",
+             "c4", "Qd6", "Re1", "O-O"],
+        pvb=["Nf3", "Qd8", "O-O", "Bxc3", "bxc3", "dxe4", "Bxe4", "Nf6"],
+        story="neither")
+
+    def test_the_card_has_no_material_story(self):
+        assert _story(self.NF6)[0] == "neither"
+
+    def test_the_sequence_builder_would_still_draw_five(self):
+        """The builder is not wrong -- it is just not entitled to speak here.
+        If this stops drawing, the gate below is testing nothing."""
+        from services.caption_pipeline import _line_sequence_arrows
+        board = chess.Board(self.NF6["fen"])
+        board.push_san("Nf6")
+        assert len(_line_sequence_arrows(board, self.NF6["pvp"])) >= 3
+
+    def test_the_green_payoff_it_wanted_is_only_a_recapture(self):
+        """bxc3 takes back the bishop that just took a knight. Calling it the
+        payoff is the overstatement the gate removes."""
+        board = chess.Board(self.NF6["fen"])
+        for san in ["Nf6", "Nf3", "Qh5", "O-O", "Bxc3"]:
+            board.push_san(san)
+        assert board.piece_at(chess.parse_square("c3")).piece_type == chess.BISHOP
+        assert board.is_capture(board.parse_san("bxc3"))
+
+    def test_the_card_does_not_draw_the_plan(self):
+        drawn, decision = _arrows(self.NF6)
+        assert decision.debug_facts["move_story"] == "neither"
+        assert len(drawn) <= 2, drawn
+
+    def test_a_punishment_card_still_gets_its_whole_line(self):
+        drawn, decision = _arrows(BE6)
+        assert decision.debug_facts["move_story"] == "punishment"
+        assert len(drawn) == 5
