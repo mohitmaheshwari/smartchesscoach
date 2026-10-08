@@ -6233,6 +6233,68 @@ _STEP_PIECE_WORD = {
 }
 
 
+def move_is_undone(fen_before, played_san, pv_after_played, within=6):
+    """Does the piece that moved have to come straight back?
+
+    Mohit 2026-10-08 on move 2 Qh4 of a French: "why is this a mistake?" No
+    material changes hands -- the classifier says `neither` -- and the card
+    said "brings the queen to a more active spot", which is praise for the
+    thing that is wrong. The engine's own answer is Nc3 Qd8: the queen goes
+    out and walks straight home while White develops. That is the reason, and
+    it is on the board rather than in anyone's judgement.
+
+    The piece is FOLLOWED, not the square. python-chess does not track
+    identity, so the first version matched any friendly piece landing on the
+    origin and reported "the pawn goes back to b7" (a bishop landed there) and
+    "the knight goes back to g1" (that was castling). Half of every hit was
+    noise: 10.5% of mistakes before the fix, 5.2% after.
+
+    Measured over 4,000 user mistakes against 4,946 engine-approved moves:
+    5.2% against 0.3%, a lift of 17x. For comparison, the positional detector
+    rejected on 2026-10-07 ran at 1.2x.
+
+    Returns {piece, home, plies, san} or None.
+    """
+    try:
+        board = chess.Board(str(fen_before))
+        move = board.parse_san(str(played_san))
+    except Exception:
+        return None
+    piece = board.piece_at(move.from_square)
+    if piece is None:
+        return None
+    home = move.from_square
+    standing_on = move.to_square
+    board.push(move)
+    for index, san in enumerate(list(pv_after_played or ())[:within], start=1):
+        try:
+            step = board.parse_san(str(san))
+        except (ValueError, AssertionError):
+            return None
+        if step.to_square == standing_on:
+            return None                    # it was captured; it never went home
+        if step.from_square == standing_on:
+            if step.to_square == home:
+                return {
+                    "piece": chess.piece_name(piece.piece_type),
+                    "home": chess.square_name(home),
+                    "plies": index,
+                    "san": str(san),
+                }
+            standing_on = step.to_square
+        board.push(step)
+    return None
+
+
+def _say_the_move_is_undone(undone, mover_is_user):
+    """One plain sentence for a move that undoes itself."""
+    if not undone:
+        return ""
+    whose = "Your" if mover_is_user else "Their"
+    return (f"{whose} {undone['piece']} has to come straight back to "
+            f"{undone['home']}. The move loses time.")
+
+
 def describe_line_steps(fen_before, first_san, line, max_steps=6):
     """Turn an engine line into one short sentence per move.
 
@@ -8242,6 +8304,35 @@ def build_move_teaching_decision(
             or (inputs.eval_after_cp is not None
                 and abs(int(inputs.eval_after_cp)) >= _MATE_CP)
         )
+        # A `neither` card has no material story, and those are the cards
+        # that say the least -- "brings the queen to a more active spot" on
+        # move 2 Qh4 of a French, which is praise for the thing that is wrong.
+        # When the engine's own line walks the piece straight home, that IS
+        # the reason, and it is on the board. 17x against its own base rate;
+        # the positional detector rejected the day before ran at 1.2x.
+        if _story == "neither" and not _mate_on_the_board:
+            _undone_line = _say_the_move_is_undone(
+                move_is_undone(inputs.fen_before, inputs.played_san,
+                               list(inputs.pv_after_played or ())),
+                bool(inputs.mover_is_user),
+            )
+            if _undone_line:
+                # The tail survives only if it names the better move. What is
+                # usually there is floor text that PRAISES the move -- "brings
+                # the queen to a more active spot" sitting under "the queen has
+                # to come straight back". Same rule the stalemate lead uses,
+                # and for the same reason: a card may not contradict itself.
+                _tail = (caption_payload.get("caption") or "").strip()
+                if _tail and not _names_the_move(_tail, inputs.best_move_san):
+                    _tail = ""
+                caption_payload["caption"] = (
+                    f"{_undone_line} {_tail}" if _tail else _undone_line
+                )
+                caption_payload["rule_name"] = (
+                    (caption_payload.get("rule_name") or "") + "→MOVE_UNDONE"
+                )
+                _board_explanation = caption_payload["caption"]
+
         if _story == "opportunity" and not _mate_on_the_board:
             _missed_line = _say_the_missed_chance(
                 board_before,
