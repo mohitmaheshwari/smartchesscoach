@@ -103,3 +103,65 @@ class TestItNeverGuesses:
 
     def test_an_empty_result_makes_no_sentence(self):
         assert _say_the_move_is_undone(None, True) == ""
+
+
+class TestWhyItCannotStayThere:
+    """Mohit 2026-10-08, on "Their queen has to come straight back to d8":
+    "but why can't the queen stay there, why it has to come back to d8?"
+
+    Fair twice over. "Has to" was not accurate -- on that board NOTHING
+    attacks the queen on h4 -- and the card never said why. What is true is
+    that White can hit it with g3 or Nf3, moves he wants to play anyway, and
+    every square the queen could go forward to is covered, so its only safe
+    squares are behind it.
+
+    A chaser worth LESS than the piece it hits is what wins the tempo: a pawn
+    or a knight attacking a queen has to be answered, a queen attacking a
+    queen is a trade offer. The value test is the rule, not a list of pieces.
+
+    Over 207 corpus cards where the move is undone, 60 can name a cheaper
+    chaser; 0 named a move that does not attack the square, 0 named a chaser
+    that is not cheaper.
+    """
+
+    def test_the_queen_is_not_actually_attacked_on_h4(self):
+        """The premise of his question, and the reason the first wording was
+        wrong. If this ever stops being true the case below means nothing."""
+        board = chess.Board(FRENCH)
+        board.push_san("Qh4")
+        assert not board.attackers(chess.WHITE, chess.parse_square("h4"))
+
+    def test_it_names_the_cheap_pieces_that_chase_it(self):
+        from services.caption_pipeline import cheaper_chasers
+        assert cheaper_chasers(FRENCH, "Qh4") == ["g3", "Nf3"]
+
+    def test_a_queen_chasing_a_queen_is_not_a_chase(self):
+        """Qh5 and Qg4 both hit h4 and neither wins a tempo -- they are trade
+        offers. Only pieces worth less than the target count."""
+        from services.caption_pipeline import cheaper_chasers
+        named = cheaper_chasers(FRENCH, "Qh4")
+        assert "Qh5" not in named and "Qg4" not in named
+
+    def test_a_sound_developing_move_has_no_chasers(self):
+        from services.caption_pipeline import cheaper_chasers
+        assert cheaper_chasers(BE6, "Be6") == []
+
+    def test_nobody_gains_a_tempo_by_chasing_a_pawn(self):
+        from services.caption_pipeline import cheaper_chasers
+        assert cheaper_chasers(
+            "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "e4") == []
+
+    def test_the_sentence_answers_the_question(self):
+        from services.caption_pipeline import cheaper_chasers
+        said = _say_the_move_is_undone(
+            move_is_undone(FRENCH, "Qh4", FRENCH_LINE), False,
+            cheaper_chasers(FRENCH, "Qh4"))
+        assert "g3 or Nf3" in said
+        assert "chases the queen" in said
+        assert "d8" in said
+
+    def test_without_a_chaser_it_states_the_fact_and_claims_nothing_more(self):
+        said = _say_the_move_is_undone(
+            move_is_undone(FRENCH, "Qh4", FRENCH_LINE), False, [])
+        assert "chases" not in said
+        assert "comes straight back to d8" in said

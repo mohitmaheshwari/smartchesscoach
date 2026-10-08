@@ -6233,6 +6233,63 @@ _STEP_PIECE_WORD = {
 }
 
 
+def cheaper_chasers(fen_before, played_san, limit=2):
+    """Moves the opponent has that hit the piece we just moved, with something
+    worth less than it.
+
+    Mohit 2026-10-08, on "Their queen has to come straight back to d8": "but
+    why can't the queen stay there, why it has to come back to d8?"
+
+    Fair, because "has to" overstated it and the card never said why. Checked
+    on the board: after 1.e4 e6 2.d4 Qh4 the queen is attacked by NOTHING. It
+    is not forced anywhere. What is true is that White can hit it with Nf3 or
+    g3 whenever he likes -- moves he wants to play regardless -- and every
+    square the queen could go to forward is covered, so its only safe squares
+    are the ones it came from.
+
+    A chaser worth LESS than the piece it hits is what wins the tempo: a pawn
+    or a knight attacking a queen must be answered, a queen attacking a queen
+    is just a trade offer. So the value test is the rule, not a list of piece
+    types.
+
+    Returns a list of SANs, most valuable chase first, or [].
+    """
+    try:
+        board = chess.Board(str(fen_before))
+        move = board.parse_san(str(played_san))
+    except Exception:
+        return []
+    piece = board.piece_at(move.from_square)
+    if piece is None:
+        return []
+    worth = _STORY_PIECE_VALUES.get(piece.piece_type, 0)
+    if worth < 3:
+        return []            # nobody gains a tempo by chasing a pawn
+    board.push(move)
+    landed = move.to_square
+    if board.attackers(not piece.color, landed):
+        return []            # already attacked: that is a different card
+    found = []
+    for candidate in board.legal_moves:
+        attacker = board.piece_at(candidate.from_square)
+        if attacker is None:
+            continue
+        if _STORY_PIECE_VALUES.get(attacker.piece_type, 0) >= worth:
+            continue         # same value or more: a trade offer, not a chase
+        after = board.copy()
+        after.push(candidate)
+        if landed not in after.attacks(candidate.to_square):
+            continue
+        # The chaser must not simply hang where it lands.
+        if after.attackers(piece.color, candidate.to_square) and not \
+                after.attackers(not piece.color, candidate.to_square):
+            continue
+        found.append((_STORY_PIECE_VALUES.get(attacker.piece_type, 0),
+                      board.san(candidate)))
+    found.sort()
+    return [san for _value, san in found[:limit]]
+
+
 def move_is_undone(fen_before, played_san, pv_after_played, within=6):
     """Does the piece that moved have to come straight back?
 
@@ -6286,13 +6343,27 @@ def move_is_undone(fen_before, played_san, pv_after_played, within=6):
     return None
 
 
-def _say_the_move_is_undone(undone, mover_is_user):
-    """One plain sentence for a move that undoes itself."""
+def _say_the_move_is_undone(undone, mover_is_user, chasers=None):
+    """One plain sentence for a move that undoes itself, and why.
+
+    Mohit 2026-10-08: "but why can't the queen stay there, why it has to come
+    back to d8?" The first version said "has to come straight back" and left
+    that unanswered -- and "has to" was not even accurate, because on the
+    French card nothing attacks the queen at all. What is true is that a
+    cheaper piece can chase it for free, so naming the chaser answers the
+    question with a move he can look at.
+    """
     if not undone:
         return ""
     whose = "Your" if mover_is_user else "Their"
-    return (f"{whose} {undone['piece']} has to come straight back to "
-            f"{undone['home']}. The move loses time.")
+    piece = undone["piece"]
+    home = undone["home"]
+    if chasers:
+        chase = " or ".join(chasers)
+        return (f"{chase} chases the {piece} away, so it goes back to {home}. "
+                f"The move loses time.")
+    return (f"{whose} {piece} comes straight back to {home}. "
+            f"The move loses time.")
 
 
 def describe_line_steps(fen_before, first_san, line, max_steps=6):
@@ -8311,10 +8382,15 @@ def build_move_teaching_decision(
         # the reason, and it is on the board. 17x against its own base rate;
         # the positional detector rejected the day before ran at 1.2x.
         if _story == "neither" and not _mate_on_the_board:
+            _undone = move_is_undone(
+                inputs.fen_before, inputs.played_san,
+                list(inputs.pv_after_played or ()),
+            )
             _undone_line = _say_the_move_is_undone(
-                move_is_undone(inputs.fen_before, inputs.played_san,
-                               list(inputs.pv_after_played or ())),
+                _undone,
                 bool(inputs.mover_is_user),
+                cheaper_chasers(inputs.fen_before, inputs.played_san)
+                if _undone else None,
             )
             if _undone_line:
                 # The tail survives only if it names the better move. What is
