@@ -19,7 +19,6 @@
  */
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { API } from "@/App";
 import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -47,11 +46,9 @@ export default function TacticalEyeCard() {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-10">
+      <div className="cg-panel flex items-center justify-center p-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      </div>
     );
   }
 
@@ -60,11 +57,12 @@ export default function TacticalEyeCard() {
   if (!data || !data.measured) return null;
 
   return (
-    <Card data-testid="tactical-eye-card">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-[17px]">{data.headline}</CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0">
+    <section className="cg-panel p-6 md:p-7" data-testid="tactical-eye-card">
+      <p className="cg-eyebrow">Your tactical eye</p>
+      <h3 className="mt-2 font-heading text-[22px] tracking-[-0.025em] text-foreground md:text-[25px]">
+        {data.headline}
+      </h3>
+      <div className="mt-4">
         <p className="text-[14px] leading-relaxed text-foreground mb-4">
           {data.body}
         </p>
@@ -80,7 +78,7 @@ export default function TacticalEyeCard() {
             {data.drill.label} →
           </Link>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

@@ -308,7 +308,25 @@ def _mistake_caption(inp, lab):
             if not (ueb is not None and ueb >= 9000):
                 return None
             mv0 = pvb[0] if pvb else best
-            slots["win"] = f"{mv0} starts a forcing line that wins on the spot"
+            # Say the word. Mohit 2026-10-05, on a card where Rc8# was mate in
+            # one: "It is missed mate not missed skewer... this is a proper
+            # mating pattern". The card named Rc8# and called it "far
+            # stronger", which is true of a free pawn too. 4,444 of 4,904
+            # cards where the player had a forced mate never said "mate".
+            #
+            # Board-verified, so the stronger sentence only goes out when the
+            # move really ends the game on the spot.
+            _ends_it = False
+            try:
+                _probe = chess.Board(fb)
+                _probe.push(_probe.parse_san(best))
+                _ends_it = _probe.is_checkmate()
+            except (ValueError, AssertionError):
+                _ends_it = False
+            if _ends_it:
+                slots["win"] = f"{best} ends it on the spot"
+            else:
+                slots["win"] = f"{mv0} starts a line that forces mate"
         elif lab == "allowed_mate":
             uea = _upov(inp.eval_after_cp, inp.user_color)
             if not (uea is not None and uea <= -9000):

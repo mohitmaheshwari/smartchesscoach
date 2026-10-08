@@ -23,7 +23,6 @@
  */
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { API } from "@/App";
 import { Loader2 } from "lucide-react";
 
@@ -50,11 +49,9 @@ export default function HowYouPlayCard() {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-10">
+      <div className="cg-panel flex items-center justify-center p-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      </div>
     );
   }
 
@@ -64,14 +61,15 @@ export default function HowYouPlayCard() {
   if (lines.length === 0) return null;
 
   return (
-    <Card data-testid="how-you-play-card">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-[17px]">How you play</CardTitle>
-        <p className="text-[13px] text-muted-foreground">
-          Habits I have seen hold up across your games.
-        </p>
-      </CardHeader>
-      <CardContent className="pt-0">
+    <section className="cg-panel p-6 md:p-7" data-testid="how-you-play-card">
+      <p className="cg-eyebrow">How you play</p>
+      <h3 className="mt-2 font-heading text-[22px] tracking-[-0.025em] text-foreground md:text-[25px]">
+        Habits that hold up.
+      </h3>
+      <p className="mt-2 max-w-[560px] text-[13px] leading-relaxed text-muted-foreground">
+        Seen across your games, not one of them.
+      </p>
+      <div className="mt-6">
         <ul className="space-y-3">
           {lines.map((line) => (
             <li
@@ -82,7 +80,7 @@ export default function HowYouPlayCard() {
             </li>
           ))}
         </ul>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

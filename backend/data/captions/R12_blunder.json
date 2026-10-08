@@ -9,6 +9,10 @@
     "moving_piece_type": "Type of the piece that just moved",
     "target_square": "Square the move landed on",
     "opp_reply_san": "Opponent's strongest reply (PV[0] after the played move)",
+    "line_loss_san": "Move in the stored line that captures one of the mover's pieces at ply >= 2. Computed by pushing the engine's own pv_after_played; set only when the line ENDS with the mover down at least a pawn, so an even trade inside the line is not reported as a loss.",
+    "line_loss_piece_type": "Piece type the mover loses to line_loss_san",
+    "line_loss_square": "Square on which line_loss_san makes that capture",
+    "line_loss_ply": "Ply within pv_after_played of that capture (>= 2)",
     "captured_piece_type": "Piece type the opponent's reply would capture",
     "user_best_reply_san": "User's strongest reply after an opp blunder",
     "missed_tactic_kind": "Climax of pv_after_best — 'mate' | 'piece_capture' | 'material' | absent. Set by best_move_tactic_detector by walking the engine's recommended line and finding the tactical payoff (mate / wins a piece / wins pawns).",
@@ -129,27 +133,105 @@
     "opp_quiet_threat_square": "Square where the opponent's piece sits undefended.",
     "opp_quiet_threat_best": "SAN of the user's best reply (e.g. 'Qxc5')."
   },
-  "requires": ["played_san"],
+  "requires": [
+    "played_san"
+  ],
   "trigger": {
     "when": {
-      "cp_loss": {"gte": 30}
+      "cp_loss": {
+        "gte": 30
+      }
     }
   },
   "_trigger_note": "v76 (2026-05-23): lowered cp_loss threshold 100→30 so opp INACCURACIES (cp_loss 30-99) can also fire R12 — combined with the v76 opp-narration wiring (user_best_reply_san), this surfaces 'Opponent's X is a mistake. You can play Y to punish it.' on previously-silent opp inaccuracies like Parth's m4 Be6 (cp=88) and m9 Be7 (cp=72). User-side low-cp moves stay silent via suppression (mover_is_user:true + why_clause:absent + cp_loss<250) — only opp moves with a why_clause set make it through.",
   "severity_tiers": [
-    {"when": {"severity_practical": "blunder"}, "tier": "blunder"},
-    {"when": {"severity_practical": "serious"}, "tier": "serious"},
-    {"when": {"severity_practical": "mistake"}, "tier": "mistake"},
-    {"when": {"played_smaller_win": true, "severity_practical": "inaccuracy"}, "tier": "mistake"},
-    {"when": {"played_smaller_win": true, "severity_practical": "good"}, "tier": "mistake"},
-    {"when": {"severity_canonical": "mistake", "severity_practical": "inaccuracy", "stayed_winning": false}, "tier": "mistake"},
-    {"when": {"severity_canonical": "mistake", "severity_practical": "good", "stayed_winning": false}, "tier": "mistake"},
-    {"when": {"severity_practical": "inaccuracy"}, "tier": "inaccuracy"},
-    {"when": {"severity_practical": "good"}, "tier": "inaccuracy"},
-    {"when": {"cp_loss": {"gte": 400}}, "tier": "blunder"},
-    {"when": {"cp_loss": {"gte": 250}}, "tier": "serious"},
-    {"when": {"cp_loss": {"gte": 100}}, "tier": "mistake"},
-    {"tier": "inaccuracy"}
+    {
+      "when": {
+        "severity_practical": "blunder"
+      },
+      "tier": "blunder"
+    },
+    {
+      "when": {
+        "severity_practical": "serious"
+      },
+      "tier": "serious"
+    },
+    {
+      "when": {
+        "severity_practical": "mistake"
+      },
+      "tier": "mistake"
+    },
+    {
+      "when": {
+        "played_smaller_win": true,
+        "severity_practical": "inaccuracy"
+      },
+      "tier": "mistake"
+    },
+    {
+      "when": {
+        "played_smaller_win": true,
+        "severity_practical": "good"
+      },
+      "tier": "mistake"
+    },
+    {
+      "when": {
+        "severity_canonical": "mistake",
+        "severity_practical": "inaccuracy",
+        "stayed_winning": false
+      },
+      "tier": "mistake"
+    },
+    {
+      "when": {
+        "severity_canonical": "mistake",
+        "severity_practical": "good",
+        "stayed_winning": false
+      },
+      "tier": "mistake"
+    },
+    {
+      "when": {
+        "severity_practical": "inaccuracy"
+      },
+      "tier": "inaccuracy"
+    },
+    {
+      "when": {
+        "severity_practical": "good"
+      },
+      "tier": "inaccuracy"
+    },
+    {
+      "when": {
+        "cp_loss": {
+          "gte": 400
+        }
+      },
+      "tier": "blunder"
+    },
+    {
+      "when": {
+        "cp_loss": {
+          "gte": 250
+        }
+      },
+      "tier": "serious"
+    },
+    {
+      "when": {
+        "cp_loss": {
+          "gte": 100
+        }
+      },
+      "tier": "mistake"
+    },
+    {
+      "tier": "inaccuracy"
+    }
   ],
   "_smaller_win_bump_note": "Parth fb_b318a8af5519 (2026-05-31): when played_smaller_win fires (player captured a defended piece while a free piece of equal value sat undefended elsewhere), bump from inaccuracy/good to mistake. The numerical cp_loss often lands in inaccuracy tier because BOTH moves win material, but missing a free piece is structurally mistake-level teaching for the 600-1500 audience — 'you missed a free bishop' reads as a mistake, not an inaccuracy, even when net material is still in your favour.",
   "severity_phrases": {
@@ -160,138 +242,815 @@
   },
   "_severity_tiers_note": "v79.3 (2026-05-25): Mohit caught cp_loss=76 opp move with severity='opp_inaccuracy' being rendered as 'is a mistake.' Old severity_tiers only had three steps and dumped everything below 250 into the 'mistake' bucket — including small inaccuracies (30-99) that V5's severity classifier separately marks as 'opp_inaccuracy' / 'inaccuracy'. Added a fourth tier so the caption phrase tracks V5's severity classification: blunder (>=400) / serious mistake (>=250) / mistake (>=100) / inaccuracy (30-99).",
   "why_clauses_user": [
-    {"when": {"trap_context_name": "present"}, "variant": "why_user_missed_trap_punishment"},
-    {"when": {"missed_tactic_kind": "mate"}, "variant": "why_user_missed_mate"},
-    {"when": {"missed_tactic_kind": "piece_capture", "best_move_is_sacrifice": true, "best_move_sac_near_king": true}, "variant": "why_user_missed_capture_sacrifice_king"},
-    {"when": {"missed_tactic_kind": "piece_capture", "best_move_is_sacrifice": true}, "variant": "why_user_missed_capture_sacrifice"},
-    {"when": {"missed_tactic_kind": "piece_capture", "missed_tactic_target_square_immediate": true}, "variant": "why_user_missed_piece"},
-    {"when": {"missed_tactic_kind": "piece_capture"}, "variant": "why_user_missed_piece_no_square"},
-    {"when": {"missed_clearance_then_check_follow_up_san": "present"}, "variant": "why_user_missed_clearance_then_check"},
-    {"when": {"missed_clearance_attack_square": "present"}, "variant": "why_user_missed_clearance_attack"},
-    {"when": {"queen_fork_sub_kind": "capture_with_check"}, "variant": "why_user_missed_queen_capture_with_check"},
-    {"when": {"queen_fork_sub_kind": "fork"}, "variant": "why_user_missed_queen_fork"},
-    {"when": {"endgame_loose_pawn_sub_kind": "direct_capture"}, "variant": "why_user_missed_endgame_pawn_grab"},
-    {"when": {"endgame_loose_pawn_sub_kind": "attack"}, "variant": "why_user_missed_endgame_pawn_attack"},
-    {"when": {"discovered_vac_exposed_square": "present"}, "variant": "why_user_missed_discovered_vacating_check"},
-    {"when": {"missed_discovery_target_square": "present"}, "variant": "why_user_missed_discovered_attack"},
-    {"when": {"active_defense_defended_square": "present"}, "variant": "why_user_missed_active_defense"},
-    {"when": {"same_piece_better_extra_square": "present"}, "variant": "why_user_missed_same_piece_better_square"},
-    {"when": {"missed_capture_target_piece": "present", "best_move_is_sacrifice": true, "best_move_sac_near_king": true}, "variant": "why_user_missed_capture_sacrifice_king"},
-    {"when": {"missed_capture_target_piece": "present", "best_move_is_sacrifice": true}, "variant": "why_user_missed_capture_sacrifice"},
-    {"when": {"removed_attacker_target_square": "present", "best_move_capture_is_trade": true}, "variant": "why_user_missed_capture_removes_attacker_trade"},
-    {"when": {"removed_attacker_target_square": "present"}, "variant": "why_user_missed_capture_removes_attacker"},
-    {"when": {"missed_capture_target_piece": "present", "best_move_capture_is_trade": true}, "variant": "why_user_missed_capture_trade"},
-    {"when": {"missed_capture_target_piece": "present"}, "variant": "why_user_missed_capture"},
-    {"when": {"un_developing_piece": "present", "failure_clause": "absent"}, "variant": "why_user_un_developing"},
-    {"when": {"defensive_pawn_user_san": "present", "failure_clause": "absent"}, "variant": "why_user_defensive_pawn_push"},
-    {"when": {"knight_outpost_destination": "present"}, "variant": "why_user_missed_knight_outpost"},
-    {"when": {"stop_opp_pawn_blocking_san": "present"}, "variant": "why_user_missed_stop_opp_pawn"},
-    {"when": {"knight_on_rim_square": "present", "failure_clause": "absent"}, "variant": "why_user_knight_on_rim"},
-    {"when": {"pawn_kicks_piece_square": "present"}, "variant": "why_user_missed_pawn_kicks_piece"},
-    {"when": {"attack_with_tempo_piece": "present", "attack_with_tempo_follow_up_san": "present"}, "variant": "why_user_missed_attack_with_tempo_full"},
-    {"when": {"attack_with_tempo_piece": "present"}, "variant": "why_user_missed_attack_with_tempo"},
-    {"when": {"shape_pattern_id": "king_pawn_lifted", "shape_pattern_target_square": "present"}, "variant": "why_user_missed_king_pawn_pressure"},
-    {"when": {"position_was_already_losing": true, "losing_since_move": "present", "lost_defender_lead_clause": "absent", "failure_clause": "absent"}, "variant": "why_user_position_already_losing_since_known"},
-    {"when": {"queen_chased_by_reply": true, "failure_clause": "absent"}, "variant": "why_user_queen_chased"},
-    {"when": {"position_was_already_losing": true, "lost_defender_lead_clause": "absent", "failure_clause": "absent"}, "variant": "why_user_position_already_losing"},
-    {"when": {"curriculum_deviation_clause": "present"}, "variant": "why_user_curriculum_deviation"},
-    {"when": {"blocked_pawn_would_support": "present"}, "variant": "why_user_blocks_pawn_supports"},
-    {"when": {"blocked_pawn_would_prepare": "present"}, "variant": "why_user_blocks_pawn_prepares"},
-    {"when": {"blocked_pawn_file": "present"}, "variant": "why_user_blocks_pawn"},
-    {"when": {"board_state_clause": "present", "failure_clause": "absent"}, "variant": "why_user_board_state"}
+    {
+      "when": {
+        "trap_context_name": "present"
+      },
+      "variant": "why_user_missed_trap_punishment"
+    },
+    {
+      "when": {
+        "missed_tactic_kind": "mate"
+      },
+      "variant": "why_user_missed_mate"
+    },
+    {
+      "when": {
+        "missed_tactic_kind": "piece_capture",
+        "best_move_is_sacrifice": true,
+        "best_move_sac_near_king": true
+      },
+      "variant": "why_user_missed_capture_sacrifice_king"
+    },
+    {
+      "when": {
+        "missed_tactic_kind": "piece_capture",
+        "best_move_is_sacrifice": true
+      },
+      "variant": "why_user_missed_capture_sacrifice"
+    },
+    {
+      "when": {
+        "missed_tactic_kind": "piece_capture",
+        "missed_tactic_target_square_immediate": true
+      },
+      "variant": "why_user_missed_piece"
+    },
+    {
+      "when": {
+        "missed_tactic_kind": "piece_capture"
+      },
+      "variant": "why_user_missed_piece_no_square"
+    },
+    {
+      "when": {
+        "missed_clearance_then_check_follow_up_san": "present"
+      },
+      "variant": "why_user_missed_clearance_then_check"
+    },
+    {
+      "when": {
+        "missed_clearance_attack_square": "present"
+      },
+      "variant": "why_user_missed_clearance_attack"
+    },
+    {
+      "when": {
+        "queen_fork_sub_kind": "capture_with_check"
+      },
+      "variant": "why_user_missed_queen_capture_with_check"
+    },
+    {
+      "when": {
+        "queen_fork_sub_kind": "fork"
+      },
+      "variant": "why_user_missed_queen_fork"
+    },
+    {
+      "when": {
+        "endgame_loose_pawn_sub_kind": "direct_capture"
+      },
+      "variant": "why_user_missed_endgame_pawn_grab"
+    },
+    {
+      "when": {
+        "endgame_loose_pawn_sub_kind": "attack"
+      },
+      "variant": "why_user_missed_endgame_pawn_attack"
+    },
+    {
+      "when": {
+        "discovered_vac_exposed_square": "present"
+      },
+      "variant": "why_user_missed_discovered_vacating_check"
+    },
+    {
+      "when": {
+        "missed_discovery_target_square": "present"
+      },
+      "variant": "why_user_missed_discovered_attack"
+    },
+    {
+      "when": {
+        "active_defense_defended_square": "present"
+      },
+      "variant": "why_user_missed_active_defense"
+    },
+    {
+      "when": {
+        "same_piece_better_extra_square": "present"
+      },
+      "variant": "why_user_missed_same_piece_better_square"
+    },
+    {
+      "when": {
+        "missed_capture_target_piece": "present",
+        "best_move_is_sacrifice": true,
+        "best_move_sac_near_king": true
+      },
+      "variant": "why_user_missed_capture_sacrifice_king"
+    },
+    {
+      "when": {
+        "missed_capture_target_piece": "present",
+        "best_move_is_sacrifice": true
+      },
+      "variant": "why_user_missed_capture_sacrifice"
+    },
+    {
+      "when": {
+        "removed_attacker_target_square": "present",
+        "best_move_capture_is_trade": true
+      },
+      "variant": "why_user_missed_capture_removes_attacker_trade"
+    },
+    {
+      "when": {
+        "removed_attacker_target_square": "present"
+      },
+      "variant": "why_user_missed_capture_removes_attacker"
+    },
+    {
+      "when": {
+        "missed_capture_target_piece": "present",
+        "best_move_capture_is_trade": true
+      },
+      "variant": "why_user_missed_capture_trade"
+    },
+    {
+      "when": {
+        "missed_capture_target_piece": "present"
+      },
+      "variant": "why_user_missed_capture"
+    },
+    {
+      "when": {
+        "un_developing_piece": "present",
+        "failure_clause": "absent"
+      },
+      "variant": "why_user_un_developing"
+    },
+    {
+      "when": {
+        "defensive_pawn_user_san": "present",
+        "failure_clause": "absent"
+      },
+      "variant": "why_user_defensive_pawn_push"
+    },
+    {
+      "when": {
+        "knight_outpost_destination": "present"
+      },
+      "variant": "why_user_missed_knight_outpost"
+    },
+    {
+      "when": {
+        "stop_opp_pawn_blocking_san": "present"
+      },
+      "variant": "why_user_missed_stop_opp_pawn"
+    },
+    {
+      "when": {
+        "knight_on_rim_square": "present",
+        "failure_clause": "absent"
+      },
+      "variant": "why_user_knight_on_rim"
+    },
+    {
+      "when": {
+        "pawn_kicks_piece_square": "present"
+      },
+      "variant": "why_user_missed_pawn_kicks_piece"
+    },
+    {
+      "when": {
+        "attack_with_tempo_piece": "present",
+        "attack_with_tempo_follow_up_san": "present"
+      },
+      "variant": "why_user_missed_attack_with_tempo_full"
+    },
+    {
+      "when": {
+        "attack_with_tempo_piece": "present"
+      },
+      "variant": "why_user_missed_attack_with_tempo"
+    },
+    {
+      "when": {
+        "shape_pattern_id": "king_pawn_lifted",
+        "shape_pattern_target_square": "present"
+      },
+      "variant": "why_user_missed_king_pawn_pressure"
+    },
+    {
+      "when": {
+        "position_was_already_losing": true,
+        "losing_since_move": "present",
+        "lost_defender_lead_clause": "absent",
+        "failure_clause": "absent"
+      },
+      "variant": "why_user_position_already_losing_since_known"
+    },
+    {
+      "when": {
+        "queen_chased_by_reply": true,
+        "failure_clause": "absent"
+      },
+      "variant": "why_user_queen_chased"
+    },
+    {
+      "when": {
+        "position_was_already_losing": true,
+        "lost_defender_lead_clause": "absent",
+        "failure_clause": "absent"
+      },
+      "variant": "why_user_position_already_losing"
+    },
+    {
+      "when": {
+        "curriculum_deviation_clause": "present"
+      },
+      "variant": "why_user_curriculum_deviation"
+    },
+    {
+      "when": {
+        "blocked_pawn_would_support": "present"
+      },
+      "variant": "why_user_blocks_pawn_supports"
+    },
+    {
+      "when": {
+        "blocked_pawn_would_prepare": "present"
+      },
+      "variant": "why_user_blocks_pawn_prepares"
+    },
+    {
+      "when": {
+        "blocked_pawn_file": "present"
+      },
+      "variant": "why_user_blocks_pawn"
+    },
+    {
+      "when": {
+        "board_state_clause": "present",
+        "failure_clause": "absent"
+      },
+      "variant": "why_user_board_state"
+    }
   ],
   "failure_mode_clauses_user": [
-    {"when": {"opp_reply_san_is_check": true}, "variant": "failure_walks_into_check"},
-    {"when": {"opp_reply_san": "present", "opp_reply_creates_fork": true, "fork_target_1": "present", "fork_target_2": "present", "fork_target_1_square": "present", "fork_target_2_square": "present"}, "variant": "failure_allows_fork"},
-    {"when": {"opp_reply_recaptures_on_played_square": true, "captured_piece_type": "present", "played_to_square": "present"}, "variant": "failure_allows_recapture"},
-    {"when": {"opp_reply_san": "present", "opp_reply_captures_piece_type": "present", "opp_reply_captures_square": "present"}, "variant": "failure_allows_capture"},
-    {"when": {"is_exchange_losing": true, "target_square": "present", "opp_reply_san": "present"}, "variant": "failure_exchange_losing_with_reply"},
-    {"when": {"is_exchange_losing": true, "target_square": "present"}, "variant": "failure_exchange_losing_no_reply"},
-    {"when": {"opp_reply_san": "present", "opp_reply_attacks_played_piece": true, "target_square": "present", "moving_piece_type": "present", "cp_loss": {"gte": 50}}, "variant": "failure_played_piece_attacked"},
-    {"when": {"pieces_now_undefended_present": true, "lost_defender_lead_clause": "absent"}, "variant": "failure_hangs_piece"}
+    {
+      "when": {
+        "allows_forced_mate": true,
+        "allowed_mate_first_move": "present"
+      },
+      "variant": "failure_allows_forced_mate"
+    },
+    {
+      "when": {
+        "opp_reply_san_is_check": true
+      },
+      "variant": "failure_walks_into_check"
+    },
+    {
+      "when": {
+        "opp_reply_san": "present",
+        "opp_reply_creates_fork": true,
+        "fork_target_1": "present",
+        "fork_target_2": "present",
+        "fork_target_1_square": "present",
+        "fork_target_2_square": "present"
+      },
+      "variant": "failure_allows_fork"
+    },
+    {
+      "when": {
+        "opp_reply_recaptures_on_played_square": true,
+        "captured_piece_type": "present",
+        "played_to_square": "present",
+        "move_story": "punishment"
+      },
+      "variant": "failure_allows_recapture"
+    },
+    {
+      "when": {
+        "opp_reply_san": "present",
+        "opp_reply_captures_piece_type": "present",
+        "opp_reply_captures_square": "present",
+        "move_story": "punishment"
+      },
+      "variant": "failure_allows_capture"
+    },
+    {
+      "when": {
+        "is_exchange_losing": true,
+        "target_square": "present",
+        "opp_reply_san": "present",
+        "move_story": "punishment"
+      },
+      "variant": "failure_exchange_losing_with_reply"
+    },
+    {
+      "when": {
+        "is_exchange_losing": true,
+        "target_square": "present",
+        "move_story": "punishment"
+      },
+      "variant": "failure_exchange_losing_no_reply"
+    },
+    {
+      "when": {
+        "opp_reply_san": "present",
+        "opp_reply_attacks_played_piece": true,
+        "target_square": "present",
+        "moving_piece_type": "present",
+        "cp_loss": {
+          "gte": 50
+        }
+      },
+      "variant": "failure_played_piece_attacked"
+    },
+    {
+      "when": {
+        "pieces_now_undefended_present": true,
+        "lost_defender_lead_clause": "absent",
+        "move_story": "punishment"
+      },
+      "variant": "failure_hangs_piece"
+    }
   ],
   "_failure_mode_clauses_opp_note": "2026-06-06 — opponent-side failure-mode predicates, mirror of failure_mode_clauses_user but for OPP moves. Explains WHY the opponent's move was bad (what they should have played) instead of the bare 'Opponent's X is a mistake.' shell. Requires Phase 0 (stockfish_service stores opp best_move + PV for opp errors). Canonical case fb_4899b11157fa: 9.Qe2 hangs d4, opp plays 9...Nbd7 missing 9...Qxd4 which grabs the free pawn. Facts come from caption_facts opp_failure_* block; composed in caption_templates.render_rule opp branch → sets opp_failure_clause.",
   "failure_mode_clauses_opp": [
-    {"when": {"opp_reply_traps_piece": true, "opp_trapped_piece": "present", "opp_trapped_square": "present", "opp_trapped_lesson": "present"}, "variant": "opp_failure_trapped_piece"},
-    {"when": {"opp_check_every_answer_hits_it": true, "opp_check_piece": "present", "opp_check_square": "present"}, "variant": "opp_failure_pointless_check"},
-    {"when": {"opp_reply_exposes_undefended": true, "opp_undefended_piece": "present", "opp_undefended_square": "present"}, "variant": "opp_failure_undefended_behind"},
-    {"when": {"opp_failure_missed_mate": true, "opp_missed_mate_san": "present"}, "variant": "opp_failure_missed_mate"},
-    {"when": {"opp_failure_missed_capture": true, "opp_missed_capture_san": "present", "opp_missed_capture_piece": "present", "opp_missed_capture_square": "present"}, "variant": "opp_failure_missed_capture"},
-    {"when": {"opp_failure_missed_tactic": true, "opp_missed_tactic_san": "present", "opp_missed_tactic_desc": "present"}, "variant": "opp_failure_missed_tactic"},
-    {"when": {"opp_traded_active_result": true, "opp_traded_active_piece": "present", "opp_traded_active_square": "present", "opp_traded_active_recapture": "present"}, "variant": "opp_failure_traded_active"},
-    {"when": {"opp_quiet_threat_result": true, "opp_quiet_threat_piece": "present", "opp_quiet_threat_square": "present", "opp_quiet_threat_best": "present"}, "variant": "opp_failure_quiet_threat"}
+    {
+      "when": {
+        "opp_reply_traps_piece": true,
+        "opp_trapped_piece": "present",
+        "opp_trapped_square": "present",
+        "opp_trapped_lesson": "present"
+      },
+      "variant": "opp_failure_trapped_piece"
+    },
+    {
+      "when": {
+        "opp_check_every_answer_hits_it": true,
+        "opp_check_piece": "present",
+        "opp_check_square": "present"
+      },
+      "variant": "opp_failure_pointless_check"
+    },
+    {
+      "when": {
+        "opp_reply_exposes_undefended": true,
+        "opp_undefended_piece": "present",
+        "opp_undefended_square": "present"
+      },
+      "variant": "opp_failure_undefended_behind"
+    },
+    {
+      "when": {
+        "opp_failure_missed_mate": true,
+        "opp_missed_mate_san": "present"
+      },
+      "variant": "opp_failure_missed_mate"
+    },
+    {
+      "when": {
+        "opp_failure_missed_capture": true,
+        "opp_missed_capture_san": "present",
+        "opp_missed_capture_piece": "present",
+        "opp_missed_capture_square": "present"
+      },
+      "variant": "opp_failure_missed_capture"
+    },
+    {
+      "when": {
+        "opp_failure_missed_tactic": true,
+        "opp_missed_tactic_san": "present",
+        "opp_missed_tactic_desc": "present"
+      },
+      "variant": "opp_failure_missed_tactic"
+    },
+    {
+      "when": {
+        "opp_traded_active_result": true,
+        "opp_traded_active_piece": "present",
+        "opp_traded_active_square": "present",
+        "opp_traded_active_recapture": "present"
+      },
+      "variant": "opp_failure_traded_active"
+    },
+    {
+      "when": {
+        "opp_quiet_threat_result": true,
+        "opp_quiet_threat_piece": "present",
+        "opp_quiet_threat_square": "present",
+        "opp_quiet_threat_best": "present"
+      },
+      "variant": "opp_failure_quiet_threat"
+    },
+    {
+      "when": {
+        "opp_reply_san": "present",
+        "line_loss_san": "present",
+        "line_loss_piece_type": "present",
+        "line_loss_square": "present"
+      },
+      "variant": "opp_failure_line_material_loss"
+    },
+    {
+      "when": {
+        "opp_failure_wrong_piece": true,
+        "opp_wrong_piece_is_recapture": true,
+        "opp_wrong_piece_played": "present",
+        "opp_wrong_piece_wanted": "present",
+        "opp_wrong_piece_square": "present"
+      },
+      "variant": "opp_failure_wrong_recapture"
+    },
+    {
+      "when": {
+        "opp_failure_wrong_piece": true,
+        "opp_wrong_piece_is_recapture": false,
+        "opp_wrong_piece_played": "present",
+        "opp_wrong_piece_wanted": "present",
+        "opp_wrong_piece_square": "present"
+      },
+      "variant": "opp_failure_wrong_piece_square"
+    }
   ],
   "teaching_principles": {
-    "failure_walks_into_check":           "Check your king's escape squares before any move that opens lines toward it",
-    "failure_allows_fork":                "When two of your pieces a knight's jump apart, check for forks before any move",
-    "failure_allows_recapture":           "Before capturing, count attackers and defenders on the target square — if they outnumber yours, the recapture wins material",
-    "failure_allows_capture":             "Count defenders before placing a piece on an undefended square",
+    "failure_allows_forced_mate": "When your king is short of squares, look at every check your opponent has before you move anything else",
+    "failure_walks_into_check": "Check your king's escape squares before any move that opens lines toward it",
+    "failure_allows_fork": "When two of your pieces a knight's jump apart, check for forks before any move",
+    "failure_allows_recapture": "Before capturing, count attackers and defenders on the target square — if they outnumber yours, the recapture wins material",
+    "failure_allows_capture": "Count defenders before placing a piece on an undefended square",
     "failure_exchange_losing_with_reply": "A trade that loses material is not a fair trade — count the piece values first",
-    "failure_exchange_losing_no_reply":   "A trade that loses material is not a fair trade — count the piece values first",
-    "failure_played_piece_attacked":      "Before every move, ask what your opponent's strongest reply does to your pieces",
-    "failure_hangs_piece":                "Every move, scan for pieces of yours left without a defender",
-    "opp_failure_missed_capture":         "they had {opp_missed_capture_san}, grabbing your {opp_missed_capture_piece} on {opp_missed_capture_square} for free",
-    "opp_failure_trapped_piece":          "their {opp_trapped_piece} on {opp_trapped_square} then has nowhere safe to go — {opp_trapped_lesson}",
-    "opp_failure_pointless_check":        "every way out of that check also attacks their {opp_check_piece} on {opp_check_square}, so it only loses time",
-    "opp_failure_undefended_behind":      "their {opp_undefended_piece} on {opp_undefended_square} has nothing defending it, so they cannot take back",
-    "opp_failure_missed_mate":            "they missed {opp_missed_mate_san}, which forced checkmate",
-    "opp_failure_missed_tactic":          "they missed {opp_missed_tactic_san}, {opp_missed_tactic_desc}",
-    "opp_failure_traded_active":          "they swapped their {opp_traded_active_piece} on {opp_traded_active_square} — a piece that was doing nothing — and gave you time to build your attack",
-    "opp_failure_quiet_threat":           "they played quietly even though their {opp_quiet_threat_piece} on {opp_quiet_threat_square} is hanging — you can play {opp_quiet_threat_best} and grab it"
+    "failure_exchange_losing_no_reply": "A trade that loses material is not a fair trade — count the piece values first",
+    "failure_played_piece_attacked": "Before every move, ask what your opponent's strongest reply does to your pieces",
+    "failure_hangs_piece": "Every move, scan for pieces of yours left without a defender",
+    "opp_failure_missed_capture": "they had {opp_missed_capture_san}, grabbing your {opp_missed_capture_piece} on {opp_missed_capture_square} for free",
+    "opp_failure_trapped_piece": "their {opp_trapped_piece} on {opp_trapped_square} then has nowhere safe to go — {opp_trapped_lesson}",
+    "opp_failure_pointless_check": "every way out of that check also attacks their {opp_check_piece} on {opp_check_square}, so it only loses time",
+    "opp_failure_undefended_behind": "their {opp_undefended_piece} on {opp_undefended_square} has nothing defending it, so they cannot take back",
+    "opp_failure_missed_mate": "they missed {opp_missed_mate_san}, which forced checkmate",
+    "opp_failure_missed_tactic": "they missed {opp_missed_tactic_san}, {opp_missed_tactic_desc}",
+    "opp_failure_traded_active": "they swapped their {opp_traded_active_piece} on {opp_traded_active_square} — a piece that was doing nothing — and gave you time to build your attack",
+    "opp_failure_quiet_threat": "they played quietly even though their {opp_quiet_threat_piece} on {opp_quiet_threat_square} is hanging — you can play {opp_quiet_threat_best} and grab it",
+    "opp_failure_line_material_loss": "lets you play {opp_reply_san}, and {line_loss_san} then takes their {line_loss_piece_type} on {line_loss_square}",
+    "opp_failure_wrong_recapture": "When more than one man can take, work out which one you want left on the board afterwards",
+    "opp_failure_wrong_piece_square": "Before you move, ask which of your pieces wants that square most",
+    "back_rank_no_escape": "A king behind three of its own pawns needs an escape square made early, not found in a hurry"
   },
   "_failure_mode_promotion_note": "v100 (2026-06-02): the 'why played wrong' two-clause system. failure_mode_clauses_user is parallel to why_clauses_user — it produces a failure-mode clause (e.g. 'walks into Nb7 attacking the bishop') that the wrapper variants render BEFORE the alternative-promotion clause. When no concrete alternative-promotion fact fires but a failure clause did, teaching_principles supplies a universal teaching line instead of a naked '{best} was better.' See docs/why_played_wrong_spec.md for the design. Triggered by Mohit's 2026-06-01 feedback batch (fb_3efccdbbf15e / fb_3d530eea5dd9 / fb_1cd7562468d1 / fb_79c33cd39b67) where 'h4 was better — it attacks Bg3' was the WRONG caption because the played move Bb2 walked into Nb7. Earlier 2026-06-01 predicate reorder (commit 72f21dfe, reverted in b0694980) proved that reordering alone produces non-sequitur wrappings and doesn't cover failure modes whose victim differs from the played piece — hence the two-clause architecture.",
   "_user_engine_meta_dropped_note": "v94 (2026-05-25): why_user_missed_material ('it wins material in the resulting line') + why_user_reply ('Opponent's strongest reply: X') removed entirely. Mohit 2026-05-25 on Tier B Q2: 'stop pretending every move deserves a concrete caption. silence is NOT always worse. silence is better than fake explanation. V5's biggest strength is supposed to be: only speak when grounded. Don't betray that principle because you fear empty UI.' These two why-clauses were the last engine-speak fallbacks — they fired when no concrete detector had a reason to give, and surfaced engine moves without explaining WHY. Now: when no concrete why-clause fires on a user mistake, the why_clause stays empty and the variant selector falls to user_with_best ('X is a mistake. Y was better.') without engine-meta apologies. Result: ~30-40% more user-side mistake-tier moves render without a why-clause, but the ones that DO render are grounded.",
   "_user_engine_speak_gate_note": "v77.1 (2026-05-23): the two engine-speak fallbacks (why_user_missed_material 'it wins material in the resulting line' / why_user_reply 'Opponent's strongest reply: X') now require cp_loss >= 100. Without this gate, the v76 R12 trigger lowering (100 -> 30) made these fire on user INACCURACIES (cp_loss 30-99) that V5's severity classifier separately marks as 'good' — producing captions like 'Nf6 is a mistake. Nc6 was better. Opponent's strongest reply: O-O.' on moves V5 considered fine. Now: user inaccuracies below 100 cp_loss are either silenced (when no concrete detector fired) or surface a concrete why-clause (when one did). The opp-side why-clauses are unaffected — opp moves still get full opp-narration treatment at the 30 threshold.",
   "why_clauses_opp": [
-    {"when": {"opp_user_reply_unsafe_recapture_pawn_fork": true, "opp_unsafe_recapture_pawn_fork_proof": "present", "opp_unsafe_resolution_kind": "fork_target_captures_pawn_then_is_recaptured", "opp_unsafe_recapture_san": "present", "opp_unsafe_fork_san": "present", "opp_unsafe_recapturing_piece": "present", "opp_unsafe_recapturing_square": "present", "opp_unsafe_other_piece": "present", "opp_unsafe_other_square": "present", "opp_unsafe_response_san": "present", "opp_unsafe_payoff_san": "present", "opp_unsafe_setup_piece": "present", "opp_unsafe_payoff_piece": "present"}, "variant": "why_opp_unsafe_recapture_pawn_fork_exchange"},
-    {"when": {"opp_user_reply_unsafe_recapture_pawn_fork": true, "opp_unsafe_recapture_pawn_fork_proof": "present", "opp_unsafe_resolution_kind": "one_target_moves_pawn_captures_other", "opp_unsafe_recapture_san": "present", "opp_unsafe_fork_san": "present", "opp_unsafe_recapturing_piece": "present", "opp_unsafe_recapturing_square": "present", "opp_unsafe_other_piece": "present", "opp_unsafe_other_square": "present", "opp_unsafe_response_san": "present", "opp_unsafe_payoff_san": "present", "opp_unsafe_payoff_piece": "present"}, "variant": "why_opp_unsafe_recapture_pawn_fork_gain"},
-    {"when": {"opp_user_reply_tactic_kind": "mate"}, "variant": "why_opp_user_finds_mate"},
-    {"when": {"opp_user_reply_tactic_kind": "piece_capture"}, "variant": "why_opp_user_wins_piece"},
-    {"when": {"opp_user_reply_queen_fork_sub_kind": "capture_with_check"}, "variant": "why_opp_user_queen_capture_with_check"},
-    {"when": {"opp_user_reply_queen_fork_sub_kind": "fork"}, "variant": "why_opp_user_queen_fork"},
-    {"when": {"opp_user_reply_clearance_follow_up_san": "present"}, "variant": "why_opp_user_clearance_then_check"},
-    {"when": {"opp_user_reply_clearance_attack_square": "present"}, "variant": "why_opp_user_clearance_attack"},
-    {"when": {"opp_user_reply_attack_piece": "present"}, "variant": "why_opp_user_attack_with_tempo"},
-    {"when": {"opp_user_reply_kicks_with_check": true, "opp_user_reply_kicks_piece_type": "present"}, "variant": "why_opp_user_kicks_piece_with_check"},
-    {"when": {"opp_user_reply_kicks_piece_type": "present"}, "variant": "why_opp_user_kicks_piece"},
-    {"when": {"opp_user_reply_endgame_pawn_sub_kind": "direct_capture"}, "variant": "why_opp_user_endgame_pawn_grab"},
-    {"when": {"opp_user_reply_endgame_pawn_sub_kind": "attack"}, "variant": "why_opp_user_endgame_pawn_attack"},
-    {"when": {"opp_played_wing_pawn_san": "present"}, "variant": "why_opp_wing_pawn_push"},
-    {"when": {"opp_played_knight_on_rim_san": "present"}, "variant": "why_opp_knight_on_rim"},
-    {"when": {"opp_played_queen_early_san": "present"}, "variant": "why_opp_queen_early"},
-    {"when": {"opp_played_un_developed_san": "present"}, "variant": "why_opp_un_developed"},
-    {"when": {"user_best_reply_san": "present", "captured_piece_type": "present"}, "variant": "why_opp_punish_capture"},
-    {"when": {"opp_user_reply_why": "present"}, "variant": "why_opp_punish_with_why"},
-    {"when": {"user_best_reply_san_is_forcing": true}, "variant": "why_opp_punish_check"},
-    {"when": {"user_best_reply_san": "present"}, "variant": "why_opp_punish_default"},
-    {"when": {"opp_pieces_now_undefended_present": true}, "variant": "why_opp_hanging"},
-    {"when": {"opp_played_landed_unsafe": true, "target_square": "present"}, "variant": "why_opp_unsafe"}
+    {
+      "when": {
+        "opp_user_reply_unsafe_recapture_pawn_fork": true,
+        "opp_unsafe_recapture_pawn_fork_proof": "present",
+        "opp_unsafe_resolution_kind": "fork_target_captures_pawn_then_is_recaptured",
+        "opp_unsafe_recapture_san": "present",
+        "opp_unsafe_fork_san": "present",
+        "opp_unsafe_recapturing_piece": "present",
+        "opp_unsafe_recapturing_square": "present",
+        "opp_unsafe_other_piece": "present",
+        "opp_unsafe_other_square": "present",
+        "opp_unsafe_response_san": "present",
+        "opp_unsafe_payoff_san": "present",
+        "opp_unsafe_setup_piece": "present",
+        "opp_unsafe_payoff_piece": "present"
+      },
+      "variant": "why_opp_unsafe_recapture_pawn_fork_exchange"
+    },
+    {
+      "when": {
+        "opp_user_reply_unsafe_recapture_pawn_fork": true,
+        "opp_unsafe_recapture_pawn_fork_proof": "present",
+        "opp_unsafe_resolution_kind": "one_target_moves_pawn_captures_other",
+        "opp_unsafe_recapture_san": "present",
+        "opp_unsafe_fork_san": "present",
+        "opp_unsafe_recapturing_piece": "present",
+        "opp_unsafe_recapturing_square": "present",
+        "opp_unsafe_other_piece": "present",
+        "opp_unsafe_other_square": "present",
+        "opp_unsafe_response_san": "present",
+        "opp_unsafe_payoff_san": "present",
+        "opp_unsafe_payoff_piece": "present"
+      },
+      "variant": "why_opp_unsafe_recapture_pawn_fork_gain"
+    },
+    {
+      "when": {
+        "opp_user_reply_tactic_kind": "mate"
+      },
+      "variant": "why_opp_user_finds_mate"
+    },
+    {
+      "when": {
+        "opp_user_reply_tactic_kind": "piece_capture"
+      },
+      "variant": "why_opp_user_wins_piece"
+    },
+    {
+      "when": {
+        "opp_user_reply_queen_fork_sub_kind": "capture_with_check"
+      },
+      "variant": "why_opp_user_queen_capture_with_check"
+    },
+    {
+      "when": {
+        "opp_user_reply_queen_fork_sub_kind": "fork"
+      },
+      "variant": "why_opp_user_queen_fork"
+    },
+    {
+      "when": {
+        "opp_user_reply_clearance_follow_up_san": "present"
+      },
+      "variant": "why_opp_user_clearance_then_check"
+    },
+    {
+      "when": {
+        "opp_user_reply_clearance_attack_square": "present"
+      },
+      "variant": "why_opp_user_clearance_attack"
+    },
+    {
+      "when": {
+        "opp_user_reply_attack_piece": "present"
+      },
+      "variant": "why_opp_user_attack_with_tempo"
+    },
+    {
+      "when": {
+        "opp_user_reply_kicks_with_check": true,
+        "opp_user_reply_kicks_piece_type": "present"
+      },
+      "variant": "why_opp_user_kicks_piece_with_check"
+    },
+    {
+      "when": {
+        "opp_user_reply_kicks_piece_type": "present"
+      },
+      "variant": "why_opp_user_kicks_piece"
+    },
+    {
+      "when": {
+        "opp_user_reply_endgame_pawn_sub_kind": "direct_capture"
+      },
+      "variant": "why_opp_user_endgame_pawn_grab"
+    },
+    {
+      "when": {
+        "opp_user_reply_endgame_pawn_sub_kind": "attack"
+      },
+      "variant": "why_opp_user_endgame_pawn_attack"
+    },
+    {
+      "when": {
+        "opp_played_wing_pawn_san": "present"
+      },
+      "variant": "why_opp_wing_pawn_push"
+    },
+    {
+      "when": {
+        "opp_played_knight_on_rim_san": "present"
+      },
+      "variant": "why_opp_knight_on_rim"
+    },
+    {
+      "when": {
+        "opp_played_queen_early_san": "present"
+      },
+      "variant": "why_opp_queen_early"
+    },
+    {
+      "when": {
+        "opp_played_un_developed_san": "present"
+      },
+      "variant": "why_opp_un_developed"
+    },
+    {
+      "when": {
+        "user_best_reply_san": "present",
+        "captured_piece_type": "present"
+      },
+      "variant": "why_opp_punish_capture"
+    },
+    {
+      "when": {
+        "opp_user_reply_why": "present"
+      },
+      "variant": "why_opp_punish_with_why"
+    },
+    {
+      "when": {
+        "user_best_reply_san_is_forcing": true
+      },
+      "variant": "why_opp_punish_check"
+    },
+    {
+      "when": {
+        "user_best_reply_san": "present"
+      },
+      "variant": "why_opp_punish_default"
+    },
+    {
+      "when": {
+        "opp_pieces_now_undefended_present": true
+      },
+      "variant": "why_opp_hanging"
+    },
+    {
+      "when": {
+        "opp_played_landed_unsafe": true,
+        "target_square": "present"
+      },
+      "variant": "why_opp_unsafe"
+    }
   ],
   "suppression": [
-    {"when": {"mover_is_user": false, "why_clause": "absent", "opp_failure_clause": "absent", "cp_loss": {"lt": 250}}},
-    {"when": {"mover_is_user": false, "opp_has_concrete_why": "absent", "opp_failure_clause": "absent", "user_best_reply_san": "absent", "cp_loss": {"lt": 100}}},
-    {"when": {"mover_is_user": true, "why_clause": "absent", "user_is_winning": false, "user_is_losing": false, "cp_loss": {"lt": 250}}}
+    {
+      "when": {
+        "mover_is_user": false,
+        "why_clause": "absent",
+        "opp_failure_clause": "absent",
+        "cp_loss": {
+          "lt": 250
+        }
+      }
+    },
+    {
+      "when": {
+        "mover_is_user": false,
+        "opp_has_concrete_why": "absent",
+        "opp_failure_clause": "absent",
+        "user_best_reply_san": "absent",
+        "cp_loss": {
+          "lt": 100
+        }
+      }
+    },
+    {
+      "when": {
+        "mover_is_user": true,
+        "why_clause": "absent",
+        "user_is_winning": false,
+        "user_is_losing": false,
+        "cp_loss": {
+          "lt": 250
+        }
+      }
+    }
   ],
   "select_variant": [
-    {"when": {"mover_is_user": false, "opp_failure_clause": "present", "why_clause": "present"}, "variant": "opp_with_failure_and_why"},
-    {"when": {"mover_is_user": false, "opp_failure_clause": "present"}, "variant": "opp_with_failure"},
-    {"when": {"mover_is_user": false, "opp_has_concrete_why": true, "why_clause": "present"}, "variant": "opp_with_why"},
-    {"when": {"mover_is_user": false, "why_clause": "present"}, "variant": "opp_with_why"},
-    {"when": {"mover_is_user": false}, "variant": "opp"},
-    {"when": {"mover_is_user": true, "failure_clause": "present", "why_clause": "present", "best_move_san_differs": true}, "variant": "user_with_failure_and_alternative"},
-    {"when": {"mover_is_user": true, "failure_clause": "present", "best_move_san_differs": true, "why_clause": "absent"}, "variant": "user_with_failure_and_best"},
-    {"when": {"mover_is_user": true, "failure_clause": "present", "teaching_principle": "present"}, "variant": "user_with_failure_and_principle"},
-    {"when": {"mover_is_user": true, "user_is_winning": true, "why_clause": "absent", "best_move_san_differs": true, "cp_loss": {"lt": 250}}, "variant": "user_winning_position"},
-    {"when": {"mover_is_user": true, "user_is_losing": true, "why_clause": "absent", "best_move_san_differs": true, "cp_loss": {"lt": 250}}, "variant": "user_losing_position"},
-    {"when": {"played_smaller_win": true}, "variant": "user_smaller_win"},
-    {"when": {"best_move_san_differs": true, "why_clause": "present", "why_clause_em_dash": true, "lost_defender_lead_clause": "present"}, "variant": "user_with_best_em_dash_with_lead"},
-    {"when": {"best_move_san_differs": true, "why_clause": "present", "lost_defender_lead_clause": "present"}, "variant": "user_with_best_and_why_with_lead"},
-    {"when": {"best_move_san_differs": true, "lost_defender_lead_clause": "present"}, "variant": "user_with_best_with_lead_only"},
-    {"when": {"best_move_san_differs": true, "why_clause": "present", "why_clause_em_dash": true}, "variant": "user_with_best_em_dash"},
-    {"when": {"best_move_san_differs": true, "why_clause": "present"}, "variant": "user_with_best_and_why"},
-    {"when": {"best_move_san_differs": true}, "variant": "user_with_best"},
-    {"when": {"why_clause": "present"}, "variant": "user_no_best_with_why"},
-    {"variant": "user_no_best"}
+    {
+      "when": {
+        "mover_is_user": false,
+        "opp_failure_clause": "present",
+        "why_clause": "present"
+      },
+      "variant": "opp_with_failure_and_why"
+    },
+    {
+      "when": {
+        "mover_is_user": false,
+        "opp_failure_clause": "present"
+      },
+      "variant": "opp_with_failure"
+    },
+    {
+      "when": {
+        "mover_is_user": false,
+        "opp_has_concrete_why": true,
+        "why_clause": "present"
+      },
+      "variant": "opp_with_why"
+    },
+    {
+      "when": {
+        "mover_is_user": false,
+        "why_clause": "present"
+      },
+      "variant": "opp_with_why"
+    },
+    {
+      "when": {
+        "mover_is_user": false
+      },
+      "variant": "opp"
+    },
+    {
+      "when": {
+        "mover_is_user": true,
+        "failure_clause": "present",
+        "why_clause": "present",
+        "best_move_san_differs": true
+      },
+      "variant": "user_with_failure_and_alternative"
+    },
+    {
+      "when": {
+        "mover_is_user": true,
+        "failure_clause": "present",
+        "best_move_san_differs": true,
+        "why_clause": "absent"
+      },
+      "variant": "user_with_failure_and_best"
+    },
+    {
+      "when": {
+        "mover_is_user": true,
+        "failure_clause": "present",
+        "teaching_principle": "present"
+      },
+      "variant": "user_with_failure_and_principle"
+    },
+    {
+      "when": {
+        "mover_is_user": true,
+        "user_is_winning": true,
+        "why_clause": "absent",
+        "best_move_san_differs": true,
+        "cp_loss": {
+          "lt": 250
+        }
+      },
+      "variant": "user_winning_position"
+    },
+    {
+      "when": {
+        "mover_is_user": true,
+        "user_is_losing": true,
+        "why_clause": "absent",
+        "best_move_san_differs": true,
+        "cp_loss": {
+          "lt": 250
+        }
+      },
+      "variant": "user_losing_position"
+    },
+    {
+      "when": {
+        "played_smaller_win": true
+      },
+      "variant": "user_smaller_win"
+    },
+    {
+      "when": {
+        "best_move_san_differs": true,
+        "why_clause": "present",
+        "why_clause_em_dash": true,
+        "lost_defender_lead_clause": "present"
+      },
+      "variant": "user_with_best_em_dash_with_lead"
+    },
+    {
+      "when": {
+        "best_move_san_differs": true,
+        "why_clause": "present",
+        "lost_defender_lead_clause": "present"
+      },
+      "variant": "user_with_best_and_why_with_lead"
+    },
+    {
+      "when": {
+        "best_move_san_differs": true,
+        "lost_defender_lead_clause": "present"
+      },
+      "variant": "user_with_best_with_lead_only"
+    },
+    {
+      "when": {
+        "best_move_san_differs": true,
+        "why_clause": "present",
+        "why_clause_em_dash": true
+      },
+      "variant": "user_with_best_em_dash"
+    },
+    {
+      "when": {
+        "best_move_san_differs": true,
+        "why_clause": "present"
+      },
+      "variant": "user_with_best_and_why"
+    },
+    {
+      "when": {
+        "best_move_san_differs": true
+      },
+      "variant": "user_with_best"
+    },
+    {
+      "when": {
+        "why_clause": "present"
+      },
+      "variant": "user_no_best_with_why"
+    },
+    {
+      "variant": "user_no_best"
+    }
   ],
   "variants": {
     "user_with_best": "{played_san} {severity_phrase}. {best_move_san} was better.",
@@ -312,7 +1071,7 @@
     "opp_with_why": "Opponent's {played_san} {severity_phrase}. {why_clause}",
     "opp_with_failure_and_why": "Opponent's {played_san} {severity_phrase} — {opp_failure_clause}. {why_clause}",
     "opp_with_failure": "Opponent's {played_san} {severity_phrase} — {opp_failure_clause}.",
-
+    "failure_allows_forced_mate": "allows mate in {allowed_mate_in} {allowed_mate_word}, starting with {allowed_mate_first_move}",
     "failure_walks_into_check": "loses to {opp_reply_san}",
     "failure_allows_fork": "allows {opp_reply_san} forking your {fork_target_1} on {fork_target_1_square} and {fork_target_2} on {fork_target_2_square}",
     "failure_allows_recapture": "leaves your {captured_piece_type} undefended — opponent recaptures on {played_to_square}",
@@ -321,10 +1080,8 @@
     "failure_exchange_losing_no_reply": "loses material in the trade",
     "failure_played_piece_attacked": "lets {opp_reply_san} attack the {moving_piece_type} on {target_square}",
     "failure_hangs_piece": "leaves your {moving_piece_type} on {target_square} undefended",
-
     "opp_failure_traded_active": "traded away their {opp_traded_active_piece} for nothing — it was just sitting idle, so they freed up your attack pieces",
     "opp_failure_quiet_threat": "they left their {opp_quiet_threat_piece} hanging on {opp_quiet_threat_square}. You play {opp_quiet_threat_best} and win it",
-
     "why_user_missed_trap_punishment": "it's the textbook refutation in the {trap_context_name}.",
     "why_user_missed_mate": "it would have led to mate in {missed_tactic_moves_to_mate} {missed_tactic_mate_word}.",
     "why_user_missed_piece": "it wins the {missed_tactic_target_piece} on {missed_tactic_target_square}.",
@@ -361,7 +1118,6 @@
     "why_user_blocks_pawn_supports": "{played_san} blocks your {blocked_pawn_file}-pawn — {best_move_san} would have supported your {blocked_pawn_would_support} pawn.",
     "why_user_blocks_pawn_prepares": "{played_san} blocks your {blocked_pawn_file}-pawn — the pawn push to {blocked_pawn_square} was preparing your {blocked_pawn_would_prepare} break, the central plan in this structure.",
     "why_user_blocks_pawn": "{played_san} blocks your {blocked_pawn_file}-pawn from advancing to {blocked_pawn_square}.",
-
     "why_user_attacks_played": "After {opp_reply_san}, your {moving_piece_type} on {target_square} is under attack.",
     "why_user_exchange_losing_with_reply": "After {opp_reply_san}, your {moving_piece_type} on {target_square} falls.",
     "why_user_exchange_losing_no_reply": "Your {moving_piece_type} on {target_square} can't be defended.",
@@ -369,7 +1125,6 @@
     "why_user_capture": "Opponent plays {opp_reply_san} winning your {captured_piece_type}.",
     "why_user_check": "Opponent has {opp_reply_san} forcing your king.",
     "why_user_board_state": "{board_state_clause}",
-
     "bs_isolated_attacker": "Your {bs_piece} on {bs_square} is alone in opponent territory with no defender.",
     "bs_worst_placed_piece": "Your {bs_piece} on {bs_square} is passive — squeezed for space.",
     "bs_development_gap": "Opponent has developed {bs_opp_developed} pieces; you've developed {bs_user_developed} {bs_user_developed_word}.",
@@ -381,7 +1136,6 @@
     "bs_queen_alone_active": "Your queen on {bs_queen_square} is out alone — your other pieces haven't joined the fight.",
     "bs_connected_rooks_only_opp": "Opponent's rooks are connected; yours aren't yet.",
     "bs_passive_pieces_count": "{bs_passive_count} of your pieces are still on your side of the board.",
-
     "why_opp_punish_capture": "They leave the {captured_piece_type} undefended — play {user_best_reply_san} to take it.",
     "why_opp_punish_check": "Play {user_best_reply_san} — it forces a reply.",
     "why_opp_punish_with_why": "Play {user_best_reply_san} — it {opp_user_reply_why}.",
@@ -390,7 +1144,6 @@
     "why_opp_punish_default": "Play {user_best_reply_san}.",
     "why_opp_hanging": "Their {piece_type} on {square} is now undefended — take it.",
     "why_opp_unsafe": "Their {moving_piece_type} on {target_square} can't be defended.",
-
     "why_opp_user_finds_mate": "Play {user_best_reply_san} — leads to forced mate.",
     "why_opp_user_wins_piece": "Play {user_best_reply_san} winning the {opp_user_reply_tactic_target_piece} on {opp_user_reply_tactic_target_square}.",
     "why_opp_user_queen_capture_with_check": "Play {user_best_reply_san} — your queen captures the {opp_user_reply_queen_fork_secondary_piece} on {opp_user_reply_queen_fork_secondary_square} with check.",
@@ -402,10 +1155,13 @@
     "why_opp_user_kicks_piece_with_check": "Play {user_best_reply_san} — your pawn forks their king and {opp_user_reply_kicks_piece_type} on {opp_user_reply_kicks_piece_square}.",
     "why_opp_user_endgame_pawn_grab": "Play {user_best_reply_san} — takes their undefended pawn on {opp_user_reply_endgame_pawn_square}.",
     "why_opp_user_endgame_pawn_attack": "Play {user_best_reply_san} — attacks their undefended pawn on {opp_user_reply_endgame_pawn_square}.",
-
     "why_opp_wing_pawn_push": "{opp_played_wing_pawn_san} is a wing-pawn push in the opening — doesn't develop a piece or fight for the center. Play {user_best_reply_san}.",
     "why_opp_knight_on_rim": "{opp_played_knight_on_rim_san} parks the knight on the rim ({opp_played_knight_on_rim_square}) — knights attack fewer squares from the edge. Play {user_best_reply_san}.",
     "why_opp_queen_early": "{opp_played_queen_early_san} brings the queen out before their other pieces — you can chase it and win time. Play {user_best_reply_san}.",
-    "why_opp_un_developed": "{opp_played_un_developed_san} retreats the {opp_played_un_developed_piece} back home — wastes a tempo, undoes their earlier development. Play {user_best_reply_san}."
-  }
+    "why_opp_un_developed": "{opp_played_un_developed_san} retreats the {opp_played_un_developed_piece} back home — wastes a tempo, undoes their earlier development. Play {user_best_reply_san}.",
+    "opp_failure_wrong_recapture": "they took back with the {opp_wrong_piece_played} when the {opp_wrong_piece_wanted} should have taken on {opp_wrong_piece_square}",
+    "opp_failure_wrong_piece_square": "their {opp_wrong_piece_played} took {opp_wrong_piece_square}, the square their own {opp_wrong_piece_wanted} wanted",
+    "back_rank_no_escape": "Your king on {back_rank_king_square} has no escape squares — your own pawns block them all. Make one before a rook reaches the back row."
+  },
+  "_failure_mode_clauses_user_story_note": "2026-10-07 - the five clauses that ASSERT we lose material now require move_story == 'punishment'. Mohit: \"worry about the foundation, the logic, the core that keeps it working perfectly.\" move_story is the one verdict the arrows already answer to; it walks BOTH stored engine lines and says whether material moved and in which direction. These clauses were gated on single-move board geometry, which is true and not the same thing: on move 10 of 043d6b9c our knight captured a knight on d2 and was recaptured, an even trade, and 'leaves your knight on d2 undefended' plus 'you simply lose it for nothing' both fired because the knight standing on d2 has no defender. Geometry describes the square; the verdict describes the exchange."
 }

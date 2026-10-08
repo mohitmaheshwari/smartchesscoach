@@ -1019,35 +1019,23 @@ async def get_game_decryption_v5(
                                 "description": plan_info["description"]
                             })
 
-                # Board Geometry in Game Review (2026-09-15). The detection, the
-                # copy, the arrows and the highlights already exist in
-                # board_geometry_service -- the same source PWC moments and the
-                # /training/geometry lessons use. Review simply had no wiring to
-                # it, so the one surface where a player studies their own
-                # mistakes never named the shape. Measured: a geometry moment
-                # exists on 11.9% of stored moves (2,175 of 18,270).
+                # Board Geometry was wired into Game Review on 2026-09-15 and
+                # taken back out on 2026-09-29. Mohit, on the Bg5 card of
+                # d75acb09: "i first need this shape thing removed, it's not
+                # doing anything there, okay?"
                 #
-                # Gated on the same flag as the lessons: a moment that names a
-                # lesson the player cannot open would be a dead end.
-                try:
-                    from services.board_geometry_service import (
-                        feature_enabled as _geo_enabled,
-                        geometry_moments_for_move as _geo_moments,
-                    )
-                    if _geo_enabled(user):
-                        # The detector speaks stockfish move-evaluation shape
-                        # (ev["move"], ev["is_opponent_move"]); a stored V5 card
-                        # names the same facts move_san / is_user_move. Adapt
-                        # rather than duplicate the detector for a second shape.
-                        _ev = dict(move_data)
-                        _ev["move"] = move_data.get("move_san") or move_data.get("move")
-                        if move_data.get("is_user_move") is not None:
-                            _ev["is_opponent_move"] = not bool(move_data.get("is_user_move"))
-                        _moments = _geo_moments(_ev) or []
-                        if _moments:
-                            enriched_move["geometry_moments"] = _moments
-                except Exception as _geo_exc:
-                    logger.info(f"[GAME-REVIEW] geometry moment skipped: {_geo_exc}")
+                # He is right twice. The block said "The queen on d1, knight on
+                # f3, and pawn on g4 share one line" -- the d1-e2-f3-g4 DIAGONAL
+                # -- while the board drew a vertical red line down the d-file,
+                # so the picture contradicted its own sentence. And even read
+                # charitably it names a shape instead of the thing that lost the
+                # game: the queen on d1 was the only defender of the knight on
+                # f3, so trading queens drops the knight.
+                #
+                # Nothing is deleted. board_geometry_service still powers the
+                # /training/geometry lessons and PWC moments; only the review
+                # card stops carrying it, because a card gets ONE thing to say
+                # and this was not it.
 
                 # Add training context
                 if related_plans:
@@ -5045,11 +5033,21 @@ async def get_active_focus(user: User = Depends(get_current_user)):
         surface="home",
     )
     if coaching_context is not None:
-        return {
+        # THIS RETURN IS THE LIVE PATH, and anything added only to the legacy
+        # block below is dead for every flag-on user. The practice offer was
+        # added there first and came back null on prod, which is how this was
+        # found; `runners_up` is documented in this function's own shape above
+        # and is likewise absent from this payload.
+        from services.motif_drill_service import practice_offer
+        offer = await practice_offer(db, user.user_id)
+        resp = {
             "has_focus": coaching_context.get("primary_focus") is not None,
             "has_strength": False,
             "coaching_context": coaching_context,
         }
+        if offer:
+            resp["tactic_practice"] = offer
+        return resp
 
     from services.primary_weakness_picker import COLLECTION
     from datetime import datetime, timezone
@@ -5236,6 +5234,16 @@ async def get_active_focus(user: User = Depends(get_current_user)):
             "rating_band": focus.get("rating_band"),
             "rating_confidence": focus.get("rating_confidence"),
         })
+        # The tactical-eye reading already names the shape this player takes
+        # least often, and until now it reached no screen on Home -- it was
+        # computed, stored and only rendered inside the Progress card, which
+        # itself only renders for the quarter of players the diagnosis speaks
+        # to. This is the offer, not the diagnosis; see
+        # motif_drill_service.practice_offer on why it does not read the cut.
+        from services.motif_drill_service import practice_offer
+        offer = await practice_offer(db, user.user_id)
+        if offer:
+            resp["tactic_practice"] = offer
         # PIC is an additive default-off projection from the same focus and
         # observation authorities. While enabled, suppress the legacy
         # events-per-game trend so it cannot claim improvement from incomplete

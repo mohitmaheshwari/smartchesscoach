@@ -30,6 +30,94 @@ const CLASSIFICATION_ICONS = {
   miss:         { symbol: "Miss",     bg: "bg-red-400",     text: "text-white" },
 };
 
+// ONE mapping from our [from, to, color, label] tuple to a chessground shape.
+//
+// There were two, and they had drifted. The INIT path handled paleGrey and
+// paleGreen and (after 2026-10-07) the label; the UPDATE path -- the one that
+// actually runs every time a card changes -- handled neither. It dropped the
+// 4th tuple slot entirely and mapped both "amber" and "palegrey" to plain
+// blue. So the numbered arrows never appeared and the playback colours were
+// never right. Mohit 2026-10-08: "there is no number, it just starts showing
+// up in sequence."
+//
+// Order matters: "palegreen" contains "green" and "palered" contains "red",
+// so the pale variants are tested first.
+// A palette chosen AGAINST this board, not inherited from chessground's.
+//
+// Mohit 2026-10-08: "i don't like the arrow colors, they suck really...
+// some of them are almost matching board color, so sort of invisible."
+//
+// He is describing two measurable things. The board is #f0d9b5 / #b58863 --
+// warm tan both -- and chessground's defaults are picked for a different one.
+// Worse, the whole .cg-shapes layer carries opacity 0.6, which multiplies:
+//
+//     paleGrey  #4a4a4a x 0.35 x 0.6 = 0.21 effective   -> invisible
+//     yellow    #e68f00 x 1.00 x 0.6 = 0.60 orange-on-tan, nearly the same hue
+//     blue      #003088 x 1.00 x 0.6 = muddy navy
+//
+// These were picked by measuring WCAG contrast against both square colours,
+// after a first attempt picked by eye got it backwards. Brightening the blue
+// to #1558d6 LOWERED contrast from 8.6:1 to 4.5:1, because a light tan board
+// is bright and bright ink sits closer to it. On a light board, dark ink wins.
+//
+//     colour              light   dark    worst
+//     navy    #06205c     11.2    4.9     4.9    mover's moves
+//     black   #2b2b2b     10.3    4.5     4.5    their replies
+//     crimson #6b0a22      9.0    3.9     3.9    the move playing now
+//     green   #07451a      8.2    3.6     3.6    the payoff
+//     --- for comparison ---
+//     orange  #e68f00      1.8    1.2     1.2    what was there before
+//
+// Orange is gone outright: at 1.2:1 against a dark square it is the board's
+// own hue, which is exactly what Mohit saw. The payoff green has the weakest
+// ratio of the four, so it carries the thickest line to make up for it, and
+// the replies are deliberately thinner and softer -- they are context, not
+// the point.
+const ENGINE_LINE_BRUSHES = {
+  lineMover:  { key: "elm", color: "#06205c", opacity: 1.0, lineWidth: 11 },
+  lineReply:  { key: "elr", color: "#2b2b2b", opacity: 0.6, lineWidth: 9 },
+  linePayoff: { key: "elp", color: "#07451a", opacity: 1.0, lineWidth: 13 },
+  lineLive:   { key: "ell", color: "#6b0a22", opacity: 1.0, lineWidth: 12 },
+};
+
+// Our colour tokens -> the vivid brushes. Same meanings, legible paint.
+const VIVID_BRUSH_BY_TOKEN = {
+  blue: "lineMover",
+  palegrey: "lineReply",
+  palegray: "lineReply",
+  green: "linePayoff",
+  amber: "lineLive",
+  yellow: "lineLive",
+};
+
+const chessgroundBrushFor = (color) => {
+  if (!color) return "blue";
+  const c = String(color).toLowerCase();
+  if (c.includes("palegreen")) return "paleGreen";
+  if (c.includes("palegrey") || c.includes("palegray")) return "paleGrey";
+  if (c.includes("paleblue")) return "paleBlue";
+  if (c.includes("palered")) return "paleRed";
+  if (c.includes("yellow") || c.includes("amber") || c.includes("255, 200")) return "yellow";
+  if (c.includes("red") || c.includes("239")) return "red";
+  if (c.includes("green") || c.includes("34,") || c.includes("200, 83")) return "green";
+  return "blue";
+};
+
+// A 4th tuple slot carries an order number, drawn on the arrow itself.
+// chessground 9.2 positions labels along the line and slots them so they do
+// not collide, so a five-arrow plan reads 1 2 3 4 5 in place.
+const chessgroundShapeFor = ([from, to, color, label], vivid = false) => {
+  const token = String(color || "").toLowerCase();
+  const brush = vivid && VIVID_BRUSH_BY_TOKEN[token]
+    ? VIVID_BRUSH_BY_TOKEN[token]
+    : chessgroundBrushFor(color);
+  const shape = { orig: from, dest: to, brush };
+  if (label !== undefined && label !== null && label !== "") {
+    shape.label = { text: String(label) };
+  }
+  return shape;
+};
+
 const LichessBoard = forwardRef(({
   fen: fenProp = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
   orientation = "white",
@@ -39,6 +127,7 @@ const LichessBoard = forwardRef(({
   selectionOnly = false,
   showDests = true,
   arrows = [],
+  vividArrows = false,   // engine-line palette; see ENGINE_LINE_BRUSHES
   circles = [],  // [[square, color], ...] — chessground circle-shape on given squares
   highlights = [],
   lastMove = null,
@@ -436,20 +525,11 @@ const LichessBoard = forwardRef(({
         drawable: {
           enabled: true,
           visible: true,
-          autoShapes: (!disableArrows && arrows.length > 0) ? arrows.map(([from, to, color]) => {
-            // Coach geometry overlay: green = your plan, yellow = coach's plan,
-            // pale variants = latent "line to watch". docs/coach_geometry_arrows_scope.md
-            let brush = "blue";
-            if (color) {
-              const c = color.toLowerCase();
-              if (c.includes("palegreen")) brush = "paleGreen";
-              else if (c.includes("palegrey") || c.includes("palegray")) brush = "paleGrey";
-              else if (c.includes("yellow") || c.includes("amber")) brush = "yellow";
-              else if (c.includes("red") || c.includes("239")) brush = "red";
-              else if (c.includes("green")) brush = "green";
-            }
-            return { orig: from, dest: to, brush };
-          }) : [],
+          brushes: vividArrows ? ENGINE_LINE_BRUSHES : undefined,
+          autoShapes:
+            !disableArrows && arrows.length > 0
+              ? arrows.map((a) => chessgroundShapeFor(a, vividArrows))
+              : [],
         },
       });
     }
@@ -581,14 +661,7 @@ const LichessBoard = forwardRef(({
   const prevCirclesRef = useRef([]);
 
   // Helper: normalize color string → chessground brush name
-  const brushFor = (color) => {
-    if (!color) return "blue";
-    const c = color.toLowerCase();
-    if (c.includes("red") || c.includes("239")) return "red";
-    if (c.includes("green") || c.includes("34,") || c.includes("200, 83")) return "green";
-    if (c.includes("yellow") || c.includes("255, 200")) return "yellow";
-    return "blue";
-  };
+  const brushFor = chessgroundBrushFor;
 
   // Update arrows + circles — only when either changes
   useEffect(() => {
@@ -619,11 +692,7 @@ const LichessBoard = forwardRef(({
         setTimeout(applyShapes, 50);
         return;
       }
-      const arrowShapes = (arrows || []).map(([from, to, color]) => ({
-        orig: from,
-        dest: to,
-        brush: brushFor(color),
-      }));
+      const arrowShapes = (arrows || []).map((a) => chessgroundShapeFor(a, vividArrows));
       // Circles are chessground shapes with no `dest` — they draw as a ring on the square.
       const circleShapes = (circles || []).map(([square, color]) => ({
         orig: square,
@@ -634,7 +703,7 @@ const LichessBoard = forwardRef(({
     };
 
     applyShapes();
-  }, [arrows, circles, disableArrows]);
+  }, [arrows, circles, disableArrows, vividArrows]);
 
   // Compute icon position for move classification
   const classIcon = moveClassification && CLASSIFICATION_ICONS[moveClassification.type];

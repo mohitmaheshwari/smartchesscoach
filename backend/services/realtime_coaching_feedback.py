@@ -1261,7 +1261,23 @@ async def generate_move_feedback(
             # Get pattern context
             pattern_ctx = await get_realtime_pattern_context(db, user_id, mistake_type)
             
-            if pattern_ctx.get("is_recurring"):
+            # Improvement BEATS the tally. coach_memory computes both:
+            # pattern_message fires on recent_count >= 3 ("6 times in your
+            # recent games. This is the one to fix.") and improvement_note
+            # on clean_streak >= 2. Both can be true at once -- someone with
+            # 6 recent occurrences who has since gone clean for 3 games --
+            # and telling that player to fix what they have already fixed is
+            # the "counter that only goes up" Mohit has ruled out.
+            #
+            # improvement_note had ZERO readers anywhere in the product
+            # before this (2026-09-28). Measured: 51 of 56 users with 10+
+            # analysed games carry clean_streak >= 2, one of them 16 games
+            # clean on endgame_technique while still being told it was the
+            # one to fix.
+            _improvement = pattern_ctx.get("improvement_note")
+            if _improvement:
+                pattern_reference = _improvement
+            elif pattern_ctx.get("is_recurring"):
                 pattern_reference = pattern_ctx.get("pattern_message")
             
             if pattern_ctx.get("memory_reference"):
@@ -1899,6 +1915,52 @@ async def generate_move_feedback(
                     pass
         except Exception as shape_exc:
             logger.debug(f"[shape_v3] live detect failed: {shape_exc}")
+
+    # ------------------------------------------------------------------
+    # VERIFIED FALLBACK (coverage tier 3). Mohit's standing rule: "mediocre caption
+    # beats silence; never silence; 3 tiers (teaching / explanation /
+    # verified-fallback)." PWC had tiers 1 and 2 only.
+    #
+    # Measured 2026-09-26 over 8 real sessions (93 bad moves) with the
+    # central pipeline ON: 5 mistakes and 2 blunders reached the player
+    # with NO message at all - including O-O dropping a knight for
+    # nothing, and two mate-score blunders. In every one of those 7 the
+    # board already proved a free capture; nothing rendered it.
+    #
+    # Asserts no engine claim and no teaching claim. States the one thing
+    # the board itself proves, via the canonical helper
+    # (legally_hanging_pieces -> legal_exchange_gain), NOT a private
+    # attackers() check - board.attackers() is pseudo-legal, so a pinned
+    # attacker reads as a real one.
+    # ------------------------------------------------------------------
+    if not (coaching_message or "").strip() and quality in ("mistake", "blunder"):
+        try:
+            from services.caption_facts import legally_hanging_pieces
+            _b3 = chess.Board(fen_before)
+            _b3.push_san(user_move)
+            # owner = the side that just moved; the opponent is on move and
+            # entitled to capture. 100cp floor: a pawn is not the reason a
+            # move was a mistake.
+            _hanging = legally_hanging_pieces(_b3, not _b3.turn, 100)
+            if _hanging:
+                _top = _hanging[0]
+                _san = _top.get("winning_capture_san")
+                if _san:
+                    # allow-noncentral-caption -- deliberate. This tier
+                    # exists precisely BECAUSE the central layer abstained:
+                    # it had no provable teaching claim, and the alternative
+                    # is a blunder with no message at all. The sentence
+                    # asserts only what legally_hanging_pieces proved.
+                    coaching_message = (
+                        f"{_san} wins your {_top['piece_type']} on "
+                        f"{_top['square']}, and nothing can take back."
+                    )
+                    logger.info(
+                        "[PWC] tier-3 verified fallback spoke on %s move %s: %s",
+                        quality, user_move, coaching_message,
+                    )
+        except Exception as exc:  # never let the fallback break feedback
+            logger.warning("[PWC] tier-3 verified fallback skipped: %s", exc)
 
     return MoveFeedback(
         user_move=user_move,

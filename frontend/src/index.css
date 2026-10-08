@@ -1550,59 +1550,58 @@
   background-size: 25% 25%;
 }
 
-/* ─── Elite Chess Studio Metallic Slate Board Theme ─── */
-.pwc-root .cg-wrap cg-board,
-.studio-board .cg-wrap cg-board,
-.studio-chess-theme .cg-wrap cg-board {
-  background-color: #5b6c80 !important;
-  background-image:
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08) 0%, transparent 80%),
-    repeating-conic-gradient(
-      #202834 0% 25%,
-      #5b6c80 0% 50%
-    ) !important;
-  background-size: 100% 100%, 25% 25% !important;
-  box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.55);
+/* ── Engine-line arrows draw themselves, in order ──────────────────────
+   Mohit 2026-10-07: "something fancy that looks good on board... something
+   with arrows, that atleast explains the sequence without playing there".
+   Then 2026-10-08: "can we add slight delay there?? like a one sec delay
+   between this arrow and next arrow".
+
+   Each arrow strokes itself in from tail to head a second after the one
+   before, and then everything stays put. The order is carried in time, which
+   is the whole trick: you read the sequence by watching it arrive once,
+   rather than by decoding anything on the board afterwards. It runs ONCE on
+   render, not on a loop -- a board that never stops moving is harder to read,
+   not easier.
+
+   Numbered arrows were built and then removed. chessground 9.2 does support a
+   `label` per shape, and LichessBoard still maps a 4th tuple slot onto it if a
+   caller ever wants one, but with a one-second stagger the digits added
+   nothing. Mohit 2026-10-08: "remove the counters, 1 2 3 not required, since
+   arrows coming after a sec are making things easy." Worth knowing if it comes
+   up again: labels are pushed with isCustom: true, so they land in
+   svg.cg-custom-svgs, NOT cg-shapes -- styling them under cg-shapes matches
+   nothing, which cost an afternoon.
+
+   Scoped to `.engine-line-board` so no other board in the app changes.
+   chessground wraps each arrow in its own <g> inside svg.cg-shapes, so
+   nth-of-type gives the stagger without a per-arrow variable. The board's
+   viewBox is 8x8 board units, so a dash of 12 covers the longest arrow. */
+@keyframes cg-arrow-draw {
+  from { stroke-dashoffset: 12; }
+  to   { stroke-dashoffset: 0; }
+}
+/* chessground puts the whole shapes layer at opacity 0.6, which multiplies
+   with each brush's own alpha -- paleGrey landed at 0.21 on a tan board and
+   simply was not there. These arrows are the content of this panel, so they
+   are painted at full strength. Scoped: every other board keeps the 0.6. */
+.engine-line-board svg.cg-shapes {
+  opacity: 1;
 }
 
-/* Electric Cyan Active Selection & Tactical Highlights */
-.pwc-root cg-board square.selected,
-.studio-board cg-board square.selected,
-.studio-chess-theme cg-board square.selected {
-  background-color: rgba(56, 189, 248, 0.16) !important;
-  box-shadow: inset 0 0 0 2.5px #38bdf8, 0 0 16px rgba(56, 189, 248, 0.65) !important;
-  border-radius: 4px;
+.engine-line-board svg.cg-shapes g line {
+  stroke-dasharray: 12;
+  animation: cg-arrow-draw 0.55s ease-out both;
 }
+.engine-line-board svg.cg-shapes g:nth-of-type(1) line { animation-delay: 0s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(2) line { animation-delay: 1s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(3) line { animation-delay: 2s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(4) line { animation-delay: 3s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(5) line { animation-delay: 4s; }
+.engine-line-board svg.cg-shapes g:nth-of-type(n + 6) line { animation-delay: 5s; }
 
-.pwc-root cg-board square.last-move,
-.studio-board cg-board square.last-move,
-.studio-chess-theme cg-board square.last-move {
-  background-color: rgba(56, 189, 248, 0.24) !important;
+@media (prefers-reduced-motion: reduce) {
+  .engine-line-board svg.cg-shapes g line {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
 }
-
-.pwc-root cg-board square.move-dest,
-.studio-board cg-board square.move-dest,
-.studio-chess-theme cg-board square.move-dest {
-  background: radial-gradient(circle, #38bdf8 24%, transparent 26%) !important;
-}
-
-/* Studio 3D Piece Lighting & High Depth */
-.pwc-root piece,
-.studio-board piece,
-.studio-chess-theme piece {
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.65)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
-  transition: transform 0.12s ease;
-}
-
-.pwc-root piece.white,
-.studio-board piece.white,
-.studio-chess-theme piece.white {
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)) brightness(1.1) contrast(1.05);
-}
-
-.pwc-root piece.black,
-.studio-board piece.black,
-.studio-chess-theme piece.black {
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.85)) drop-shadow(0 0 1px rgba(255, 255, 255, 0.25)) brightness(0.9);
-}
-

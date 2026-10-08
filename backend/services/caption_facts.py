@@ -84,7 +84,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import sys
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple
 
 import chess
 
@@ -9662,14 +9662,246 @@ def clearance_reply_why(
     return None
 
 
-def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Optional[str]:
+def _attack_outcome(
+    board: chess.Board,
+    move: chess.Move,
+    target_square: int,
+    line: Optional[Sequence[str]],
+):
+    """What the engine's line says an attack actually achieves.
+
+    Returns one of:
+      ("survives", None)            the reply leaves the piece there -- the
+                                    attack really is the reason
+      ("retreats", square_name)     they move it back; the retreat is the lesson
+      ("trades", None)              they take instead
+      ("material", None)            the line wins material later; the caller has
+                                    a better reason than the attack
+      ("nothing", None)             none of the above -- say nothing about it
+      ("unknown", None)             no usable line; keep existing behaviour
+
+    Mohit 2026-10-03, on "Qb5 was better -- it wins the knight on e8": "the
+    question is what is the best move for opponent after Qb5, because that will
+    solve the real caption of why Qb5, as knight can be moved right?" Then:
+    "that's why stockfish lines matter so much in teaching captions, and you
+    always miss those."
+
+    He is right, and it is not a corner case. Measured over 400 games: of 1,432
+    "attacks the X" reasons on recommended moves, 663 (46%) are answered in the
+    stored line by simply moving X. Playing 60 of those out at depth 18 and
+    judging them with the engine rather than a piece count:
+
+        27%  the position is already decided (eval past +-400, move shifts <60cp)
+        30%  nothing measurable -- the attack was never the point
+        14%  the line wins material two or more moves later
+        14%  they trade the piece off
+        12%  they retreat it, and the retreat IS the lesson
+
+    52 of 60 were still the engine's top move at depth 18, so these are good
+    moves with a wrong explanation, not bad moves. On the card that prompted
+    this -- Qb5 against `1k2n2r/p1p5/1p5p/8/3q4/1Q3B2/PP3PP1/4R1K1 w` -- every
+    serious Black reply is answered by Qc6, the knight is scenery, and the real
+    point is the queen reaching c6 with the bishop on f3 behind it.
+    """
+    if not line:
+        return ("unknown", None)
+    mover = board.turn
+    after = board.copy()
+    after.push(move)
+    try:
+        reply = after.parse_san(str(line[0]))
+    except (ValueError, AssertionError):
+        return ("unknown", None)
+    if reply.from_square != target_square:
+        return ("survives", None)
+
+    if after.is_capture(reply):
+        return ("trades", None)
+
+    # Does the line win material later? Then that is the reason, not the attack.
+    walk = after.copy()
+    start = _material_for(board, mover)
+    for san in line:
+        try:
+            walk.push(walk.parse_san(str(san)))
+        except (ValueError, AssertionError):
+            break
+    if _material_for(walk, mover) - start >= 100:
+        return ("material", None)
+
+    # Driven backwards is a real gain: space, and a piece doing less.
+    # The piece belongs to the OPPONENT, so "back" is toward THEIR side. The
+    # first version measured it from the mover's side and called Bd2 a retreat
+    # on `2kr3r/ppp1nppp/6b1/4P3/P1B3P1/2N1bN1P/1PP5/RK5R w`, where the black
+    # bishop on e3 is in fact coming further in.
+    rank_before = chess.square_rank(target_square)
+    rank_after = chess.square_rank(reply.to_square)
+    went_back = (rank_after > rank_before) if mover == chess.WHITE else (rank_after < rank_before)
+    if went_back:
+        return ("retreats", chess.square_name(reply.to_square))
+    return ("nothing", None)
+
+
+def _material_for(board: chess.Board, side: chess.Color) -> int:
+    total = 0
+    for _square, piece in board.piece_map().items():
+        value = PIECE_VALUE_CP.get(piece.piece_type, 0)
+        total += value if piece.color == side else -value
+    return total
+
+
+def _outnumbered_target(
+    after: chess.Board, from_square: int, mover: chess.Color, enemy: chess.Color
+):
+    """The best enemy piece our move now hits that is outnumbered on its square.
+
+    Returns (square, piece_type, sole_defender_type) or None. Exactly one
+    defender, at least two of our attackers -- anything looser stops being a
+    thing worth pointing at. Counts only, no forecast: see branch 2b.
+    """
+    best = None
+    for sq in after.attacks(from_square):
+        piece = after.piece_at(sq)
+        if not piece or piece.color != enemy or piece.piece_type == chess.KING:
+            continue
+        defenders = [d for d in after.attackers(enemy, sq)
+                     if after.piece_at(d) and after.piece_at(d).piece_type != chess.KING]
+        if len(defenders) != 1:
+            continue
+        attackers = [x for x in after.attackers(mover, sq)]
+        if len(attackers) < 2:
+            continue
+        value = PIECE_VALUE_CP.get(piece.piece_type, 0)
+        if best is None or value > best[3]:
+            defender = after.piece_at(defenders[0])
+            best = (sq, piece.piece_type, defender.piece_type, value)
+    return (best[0], best[1], best[2]) if best else None
+
+
+def _line_payoff_after_sacrifice(
+    board: chess.Board, move: chess.Move, line: Optional[Sequence[str]]
+):
+    """What the engine's line actually wins, when the capture itself loses.
+
+    Returns (piece_name, square_name, enabling_san, net_cp) or None.
+
+    Mohit 2026-10-02, on "Opponent's b5 is a serious mistake. Play Bxf7+ -- it
+    wins a pawn": "no why again, also it showed me to sacrifice my bishop,
+    should show me a complete line if theory that is real coaching."
+
+    He is right on both counts. On
+    rnbqkbnr/2p1pppp/p7/1p6/2BP4/2N5/PPP2PPP/R1BQK1NR w the f7 pawn is guarded
+    only by the king on e8, so static_exchange_eval scored it +100 "free" and
+    the caption called a bishop sacrifice a won pawn -- while
+    legal_exchange_gain, which plays Kxf7 out, says -200. And the real point is
+    two moves later: Bxf7+ Kxf7 Qf3+ forks the king and the UNDEFENDED rook on
+    a8, so Qxa8 wins the exchange and the line nets +300.
+
+    So when the capture loses material on its own square, the reason comes from
+    the line instead: the biggest thing we take in it, and the move that sets it
+    up. The caption then says what a coach would say.
+    """
+    if not line:
+        return None
+    mover = board.turn
+    after = board.copy()
+    after.push(move)
+
+    def material(b: chess.Board) -> int:
+        total = 0
+        for _sq, piece in b.piece_map().items():
+            value = PIECE_VALUE_CP.get(piece.piece_type, 0)
+            total += value if piece.color == mover else -value
+        return total
+
+    start = material(board)
+    walk = after.copy()
+    best = None
+    our_last_san = None       # the move WE make that sets the payoff up
+    double_attack = None
+    for san in line:
+        try:
+            step = walk.parse_san(str(san))
+        except (ValueError, AssertionError):
+            return None
+        if walk.turn == mover:
+            if walk.is_capture(step):
+                victim = walk.piece_at(step.to_square)
+                if victim is not None and victim.piece_type != chess.KING:
+                    value = PIECE_VALUE_CP.get(victim.piece_type, 0)
+                    if best is None or value > best[2]:
+                        # The move that DOES the capturing, not the one before
+                        # it: "Bxf5 wins the bishop on e4" named our previous
+                        # move and read as though Bxf5 were the winning move.
+                        best = (
+                            PIECE_TYPE_NAMES.get(victim.piece_type, "piece"),
+                            chess.square_name(step.to_square),
+                            value,
+                            walk.san(step),
+                        )
+            elif double_attack is None and walk.gives_check(step):
+                # A check inside the line that ALSO hits something loose is the
+                # point of most sacrifices, and it is visible even when the
+                # stored line stops before the capture. Measured on the card
+                # that prompted this: pv_after_played is four plies,
+                # Bxf7+ Kxf7 Qf3+ Nf6, and ends one move before Qxa8 -- so the
+                # payoff itself is off the end of the data while the fork that
+                # earns it is inside it.
+                probe = walk.copy()
+                probe.push(step)
+                for square in probe.attacks(step.to_square):
+                    piece = probe.piece_at(square)
+                    if (piece is None or piece.color == mover
+                            or piece.piece_type == chess.KING):
+                        continue
+                    if probe.attackers(not mover, square):
+                        continue        # defended, so not loose
+                    if PIECE_VALUE_CP.get(piece.piece_type, 0) < 320:
+                        continue
+                    double_attack = (
+                        PIECE_TYPE_NAMES.get(piece.piece_type, "piece"),
+                        chess.square_name(square),
+                        walk.san(step),
+                    )
+                    break
+            our_last_san = walk.san(step)
+        walk.push(step)
+
+    if best is not None:
+        net = material(walk) - start
+        # Only worth saying when the line really does come out ahead; the
+        # sacrifice has to be paid back, not merely followed by a capture.
+        if net >= 100:
+            return (best[0], best[1], best[3], net)
+    if double_attack is not None:
+        piece_name, square_name, checking_san = double_attack
+        return (piece_name, square_name, checking_san, None)
+    return None
+
+
+def _recommended_move_why(
+    board: chess.Board,
+    move: Optional[chess.Move],
+    mover_is_user: Optional[bool] = None,
+    line: Optional[Sequence[str]] = None,
+) -> Optional[str]:
     """WHY a recommended move is good, as a short 3rd-person verb phrase that slots into
     'it {why}' — 'develops a piece', 'takes the center', 'trades off his bishop', 'wins a
     pawn'. The law: every recommended move needs its why (memory
     feedback_explain_why_recommended_move_good). Board-verified; material claims SEE-gated.
-    Returns None when no clean why is derivable (caller falls back to naming the move)."""
+    Returns None when no clean why is derivable (caller falls back to naming the move).
+
+    `mover_is_user` decides the possessive for the branches that talk about the
+    MOVER's own pieces. Three of them said "your" unconditionally, which is
+    wrong on an opponent card: "Your opponent played Qd2; Qd5 was stronger — it
+    defends your pawn on b5" describes the opponent's move defending the
+    opponent's pawn. Measured 2026-09-30: 47 of 238 such opponent cards
+    (19.7%). When the caller does not know who moved, the phrasing goes neutral
+    ("the pawn") rather than guessing — a neutral phrase is never wrong."""
     if move is None:
         return None
+    # Possessive for pieces belonging to the MOVER.
+    _own = "your" if mover_is_user else ("their" if mover_is_user is False else "the")
     try:
         pr = _classify_move_principle(board, move)
         mover = board.turn
@@ -9683,7 +9915,46 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
             if cap_pt is None:
                 return None
             name = PIECE_TYPE_NAMES.get(cap_pt, "piece")
-            see = static_exchange_eval(board, move.to_square, mover)
+            # King-aware, because static_exchange_eval skips king recaptures and
+            # therefore scores a square guarded only by the king as free. That is
+            # how "Play Bxf7+ -- it wins a pawn" was written about a bishop
+            # sacrifice: f7's only defender was the king on e8. Measured over 400
+            # games, 48 of 2,081 recommended-capture reasons claimed a win on a
+            # capture this function scores as losing, 33 of them king-only.
+            try:
+                see = legal_exchange_gain(board, move.to_square, mover, first_move=move)
+            except (ValueError, TypeError):
+                see = static_exchange_eval(board, move.to_square, mover)
+            if see is not None and see < TRADE_FLOOR_CP:
+                # The capture loses material where it lands, so the reason has to
+                # come from what the line wins afterwards -- or we say nothing
+                # about material at all.
+                payoff = _line_payoff_after_sacrifice(board, move, line)
+                if payoff is not None:
+                    piece_name, square_name, enabling_san, net = payoff
+                    if net is None and enabling_san:
+                        # The check that earns the material back.
+                        return (f"gives up material so {enabling_san} hits the king "
+                                f"and the loose {piece_name} on {square_name}")
+                    if enabling_san:
+                        return (f"gives up material, and {enabling_san} wins the "
+                                f"{piece_name} on {square_name}")
+                    return f"wins the {piece_name} on {square_name} in the line"
+            # When the capture only comes out ahead BECAUSE a later recapture
+            # costs them a piece, say that instead of "wins material". On
+            # rnbqk2r/pppp2pp/5p2/2b1p3/N3P3/3B1N2/PPPP1nPP/R1BQ1RK1 w, Rxf2
+            # Bxf2+ Kxf2 nets White +150 -- but the reason a player needs is
+            # "if he takes back it costs him the bishop", not a material
+            # verdict. Gated on the static score disagreeing with the played-out
+            # one, which is exactly the king-recapture shape and leaves every
+            # ordinary free capture on the branches below.
+            _static = static_exchange_eval(board, move.to_square, mover)
+            if (see is not None and see >= 80
+                    and _static is not None and _static < 0):
+                deflection = _recapture_costs_him(board, move)
+                if deflection is not None:
+                    lost_name, lost_square = deflection
+                    return f"costs him the {lost_name} on {lost_square} if he takes back"
             if see is not None and see >= 200:
                 return "wins material"
             if see is not None and see >= 80:
@@ -9720,7 +9991,7 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
         # 2) THREAT — the moved piece now attacks an enemy piece that is UNDEFENDED
         #    or worth MORE than the moving piece (a real threat, not a defended equal).
         #    Pick the most valuable such target. (Mirrors developed_eyes gating.)
-        best_threat = None  # (square, value, piece_type)
+        _threats = []       # every (square, value, piece_type) worth naming
         for sq in after.attacks(move.to_square):
             p = after.piece_at(sq)
             if not p or p.color != enemy or p.piece_type == chess.KING:
@@ -9728,11 +9999,63 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
             val = PIECE_VALUE_CP.get(p.piece_type, 0)
             defended = bool(after.attackers(enemy, sq))
             if (not defended) or (val > my_val):
-                if best_threat is None or val > best_threat[1]:
-                    best_threat = (sq, val, p.piece_type)
-        if best_threat is not None:
-            return (f"attacks the {PIECE_TYPE_NAMES.get(best_threat[2], 'piece')} "
-                    f"on {chess.square_name(best_threat[0])}")
+                _threats.append((sq, val, p.piece_type))
+        # Walk the candidates in value order instead of standing or falling on
+        # the most valuable one. Mohit 2026-10-05 flagged a card with no reason
+        # at all: after the opponent's Nd6, our Be5 hits the rook on h8, the
+        # knight on d6 and the pawn on d4, and the stored line answers Rg8 --
+        # that rook moving. Refusing the rook claim is right; returning None
+        # when d6 and d4 both survive the same reply is not, and it silenced a
+        # card that had a true reason sitting behind the first one.
+        for _sq, _val, _pt in sorted(_threats, key=lambda t: -t[1]):
+            _name = PIECE_TYPE_NAMES.get(_pt, "piece")
+            _where = chess.square_name(_sq)
+            _verdict, _to = _attack_outcome(board, move, _sq, line)
+            if _verdict in ("survives", "unknown"):
+                return f"attacks the {_name} on {_where}"
+            if _verdict == "retreats":
+                return f"drives the {_name} back to {_to}"
+            # "trades", "material" and "nothing" mean this target is not the
+            # reason; try the next one rather than giving up on all of them.
+
+        # 2b) OUTNUMBERED TARGET — the target IS defended and IS worth less
+        #     than the mover, so branch 2 rightly declines it, and yet more of
+        #     our pieces hit the square than theirs defend it.
+        #
+        #     Mohit 2026-09-29, on "Opponent's Qa5 is a major blunder. Play Ra1
+        #     — it puts your rook on a line where none of your own pawns are in
+        #     the way": "again, no why here." On
+        #     `2r2rk1/p4ppp/8/q7/6P1/1P1R2QP/nKP2P2/7R w - - 6 26` the reason is
+        #     on the board: Ra1 hits the knight on a2, which the rook AND the
+        #     king on b2 attack while only the queen on a5 defends it. Branch 2
+        #     asked "is it defended?" as a boolean, got yes, and handed a real
+        #     tactic to the open-file phrase bank.
+        #
+        #     This states the COUNT, not a forecast. The first version of this
+        #     branch said "wins the knight on a2" off legal_exchange_gain, and
+        #     Stockfish refused 18 of 40 sampled claims -- correctly, because
+        #     the opponent moves next and here simply plays Nb4 or Nc3. Counting
+        #     attackers and defenders is true the moment the move is made and
+        #     stays true whatever they answer, and pointing at the lone defender
+        #     is the transferable half anyway.
+        best_defended = _outnumbered_target(after, move.to_square, mover, enemy)
+        if best_defended is not None:
+            sq, piece_type, defender_type = best_defended
+            _verdict, _to = _attack_outcome(board, move, sq, line)
+            if _verdict in ("survives", "unknown"):
+                return (
+                    f"attacks the {PIECE_TYPE_NAMES.get(piece_type, 'piece')} on "
+                    f"{chess.square_name(sq)}, which only their "
+                    f"{PIECE_TYPE_NAMES.get(defender_type, 'piece')} defends"
+                )
+            if _verdict == "retreats":
+                return (f"drives the {PIECE_TYPE_NAMES.get(piece_type, 'piece')} "
+                        f"back to {_to}")
+            # Refuted: fall through to the branches below. The same early
+            # `return None` in branch 2 is what silenced Mohit's Nd6 card, and
+            # this one became reachable the moment branch 2 stopped
+            # short-circuiting. Branches 3 and 4 speak about OUR piece's safety,
+            # which is true whatever they answer, so reaching them is safe.
 
         # 3) ESCAPE — the moved piece was hanging (enemy wins it on its old square)
         #    and is safe after the move: the move saves material.
@@ -9740,7 +10063,7 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
             see_before = static_exchange_eval(board, move.from_square, enemy)
             see_after = static_exchange_eval(after, move.to_square, enemy)
             if (see_before or 0) >= 100 and (see_after or 0) <= 0:
-                return (f"moves your {PIECE_TYPE_NAMES.get(moved.piece_type, 'piece')} "
+                return (f"moves {_own} {PIECE_TYPE_NAMES.get(moved.piece_type, 'piece')} "
                         f"out of danger")
 
         # 4) DEFENDS — a DIFFERENT friendly piece was hanging before and is safe after
@@ -9754,7 +10077,7 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
             if (static_exchange_eval(board, sq, enemy) or 0) >= 100 and \
                (static_exchange_eval(after, sq, enemy) or 0) <= 0 and \
                move.to_square in after.attackers(mover, sq):
-                return (f"defends your {PIECE_TYPE_NAMES.get(fp.piece_type, 'piece')} "
+                return (f"defends {_own} {PIECE_TYPE_NAMES.get(fp.piece_type, 'piece')} "
                         f"on {chess.square_name(sq)}")
 
         # 4b) MATE / CHECK / PROMOTION — concrete forcing purposes the floor
@@ -9791,7 +10114,11 @@ def _recommended_move_why(board: chess.Board, move: Optional[chess.Move]) -> Opt
                     f"{chess.square_name(check_target[0])}, because the check "
                     f"has to be answered first"
                 )
-            return "gives check, forcing your opponent to respond"
+            # From the MOVER's side: the player they force is the other one.
+            if mover_is_user is None:
+                return "gives check, forcing a reply"
+            return ("gives check, forcing your opponent to respond" if mover_is_user
+                    else "gives check, forcing you to respond")
 
         # 5) PRINCIPLE — castle/center/develop/outpost/rook (transferable idea).
         if pr in _REC_PRINCIPLE_PHRASE:
@@ -9906,6 +10233,27 @@ def extract_facts(
     board_after = board_before.copy()
     board_after.push(played_move)
 
+    # ── Stalemate: the win given away ──────────────────────────────────
+    # Farhan, reviewing geometry gaps 2026-09-29, wrote this by hand twice
+    # because nothing computed it: "Rd1 is a checkmate winning the game on
+    # spot while playing f4 results in a stalemate (draw)".
+    #
+    # Measured over 4,000 games: in 562 winning endgames a stalemating move
+    # was on the board and 44 players took it. What those 44 were told
+    # includes "Your opponent tidys up the king, keeping it safe" -- on the
+    # move that ended a won game as a draw.
+    #
+    # Two facts, because they are different lessons. Stalemating from a dead
+    # position is nothing; stalemating a win away is the whole game.
+    played_is_stalemate = board_after.is_stalemate()
+    mover_was_winning = False
+    if played_is_stalemate and eval_before_cp is not None:
+        # eval is white-POV; ask whether the player who moved was winning.
+        _mover_cp = (int(eval_before_cp) if board_before.turn == chess.WHITE
+                     else -int(eval_before_cp))
+        mover_was_winning = _mover_cp >= 300
+    played_stalemate_threw_away_win = played_is_stalemate and mover_was_winning
+
     # ── Engine truth (pass-through) ────────────────────────────────────
     played_is_best = (
         best_move_san is not None
@@ -9953,6 +10301,80 @@ def extract_facts(
     opp_missed_capture_square: Optional[str] = None
     opp_failure_missed_mate = False
     opp_missed_mate_san: Optional[str] = None
+    # Same square, wrong piece. Mohit 2026-10-06, on "Opponent's Qf6 is a
+    # mistake. Play Be3 -- it brings a new piece into the game": "see no
+    # teaching, i really don't understand why it was an opponent mistake".
+    #
+    # He is right that the sentence never says what was wrong with Qf6. The
+    # engine does: its best move there was Nf6 -- the KNIGHT wanted that
+    # square. The queen took it, which blocks the knight's development and
+    # parks the queen where Bg5 and e5 both hit her. Eval +81 -> +185.
+    #
+    # The fact is cheap and exact: their move and the engine's move end on the
+    # SAME square with a DIFFERENT piece. Measured over 400 games, 187 of the
+    # 3,976 moves with a different best are this shape, and it covers two
+    # lessons a 600-1500 player needs -- recapturing with the wrong man
+    # (Qxd4 for exd4, Nxe5 for dxe5) and developing the wrong piece to a good
+    # square (Qd7 where Nd7 belonged).
+    # Our own king with no way off the back rank. Mohit 2026-10-06, on a card
+    # that correctly said "Bb3 lets Rxc3 win your rook on c3" and stopped
+    # there: "this is backrank mate but doesn't show in caption or arrows".
+    #
+    # On 6k1/p4ppp/6q1/8/1PbP4/P1r2P2/5KPP/2RQ4 b the king on g8 has f7, g7
+    # and h7 all occupied by its OWN pawns, and after Bb3 Rxc3 White's rook
+    # bears down the open c-file: a quiet move like a6 then loses to Rc8#.
+    #
+    # board_concepts.back_rank_weakness already knows all of this -- it
+    # returns pawns_blocking 3, heavy_pieces_bearing_down ['c3'] and
+    # exploitable True on exactly this position -- and has never been wired to
+    # a caption. 151 of 2,539 user-mistake cards over 400 games are
+    # exploitable, 43 of them created by the move itself.
+    #
+    # Deliberately NOT a mate claim: here Black holds with Be6 or Qf6, so the
+    # honest sentence is that the king has no escape squares, not that this
+    # loses to mate.
+    back_rank_exposed = False
+    back_rank_king_square: Optional[str] = None
+    back_rank_pawn_count: Optional[int] = None
+    back_rank_attacker_square: Optional[str] = None
+    opp_failure_wrong_piece = False
+    opp_wrong_piece_square: Optional[str] = None
+    opp_wrong_piece_played: Optional[str] = None
+    opp_wrong_piece_wanted: Optional[str] = None
+    opp_wrong_piece_is_recapture = False
+
+    # Computed on the board AFTER our move, and again after their best reply,
+    # because the rook usually only reaches the open file by capturing: on the
+    # reported card the weakness is not exploitable until Rxc3 has happened.
+    if mover_is_user is not False:
+        try:
+            from services.board_concepts import back_rank_weakness
+            _us = board_before.turn
+            _already = (back_rank_weakness(board_before, _us) or {}).get("exploitable")
+            _probe = board_before.copy()
+            _probe.push(board_before.parse_san(str(played_san)))
+            _states = [back_rank_weakness(_probe, _us) or {}]
+            _reply = (pv_after_played or [None])[0]
+            if _reply:
+                try:
+                    _nb = _probe.copy()
+                    _nb.push(_nb.parse_san(str(_reply)))
+                    _states.append(back_rank_weakness(_nb, _us) or {})
+                except (ValueError, AssertionError):
+                    pass
+            for _st in _states:
+                if not _st.get("exploitable"):
+                    continue
+                _heavies = _st.get("heavy_pieces_bearing_down") or []
+                if not _heavies:
+                    continue
+                back_rank_exposed = True
+                back_rank_king_square = _st.get("king_square")
+                back_rank_pawn_count = _st.get("pawns_blocking")
+                back_rank_attacker_square = _heavies[0]
+                break
+        except Exception:
+            back_rank_exposed = False
     opp_failure_missed_tactic = False
     opp_missed_tactic_san: Optional[str] = None
     opp_missed_tactic_desc: Optional[str] = None
@@ -10007,6 +10429,23 @@ def extract_facts(
             if pv_after_best and any("#" in m for m in pv_after_best[:6]):
                 opp_failure_missed_mate = True
                 opp_missed_mate_san = best_move_san
+            # same square, wrong piece -- see the note where these are declared
+            try:
+                _played_mv = board_before.parse_san(str(played_san))
+            except (ValueError, AssertionError):
+                _played_mv = None
+            if _played_mv is not None and _played_mv.to_square == _bm.to_square:
+                _played_pc = board_before.piece_at(_played_mv.from_square)
+                _wanted_pc = board_before.piece_at(_bm.from_square)
+                if (_played_pc is not None and _wanted_pc is not None
+                        and _played_pc.piece_type != _wanted_pc.piece_type):
+                    opp_failure_wrong_piece = True
+                    opp_wrong_piece_square = chess.SQUARE_NAMES[_bm.to_square]
+                    opp_wrong_piece_played = PIECE_TYPE_NAMES.get(
+                        _played_pc.piece_type, "piece")
+                    opp_wrong_piece_wanted = PIECE_TYPE_NAMES.get(
+                        _wanted_pc.piece_type, "piece")
+                    opp_wrong_piece_is_recapture = board_before.is_capture(_bm)
             # missed tactic: the best move is a quiet (non-capture) FORK against
             # the user — they had a strong double-attack and played something else.
             # Explains the danger the user DODGED (Na4 case: missed Nd5 forking the
@@ -10120,6 +10559,23 @@ def extract_facts(
     opp_reply_attacks_played_piece: bool = False
     opp_reply_captures_piece_type: Optional[str] = None
     opp_reply_captures_square: Optional[str] = None
+    # ── The consequence that arrives LATER than the first reply ───────────
+    # Every one of R12's nine played-move failure predicates keys on
+    # opp_reply_* — the FIRST ply of the stored line and nothing else. Measured
+    # 2026-09-30 over 12,000 stored lines: 26.8% resolve at ply 1, and a
+    # further 36.0% resolve later (ply 3 alone is 17.5%) where no predicate can
+    # see them. Those cards fall through to "X was better — it develops a
+    # piece", which is why 80% of the ALT_WHY_ONLY class comes out of R12.
+    #
+    # This walks the engine's own stored line and records the first capture of
+    # one of the MOVER's pieces at ply >= 2, but only when the line ENDS with
+    # the mover down material — so an even trade inside the line is not
+    # reported as a loss. Nothing is forecast: the moves are the engine's, and
+    # the capture and the closing balance are both computed on the board.
+    line_loss_piece_type: Optional[str] = None
+    line_loss_square: Optional[str] = None
+    line_loss_san: Optional[str] = None
+    line_loss_ply: Optional[int] = None
     # WHY-BAD enrichment (2026-06-23): the played move DROPS material — the
     # opponent's best reply wins a piece/pawn (SEE-verified), and it is NOT an
     # equal recapture of the user's own just-captured piece. Lets a quiet move
@@ -10177,6 +10633,53 @@ def extract_facts(
         if _a is not None and _b is not None:
             opp_reply_is_clear = abs(_a - _b) > 30
     if pv_after_played:
+        # ── Deeper-line material loss (see the note by line_loss_* above) ──
+        # Mover POV throughout: positive means the mover is ahead.
+        try:
+            _mover_white = board_before.turn == chess.WHITE
+            _LV = {chess.PAWN: 100, chess.KNIGHT: 300, chess.BISHOP: 300,
+                   chess.ROOK: 500, chess.QUEEN: 900, chess.KING: 0}
+
+            def _bal(bd: chess.Board) -> int:
+                t = 0
+                for _p in bd.piece_map().values():
+                    t += _LV[_p.piece_type] * (1 if _p.color == chess.WHITE else -1)
+                return t if _mover_white else -t
+
+            _sim = board_after.copy(stack=False)
+            _base = _bal(_sim)
+            _first: Optional[tuple] = None
+            for _i, _san in enumerate(pv_after_played, start=1):
+                try:
+                    _mv = _sim.parse_san((_san or "").strip())
+                except (chess.InvalidMoveError, chess.IllegalMoveError, ValueError):
+                    # The stored line goes illegal partway. The claim's premise
+                    # is "the line ENDS with the mover down material", and a
+                    # truncated line cannot establish that -- 3 of 7,145 firings
+                    # were unprovable for exactly this reason on 2026-09-30.
+                    # Abandon rather than claim from a prefix.
+                    _first = None
+                    break
+                _victim = _sim.piece_at(_mv.to_square) if _sim.is_capture(_mv) else None
+                # A capture of the MOVER's own piece, from ply 2 on (ply 1 is
+                # already covered by the opp_reply_* predicates above).
+                if (_first is None and _i >= 2 and _victim is not None
+                        and _victim.color == board_before.turn):
+                    _first = (_i, PIECE_TYPE_NAMES.get(_victim.piece_type, "piece"),
+                              chess.SQUARE_NAMES[_mv.to_square], (_san or "").strip())
+                _sim.push(_mv)
+            # Only report it when the line actually ends with the mover worse
+            # off by at least a pawn. Without this an even trade two moves deep
+            # would be captioned as losing a piece.
+            if _first is not None and (_base - _bal(_sim)) >= 100:
+                line_loss_ply = _first[0]
+                line_loss_piece_type = _first[1]
+                line_loss_square = _first[2]
+                line_loss_san = _first[3]
+        except Exception:
+            # Facts are never load-bearing; a bad line must not break the card.
+            pass
+
         raw = (pv_after_played[0] or "").strip()
         if raw:
             opp_reply_san = raw
@@ -10571,7 +11074,10 @@ def extract_facts(
     best_move_principle = _classify_move_principle(board_before, _best_mv)
     # WHY the engine's best move is good (principle OR trade/win) — for the law that
     # every recommended move needs its why (feedback_explain_why_recommended_move_good).
-    best_move_why = _recommended_move_why(board_before, _best_mv)
+    best_move_why = _recommended_move_why(
+        board_before, _best_mv, mover_is_user,
+        line=pv_after_best or pv_after_played,
+    )
 
     # DISTINGUISH GATE (2026-07-01, docs/reasoning_correctness_scope.md): a "why the better
     # move is good" that is ALSO true of the move the user PLAYED explains nothing — "Be7
@@ -10581,7 +11087,11 @@ def extract_facts(
     # Mohit 2026-07-01: "Bc5 is also development, something is not good here."
     if best_move_why and played_move is not None and _best_mv is not None and played_move != _best_mv:
         try:
-            _played_move_why = _recommended_move_why(board_before, played_move)
+            # Same possessive, or the equality test below would compare
+            # "moves your bishop..." against "moves their bishop..." and the
+            # distinguish gate would stop firing on opponent cards.
+            _played_move_why = _recommended_move_why(
+                board_before, played_move, mover_is_user)
             if _played_move_why and _played_move_why == best_move_why:
                 best_move_why = None
         except Exception:
@@ -10724,8 +11234,14 @@ def extract_facts(
         "opp_reply_is_clear": opp_reply_is_clear,
         "opp_reply_alternatives": opp_reply_alternatives,
         "opp_reply_attacks_played_piece": opp_reply_attacks_played_piece,
+        "played_is_stalemate": played_is_stalemate,
+        "played_stalemate_threw_away_win": played_stalemate_threw_away_win,
         "opp_reply_captures_piece_type": opp_reply_captures_piece_type,
         "opp_reply_captures_square": opp_reply_captures_square,
+        "line_loss_piece_type": line_loss_piece_type,
+        "line_loss_square": line_loss_square,
+        "line_loss_san": line_loss_san,
+        "line_loss_ply": line_loss_ply,
         # Recapture collision (Mohit 2026-06-06, fb_22528b6266b1) —
         # when both played + opp_reply land on the same square the SANs
         # render identically; switch to a recapture-specific template.
@@ -10743,6 +11259,15 @@ def extract_facts(
         "opp_missed_capture_square": opp_missed_capture_square,
         "opp_failure_missed_mate": opp_failure_missed_mate,
         "opp_missed_mate_san": opp_missed_mate_san,
+        "back_rank_exposed": back_rank_exposed,
+        "back_rank_king_square": back_rank_king_square,
+        "back_rank_pawn_count": back_rank_pawn_count,
+        "back_rank_attacker_square": back_rank_attacker_square,
+        "opp_failure_wrong_piece": opp_failure_wrong_piece,
+        "opp_wrong_piece_square": opp_wrong_piece_square,
+        "opp_wrong_piece_played": opp_wrong_piece_played,
+        "opp_wrong_piece_wanted": opp_wrong_piece_wanted,
+        "opp_wrong_piece_is_recapture": opp_wrong_piece_is_recapture,
         # opp missed a quiet FORK (the danger the user dodged) — Parth QA 2026-06-22
         "opp_failure_missed_tactic": opp_failure_missed_tactic,
         "opp_missed_tactic_san": opp_missed_tactic_san,

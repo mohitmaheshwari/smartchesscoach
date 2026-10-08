@@ -9,7 +9,9 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import ChancesCard from "@/components/coach/ChancesCard";
+import CoachMovements from "@/components/coach/CoachMovements";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
@@ -696,7 +698,33 @@ export default function HomePageNew({ user }) {
             <p className="text-slate-500 dark:text-slate-400 font-mono text-xs uppercase tracking-widest">{formatWhen()}</p>
           </motion.div>
 
-          {/* ─── SINCE YOU LAST PLAYED (the Mirror) ─── */}
+          {/* ─── THE COACHING SESSION ───
+              docs/home_as_a_coach_scope.md
+
+              Mohit, 2026-10-07: *"it is still not looking like a coach, it
+              looks like a report"* — and then the process itself: a coach reads
+              your games, tells you what is good and what is bad, trains the
+              bad, and plays you.
+
+              THIS IS MOUNTED HERE BECAUSE THIS IS THE PAGE PEOPLE SEE. It went
+              into CurriculumHome first, which looked right — that component is
+              the newer, better-written home — and reaches NOBODY: measured
+              2026-10-07, all 128 users fall through to this branch, because
+              PERSONAL_CURRICULUM_ENABLED is not set on prod at all, so
+              `curriculum.enabled` is false for everyone including admins. It is
+              mounted in both, and this is the one that counts.
+
+              That is the fourth time this session a finished surface was wired
+              into a branch users do not take. The lesson is not "check the
+              branch" — it is that "mounted" and "reaching a person" are
+              different claims and only the second one is worth making.
+
+              It absorbs FindingCard (the finding is now movement one's second
+              line), SessionCard (its celebrated good move is the board inside
+              movement one) and ChancesCard (passed in as movement one's
+              assessment, because the reading IS part of what the coach knows
+              about you). Three cards became one movement; nothing was dropped. */}
+          <CoachMovements assessment={<ChancesCard />} />
           {lastSession?.story && (
             <motion.section ref={mirrorRef} variants={fadeInUp}>
               <div className="bg-white/95 dark:bg-gradient-to-b dark:from-[#24313d]/85 dark:to-[#19222a]/85 border border-slate-200/90 dark:border-white/15 rounded-3xl p-6 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] backdrop-blur-xl relative overflow-hidden">
@@ -798,7 +826,38 @@ export default function HomePageNew({ user }) {
                   <p className="text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400 italic">
                     I have seen this same decision in more than one of your games. We’ll stay with it until your response begins to change over the board.
                   </p>
-                  <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
+                  {/* What else the games show. The picker already ranks these
+                      and writes them onto the focus document, and until now
+                      every one was thrown away: Home named one thing out of
+                      six the system holds. components/FocusCard.jsx had this
+                      block built and nothing ever mounted that component.
+
+                      Topics only, no counts and no scores -- a mention is not
+                      a plan, and the one instruction above stays the only
+                      thing anyone is asked to do. */}
+                                    {/* The drill for the shape this player takes least often
+                      (docs/pin_skewer_drill_scope.md). The reading behind it was
+                      already computed and stored and reached no screen here.
+                      Deliberately one quiet link and not a card: Home names ONE
+                      thing to do today, and this is not it -- it is somewhere to
+                      go when they want to practise. The backend omits the field
+                      entirely when there is no supply, so this cannot render a
+                      dead link. */}
+                  {activeFocus?.tactic_practice?.href && (
+                    <div className="mt-4">
+                      <Link
+                        to={activeFocus.tactic_practice.href}
+                        data-testid="tactic-practice-link"
+                        className="inline-flex items-center text-[13px] font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                      >
+                        {activeFocus.tactic_practice.label} &rarr;
+                      </Link>
+                      <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                        {activeFocus.tactic_practice.because}
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-2 mt-4">
                     <button
                       onClick={() => {
                         track(ANALYTICS_EVENTS.PIC_NEXT_ACTION_CLICKED, { action: "practice" });
@@ -918,9 +977,24 @@ export default function HomePageNew({ user }) {
             </motion.section>
           )}
 
-          {/* ─── NAVIGATION TILES ─── */}
-          <motion.section variants={fadeInUp} className="pt-6">
-            <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400 font-semibold mb-4">
+          {/* The session card and the chances card used to sit here, below
+              everything, each fetching /home/session for itself. Both are now
+              inside the coaching session at the top of the page: the good move
+              the session card celebrated is the board in movement one, and the
+              chances reading is movement one's assessment slot.
+
+              Their mounting note is kept because it is still the rule: both
+              had been wired inside the `canonicalContext ? ... : pic ? ...`
+              ternary, where 51 of 52 users take the other arm, so they rendered
+              for almost nobody. Nothing on this page that does not depend on a
+              player's focus shape may sit inside a test for one. */}
+
+          {/* ─── NAVIGATION TILES ───
+              Deliberately faded — utilities, not today's mission. Mohit,
+              2026-07-31 §7: "Now I'm back inside software... I'd fade
+              those into the background." */}
+          <motion.section variants={fadeInUp} className="mt-20 pt-10 border-t border-border/30 opacity-70 hover:opacity-100 transition-opacity">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70 font-medium mb-4">
               Other ways to improve
             </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">

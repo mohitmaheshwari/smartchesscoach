@@ -344,6 +344,109 @@ _SPECS: Tuple[QuestionSpec, ...] = (
             ),
         ),
     ),
+    # Pin and skewer are the same idea seen from two sides, and the one line
+    # that differs between these two specs IS the lesson: which of the two
+    # pieces on the line is the valuable one. They are written out separately
+    # rather than generated from a shared template, because the moment a reader
+    # has to diff two format strings to find the teaching, the teaching is hidden.
+    #
+    # Both name the shape in the question. That is deliberate: this drill is
+    # given to a player we have ALREADY measured as missing these four times in
+    # ten, so asking him to notice unaided would reproduce the miss rather than
+    # fix it. Telling him where to look and making him execute is the drill.
+    # A later stage that stops naming it is in the scope doc, not here.
+    QuestionSpec(
+        category="pin",
+        question=(
+            "Two of their pieces are on one line, and the one in front is "
+            "worth less. Find the move that attacks the line."
+        ),
+        accepts=SINGLE_BEST,
+        task_line=EXACTLY_ONE,
+        reason_prompt="How did you pick it?",
+        reason_options=(
+            ReasonOption(
+                id="saw_the_line",
+                label="I saw two of their pieces on one line.",
+                belief_lead=(
+                    "You found the line, so it is the move along it that "
+                    "slipped."
+                ),
+            ),
+            ReasonOption(
+                id="looked_active",
+                label="It looked like a strong attacking move.",
+                belief_lead=(
+                    "You went by how active the move looked, which is the "
+                    "habit this position punishes."
+                ),
+                misconception_id="attacks_the_piece_not_the_line",
+                correction=(
+                    "Look for the line first, then the move. Two of their "
+                    "pieces on one line is the thing worth finding."
+                ),
+            ),
+            ReasonOption(
+                id="was_taking_something",
+                label="I was taking a piece.",
+                belief_lead=(
+                    "You took what was there, which is usually right and is "
+                    "not what this position is about."
+                ),
+                misconception_id="takes_before_looking_for_the_line",
+                correction=(
+                    "A capture is easy to see, so it gets looked at first. "
+                    "Check whether two of their pieces line up before you take."
+                ),
+            ),
+        ),
+    ),
+    QuestionSpec(
+        category="skewer",
+        question=(
+            "Two of their pieces are on one line, and the bigger one is in "
+            "front. Find the move that attacks the line."
+        ),
+        accepts=SINGLE_BEST,
+        task_line=EXACTLY_ONE,
+        reason_prompt="How did you pick it?",
+        reason_options=(
+            ReasonOption(
+                id="saw_the_line",
+                label="I saw two of their pieces on one line.",
+                belief_lead=(
+                    "You found the line, so it is the move along it that "
+                    "slipped."
+                ),
+            ),
+            ReasonOption(
+                id="looked_active",
+                label="It looked like a strong attacking move.",
+                belief_lead=(
+                    "You went by how active the move looked, which is the "
+                    "habit this position punishes."
+                ),
+                misconception_id="attacks_the_piece_not_the_line",
+                correction=(
+                    "Look for the line first, then the move. Two of their "
+                    "pieces on one line is the thing worth finding."
+                ),
+            ),
+            ReasonOption(
+                id="was_taking_something",
+                label="I was taking a piece.",
+                belief_lead=(
+                    "You took what was there, which is usually right and is "
+                    "not what this position is about."
+                ),
+                misconception_id="takes_before_looking_for_the_line",
+                correction=(
+                    "A capture is easy to see, so it gets looked at first. "
+                    "Check whether two of their pieces line up before you take."
+                ),
+            ),
+        ),
+    ),
 )
 
 # Where the same tag means a different thing at a different strength, the
@@ -398,7 +501,11 @@ _ALIASES: Mapping[str, str] = {
     "opponent_threats": "king_safety",
     "tactical": "missed_tactic",
     "tactical_miss": "missed_tactic",
-    "pin": "missed_tactic",
+    # `pin` used to redirect here. It now has its own spec, and the redirect had
+    # to go: `canonical_category` applies this map BEFORE looking in
+    # BY_CATEGORY, so an alias shadows a real category of the same name and the
+    # new spec would have been unreachable while appearing to exist. Anything
+    # added to _SPECS must therefore be removed from here in the same change.
 }
 
 # Used where a category is genuinely unknown. It promises nothing about how

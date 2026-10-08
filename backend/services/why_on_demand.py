@@ -83,12 +83,28 @@ def _phrase(p: Punishment, played_san: str) -> Optional[str]:
     piece = named or "piece"
     agent = p.agent_move
 
+    # The resolver may name a count ("two pawns"). "wins your two pawns"
+    # is understandable but clumsy; "wins two of your pawns" is how a
+    # person says it. Detected by the leading count word rather than by
+    # pluralising, so a single "knight" is never mangled.
+    _counts = ("two ", "three ", "four ", "several ")
+    _plural = named.startswith(_counts)
+
+    def _owned(whose: str) -> str:
+        """'your knight' / 'two of your pawns'."""
+        if not named:
+            return f"{whose} piece"
+        if _plural:
+            count, _, rest = named.partition(" ")
+            return f"{count} of {whose} {rest}"
+        return f"{whose} {named}"
+
     if p.direction == "received":
         if p.mechanism == "MATE":
             return f"After {played_san}, {agent} leads to mate."
         if p.mechanism == "WINS_MATERIAL":
             if named:
-                return f"After {played_san}, {agent} wins your {named}."
+                return f"After {played_san}, {agent} wins {_owned('your')}."
             return f"After {played_san}, {agent} wins material."
         if p.mechanism == "FORK":
             return (f"After {played_san}, {agent} attacks two things at once. "
@@ -111,7 +127,7 @@ def _phrase(p: Punishment, played_san: str) -> Optional[str]:
         return f"{agent} leads to mate."
     if p.mechanism == "WINS_MATERIAL":
         if named:
-            return f"{agent} wins their {named}."
+            return f"{agent} wins {_owned('their')}."
         return f"{agent} wins material."
     if p.mechanism == "FORK":
         return f"{agent} attacks two things at once. They cannot save both."

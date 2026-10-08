@@ -65,6 +65,7 @@ from services.severity import (
 from services.caption_facts import (
     PIECE_VALUE_CP,
     LegalMaterialLossCause,
+    legal_exchange_gain,
     ReviewTeachingCause,
     build_legal_material_loss_cause,
     build_verified_line_cause,
@@ -898,6 +899,13 @@ class SeverityComputation:
     # the wrong colour..." and b8=Q# "Free Pawn - push it to promote",
     # both on the move that ended the game.
     played_is_mate: bool = False
+    # v186 (2026-10-05): the mover had a forced mate before this move and
+    # still has one after it. Such a move is never an error tier, however
+    # large cp_loss looks -- in a mate position cp_loss is the gap between
+    # two clamped mate scores, so a slower mate reads like lost material.
+    # 7,714 corpus moves preserve a mate; 94 were tiered as errors and 90
+    # of those had the mate get FASTER.
+    mate_preserved: bool = False
 
 
 
@@ -1110,6 +1118,57 @@ def compute_severity_for_move(
         severity = "good" if is_user else "context"
         severity_canonical = "good"
 
+    # --- Mate preserved (v186) -------------------------------------
+    # The sibling guard above handles "this move IS checkmate". This one
+    # handles the move before it: a forced mate existed, and after the move
+    # a forced mate still exists for the same side. That is not an error,
+    # whatever cp_loss says.
+    #
+    # Mohit 2026-10-05, on a K+2B vs K+P endgame card reading "Bg5 —
+    # Blunder — Tactical · missed tactic": "look at it". At depth 22 Be6
+    # mates in 9, Ke6 in 10, and his Bg5 in 20. He was mating before the
+    # move and mating after it, and we called it a blunder.
+    #
+    # The cause is that `mate_info` is read NOWHERE in the render path.
+    # Severity comes from cp_loss, and in a mate position cp_loss is the
+    # gap between two clamped mate scores -- so "mate in 9 became mate in
+    # 20" and "you dropped a rook" are the same number to this code.
+    # Measured on the rendered cards: 3,966 are tiered as an error while the
+    # mover still has a forced mate, 3,770 of them saying BLUNDER, and in
+    # 2,609 the mate got FASTER. One player is told "blunder" on three
+    # consecutive moves (3da52c5e m36-38) while delivering mate. A lower
+    # bound -- 229,374 of 368,160 error-tier cards have no eval row to join
+    # to, because move_evaluations stores only user moves.
+    #
+    # Mate is detected from the evals this function already receives, so
+    # there is no new parameter and no second source of truth. The floor is
+    # read off the distribution rather than chosen: evals carrying a mate
+    # score run 9650..10000 (n=15,184) and evals without one top out at
+    # 8308 (n=176,928), with zero overlap either way across 192,112 values.
+    # 9000 sits in the empty gap.
+    _MATE_EVAL_FLOOR = 9000
+    mate_preserved = False
+    _mover_sign = 1 if is_white else -1
+    _mate_before = (
+        practical_eval_before * _mover_sign
+        if practical_eval_before is not None else None
+    )
+    _mate_after = (
+        practical_eval_after * _mover_sign
+        if practical_eval_after is not None else None
+    )
+    if (
+        not played_is_mate
+        and _mate_before is not None
+        and _mate_after is not None
+        and _mate_before >= _MATE_EVAL_FLOOR
+        and _mate_after >= _MATE_EVAL_FLOOR
+    ):
+        mate_preserved = True
+        if severity_canonical in ("inaccuracy", "mistake", "serious", "blunder"):
+            severity = "good" if is_user else "context"
+            severity_canonical = "good"
+
     # A quiet king walk in the opening is never "good", whatever the number
     # says. It floors at inaccuracy rather than being pushed higher: the move
     # gave something real away, and the engine is still the authority on HOW
@@ -1130,6 +1189,7 @@ def compute_severity_for_move(
         is_forced_recapture=is_forced_recapture,
         is_best_equals_played=is_best_equals_played,
         played_is_mate=played_is_mate,
+        mate_preserved=mate_preserved,
     )
 
 
@@ -1345,29 +1405,55 @@ def inject_user_blunder_detector_facts(
                     # win. R12 needs this so 'Nxh3+ was better — captures
                     # the pawn on h3. Material won is leverage…' stops
                     # firing on knight sacrifices.
-                    _PIECE_VAL = {
-                        chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
-                        chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100,
-                    }
+                    # A sacrifice is a move that LOSES material when the
+                    # exchange is played out -- not merely a big piece landing
+                    # on a defended square.
+                    #
+                    # The old test was "attacker worth more than target AND
+                    # something defends the square afterwards", using
+                    # board.attackers(), which is pseudo-legal and does not
+                    # play the trade out. Measured over 400 games it fired on
+                    # 422 recommended captures and 247 of them (58%) actually
+                    # WIN material -- so "it sacrifices your bishop to open up
+                    # a strong attack, the attack is worth more than the pawn"
+                    # was being said about moves that just win a piece.
+                    #
+                    # legal_exchange_gain plays every capture on the square,
+                    # king recaptures included, which is the same authority the
+                    # arrows and the recommended-move reason now use.
                     _attacker_piece = _board_cap.piece_at(_best_mv.from_square)
-                    _att_val = _PIECE_VAL.get(_attacker_piece.piece_type, 0) if _attacker_piece else 0
-                    _tgt_val = _PIECE_VAL.get(_captured.piece_type, 0)
-                    if _att_val > _tgt_val:
-                        _board_post = _board_cap.copy()
-                        _board_post.push(_best_mv)
+                    try:
+                        _sac_gain = legal_exchange_gain(
+                            _board_cap, _best_mv.to_square, _board_cap.turn,
+                            first_move=_best_mv,
+                        )
+                    except (ValueError, TypeError):
+                        _sac_gain = None
+                    # Not from a position that is already lost. The variant
+                    # this fact drives claims "the attack is worth more than
+                    # the {piece} you lose", and from a lost position that is
+                    # not true -- the engine is picking the best of bad
+                    # options, not winning an attack. Measured over 400 games:
+                    # 54 of 176 true sacrifices (31%) are played from a mover
+                    # eval at or below -300. Uses the existing user_is_losing
+                    # flag rather than a new threshold, and note that raw
+                    # eval_before is WHITE-relative (measured 97% vs 44%), so
+                    # reading its sign directly would have mis-signed every
+                    # black-to-move card.
+                    if (_sac_gain is not None and _sac_gain < 0
+                            and not caption_facts.get("user_is_losing")):
                         _opp = not _board_cap.turn
-                        if _board_post.attackers(_opp, _best_mv.to_square):
-                            caption_facts["best_move_is_sacrifice"] = True
-                            caption_facts["best_move_sac_attacker_piece"] = (
-                                chess.piece_name(_attacker_piece.piece_type)
-                                if _attacker_piece else "piece"
-                            )
-                            # Near-king sac: target within 2 squares of enemy king.
-                            _enemy_king = _board_cap.king(_opp)
-                            if _enemy_king is not None:
-                                _dist = chess.square_distance(_best_mv.to_square, _enemy_king)
-                                if _dist <= 2 and _captured.piece_type == chess.PAWN:
-                                    caption_facts["best_move_sac_near_king"] = True
+                        caption_facts["best_move_is_sacrifice"] = True
+                        caption_facts["best_move_sac_attacker_piece"] = (
+                            chess.piece_name(_attacker_piece.piece_type)
+                            if _attacker_piece else "piece"
+                        )
+                        # Near-king sac: target within 2 squares of enemy king.
+                        _enemy_king = _board_cap.king(_opp)
+                        if _enemy_king is not None:
+                            _dist = chess.square_distance(_best_mv.to_square, _enemy_king)
+                            if _dist <= 2 and _captured.piece_type == chess.PAWN:
+                                caption_facts["best_move_sac_near_king"] = True
         except Exception:
             pass
 
@@ -1830,6 +1916,21 @@ def inject_opp_side_narration_facts(
         # Stamp user_best_reply + is_forcing + capture facts.
         if _user_reply:
             caption_facts["user_best_reply_san"] = _user_reply
+            # The LINE behind that reply, for the picture. Opponent moves carry
+            # no engine row of their own -- move_evaluations stores user moves
+            # only -- so an opp card's pv_after_played is empty and the
+            # sequence builder gets nothing. The continuation is right here in
+            # the next position's eval, already used for the coach line, and
+            # was simply never handed to the arrows.
+            #
+            # Mohit 2026-10-06 on the Ng5 card: "the idea is missing, the main
+            # idea is bishop takes the pawn and king takes bishop, our knight
+            # checks the king and the knight now behind our knight gets
+            # captured by our queen, so that's the whole line and arrow doesn't
+            # show until there".
+            caption_facts["user_reply_pv"] = [_user_reply] + list(
+                (_next_eval.get("pv_after_best") or [])[:6]
+            )
             if _user_reply.endswith("+") or _user_reply.endswith("#"):
                 caption_facts["user_best_reply_san_is_forcing"] = True
             # WHY the recommended reply is good — every recommended move needs its why
@@ -1865,7 +1966,7 @@ def inject_opp_side_narration_facts(
                     _reply_mv,
                     _reply_line,
                     opp_cp_loss or 300,
-                ) or _rmw(_post_opp_board, _reply_mv)
+                ) or _rmw(_post_opp_board, _reply_mv, line=_reply_line)
                 if _rwhy:
                     caption_facts["opp_user_reply_why"] = _rwhy
                 # WHY THEIR MOVE WAS THE MISTAKE, not just why ours is good.
@@ -2867,29 +2968,22 @@ def inject_socratic_user_facts(
     opp_threat_text: str = ""
     if severity == "blunder":
         try:
-            from services.move_comparison import _find_opponent_threats
-            verify_engine = None
-            if allow_fresh_engine_verification:
-                try:
-                    from services.threat_verifier import _get_singleton_engine
-                    verify_engine = _get_singleton_engine()
-                except Exception:
-                    verify_engine = None
+            # Stockfish is the truth table. The opponent's answer to this move
+            # is pv_after_played[0], chosen at depth 18 during analysis; the
+            # detector only names its shape. The old path enumerated every
+            # legal opponent move, guessed which looked dangerous, and ran a
+            # depth-10 search per guess to check -- 47 minutes to re-render one
+            # 42-move game, to re-derive something already stored.
+            # Mohit 2026-10-07: "detectors can't really find anything that
+            # engine top moves can't, stockfish is the truth table, pens down."
+            from services.move_comparison import threat_from_engine_reply
             post = board_before.copy()
             post.push(move)
             user_color_bool = chess.WHITE if user_color == "white" else chess.BLACK
-            threats = _find_opponent_threats(
-                post, not user_color_bool, engine=verify_engine,
+            _reply = (list(pv_after_played or ()) or [None])[0]
+            opp_threat_type, opp_threat_text = threat_from_engine_reply(
+                post, _reply, not user_color_bool,
             )
-            if threats:
-                opp_threat_text = threats[0]
-                threat_low = threats[0].lower()
-                if "fork" in threat_low:
-                    opp_threat_type = "fork"
-                elif "checkmate" in threat_low or "mate" in threat_low:
-                    opp_threat_type = "mate"
-                elif "taken for free" in threat_low or "can be taken" in threat_low:
-                    opp_threat_type = "capture"
         except Exception:
             pass
     caption_facts["socratic_opponent_threat_type"] = opp_threat_type
@@ -4018,8 +4112,22 @@ def _verify_and_recover_caption(
         recovery = f"{played_san} {sev_phrase}."
     elif (not mover_is_user) and sev_phrase:
         recovery = f"Opponent's {played_san} {sev_phrase}."
+    elif best_move_san and best_move_san != played_san:
+        # No phrase, but there IS a stronger move. `severity_practical` reads
+        # "good" on plenty of cards the canonical tier calls a mistake (the two
+        # tiers come from different classifiers), and every one of those used to
+        # land on the bare "Nxh3." below -- a caption that says nothing at all,
+        # which is the silence the coverage rule exists to prevent. Measured
+        # 2026-09-30: 171 cards corpus-wide rendered as a lone SAN.
+        #
+        # Naming the stronger move asserts no verdict, and this function's own
+        # contract already lists the best-move SAN among the irreducibly-true
+        # claims recovery may make. It is strictly more than the SAN alone.
+        recovery = (f"{played_san}. {best_move_san} was stronger here."
+                    if mover_is_user
+                    else f"Opponent's {played_san}. {best_move_san} was stronger.")
     else:
-        # Clean move OR no severity — just acknowledge the SAN.
+        # Clean move OR no severity and no alternative — acknowledge the SAN.
         recovery = f"{played_san}."
 
     prev_rule = caption_payload.get("rule_name") or "R_FALLBACK"
@@ -4690,7 +4798,31 @@ def _reply_attack_arrows(
             targets.append((square, see))
 
     gives_check = after_reply.is_check()
-    if not targets and not gives_check:
+
+    # A capture that wins material IS the point, even when the piece lands
+    # somewhere that threatens nothing afterwards.
+    #
+    # Mohit 2026-10-05, on an opponent card reading "Bc5 leaves the bishop on
+    # c5 hanging -- you can win it with bxc5" and drawing nothing at all: "also,
+    # no arrow here, why the hell, i am getting angry". He is right to be. On
+    # `B2k1b1r/7p/R5p1/5p2/1Pnp1B2/8/6PP/6K1 b` the reply bxc5 takes an
+    # undefended bishop; the pawn then sits on c5 attacking b6 and d6, both
+    # empty, and gives no check -- so every gate below failed and the card that
+    # names a free piece drew no line to it.
+    #
+    # The old shape only ever asked "what does the reply threaten NEXT", which
+    # is the right question for a quiet move and the wrong one for a capture,
+    # where the material is already won on arrival.
+    wins_material = False
+    if after_opp.is_capture(reply):
+        try:
+            wins_material = legal_exchange_gain(
+                after_opp, reply.to_square, mover, first_move=reply
+            ) >= 100
+        except (ValueError, TypeError):
+            wins_material = False
+
+    if not targets and not gives_check and not wins_material:
         return []
 
     # The MOVE first. _check_attack_arrows draws from the square the piece
@@ -4730,10 +4862,147 @@ def _reply_attack_arrows(
     return deduped
 
 
+# ─── One rule for drawing the engine's line ──────────────────────────
+#
+# Mohit 2026-10-06, after the fifth arrow fix in a row: "why we are not able to
+# show up the full idea, do we have to do it for all positions?? i thought you
+# understood the idea".
+#
+# He was right. This file had eight arrow builders chosen between at 22 call
+# sites, four of them written that same day, each in answer to one screenshot.
+# Every new card shape found another gap because the eighth builder repeated
+# the first one's bug instead of sharing its logic: only winning_plan_arrows
+# could follow a victim's flight, only it tracked our piece's route, only it
+# refused to call a trade a win, and only _line_sequence_arrows knew that a
+# sacrifice is drawn through to its recapture.
+#
+# His rule, which covers every case: take the engine's line from here and draw
+# it to its payoff -- the move, the forced replies, and the capture or mate
+# that is the point.
+#
+# docs/one_line_drawing_rule_scope.md carries the full reasoning and the list
+# of behaviours that must not regress.
+
+_PAYOFF_MATE = 4
+_PAYOFF_RECAPTURE = 3
+_PAYOFF_MATERIAL = 2
+_PAYOFF_FORCING = 1
+
+
+def walk_engine_line(
+    board: Optional[chess.Board], line: Optional[Sequence[str]]
+) -> List[tuple]:
+    """Replay a SAN line from `board`, one tuple per ply.
+
+    (ours, move, captured_piece_type, gives_check, is_mate). Stops at the first
+    move that will not parse rather than discarding what already verified -- a
+    Stockfish PV is legal by construction, but a truncated or mis-stored one
+    should cost the tail, not the plies already proved.
+    """
+    if board is None or not line:
+        return []
+    probe = board.copy()
+    us = probe.turn
+    steps: List[tuple] = []
+    for san in line:
+        try:
+            move = probe.parse_san(str(san))
+        except (ValueError, AssertionError):
+            break
+        # En passant takes a pawn that is NOT on the destination square, so
+        # piece_at(to_square) is None and the capture vanishes. Caught by
+        # diffing 11,890 corpus rows against the pre-refactor snapshot: four
+        # sequences lost their payoff entirely, every one of them ending in an
+        # e.p. capture (h4xg3, exd6, dxc6, bxa3).
+        if probe.is_en_passant(move):
+            captured = chess.Piece(chess.PAWN, not probe.turn)
+        else:
+            captured = probe.piece_at(move.to_square) if probe.is_capture(move) else None
+        gives_check = probe.gives_check(move)
+        after = probe.copy()
+        after.push(move)
+        steps.append((
+            probe.turn == us,
+            move,
+            captured.piece_type if captured else None,
+            gives_check,
+            after.is_checkmate(),
+        ))
+        probe.push(move)
+    return steps
+
+
+def find_line_payoff(
+    board: Optional[chess.Board],
+    steps: List[tuple],
+    max_arrows: int = 5,
+) -> Optional[tuple]:
+    """Which ply is the point of the line, and why. (index, kind) or None.
+
+    Ranked, because the same line can satisfy several and the strongest one is
+    the lesson:
+
+      mate       the move ends the game
+      recapture  our first move gave material away on its own square and a
+                 later capture of ours wins it back -- the sacrifice case,
+                 where stopping at the first check showed a bishop given away
+                 for a check (Mohit, the Ng5 card)
+      material   our capture worth a knight or more that leaves us net ahead;
+                 the net test is what stops a queen TRADE reading as winning a
+                 queen (Qd3 Qxd3 Nxd3)
+      forcing    a check or capture of ours, when nothing above applies
+    """
+    if not steps:
+        return None
+
+    for idx, (ours, _mv, _cap, _chk, is_mate) in enumerate(steps):
+        if ours and is_mate:
+            return (idx, _PAYOFF_MATE)
+
+    sacrificed = False
+    if board is not None and steps and steps[0][0]:
+        first = steps[0][1]
+        if board.is_capture(first):
+            try:
+                gain = legal_exchange_gain(
+                    board, first.to_square, board.turn, first_move=first
+                )
+                sacrificed = gain is not None and gain < 0
+            except (ValueError, TypeError):
+                sacrificed = False
+    if sacrificed:
+        for idx, (ours, _mv, cap, _chk, _m) in enumerate(steps):
+            if idx >= 2 and ours and cap is not None and idx <= max_arrows:
+                return (idx, _PAYOFF_RECAPTURE)
+
+    best_idx = None
+    best_value = 0
+    for idx, (ours, _mv, cap, _chk, _m) in enumerate(steps):
+        if not ours or cap is None:
+            continue
+        value = PIECE_VALUE_CP.get(cap, 0)
+        if value >= 320 and value > best_value:
+            best_idx, best_value = idx, value
+    if best_idx is not None:
+        net = 0
+        for ours, _mv, cap, _chk, _m in steps[: best_idx + 1]:
+            if cap is None:
+                continue
+            value = PIECE_VALUE_CP.get(cap, 0)
+            net += value if ours else -value
+        if net >= 300:
+            return (best_idx, _PAYOFF_MATERIAL)
+
+    for idx, (ours, _mv, cap, chk, _m) in enumerate(steps):
+        if idx >= 2 and ours and (cap is not None or chk):
+            return (idx, _PAYOFF_FORCING)
+    return None
+
+
 def _line_sequence_arrows(
     board_after_opp: Optional[chess.Board],
     pv: Optional[List[str]],
-    max_arrows: int = 4,
+    max_arrows: int = 5,
 ) -> List[Dict[str, str]]:
     """Draw the whole idea when the point of the move lands two moves later.
 
@@ -4768,40 +5037,103 @@ def _line_sequence_arrows(
     if board_after_opp is None or not pv:
         return []
 
-    board = board_after_opp.copy()
-    us = board.turn
-    steps: List[tuple] = []          # (is_ours, from, to, is_capture)
-    for san in pv:
-        try:
-            mv = board.parse_san(str(san))
-        except Exception:
-            # Stop here and use what verified, rather than discarding the
-            # whole picture. A Stockfish PV is legal by construction, but a
-            # truncated or mis-stored one should cost us the tail, not the
-            # three plies we already proved. Found by a test that appended a
-            # line which was illegal from the resulting position and got
-            # nothing back at all.
-            break
-        steps.append((
-            board.turn == us,
-            chess.square_name(mv.from_square),
-            chess.square_name(mv.to_square),
-            board.is_capture(mv),
-        ))
-        board.push(mv)
-
+    # The walk and the payoff choice now live in one place, shared with every
+    # other line-drawing builder. See the note above walk_engine_line.
+    _steps = walk_engine_line(board_after_opp, pv)
+    if not _steps:
+        return []
+    # `us` is still needed below, for the sacrifice test. Dropping it when the
+    # walk moved out is exactly the undefined-name slip this file warns about
+    # three functions up, and it cost 8 tests.
+    us = board_after_opp.turn
+    steps: List[tuple] = [
+        (ours, chess.square_name(mv.from_square), chess.square_name(mv.to_square),
+         cap is not None, chk)
+        for ours, mv, cap, chk, _mate in _steps
+    ]
     payoff = None
-    for idx, (ours, _f, _t, is_cap) in enumerate(steps):
+    for idx, (ours, _f, _t, is_cap, _chk) in enumerate(steps):
         if ours and is_cap:
             payoff = idx
             break
 
+    # A SACRIFICE is the one case where our capture comes first and the
+    # single-move picture is actively misleading, so the "already drawn
+    # correctly" reasoning above does not apply to it.
+    #
+    # Mohit 2026-10-02, on "Opponent's b5 is a serious mistake. Play Bxf7+ —
+    # it wins a pawn", drawn as a lone arrow into f7: "it showed me to
+    # sacrifice my bishop, should show me a complete line if theory that is
+    # real coaching, you know?" One arrow into f7 shows a player giving a
+    # bishop away for a pawn and stops; the point is Bxf7+ Kxf7 Qf3+, where
+    # the check forks the king and the loose rook on a8.
+    #
+    # So when our first move is a capture that LOSES material on its own
+    # square -- king recaptures played out, which is what makes it a sacrifice
+    # rather than a win -- the line is drawn through to our last move in it.
+    if payoff == 0 and board_after_opp is not None:
+        try:
+            first = board_after_opp.parse_san(str(pv[0]))
+            gain = legal_exchange_gain(
+                board_after_opp, first.to_square, us, first_move=first
+            )
+        except (ValueError, TypeError, AssertionError, IndexError):
+            gain = 0
+        if gain is not None and gain < 0:
+            # The FIRST of our moves after their forced reply that does
+            # something -- a capture or a check -- and only inside the arrow
+            # budget. Taking the LAST of our moves instead walked a 12-ply PV
+            # to a payoff far past the four arrows we draw, so the picture was
+            # truncated mid-line and ended on THEIR move with no payoff at all
+            # (game_af4d58d0936a move 9, four arrows, no green).
+            # Prefer the move that WINS THE MATERIAL BACK over the first
+            # thing that merely does something.
+            #
+            # Mohit 2026-10-06 on the Ng5 card: "the main idea is bishop takes
+            # the pawn and king takes bishop, our knight checks the king and
+            # the knight now behind our knight gets captured by our queen, so
+            # that's the whole line and arrow doesn't show until there".
+            #
+            # Bxf2+ Kxf2 Ng4+ Kg1 Qxg5: the check at ply 3 is the mechanism,
+            # the capture at ply 5 is the point. Stopping on the first check
+            # showed him giving a bishop away and getting a check for it.
+            _recapture = None
+            _forcing = None
+            for idx, (ours, _f, _t, is_cap, gives_chk) in enumerate(steps):
+                if idx < 2 or not ours:
+                    continue
+                if is_cap and _recapture is None and idx <= max_arrows:
+                    _recapture = idx
+                if (is_cap or gives_chk) and _forcing is None:
+                    _forcing = idx
+            if _recapture is not None:
+                payoff = _recapture
+            elif _forcing is not None and _forcing <= max_arrows - 1:
+                payoff = _forcing
+
     # Nothing to show, or the single-move builders already say it.
-    if payoff is None or payoff < 2:
+    #
+    # And nothing to show when the payoff is past the arrow budget. The note
+    # inside the sacrifice branch above describes this failure already --
+    # "truncated mid-line and ended on THEIR move with no payoff at all" --
+    # but the guard it added only covered sacrifices. Everywhere else a long
+    # line could still draw its first `max_arrows` steps and simply never
+    # reach the green.
+    #
+    # It stayed invisible while 85% of stored lines were 4 plies: a payoff at
+    # step 8 was never FOUND, so this returned nothing and the single-move
+    # builders drew instead. Re-analysing at 12 plies made it live, and Mohit
+    # saw it the same hour, on move 5 of 413fcce2 -- opponent castles, the
+    # engine answers d4 Be7 Re1 d6 h3, and the card drew all five of those
+    # quiet moves with no point at the end of them: "what is this arrow??"
+    #
+    # Half a plan whose payoff cannot be shown is worse than the single honest
+    # arrow it displaces, so hand it back.
+    if payoff is None or payoff < 2 or payoff >= max_arrows:
         return []
 
     arrows: List[Dict[str, str]] = []
-    for idx, (ours, frm, to, _cap) in enumerate(steps[: payoff + 1]):
+    for idx, (ours, frm, to, _cap, _chk) in enumerate(steps[: payoff + 1]):
         if len(arrows) >= max_arrows:
             break
         if ours:
@@ -4810,6 +5142,619 @@ def _line_sequence_arrows(
             colour = "palegrey"
         arrows.append({"from": frm, "to": to, "color": colour, "teach": True})
     return arrows
+
+
+def winning_plan_arrows(
+    board_before: Optional[chess.Board],
+    best_move_uci: Optional[str],
+    pv_after_best: Optional[Sequence[str]] = None,
+    max_arrows: int = 5,
+) -> List[Dict[str, str]]:
+    """The whole idea: our move, the piece running, and us taking it anyway.
+
+    Mohit 2026-10-06: "for a 1000, he couldn't really see Be5 attacking rook,
+    but rook can move right? and then white bishop traps him, so i want to show
+    the complete idea with arrow... the idea is to really find a move in
+    stockfish line that actually takes up the bigger piece".
+
+    Exactly so. "Be5 attacks the rook" is useless on its own, because the rook
+    moves. The lesson is the chase:
+
+        Be5    f4->e5   blue       our move
+        ...Rg8 h8->g8   palegrey   the rook runs
+        ...Rg7 g8->g7   palegrey   and runs again
+        Bxg7   e5->g7   green      the same bishop takes it anyway
+
+    _line_sequence_arrows cannot tell this story. It takes the FIRST of our
+    captures, which here is Bxe6 winning a pawn at step four, and with a
+    four-arrow budget it truncates before the green one and ends on their move.
+    So this picks the capture of the most VALUABLE piece, then follows that
+    piece backwards through the line to show where it fled from -- the moves in
+    between that are about other material are dropped, because they are not the
+    idea.
+
+    Right-or-silent: every arrow is a move the engine's own line plays, and the
+    payoff must be worth a knight or more, or the chase is not worth four
+    arrows.
+    """
+    if board_before is None or not best_move_uci or not pv_after_best:
+        return []
+    try:
+        board = board_before.copy()
+        first = chess.Move.from_uci(str(best_move_uci))
+        if first not in board.legal_moves:
+            return []
+    except (ValueError, AssertionError):
+        return []
+
+    us = board.turn
+    moves: List[tuple] = []          # (ours, move, captured_type)
+    board.push(first)
+    moves.append((True, first, None))
+    for san in list(pv_after_best):
+        try:
+            mv = board.parse_san(str(san))
+        except (ValueError, AssertionError):
+            break
+        captured = board.piece_at(mv.to_square) if board.is_capture(mv) else None
+        moves.append((board.turn == us, mv, captured.piece_type if captured else None))
+        board.push(mv)
+
+    # Our richest capture in the line. "Bigger piece" is the whole point, so a
+    # pawn grab on the way does not qualify as the payoff.
+    payoff_idx = None
+    payoff_value = 0
+    for idx, (ours, _mv, captured_type) in enumerate(moves):
+        if not ours or captured_type is None:
+            continue
+        value = PIECE_VALUE_CP.get(captured_type, 0)
+        if value >= 320 and value > payoff_value:
+            payoff_idx, payoff_value = idx, value
+    if payoff_idx is None:
+        return []
+
+    # The capture has to leave us AHEAD, not merely even. A recapture looks
+    # identical to a win when you only read the piece that came off the board.
+    #
+    # Found by inspecting the corpus rather than being told: on
+    # `5rk1/1pp3p1/3qp2p/p3p3/P3Pn2/N1P2NPP/1PQ2B2/6K1 b` the line is
+    # Qd3 Qxd3 Nxd3 -- a queen TRADE. Nxd3 takes a queen, cleared the 320
+    # threshold, and the picture would have said "play Qd3 and win the queen"
+    # about an even swap. That is the claim this file spent v184 removing from
+    # the sentences; it has no business arriving in the arrows.
+    net = 0
+    for ours, _mv, captured_type in moves[: payoff_idx + 1]:
+        if captured_type is None:
+            continue
+        value = PIECE_VALUE_CP.get(captured_type, 0)
+        net += value if ours else -value
+    if net < 300:
+        return []
+
+    # Follow the victim backwards: whoever stood on the captured square got
+    # there from somewhere, and that flight is the half a 1000-rated player
+    # cannot see from a single arrow. Record where it stood at each ply so the
+    # hunters can be matched against it.
+    victim_square = moves[payoff_idx][1].to_square
+    flight_idx: Dict[int, int] = {}          # move index -> nothing, just a set
+    stood_at: Dict[int, int] = {}            # move index -> victim square then
+    for idx in range(payoff_idx - 1, 0, -1):
+        ours, mv, _captured = moves[idx]
+        stood_at[idx] = victim_square
+        if ours or mv.to_square != victim_square:
+            continue
+        flight_idx[idx] = 1
+        victim_square = mv.from_square
+    stood_at[0] = victim_square
+
+    # Our moves that HUNT it. Mohit 2026-10-06, looking at the rendered card:
+    # "a8 bishop is missing, the arrow is missing there". He is right and it is
+    # the mechanism, not a detail: after Be5 Rg8, it is Bd5 -- the OTHER bishop,
+    # from a8 -- that attacks g8 through e6 and f7 and forces the rook to run
+    # again to g7, where the first bishop takes it. Two bishops cornering a
+    # rook. Drawing only the victim's flight and our first and last moves shows
+    # the rook running for no visible reason.
+    hunter_idx: Dict[int, int] = {}
+    board_at = board_before.copy()
+    board_at.push(first)
+    for idx in range(1, payoff_idx):
+        ours, mv, _captured = moves[idx]
+        target = stood_at.get(idx)
+        if ours and target is not None:
+            probe = board_at.copy()
+            probe.push(mv)
+            if target in probe.attacks(mv.to_square):
+                hunter_idx[idx] = 1
+        board_at.push(mv)
+
+    # Our own piece's ROUTE to the square it strikes from. Mohit 2026-10-06,
+    # pointing at a green arrow that began on an empty square: "why this
+    # arrow?". On Q7/p4ppk/7p/8/1P1P1KP1/Pb3P2/8/6q1 b the line is
+    # g5+ Ke4 Qc1 f4 Qh1+ Ke3 gxf4+ Kxf4 Qxa8 -- the capture is real, but it
+    # happens nine plies later and the queen gets to h1 by travelling
+    # g1 -> c1 -> h1. Drawn alone, h1->a8 starts where nothing stands and the
+    # journey is invisible. Same fault as the mate arrow that began on c7
+    # after the rook had moved to c8: a legal engine move drawn from a square
+    # the piece has not reached yet.
+    route_idx: Dict[int, int] = {}
+    launch_square = moves[payoff_idx][1].from_square
+    for idx in range(payoff_idx - 1, -1, -1):
+        ours, mv, _captured = moves[idx]
+        if not ours or mv.to_square != launch_square:
+            continue
+        route_idx[idx] = 1
+        launch_square = mv.from_square
+
+    chosen = sorted(
+        {0, payoff_idx} | set(flight_idx) | set(hunter_idx) | set(route_idx)
+    )
+    # Trim from the middle if we overflow, dropping the LAST hunter first.
+    # The earliest hunter is the one that brings a new piece to bear -- Bd5
+    # from a8 is what makes the rook run a second time -- while a later one is
+    # usually that same piece shuffling (Bxe6 merely clears the blocker). The
+    # first version trimmed from the front and threw away exactly the arrow
+    # Mohit had just asked for.
+    while len(chosen) > max_arrows:
+        # Hunters go before route steps. Dropping a route step leaves the
+        # payoff arrow starting from a square the piece never visibly reached,
+        # which is the bug this whole block exists to avoid.
+        for idx in reversed(chosen[1:-1]):
+            if idx in hunter_idx and idx not in route_idx:
+                chosen.remove(idx)
+                break
+        else:
+            for idx in chosen[1:-1]:
+                if idx not in route_idx:
+                    chosen.remove(idx)
+                    break
+            else:
+                chosen.remove(chosen[1])
+
+    arrows: List[Dict[str, str]] = []
+    for idx in chosen:
+        ours, mv, _captured = moves[idx]
+        if idx == payoff_idx:
+            colour = "green"
+        elif ours:
+            colour = "blue"
+        else:
+            colour = "palegrey"
+        arrows.append({
+            "from": chess.square_name(mv.from_square),
+            "to": chess.square_name(mv.to_square),
+            "color": colour,
+            "teach": True,
+        })
+    return arrows
+
+
+def recommended_move_arrows(
+    board_before: Optional[chess.Board],
+    best_move_uci: Optional[str],
+    pv_after_best: Optional[Sequence[str]] = None,
+) -> List[Dict[str, str]]:
+    """Draw the move the card tells them to play.
+
+    Mohit 2026-10-06, on a card reading "O-O is a major blunder. Be5 was better
+    -- it wins the rook" with a bare board: "now why not arrow here?".
+
+    The best-move picture came only from _check_attack_arrows, which requires
+    the move to give CHECK. Be5 does not, so a card naming a concrete prize
+    drew nothing at all -- the same shape as the "you can win it with bxc5"
+    card, on the other side of the board.
+
+    The move arrow is always true: it is the instruction the sentence just
+    gave. A target arrow is added only when the engine's own continuation
+    leaves that piece where it is. On the reported card Be5 hits the rook on
+    h8, the knight on d6 and the pawn on d4, and the stored line answers Rg8 --
+    the rook walks. It IS won nine plies later, so the caption is fair, but
+    drawing e5->h8 would say it is won on arrival, which is the claim v184
+    stopped making.
+    """
+    if board_before is None or not best_move_uci:
+        return []
+    try:
+        best = chess.Move.from_uci(str(best_move_uci))
+        if best not in board_before.legal_moves:
+            return []
+        after = board_before.copy()
+        after.push(best)
+    except (ValueError, AssertionError):
+        return []
+
+    arrows: List[Dict[str, str]] = [{
+        "from": chess.square_name(best.from_square),
+        "to": chess.square_name(best.to_square),
+        "color": "blue",
+        "teach": True,
+    }]
+
+    # Which squares does their reply vacate? Anything on one of those is not
+    # won here, whatever the caption promises later in the line.
+    vacated = set()
+    line = list(pv_after_best or ())
+    if line:
+        try:
+            probe = after.copy()
+            reply = probe.parse_san(str(line[0]))
+            vacated.add(reply.from_square)
+        except (ValueError, AssertionError):
+            # An unreadable line is not permission to claim the target.
+            return arrows
+
+    mover = board_before.turn
+    best_target = None
+    for square in after.attacks(best.to_square):
+        if square in vacated:
+            continue
+        piece = after.piece_at(square)
+        if not piece or piece.color == mover or piece.piece_type == chess.KING:
+            continue
+        gain = 0
+        try:
+            gain = legal_exchange_gain(after, square, mover) or 0
+        except (ValueError, TypeError):
+            gain = 0
+        if gain < 100:
+            continue
+        value = PIECE_VALUE_CP.get(piece.piece_type, 0)
+        if best_target is None or value > best_target[1]:
+            best_target = (square, value)
+    if best_target is not None:
+        arrows.append({
+            "from": chess.square_name(best.to_square),
+            "to": chess.square_name(best_target[0]),
+            "color": "green",
+            "teach": True,
+        })
+    return arrows
+
+
+def back_rank_threat_arrows(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    pv_after_played: Optional[List[str]],
+) -> List[Dict[str, str]]:
+    """The back-rank mate the played move allows, drawn on the shown board.
+
+    Mohit 2026-10-07, on a card reading "Bb3 lets Rxc3 win your rook on c3":
+    "back rank misses too". Losing the rook is the smaller half of that move.
+    On 6k1/p4ppp/6q1/8/1PbP4/P1r2P2/5KPP/2RQ4 b the rook on c3 is the only
+    thing between White's rook and a back row where f7, g7 and h7 are all
+    filled by Black's own pawns, so after Bb3 Rxc3 a quiet move loses to Rc8#.
+
+    The caption says the king has no way out; this is the same statement in
+    arrows. It is a THREAT, not a forced mate -- Black still holds with Be6 or
+    Qf6 -- so the question the board is asked is the one a threat answers: if
+    we spend a move elsewhere, does a heavy piece mate on our back rank? The
+    null move asks exactly that, and the mate is proved on the board rather
+    than inferred, so the arrow cannot outrun the position.
+
+    Drawn in board_before coordinates, the frame the rendered board shares.
+    """
+    if board_before is None or played_move is None:
+        return []
+    try:
+        probe = board_before.copy()
+        probe.push(played_move)
+    except (ValueError, AssertionError):
+        return []
+    us = board_before.turn
+    boards = [probe]
+    # Their best reply is usually what OPENS the file -- here the rook only
+    # reaches c3 by capturing -- so the board after it is checked too.
+    reply = (list(pv_after_played or []) or [None])[0]
+    if reply:
+        try:
+            after_reply = probe.copy()
+            after_reply.push(after_reply.parse_san(str(reply)))
+            boards.append(after_reply)
+        except (ValueError, AssertionError):
+            pass
+    back_rank = 0 if us == chess.WHITE else 7
+    for board in boards:
+        if board.turn == us:
+            # A null move is illegal out of check, and "what if we do nothing"
+            # is not the question to ask of a position where we must respond.
+            if board.is_check():
+                continue
+            quiet = board.copy()
+            quiet.push(chess.Move.null())
+        else:
+            quiet = board
+        for move in quiet.legal_moves:
+            if chess.square_rank(move.to_square) != back_rank:
+                continue
+            piece = quiet.piece_at(move.from_square)
+            if piece is None or piece.piece_type not in (chess.ROOK, chess.QUEEN):
+                continue
+            landed = quiet.copy()
+            landed.push(move)
+            if not landed.is_checkmate():
+                continue
+            return [{
+                "from": chess.square_name(move.from_square),
+                "to": chess.square_name(move.to_square),
+                "color": "red",
+                "teach": True,
+            }]
+    return []
+
+
+def mate_arrows_for_played_board(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    best_move_uci: Optional[str],
+) -> List[Dict[str, str]]:
+    """The same mate, drawn on the board the player is actually looking at.
+
+    Mohit 2026-10-06: "now, no arrow at all, what's wrong with you". Removing
+    the contradictory shape arrows and leaving the board blank was the wrong
+    call -- he asked to SEE the mating pattern, not to see less. Silence beats
+    contradiction, but a true picture beats both.
+
+    The card renders the position AFTER the played move, so the mate picture
+    built for the post-mate board cannot be reused: after Bd5 the rook has not
+    gone to c8 and the bishop has left e6. What IS true of this board, and is
+    exactly the lesson:
+
+      c7 -> c8   the move that was mate
+      e6 -> d7   the squares the bishop was covering from the square it just
+      e6 -> f7   left, which is why the mate is gone
+
+    e6 is already highlighted as the from-square, so the two yellow lines read
+    as "your bishop was here, holding these". Every arrow is drawn in
+    board_before coordinates, which is the frame both boards share.
+    """
+    if board_before is None or played_move is None or not best_move_uci:
+        return []
+    geometry = _mate_geometry_arrows(board_before, best_move_uci)
+    if not geometry:
+        return []
+    try:
+        mate_move = chess.Move.from_uci(str(best_move_uci))
+    except (ValueError, AssertionError):
+        return []
+    # The mating move itself, not the piece-to-king line: on this board the
+    # mating piece has not moved yet, so showing where it would GO is the
+    # instruction.
+    arrows: List[Dict[str, str]] = [{
+        "from": chess.square_name(mate_move.from_square),
+        "to": chess.square_name(mate_move.to_square),
+        "color": "red",
+        "teach": True,
+    }]
+    # Keep the cover lines, minus any that start from a square the played move
+    # has since filled or emptied in a way that makes them unreadable.
+    for arrow in geometry[1:]:
+        if arrow["from"] == chess.square_name(mate_move.to_square):
+            continue
+        arrows.append(dict(arrow))
+    return arrows[:4]
+
+
+def shape_arrows_survive_mate_picture(
+    mate_picture: Optional[List[Dict[str, str]]],
+    best_move_arrows: Optional[List[Dict[str, str]]],
+) -> bool:
+    """False when the mate picture owns the card and the shape arrows must go.
+
+    Mohit 2026-10-06, with the badge and caption both already fixed: "now shows
+    missed mate, but arrows are still showing for missed skewer". The card read
+    "Bd5 missed a checkmate" over an alignment picture (e8->d8, d8->c7, d5->a8)
+    that a shape detector had drawn independently. Two surfaces agreeing and
+    the loudest one still telling the old story.
+
+    The mate geometry cannot just be moved onto the main board: it is true of
+    the position AFTER the mating move, which is why it carries its own FEN. On
+    the board the player sees, their bishop has already left e6, so e6->d7 is
+    not a line that exists there. So the shape arrows go rather than get
+    replaced -- silence beats contradiction -- and the mate picture stays on
+    the surface whose board it is true of.
+    """
+    return not (bool(mate_picture) and bool(best_move_arrows))
+
+
+def _mate_geometry_arrows(
+    board_before: Optional[chess.Board],
+    best_move_uci: Optional[str],
+) -> List[Dict[str, str]]:
+    """Show WHY the mate is mate: who covers the king's squares, and what of
+    theirs is in the way.
+
+    Mohit 2026-10-05, on the Rc8# card: "this is a proper mating pattern, if
+    all squares of king are taken by our bishop and it's just behind it's own
+    pawn so that's also taken, you know, this is a geometry to learn and
+    remember".
+
+    On `rn2kb1r/2R1p2p/p3B1p1/5p2/3pn3/7N/1PP2PPP/2B1K2R w` the king on e8 is
+    mated by Rc8 because the bishop on e6 covers d7 and f7 while their own pawn
+    on e7 and bishop on f8 take the rest. The card drew c7->c8 and said
+    "forcing move at the exposed king", which names the move and teaches none
+    of that. A player who sees the two bishop lines learns a pattern; a player
+    who sees one rook arrow learns one move.
+
+    Right-or-silent, and board-verified: nothing is drawn unless the move
+    really is checkmate, and every cover arrow is a square the king would use,
+    attacked by the named piece of ours.
+    """
+    if board_before is None or not best_move_uci:
+        return []
+    try:
+        after = board_before.copy()
+        mate_move = chess.Move.from_uci(str(best_move_uci))
+        if mate_move not in after.legal_moves:
+            return []
+        after.push(mate_move)
+    except (ValueError, AssertionError):
+        return []
+    if not after.is_checkmate():
+        return []
+
+    mated = after.turn                      # the side now to move is mated
+    king_square = after.king(mated)
+    if king_square is None:
+        return []
+
+    # The arrow starts where the mating piece ENDS UP. This picture renders on
+    # the board after the mating move, where c7 is empty and the rook is on c8
+    # -- the first version drew from c7 and so began on a bare square.
+    arrows: List[Dict[str, str]] = [{
+        "from": chess.square_name(mate_move.to_square),
+        "to": chess.square_name(king_square),
+        "color": "red",
+        "teach": True,
+    }]
+
+    # Every square the king would run to, and the piece of ours covering it.
+    # Squares blocked by their OWN men need no arrow -- the board already shows
+    # the obstruction, and an arrow pointing at their own pawn would read as an
+    # attack on it.
+    for square in chess.SQUARES:
+        if square == king_square:
+            continue
+        if chess.square_distance(square, king_square) != 1:
+            continue
+        occupant = after.piece_at(square)
+        if occupant is not None and occupant.color == mated:
+            continue                        # their own piece is in the way
+        for coverer in after.attackers(not mated, square):
+            if coverer == mate_move.to_square:
+                continue                    # the mating piece is already drawn
+            arrows.append({
+                "from": chess.square_name(coverer),
+                "to": chess.square_name(square),
+                "color": "yellow",
+                "teach": True,
+            })
+            break
+        if len(arrows) >= 4:
+            break
+    return arrows
+
+
+def _abandoned_defender_arrows(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    *,
+    mover_is_user: bool,
+    cp_loss: int,
+    pv_after_played: Optional[Sequence[str]] = None,
+) -> List[Dict[str, str]]:
+    """Draw the piece the move stopped defending, and the hand that takes it.
+
+    Mohit 2026-10-05, on the Qh5+ card: "i think arrows could be better, you
+    know, may be one more step ahead... the problem was knight was already
+    under attack and he got his queen too under attack with the pawn now, but
+    arrows should also show attacked knight".
+
+    On `rn1qkbnr/1bp1p1pp/p7/5p2/1p1PN3/1B3Q2/PPP2PPP/R1B1K1NR w` the knight on
+    e4 is attacked TWICE -- the f5 pawn and the b7 bishop -- and defended once,
+    by the queen on f3. Qh5+ is the defender walking away. The caption says so
+    ("runs into fxe4, losing your knight on e4") but every arrow pointed at the
+    queen, because _punishment_arrows draws pv_after_played[0] and the engine's
+    immediate reply here is g6: a block that also hits the queen. The capture
+    the sentence is about, fxe4, is three plies further on, and nothing looked
+    that far.
+
+    So this walks the stored line for the capture of a piece this move had been
+    defending, and draws THAT. The claim still answers to the engine -- the
+    capture has to appear in the line, we never infer it from the static board,
+    which is the mistake that produced 34% bad arrows before v181.
+
+    Measured over the corpus: 18,884 user moves (3.15%) move a defender of an
+    already-attacked piece, 18,691 of them its ONLY defender, and in 3,272 the
+    engine's line really does take it. 2,095 are attacked two or more times
+    like this one, where the second attacker is drawn too so the picture says
+    "two onto one" rather than merely "this is hanging".
+    """
+    if board_before is None or played_move is None:
+        return []
+    if not mover_is_user or (cp_loss or 0) < 100:
+        return []
+    if not pv_after_played:
+        return []
+
+    mover = board_before.turn
+    enemy = not mover
+
+    # Pieces we were defending that the opponent ALREADY attacked. The move
+    # leaving is what changes the count, so a piece nobody was eyeing is not
+    # this lesson.
+    at_risk = set()
+    for square in chess.SQUARES:
+        piece = board_before.piece_at(square)
+        if not piece or piece.color != mover or piece.piece_type == chess.KING:
+            continue
+        if square == played_move.from_square:
+            continue
+        if not board_before.attackers(enemy, square):
+            continue
+        if played_move.from_square not in board_before.attackers(mover, square):
+            continue
+        at_risk.add(square)
+    if not at_risk:
+        return []
+
+    try:
+        board = board_before.copy()
+        board.push(played_move)
+    except Exception:
+        return []
+
+    # When their very next move takes something ELSE, that is the punishment
+    # and _punishment_arrows draws exactly it; reaching past it to a deeper
+    # capture makes the picture less direct, not more. When the immediate
+    # capture IS one of the pieces we stopped defending, we keep going -- the
+    # primary arrow comes out the same and the second attacker gets drawn too.
+    #
+    # Measured over 400 games. Of 156 cards this fires on, 133 drew the same
+    # primary arrow as the punishment picture and only added the second
+    # attacker, which is worth keeping. Of the 14 that genuinely differed,
+    # several were overriding an immediate capture (Bxg3, Rxb6, Bxg5) with one
+    # three plies later; this gate drops those to 3. A blanket defer-on-capture
+    # fixed the 14 but threw away all 133 enrichments, which is why the test
+    # is on the SQUARE and not merely on is_capture.
+    try:
+        first = board.parse_san(str(list(pv_after_played)[0]))
+        if board.is_capture(first) and first.to_square not in at_risk:
+            return []
+    except (ValueError, AssertionError, IndexError):
+        return []
+
+    for san in list(pv_after_played)[:6]:
+        try:
+            move = board.parse_san(str(san))
+        except (ValueError, AssertionError):
+            return []
+        if move not in board.legal_moves:
+            return []
+        if (board.turn == enemy
+                and move.to_square in at_risk
+                and board.is_capture(move)):
+            victim = chess.square_name(move.to_square)
+            arrows: List[Dict[str, str]] = [{
+                "from": chess.square_name(move.from_square),
+                "to": victim,
+                "color": "red",
+                "teach": True,
+            }]
+            # The other attacker, when there is one. "Two of theirs onto one of
+            # yours" is the countable fact the lesson rests on, and it is
+            # invisible if only the capture is drawn.
+            for other in board.attackers(enemy, move.to_square):
+                if other == move.from_square:
+                    continue
+                arrows.append({
+                    "from": chess.square_name(other),
+                    "to": victim,
+                    "color": "yellow",
+                    "teach": True,
+                })
+                break
+            return arrows
+        board.push(move)
+    return []
 
 
 def _punishment_arrows(
@@ -4928,6 +5873,429 @@ def _punishment_arrows(
         ]
     except Exception:
         return []
+
+
+# No hyphen or en dash in this set. These captions write square
+# references as "the b7-pawn" and "the e-file", and a hyphen here made
+# that look like the move b7. Leaving it out also stops O-O matching
+# inside O-O-O, which is the behaviour wanted.
+_SAN_TOKEN_STOPS = set(" \t\n.,;:!?()[]—’'\"")
+
+
+def _names_the_move(text, san):
+    """True when `san` appears in `text` as a standalone move token.
+
+    A token check on a SAN this code generated, not a judgement about chess.
+    Written as an explicit scan rather than a regex because SAN carries `+`,
+    `#` and `=`, which word-boundary classes split in the wrong places, and
+    because a word-boundary escape written through a shell heredoc has twice
+    arrived in this file as a literal backspace that matched nothing.
+    """
+    if not text or not san:
+        return False
+    san = san.strip()
+    start = 0
+    while True:
+        i = text.find(san, start)
+        if i < 0:
+            return False
+        before_ok = i == 0 or text[i - 1] in _SAN_TOKEN_STOPS
+        j = i + len(san)
+        after_ok = j >= len(text) or text[j] in _SAN_TOKEN_STOPS
+        if before_ok and after_ok:
+            return True
+        start = i + 1
+
+
+def _lead_with_the_stalemate(caption, *, played_san, mover_is_user,
+                             threw_away_win, best_move_san=None):
+    """Put the draw in front of whatever the rules produced.
+
+    The tail is kept only when it names the better move. Everything else on
+    these cards is floor text, written because nothing better had fired -- the
+    open file, the calm position, the tidy king -- and on the move that ended
+    the game it reads as praise.
+
+    The move is named once. All 68 user-side tails here already open with the
+    played move ("Kg3 misses mate in 3", "You played Kg3; ..."), so naming it
+    in the lead as well said it twice; the lead names it only when nothing
+    after it will. docs/stalemate_scope.md
+    """
+    tail = (caption or "").strip()
+    keep_tail = bool(tail) and _names_the_move(tail, best_move_san)
+    tail_names_played = keep_tail and _names_the_move(tail, played_san)
+    them = "your opponent" if mover_is_user else "you"
+    subject = "Your opponent" if them == "you" else "You"
+
+    if tail_names_played:
+        left = f"{them.capitalize()} was left with no legal move"
+    else:
+        left = f"{played_san} leaves {them} with no legal move"
+
+    if threw_away_win and mover_is_user:
+        lead = f"You had this won. {left[0].upper()}{left[1:]}, so the game is a draw by stalemate."
+        principle = ("When you are winning easily, check your opponent has a "
+                     "move before you play.")
+    elif threw_away_win:
+        lead = (f"Your opponent was winning. {left[0].upper()}{left[1:]}, so "
+                f"the game is a draw by stalemate.")
+        principle = ("Keep playing when you are losing. Your opponent can "
+                     "still go wrong.")
+    else:
+        lead = f"{left[0].upper()}{left[1:]}, so the game is a draw by stalemate."
+        principle = ""
+
+    if keep_tail:
+        return f"{lead} {tail}"
+    if principle:
+        return f"{lead} {principle}"
+    return lead
+
+
+_OPP_MISSED_SAN_FACTS = (
+    "opp_missed_capture_san",
+    "opp_missed_mate_san",
+    "opp_missed_tactic_san",
+)
+
+
+# ── Which story is this card? ────────────────────────────────────────
+#
+# Mohit's rule, 2026-10-07: "when an arrow tells mistake or blunder any side
+# (me or opponent) you should first find out if it's a bad move that opponent
+# can punish or an opportunity lost... once you have that, build on it with my
+# rule."
+#
+# One decision per card, made before any arrow is chosen, so every builder
+# answers to the same verdict instead of each guessing on its own.
+#
+# cp_loss cannot tell these apart -- it is the same number in both. What tells
+# them apart is WHERE the material moves, and Stockfish already stored both
+# lines:
+#
+#   PUNISHMENT  the played line loses us material      -> draw what they do to us
+#   OPPORTUNITY the played line is level, the best      -> draw the move we missed
+#               line wins material
+#   NEITHER     neither line moves material            -> claim nothing about material
+#
+# NEITHER is not a failure case, it is the honest one. Measured 2026-10-07 over
+# 4,000 user mistakes: the material story is simply absent on most of them, and
+# that is where the fabricated captions come from -- "you simply lose it for
+# nothing" on a move that traded knight for knight.
+#
+# No engine call: both lines are already on the card. 0.79ms per move measured
+# over 2,000 real cards.
+
+_STORY_PIECE_VALUES = {
+    chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+    chess.ROOK: 5, chess.QUEEN: 9,
+}
+
+# Two pawns, picked from the distribution and not by taste. Measured
+# 2026-10-07 over 4,000 user mistakes against 4,946 engine-approved moves:
+#
+#   played_swing <= -1 : 34.0% of mistakes,  0.2% of good moves   168x
+#   played_swing <= -2 : 21.3% of mistakes,  0.1% of good moves   210x
+#   played_swing <= -3 : 15.6% of mistakes,  0.0% of good moves   770x
+#   (best-played) >= +1: 36.5% of mistakes,  1.4% of good moves    25x
+#   (best-played) >= +2: 19.8% of mistakes,  1.0% of good moves    20x
+#
+# One pawn already discriminates, but a 12-ply line that happens to stop in
+# the middle of an exchange shows a spurious one-pawn swing -- truncation
+# noise, not a punishment. Two pawns is out of that artifact's reach, and it
+# puts the Nxd2 card (knight traded for knight, -1 over twelve plies) in
+# `neither`, which is where reading the board by hand had already put it.
+#
+# For contrast, the positional detector measured the same day -- "traded a
+# protected outpost for a passive piece" -- ran at 1.2x to 1.7x against its
+# own base rate and was NOT built. A control run is the price of admission.
+# The two axes take different floors, and the distribution is why.
+#
+# PUNISHMENT reads one absolute number off the end of a 12-ply line, so a line
+# that stops mid-exchange shows a spurious one-pawn loss. Two pawns is out of
+# that artifact's reach, and it puts Nxd2 (knight for knight, -1 over twelve
+# plies) in `neither`, where reading the board by hand had already put it.
+#
+# OPPORTUNITY is a DIFFERENCE between two lines, where that artifact largely
+# cancels, and a clean free pawn is worth exactly 1 -- the Nxe4 card. The
+# measurement agrees: >= +1 gives 25x lift, better than >= +2's 20x. Raising
+# it would throw away free pawns to buy nothing.
+STORY_PUNISHMENT_FLOOR = 2
+STORY_OPPORTUNITY_FLOOR = 1
+
+
+def _story_material(board, side):
+    ours = theirs = 0
+    for piece in board.piece_map().values():
+        v = _STORY_PIECE_VALUES.get(piece.piece_type, 0)
+        if piece.color == side:
+            ours += v
+        else:
+            theirs += v
+    return ours - theirs
+
+
+def _story_swing(board_before, first_san, line, side):
+    """Net material for `side` across first_san + line. None if unplayable.
+
+    `start` is measured BEFORE the first move, not after. Measuring it after
+    silently drops the material that move itself takes, which classified a
+    free pawn grab as "nothing happened" (the Nxe4 card) and an even knight
+    trade as a 4-point loss (the Nxd2 card).
+    """
+    board = board_before.copy()
+    start = _story_material(board, side)
+    try:
+        if first_san:
+            board.push_san(str(first_san))
+    except (ValueError, AssertionError):
+        return None
+    for san in line or ():
+        try:
+            board.push_san(str(san))
+        except (ValueError, AssertionError):
+            break
+    return _story_material(board, side) - start
+
+
+def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
+                        best_move_san=None):
+    """Return (story, detail). story is 'punishment' | 'opportunity' | 'neither'.
+
+    `detail` carries what the arrows need: for a punishment, the line the
+    opponent plays; for an opportunity, the move that was missed.
+    """
+    try:
+        board = chess.Board(str(fen_before))
+        mover = board.turn
+    except Exception:
+        return "neither", {}
+
+    played_swing = _story_swing(board, played_san, pv_after_played, mover)
+    best_swing = _story_swing(board, best_move_san, pv_after_best, mover)
+
+    # The opportunity is judged at SHORT range: the missed move plus the one
+    # reply to it. That is the least you need to see whether a capture gets
+    # answered, and it is what separates a real chance from line drift.
+    #
+    # Measured on three cards read by hand first. Nxe4 -- a genuinely free
+    # pawn -- shows +1 at every horizon including the move itself. Nxd2 and
+    # Nc4 show 0 at short range and only reach +1 at ply 12, where the two
+    # lines have wandered into different positions and the difference is an
+    # artifact of where each one stopped. Comparing endpoints of two 12-ply
+    # lines measures the lines, not the choice.
+    _short = 2
+    played_short = _story_swing(board, played_san,
+                                list(pv_after_played or ())[:_short], mover)
+    best_short = _story_swing(board, best_move_san,
+                              list(pv_after_best or ())[:_short], mover)
+
+    detail = {
+        "played_material_swing": played_swing,
+        "best_material_swing": best_swing,
+        "played_material_swing_short": played_short,
+        "best_material_swing_short": best_short,
+    }
+
+    # OPPORTUNITY IS ASKED FIRST, and the order is the whole point.
+    #
+    # Mohit 2026-10-08 on move 20 Qh4 of 043d6b9c, an opponent blunder:
+    # "i don't think this is punishment, this is opportunity... read out
+    # stockfish". He was right and the engine says so plainly: before Qh4
+    # white is +4.80 with Nxh7 Kxh7 Qh3+ Kg8 Qxf5 winning a rook, and after
+    # Qh4 it is -0.98. Nobody refutes Qh4. Black plays h6 and consolidates.
+    #
+    # Both axes fired on that card, and punishment used to win because it was
+    # tested first. But its -4 does not exist until ply 8 -- slow drift long
+    # after the moment -- while the missed win is on the board at ply 0. A
+    # horizon cut cannot separate the two: the real punishment on move 17 Be6
+    # is also only -1 by ply 6 and -3 by ply 8, the same shape. What differs
+    # is that Qh4 has a large EARLY opportunity beside it and Be6 has none.
+    #
+    # So when a move both throws away a win and drifts into material later,
+    # the win it threw away is the lesson, and the drift is its consequence.
+    # Asking opportunity first says that, and it is measured at short range
+    # already, so it only wins when the chance was really there and visible.
+    # The best move must actually WIN something, not merely avoid a loss.
+    # Testing the DIFFERENCE alone was wrong: it goes large whenever the
+    # PLAYED move loses material, so asking opportunity first made it swallow
+    # punishments -- 508 of 1,578 cards called an opportunity were also losing
+    # 2+ immediately ("b5, short played -3, best +0"). A missed chance means
+    # there was something there to take.
+    if (best_short is not None and played_short is not None
+            and best_short >= STORY_OPPORTUNITY_FLOOR
+            and best_short - played_short >= STORY_OPPORTUNITY_FLOOR
+            and played_short > -STORY_PUNISHMENT_FLOOR):
+        detail["missed_move"] = best_move_san
+        return "opportunity", detail
+
+    # Otherwise: they take something off us because of the move we played.
+    if played_swing is not None and played_swing <= -STORY_PUNISHMENT_FLOOR:
+        detail["punishment_line"] = list(pv_after_played or ())
+        return "punishment", detail
+
+    return "neither", detail
+
+
+def _missed_move_arrow(board_before, board_after, facts, caption):
+    """One arrow for the move they missed, when the board still shows it.
+
+    Mohit 2026-10-07, on move 5 of 413fcce2 -- "Opponent's O-O is a mistake --
+    they had Nxe4, grabbing your pawn on e4 for free": "you already saw a
+    knight could take the pawn and then there is no action, so there is no
+    recapture, so obviously it was winning, in that case there should have
+    only been one arrow, correct?"
+
+    He is right. Nothing recaptures on e4, so the idea is complete in one move
+    and there is no line to walk. The card drew five arrows of the engine's
+    plan for the OTHER side, and once those were dropped it drew none.
+
+    The move is taken from the FACT the sentence was built from, never from
+    the sentence. The first attempt asked whether the caption contained the
+    SAN, and over 3,311 opponent cards that admitted plain wrong pictures: a
+    card reading "Bishop out before Nf3 keeps the f4 option open" drew g1->f3,
+    and one reading "Play O-O -- it tucks your king away" -- an instruction to
+    US -- drew THEIR king castling. A string match cannot license a claim
+    about the board. `opp_missed_capture_san` and its two siblings are what
+    `R12_blunder.opp_failure_missed_capture` renders from, so an arrow built
+    from them is drawing the move the sentence is actually about.
+
+    The board is still asked as well. The standing rule was never to draw
+    their better move, because it is legal before their move and not on the
+    board the card renders, and "a picture of a position the player cannot
+    see" is the fault this file has spent months removing. That rule is right
+    whenever the played move disturbed the squares involved and too blunt when
+    it did not: castling moved e8->g8 and h8->f8, the knight is still on f6
+    and the pawn still on e4, so f6->e4 reads exactly as it should. A null
+    move hands the turn back -- the same technique the threat test uses -- and
+    the move must still be legal after it. That fails precisely when the piece
+    has moved, the target is gone, or the path is now blocked.
+    """
+    if board_before is None or board_after is None or not isinstance(facts, dict):
+        return []
+    # The move comes from the VERDICT, which holds Stockfish's own best move.
+    #
+    # It used to come from the detector facts below, and they are gated far
+    # more narrowly than the verdict: measured over 486 opponent cards the
+    # classifier calls an opportunity, the detector fact was absent on 287
+    # (59%) and the card drew nothing -- while 286 of those 287 missed moves
+    # are plain captures. Rxa8, Bxc5, Rxf5, Bxg5. The engine knew, the verdict
+    # agreed, and the arrow asked a third party that said nothing.
+    #
+    # The detector facts stay as a fallback, because they also carry missed
+    # MATES and tactics that the material classifier records differently.
+    best_san = None
+    story_detail = facts.get("move_story_detail")
+    if facts.get("move_story") == "opportunity" and isinstance(story_detail, dict):
+        best_san = story_detail.get("missed_move") or None
+    if not best_san:
+        for key in _OPP_MISSED_SAN_FACTS:
+            value = facts.get(key)
+            if value:
+                best_san = str(value)
+                break
+    if not best_san:
+        return []
+    best_san = str(best_san)
+    # The fact licenses the chess claim; this only asks that the words on the
+    # card explain the picture beside them. 42 of 230 cards carrying the fact
+    # rendered a variant that never mentions the move, and an arrow nobody
+    # explained is the complaint that started all of this.
+    if not _names_the_move(str(caption or ""), best_san):
+        return []
+    try:
+        move = board_before.parse_san(best_san)
+    except (ValueError, AssertionError):
+        return []
+    probe = board_after.copy()
+    try:
+        probe.push(chess.Move.null())
+    except (ValueError, AssertionError):
+        return []
+    if move not in probe.legal_moves:
+        return []
+    return [{
+        "from": chess.square_name(move.from_square),
+        "to": chess.square_name(move.to_square),
+        "color": "blue",
+        "teach": True,
+    }]
+
+
+def _say_the_missed_chance(board_before, best_san, mover_is_user, caption):
+    """Name the chance that was there, and what it takes. Or say nothing.
+
+    Mohit 2026-10-07, after the arrows started obeying the verdict: the words
+    still did not. A card whose verdict is `opportunity` knows the move the
+    engine wanted, and 171 of 1,322 such cards never mentioned it -- they said
+    "Bb7.", or "you still have 4 pieces waiting at home", while the engine had
+    a move worth up to eight pawns. The arrow was then suppressed too, because
+    an arrow nobody explains is the fault this file exists to prevent, so the
+    lesson reached the player in neither form.
+
+    This speaks ONLY where the board can say why:
+
+        the move is mate          -> say it is mate
+        the move captures         -> name the piece and square it takes
+        quiet, or a check whose   -> say NOTHING. "Qf6 was better" with no
+        point lands later            reason is the thing we are trying to
+                                     stop; silence is better than a bare SAN.
+
+    That covers 129 of the 171 (75%). The other 42 keep their caption as it is
+    and still draw no arrow, which is honest: we cannot explain the move, so we
+    do not point at it.
+
+    Returns the sentence, or "" .
+    """
+    if board_before is None or not best_san:
+        return ""
+    if _names_the_move(str(caption or ""), best_san):
+        return ""          # the card already says it
+    try:
+        move = board_before.parse_san(str(best_san))
+    except (ValueError, AssertionError):
+        return ""
+    if move not in board_before.legal_moves:
+        return ""
+
+    after = board_before.copy()
+    after.push(move)
+    subject = "You had" if mover_is_user else "Your opponent had"
+
+    if after.is_checkmate():
+        return f"{subject} {best_san}, which is checkmate."
+
+    if not board_before.is_capture(move):
+        return ""          # nothing the board can point at
+
+    # A SACRIFICE must not be sold as a capture. Nxh7 on move 20 of 043d6b9c
+    # takes a pawn and loses a knight to Kxh7; its point is the deflection
+    # that wins the rook two plies later. "taking your pawn on h7" is true
+    # about the first move and false about the idea, which is the exact
+    # failure this whole thread has been about. If the capture does not stand
+    # up on its own square, the board cannot say why the move was good here,
+    # so nothing is said.
+    try:
+        from services.caption_facts import legal_exchange_gain
+        _gain = legal_exchange_gain(
+            board_before, move.to_square, board_before.turn, first_move=move
+        )
+    except Exception:
+        _gain = None
+    if _gain is not None and _gain < 0:
+        return ""
+
+    victim = board_before.piece_at(move.to_square)
+    if victim is None:     # en passant: the pawn is not on the landing square
+        return f"{subject} {best_san}, taking a pawn."
+    piece_name = chess.piece_name(victim.piece_type)
+    square = chess.square_name(move.to_square)
+    owner = "their" if mover_is_user else "your"
+    # Nothing defends it -- the strongest, simplest version of the fact.
+    if not after.attackers(after.turn, move.to_square):
+        return (f"{subject} {best_san}, taking {owner} {piece_name} on "
+                f"{square} for free.")
+    return f"{subject} {best_san}, taking {owner} {piece_name} on {square}."
 
 
 def build_move_teaching_decision(
@@ -5143,6 +6511,72 @@ def build_move_teaching_decision(
             caption_facts = {}
 
     inject_practical_severity_facts(caption_facts, practical)
+
+    # ── Which story is this card? One decision, before any arrow. ──────
+    # Mohit 2026-10-07: "when an arrow tells mistake or blunder any side (me or
+    # opponent) you should first find out if it's a bad move that opponent can
+    # punish or an opportunity lost... once you have that, build on it with my
+    # rule." Every builder answers to this verdict instead of each deciding on
+    # its own, which is how one card ended up with words about c4 and an arrow
+    # for Bb5.
+    _story, _story_detail = classify_move_story(
+        inputs.fen_before, inputs.played_san,
+        list(inputs.pv_after_played or ()), list(inputs.pv_after_best or ()),
+        inputs.best_move_san,
+    )
+    caption_facts["move_story"] = _story
+    caption_facts["move_story_detail"] = _story_detail
+
+    # ─── Forced mate, BEFORE the caption is written ────────────────────
+    #
+    # Mohit 2026-09-29 on move 31 of d75acb09, a card reading "You played
+    # Rad2; Ka3 was the stronger move here -- Rad2 lets Qa1+ come in with
+    # check": "caption should clearly mention about check mate."
+    #
+    # The stored line for that move is ['Qa1+', 'Ra2', 'Qxa2#'] -- the mate is
+    # in the card's own data -- and build_verified_line_cause returns
+    # lesson_kind='allowed_forced_mate', mate_in=2 for it. The fact was never
+    # missing. It was computed AFTER the caption had already been written and
+    # attached to candidate_comparison, a different surface, so the sentence
+    # fell through to the generic floor and called a forced mate a check.
+    #
+    # So it moves up here, where the rules can still read it. Computed once
+    # and handed to the later call site rather than run twice: it replays two
+    # stored lines and runs no engine, but it is not free either.
+    exact_line_cause = None
+    if inputs.mover_is_user and inputs.best_move_san:
+        try:
+            exact_line_cause = build_verified_line_cause(
+                fen_before=inputs.fen_before,
+                played_san=inputs.played_san,
+                best_move_san=inputs.best_move_san,
+                pv_after_played=tuple(inputs.pv_after_played or ()),
+                pv_after_best=tuple(inputs.pv_after_best or ()),
+                cp_loss=int(inputs.cp_loss or 0),
+            )
+        except Exception:
+            logger.exception("[caption_pipeline] verified line cause failed")
+            exact_line_cause = None
+    # No stalemate guard here, deliberately. 13 stored cards read "allows mate
+    # in N" about a move after which there are no moves -- but all 132 of those
+    # positions carry an EMPTY pv_after_played, because the game ended, so
+    # `allowed_forced_mate` cannot be built for them at all. A guard here moved
+    # 0 of 132. Those stored claims came from code that no longer exists; the
+    # fix for them is a re-render. See
+    # test_stalemate_threw_away_the_win.TestWhyNoMateGuardHere.
+    if exact_line_cause is not None and exact_line_cause.mate_in:
+        if exact_line_cause.lesson_kind == "allowed_forced_mate":
+            caption_facts["allows_forced_mate"] = True
+            caption_facts["allowed_mate_in"] = int(exact_line_cause.mate_in)
+            # The move that starts it, so the sentence can name something the
+            # player can find on the board rather than assert "mate" abstractly.
+            caption_facts["allowed_mate_first_move"] = exact_line_cause.reply_san
+            caption_facts["allowed_mate_word"] = (
+                "move" if int(exact_line_cause.mate_in) == 1 else "moves"
+            )
+        elif exact_line_cause.lesson_kind == "missed_forced_mate":
+            caption_facts["missed_forced_mate_line"] = True
+            caption_facts["missed_forced_mate_in"] = int(exact_line_cause.mate_in)
 
     # ─── Order mirrors V5 service per-move loop exactly (verified
     # against game_decryption_v5_service.py callsites — zero-diff
@@ -6117,10 +7551,21 @@ def build_move_teaching_decision(
                 _re_pb.escape(_bm)
                 + r" (?:was (?:the )?(?:better|stronger) move(?: here)?|"
                   r"was better|would have made things harder for your opponent)"
-                  r"(?:\s*[—-]\s*[^.]*)?\."
+                  r"(?P<reason>\s*[—-]\s*[^.]*)?\."
             )
             _wb_m = _re_pb.search(_wb_pat, _cap_wb)
-            if _wb_m and " — it " not in _wb_m.group(0):
+            # Skip when the shell ALREADY carries a reason, whatever it opens
+            # with. The old guard tested for the literal " — it ", so a clause
+            # beginning "it's" slipped through the space and was overwritten --
+            # which is why "it's the textbook refutation in the Fried Liver
+            # Attack" never reached a card: 4 of 17,689 stored reviews name a
+            # trap, and 302 of 305 games where the player held the punishment
+            # say nothing. 12 of the 37 authored user why-clauses do not start
+            # with "it " and were all being replaced by the generic one:
+            # curriculum deviation, knight-on-rim, queen-chased, un-developing,
+            # blocks-pawn, position-already-losing, and the trap punishment.
+            _wb_existing = (_wb_m.group("reason") or "").strip(" —-") if _wb_m else ""
+            if _wb_m and not _wb_existing:
                 caption_payload["caption"] = (
                     _cap_wb[:_wb_m.start()]
                     + f"{_bm} was better — it {_bw}."
@@ -6186,6 +7631,36 @@ def build_move_teaching_decision(
                 import dataclasses as _dcs
                 _tdc_inputs = _dcs.replace(inputs, move_was_our_recommendation=True)
             _dc = _tdc(_tdc_inputs)
+            # ── The words answer to the same verdict as the picture. ───────
+            #
+            # Mohit, 2026-10-07: "worry about the foundation, the logic, the
+            # core that keeps it working perfectly."
+            #
+            # These templates are fixed sentences that ASSERT material moved.
+            # They cannot describe a trade honestly, so they may only speak
+            # when the verdict says material actually moved, and in the
+            # direction they claim.
+            #
+            # `one_move_blunder` already carried a guard: abstain unless the
+            # opponent's reply wins the piece outright. It measures ONE move
+            # from the board after ours, and on move 10 of 043d6b9c Qxd2 really
+            # does win a knight there with no recapture -- gain 300 against a
+            # threshold of 240, so it fired. What it cannot see is that our
+            # knight reached d2 by taking a knight: the exchange began a move
+            # earlier and the sequence is even. The card then read "you simply
+            # lose it for nothing" about a knight traded for a knight, and
+            # closed by telling the player to "count the trade first".
+            #
+            # The verdict already walks the whole line, so it is the thing to
+            # ask. Same blind spot, same answer as the arrows got.
+            _CLAIMS_WE_LOSE = ("one_move_blunder", "walked_into_tactic")
+            _CLAIMS_WE_MISSED = ("missed_free_material",)
+            if _dc and _dc[0]:
+                _label = str(_dc[1] or "").split(":")[-1]
+                if _label in _CLAIMS_WE_LOSE and _story != "punishment":
+                    _dc = None
+                elif _label in _CLAIMS_WE_MISSED and _story != "opportunity":
+                    _dc = None
             if _dc and _dc[0]:
                 caption_payload["caption"] = _dc[0]
                 caption_payload["rule_name"] = _dc[1]
@@ -6422,6 +7897,29 @@ def build_move_teaching_decision(
     # later and could bypass it.  If the composed text fails, first retain the
     # already-verified board explanation; only then use the deterministic floor.
     _final_verified = False
+    # ONE proof licenses both the sentence and the arrow, so they cannot
+    # disagree. Measured over 400 games before shipping: back_rank_exposed is
+    # true on 136 of 2,312 mistake cards, and only 3 of those can show a mate.
+    # The other 133 are geometrically true and coachingly empty -- the same
+    # sentence landed up to six times in one game, and once onto an opening
+    # card about the Sicilian and the Caro-Kann. That is the principle bank
+    # all over again: text that looks like teaching and is not.
+    #
+    # A weaker gate was measured and rejected rather than guessed at: "the
+    # engine's own line sends a rook or queen to our back rank" fires on 25
+    # cards, and the first three inspected were Qxd1, Qxh8+ and Rxd8 -- plain
+    # captures that happen to land on the back row, nothing to do with mate.
+    #
+    # So the gate is the mate itself. Rare is the honest answer here; a motif
+    # this scarce is a puzzle problem, not a caption problem.
+    _back_rank_proof = (
+        back_rank_threat_arrows(board_before, played_move, inputs.pv_after_played)
+        if caption_facts.get("back_rank_exposed") else []
+    )
+    # Declared OUTSIDE the try: the arrows read it ~400 lines down, and a name
+    # that only exists on the happy path is a NameError waiting for a bad card
+    # -- this file has already lost a whole caption block that way.
+    _back_rank_said = False
     try:
         from services.narrator_claim_verifier import verify_caption as _stage4_verify
         from services.caption_fallback_tiers import tier23_caption as _stage4_floor
@@ -6508,6 +8006,144 @@ def build_move_teaching_decision(
                         )
                         _board_explanation = _safe
                         _rendered_personalization = False
+        # A stalemate ends the game as a draw, and 127 of the 132 corpus
+        # cards where a winning player stalemated never said so. One read
+        # "Your opponent tidys up the king, keeping it safe" on the move that
+        # turned a lost game into a draw.
+        #
+        # It lives here, not in a rule file, because it is a property of the
+        # board after the move rather than of any rule: those 132 come from 16
+        # different rules, and 64 are opponent moves carrying a stored cp_loss
+        # of 0 that every severity gate routes to the praise tiers. Patching
+        # one rule file moves 27 of 132.
+        #
+        # Leading matters twice: it is the headline, and the word cap cuts from
+        # the end, so what gets dropped is the less important half. Placed
+        # above the final verify so the result passes the same check as every
+        # other caption. docs/stalemate_scope.md
+        if caption_facts.get("played_is_stalemate"):
+            caption_payload["caption"] = _lead_with_the_stalemate(
+                caption_payload.get("caption") or "",
+                played_san=inputs.played_san,
+                mover_is_user=bool(inputs.mover_is_user),
+                threw_away_win=bool(
+                    caption_facts.get("played_stalemate_threw_away_win")
+                ),
+                best_move_san=inputs.best_move_san,
+            )
+            caption_payload["rule_name"] = (
+                (caption_payload.get("rule_name") or "") + "→STALEMATE_LEAD"
+            )
+            _board_explanation = caption_payload["caption"]
+
+        # The back-rank warning rides ALONG with the material reason, never
+        # instead of it. Mohit 2026-10-06: "this is backrank mate but doesn't
+        # show in caption or arrows". His card already said he drops a rook,
+        # which is true and is not the bigger danger: the king on g8 has f7, g7
+        # and h7 all filled by its OWN pawns, so a rook reaching the back row
+        # mates. Appended rather than substituted because losing the rook is
+        # still the first thing he needs to know.
+        #
+        # Not phrased as a mate claim: on that card Black holds with Be6 or
+        # Qf6, so the sentence says the king has no way out, which is true of
+        # the position whatever they choose.
+        #
+        # v198 ran this append ~400 lines further down, AFTER TextSurface had
+        # already copied caption_payload["caption"] into the decision. The
+        # sentence rendered correctly and was written into a dict nothing read
+        # again, so not one card ever carried it -- Mohit 2026-10-07: "you
+        # said, this was fixed, but not". It now sits where the stalemate
+        # lead-in sits, above the final verify, so the joined caption passes
+        # the same check as every other caption; a join that fails the check
+        # is dropped rather than dragging a verified card down with it.
+        # ...unless the mate rule is already teaching this exact lesson. On
+        # 3664ffcd m14 the card read "Your own pawns sealed the first rank and
+        # left your king nowhere to go -- that is a back-rank mate", and the
+        # append said it a second time in different words. The test is
+        # structural, not a search for words: R01_mate picks its variant from
+        # services/mate_lesson, the same module /admin/detector-review asks, so
+        # asking it here cannot drift from what the card actually said. That
+        # card already draws the mating move too, so suppressing both surfaces
+        # loses nothing.
+        _mate_rule_owns_it = False
+        if (caption_payload.get("rule_name") or "").startswith("R01_mate"):
+            try:
+                from services.mate_lesson import lesson_from_caption_facts
+                _mate_rule_owns_it = lesson_from_caption_facts({
+                    "fen_before": inputs.fen_before,
+                    "played_san": inputs.played_san,
+                    "pv_after_played": list(inputs.pv_after_played or []),
+                    "mate_info": caption_facts.get("mate_info"),
+                }) == "back_rank"
+            except Exception:
+                _mate_rule_owns_it = False
+        # Once per game, on the same restraint the conductor threads use. The
+        # mate proof alone does not stop the nag: on 7b966897 the king sat on
+        # e1 behind its own pawns for five straight moves, so Qc1# stayed
+        # provable and five cards in a row carried the identical sentence. A
+        # lesson repeated every move is a scoreboard, not coaching.
+        _BACK_RANK_KEY = ("back_rank_warning",)
+        _said_already = _BACK_RANK_KEY in state.fired_state_keys
+        if (_back_rank_proof and not _mate_rule_owns_it and not _said_already
+                and caption_payload.get("caption")):
+            try:
+                from services.caption_templates import render_template
+                _br = render_template(
+                    "R12_blunder", "back_rank_no_escape", caption_facts
+                )
+            except Exception:
+                _br = ""
+            if _br and _br not in caption_payload["caption"]:
+                _joined = caption_payload["caption"].rstrip() + " " + _br
+                if not _verify_final(_joined):
+                    caption_payload["caption"] = _joined
+                    if _board_explanation:
+                        _board_explanation = _joined
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "") + "→BACK_RANK"
+                    )
+                    _back_rank_said = True
+                    _fired_state_keys_added.add(_BACK_RANK_KEY)
+
+        # The verdict speaks in the words too, not only in the arrows.
+        #
+        # An `opportunity` card whose caption never names the move the engine
+        # wanted is a card that knows the lesson and withholds it -- and the
+        # arrow is then suppressed as well, because the picture may not say
+        # what the words do not. 171 of 1,322 opportunity cards were in that
+        # state. This leads with the chance, because it IS the lesson, and
+        # keeps whatever the card already said after it.
+        # Mate outranks material, and the classifier cannot see mate -- it
+        # only counts pieces. On one card the played move allowed mate next
+        # move and this wanted to open with "You had Bxd5, taking their
+        # knight on d5". A knight is not the subject of that card.
+        try:
+            from services.severity import MATE_SENTINEL_CP as _MATE_CP
+        except Exception:
+            _MATE_CP = 9000
+        _mate_on_the_board = bool(
+            caption_facts.get("allows_forced_mate")
+            or caption_facts.get("missed_forced_mate_line")
+            or (inputs.eval_after_cp is not None
+                and abs(int(inputs.eval_after_cp)) >= _MATE_CP)
+        )
+        if _story == "opportunity" and not _mate_on_the_board:
+            _missed_line = _say_the_missed_chance(
+                board_before,
+                (_story_detail or {}).get("missed_move"),
+                bool(inputs.mover_is_user),
+                caption_payload.get("caption"),
+            )
+            if _missed_line:
+                _tail = (caption_payload.get("caption") or "").strip()
+                caption_payload["caption"] = (
+                    f"{_missed_line} {_tail}" if _tail else _missed_line
+                )
+                caption_payload["rule_name"] = (
+                    (caption_payload.get("rule_name") or "") + "\u2192MISSED_CHANCE_SAID"
+                )
+                _board_explanation = caption_payload["caption"]
+
         _final_text = (caption_payload.get("caption") or "").strip()
         _final_verified = bool(
             _final_text and not _verify_final(_final_text)
@@ -6641,11 +8277,33 @@ def build_move_teaching_decision(
 
     if inputs.mover_is_user:
         _played_uci = played_move.uci() if played_move else ""
+        # The move WE missed, drawn on our own cards too.
+        #
+        # Mohit 2026-10-07, on move 13 c5 of 043d6b9c, reading the engine-paths
+        # panel: "verdict is opportunity, but no arrows." The verdict was right
+        # and nothing acted on it, because _missed_move_arrow was only ever
+        # wired on the opponent branch. His rule is "any side (me or
+        # opponent)", and this was only one side.
+        _user_after_board = None
+        if _story == "opportunity":
+            try:
+                _user_after_board = board_before.copy()
+                _user_after_board.push(played_move)
+            except Exception:
+                _user_after_board = None
         _teach_arrows = (
-            _check_attack_arrows(board_before, inputs.best_move_uci, _engine_line)
-            if _played_uci and _played_uci == (inputs.best_move_uci or "")
-            else []
+            _missed_move_arrow(
+                board_before, _user_after_board, caption_facts,
+                caption_payload.get("caption"),
+            )
+            if _user_after_board is not None else []
         )
+        if not _teach_arrows:
+            _teach_arrows = (
+                _check_attack_arrows(board_before, inputs.best_move_uci, _engine_line)
+                if _played_uci and _played_uci == (inputs.best_move_uci or "")
+                else []
+            )
     else:
         # Their move is on the board; what the card recommends is our reply.
         # When the payoff is delayed, the sequence picture explains more than
@@ -6681,9 +8339,30 @@ def build_move_teaching_decision(
             _reply_san and _normalize_san_for_match(_reply_san)
             in _normalize_san_for_match(_caption_text)
         )
-        if _caption_is_about_reply:
+        # The STORY chooses the branch. The text does not.
+        #
+        # This was `if the caption mentions our reply: draw our plan`, with the
+        # story bolted onto the else arm -- so the old text test still outranked
+        # it. On move 5 of 413fcce2 the caption says BOTH things: "they had
+        # Nxe4, grabbing your pawn on e4 for free. Play d4 -- your pawn kicks
+        # their bishop on c5." It saw "d4", took the first branch, and drew our
+        # plan on a card whose lesson is the move THEY missed. Mohit, twice:
+        # "there should have only been one arrow".
+        #
+        # An opportunity is about the move that was missed, full stop. Only
+        # when there is no opportunity does the card fall back to what we
+        # should do next, and only then does it matter whether the words name
+        # it.
+        if _story == "opportunity":
+            _teach_arrows = _missed_move_arrow(
+                board_before, _after_opp_board, caption_facts,
+                caption_payload.get("caption"),
+            )
+        elif _caption_is_about_reply:
             _teach_arrows = _line_sequence_arrows(
                 _after_opp_board, inputs.pv_after_played
+            ) or _line_sequence_arrows(
+                _after_opp_board, caption_facts.get("user_reply_pv")
             ) or _reply_attack_arrows(
                 board_before, played_move, _reply_san
             )
@@ -6691,8 +8370,52 @@ def build_move_teaching_decision(
             _teach_arrows = []
     # One picture per card. The check picture is rarer and more striking, so it
     # wins when both are available; otherwise show what the blunder gave away.
-    if not _teach_arrows:
-        _teach_arrows = _punishment_arrows(
+    # Their reply AND the piece it costs, in that order -- the two halves of
+    # one sentence, not a choice between them.
+    #
+    # v187 made this an either/or and Mohit caught it immediately: "now, it
+    # removed the arrow of g7 to g6 attacking the queen, the idea is to show
+    # player why this move is bad when he played Qh5, as he didn't see g6, you
+    # know while already knight is under attack, so 2 attacks and one is gone
+    # now". He is right, and the chain only reads with both: g6 blocks the
+    # check and hits the queen, so the queen has to move, so the knight it was
+    # defending falls. Drawing only the knight loses the cause; drawing only
+    # g6 was the v186 picture that never mentioned the knight.
+    # The sequence picture, for OUR mistakes too.
+    #
+    # Mohit 2026-10-07, on move 17 of 043d6b9c ("Be6 loses to Bxh7+", drawn as
+    # a lone d3->h7): "i want arrow to show up complete posisoin and i don't
+    # undresatnd why arrow missed this one... it just showed the first Bxh7+,
+    # why it stopped building further arrows?"
+    #
+    # Because _punishment_arrows returns after the first move when that move
+    # is a capture, and Bxh7+ is a capture. It was built to stop the picture
+    # CONTRADICTING the sentence, and it does that well; it was never built to
+    # tell a story. _line_sequence_arrows was, and it already knows this exact
+    # shape -- the sacrifice branch inside it carries Mohit's 2026-10-02 and
+    # 2026-10-06 notes -- but it was only ever wired on opponent cards.
+    #
+    # Same gate as _punishment_arrows (our move, real loss) so this cannot
+    # start drawing on quiet moves. It self-limits: it returns nothing unless
+    # our payoff is at least the third step, which is precisely the case the
+    # single-move builders cannot draw.
+    if not _teach_arrows and inputs.mover_is_user and (inputs.cp_loss or 0) >= 100:
+        _seq_board = None
+        try:
+            _seq_board = board_before.copy()
+            _seq_board.push(played_move)
+        except Exception:
+            _seq_board = None
+        if _seq_board is not None:
+            _teach_arrows = _line_sequence_arrows(
+                _seq_board, list(inputs.pv_after_played or ())
+            )
+
+    # Only a punishment card draws a punishment. On Nxd2 -- knight traded for
+    # knight, no material story -- this drew a red arrow for Qxd2, which is a
+    # recapture, not a refutation.
+    if not _teach_arrows and _story == "punishment":
+        _punish = _punishment_arrows(
             board_before,
             played_move,
             mover_is_user=inputs.mover_is_user,
@@ -6701,6 +8424,25 @@ def build_move_teaching_decision(
             # the narration block lost a whole section to exactly that slip.
             pv_after_played=list(inputs.pv_after_played or ()),
         )
+        _victim = _abandoned_defender_arrows(
+            board_before,
+            played_move,
+            mover_is_user=inputs.mover_is_user,
+            cp_loss=inputs.cp_loss,
+            pv_after_played=list(inputs.pv_after_played or ()),
+        )
+        # Four is the ceiling the other builders already observe, and the
+        # punishment half comes first because it is the move they play next.
+        _seen_pairs = set()
+        _teach_arrows = []
+        for _a in list(_punish) + list(_victim):
+            _key = (_a["from"], _a["to"])
+            if _key in _seen_pairs:
+                continue
+            _seen_pairs.add(_key)
+            _teach_arrows.append(_a)
+            if len(_teach_arrows) >= 4:
+                break
     if _teach_arrows:
         # On a collision the TAGGED copy wins. The old order kept the untagged
         # one, which the suppression filter below then stripped -- so a picture
@@ -6725,9 +8467,40 @@ def build_move_teaching_decision(
     # being dropped.
     _best_arrows: List[Dict[str, str]] = []
     _best_arrows_fen = ""
+    # Declared outside the branch on purpose: it is read again further down to
+    # decide whether the shape arrows are suppressed, and the branch does not
+    # always run. A name that only exists on some paths is how this file lost a
+    # whole caption block to a NameError swallowed by a bare except.
+    _mate_picture: List[Dict[str, str]] = []
     if not inputs.mover_is_user or (played_move and played_move.uci() != (inputs.best_move_uci or "")):
-        _candidate = _check_attack_arrows(
-            board_before, inputs.best_move_uci, _engine_line
+        # When the recommended move is MATE, show the mate rather than the
+        # attack. Mohit: "this is a proper mating pattern... this is a geometry
+        # to learn and remember". _check_attack_arrows draws what the move
+        # attacks, which on a mate is the king and nothing else; the lesson is
+        # which squares the king cannot use and who covers them.
+        _mate_picture = _mate_geometry_arrows(
+            board_before, inputs.best_move_uci
+        )
+        # Order matters: mate first, then the whole winning plan, then the
+        # single-move pictures. Mohit 2026-10-06: "i want to show the complete
+        # idea with arrow... so user can see everything together". A lone
+        # arrow onto a piece that then runs away teaches a 1000-rated player
+        # nothing; the chase is the lesson.
+        # Order matters, and v166's picture keeps its place. _check_attack_arrows
+        # is the one Mohit asked for in fb_1c52480b2e9b and three tests pin its
+        # exact output; the plan and the bare move are what fill the silence
+        # BELOW it, not replacements for it.
+        _candidate = (
+            _mate_picture
+            or _check_attack_arrows(
+                board_before, inputs.best_move_uci, _engine_line
+            )
+            or winning_plan_arrows(
+                board_before, inputs.best_move_uci, inputs.pv_after_best
+            )
+            or recommended_move_arrows(
+                board_before, inputs.best_move_uci, inputs.pv_after_best
+            )
         )
         if _candidate:
             try:
@@ -6738,6 +8511,121 @@ def build_move_teaching_decision(
             except Exception:
                 _best_arrows = []
                 _best_arrows_fen = ""
+    # When the lesson is a missed mate, the mate picture is the only picture.
+    #
+    # Mohit 2026-10-06, after the badge and caption were both fixed: "now shows
+    # missed mate, but arrows are still showing for missed skewer". He was
+    # looking at a card that said "Bd5 missed a checkmate" over an alignment
+    # picture -- e8->d8, d8->c7, d5->a8 -- drawn by a shape detector that had
+    # fired independently. Three surfaces, two of them now agreeing and the
+    # loudest one still telling the old story.
+    #
+    # The mate geometry cannot simply be moved onto this board: it lives on the
+    # position AFTER the mating move, which is why it carries its own FEN. On
+    # the board the player is looking at, their bishop has already left e6, so
+    # e6->d7 is not a line that exists. So the shape arrows go rather than get
+    # replaced -- silence beats contradiction, the same rule the reply-arrow
+    # builder follows -- and the mate picture stays on the surface whose board
+    # it is true of.
+    if not shape_arrows_survive_mate_picture(_mate_picture, _best_arrows):
+        _arrows_out = mate_arrows_for_played_board(
+            board_before, played_move, inputs.best_move_uci
+        )
+    # A card that names a better move and draws nothing is the complaint that
+    # keeps coming back -- "no arrow here, why the hell", "now why not arrow
+    # here?". The recommended move is legal on the board before the played
+    # move, and that board shares its coordinates with the one on screen, so
+    # the instruction can always be drawn even when no threat picture fires.
+    # The whole plan goes on the board the player is looking at.
+    #
+    # v166 kept the recommended move's consequences off this board because
+    # drawing them here was "real teaching drawn over the wrong position". That
+    # rule was written against arrows that CONTRADICT what is on screen -- an
+    # arrow starting where a piece no longer stands, describing a line that is
+    # blocked right now.
+    #
+    # Mohit 2026-10-06 drew the distinction the rule was missing: "it's not
+    # wrong teaching, it's what was missed from the player and it's what makes
+    # him see things". A plan he did not play is not a false claim about the
+    # position; it is the lesson, and the caption beside it already says
+    # "Be5 was better". Putting it one click away under "What if I played X?"
+    # defeats the point of showing it -- he asked to "see everything together".
+    #
+    # So the contract changes deliberately, with its tests, rather than being
+    # broken by accident: this board may carry the plan for the move we are
+    # recommending. What has NOT changed is that every arrow must be a move the
+    # engine's own line actually plays, drawn in the coordinates of the
+    # position before the played move.
+    # ...but only when the caption actually NAMES the move being drawn.
+    #
+    # Mohit 2026-10-07, on move 3 of 413fcce2 -- he played Bc4, graded good at
+    # 5cp, and the card drew f1->b5: "why arrow shows up here?" The words were
+    # "Italian Game. The bishop on c4 eyes f7, the weakest square in Black's
+    # camp." Nothing on that card mentions Bb5. The reasoning above assumes
+    # "the caption beside it already says 'Be5 was better'", and on a good-move
+    # card it says no such thing -- so the picture showed one move while the
+    # sentence taught another.
+    #
+    # Two routes get here with no better-move sentence: a good move keeps its
+    # engine best_move_uci (Bb5 over Bc4) even at 5cp, and the distilled
+    # opening captions swap the TEXT only, by design, leaving whatever arrows
+    # the pipeline had already built. Measured over 463 stored user cards that
+    # draw ONLY the best move: 187 (40.4%) never name it, and 182 of those 187
+    # are moves graded good.
+    #
+    # This is the same fault the opponent path fixed on 2026-09-28 with the
+    # same test, arriving by a third route, so it gets the same answer rather
+    # than a new one.
+    _best_move_is_named = _names_the_move(
+        str(caption_payload.get("caption") or ""), inputs.best_move_san
+    )
+    # ...and never on a card with no material story at all. That is the Nc4
+    # card: five arrows of a queen walking through empty squares, under the
+    # words "Nc4 doesn't change much here".
+    if (not _arrows_out and inputs.mover_is_user and inputs.best_move_uci
+            and _best_move_is_named and _story != "neither"):
+        # A SACRIFICE never passes the winning-plan test, because the whole
+        # point is that material comes out level or worse while the initiative
+        # does not. Mohit 2026-10-06, on a card whose engine move was Bxf2+:
+        # "this is a sacrifice, so it should show the complete line why a
+        # sacrifice is better here".
+        #
+        # On rnbq1rk1/ppp2ppp/3p1n2/2b1p1N1/2B1P3/P1N5/1PPP1PPP/R1BQK2R b the
+        # line is Bxf2+ Kxf2 Ng4+ Kg1 Qxg5: give the bishop, the king MUST
+        # take, the knight comes with check, the queen collects the knight on
+        # g5. Net is +90 -- pawn and knight for a bishop -- so the 300cp gate
+        # refuses it, correctly and uselessly.
+        #
+        # _line_sequence_arrows already knows this shape; it was built for the
+        # Bxf7+ card in v183 and has a branch for a first capture that LOSES
+        # material on its own square. It was only ever wired to opponent cards.
+        _sac_line = (
+            [inputs.best_move_san] + list(inputs.pv_after_best or ())
+            if inputs.best_move_san else []
+        )
+        _arrows_out = winning_plan_arrows(
+            board_before, inputs.best_move_uci, inputs.pv_after_best
+        ) or _line_sequence_arrows(board_before, _sac_line) or [
+            a for a in recommended_move_arrows(
+                board_before, inputs.best_move_uci, inputs.pv_after_best
+            )
+            if a.get("color") == "blue"
+        ]
+
+    # The same warning, drawn. The caption above says the king has no way out;
+    # a card that says it and shows nothing is the complaint that keeps coming
+    # back. back_rank_threat_arrows draws the mating move itself, on the board
+    # the card is showing, and only when the board proves the mate.
+    # Gated on the SENTENCE, not on the fact: an arrow the words never explain
+    # is the "why this arrow?" complaint, and the caption can still come out
+    # empty here -- the final verify silences a card whose truth boundary threw.
+    if _back_rank_said:
+        _seen_pairs = {(a.get("from"), a.get("to")) for a in _arrows_out}
+        for _a in _back_rank_proof:
+            if (_a["from"], _a["to"]) not in _seen_pairs:
+                _arrows_out = _arrows_out + [_a]
+                _seen_pairs.add((_a["from"], _a["to"]))
+
     visual = VisualSurface(
         arrows=_arrows_out,
         highlight_squares=caption_payload.get("highlight_squares") or [],
@@ -6818,14 +8706,8 @@ def build_move_teaching_decision(
 
     legal_material_loss_cause = None
     if inputs.mover_is_user and inputs.best_move_san:
-        exact_line_cause = build_verified_line_cause(
-            fen_before=inputs.fen_before,
-            played_san=inputs.played_san,
-            best_move_san=inputs.best_move_san,
-            pv_after_played=tuple(inputs.pv_after_played or ()),
-            pv_after_best=tuple(inputs.pv_after_best or ()),
-            cp_loss=int(inputs.cp_loss or 0),
-        )
+        # Already built above, before the caption was written, so the rules
+        # could see a forced mate. Reused here rather than replayed twice.
         # build_legal_material_loss_cause answers a board question -- "after
         # this move, is something of mine worth >=150cp capturable for free?"
         # -- and this path used the answer as a verdict on the move, with no

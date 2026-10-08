@@ -183,20 +183,43 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
     # "generic tactic" -- the repetition problem wearing a different hat.
     # Promote each one only when its sentence has been verified per-FEN.
     "gap:missed_tactic:missed_pin": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="fire volume measured 2026-09-24; caption unverified",
+        # PROMOTED 2026-09-29, after the detector was GATED rather than argued
+        # with. It now emits missed_pin only where
+        # verify_created_alignment(kind="pin") backs it, so precision is 100%
+        # by construction and no measurement has to be trusted.
+        #
+        # Gating rather than measuring was the right move because the numbers
+        # disagreed and could not be reconciled. Over all 1,471 stored fires:
+        # an independent geometric check written from scratch said 100%, the
+        # prover said 93.0%, and this entry recorded 81.1% three days earlier.
+        # The first was measuring a weaker claim -- it counted any pin present
+        # after the move, including one revealed by the moved piece stepping
+        # aside, where the caption names the pinning piece. The 81.1% was never
+        # reproduced. The gate makes all three irrelevant.
+        #
+        # Reach, which is why this one was worth the effort at all: 1,471 fires
+        # across 54 of 57 users, on 7.4% of games -- more than missed_skewer
+        # (5.1%) or missed_fork (4.6%), both of which have been Plan-grade
+        # since 2026-09-26 while this stayed invisible.
+        grade=QualityGrade.PLAN,
+        evidence_ref=(
+            "gated on aligned_tactic_puzzle_proof.verify_created_alignment; "
+            "reach and reconciliation measured 2026-09-29 over 1,471 fires"
+        ),
         rationale=(
-            "1,295 observations across 50 users. Names the motif a 600-1500 "
-            "player can actually look for, instead of 'generic tactic'. "
-            "Measured 2026-09-26 against verify_created_alignment(kind='pin') "
-            "over 17,298 moves: precision 81.1%, recall 89.1%."
+            "1,471 observations across 54 users, on 7.4% of games. Names the "
+            "motif a 600-1500 player can look for instead of 'generic tactic', "
+            "and the renderer for it was already written and dispatched -- only "
+            "the authorization was missing."
         ),
         limitations=(
-            "HELD AT SHADOW at 81.1% precision: 253 of 1,336 labels are not "
-            "backed by the independent prover, so roughly one in five players "
-            "told they missed a pin did not. missed_fork and missed_skewer "
-            "already unlock this topic, so nothing is gained by shipping a "
-            "label that is wrong that often.",
+            "The gate drops about 7% of former fires: real pins created by a "
+            "piece other than the one moved. Those are not lost to the player, "
+            "they fall through to missed_generic_tactic, so coverage is "
+            "unchanged and only the specificity of the name is given up. "
+            "Stored observations keep the ungated label until they are "
+            "re-derived; until then the precision guarantee covers newly "
+            "analysed games only.",
         ),
     ),
     "gap:missed_tactic:missed_fork": Authorization(
@@ -226,6 +249,35 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "another motif, so this id undercounts fork weakness per user.",
             "Verified against another detector, not against a human. The "
             "oracle's own Lichess validation is inherited, not re-run here.",
+        ),
+    ),
+    "gap:missed_tactic:missed_mate": Authorization(
+        # Mohit 2026-10-05, on a card badged "missed skewer" where the engine's
+        # move was Rc8#: "It is missed mate not missed skewer."
+        #
+        # This is not promoted on a precision estimate, because it does not
+        # need one. The label is `is_checkmate()` on the board after pushing
+        # the engine's own move -- a fact, not an inference. There is no prover
+        # to disagree with, no sample to extrapolate from, and nothing that can
+        # drift as the corpus grows.
+        #
+        # Measured over all 18,513 stored analyses: 4,563 fires, 4,563
+        # board-verified mates, 0 false labels. Those 4,563 were previously
+        # being filed under the geometry labels -- a mate that happens to line
+        # two pieces up was read as a skewer -- or carried no subtype at all
+        # (3,829 of them).
+        grade=QualityGrade.PLAN,
+        evidence_ref="board-verified over 18,513 analyses 2026-10-05",
+        rationale=(
+            "4,563 fires, 4,563 board-verified mates, 0 false labels. "
+            "Precision is 100% by construction: the check is is_checkmate() "
+            "after the engine's own move, not a geometric inference."
+        ),
+        limitations=(
+            "Says a mate was available, not how to find one -- the caption "
+            "still owes the player the pattern.",
+            "Long forced mates are included; 'you missed mate in 14' is true "
+            "and not a lesson.",
         ),
     ),
     "gap:missed_tactic:missed_skewer": Authorization(
@@ -718,6 +770,38 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "Promotion-capture exchanges are measured but remain silent pending a separate reviewed packet.",
             "It does not infer carelessness, time pressure, blindness, or lack of knowledge.",
             "It does not name a broader tactical motif or claim every piece-safety mistake is covered.",
+        ),
+    ),
+    "gap:piece_safety:tactical_seq_loss": Authorization(
+        # PROMOTED to Caption 2026-10-02. The only real calculation signal in
+        # the product: `calculation_depth` is the leftovers bucket -- "a mistake
+        # over 100cp that nothing else explained", with "One move deeper was
+        # needed" as a hardcoded string -- and was rightly switched off in July.
+        #
+        # This one makes a narrow, checkable claim: the player entered a FORCING
+        # line, a capture or a check, and it cost 150+ centipawns. Promise check
+        # over 2,497 fires: 100% are forcing and over the bar (93.7% captures,
+        # 6.3% checks). Control on small_slip, the quiet-move bucket: 0.0%. The
+        # two are completely disjoint, so the label separates forcing mistakes
+        # from quiet ones rather than restating cp_loss.
+        #
+        # Caption grade, not Plan. It is a piece_safety subtype and promoting it
+        # to Plan would change the dominant subtype for the 26 users whose focus
+        # is destination_safety_exact. That is a separate decision with its own
+        # measurement; this one only lets the move be explained in review.
+        grade=QualityGrade.CAPTION,
+        evidence_ref="promise check + small_slip control, 2026-10-01, 2,497 fires",
+        rationale=(
+            "3,702 observations across 56 users on 18.8% of games. Names what a "
+            "600-1500 player can act on -- you started a capture or check and "
+            "did not see the end of it -- instead of a cp number."
+        ),
+        limitations=(
+            "The claim is about the SHAPE of the move, not about calculation "
+            "itself: it is verified that the move was forcing and lost, not "
+            "that the player miscalculated. Whether they calculated at all "
+            "cannot be established from a game record, which is what "
+            "docs/calculation_test_scope.md exists to measure instead.",
         ),
     ),
     "gap:piece_safety:simple_hang": Authorization(

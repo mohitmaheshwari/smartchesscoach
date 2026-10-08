@@ -232,10 +232,33 @@ def test_a_mistake_card_draws_no_picture_of_the_move_not_played():
         ),
         CrossMoveState(),
     )
-    rendered = before.copy()
-    rendered.push(before.parse_san("b4"))
+    # CONTRACT CHANGED 2026-10-06, deliberately, with Mohit's instruction.
+    #
+    # This used to require every arrow on the played board to start from a
+    # piece still standing there, which kept the recommended move's plan off
+    # this board entirely. The rule was written against arrows that CONTRADICT
+    # the position -- a line that is blocked right now, a piece that has moved.
+    #
+    # Mohit drew the distinction it was missing: "it's not wrong teaching, it's
+    # what was missed from the player and it's what makes him see things". A
+    # plan he did not play is not a false claim about the board; it is the
+    # lesson, and the caption beside it already says the move was better.
+    #
+    # What still has to hold -- and is the real protection -- is that nothing
+    # is INVENTED: every arrow must be a move the engine's own line plays.
+    legal_line = {}
+    probe = before.copy()
+    for san in ["Qd5+"] + list(MISSED_FORK_BEST_LINE):
+        try:
+            mv = probe.parse_san(san)
+        except ValueError:
+            break
+        legal_line[(chess.square_name(mv.from_square),
+                    chess.square_name(mv.to_square))] = san
+        probe.push(mv)
     for a in decision.visual.arrows or []:
-        assert rendered.piece_at(chess.parse_square(a["from"])) is not None, a
+        assert (a["from"], a["to"]) in legal_line, (
+            f"{a['from']}->{a['to']} is not a move the engine line plays")
 
 
 # --- the missed win keeps its picture, on its own board --------------------
@@ -286,7 +309,18 @@ def test_the_recommended_move_picture_ships_with_the_fen_it_is_true_of():
 
 
 def test_the_two_arrow_channels_never_carry_the_same_thing():
-    """If the relocated picture leaked back into `arrows`, the bug returns."""
+    """SUPERSEDED 2026-10-06 -- kept as the record of why it existed.
+
+    This asserted the two arrow channels share nothing, which was how v166
+    stopped the recommended move's picture being drawn over the played
+    position. Mohit asked for the opposite: the plan he missed belongs on the
+    board he is looking at, because that is what makes him see it.
+
+    Overlap between the channels is now expected, so the assertion is inverted
+    into what still matters: the best-move channel must keep naming the board
+    it is true of, so a reader is never shown one picture over two different
+    positions without being told.
+    """
     from services.caption_pipeline import (
         CrossMoveState,
         MoveInputs,
@@ -305,9 +339,13 @@ def test_the_two_arrow_channels_never_carry_the_same_thing():
         ),
         CrossMoveState(),
     )
-    on_card = _arrow_pairs(decision.visual.arrows or [])
-    relocated = _arrow_pairs(decision.visual.best_move_arrows or [])
-    assert not (on_card & relocated), on_card & relocated
+    rendered = before.copy()
+    rendered.push(before.parse_san("b4"))
+    assert decision.visual.best_move_arrows_fen != rendered.fen(), (
+        "the best-move picture must still travel with its own board")
+    expected = before.copy()
+    expected.push(before.parse_san("Qd5+"))
+    assert decision.visual.best_move_arrows_fen == expected.fen()
 
 
 def test_a_move_that_was_played_needs_no_relocated_copy():

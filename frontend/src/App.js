@@ -55,6 +55,8 @@ import AdminCaptionAuthoring from "@/pages/AdminCaptionAuthoring";
 import AdminPositionalReasons from "@/pages/AdminPositionalReasons";
 import AdminReasonJudge from "@/pages/AdminReasonJudge";
 import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
+import CalculationTest from "@/pages/CalculationTest";
+import MotifFindDrill from "@/pages/MotifFindDrill";
 import AdminDetectorReview from "@/pages/AdminDetectorReview";
 import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
@@ -474,6 +476,29 @@ function AppRouter() {
           ?weakness=X query param OR :pattern URL segment.
           `/training/legacy` has been removed (zero incoming references
           per audit; it pointed to a superseded Training component). */}
+      <Route path="/calculation-test" element={
+        <ProtectedRoute>
+          {({ user }) => <CalculationTest user={user} />}
+        </ProtectedRoute>
+      } />
+      {/* SPOTTING a pin or skewer (docs/pin_skewer_drill_scope.md) -- the other
+          half of /training/motif/:motif, which teaches AVOIDING one. That page
+          replays positions he walked into; this one asks him to find the move.
+          Two sides of the same shape, as the motif-profile backlog asked for,
+          so they are separate routes rather than one page with a mode flag. */}
+      <Route path="/training/find/:motif" element={
+        <ProtectedRoute>
+          {({ user }) => <MotifFindDrill user={user} />}
+        </ProtectedRoute>
+      } />
+      {/* Practice for a topic our own games cannot prove. king_safety has 151
+          community puzzles and not one passes verification, so these come from
+          Lichess where the proof already exists. docs/home_session_scope.md */}
+      <Route path="/training/theme/:topic" element={
+        <ProtectedRoute>
+          {({ user }) => <MotifFindDrill user={user} source="theme" />}
+        </ProtectedRoute>
+      } />
       <Route path="/training" element={
         <ProtectedRoute>
           {({ user }) => <PrescribedTraining user={user} />}

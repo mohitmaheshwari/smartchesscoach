@@ -411,20 +411,32 @@ def recognize_opening_from_history(
     """Match a SAN move sequence (full history INCLUDING the just-played
     move) against the curated opening table. Returns the longest match
     whose final move equals the last entry in history (so the caption
-    fires on the move that completes the opening name)."""
+    fires on the move that completes the opening name).
+
+    The book line must end exactly where the history ends. Matching on
+    the SAN string alone is not enough: Mohit 2026-10-05 on game
+    66ac48e5 ("this position is not scandavian now") caught the game
+    open e4 d5 exd5 Qxd5 -- a real Scandinavian -- and then play Qxd5
+    AGAIN on move 12, when White's queen takes a bishop. The book
+    prefix still matched and the last SAN still read "Qxd5", so the
+    move-2 caption came back for a move-12 card and told the user
+    "Black recaptures with the queen ... a target on c3" about their
+    own White move, with c3 empty. An opening name describes a
+    position, so it may only fire on the ply that reaches it.
+    """
     if not history:
         return None
-    last_played_san = history[-1]
 
     best_match = None
     best_match_len = 0
     for entry in _OPENINGS:
         moves = entry["moves"]
-        if len(moves) > len(history):
-            continue
-        if history[: len(moves)] != moves:
-            continue
-        if moves[-1] != last_played_san:
+        # The line must end exactly where the history ends. This single
+        # condition subsumes the old pair -- prefix match plus
+        # `moves[-1] == history[-1]` -- which compared the move's NAME and
+        # never its PLY, and it is why a later move with a book move's name
+        # could revive the caption.
+        if moves != history:
             continue
         if len(moves) > best_match_len:
             best_match = entry

@@ -10,7 +10,7 @@ Handles:
 - Data freshness (refresh, status)
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import re
@@ -391,7 +391,130 @@ async def get_area_grades(user: User = Depends(get_current_user)):
 
     games_played = len({o.get("game_id") for o in observations if o.get("game_id")})
     counts = counts_from_observations(observations)
-    return grade_areas(counts, games_played)
+    payload = grade_areas(counts, games_played)
+
+    # The card named six areas, said "Needs work" against two of them, and gave
+    # the player nowhere to go. Each row that has real unsolved supply for THIS
+    # player now carries a `practice` link; the rest stay plain text, because a
+    # button leading to an empty page costs a click to learn nothing.
+    from services.area_practice_links import attach_practice_links
+    return await attach_practice_links(db, user.user_id, payload)
+
+
+@router.get("/home/session")
+async def get_home_session(user: User = Depends(get_current_user)):
+    """Today's session: what the coach chose, and why.
+
+    docs/home_session_scope.md. The mode is a decision, not a readout -- measured
+    across 70 players the steady state is challenge 41%, improve 30%,
+    appreciate 29%, and the first version answered appreciate for 55 of them
+    because it treated celebration as a state rather than an event.
+    """
+    from services.home_session import build_session, record_shown
+
+    session = await build_session(db, user.user_id)
+    # Serving it counts as showing it: a celebration the player ignored is
+    # still one they have seen, and repeating it is how it stops meaning
+    # anything.
+    await record_shown(db, user.user_id, session.pop("_appreciation_key", None))
+    return session
+
+
+@router.post("/home/today/answer")
+async def answer_todays_question(
+    request: Dict[str, Any],
+    user: User = Depends(get_current_user),
+):
+    """What the coach says once the player has committed to a reason.
+
+    docs/home_as_a_coach_scope.md, Movement 2. ASKING BEFORE TELLING IS THE
+    MECHANISM -- a conclusion handed over is nodded at and forgotten, and a
+    belief you committed to and got wrong is remembered. So nothing about the
+    answer is in the payload `/home/session` serves; it lives here, behind the
+    player having said what they were checking.
+
+    The reply names the belief back before correcting it. The player chose a
+    real rule that works most of the time, not a wrong answer.
+    """
+    from services.coach_today_position import (
+        answer_for, record_answer, repeat_note)
+
+    topic = str(request.get("topic") or "").strip()
+    reason_id = request.get("reason_id")
+    answer = answer_for(topic, reason_id)
+    if not answer.get("ok"):
+        raise HTTPException(status_code=400, detail="unknown reason")
+
+    # THE ANSWER HAS TO BE REMEMBERED OR THE PAGE NEVER MOVES. Mohit,
+    # 2026-10-07: *"it won't change over time, or would it?"* It would not --
+    # the first version of this endpoint wrote only the misconception counter,
+    # and the board's filter reads a different collection, so the same position
+    # came back forever. `record_answer` writes the per-position row that
+    # retires it AND the counter, which is what later lets the coach say "you
+    # keep telling me this".
+    try:
+        times_held = await record_answer(
+            db, user.user_id, request.get("position_id"), topic,
+            str(reason_id), answer)
+        # And if this is the same belief as last time, the coach notices
+        # instead of re-reading its script. Three simulated sessions on real
+        # data produced the identical correction three times, which is the
+        # static feeling even after the board started moving.
+        answer["repeat"] = repeat_note(times_held)
+    except Exception:
+        # Losing the record is not worth losing the teaching moment over --
+        # but it does mean the same board comes back, so it is logged.
+        logger.warning("could not record home answer for %s", user.user_id,
+                       exc_info=True)
+
+    return answer
+
+
+@router.get("/home/chances")
+async def get_chances_reading(user: User = Depends(get_current_user)):
+    """Of the chances the board gave you, how many did you take?
+
+    docs/chances_not_games_scope.md. Game-independent by design: the unit is the
+    chance, so duplicate games and two-move coach stubs contribute nothing to
+    either side of the ratio instead of needing to be filtered out.
+
+    Reads the precomputed `user_tactical_eye` document. Running the gate over a
+    player's twenty thousand moves takes about twenty seconds, which is not a
+    page load; `scripts/compute_tactical_eye.py` fills it.
+    """
+    from services.chances_reading import build_reading
+    from services.chess_habit_reading import build_habits
+    from services.two_layer_diagnosis import CACHE_COLLECTION
+
+    stored = await db[CACHE_COLLECTION].find_one(
+        {"user_id": user.user_id}, {"_id": 0}) or {}
+    reading = build_reading(stored)
+
+    # The context the bars were missing. "Half" means nothing without "against
+    # what" -- Mohit asked how the week is going, how regular he is and whether
+    # he is learning, and the first build shipped none of it.
+    # scripts/compute_habit_reading.py fills these.
+    reading["habits"] = build_habits(
+        stored.get("week"), stored.get("rhythm"),
+        stored.get("session"), stored.get("results"))
+
+    if not reading.get("measured"):
+        # The habits stand on their own: a player with too few chances to rate
+        # can still be told how regular they have been.
+        return reading
+
+    # The weakest shape only becomes a link when that drill actually has
+    # positions for this player. `practice_offer` does the supply check, and a
+    # button leading to an empty page is worse than no button.
+    try:
+        from services.motif_drill_service import practice_offer
+        offer = await practice_offer(db, user.user_id)
+    except Exception:
+        offer = None
+    weakest = reading.get("weakest") or {}
+    if offer and offer.get("motif") == weakest.get("shape"):
+        reading["practice"] = {"href": offer["href"], "label": offer["label"]}
+    return reading
 
 
 @router.get("/progress/tactical-eye")
@@ -432,11 +555,20 @@ async def get_tactical_eye(user: User = Depends(get_current_user)):
     # THE DRILL SPLIT. A knowledge gap sends him to positions of that shape; a
     # looking habit must NOT send him to more of the same puzzles, because more
     # repetitions of an idea he already knows trains nothing.
-    drill = (
-        {"href": "/training/pattern/missed_tactic", "label": "Find the shape"}
-        if stored["layer"] == "knowledge"
-        else {"href": "/training/safety", "label": "Practise the check"}
-    )
+    # A knowledge gap in pin or skewer now has a drill BUILT FOR THAT SHAPE
+    # (docs/pin_skewer_drill_scope.md), so sending it to the generic tactic pool
+    # would be sending him to mostly other shapes. The generic pool stays the
+    # fallback for the shapes that have no drill of their own yet.
+    motif = str(stored.get("drill_pattern") or "").lower()
+    if stored["layer"] == "knowledge":
+        drill = (
+            {"href": "/training/find/%s" % motif, "label": "Practise %ss" % motif}
+            if motif in ("pin", "skewer")
+            else {"href": "/training/pattern/missed_tactic",
+                  "label": "Find the shape"}
+        )
+    else:
+        drill = {"href": "/training/safety", "label": "Practise the check"}
     return {
         "schema_version": "tactical_eye.v1",
         "measured": True,

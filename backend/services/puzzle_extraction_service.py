@@ -13,6 +13,7 @@ weakness pattern get served.
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 import asyncio
+from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import chess
 import logging
@@ -496,6 +497,34 @@ async def get_pattern_training_puzzles(
     async for doc in solved_cursor:
         solved_ids.add(doc.get("puzzle_id", ""))
 
+    # THE SOLVED FILTER HAS TO BE IN THE QUERY, NOT AFTER IT.
+    #
+    # Measured on the deploy gate's user 2026-10-04: every one of the 22 rows
+    # the community fetch looked at was already solved, so the lesson got zero
+    # candidates and 409'd with "No verified practice positions are available
+    # yet" -- the third time that error has failed the deploy gate. There were
+    # 3,228 matching positions behind those 22.
+    #
+    # The cause is that `.limit()` applied BEFORE the solved check. `solve_rate`
+    # is 0.0 on every row in this pool, so the sort is entirely tied and the
+    # window is whatever the planner returns -- it is not even the same window
+    # at limit 22 as at limit 500. Fetching deeper would only move the cliff:
+    # the solved set grows every time the player succeeds, so the better they
+    # do, the more likely the lesson comes back empty.
+    #
+    # Excluding them in the query makes the limit apply to rows that can
+    # actually be served. Same user, same limit: 0 available becomes 22, out of
+    # 3,206. The `_id` tiebreaker is so a fully tied sort is at least
+    # reproducible between calls.
+    solved_object_ids = []
+    for value in solved_ids:
+        try:
+            solved_object_ids.append(ObjectId(value))
+        except Exception:
+            # Coach-game ids and `position_id` strings are not ObjectIds. They
+            # are excluded by their own field on the pool that uses them.
+            continue
+
     # 1. User's own puzzles for this pattern
     own_cursor = db.community_puzzles.find(
         {
@@ -515,6 +544,12 @@ async def get_pattern_training_puzzles(
             "puzzle_id": pid,
             "fen": p["fen"],
             "best_move_san": p["best_move_san"],
+            # The move the player actually played. Populated on 100% of both
+            # pools (measured 2026-10-07 over 8,000 rows) and dropped by this
+            # shape until now, which is why no surface could say "you played
+            # Nd4 here" -- the home page's Movement 2 is built on that sentence.
+            # Not an answer, so it is not in _PRIVATE_PUZZLE_FIELDS.
+            "played_move": p.get("played_move"),
             "issue_type": p["issue_type"],
             "difficulty": p.get("difficulty", "intermediate"),
             "move_number": p.get("move_number"),
@@ -537,10 +572,15 @@ async def get_pattern_training_puzzles(
         "approved": True,
         **verified_mongo_clause(pattern),
     }
+    if solved_object_ids:
+        community_query["_id"] = {"$nin": solved_object_ids}
 
     community_cursor = db.community_puzzles.find(community_query).sort(
-        "solve_rate", -1  # Easier ones first to build confidence
-    ).limit(remaining + 10)  # Fetch extra to filter solved
+        # Easier ones first to build confidence, then `_id` so that a pool
+        # whose solve_rate is uniformly 0.0 still comes back in a repeatable
+        # order rather than whatever the planner picks for this limit.
+        [("solve_rate", -1), ("_id", 1)]
+    ).limit(remaining + 10)
 
     community_puzzles = []
     async for p in community_cursor:
@@ -555,6 +595,9 @@ async def get_pattern_training_puzzles(
             "puzzle_id": pid,
             "fen": p["fen"],
             "best_move_san": p["best_move_san"],
+            # Carried for symmetry with own_puzzles. Nothing says "you played
+            # X" about someone else's game, so no surface should narrate it.
+            "played_move": p.get("played_move"),
             "issue_type": p["issue_type"],
             "difficulty": p.get("difficulty", "intermediate"),
             "move_number": p.get("move_number"),
@@ -585,6 +628,9 @@ async def get_pattern_training_puzzles(
                 "puzzle_id": pid,
                 "fen": p.get("fen"),
                 "best_move_san": p.get("best_move_san") or "",
+                # This pool spells it `user_move_san`; community_puzzles spells
+                # it `played_move`. Normalised here so callers see one name.
+                "played_move": p.get("user_move_san") or p.get("played_move"),
                 "issue_type": pattern,
                 "difficulty": p.get("difficulty", "intermediate"),
                 "move_number": _pwc_int(p.get("move_number")),
@@ -624,9 +670,24 @@ async def get_pattern_training_puzzles(
                     own_puzzles.append(sh)
             # 3b. other users' coach-game puzzles — fill community up to `limit`.
             if len(community_puzzles) < limit:
+                # Solved rows are excluded in the query here too, for the same
+                # reason as above: at depth 32 for the deploy gate's user, 29
+                # of the rows looked at were already solved and only 3 got
+                # through. Excluding them first leaves 189 servable in 200.
+                #
+                # The 2026-07-10 note above says `$in`/`$exists` return wrong
+                # results on this collection. Re-measured 2026-10-04 with a
+                # positive control before relying on it: `position_id` with a
+                # harmless `$nin` returns 8,426 against a plain count of 8,426,
+                # so `$nin` on that field is sound now. `$exists` was not
+                # re-tested and is still avoided.
+                comm_pwc_query = {"pattern_type": t}
+                solved_strings = [s for s in solved_ids if s]
+                if solved_strings:
+                    comm_pwc_query["position_id"] = {"$nin": solved_strings}
                 comm_pwc = db.community_training_positions.find(
-                    {"pattern_type": t}
-                ).sort("solve_rate", -1).limit(limit + 20)
+                    comm_pwc_query
+                ).sort([("solve_rate", -1), ("_id", 1)]).limit(limit + 20)
                 async for p in comm_pwc:
                     if len(community_puzzles) >= limit:
                         break

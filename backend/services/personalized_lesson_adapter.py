@@ -9,6 +9,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
@@ -200,6 +201,39 @@ def _stage(index: int, total: int) -> str:
     if index == 0:
         return "guide"
     return "recall"
+
+
+#: Default OFF. The gate changes which position a learner is shown, and the
+#: two previous regressions on this path both reached users before anyone
+#: measured them. Turn on with PRACTICE_SAFETY_GATE=1 once the per-topic pool
+#: counts have been checked.
+_PRACTICE_SAFETY_GATE = os.getenv("PRACTICE_SAFETY_GATE", "").strip().lower() in {
+    "1", "true", "yes", "on",
+}
+
+
+def _gate_defers(item: Mapping[str, Any]) -> bool:
+    """True when this position's accepted answer leaves a pre-existing loss.
+
+    Board arithmetic only (services/practice_position_gate). Never raises: a
+    position we cannot evaluate is served exactly as it is today, because the
+    gate exists to improve the choice, not to become a new way to fail.
+    """
+    try:
+        from services.practice_position_gate import evaluate_position
+
+        fen = str(item.get("fen") or "")
+        answer = str(
+            item.get("best_move_uci")
+            or item.get("solution_uci")
+            or (item.get("verified_admission") or {}).get("acceptable_moves_uci", [None])[0]
+            or ""
+        )
+        if not fen or not answer:
+            return False
+        return not evaluate_position(fen, answer).keep
+    except Exception:
+        return False
 
 
 def _blind_diagnostic_candidate(
@@ -769,6 +803,7 @@ async def _concept_descriptor(
         pair = None
         selected = (own + list(supply.get("community_puzzles") or []))[:supply_size]
     items = []
+    deferred: list = []
     seen_fens = set()
     for item in selected:
         if len(items) >= requested:
@@ -782,6 +817,20 @@ async def _concept_descriptor(
             continue
         seen_fens.add(normalized_fen)
         board = chess.Board(item["fen"])
+        if _PRACTICE_SAFETY_GATE and _gate_defers(item):
+            # The answer this position accepts leaves a loss that was already
+            # on the board, so the lesson it teaches is not the lesson the
+            # position is about. Mohit, 2026-10-05, on exactly such a card:
+            # "we are not talking about the knight on e7, it is attacked twice
+            # and it is gone now, so how come we are keeping piece safety".
+            #
+            # DEFERRED, NOT DROPPED. "No verified practice positions are
+            # available yet" has been the deploy gate's failure twice, both
+            # times a filter removing the last candidate. This one is held
+            # back and served only if nothing better exists, so it can improve
+            # the order and can never close a lesson.
+            deferred.append(item)
+            continue
         if not _question_is_answerable(item["fen"], spec):
             # The printed question must be one the grader can say yes to.
             #
@@ -902,6 +951,14 @@ async def _concept_descriptor(
             "_normalized_fen": item.get("normalized_fen") if blind_diagnostic else None,
             "_moved_piece": item.get("moved_piece") if blind_diagnostic else None,
         })
+    if not items and deferred:
+        # Everything the gate held back is still a real, board-verified
+        # position. A weaker lesson beats no lesson.
+        logger.info(
+            "[practice_gate] serving %d deferred position(s): nothing else "
+            "was available for this topic", len(deferred),
+        )
+        items = deferred[:requested]
     if not items:
         raise LessonUnavailable("No verified practice positions are available yet")
     for index, item in enumerate(items):

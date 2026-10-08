@@ -25,6 +25,7 @@ export default function CurriculumPrimary({
   surface,
   onNavigate,
   showReview = true,
+  focusWhy = null,
 }) {
   const primary = curriculum?.decision?.primary;
   const review = curriculum?.decision?.review;
@@ -94,9 +95,22 @@ export default function CurriculumPrimary({
           <p className="text-[14px] leading-relaxed text-muted-foreground mb-3">
             {primary.reason}
           </p>
-          <p className="text-[13px] leading-relaxed text-muted-foreground/85">
-            {primary.evidence}
-          </p>
+          {/* WHY THIS TOPIC, next to the topic. Mohit, 2026-10-07: the card
+              named the lesson and gave no reason to care, and the stock line
+              here -- "I found this in several of your recent games" -- is the
+              vague version. `focusWhy` names the actual shape of the mistake:
+              "Most of it is one thing. Games you lost on the clock rather than
+              on the board." It falls back to the stock line when the evidence
+              is too mixed to name a single cause. services/focus_why.py */}
+          {focusWhy ? (
+            <p className="border-l-2 border-emerald-600/40 pl-3 text-[13.5px] leading-relaxed text-foreground">
+              {focusWhy}
+            </p>
+          ) : (
+            <p className="text-[13px] leading-relaxed text-muted-foreground/85">
+              {primary.evidence}
+            </p>
+          )}
           {teachingProfile && (
             <details className="mt-5 rounded-2xl border border-emerald-700/15 bg-emerald-500/[0.055]">
               <summary className="cursor-pointer px-4 py-3 text-[12.5px] font-semibold text-foreground">

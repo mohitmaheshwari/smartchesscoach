@@ -206,23 +206,33 @@ async def focus_outcome_loop():
             # clauses cannot share one object, hence the explicit $and.
             type_clause = {"$or": [{"type": {"$exists": False}},
                                    {"type": "weakness"}]}
-            due_clause = {"$or": [
-                {"locked_until": {"$type": "date", "$lte": now}},
-                {"locked_until": {"$type": "string", "$lte": now_iso}},
-            ]}
-            # Shadow mode measures every active focus; render mode keeps the
-            # original due-only selection so nothing closes early.
+            # THE SELECTOR STAYS WIDE IN BOTH MODES, and the due check gates
+            # only the close. It used to gate the selector too, so enabling
+            # render would have stopped measuring the 27 focuses whose lock
+            # has not expired -- they would have gone dark at exactly the
+            # moment the measurement started being used. Closing early is the
+            # thing that must not happen; measuring early costs nothing.
+            # `_lock_is_due` below is the single due test. The Mongo
+            # equivalent is gone rather than left unused: `locked_until` is a
+            # BSON date on some rows and an ISO string on others, so there
+            # were two ways to ask the same question and only one of them
+            # handled both types.
             selector = {"status": "active", "$and": [type_clause]}
-            if render:
-                selector["$and"].append(due_clause)
 
             async for f in db[COLLECTION].find(selector):
                 try:
                     outcome = await check_focus_outcome(db, f)
-                    if not render:
-                        is_due = _lock_is_due(f.get("locked_until"), now, now_iso)
-                        await _record_shadow_outcome(f, outcome, now, is_due)
-                        n_shadowed += 1
+                    is_due = _lock_is_due(f.get("locked_until"), now, now_iso)
+                    # THE DAILY OBSERVATION IS RECORDED IN BOTH MODES. This
+                    # used to be the shadow's *alternative* to closing, so
+                    # turning render on would have silently ended the series.
+                    # That series is 21 consecutive days deep and is the only
+                    # per-focus history that exists anywhere -- it is what a
+                    # progress chain reads to say "then, then, now", and a
+                    # closure alone gives one point, not a trajectory.
+                    await _record_shadow_outcome(f, outcome, now, is_due)
+                    n_shadowed += 1
+                    if not render or not is_due:
                         continue
                     await close_focus(db, f, outcome)
                     if outcome.get("resolution") == "improved":
@@ -234,15 +244,23 @@ async def focus_outcome_loop():
                     n_processed += 1
                 except Exception as e:
                     logger.warning(f"focus_outcome_loop: error on {f.get('user_id')}: {e}")
-            if n_processed:
+            # ONE LINE, AND IT HAS TO BE TRUE IN BOTH MODES. `n_shadowed`
+            # now counts every focus measured, in render mode too, so the old
+            # message would have printed "nothing rendered; the flag is off"
+            # while the flag was on. A log that lies is worse than no log --
+            # that exact shape cost real time today, in a deploy script that
+            # reported the docroot untouched while deleting it.
+            if render:
                 logger.info(
-                    f"focus_outcome_loop: processed {n_processed} focuses "
-                    f"(improved={n_improved} regressed={n_regressed} stuck={n_stuck})"
+                    f"focus_outcome_loop: measured {n_shadowed}, closed "
+                    f"{n_processed} due (improved={n_improved} "
+                    f"regressed={n_regressed} stuck={n_stuck}); "
+                    f"{n_shadowed - n_processed} not due yet"
                 )
-            if n_shadowed:
+            elif n_shadowed:
                 logger.info(
-                    f"focus_outcome_loop: SHADOW measured {n_shadowed} focuses "
-                    f"(nothing rendered; FOCUS_OUTCOME_RENDER_ENABLED is off)"
+                    f"focus_outcome_loop: measured {n_shadowed} in shadow "
+                    f"(nothing closed; FOCUS_OUTCOME_RENDER_ENABLED is off)"
                 )
         except Exception as e:
             logger.error(f"focus_outcome_loop error: {e}")
@@ -402,6 +420,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error initializing Game Review prescription indexes: {e}")
 
+    try:
+        from services.coach_today_position import ensure_answer_indexes
+        await ensure_answer_indexes(db)
+    except Exception as e:
+        logger.error(f"Error initializing home answer indexes: {e}")
+
     _background_sync_task = asyncio.create_task(background_sync_loop())
     logger.info("Background sync scheduler started (6 hour interval)")
 
@@ -533,6 +557,8 @@ from routes import games as games_routes
 from routes import lab as lab_routes
 from routes import reflect as reflect_routes
 from routes import concept_test as concept_test_routes
+from routes import calculation_test as calculation_test_routes
+from routes import motif_drill as motif_drill_routes
 from routes import training as training_routes
 from routes import coach as coach_routes
 from routes import coach_play as coach_play_routes
@@ -582,6 +608,8 @@ lab_routes.set_db(db)
 lab_routes.set_llm(call_llm)
 reflect_routes.set_db(db)
 concept_test_routes.set_db(db)
+calculation_test_routes.set_db(db)
+motif_drill_routes.set_db(db)
 training_routes.set_db(db)
 coach_routes.set_db(db)
 coach_routes.set_llm(call_llm)
@@ -647,6 +675,8 @@ app.include_router(games_routes.router, prefix="/api")
 app.include_router(lab_routes.router, prefix="/api")
 app.include_router(reflect_routes.router, prefix="/api")
 app.include_router(concept_test_routes.router, prefix="/api")
+app.include_router(calculation_test_routes.router, prefix="/api")
+app.include_router(motif_drill_routes.router, prefix="/api")
 app.include_router(training_routes.router, prefix="/api")
 app.include_router(coach_routes.router, prefix="/api")
 app.include_router(journey_routes.router, prefix="/api")

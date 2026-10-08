@@ -10,6 +10,9 @@
  */
 
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
+import { motion } from "framer-motion";
+import { resolveBadgeTier } from "../lib/moveBadge";
+import { shouldTranscribeLine } from "../lib/coachLine";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
@@ -179,6 +182,23 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [posCommentary, setPosCommentary] = useState({}); // {moveIndex: commentary}
   const [showingFutureMoves, setShowingFutureMoves] = useState(false);
   const [futureMoveIndex, setFutureMoveIndex] = useState(0);
+
+  // Engine-line playback. Mohit 2026-10-07 asked for the lines to animate;
+  // react-chessboard draws its own arrows, so a single arrow cannot be stroked
+  // in -- what it can do is receive them one at a time, which makes the plan
+  // assemble move by move instead of appearing whole. {key, idx} says which
+  // line is running and how far it has got; the ref holds the timer so it can
+  // be stopped on unmount, on a new line, or when the move changes.
+  const [playingLine, setPlayingLine] = useState(null);
+  const lineTimerRef = useRef(null);
+  const stopLinePlayback = useCallback(() => {
+    if (lineTimerRef.current) {
+      clearTimeout(lineTimerRef.current);
+      lineTimerRef.current = null;
+    }
+    setPlayingLine(null);
+  }, []);
+  useEffect(() => stopLinePlayback, [stopLinePlayback]);
   const [highlights, setHighlights] = useState([]);
   const [arrows, setArrows] = useState([]);
 
@@ -192,6 +212,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const applyCaptionArrows = useCallback((card) => {
     const capArrows = card?.caption_arrows;
     if (capArrows?.length) {
+      // No order numbers on the arrows. They were tried, and the one-second
+      // stagger turned out to say the same thing more quietly -- Mohit
+      // 2026-10-08: "remove the counters, 1 2 3 not required, since arrows
+      // coming after a sec are making things easy". The board carries the
+      // order in time instead of in digits.
       setArrows(
         capArrows
           .filter((a) => a?.from && a?.to)
@@ -1331,9 +1356,18 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               orientation={orientation}
             />
           )}
-        <div className="aspect-square w-full max-w-[500px] relative">
+        {/* engine-line-board scopes the staggered arrow draw-in to this
+            review board; see index.css.
+            No React key here on purpose: keying this div on the arrow set
+            would remount chessground on every arrow change -- flicker, lost
+            piece animation, the board rebuilt to replay a 400ms effect.
+            Unnecessary too, because chessground diffs shapes by cgHash and
+            appends fresh <g> elements for changed ones, so the CSS animation
+            fires on them by itself. */}
+        <div className="aspect-square w-full max-w-[500px] relative engine-line-board">
           <LichessBoard
             ref={boardRef}
+            vividArrows
             fen={planMode && planBoard ? planBoard.fen() : boardFen}
             orientation={orientation}
             viewOnly={!planMode}
@@ -1345,54 +1379,8 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               if (!currentMove || planMode || showingFutureMoves) return null;
               const squares = getLastMoveSquares(currentMove);
               if (!squares) return null;
-
-              // Mohit 2026-05-31: badge-vs-caption alignment. R12 picks
-              // the severity word for the caption text via severity_tiers
-              // resolution (with bumps for played_smaller_win, canonical-
-              // mistake-stayed-balanced, etc.). The badge needs to match.
-              //
-              // PRIMARY source: currentMove.caption_severity_word - the
-              // canonical field written by the V5 caption pipeline
-              // (TeachingMeta.caption_severity_word). Set to one of
-              // {"blunder","mistake","inaccuracy"} when R12 produced a
-              // severity caption, null otherwise.
-              //
-              // FALLBACK: text-parse the rendered caption. Covers legacy
-              // game_analyses documents that were written before this
-              // field was added - those records will be backfilled on
-              // next V5 re-render, but until then the text parse keeps
-              // the badge correct.
-              let tierFromCaption = currentMove.caption_severity_word || null;
-              if (!tierFromCaption) {
-                const narrative = (currentMove.narrative || "").toLowerCase();
-                if (narrative.includes("is a major blunder")) {
-                  tierFromCaption = "blunder";
-                } else if (narrative.includes("is a serious mistake")) {
-                  tierFromCaption = "mistake";
-                } else if (narrative.includes("is a mistake")) {
-                  tierFromCaption = "mistake";
-                } else if (narrative.includes("is an inaccuracy")) {
-                  tierFromCaption = "inaccuracy";
-                }
-              }
-              if (tierFromCaption) {
-                return { square: squares[1], type: tierFromCaption };
-              }
-
-              let severity = currentMove.severity;
-
-              // For opponent moves without severity, derive from cp_loss
-              if ((!severity || severity === "context" || severity === "good") && !currentMove.is_user_move) {
-                const cpLoss = Math.abs(currentMove.cp_loss || 0);
-                if (cpLoss >= 200) severity = "blunder";
-                else if (cpLoss >= 100) severity = "mistake";
-                else if (cpLoss >= 50) severity = "inaccuracy";
-                else if (cpLoss <= 5) severity = "best";
-                else severity = "good";
-              }
-
-              if (!severity || severity === "context") return null;
-              return { square: squares[1], type: severity };
+              const tier = resolveBadgeTier(currentMove);
+              return tier ? { square: squares[1], type: tier } : null;
             })()}
           />
           
@@ -1585,6 +1573,201 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             conceptText={testableConcept.transferable_learning || ""}
           />
         )}
+
+        {/* Engine paths — the two Stockfish lines and the verdict read off
+            them, shown so the rules can be written against what the engine
+            actually said rather than against a caption. Mohit 2026-10-07:
+            "give me the stockfish paths for the mistakes, somewhere there on
+            the UI, so i can write the algorithm for you... like opportunity or
+            punishment lines for both user and opponent." Same ?show_facts=1
+            flag as the raw dump below it. */}
+        {showFacts && currentMove && (() => {
+          const rec =
+            factsByMove[`${currentMove.move_number}|${currentMove.move_san}`] ||
+            currentMove;
+          const played = rec.pv_after_played || [];
+          const best = rec.pv_after_best || [];
+          const detail = rec.move_story_detail || {};
+          const story = rec.move_story || null;
+          const mover = rec.is_user_move ? "you" : "opponent";
+          const tone =
+            story === "punishment"
+              ? "text-rose-300"
+              : story === "opportunity"
+              ? "text-amber-300"
+              : "text-zinc-400";
+          // Replay either engine line on the board. Mohit 2026-10-07: "can you
+          // make the stockfish opportunity, punishment line clickable too, so i
+          // can play on the board and help you better" and then "add any real
+          // cool animations... rows drawing up, arrows animating up".
+          //
+          // Both lines start from fen_before -- the punishment line opens with
+          // the move played, the opportunity line with the move the engine
+          // wanted -- so one replay serves both.
+          //
+          // The arrows ACCUMULATE as the line runs. react-chessboard owns its
+          // arrow drawing, so a single arrow cannot be stroked in; handing it
+          // one more arrow per step makes the whole plan assemble in front of
+          // you, which is the thing worth seeing.
+          //
+          // Both lines alternate from the side that MOVED on this card, so the
+          // even plies belong to them and the odd plies to their opponent --
+          // on an opponent card that means the even plies are theirs, not
+          // yours. The last arrow drawn is always the move just played, in
+          // amber, so the eye lands on it whoever owns it.
+          const seekTo = (moves, idx, running) => {
+            if (!rec.fen_before) return;
+            try {
+              const game = new Chess(rec.fen_before);
+              const drawn = [];
+              for (let i = 0; i <= idx; i += 1) {
+                const done = game.move(moves[i]);
+                if (!done) break;
+                const moverSide = i % 2 === 0;   // the side this card is about
+                const last = i === idx;
+                drawn.push([
+                  done.from,
+                  done.to,
+                  last
+                    ? "amber"
+                    : moverSide
+                    ? "blue"
+                    : "palegrey",
+                ]);
+              }
+              setBoardFen(game.fen());
+              setShowingFutureMoves(true);
+              setFutureMoveIndex(0);
+              setArrows(drawn);
+              if (!running) stopLinePlayback();
+            } catch (err) {
+              console.warn("engine-line replay failed:", moves[idx], err);
+            }
+          };
+          const runLine = (key, moves) => {
+            stopLinePlayback();
+            const step = (i) => {
+              if (i >= moves.length) {
+                lineTimerRef.current = null;
+                setPlayingLine(null);
+                return;
+              }
+              setPlayingLine({ key, idx: i });
+              seekTo(moves, i, true);
+              lineTimerRef.current = setTimeout(() => step(i + 1), 750);
+            };
+            step(0);
+          };
+          const Line = ({ label, lineKey, first, rest, hint }) => {
+            const all = [first, ...rest].filter(Boolean);
+            const live = playingLine && playingLine.key === lineKey;
+            return (
+              <motion.div
+                className="mb-2"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: lineKey === "best" ? 0.08 : 0 }}
+              >
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+                    {label}
+                    {hint ? <span className="normal-case tracking-normal"> — {hint}</span> : null}
+                  </p>
+                  {all.length ? (
+                    <button
+                      type="button"
+                      onClick={() => (live ? stopLinePlayback() : runLine(lineKey, all))}
+                      className="text-[10px] px-1.5 rounded border border-zinc-700 text-zinc-300 hover:border-amber-400 hover:text-amber-200 transition-colors"
+                      title={live ? "Stop" : "Play this line out on the board"}
+                      data-testid={`play-line-${lineKey}`}
+                    >
+                      {live ? "stop" : "play"}
+                    </button>
+                  ) : null}
+                </div>
+                {all.length ? (
+                  <p className="text-[12px] font-mono text-zinc-200 break-words leading-relaxed">
+                    {all.map((san, i) => {
+                      const isNow = live && playingLine.idx === i;
+                      const isPast = live && playingLine.idx > i;
+                      return (
+                        <motion.button
+                          key={`${lineKey}-${i}-${san}`}
+                          type="button"
+                          onClick={() => seekTo(all, i, false)}
+                          title={`Play the line up to ${san}`}
+                          animate={isNow ? { scale: [1, 1.18, 1] } : { scale: 1 }}
+                          transition={{ duration: 0.35 }}
+                          className={
+                            "mr-1 px-1 rounded transition-colors cursor-pointer " +
+                            (isNow
+                              ? "bg-amber-400/25 text-amber-200 font-semibold"
+                              : isPast
+                              ? "text-zinc-500"
+                              : i === 0
+                              ? "text-white font-semibold hover:bg-amber-400/20"
+                              : "text-zinc-300 hover:bg-amber-400/20 hover:text-amber-200")
+                          }
+                        >
+                          {san}
+                        </motion.button>
+                      );
+                    })}
+                    <span className="text-zinc-600">({all.length} ply)</span>
+                  </p>
+                ) : (
+                  <p className="text-[12px] font-mono text-zinc-600">not stored</p>
+                )}
+              </motion.div>
+            );
+          };
+          const swing = (v) => (v === null || v === undefined ? "—" : (v > 0 ? "+" : "") + v);
+          return (
+            <div
+              className="mt-3 p-3 rounded border border-zinc-700 bg-zinc-900/50"
+              data-testid="engine-paths-panel"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] uppercase tracking-wider text-zinc-400">
+                  engine paths · move {rec.move_number} {rec.move_san} ({mover})
+                </p>
+                <p className="text-[11px] font-mono">
+                  <span className="text-zinc-500">cp_loss </span>
+                  <span className="text-zinc-200">{rec.cp_loss ?? "—"}</span>
+                  <span className="text-zinc-500"> · {rec.severity || "—"}</span>
+                </p>
+              </div>
+
+              <div className="mb-3 pb-2 border-b border-zinc-800">
+                <p className="text-[10px] uppercase tracking-wider text-zinc-500">verdict</p>
+                <p className={`text-[13px] font-semibold ${tone}`}>
+                  {story || "not stored — re-render this game"}
+                </p>
+                <p className="text-[11px] font-mono text-zinc-500">
+                  material over the played line {swing(detail.played_material_swing)}
+                  {"  ·  over the best line "}{swing(detail.best_material_swing)}
+                  {"  ·  short range "}
+                  {swing(detail.played_material_swing_short)}/{swing(detail.best_material_swing_short)}
+                </p>
+              </div>
+
+              <Line
+                label="punishment line"
+                lineKey="played"
+                hint={`what happens after ${rec.move_san}`}
+                first={rec.move_san}
+                rest={played}
+              />
+              <Line
+                label="opportunity line"
+                lineKey="best"
+                hint="what the engine wanted instead"
+                first={rec.best_move_san}
+                rest={best}
+              />
+            </div>
+          );
+        })()}
 
         {/* Authoring fact-dump panel — only when ?show_facts=1 is on URL.
             Shows the raw per-move record from decryption_v5_data so the
@@ -1953,11 +2136,11 @@ const WhyThisWasBad = ({ gameId, move, onArrows }) => {
         Why it was bad
       </div>
       <div className="text-sm text-gray-200 leading-relaxed">{result.text}</div>
-      {result.arrows?.length > 0 && (
-        <div className="text-[11px] text-gray-500 font-mono">
-          {result.arrows.map((a) => a.san).join("  ")}
-        </div>
-      )}
+      {/* The bare SAN list that used to sit here ("Re1 Bd2 Re2") was engine
+          output, not coaching -- Mohit 2026-10-02: "why it was bad and what
+          happens next are really bad stuff... they just run stockfish".
+          The sentence above says the thing; the arrows are already drawn on
+          the board, which is where a line belongs. */}
     </div>
   );
 };
@@ -2372,6 +2555,13 @@ const MoveCoachingCardV5 = ({
                       Back to game
                     </button>
                   </div>
+                  {/* Only transcribe a line that EXPLAINS itself. Trap lines
+                      carry an explanation per move (authored in traps.json);
+                      engine punishment lines set explanation: null, so this
+                      collapsed to "1. h4  2. h5  3. g5" -- ply numbers reading
+                      as move numbers, both sides mixed, no teaching. The board
+                      animation is the value there, not the transcript. */}
+                  {shouldTranscribeLine(lineSteps) && (
                   <ol className="space-y-0.5">
                     {lineSteps.map((s, i) => {
                       const isCurrent = i === (coachLineStepIndex ?? -1);
@@ -2389,6 +2579,7 @@ const MoveCoachingCardV5 = ({
                       );
                     })}
                   </ol>
+                  )}
                 </div>
               )}
             </div>

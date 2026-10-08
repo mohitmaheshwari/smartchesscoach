@@ -339,6 +339,88 @@ def _find_user_hanging(board: chess.Board, user_color: chess.Color) -> List:
     return results
 
 
+def threat_from_engine_reply(board, reply_san, opp_color):
+    """Name the shape of the reply Stockfish actually chose. No search.
+
+    Mohit 2026-10-07: "why are we checking legal moves, we have stockfish man,
+    this is a rule, everything on review should be backed by stockfish...
+    detectors can't really find anything that engine top moves can't,
+    stockfish is the truth table, pens down."
+
+    `_find_opponent_threats` below enumerates every legal opponent move, GUESSES
+    which ones look dangerous from board geometry, and then asks a depth-10
+    search to check each guess -- while the depth-18 answer to the same question
+    is already stored on the card as pv_after_played[0]. A shallower search
+    second-guessing a deeper one that already ran is strictly worse, and it cost
+    47 minutes to re-render one 42-move game.
+
+    `_punishment_arrows` was rewritten in September for this exact reason and
+    measured it: guessing produced 34% bad arrows, reading the engine's stored
+    line produced 2%, at the same coverage.
+
+    The engine verification is not lost, it is moved earlier and deepened. It
+    existed to catch "this LOOKED free but the user has compensation". A move
+    out of Stockfish's own principal variation has already been searched 18 ply
+    with every compensation on the board, so there is nothing left to re-check.
+
+    Returns (threat_type, threat_text) or (None, "").
+    """
+    if board is None or not reply_san:
+        return None, ""
+    user_color = not opp_color
+    try:
+        move = board.parse_san(str(reply_san))
+    except (ValueError, AssertionError):
+        return None, ""
+    if move not in board.legal_moves:
+        return None, ""
+    piece = board.piece_at(move.from_square)
+    if not piece or piece.color != opp_color:
+        return None, ""
+
+    move_san = board.san(move)
+    after = board.copy()
+    after.push(move)
+
+    if after.is_checkmate():
+        return "mate", f"After your move, {move_san} is checkmate!"
+
+    # Fork: the piece that just moved attacks two or more of ours worth taking.
+    attacked_targets = []
+    for sq in after.attacks(move.to_square):
+        target = after.piece_at(sq)
+        if target and target.color == user_color and PIECE_VALUES.get(target.piece_type, 0) >= 3:
+            attacked_targets.append(target.piece_type)
+    if len(attacked_targets) >= 2:
+        target_names = [
+            chess.piece_name(t)
+            for t in sorted(attacked_targets, key=lambda t: PIECE_VALUES.get(t, 0),
+                            reverse=True)[:2]
+        ]
+        return "fork", (
+            f"After your move, {move_san} forks your {' and '.join(target_names)}"
+        )
+
+    if board.is_capture(move):
+        captured = board.piece_at(move.to_square)
+        if captured and captured.color == user_color:
+            cap_val = PIECE_VALUES.get(captured.piece_type, 0)
+            attacker_val = PIECE_VALUES.get(piece.piece_type, 0)
+            is_defended = after.is_attacked_by(user_color, move.to_square)
+            if not is_defended and cap_val >= 3:
+                return "capture", (
+                    f"After your move, your {chess.piece_name(captured.piece_type)} on "
+                    f"{chess.square_name(move.to_square)} can be taken for nothing"
+                )
+            if cap_val > attacker_val + 1:
+                return "capture", (
+                    f"After your move, the opponent can take your "
+                    f"{chess.piece_name(captured.piece_type)} with a "
+                    f"{chess.piece_name(piece.piece_type)}"
+                )
+    return None, ""
+
+
 def _find_opponent_threats(
     board: chess.Board,
     opp_color: chess.Color,

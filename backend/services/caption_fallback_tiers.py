@@ -101,29 +101,80 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
         _who = _subject(facts)          # "You" / "Your opponent"
         _whose = _poss(facts)           # "your" / "their"
         if played and best and best != played:
-            # Missed opportunity WITH a why ("Nf3 was stronger — it develops a piece",
-            # "exd4 was stronger — it trades off his bishop"). The why makes it teaching,
-            # so it fires from the inaccuracy range, not engine-worship.
+            opp = facts.get("opp_reply_san") or ""
+            cap_pt = _PIECE.get(facts.get("opp_reply_captures_piece_type"))
+            # ── ORDER (2026-09-30) ────────────────────────────────────────
+            # The consequence of the move the student PLAYED comes first, and
+            # the better move follows it. It used to be the other way round:
+            # the best-move why was tried first and won whenever it existed,
+            # so a card that HAD the played-move consequence threw it away on
+            # branch order alone. Measured over 500 ALT_WHY_ONLY cards,
+            # 24.8% held both facts (docs/missing_why_diagnosis_2026_09_30.md).
+            #
+            # It also stole the forced-mate branch below, which sits inside
+            # the same cp gate further down: a move allowing mate in two could
+            # render as "Qxh4+ was stronger — it develops a piece", because
+            # `why` existed and returned before allows_forced_mate was ever
+            # read. The student asked what was wrong with THEIR move; when the
+            # board answers that, nothing else outranks it.
+            #
+            # Shape is what -> why -> better (feedback_caption_tone_undramatic),
+            # and the better move keeps its own why when it has one, so this
+            # ADDS the played consequence rather than trading one for the other
+            # (feedback_explain_why_recommended_move_good).
+            _better = (f" {best} was stronger: it {why}." if why
+                       else f" {best} was the stronger move here.")
+            # Facts-only — no board here. opp_reply_san is the engine's reply
+            # from pv_after_played; the capture type was geometry-checked in
+            # extract_facts.
+            if cp >= _MISTAKE_CP:
+                # A forced mate is not "check". Mohit 2026-09-29 on move 31
+                # of d75acb09: "caption should clearly mention about check
+                # mate." The card's own stored line was
+                # ['Qa1+', 'Ra2', 'Qxa2#'] -- mate in two -- and this floor
+                # accepted the "#" and called it a check anyway, because the
+                # one branch handled both suffixes with one word.
+                #
+                # R12 now has a failure clause that says it properly; this is
+                # the floor beneath it, so it only has to stop lying.
+                if facts.get("allows_forced_mate") and facts.get("allowed_mate_in"):
+                    _n = facts.get("allowed_mate_in")
+                    _w = "move" if _n == 1 else "moves"
+                    _start = facts.get("allowed_mate_first_move") or opp
+                    if _start:
+                        # "allows mate" and not "starts a forced checkmate":
+                        # the claim verifier reads the word "checkmate" as the
+                        # PLAYER delivering it (_MATE_DELIVERED_RX is checked
+                        # before the allowed pattern), so the first wording was
+                        # scored as contradicting the stored evidence and the
+                        # whole floor was thrown away -- which left the raw
+                        # R01_mate sentence shipping unsoftened. It is also the
+                        # plainer sentence of the two.
+                        return (f"{_who} played {played} — it allows mate in "
+                                f"{_n} {_w}, starting with {_start}."
+                                f"{_better}",
+                                "R_TIER_mistake_floor_forced_mate")
+                if opp and opp.endswith("#"):
+                    return (f"{_who} played {played} — it allows {opp}, which is "
+                            f"checkmate.{_better}",
+                            "R_TIER_mistake_floor_consequence")
+                # Material lost to the engine's reply. Below mate, above a
+                # check that costs nothing: losing a piece is the concrete
+                # thing, a check is only forcing.
+                if opp and cap_pt:
+                    return (f"{_who} played {played} — it runs into {opp}, taking "
+                            f"{_whose} {cap_pt}.{_better}",
+                            "R_TIER_mistake_floor_consequence")
+                if opp and opp.endswith("+"):
+                    return (f"{_who} played {played} — it lets {opp} come in with "
+                            f"check.{_better}",
+                            "R_TIER_mistake_floor_consequence")
+            # No consequence available off the board. Now the better move's own
+            # why is the best thing we have — and it still beats a bare verdict.
             if why and cp >= _INACCURACY_CP:
                 return (f"{_who} played {played}; {best} was stronger — it {why}.",
                         "R_TIER_missed_principle")
-            # No why for the BETTER move — try the consequence of the PLAYED
-            # move instead (2026-07-14, Q2: the bare "Y was the stronger move
-            # here" floor was the largest remaining no-why class). Both facts
-            # are already board-verified upstream: opp_reply_san is the
-            # engine's reply from pv_after_played; the capture type was
-            # geometry-checked in extract_facts. Facts-only — no board here.
             if cp >= _MISTAKE_CP:
-                opp = facts.get("opp_reply_san") or ""
-                cap_pt = _PIECE.get(facts.get("opp_reply_captures_piece_type"))
-                if opp and cap_pt:
-                    return (f"{_who} played {played}; {best} was the stronger move here — "
-                            f"{played} runs into {opp}, taking {_whose} {cap_pt}.",
-                            "R_TIER_mistake_floor_consequence")
-                if opp and (opp.endswith("+") or opp.endswith("#")):
-                    return (f"{_who} played {played}; {best} was the stronger move here — "
-                            f"{played} lets {opp} come in with check.",
-                            "R_TIER_mistake_floor_consequence")
                 return (f"{_who} played {played}; {best} was the stronger move here.",
                         "R_TIER_mistake_floor")
 
