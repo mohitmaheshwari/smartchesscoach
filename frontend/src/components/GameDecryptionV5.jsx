@@ -212,19 +212,15 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const applyCaptionArrows = useCallback((card) => {
     const capArrows = card?.caption_arrows;
     if (capArrows?.length) {
-      // Number a SEQUENCE so the order reads without playing it out. Mohit
-      // 2026-10-07: "something with arrows, that atleast explains the sequence
-      // without playing there". The backend emits these in line order, so the
-      // index is the ply. A lone arrow is not a sequence and stays unnumbered
-      // -- a "1" on its own says nothing.
-      const drawable = capArrows.filter((a) => a?.from && a?.to);
+      // No order numbers on the arrows. They were tried, and the one-second
+      // stagger turned out to say the same thing more quietly -- Mohit
+      // 2026-10-08: "remove the counters, 1 2 3 not required, since arrows
+      // coming after a sec are making things easy". The board carries the
+      // order in time instead of in digits.
       setArrows(
-        drawable.map((a, i) => [
-          a.from,
-          a.to,
-          a.color || "red",
-          drawable.length > 1 ? String(i + 1) : undefined,
-        ])
+        capArrows
+          .filter((a) => a?.from && a?.to)
+          .map((a) => [a.from, a.to, a.color || "red"])
       );
     } else {
       setArrows([]);
@@ -1636,7 +1632,6 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                     : moverSide
                     ? "blue"
                     : "palegrey",
-                  String(i + 1),
                 ]);
               }
               setBoardFen(game.fen());

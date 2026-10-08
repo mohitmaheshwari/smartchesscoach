@@ -1548,30 +1548,30 @@
    Then 2026-10-08: "can we add slight delay there?? like a one sec delay
    between this arrow and next arrow".
 
-   The numbers on the arrows (chessground `label`) make the order readable at
-   rest. This makes it readable at a glance: each arrow strokes itself in from
-   tail to head a second after the one before, its number landing behind it,
-   and then everything stays put. It runs ONCE on render, not on a loop -- a
-   board that never stops moving is harder to read, not easier.
+   Each arrow strokes itself in from tail to head a second after the one
+   before, and then everything stays put. The order is carried in time, which
+   is the whole trick: you read the sequence by watching it arrive once,
+   rather than by decoding anything on the board afterwards. It runs ONCE on
+   render, not on a loop -- a board that never stops moving is harder to read,
+   not easier.
+
+   Numbered arrows were built and then removed. chessground 9.2 does support a
+   `label` per shape, and LichessBoard still maps a 4th tuple slot onto it if a
+   caller ever wants one, but with a one-second stagger the digits added
+   nothing. Mohit 2026-10-08: "remove the counters, 1 2 3 not required, since
+   arrows coming after a sec are making things easy." Worth knowing if it comes
+   up again: labels are pushed with isCustom: true, so they land in
+   svg.cg-custom-svgs, NOT cg-shapes -- styling them under cg-shapes matches
+   nothing, which cost an afternoon.
 
    Scoped to `.engine-line-board` so no other board in the app changes.
    chessground wraps each arrow in its own <g> inside svg.cg-shapes, so
    nth-of-type gives the stagger without a per-arrow variable. The board's
-   viewBox is 8x8 board units, so a dash of 12 covers the longest arrow.
-
-   The NUMBERS live in a different layer: renderLabel is pushed with
-   isCustom: true, so they land in svg.cg-custom-svgs, not cg-shapes. They get
-   their own selector for that reason -- styling them under cg-shapes matched
-   nothing. */
+   viewBox is 8x8 board units, so a dash of 12 covers the longest arrow. */
 @keyframes cg-arrow-draw {
   from { stroke-dashoffset: 12; }
   to   { stroke-dashoffset: 0; }
 }
-@keyframes cg-arrow-label-in {
-  from { opacity: 0; transform: scale(0.6); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
 .engine-line-board svg.cg-shapes g line {
   stroke-dasharray: 12;
   animation: cg-arrow-draw 0.55s ease-out both;
@@ -1583,21 +1583,8 @@
 .engine-line-board svg.cg-shapes g:nth-of-type(5) line { animation-delay: 4s; }
 .engine-line-board svg.cg-shapes g:nth-of-type(n + 6) line { animation-delay: 5s; }
 
-/* The order number lands just after its own arrow finishes drawing. */
-.engine-line-board .cg-custom-svgs g {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: cg-arrow-label-in 0.28s ease-out both;
-}
-.engine-line-board .cg-custom-svgs g:nth-of-type(1) { animation-delay: 0.5s; }
-.engine-line-board .cg-custom-svgs g:nth-of-type(2) { animation-delay: 1.5s; }
-.engine-line-board .cg-custom-svgs g:nth-of-type(3) { animation-delay: 2.5s; }
-.engine-line-board .cg-custom-svgs g:nth-of-type(4) { animation-delay: 3.5s; }
-.engine-line-board .cg-custom-svgs g:nth-of-type(n + 5) { animation-delay: 4.5s; }
-
 @media (prefers-reduced-motion: reduce) {
-  .engine-line-board svg.cg-shapes g line,
-  .engine-line-board .cg-custom-svgs g {
+  .engine-line-board svg.cg-shapes g line {
     animation: none;
     stroke-dashoffset: 0;
   }
