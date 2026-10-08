@@ -6058,6 +6058,34 @@ def _story_swing(board_before, first_san, line, side):
     return _story_material(board, side) - start
 
 
+def _story_mate_in_line(board_before, first_san, line, side):
+    """Who gets mated if this line is played out? 'mover', 'opponent', or None.
+
+    Mohit 2026-10-08 on move 20 Nxf7 of 413fcce2: "don't understand arrow here
+    at all." The card had eval_after -9980 and a stored line of Bxe3+ Qf2 Nf3#
+    -- forced mate against him in three -- and the verdict said OPPORTUNITY,
+    because the classifier counts pieces and no piece changes hands before the
+    mate lands. Material is not the only thing a move can lose.
+    """
+    try:
+        board = board_before.copy()
+        if first_san:
+            board.push_san(str(first_san))
+    except (ValueError, AssertionError):
+        return None
+    if board.is_checkmate():
+        return "mover" if board.turn != side else "opponent"
+    for san in line or ():
+        try:
+            board.push_san(str(san))
+        except (ValueError, AssertionError):
+            return None
+        if board.is_checkmate():
+            # The side to move is the one with no escape.
+            return "mover" if board.turn == side else "opponent"
+    return None
+
+
 def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
                         best_move_san=None):
     """Return (story, detail). story is 'punishment' | 'opportunity' | 'neither'.
@@ -6096,6 +6124,21 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
         "played_material_swing_short": played_short,
         "best_material_swing_short": best_short,
     }
+
+    # MATE IS ASKED BEFORE EITHER. The two axes below count material, and a
+    # move can lose the game without a piece changing hands. Move 20 Nxf7 of
+    # 413fcce2 walks into Bxe3+ Qf2 Nf3# and read as an OPPORTUNITY because
+    # the material swing is 0 right up to the mate.
+    _mated = _story_mate_in_line(board, played_san, pv_after_played, mover)
+    if _mated == "mover":
+        detail["punishment_line"] = list(pv_after_played or ())
+        detail["ends_in_mate"] = True
+        return "punishment", detail
+    if (_story_mate_in_line(board, best_move_san, pv_after_best, mover)
+            == "opponent" and _mated is None):
+        detail["missed_move"] = best_move_san
+        detail["missed_mate"] = True
+        return "opportunity", detail
 
     # OPPORTUNITY IS ASKED FIRST, and the order is the whole point.
     #
@@ -8694,7 +8737,12 @@ def build_move_teaching_decision(
     # start drawing on quiet moves. It self-limits: it returns nothing unless
     # our payoff is at least the third step, which is precisely the case the
     # single-move builders cannot draw.
-    if not _teach_arrows and inputs.mover_is_user and (inputs.cp_loss or 0) >= 100:
+    # ...and only when there is a punishment to show. This is the user-side
+    # twin of the opponent gate: a `neither` card has no material story and an
+    # `opportunity` card is about the move NOT played, so neither earns a
+    # five-move plan of what happens next.
+    if (not _teach_arrows and inputs.mover_is_user
+            and (inputs.cp_loss or 0) >= 100 and _story == "punishment"):
         _seq_board = None
         try:
             _seq_board = board_before.copy()

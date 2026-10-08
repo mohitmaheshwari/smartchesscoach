@@ -61,14 +61,36 @@ def _arrows(pv, *, played="Be6", cp_loss=219, mover_is_user=True):
 
 
 class TestTheSequenceIsDrawn:
-    def test_a_mistake_of_ours_no_longer_stops_at_the_first_move(self):
-        assert len(_arrows(STORED_PV)) > 1
+    """UPDATED 2026-10-08. These first asserted the sequence drew on the
+    STORED 4-ply line. It no longer does, and that is a fix rather than a
+    regression: over four plies this position reads +2 for the mover -- the
+    bishop has been given and taken back, the fork has not landed -- so the
+    verdict is `neither`, and a card with no story may not draw a plan. The
+    sequence is now gated on `punishment` on our side as it already was on
+    theirs. Mohit found the ungated version twice, as arrows under words that
+    explained one of them."""
+
+    def test_four_plies_cannot_establish_a_punishment(self):
+        from services.caption_pipeline import classify_move_story
+        story, detail = classify_move_story(
+            FEN, "Be6", STORED_PV, ["Ng5", "Be3", "Bxc4", "Bxf4"], "Bf5")
+        assert story == "neither"
+        assert detail["played_material_swing"] == 2   # the sac is already repaid
+
+    def test_so_the_short_line_draws_no_plan(self):
+        assert _arrows(STORED_PV) == []
+
+    def test_the_full_line_does_establish_it_and_draws(self):
+        from services.caption_pipeline import classify_move_story
+        assert classify_move_story(
+            FEN, "Be6", FULL_PV, ["Ng5", "Be3", "Bxc4", "Bxf4"], "Bf5")[0] == "punishment"
+        assert len(_arrows(FULL_PV)) > 1
 
     def test_the_refutation_opens_the_picture(self):
-        assert ("d3", "h7", "blue") in _arrows(STORED_PV)
+        assert ("d3", "h7", "blue") in _arrows(FULL_PV)
 
     def test_their_forced_reply_is_drawn_so_it_reads_as_an_order_of_events(self):
-        assert ("g8", "h7", "palegrey") in _arrows(STORED_PV)
+        assert ("g8", "h7", "palegrey") in _arrows(FULL_PV)
 
 
 class TestTheLineHasToBeLongEnough:
@@ -77,10 +99,11 @@ class TestTheLineHasToBeLongEnough:
     correct either way, but it cannot find a payoff that was never stored."""
 
     def test_a_four_ply_line_cannot_reach_the_fork(self):
-        arrows = _arrows(STORED_PV)
-        assert ("g5", "e6", "green") not in arrows
-        # It settles for the check instead -- true, and not the point.
-        assert ("f3", "g5", "green") in arrows
+        """It used to settle for the check and call that the payoff. Now it
+        draws nothing at all, because four plies cannot even establish that
+        there IS a punishment -- see TestTheSequenceIsDrawn."""
+        assert ("g5", "e6", "green") not in _arrows(STORED_PV)
+        assert _arrows(STORED_PV) == []
 
     def test_the_full_line_lands_the_payoff_on_the_fork(self):
         arrows = _arrows(FULL_PV)
@@ -96,8 +119,9 @@ class TestTheLineHasToBeLongEnough:
         ]
 
     def test_only_one_arrow_is_ever_the_payoff(self):
-        for pv in (STORED_PV, FULL_PV):
-            assert sum(1 for a in _arrows(pv) if a[2] == "green") == 1, pv
+        """Where a sequence is drawn at all, exactly one arrow is green."""
+        assert sum(1 for a in _arrows(FULL_PV) if a[2] == "green") == 1
+        assert _arrows(STORED_PV) == []
 
 
 class TestItStaysOffEverythingElse:
