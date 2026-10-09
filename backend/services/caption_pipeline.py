@@ -8434,6 +8434,99 @@ def build_move_teaching_decision(
         # caption. silence is NOT always worse. silence is better than fake
         # explanation." And it does not say "you were already losing", which
         # he has ruled out separately (feedback_caption_tone_undramatic).
+        # ─── SAY WHAT WAS BETTER (backstop) ─────────────────────────
+        # Measured 2026-10-10 over Mohit's own stored reviews: 2,081 of 6,815
+        # of his flagged cards (31%) hold a best_move_san and never mention
+        # it. The board-state producers are the worst -- R16_board_state_
+        # fallback omits on 89% of its 1,160 cards, facts:capture_free on 96%
+        # of 156 -- and they are the RICHEST captions, not the poorest: HIGH
+        # tier is 53% of the omitting cards against 28% of the naming ones.
+        #
+        # So it is not a plumbing fault. Three plumbing hypotheses were
+        # measured against the naming cards as a control and all three died:
+        # the stage-4 verdict distribution is the same either way (81% vs 80%
+        # absent), pv_after_best is present on 77% of the omitting cards, and
+        # the best-move arrow is missing on 88% of BOTH groups. What the
+        # describe-only templates lack is a better-move step at all -- they
+        # write the whole caption, say what the board looks like, and stop.
+        #
+        # The worst of them do not merely omit. "Nxa5 wins the pawn for
+        # nothing -- nothing of theirs guards it" was served on a 77cp mistake
+        # where the engine wanted Be3: the card PRAISES the move it flags.
+        #
+        # Stage 11c above DECORATES an existing "{best} was better" clause
+        # with its why, so it cannot help a caption that never wrote the
+        # clause. This writes it.
+        #
+        # WHY IT SITS HERE, below the verifier, and not up beside 11c:
+        # best_move_why is not always true. The first version appended it
+        # blind and let the whole-caption gate judge; over 60 games 3 of 38
+        # residual cards lost the clause, and the verifier was right --
+        # "Ne4 was better - it opens the line, and your queen can then play
+        # Qh4+" on a KNIGHT move, and "Kd4 was better - 3 opponent pieces are
+        # aimed at your king on c5" where the post-move board has none. Down
+        # here _verify_final is in scope, so the sentence is checked on its
+        # own and a failing why falls back to a form that states no board
+        # fact and therefore cannot be false. The recommendation survives
+        # even when its reason does not.
+        #
+        # Ordering: before the decided-position gate directly below, so a
+        # position the result has already left strips the instruction straight
+        # back out; and before the opening decorator, which needs a named
+        # better move to anchor its lesson to.
+        #
+        # The cp gate is the canonical mistake bar, not the 50cp flag: Mohit
+        # 2026-10-10 on a 51cp card, "this is actually not a bad move, right
+        # we should stop flagging 51cp as inaccuracy". Below 100 the gentler
+        # "Though {best} was a bit stronger" in caption_fallback_tiers owns
+        # the band and this must not talk over it.
+        try:
+            _sb_cap = (caption_payload.get("caption") or "").strip()
+            _sb_best = (inputs.best_move_san or "").strip()
+            _sb_why = (caption_facts.get("best_move_why") or "").strip()
+            _sb_cp = abs(int(inputs.cp_loss or 0))
+            if (_sb_cap and _sb_best and inputs.mover_is_user
+                    and _sb_cp >= 100
+                    and _sb_best != (inputs.played_san or "")
+                    and _sb_best not in _sb_cap
+                    and not caption_facts.get("is_checkmate")):
+                from services.caption_config import MAX_CAPTION_WORDS as _SB_CAP
+                _sb_join = " " if _sb_cap.endswith((".", "!", "?")) else ". "
+                def _sb_fits(_s, _base=_sb_cap, _cap=_SB_CAP):
+                    return len((_base + " " + _s).split()) <= _cap
+                _sb_add = _sb_mark = ""
+                if _sb_why:
+                    _sb_try = f"{_sb_best} was better — it {_sb_why}."
+                    if _sb_fits(_sb_try) and not _verify_final(_sb_try):
+                        _sb_add, _sb_mark = _sb_try, "→SAY_BETTER_WHY"
+                if not _sb_add:
+                    # No why, or a why the board does not support. Naming the
+                    # move alone is incomplete and he has said so -- it
+                    # "raises the student's why? and walks away" -- but it
+                    # asserts nothing about the position, so it cannot be
+                    # wrong, and it still beats a card that describes a
+                    # mistake approvingly. Marked so the two forms stay
+                    # countable rather than blurring into one number.
+                    _sb_bare = f"{_sb_best} was better here."
+                    _sb_add, _sb_mark = (
+                        (_sb_bare, "→SAY_BETTER_BARE") if _sb_fits(_sb_bare)
+                        else ("", "→SAY_BETTER_TOO_LONG"))
+                _sb_full = _sb_cap + _sb_join + _sb_add if _sb_add else ""
+                if _sb_full and not _verify_final(_sb_full):
+                    caption_payload["caption"] = _sb_full
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "") + _sb_mark)
+                    _board_explanation = _sb_full
+                elif not _sb_add:
+                    # Nothing shipped, and the rule name says so. A skip that
+                    # leaves no trace is a skip nobody can count, and an
+                    # unmeasured skip is how a gate drifts.
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "") + _sb_mark)
+        except Exception as _sb_exc:
+            logger.warning(
+                f"[say_better] backstop failed m{inputs.full_move_number}: {_sb_exc!r}")
+
         _DECIDED_CP = 550
         try:
             _eval_before = inputs.eval_before_cp
