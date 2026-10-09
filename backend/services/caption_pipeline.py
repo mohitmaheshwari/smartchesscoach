@@ -6622,6 +6622,38 @@ def _say_the_missed_chance(board_before, best_san, mover_is_user, caption):
     return f"{subject} {best_san}, taking {owner} {piece_name} on {square}."
 
 
+
+def _drop_the_better_move_clause(caption: str, best_san: str) -> str:
+    """Remove the "X was stronger" half, keep what the move actually did.
+
+    In a position already lost by six pawns the engine's preference between
+    two losing moves is not stable enough to instruct from -- it inverted
+    between depth 22 and 28 on the card that prompted this. What the played
+    move DID is still true and still worth saying; what it should have been
+    is not.
+    """
+    import re as _re
+    if not caption or not best_san:
+        return caption
+    # TRUNCATE at the instruction, do not filter around it. Whatever follows
+    # "Kc5 was better" is commentary on Kc5: dropping only the middle sentence
+    # left "Kxe5 is a mistake. The same piece on a square that attacks more
+    # targets is the stronger move." -- a principle with nothing left to point
+    # at. feedback_principle_bank_is_filler
+    kept = []
+    for sentence in _re.split(r"(?<=[.!?])\s+", caption.strip()):
+        if best_san in sentence:
+            break
+        kept.append(sentence)
+    out = " ".join(kept).strip()
+    # Half a sentence is worse than none: a clause joined by a semicolon or a
+    # dash can leave "You played Kxe5;" standing on its own.
+    out = _re.sub(r"[;,—-]\s*$", ".", out).strip()
+    if out.endswith(";"):
+        out = out[:-1] + "."
+    return out if len(out.split()) >= 4 else ""
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -8330,6 +8362,76 @@ def build_move_teaching_decision(
                         )
                         _board_explanation = _safe
                         _rendered_personalization = False
+        # ─── The game was already over ───────────────────────────────
+        # Mohit 2026-10-09, on Kxe5 in a rook endgame: "why arrows didn't
+        # fire, this is pure tactical mistake". The arrows were the small
+        # half. The card read "You played Kxe5; Kc5 was stronger", and asked
+        # of the engine at three depths:
+        #
+        #     depth 16   Kc5  -615    Kxe5  -696
+        #     depth 22   Kc5  -628    Kxe5  -942
+        #     depth 28   Kxe5 -931    Kc5 -7608
+        #
+        # At depth 28 the ranking inverts: the move the card scolds is the
+        # best one, and the move it recommends collapses. White is -6 to -9
+        # throughout, so every move loses and "cp_loss 100" is the distance
+        # between two lost positions -- exactly where a shallow search is
+        # least stable and most confident.
+        #
+        # Measured over 100 games, 1,056 flagged moves with mate rows already
+        # excluded: 133 (12.6%) stand in a position already lost by six pawns
+        # or more, and all four rows in the corpus where the PLAYED move IS
+        # the engine's best move yet carries a non-zero cp_loss are inside
+        # that band (-5.7, -6.7, -5.8, +13.3).
+        #
+        # The number is set by where the engine stops agreeing with itself,
+        # not by eye. The four rows are at -5.78, -6.74, +6.57 and +13.33, so
+        # 5.5 pawns is the smallest gate that covers all of them; 6.0, which
+        # was my first guess, misses one of the four AND misses the card that
+        # started this by sixteen centipawns. Cost: 175 of 1,056 flagged
+        # moves (16.6%) rather than 133 (12.6%).
+        #
+        # Three pawns would cut 42% and a three-pawn deficit is still a game.
+        # There is no cliff in the curve, so the self-contradiction rows are
+        # the only objective evidence available for where to put it.
+        #
+        # The card is NOT removed -- what goes is the instruction. His own
+        # ruling, recorded in R12_blunder.json when the engine-meta clauses
+        # were dropped: "stop pretending every move deserves a concrete
+        # caption. silence is NOT always worse. silence is better than fake
+        # explanation." And it does not say "you were already losing", which
+        # he has ruled out separately (feedback_caption_tone_undramatic).
+        _DECIDED_CP = 550
+        try:
+            _eval_before = inputs.eval_before_cp
+            _already_decided = (
+                _eval_before is not None
+                and abs(int(_eval_before)) >= _DECIDED_CP
+                and int(inputs.cp_loss or 0) > 0
+                and not caption_facts.get("is_checkmate")
+            )
+        except (TypeError, ValueError):
+            _already_decided = False
+        if _already_decided and caption_payload.get("caption"):
+            _best = inputs.best_move_san
+            if _best and _best in (caption_payload.get("caption") or ""):
+                _stripped = _drop_the_better_move_clause(
+                    caption_payload["caption"], _best)
+                # Empty is a legitimate outcome, not a failure to strip. On
+                # the card that prompted this the instruction IS the sentence
+                # -- "You played Kxe5; Kc5 was stronger" is one clause -- so
+                # removing the claim removes the card, and that is correct.
+                # His ruling when the engine-meta clauses were dropped:
+                # "silence is NOT always worse. silence is better than fake
+                # explanation."
+                if _stripped != caption_payload["caption"]:
+                    caption_payload["caption"] = _stripped
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "")
+                        + ("→DECIDED" if _stripped else "→DECIDED_SILENT")
+                    )
+                    _board_explanation = _stripped
+
         # A stalemate ends the game as a draw, and 127 of the 132 corpus
         # cards where a winning player stalemated never said so. One read
         # "Your opponent tidys up the king, keeping it safe" on the move that
