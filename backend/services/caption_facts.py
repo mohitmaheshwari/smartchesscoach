@@ -11394,6 +11394,81 @@ def extract_facts(
                 )
             break
 
+    # ── You moved a piece because it was attacked, and you did not have to ──
+    #
+    # Mohit 2026-10-10, on game_e8c293b5082b move 14 Qxb7: "i removed queen
+    # from c7 to b7 because it was attacked, and that's a mistake too". The
+    # card told him the queen was attacked, which he knew -- he had just moved
+    # her. The lesson he wants is the mindset: "counter attack is the mindset
+    # which i want to teach here, along the facts" and "look for attacking
+    # opportunities".
+    #
+    # Four board conditions, all ply-0/ply-1 geometry. No search depth: "12
+    # plies is too much depth for a 1500". Stockfish still gates the card --
+    # it decides the move is a mistake and names the better move; this only
+    # explains why.
+    #
+    # Measured over 1,200 games / 14,463 flagged user cards:
+    #   you moved an attacked piece, the engine would not     626   4.3%
+    #   ...and the better move counter-attacks                172   1.2%
+    # See docs/counter_attack_lesson_scope.md, which also records the
+    # like-for-like control (33% vs 27%, 1.24x) and why lift is the wrong
+    # test for a habit -- and three explanations that were measured and
+    # failed, so they do not get re-derived.
+    facts["saved_a_piece_that_was_attacked"] = False
+    facts["saved_piece"] = None
+    facts["saved_piece_attacker_square"] = None
+    facts["counter_attack_piece"] = None
+    facts["counter_attack_square"] = None
+    try:
+        _V = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+              chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100}
+        _me = board_before.turn
+        _from = played_move.from_square
+        _pc = board_before.piece_at(_from)
+        # (2) the piece we moved was under threat: attacked, and either
+        #     undefended or attacked by something cheaper. A threatened pawn
+        #     is a different lesson, so pawns are out.
+        if (_pc is not None and _pc.piece_type not in (chess.PAWN, chess.KING)
+                and _best_mv is not None
+                # (4) the engine's better move does NOT move that piece
+                and _best_mv.from_square != _from):
+            _atk = board_before.attackers(not _me, _from)
+            _cheapest = min((_V[board_before.piece_at(s_).piece_type]
+                             for s_ in _atk), default=None)
+            _val = _V[_pc.piece_type]
+            if _atk and (not board_before.attackers(_me, _from)
+                         or (_cheapest is not None and _cheapest < _val)):
+                facts["saved_a_piece_that_was_attacked"] = True
+                facts["saved_piece"] = chess.piece_name(_pc.piece_type)
+                facts["saved_piece_attacker_square"] = chess.square_name(
+                    min(_atk, key=lambda s_: _V[board_before.piece_at(s_).piece_type])
+                )
+                # (5) the better move hits something NEW worth at least as
+                #     much as the piece we rescued. "New" matters: naming a
+                #     piece we were already attacking is not a counter-attack.
+                _after = board_before.copy()
+                _after.push(_best_mv)
+                _best_target = None
+                for _sq in chess.SQUARES:
+                    _t = _after.piece_at(_sq)
+                    if (_t is None or _t.color == _me
+                            or _t.piece_type == chess.KING):
+                        continue
+                    if _V[_t.piece_type] < _val:
+                        continue
+                    if _after.attackers(_me, _sq) and not board_before.attackers(_me, _sq):
+                        if (_best_target is None
+                                or _V[_t.piece_type] > _V[_best_target[0]]):
+                            _best_target = (_t.piece_type, _sq)
+                if _best_target is not None:
+                    facts["counter_attack_piece"] = chess.piece_name(_best_target[0])
+                    facts["counter_attack_square"] = chess.square_name(_best_target[1])
+    except Exception:
+        # A fact that cannot be computed is simply absent; it must never take
+        # the card down with it.
+        pass
+
     return facts
 
 

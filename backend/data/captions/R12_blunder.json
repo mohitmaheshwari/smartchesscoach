@@ -131,7 +131,12 @@
     "opp_quiet_threat_result": "true when opponent played a quiet move despite having a hanging piece (bluffed/ignored the threat). From opp_quiet_threat_detector.",
     "opp_quiet_threat_piece": "Lowercase piece-name of the opponent's hanging piece.",
     "opp_quiet_threat_square": "Square where the opponent's piece sits undefended.",
-    "opp_quiet_threat_best": "SAN of the user's best reply (e.g. 'Qxc5')."
+    "opp_quiet_threat_best": "SAN of the user's best reply (e.g. 'Qxc5').",
+    "saved_a_piece_that_was_attacked": "True when the move rescued a piece (not a pawn) that was attacked and under-defended, AND the engine's better move does not move that piece",
+    "saved_piece": "Piece type the player rescued, e.g. 'queen'",
+    "saved_piece_attacker_square": "Square of the cheapest attacker of it",
+    "counter_attack_piece": "Enemy piece the BETTER move newly attacks, worth at least as much as the rescued piece. Absent when the better move does not counter-attack",
+    "counter_attack_square": "Square that enemy piece stands on"
   },
   "requires": [
     "played_san"
@@ -501,6 +506,16 @@
   "failure_mode_clauses_user": [
     {
       "when": {
+        "saved_a_piece_that_was_attacked": true,
+        "saved_piece": "present",
+        "saved_piece_attacker_square": "present",
+        "counter_attack_piece": "present",
+        "counter_attack_square": "present"
+      },
+      "variant": "failure_saved_instead_of_counter_attack"
+    },
+    {
+      "when": {
         "allows_forced_mate": true,
         "allowed_mate_first_move": "present"
       },
@@ -699,7 +714,8 @@
     "opp_failure_line_material_loss": "lets you play {opp_reply_san}, and {line_loss_san} then takes their {line_loss_piece_type} on {line_loss_square}",
     "opp_failure_wrong_recapture": "When more than one man can take, work out which one you want left on the board afterwards",
     "opp_failure_wrong_piece_square": "Before you move, ask which of your pieces wants that square most",
-    "back_rank_no_escape": "A king behind three of its own pawns needs an escape square made early, not found in a hurry"
+    "back_rank_no_escape": "A king behind three of its own pawns needs an escape square made early, not found in a hurry",
+    "failure_saved_instead_of_counter_attack": "When something of yours is attacked, look for your own attack before you move it"
   },
   "_failure_mode_promotion_note": "v100 (2026-06-02): the 'why played wrong' two-clause system. failure_mode_clauses_user is parallel to why_clauses_user — it produces a failure-mode clause (e.g. 'walks into Nb7 attacking the bishop') that the wrapper variants render BEFORE the alternative-promotion clause. When no concrete alternative-promotion fact fires but a failure clause did, teaching_principles supplies a universal teaching line instead of a naked '{best} was better.' See docs/why_played_wrong_spec.md for the design. Triggered by Mohit's 2026-06-01 feedback batch (fb_3efccdbbf15e / fb_3d530eea5dd9 / fb_1cd7562468d1 / fb_79c33cd39b67) where 'h4 was better — it attacks Bg3' was the WRONG caption because the played move Bb2 walked into Nb7. Earlier 2026-06-01 predicate reorder (commit 72f21dfe, reverted in b0694980) proved that reordering alone produces non-sequitur wrappings and doesn't cover failure modes whose victim differs from the played piece — hence the two-clause architecture.",
   "_user_engine_meta_dropped_note": "v94 (2026-05-25): why_user_missed_material ('it wins material in the resulting line') + why_user_reply ('Opponent's strongest reply: X') removed entirely. Mohit 2026-05-25 on Tier B Q2: 'stop pretending every move deserves a concrete caption. silence is NOT always worse. silence is better than fake explanation. V5's biggest strength is supposed to be: only speak when grounded. Don't betray that principle because you fear empty UI.' These two why-clauses were the last engine-speak fallbacks — they fired when no concrete detector had a reason to give, and surfaced engine moves without explaining WHY. Now: when no concrete why-clause fires on a user mistake, the why_clause stays empty and the variant selector falls to user_with_best ('X is a mistake. Y was better.') without engine-meta apologies. Result: ~30-40% more user-side mistake-tier moves render without a why-clause, but the ones that DO render are grounded.",
@@ -944,6 +960,16 @@
     {
       "when": {
         "mover_is_user": true,
+        "saved_a_piece_that_was_attacked": true,
+        "counter_attack_piece": "present",
+        "failure_clause": "present",
+        "teaching_principle": "present"
+      },
+      "variant": "user_with_failure_and_principle"
+    },
+    {
+      "when": {
+        "mover_is_user": true,
         "failure_clause": "present",
         "why_clause": "present",
         "best_move_san_differs": true
@@ -1161,7 +1187,8 @@
     "why_opp_un_developed": "{opp_played_un_developed_san} retreats the {opp_played_un_developed_piece} back home — wastes a tempo, undoes their earlier development. Play {user_best_reply_san}.",
     "opp_failure_wrong_recapture": "they took back with the {opp_wrong_piece_played} when the {opp_wrong_piece_wanted} should have taken on {opp_wrong_piece_square}",
     "opp_failure_wrong_piece_square": "their {opp_wrong_piece_played} took {opp_wrong_piece_square}, the square their own {opp_wrong_piece_wanted} wanted",
-    "back_rank_no_escape": "Your king on {back_rank_king_square} has no escape squares — your own pawns block them all. Make one before a rook reaches the back row."
+    "back_rank_no_escape": "Your king on {back_rank_king_square} has no escape squares — your own pawns block them all. Make one before a rook reaches the back row.",
+    "failure_saved_instead_of_counter_attack": "moved your {saved_piece} out of the attack from {saved_piece_attacker_square}, but you didn't have to — {best_move_san} attacks their {counter_attack_piece} on {counter_attack_square} instead, and then both are attacked"
   },
   "_failure_mode_clauses_user_story_note": "2026-10-07 - the five clauses that ASSERT we lose material now require move_story == 'punishment'. Mohit: \"worry about the foundation, the logic, the core that keeps it working perfectly.\" move_story is the one verdict the arrows already answer to; it walks BOTH stored engine lines and says whether material moved and in which direction. These clauses were gated on single-move board geometry, which is true and not the same thing: on move 10 of 043d6b9c our knight captured a knight on d2 and was recaptured, an even trade, and 'leaves your knight on d2 undefended' plus 'you simply lose it for nothing' both fired because the knight standing on d2 has no defender. Geometry describes the square; the verdict describes the exchange."
 }
