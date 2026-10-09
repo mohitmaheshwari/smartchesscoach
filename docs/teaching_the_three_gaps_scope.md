@@ -111,15 +111,30 @@ more often than chance.** That is the one lesson this measurement supports:
 *look at every check first.* It covers two in five missed tactics and it is
 about as teachable as chess advice gets.
 
-### piece_safety: three causes, roughly equal, no single lesson
+### piece_safety: the landing square. Real, once base-rated.
 
-1,222 mistakes: moved a piece that was guarding something 32%, moved it onto an
-undefended square 31%, left another piece loose 31%, none of the above 23%.
-Three crisp and separately nameable errors rather than one idea. Not base-rated
-yet -- and on this page's record, that must happen before any of them is called
-a finding.
+1,222 mistakes against 28,283 user moves:
 
-## 2. Author one lesson, not three
+| shape | in the gap | everywhere | ratio |
+|---|---|---|---|
+| landed where something **cheaper** could take it | 9% | 1% | **6.80x** |
+| landed where it was **undefended** | 31% | 9% | **3.58x** |
+| left several other pieces loose | 8% | 2% | 3.50x |
+| abandoned something that is now loose | 10% | 4% | 2.67x |
+| left one other piece loose | 31% | 16% | 1.98x |
+| moved a piece that was guarding something | 32% | 24% | **1.36x** |
+
+The shape with the biggest raw share -- "moved a piece that was guarding
+something", 32% -- is **1.36x and therefore nearly nothing**. Pieces guard each
+other constantly and most such moves are fine. Had this not been base-rated it
+is exactly the one that would have been written up, for the second time on this
+page.
+
+The two shapes about the **square the piece landed on** are the real ones, and
+together they are 40% of piece_safety mistakes at 3.58x and 6.80x. That is one
+lesson: look at the square before you put a piece on it.
+
+## 2. Author two lessons, not three
 
 One real lesson each for king safety, piece safety and missed tactics. Three
 pieces of content covering 78.5% of mistakes. Not a curriculum — one page each
@@ -156,10 +171,24 @@ The card is the product, so here is the literal thing before any schema:
 Short sentences, one idea each, no jargon, a principle at the end they can
 carry into a game.
 
-**One lesson, not three.** king_safety has nothing that survives a base rate,
-and piece_safety has three equal causes and has not been base-rated yet. This
-is the only one the measurement supports today, and it is worth more than three
-written on confidence.
+**Two lessons, not three.** `king_safety` has nothing that survives a base
+rate and gets none. The second is below.
+
+> **Look at the square before you put a piece on it**
+>
+> Before you move, look at the square you are about to land on. Ask one thing:
+> can they take it there?
+>
+> If they can, ask what takes it. A pawn taking your knight is a bad trade for
+> you. Their queen taking your pawn can be fine, if you win the queen back.
+>
+> And if nothing of yours is guarding that square, there is no trade at all.
+> They just take it.
+>
+> **The habit: name what can take the square, before you move there.**
+
+That covers 40% of piece_safety mistakes, at 3.58x and 6.80x over the rate for
+an ordinary move.
 
 ### And give the 35 catalog entries a position
 
