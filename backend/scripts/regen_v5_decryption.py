@@ -120,7 +120,10 @@ async def main():
 
     # Lazy import — heavy module
     from services import game_decryption_v5_service as v5_mod
-    from services.game_decryption_v5_service import generate_game_decryption_v5
+    from services.game_decryption_v5_service import (
+        V5_COACHING_VERSION,
+        generate_game_decryption_v5,
+    )
 
     # When --skip-stockfish-candidates, monkey-patch _get_stockfish_candidates
     # to a no-op coroutine that returns []. V5 handles empty candidates
@@ -215,6 +218,20 @@ async def main():
                 {"$set": {
                     "decryption_v5_data": decryption,
                     "decryption_v5_regen_at": datetime.now(timezone.utc),
+                    # Stamp WHAT rendered it, not just when. Without this the
+                    # version field is frozen at whatever the worker last
+                    # wrote, so a game re-rendered by this script keeps an old
+                    # number and nothing can tell whether a stored card matches
+                    # current code. That made routes/reviewer.py's
+                    # "regenerated with the latest V5 code" filter unanswerable
+                    # and sent me measuring staleness off a field this path
+                    # does not maintain: 5,831 games carry regen_at and 18,666
+                    # of 18,669 sit below the current version, so a
+                    # version-keyed queue would have shown 3 games.
+                    # It also means routes/coach.py:946 re-rendered these on
+                    # every single view, throwing this script's work away each
+                    # time.
+                    "decryption_v5_version": V5_COACHING_VERSION,
                 }},
             )
             n_regenerated += 1
