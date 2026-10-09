@@ -30,7 +30,7 @@ from typing import Any, Dict, List, Optional
 
 import chess
 
-from services.position_facts import can_a_pawn_ever_attack, extract, mobility_of
+from services.quiet_move_facts import can_a_pawn_ever_attack, extract, mobility_of
 
 _MAX_PLY = 4
 
