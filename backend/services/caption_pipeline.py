@@ -5003,6 +5003,8 @@ def _line_sequence_arrows(
     board_after_opp: Optional[chess.Board],
     pv: Optional[List[str]],
     max_arrows: int = 5,
+    *,
+    line_is_ours: bool = True,
 ) -> List[Dict[str, str]]:
     """Draw the whole idea when the point of the move lands two moves later.
 
@@ -5022,6 +5024,30 @@ def _line_sequence_arrows(
         blue      your move
         paleGrey  their forced reply
         green     your payoff -- the capture the whole line was for
+
+    `line_is_ours=False` says the plan belongs to the OPPONENT, which is what
+    a user punishment card is: you played a bad move, now they carry out an
+    idea against you. Then the roles invert and so must the paint --
+
+        red       their move -- the threat being carried out
+        paleGrey  your forced reply
+        darkred   their payoff -- the material you lose
+
+    This is not cosmetic. `us` below is read off the board handed in, and the
+    user-side caller hands in the board AFTER the played move, where the
+    OPPONENT is to move. So `us` resolved to the opponent and every arrow on a
+    user punishment card came out inverted: their moves painted in "your move"
+    blue, your forced replies in "their reply" grey, and -- the part that
+    actually misinforms -- their winning capture painted in "your payoff"
+    green. Measured over 400 games: 61 of 61 user punishment cards that drew a
+    sequence were inverted, and all 61 drew that green. The opponent-card
+    callers and the sacrifice path hand in a board where WE are to move and
+    were always right, which is why this survived: the same builder was
+    correct on the 50 sacrifice-path cards sitting next to the 61 broken ones.
+
+    Found by smartchesscoach-f8 on game 413fcce2 move 8, reading the colours
+    off the board and noticing the green arrow was Black winning White's pawn
+    on a card where Mohit is White.
 
     Drawing the reply matters. Without it the rook arrow describes a path
     that is BLOCKED on the board in front of the player, by their own knight,
@@ -5137,7 +5163,14 @@ def _line_sequence_arrows(
         if len(arrows) >= max_arrows:
             break
         if ours:
-            colour = "green" if idx == payoff else "blue"
+            if line_is_ours:
+                colour = "green" if idx == payoff else "blue"
+            else:
+                # `ours` here means "the side whose plan this is", which when
+                # line_is_ours is False is the opponent. "darkred" degrades to
+                # chessground's plain red off the engine-line panel, because
+                # chessgroundBrushFor tests palered before red.
+                colour = "darkred" if idx == payoff else "red"
         else:
             colour = "palegrey"
         arrows.append({"from": frm, "to": to, "color": colour, "teach": True})
@@ -8750,8 +8783,13 @@ def build_move_teaching_decision(
         except Exception:
             _seq_board = None
         if _seq_board is not None:
+            # The board handed in is AFTER our own move, so the side to move
+            # in it is the opponent and this whole line is theirs, not ours.
+            # Without line_is_ours=False the builder paints their winning
+            # capture in our own "your payoff" green -- see its docstring.
             _teach_arrows = _line_sequence_arrows(
-                _seq_board, list(inputs.pv_after_played or ())
+                _seq_board, list(inputs.pv_after_played or ()),
+                line_is_ours=False,
             )
 
     # Only a punishment card draws a punishment. On Nxd2 -- knight traded for

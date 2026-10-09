@@ -78,6 +78,9 @@ const ENGINE_LINE_BRUSHES = {
   lineReply:  { key: "elr", color: "#2b2b2b", opacity: 0.6, lineWidth: 9 },
   linePayoff: { key: "elp", color: "#07451a", opacity: 1.0, lineWidth: 13 },
   lineLive:   { key: "ell", color: "#6b0a22", opacity: 1.0, lineWidth: 12 },
+  // The material you LOSE at the end of their line. Thicker than lineLive so
+  // the point of the line is still findable when every arrow in it is red.
+  lineLost:   { key: "elo", color: "#8c0b2b", opacity: 1.0, lineWidth: 14 },
 };
 
 // Our colour tokens -> the vivid brushes. Same meanings, legible paint.
@@ -88,6 +91,13 @@ const VIVID_BRUSH_BY_TOKEN = {
   green: "linePayoff",
   amber: "lineLive",
   yellow: "lineLive",
+  // A punishment line is the opponent's plan: their moves are the threat,
+  // their last move is what it costs you. Both red, so neither can read as
+  // something you are meant to play. `red` had no vivid mapping and fell back
+  // to chessground's bright default, which is the one colour in the panel
+  // that did not match the rest of the palette.
+  red: "lineLive",
+  darkred: "lineLost",
 };
 
 const chessgroundBrushFor = (color) => {

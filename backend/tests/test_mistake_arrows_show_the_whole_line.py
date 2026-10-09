@@ -87,7 +87,7 @@ class TestTheSequenceIsDrawn:
         assert len(_arrows(FULL_PV)) > 1
 
     def test_the_refutation_opens_the_picture(self):
-        assert ("d3", "h7", "blue") in _arrows(FULL_PV)
+        assert ("d3", "h7", "red") in _arrows(FULL_PV)
 
     def test_their_forced_reply_is_drawn_so_it_reads_as_an_order_of_events(self):
         assert ("g8", "h7", "palegrey") in _arrows(FULL_PV)
@@ -107,20 +107,20 @@ class TestTheLineHasToBeLongEnough:
 
     def test_the_full_line_lands_the_payoff_on_the_fork(self):
         arrows = _arrows(FULL_PV)
-        assert ("g5", "e6", "green") in arrows
+        assert ("g5", "e6", "darkred") in arrows
 
     def test_the_full_line_draws_the_whole_story(self):
         assert _arrows(FULL_PV)[:5] == [
-            ("d3", "h7", "blue"),       # the sacrifice
+            ("d3", "h7", "red"),       # the sacrifice
             ("g8", "h7", "palegrey"),   # forced recapture
-            ("f3", "g5", "blue"),       # the check that drives the king back
+            ("f3", "g5", "red"),       # the check that drives the king back
             ("h7", "g8", "palegrey"),   # forced retreat
-            ("g5", "e6", "green"),      # the fork -- what it was all for
+            ("g5", "e6", "darkred"),      # the fork -- what it was all for
         ]
 
     def test_only_one_arrow_is_ever_the_payoff(self):
         """Where a sequence is drawn at all, exactly one arrow is green."""
-        assert sum(1 for a in _arrows(FULL_PV) if a[2] == "green") == 1
+        assert sum(1 for a in _arrows(FULL_PV) if a[2] == "darkred") == 1
         assert _arrows(STORED_PV) == []
 
 
@@ -194,7 +194,7 @@ class TestAPlanWhosePointIsOffScreenIsNotDrawn:
         """The guard must not silence the cards this builder exists for."""
         arrows = _arrows(FULL_PV)
         assert len(arrows) == 5
-        assert arrows[-1] == ("g5", "e6", "green")
+        assert arrows[-1] == ("g5", "e6", "darkred")
 
     def test_every_drawn_sequence_ends_on_the_payoff(self):
         """The invariant the guard buys: if a sequence is drawn at all, its

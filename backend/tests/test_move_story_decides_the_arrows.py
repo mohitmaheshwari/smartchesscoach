@@ -127,7 +127,7 @@ class TestTheArrowsObeyIt:
         drawn, decision = _arrows(BE6)
         assert decision.debug_facts["move_story"] == "punishment"
         assert drawn[0][:2] == ("d3", "h7")            # Bxh7+
-        assert drawn[-1] == ("g5", "e6", "green")      # Nxe6, the fork
+        assert drawn[-1] == ("g5", "e6", "darkred")    # Nxe6, THEIR fork
 
     def test_an_opportunity_draws_one_arrow_for_the_missed_move(self):
         """Mohit on the O-O card: there is no recapture, so it was simply
@@ -703,7 +703,7 @@ class TestMateOutranksMaterial:
     def test_it_draws_the_mating_line(self):
         drawn, decision = _arrows(self.NXF7)
         assert decision.debug_facts["move_story"] == "punishment"
-        assert drawn[-1][2] == "green"           # the payoff is the mate
+        assert drawn[-1][2] == "darkred"         # the mate, and it is OURS being mated
         assert drawn[-1][:2] == ("h4", "f3")     # Nf3#
 
     # A real missed mate out of the corpus. We played h5; Rxg2+ Kh1 Rh2+ Kg1
