@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck source=/root/scripts/chess_backend_container.sh
+. /root/scripts/chess_backend_container.sh
 # Keep `played_at_utc` typed on every game. Idempotent: writes 0 when clean.
 #
 # WHY THIS IS SCHEDULED AND NOT A ONE-OFF. This field is the ONLY date any
@@ -28,7 +30,7 @@
 set -uo pipefail
 
 MAX_AUTO=200
-LOG=$(docker exec chess-coach-backend python3 scripts/backfill_played_at_utc.py 2>&1) || {
+LOG=$(docker exec "$CHESS_BACKEND" python3 scripts/backfill_played_at_utc.py 2>&1) || {
   echo "dry run failed:"; echo "$LOG"; exit 1; }
 
 TO_WRITE=$(sed -n 's/.*would write played_at_utc *: *\([0-9]*\).*/\1/p' <<<"$LOG" | head -1)
@@ -48,9 +50,9 @@ fi
 if [ "${DISAGREE:-1}" != "0" ] || [ "$TO_WRITE" -gt "$MAX_AUTO" ]; then
   echo "REFUSING to auto-apply: plan is large or disagrees with the PGN."
   echo "Someone should look, then run:"
-  echo "  docker exec chess-coach-backend python3 scripts/backfill_played_at_utc.py --apply --confirm-plan ${PLAN}"
+  echo "  docker exec "$CHESS_BACKEND" python3 scripts/backfill_played_at_utc.py --apply --confirm-plan ${PLAN}"
   echo "$LOG"; exit 2
 fi
 
-docker exec chess-coach-backend python3 scripts/backfill_played_at_utc.py \
+docker exec "$CHESS_BACKEND" python3 scripts/backfill_played_at_utc.py \
   --apply --confirm-plan "$PLAN"
