@@ -1,13 +1,22 @@
 """A line played AGAINST you must not be painted in your own colours.
 
-smartchesscoach-f8 read the arrows off game 413fcce2 move 8 and noticed the
-green one was Black winning White's pawn on a card where Mohit plays White:
+smartchesscoach-f8 reported a green arrow -- the colour that means YOUR
+payoff -- drawn for Black winning White's pawn on a card where Mohit plays
+White:
 
     c6->e7  blue      moved by black
     f3->e5  palegrey  moved by white
     d7->d6  blue      moved by black
     e5->f3  palegrey  moved by white
     f6->e4  green     moved by black
+
+Its example card, 413fcce2 move 8, turned out not to be a case: that stored
+record holds move_story "neither", caption_arrows [], and a single correct blue
+best_move_arrow d4->e5, so the story gate had already refused to draw a
+sequence there. The colours it quoted are what the builder DOES return for
+that line -- reproducible by calling it directly -- but no card rendered them.
+The defect below is real regardless, and rests on the fresh-render measurement,
+never on that card.
 
 `_line_sequence_arrows` documents blue as YOUR move, paleGrey as THEIR forced
 reply and green as YOUR payoff, and it reads the side off the board handed to
