@@ -2164,6 +2164,47 @@ const WhyThisWasBad = ({ gameId, move, onArrows }) => {
   );
 };
 
+// The sentences that go with the arrows on the card itself.
+//
+// Colour carries whose move it is and matches the board exactly: their moves
+// red, our forced replies grey, the move that costs the material darkest.
+// `darkred` is the payoff of a line played against us, `green` the payoff of
+// one we could have played.
+const NARRATION_INK = {
+  red: "text-rose-700",
+  darkred: "text-rose-900 font-medium",
+  palegrey: "text-zinc-500",
+  blue: "text-blue-800",
+  green: "text-emerald-800 font-medium",
+};
+
+const ArrowNarration = ({ move }) => {
+  const arrows = (move?.caption_arrows || []).filter((a) => a?.teach && a.from && a.to);
+  if (arrows.length < 2) return null;          // one arrow needs no story
+  const steps = (move?.line_steps || {}).played || [];
+  if (!steps.length) return null;
+  const bySquare = new Map();
+  steps.forEach((st) => {
+    if (st?.from && st?.to && st.text) bySquare.set(`${st.from}${st.to}`, st);
+  });
+  const told = arrows
+    .map((a) => ({ arrow: a, step: bySquare.get(`${a.from}${a.to}`) }))
+    .filter((x) => x.step);
+  if (told.length < 2) return null;
+  return (
+    <ol className="mt-3 space-y-1" data-testid="arrow-narration">
+      {told.map(({ arrow, step }, i) => (
+        <li
+          key={`${arrow.from}${arrow.to}${i}`}
+          className={`text-[13px] leading-snug ${NARRATION_INK[arrow.color] || "text-zinc-600"}`}
+        >
+          {step.text}
+        </li>
+      ))}
+    </ol>
+  );
+};
+
 const MoveCoachingCardV5 = ({
   move,
   gameId,
@@ -2394,6 +2435,21 @@ const MoveCoachingCardV5 = ({
               className="text-sm text-gray-700"
             />
             <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
+            {/* The arrows, in words. Mohit 2026-10-09: "when i am not using
+                show facts, it should still show sentences for the arrow...
+                after caption, it should show the arrows and the small
+                sentences". The narration existed since 2026-10-08 but only
+                inside the ?show_facts=1 panel, so an ordinary reader got the
+                picture with nothing to read it by.
+
+                Matched to the drawn arrows by square, never by index: the
+                steps list starts with the played move, which is not drawn,
+                and extra arrows from other builders are not in the line at
+                all. Matching on from/to means a sentence can only appear
+                beside an arrow that is really on the board, and an arrow with
+                no sentence stays silent rather than borrowing its
+                neighbour's. */}
+            <ArrowNarration move={move} />
           </div>
         )}
 
