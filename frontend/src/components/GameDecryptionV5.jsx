@@ -225,14 +225,26 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     } else {
       setArrows([]);
     }
-    // The squares the caption is about land on caption_highlight_squares;
-    // `highlight_squares` is a separate, usually-empty channel. Prefer the
-    // caption's own, fall back to the other so nothing regresses.
-    const capHigh =
-      card?.caption_highlight_squares?.length
-        ? card.caption_highlight_squares
-        : card?.highlight_squares;
-    setHighlights(capHigh?.length ? capHigh : []);
+    // The red square means ONE thing: material is lost here. Mohit
+    // 2026-10-08, asking for it: "the piece that is under attack should have
+    // a red background or something, so we see that this is gone".
+    //
+    // It must NOT be driven by caption_highlight_squares. That is a generic
+    // "the square this caption is about" channel -- on a good move it holds
+    // the destination -- so wiring it to the red fill painted the knight
+    // blood red on "Nice move. You bring your knight out with Nc3", which is
+    // what Mohit saw: "why is knight color changed??"
+    //
+    // The square where material is actually lost is the destination of the
+    // line's PAYOFF arrow: darkred when the line is theirs and we lose the
+    // piece, green when the plan is ours and they do. Both are "this piece is
+    // gone", which is exactly what he asked for, and both come from arrows
+    // the engine's own line produced. A card with no payoff arrow paints
+    // nothing.
+    const payoff = (capArrows || []).filter(
+      (a) => a?.to && (a.color === "darkred" || a.color === "green")
+    );
+    setHighlights(payoff.length ? [payoff[payoff.length - 1].to] : []);
   }, []);
   
   // "What were you thinking?" state
