@@ -68,14 +68,36 @@ def _better_suffix(facts: Dict[str, Any]) -> str:
     firing first) + a meaningful cp band (below this = style; at/above _MISTAKE_CP the
     flagged missed-opportunity path handles it). Verify-safe: best move is engine truth,
     principle is board-verified."""
-    if not facts.get("mover_is_user"):
-        return ""
+    # The user-only guard is gone. Mohit 2026-10-09, on an opponent card that
+    # read "Your opponent brings the queen to a more active spot" over a move
+    # badged Mistake at cp_loss 100: the praise had nothing to contradict it,
+    # because this suffix -- the one thing that would have -- returned early
+    # on every opponent move.
+    #
+    # Measured: 15,829 cards carry the "more active spot" sentence, 3,274 of
+    # them on a move the system itself flagged, and 2,828 of those 3,274 (86%)
+    # are opponent cards. One guard line was suppressing the counterweight on
+    # 86% of the cases where it was most needed.
+    #
+    # The subject has to follow the mover or the sentence lies about whose
+    # move it was -- the same fault that put "You played Be7" under a card
+    # badged Opponent on eb189840.
     best = facts.get("best_move_san")
     played = facts.get("played_san")
     why = facts.get("best_move_why")
     cp = int(facts.get("cp_loss") or 0)
-    if best and played and best != played and why and 25 <= cp < _MISTAKE_CP:
-        return f" Though {best} was a bit stronger, it {why}."
+    if not (best and played and best != played and why):
+        return ""
+    if facts.get("mover_is_user"):
+        if 25 <= cp < _MISTAKE_CP:
+            return f" Though {best} was a bit stronger, it {why}."
+        return ""
+    # Their move. Any flagged size, because the band that was meant to hand
+    # big mistakes to the missed-opportunity path does not hold here: 3,274
+    # flagged moves reach this floor, which is the real gap and is measured
+    # separately.
+    if cp >= 25:
+        return f" Though {best} was stronger for them, it {why}."
     return ""
 
 
@@ -260,6 +282,30 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
                 f"rooks belong on open files." + _suf, "R_TIER2_rook_file")
 
     if facts.get("threats_created"):
+        # The threat is real -- threats_created is SEE-gated, and on the card
+        # Mohit reported (2...Qh4 in the French) Qxe4+ genuinely wins a pawn.
+        # The move is still a mistake, and the sentence as written endorses it.
+        #
+        # Two things were measured before this was written, and both say the
+        # trigger is not the problem: 44% "hollow threats" was me counting my
+        # own definition rather than the SEE-gated one, and "their reply just
+        # develops a piece" came out at 0.4x -- commoner on GOOD moves. There
+        # is no threat-quality signal to gate on. What is wrong is only that
+        # nothing contradicts the praise.
+        #
+        # _better_suffix cannot do it here: it needs best_move_why, which is
+        # absent on 869 of 2,402 flagged moves including Mohit's card. The
+        # better move's NAME is enough to stop the endorsement, and that we
+        # almost always have.
+        _flagged = int(facts.get("cp_loss") or 0) >= 25
+        _best = facts.get("best_move_san")
+        if _flagged and _best and _best != facts.get("played_san") and not _suf:
+            _whose = "for them" if sub != "You" else ""
+            _tail = f" but {_best} was stronger{(' ' + _whose) if _whose else ''}."
+            if _central:
+                return (f"The {piece} is on a strong central square,{_tail}",
+                        "R_TIER2_activate_center")
+            return (f"The {piece} is more active there,{_tail}", "R_TIER2_activate")
         if _central:
             return (f"{sub} post{'' if sub=='You' else 's'} the {piece} on a strong central "
                     f"square." + _suf, "R_TIER2_activate_center")

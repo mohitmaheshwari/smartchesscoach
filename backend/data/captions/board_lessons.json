@@ -36,6 +36,14 @@
     "capture_window_closed": {
       "board": "{best_san} takes the {target} on {target_square}, and right now more of your pieces hit that square than theirs defend it. After {reply} that is no longer true.",
       "lesson": "A capture that is there now is often gone next move, so count before you play something else."
+    },
+    "opening_move_buys_nothing": {
+      "board": "{played_san} does not bring out a new piece, take a centre square, or make your king safer, and {their_gain}.",
+      "lesson": "In the opening nearly every move should develop a piece, fight for the middle, or get your king safe."
+    },
+    "outpost_left_for_nothing": {
+      "board": "Your knight on {from_square} stood where no pawn could ever attack it. On {to_square} it attacks nothing{kick_clause}.",
+      "lesson": "A knight that cannot be chased is worth more than one that can, so only move it for something you can name."
     }
   }
 }
