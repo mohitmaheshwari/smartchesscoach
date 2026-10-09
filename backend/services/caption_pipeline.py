@@ -6640,11 +6640,32 @@ def _drop_the_better_move_clause(caption: str, best_san: str) -> str:
     # left "Kxe5 is a mistake. The same piece on a square that attacks more
     # targets is the stronger move." -- a principle with nothing left to point
     # at. feedback_principle_bank_is_filler
+    sentences = _re.split(r"(?<=[.!?])\s+", caption.strip())
     kept = []
-    for sentence in _re.split(r"(?<=[.!?])\s+", caption.strip()):
+    for sentence in sentences:
         if best_san in sentence:
             break
         kept.append(sentence)
+    # A closing habit sentence survives the cut. smartchesscoach-24, on the
+    # counter-attack lesson landed in 72204b9a, which names the better move in
+    # sentence ONE: breaking there threw away "When something of yours is
+    # attacked, look for your own attack before you move it", which does not
+    # depend on the engine's preference and stays true in a decided position.
+    # It qualifies only if it names no square and no move -- otherwise it is
+    # commentary on the instruction we just removed, not a habit.
+    _tail = sentences[-1] if sentences else ""
+    # A habit has to stand on its own. "The same piece on a square that
+    # attacks more targets is stronger" names no square and is still
+    # commentary on the move just deleted -- it opens with a back-reference
+    # to it. feedback_principle_bank_is_filler
+    _refers_back = _re.match(r"\s*(it|this|that|those|these|the same)\b",
+                             _tail, _re.IGNORECASE)
+    if (_tail and _tail not in kept
+            and best_san not in _tail
+            and not _refers_back
+            and not _re.search(r"\b[a-h][1-8]\b", _tail)
+            and not _re.search(r"\b[KQRBN][a-h]?x?[a-h][1-8]", _tail)):
+        kept.append(_tail)
     out = " ".join(kept).strip()
     # Half a sentence is worse than none: a clause joined by a semicolon or a
     # dash can leave "You played Kxe5;" standing on its own.
@@ -8383,6 +8404,13 @@ def build_move_teaching_decision(
         # or more, and all four rows in the corpus where the PLAYED move IS
         # the engine's best move yet carries a non-zero cp_loss are inside
         # that band (-5.7, -6.7, -5.8, +13.3).
+        #
+        # DECIDED means decided EITHER WAY -- abs(), so it fires when the
+        # player is six pawns up as well as six down. Two of the four
+        # self-contradiction rows below are winning positions (+6.57, +13.33),
+        # and an instruction is no more trustworthy in a won game than a lost
+        # one. smartchesscoach-24 flagged that the prose said "lost by" while
+        # the code did not.
         #
         # The number is set by where the engine stops agreeing with itself,
         # not by eye. The four rows are at -5.78, -6.74, +6.57 and +13.33, so
