@@ -8297,6 +8297,11 @@ def build_move_teaching_decision(
     # that only exists on the happy path is a NameError waiting for a bad card
     # -- this file has already lost a whole caption block that way.
     _back_rank_said = False
+    # Declared out here for the same reason as the name above, and for the
+    # same test: when the stage-4 verifier raises, the except path skips
+    # the block that sets this and the arrow code below still reads it.
+    # test_final_truth_boundary_fails_closed_when_verifier_raises caught it.
+    _opening_named = None
     try:
         from services.narrator_claim_verifier import verify_caption as _stage4_verify
         from services.caption_fallback_tiers import tier23_caption as _stage4_floor
@@ -8459,6 +8464,34 @@ def build_move_teaching_decision(
                         + ("→DECIDED" if _stripped else "→DECIDED_SILENT")
                     )
                     _board_explanation = _stripped
+
+        # ─── Name the opening, where the lesson is an opening lesson ──
+        # Mohit 2026-10-10 on 2...Bg4 in a Philidor, badged inaccuracy at
+        # 51cp with no reason: "it should be captioned in as an opening
+        # teaching... which opening, what's better in this opening".
+        #
+        # It DECORATES: the opening leads and the caption follows intact.
+        # Writing a competing sentence was measured first and dropped -- it
+        # named the opening and deleted the reason, which is a bad trade.
+        # Runs after the decided-position gate on purpose: if that stripped
+        # the instruction there is no better move left to anchor to, and
+        # name_the_opening declines on its own.
+        if (inputs.opening_name and caption_payload.get("caption")
+                and int(inputs.cp_loss or 0) >= 30):
+            try:
+                from services.opening_lessons import name_the_opening
+                _opening_named = name_the_opening(
+                    caption_payload["caption"], inputs.fen_before,
+                    inputs.full_move_number, inputs.best_move_san,
+                    inputs.opening_name)
+            except Exception:
+                _opening_named = None
+            if _opening_named is not None:
+                caption_payload["caption"] = _opening_named.caption
+                caption_payload["rule_name"] = (
+                    (caption_payload.get("rule_name") or "") + "→OPENING")
+                if _board_explanation:
+                    _board_explanation = _opening_named.caption
 
         # A stalemate ends the game as a draw, and 127 of the 132 corpus
         # cards where a winning player stalemated never said so. One read
@@ -9136,6 +9169,13 @@ def build_move_teaching_decision(
             if (_a["from"], _a["to"]) not in _seen_pairs:
                 _arrows_out = _arrows_out + [_a]
                 _seen_pairs.add((_a["from"], _a["to"]))
+
+    # An opening card that names a better move and draws nothing is the
+    # complaint that keeps coming back. The recommended move is legal on the
+    # board before the played move, which is the frame the card renders, so
+    # it can always be drawn -- but only when nothing better is already there.
+    if _opening_named is not None and not _arrows_out:
+        _arrows_out = list(_opening_named.arrows)
 
     visual = VisualSurface(
         arrows=_arrows_out,
