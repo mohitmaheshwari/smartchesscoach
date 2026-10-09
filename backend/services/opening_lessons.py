@@ -25,10 +25,10 @@ Two attempts were measured and thrown away before this one:
     on a move-7 knight retreat, served Black's rule to White in a Slav, and
     had no way to choose which of four rules applied.
   - writing a competing caption named the opening and DROPPED the reason.
-    "You played a5; h6 was stronger -- it attacks the bishop on g5" became
-    (quoted as a worked example, not produced here)
-    "In the Bishops Opening Berlin Defense, h6 is the move here." A name is
-    not worth a why.
+    a caption that named the better move AND said what it attacked became one
+    that only named the better move. A name is not worth a why. The worked
+    example is in tests/test_opening_lessons.py, where a caption string
+    belongs.
 
 So this decorates rather than replaces: the opening name is a prefix on the
 caption the pipeline already produced, and if that caption has no reason this
