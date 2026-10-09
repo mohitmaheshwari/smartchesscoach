@@ -89,7 +89,13 @@ async def regen_one(db, gid: str, idx: int, total: int) -> None:
         {"$set": {
             "decryption_v5_data": decryption_data,
             "decryption_v5_version": V5_COACHING_VERSION,
-            "decryption_v5_generated_at": datetime.now(timezone.utc),
+            # isoformat, not a raw datetime: every other writer of this
+            # field stores a string (analysis_worker.py:1565,
+            # caption_authoring.py:169, coach.py:1363, and the other regen
+            # scripts), and routes/coach.py:1083 hands it straight to the
+            # API response. This script wrote a datetime, which is the 20
+            # rows out of 5,000 where the field disagrees with its own type.
+            "decryption_v5_generated_at": datetime.now(timezone.utc).isoformat(),
             "decryption_v5_generating": False,
         }},
     )
