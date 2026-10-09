@@ -26,6 +26,7 @@ Two attempts were measured and thrown away before this one:
     had no way to choose which of four rules applied.
   - writing a competing caption named the opening and DROPPED the reason.
     "You played a5; h6 was stronger -- it attacks the bishop on g5" became
+    (quoted as a worked example, not produced here)
     "In the Bishops Opening Berlin Defense, h6 is the move here." A name is
     not worth a why.
 
