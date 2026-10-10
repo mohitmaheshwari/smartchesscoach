@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import ViewAsBanner from "@/components/ViewAsBanner";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
@@ -315,6 +316,14 @@ function AppRouter() {
         Mounts only on public paths, so it never competes with the provider
         ProtectedRoute installs. */}
     {isPublicCoachingRoomPath(location.pathname) && <CoachingRoomPublic />}
+    // Every page, not just the one that crashed first. Mohit hit a blank
+    // window on /admin/detector-review and then on /admin/geometry-gaps, and
+    // in both cases the API returned 200 for every request -- a component
+    // threw while rendering and React unmounted the tree. The app had no
+    // error boundary anywhere, so the reason only existed in a console
+    // neither of us was looking at. A boundary on one page does not help the
+    // next page.
+    <ErrorBoundary where="route">
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
@@ -638,6 +647,7 @@ function AppRouter() {
         </ProtectedRoute>
       } />
     </Routes>
+    </ErrorBoundary>
     </div>
   );
 }

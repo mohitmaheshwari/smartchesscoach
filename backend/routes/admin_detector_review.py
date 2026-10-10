@@ -1317,119 +1317,6 @@ def _produce_tempo_loss(move, colour, analysis):
     })
 
 
-from services.blunder_families import VALUES as _FAMILY_VALUES
-
-
-def _produce_unexplained_blunder(move, colour, analysis):
-    """Blunders that NOTHING can explain -- the residue, served for a human.
-
-    Mohit 2026-10-10, after we walked the funnel over 100 games / 2,383
-    flagged moves: the engine's own line explains 28%, six deterministic
-    families would cover another 40.5%, and 31.5% have nothing. At blunder
-    level that residue is 69 moves, and reading them with Stockfish put 41 of
-    them within reach of work already planned -- 21 win material just past 8
-    plies, 3 are forced mates a detector should already have caught, 6 leave
-    a piece loose, 11 are a lasting attack with no material yet.
-
-    The 28 that remain are the real unknown: no material, no check, no mate,
-    and not one of the families fires. "h4 is a blunder" where the engine
-    answers Qf6 Rdf1 Qf4 Qxf4 Nxf4, queens come off, and the player is simply
-    worse. Nothing HAPPENS.
-
-    Those are what this queue serves. The question is not "is this claim
-    true" -- there is no claim. It is "what is the lesson here", which is the
-    only question a detector cannot answer for itself.
-
-    It serves a SUPERSET on purpose: 36 of the 69, not 28. The extra 8 judge
-    quiet on the stored 8-ply line and only resolve under a fresh depth-18
-    search, so they look identical to the system as it stands. Running an
-    engine per card inside a producer to separate them is not worth it, and
-    a reviewer who finds the answer two plies further on has learned the
-    useful thing anyway -- which is that the line was too short.
-    """
-    if (move.get("cp_loss") or 0) < 250:
-        return None
-    fen, played, best = (move.get("fen_before"), move.get("move"),
-                         move.get("best_move"))
-    if not fen or not played or not best or played == best:
-        return None
-    pv_played = list(move.get("pv_after_played") or [])
-    pv_best = list(move.get("pv_after_best") or [])
-    if len(pv_played) < 2:
-        return None
-
-    # 1. the engine's line already tells the story -> not ours
-    try:
-        from services.caption_pipeline import classify_move_story
-        story, _ = classify_move_story(fen, played, pv_played, pv_best, best)
-    except Exception:  # noqa: BLE001
-        return None
-    if story in ("punishment", "opportunity"):
-        return None
-
-    # 2. one of the six board families covers it -> not ours either
-    try:
-        from services.blunder_families import first_family
-        family = first_family(fen, played, best)
-    except Exception:  # noqa: BLE001
-        family = None
-    if family:
-        return None
-
-    # 3. something concrete happens in the line -> not ours
-    try:
-        board = chess.Board(fen)
-        mover = board.turn
-        walk = board.copy()
-        walk.push_san(played)
-        net = 0
-        gives_check = False
-        for san in pv_played:
-            mv = walk.parse_san(str(san))
-            theirs = walk.turn != mover
-            if walk.is_capture(mv):
-                victim = walk.piece_at(mv.to_square)
-                value = _FAMILY_VALUES.get(victim.piece_type, 1) if victim else 1
-                net += value if theirs else -value
-            if walk.gives_check(mv) and theirs:
-                gives_check = True
-            walk.push(mv)
-    except Exception:  # noqa: BLE001
-        return None
-    if gives_check or abs(net) >= 2:
-        return None
-    if move.get("mate_info"):
-        return None
-
-    side, arrow = _orientation_and_arrow(fen, played)
-    claim = (
-        f"The engine calls {played} a blunder and loses "  # allow-noncentral-caption
-        f"{int(move.get('cp_loss') or 0)} centipawns by it, but nothing "
-        f"visible happens in the {len(pv_played)}-ply line we stored: no "
-        f"material changes hands, no check, no mate, and none of the board "
-        f"families fire. It wanted {best}. What is the lesson here?"
-    )
-    return (claim, {
-        "review_fen": fen,
-        "line_fen": fen,
-        "fen_before": fen,
-        "fen_after": move.get("fen_after"),
-        "played_san": played,
-        "best_move": best,
-        "move_number": move.get("move_number") or 0,
-        "cp_loss": move.get("cp_loss"),
-        "side_to_move": side,
-        "arrow": arrow,
-        "arrow_is": "the move played",
-        "pv_after_played": pv_played[:8],
-        "pv_after_best": pv_best[:8],
-        "material_change_in_line": net,
-        "mover_is_user": bool(not move.get("is_opponent_move")),
-        # There is no claim to confirm, so every card here needs a human.
-        "confidence": CONFIDENCE_UNCERTAIN,
-    })
-
-
 # The rule each missed concept teaches. Deliberately NOT a description of the
 # position: the board draws the move played in red and the move wanted in
 # green, so the words carry only what a picture cannot -- the habit that
@@ -2076,7 +1963,6 @@ def _producers():
         "no_why": _produce_no_why,
         "tempo_loss": _produce_tempo_loss,
         "simple_hang": _produce_simple_hang,
-        "unexplained_blunder": _produce_unexplained_blunder,
         "left_book": _produce_left_book,
         "fork": _missed_motif(build_fork_proof, "fork"),
         # 2026-09-22 — seven proofs built and measured against Lichess in one

@@ -167,3 +167,59 @@ def first_family(fen: str, played_san: str, best_san: str) -> Optional[str]:
     """The one a card would lead with, or None."""
     hits = all_families(fen, played_san, best_san)
     return hits[0] if hits else None
+
+
+def is_unexplained(fen: str, played_san: str, best_san: str,
+                   pv_after_played, pv_after_best) -> bool:
+    """True when nothing we have can say why this move was bad.
+
+    Three steps, in this order, because each one owns the card if it fires:
+
+      1. the engine's own line tells the story (punishment / opportunity)
+      2. one of the six families above covers it
+      3. something concrete happens in the stored line -- material moves by
+         two or more, or they give check
+
+    Only a move that survives all three belongs in front of a human. Lives
+    here rather than inside the route so the route and its tests ask the same
+    question; the first version had this logic inline and the tests had to
+    reach into a request handler to reach it.
+    """
+    pv_played = [str(x) for x in (pv_after_played or [])]
+    pv_best = [str(x) for x in (pv_after_best or [])]
+    if not fen or not played_san or not best_san or played_san == best_san:
+        return False
+    if len(pv_played) < 2:
+        return False
+    try:
+        from services.caption_pipeline import classify_move_story
+        story, _ = classify_move_story(fen, played_san, pv_played,
+                                       pv_best, best_san)
+    except Exception:  # noqa: BLE001
+        return False
+    if story in ("punishment", "opportunity"):
+        return False
+    try:
+        if first_family(fen, played_san, best_san):
+            return False
+    except Exception:  # noqa: BLE001
+        return False
+    try:
+        board = chess.Board(fen)
+        mover = board.turn
+        walk = board.copy()
+        walk.push_san(played_san)
+        net = 0
+        for san in pv_played:
+            move = walk.parse_san(san)
+            theirs = walk.turn != mover
+            if walk.is_capture(move):
+                victim = walk.piece_at(move.to_square)
+                value = VALUES.get(victim.piece_type, 1) if victim else 1
+                net += value if theirs else -value
+            if walk.gives_check(move) and theirs:
+                return False
+            walk.push(move)
+    except Exception:  # noqa: BLE001
+        return False
+    return abs(net) < 2

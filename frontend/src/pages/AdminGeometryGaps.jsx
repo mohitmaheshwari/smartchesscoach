@@ -108,6 +108,10 @@ export default function AdminGeometryGaps() {
           ? `${API}/admin/geometry-gaps/no-why/next${
               side ? `?side=${encodeURIComponent(side)}` : ""
             }`
+          : mode === "unexplained"
+          ? `${API}/admin/geometry-gaps/unexplained/next${
+              side ? `?side=${encodeURIComponent(side)}` : ""
+            }`
           : `${API}/admin/geometry-gaps/next${
               cluster ? `?cluster=${encodeURIComponent(cluster)}` : ""
             }`;
@@ -123,6 +127,8 @@ export default function AdminGeometryGaps() {
         setError(
           mode === "why"
             ? "Every caption in the corpus has a why. Nothing left."
+            : mode === "unexplained"
+            ? "Every blunder has an explanation now. Nothing left."
             : "Nothing left to rule on in this cluster."
         );
       } else if (!res.ok) {
@@ -152,6 +158,28 @@ export default function AdminGeometryGaps() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ ...item, verdict, notes }),
+      });
+      await load();
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // The third queue asks a different question -- "what IS the lesson" -- so
+  // it posts a lesson, not a why, and "there is no lesson here" is a real
+  // answer rather than a skip.
+  const submitLesson = async (action, reason) => {
+    if (!item || saving) return;
+    if (action === "lesson" && !why.trim()) return;
+    setSaving(true);
+    try {
+      await fetch(`${API}/admin/geometry-gaps/unexplained`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ...item, action, reason, lesson: why.trim() }),
       });
       await load();
     } catch (e) {
@@ -409,6 +437,11 @@ export default function AdminGeometryGaps() {
             {[
               ["gaps", "Undrawable"],
               ["why", "Missing the why"],
+              // The residue: blunders the engine's line cannot explain and
+              // no board family covers. 69 of 2,383 flagged moves over 100
+              // games. Mohit 2026-10-10: "we already have geometrty-gaps
+              // page, we shuld hae put in there ... may bea seperat tab".
+              ["unexplained", "No explanation"],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -601,7 +634,79 @@ export default function AdminGeometryGaps() {
               )}
               {renderLine("best", "What the engine wanted", "text-green-600")}
 
-              {mode === "why" ? (
+              {mode === "unexplained" ? (
+                <>
+                  <div className="rounded border border-sky-500/50 bg-sky-500/5 p-3">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Nothing can explain this one
+                    </div>
+                    <p className="mt-1 text-sm">{item.question}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {item.side === "opponent" ? "Opponent" : "Player"} move
+                      {typeof item.cp_loss === "number"
+                        ? ` · ${item.cp_loss} cp`
+                        : ""}
+                      {typeof item.material_change_in_line === "number"
+                        ? ` · material in the line ${item.material_change_in_line}`
+                        : ""}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium" htmlFor="gap-lesson">
+                      What is the lesson here?
+                    </label>
+                    <textarea
+                      id="gap-lesson"
+                      className="mt-1 w-full rounded border bg-background p-2 text-sm"
+                      rows={4}
+                      value={why}
+                      onChange={(e) => setWhy(e.target.value)}
+                      placeholder="e.g. The knight had no way back into the game from a4."
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Very easy English, short sentences. If there is no
+                      lesson a player could use, say so with the button —
+                      that is a real answer and it tells us a family will
+                      never cover this card.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={saving || !why.trim()}
+                      onClick={() => submitLesson("lesson")}
+                      className="rounded bg-foreground px-3 py-1.5 text-sm text-background disabled:opacity-40"
+                    >
+                      Save the lesson
+                    </button>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => submitLesson("no_lesson")}
+                      className="rounded border px-3 py-1.5 text-sm disabled:opacity-40"
+                    >
+                      No lesson here — just a worse position
+                    </button>
+                    {[
+                      ["unsure", "Skip — unsure"],
+                      ["card_looks_wrong", "Skip — card looks wrong"],
+                      ["later", "Skip — later"],
+                    ].map(([reasonKey, label]) => (
+                      <button
+                        key={reasonKey}
+                        type="button"
+                        disabled={saving}
+                        onClick={() => submitLesson("skip", reasonKey)}
+                        className="rounded border px-3 py-1.5 text-xs text-muted-foreground disabled:opacity-40"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : mode === "why" ? (
                 <>
                   <div className="rounded border border-amber-500/50 bg-amber-500/5 p-3">
                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
