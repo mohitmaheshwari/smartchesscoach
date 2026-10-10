@@ -316,13 +316,10 @@ function AppRouter() {
         Mounts only on public paths, so it never competes with the provider
         ProtectedRoute installs. */}
     {isPublicCoachingRoomPath(location.pathname) && <CoachingRoomPublic />}
-    // Every page, not just the one that crashed first. Mohit hit a blank
-    // window on /admin/detector-review and then on /admin/geometry-gaps, and
-    // in both cases the API returned 200 for every request -- a component
-    // threw while rendering and React unmounted the tree. The app had no
-    // error boundary anywhere, so the reason only existed in a console
-    // neither of us was looking at. A boundary on one page does not help the
-    // next page.
+    {/* Every page, not just the one that crashed first. A boundary on one
+        page does not help the next page, and `//` is NOT a comment inside
+        JSX -- written that way it renders as visible text at the top of the
+        app, which is exactly what it did. */}
     <ErrorBoundary where="route">
     <Routes>
       <Route path="/" element={<Landing />} />

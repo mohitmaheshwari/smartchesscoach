@@ -113,6 +113,38 @@ const chessgroundBrushFor = (color) => {
   return "blue";
 };
 
+// chessground's own palette, copied from chessground/src/state.ts. Needed
+// because passing a `brushes` object REPLACES the defaults rather than
+// extending them -- and passing `undefined` wipes them entirely.
+//
+// Mohit 2026-10-10 saw "Cannot read properties of undefined (reading 'red')"
+// on /admin/geometry-gaps. I had written
+//     brushes: vividArrows ? ENGINE_LINE_BRUSHES : undefined
+// so every board that does NOT ask for the engine-line palette -- which is
+// every admin page -- handed chessground `brushes: undefined`, and the first
+// arrow coloured "red" crashed the render. React unmounted the tree and the
+// page went blank. The engine-line path survived only because its tokens
+// happen to map into ENGINE_LINE_BRUSHES; a plain "green" arrow there would
+// have crashed too, so this was never a two-page bug.
+const CHESSGROUND_DEFAULT_BRUSHES = {
+  green:     { key: "g",      color: "#15781B", opacity: 1,    lineWidth: 10 },
+  red:       { key: "r",      color: "#882020", opacity: 1,    lineWidth: 10 },
+  blue:      { key: "b",      color: "#003088", opacity: 1,    lineWidth: 10 },
+  yellow:    { key: "y",      color: "#e68f00", opacity: 1,    lineWidth: 10 },
+  paleBlue:  { key: "pb",     color: "#003088", opacity: 0.4,  lineWidth: 15 },
+  paleGreen: { key: "pg",     color: "#15781B", opacity: 0.4,  lineWidth: 15 },
+  paleRed:   { key: "pr",     color: "#882020", opacity: 0.4,  lineWidth: 15 },
+  paleGrey:  { key: "pgr",    color: "#4a4a4a", opacity: 0.35, lineWidth: 15 },
+  purple:    { key: "purple", color: "#68217a", opacity: 0.65, lineWidth: 10 },
+};
+
+// Always a full set. The engine-line brushes are ADDED to the defaults,
+// never swapped in for them.
+const BOARD_BRUSHES = {
+  ...CHESSGROUND_DEFAULT_BRUSHES,
+  ...ENGINE_LINE_BRUSHES,
+};
+
 // A 4th tuple slot carries an order number, drawn on the arrow itself.
 // chessground 9.2 positions labels along the line and slots them so they do
 // not collide, so a five-arrow plan reads 1 2 3 4 5 in place.
@@ -548,7 +580,7 @@ const LichessBoard = forwardRef(({
         drawable: {
           enabled: true,
           visible: true,
-          brushes: vividArrows ? ENGINE_LINE_BRUSHES : undefined,
+          brushes: BOARD_BRUSHES,
           autoShapes:
             !disableArrows && arrows.length > 0
               ? arrows.map((a) => chessgroundShapeFor(a, vividArrows))
