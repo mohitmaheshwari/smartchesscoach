@@ -632,6 +632,130 @@ async def next_missing_why(
     )
 
 
+@router.get("/admin/geometry-gaps/unexplained/next")
+async def next_unexplained_blunder(
+    side: Optional[str] = Query(default=None, pattern="^(user|opponent)$"),
+    user: User = Depends(require_geometry_reviewer),
+):
+    """One blunder that NOTHING can explain. The residue, served for a human.
+
+    Mohit 2026-10-10, after we walked the funnel over 100 games and 2,383
+    flagged moves on both sides:
+
+        the engine's own line explains it          667   28.0%
+        a deterministic board family covers it     966   40.5%
+        nothing                                    750   31.5%
+
+    At blunder level that residue is 69 moves. Reading them against Stockfish
+    put 41 within reach of work already planned -- 21 win material just past 8
+    plies, 3 are forced mates something should already have caught, 6 leave a
+    piece loose, 11 are a lasting attack with no material yet. The rest are
+    positions where nothing happens and the player is simply worse: "h4",
+    285cp, and the engine answers Qf6 Rdf1 Qf4 Qxf4 Nxf4.
+
+    This sits beside the other two queues rather than on the detector-review
+    page, which is where I first put it. Mohit: "we already have
+    geometrty-gaps page, we shuld hae put in there". It is the same job as
+    the other two -- a position a human has to look at because no rule can
+    name the lesson.
+
+    It defers in three steps, so a card only lands here when nothing else
+    owns it: the engine's line, then the six board families, then anything
+    concrete happening in the line.
+    """
+    import chess
+
+    from services.blunder_families import VALUES, is_unexplained
+
+    # Its OWN collection, not caption_why_authoring. That one is upserted on
+    # {"key": key} with no queue field and its results endpoint reads every
+    # row, so sharing it would collide on cards that appear in both queues
+    # and silently skew the no-why stats.
+    done = set(await db.unexplained_blunder_authoring.distinct(
+        "key", {"$or": [{"action": {"$ne": "skip"}},
+                        {"reason": {"$ne": "later"}}]}))
+    scanned = 0
+    async for doc in db.both_sides_analysis.find(
+        {"moves.0": {"$exists": True}},
+        {"_id": 0, "game_id": 1, "moves": 1},
+    ):
+        gid = doc.get("game_id")
+        for row in doc.get("moves") or []:
+            if (row.get("cp_loss") or 0) < 250:
+                continue
+            this_side = "user" if row.get("mover_is_user") else "opponent"
+            if side and side != this_side:
+                continue
+            fen = row.get("fen_before")
+            played = row.get("played_san")
+            best = row.get("best_san")
+            pv_played = [str(x) for x in (row.get("pv_after_played") or [])]
+            pv_best = [str(x) for x in (row.get("pv_after_best") or [])]
+            if not fen or not played or not best or played == best:
+                continue
+            if len(pv_played) < 2:
+                continue
+            key = f"{gid}:{row.get('move_number')}:{played}"
+            if key in done:
+                continue
+            scanned += 1
+            # One question, asked in one place, so this route and its
+            # tests cannot drift apart. See services/blunder_families.py.
+            try:
+                if not is_unexplained(fen, played, best, pv_played, pv_best):
+                    continue
+            except Exception:  # noqa: BLE001
+                continue
+            net = 0
+            try:
+                board = chess.Board(fen)
+                mover = board.turn
+                walk = board.copy()
+                walk.push_san(played)
+                for san in pv_played:
+                    move = walk.parse_san(san)
+                    if walk.is_capture(move):
+                        victim = walk.piece_at(move.to_square)
+                        value = VALUES.get(victim.piece_type, 1) if victim else 1
+                        net += value if walk.turn != mover else -value
+                    walk.push(move)
+            except Exception:  # noqa: BLE001
+                net = 0
+            return {
+                "key": key,
+                "queue": "unexplained",
+                "game_id": gid,
+                "fen": fen,
+                "move_number": row.get("move_number"),
+                "played_san": played,
+                "best_san": best,
+                "side": this_side,
+                "severity": "blunder",
+                "cp_loss": row.get("cp_loss"),
+                # There is no caption to judge. The question is what to SAY.
+                "caption": "",
+                "question": (
+                    f"The engine calls {played} a blunder and loses "
+                    f"{int(row.get('cp_loss') or 0)} centipawns by it, but "
+                    f"nothing visible happens in the {len(pv_played)}-ply "
+                    f"line we stored: no material changes hands, no check, "
+                    f"no mate, and none of the board families fire. It "
+                    f"wanted {best}. What is the lesson here?"
+                ),
+                "pv_after_played": pv_played,
+                "pv_after_best": pv_best,
+                "eval_before": row.get("eval_played_cp"),
+                "eval_after": row.get("eval_best_cp"),
+                "material_change_in_line": net,
+                "done_count": len(done),
+                "scanned": scanned,
+            }
+    raise HTTPException(
+        status_code=404,
+        detail=f"No unexplained blunder left (scanned {scanned})",
+    )
+
+
 @router.post("/admin/geometry-gaps/no-why")
 async def author_missing_why(
     payload: Dict = Body(...),
@@ -681,6 +805,74 @@ async def author_missing_why(
     await db.caption_why_authoring.update_one(
         {"key": key}, {"$set": row}, upsert=True)
     return {"ok": True, "key": key, "action": action}
+
+
+@router.post("/admin/geometry-gaps/unexplained")
+async def author_unexplained_blunder(
+    payload: Dict = Body(...),
+    user: User = Depends(require_geometry_reviewer),
+):
+    """Record what the lesson is here, or say there is not one.
+
+    Deliberately NOT the same shape as the no-why queue. There is no caption
+    to judge and no why to fill in -- the question is "what would you teach",
+    and "nothing, this is just a worse position" is a real and useful answer,
+    because it is evidence that a family will never cover this card.
+    """
+    key = str(payload.get("key") or "").strip()
+    action = str(payload.get("action") or "").strip().lower()
+    lesson = str(payload.get("lesson") or "").strip()
+    reason = str(payload.get("reason") or "").strip().lower() or None
+    if not key:
+        raise HTTPException(status_code=400, detail="key is required")
+    if action not in {"lesson", "no_lesson", "skip"}:
+        raise HTTPException(
+            status_code=400,
+            detail="action must be lesson, no_lesson or skip")
+    if action == "lesson" and not lesson:
+        raise HTTPException(
+            status_code=400, detail="lesson needs the text")
+    if action == "skip" and reason not in {"unsure", "card_looks_wrong", "later"}:
+        raise HTTPException(
+            status_code=400,
+            detail="skip needs reason: unsure, card_looks_wrong or later")
+    row = {
+        "key": key,
+        "action": action,
+        "reason": reason,
+        "lesson": lesson or None,
+        "game_id": payload.get("game_id"),
+        "fen": payload.get("fen"),
+        "move_number": payload.get("move_number"),
+        "played_san": payload.get("played_san"),
+        "best_san": payload.get("best_san"),
+        "side": payload.get("side"),
+        "cp_loss": payload.get("cp_loss"),
+        "author_email": (getattr(user, "email", "") or "").lower(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.unexplained_blunder_authoring.update_one(
+        {"key": key}, {"$set": row}, upsert=True)
+    return {"ok": True, "key": key, "action": action}
+
+
+@router.get("/admin/geometry-gaps/unexplained/results")
+async def unexplained_blunder_results(
+    user: User = Depends(require_geometry_reviewer),
+):
+    """What has been ruled so far, and how often the answer was 'no lesson'."""
+    rows = await db.unexplained_blunder_authoring.find(
+        {}, {"_id": 0}).to_list(length=None)
+    by_action: Dict[str, int] = {}
+    for row in rows:
+        act = str(row.get("action") or "?")
+        by_action[act] = by_action.get(act, 0) + 1
+    return {
+        "total": len(rows),
+        "by_action": by_action,
+        "recent": sorted(rows, key=lambda r: str(r.get("created_at") or ""),
+                         reverse=True)[:25],
+    }
 
 
 @router.get("/admin/geometry-gaps/no-why/results")

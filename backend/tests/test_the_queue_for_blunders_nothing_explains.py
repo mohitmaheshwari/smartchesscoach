@@ -25,7 +25,11 @@ _BACKEND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if _BACKEND_ROOT not in sys.path:
     sys.path.insert(0, _BACKEND_ROOT)
 
-from services.blunder_families import all_families, first_family  # noqa: E402
+from services.blunder_families import (  # noqa: E402
+    all_families,
+    first_family,
+    is_unexplained,
+)
 
 # A REAL card from the residue, copied out of the scan rather than written by
 # hand. The first version of this fixture was invented from a printed sample
@@ -42,46 +46,60 @@ QUIET = dict(
 )
 
 
-def _produce(move):
-    from routes.admin_detector_review import _producers
-    board = chess.Board(move["fen_before"])
-    return _producers()["unexplained_blunder"](move, board.turn, {})
+def _unexplained(card):
+    return is_unexplained(card["fen_before"], card["move"], card["best_move"],
+                          card["pv_after_played"], card["pv_after_best"])
 
 
 class TestTheQueueExists:
-    def test_it_is_registered_so_the_page_shows_a_tab(self):
+    def test_the_page_can_reach_it(self):
+        """It lives on the geometry-gaps page beside the other two queues,
+        not on detector-review where I first put it. Mohit 2026-10-10: "we
+        already have geometrty-gaps page, we shuld hae put in there"."""
+        from routes.admin_positional_reasons import router
+        paths = {r.path for r in router.routes}
+        assert "/admin/geometry-gaps/unexplained/next" in paths
+        assert "/admin/geometry-gaps/unexplained" in paths
+        assert "/admin/geometry-gaps/unexplained/results" in paths
+
+    def test_it_is_not_on_the_detector_review_page_any_more(self):
         from routes.admin_detector_review import _producers
-        assert "unexplained_blunder" in _producers()
+        assert "unexplained_blunder" not in _producers()
+
+    def test_its_rulings_do_not_touch_the_no_why_queue(self):
+        """Both queues can see the same card. caption_why_authoring is
+        upserted on {"key": key} with no queue field and its results endpoint
+        reads every row, so sharing it would collide and skew those stats."""
+        import inspect
+        from routes import admin_positional_reasons as mod
+        src = inspect.getsource(mod.author_unexplained_blunder)
+        assert "unexplained_blunder_authoring" in src
+        assert "caption_why_authoring" not in src
 
 
 class TestWhatItServes:
     def test_it_serves_a_blunder_nothing_explains(self):
-        out = _produce(dict(QUIET))
-        assert out is not None
-        claim, payload = out
-        assert "What is the lesson here?" in claim
-        assert payload["cp_loss"] == 278
-        assert payload["best_move"] == "Qb3"
-        assert payload["confidence"] == "uncertain", "every card needs a human"
+        assert _unexplained(QUIET) is True
 
-    def test_the_claim_says_which_line_it_judged(self):
+    def test_the_question_names_the_line_it_judged(self):
         """It judges the STORED line. Some of these resolve under a deeper
         search, so the card must not claim more than it checked."""
-        claim, _ = _produce(dict(QUIET))
-        assert "8-ply line we stored" in claim
-
-    def test_it_refuses_anything_under_blunder(self):
-        m = dict(QUIET, cp_loss=120)
-        assert _produce(m) is None
+        import inspect
+        from routes import admin_positional_reasons as mod
+        src = inspect.getsource(mod.next_unexplained_blunder)
+        assert "line we stored" in src
+        assert "len(pv_played)" in src, "the ply count must be the real one"
 
     def test_it_refuses_a_move_the_engine_agreed_with(self):
-        m = dict(QUIET, best_move="Nbd2")
-        assert _produce(m) is None
+        assert _unexplained(dict(QUIET, best_move="Nbd2")) is False
 
     def test_it_refuses_when_the_line_wins_material(self):
         """If something happens, it is not this queue's problem."""
-        m = dict(QUIET, pv_after_played=["Qxd4", "cxd4", "Nxd4", "Qa4+"])
-        assert _produce(m) is None
+        assert _unexplained(
+            dict(QUIET, pv_after_played=["Qxd4", "cxd4", "Nxd4", "Qa4+"])) is False
+
+    def test_it_refuses_a_line_that_is_too_short_to_judge(self):
+        assert _unexplained(dict(QUIET, pv_after_played=["g5"])) is False
 
 
 class TestTheFamiliesItDefersTo:
@@ -90,9 +108,8 @@ class TestTheFamiliesItDefersTo:
     def test_a_family_match_is_not_served(self):
         fen = "r1r3k1/ppQ1ppbp/2n3p1/3q4/3P4/4BN2/PPP2PPP/2KN3R w - - 1 14"
         assert first_family(fen, "Qxb7", "Nc3") is not None
-        m = dict(QUIET, fen_before=fen, move="Qxb7", best_move="Nc3",
-                 cp_loss=300, pv_after_played=["Qxa2", "Kd2", "Rab8", "Qd7"])
-        assert _produce(m) is None
+        assert is_unexplained(fen, "Qxb7", "Nc3",
+                              ["Qxa2", "Kd2", "Rab8", "Qd7"], []) is False
 
     def test_the_families_only_fire_where_the_engine_move_does_not(self):
         """The whole honesty of a family is the comparison. A move compared
