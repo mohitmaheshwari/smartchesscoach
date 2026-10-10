@@ -50,16 +50,26 @@ WHY_CARD = dict(
                    "h6", "a4", "Nf6", "Kg3", "e4"],
 )
 
-# c5aab8ea move 17. b5 drops a pawn; the why for Nf4 does not survive the
-# verifier, so this is the card that exercises the bare form.
+# e8d2cf8a move 31. d3 walks into Rh5+ Kg8 Rh8#. No why for Rd7 survives, so
+# this is the card that exercises the bare form.
+#
+# The FIRST bare fixture here was c5aab8ea move 17 (b5 / Nf4), and it stopped
+# being a bare card the moment the test container got the real
+# backend/data/captions/R12_blunder.json. With the stale file R12_blunder had
+# nothing to say and the backstop supplied a bare recommendation; with the real
+# one R12 produces "b5 is a mistake - it drops the pawn after Bxb5. Nf4 was
+# better - it puts your knight on a strong square the opponent can't
+# challenge..." all by itself, and the backstop correctly stands down because
+# the move is already named. Both fixtures are dumped from the corpus rather
+# than hand-built, which is the only reason the first pair was right at all.
 BARE_CARD = dict(
-    fen_before="r1b2rk1/1p3p2/7p/p1bpB1pn/B2p4/P2P1N2/1PP2PPP/R4RK1 b - - 1 17",
-    played_san="b5", mover_is_user=True, mover_is_white=False,
-    user_color="black", full_move_number=17, move_history_san=[],
-    best_move_san="Nf4", best_move_uci="h5f4",
-    eval_before_cp=109, eval_after_cp=250, cp_loss=141, opp_cp_loss=0,
-    pv_after_played=["Bxb5", "Nf4", "Rfe1", "Bg4"],
-    pv_after_best=["Rae1"],
+    fen_before="4r3/r4p1k/p3b3/1p4R1/1n1p1N2/1P6/PB3PPP/4R1K1 b - - 0 31",
+    played_san="d3", mover_is_user=True, mover_is_white=False,
+    user_color="black", full_move_number=31, move_history_san=[],
+    best_move_san="Rd7", best_move_uci="a7d7",
+    eval_before_cp=360, eval_after_cp=9980, cp_loss=9620, opp_cp_loss=0,
+    pv_after_played=["Rh5+", "Kg8", "Rh8#"],
+    pv_after_best=["Re4", "Nxa2", "Bxd4", "Rxd4"],
 )
 
 
@@ -84,7 +94,7 @@ class TestTheCardNamesTheBetterMove:
     def test_the_bare_card_names_the_move_with_no_board_claim(self):
         out = _decide(BARE_CARD)
         assert "SAY_BETTER_BARE" in (out.text.rule_name or "")
-        assert "Nf4 was better here." in out.text.caption
+        assert "Rd7 was better here." in out.text.caption
 
 
 class TestItNeverShipsAWhyTheBoardDoesNotSupport:
@@ -110,9 +120,9 @@ class TestItNeverShipsAWhyTheBoardDoesNotSupport:
 
     def test_and_a_rejected_why_falls_back_rather_than_dropping_the_move(self):
         """The bare card is exactly this path: a why exists, the verifier
-        refuses it, and Nf4 reaches the student anyway."""
+        refuses it, and Rd7 reaches the student anyway."""
         out = _decide(BARE_CARD)
-        assert "Nf4" in out.text.caption
+        assert "Rd7" in out.text.caption
         assert "SAY_BETTER_BARE" in (out.text.rule_name or "")
 
     @staticmethod
@@ -142,6 +152,26 @@ class TestTheWordCap:
         src = inspect.getsource(caption_pipeline)
         assert "SAY_BETTER_TOO_LONG" in src
         assert "elif not _sb_add:" in src
+
+    def test_the_cap_is_enforced_where_the_caption_is_finalised(self):
+        """My own guard was not enough, and this is why.
+
+        On Qf6 in 9b845c4c the backstop left the caption at exactly 60 words,
+        inside the cap, and BACK_RANK then appended 21 more. Six stages append
+        below the stage-9 _enforce_word_cap call -- pin context, opening
+        decorator, stalemate lead, back-rank, move-undone, this backstop -- and
+        only this one checked. Measured over an identical pinned sample of
+        3,650 user cards at 50cp+: 25 captions exceeded the 60-word cap without
+        the final enforcement (MOVE_UNDONE 11, R12_blunder 11, BACK_RANK 3) and
+        0 with it. R12_blunder blowing the cap with no later appender involved
+        is the proof that stage 9 was not constraining the final text.
+        """
+        src = inspect.getsource(caption_pipeline)
+        where = src.index("text = TextSurface(")
+        assert "_enforce_word_cap" in src[:where], (
+            "the cap must be applied before the caption is copied into "
+            "TextSurface; below that line it never reaches a card")
+        assert "caption=_final_caption," in src
 
 
 class TestWhatItRefuses:
