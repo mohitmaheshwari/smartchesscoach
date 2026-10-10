@@ -38,8 +38,6 @@ export default function EvalBar({ evalCp = null, mateIn = null, orientation = "w
   const wf = whiteFraction(evalCp, mateIn);          // 0..1 white share
   const whitePct = Math.round(wf * 100);
   const label = evalLabel(evalCp, mateIn);
-  // White advantage is positive eval. Label sits on whichever side is winning.
-  const whiteWinning = wf >= 0.5;
 
   // When the board is oriented for black, the bottom of the board is black's
   // side — so the white fill should come from the TOP instead of the bottom.
@@ -47,7 +45,13 @@ export default function EvalBar({ evalCp = null, mateIn = null, orientation = "w
 
   return (
     <div
-      className="relative w-5 md:w-6 rounded overflow-hidden border border-border/50 bg-neutral-800 select-none"
+      // 2026-10-10: the bar WAS rendering on the review screen and could not be
+      // seen - bg-neutral-800 on a near-black page is almost no contrast, and
+      // when one side is winning there is barely any white fill left to read.
+      // Matched to the Play-with-Coach bar (coach-play/EvalBar.jsx): the same
+      // gradient surface and border, so the two eval bars in the product stop
+      // looking like two different components.
+      className="relative w-6 md:w-7 rounded-md overflow-hidden border border-zinc-700 bg-gradient-to-b from-zinc-800 via-zinc-700 to-zinc-800 select-none"
       style={{ height: "100%" }}
       data-testid="eval-bar"
       title={`Engine eval: ${label} (${label.startsWith("-") ? "Black" : "White"} better)`}
@@ -61,20 +65,14 @@ export default function EvalBar({ evalCp = null, mateIn = null, orientation = "w
             : { top: 0, height: `${whitePct}%` }
         }
       />
-      {/* Numeric eval — on the winning side, in contrasting color */}
-      <span
-        className={`absolute left-0 right-0 text-center text-[9px] md:text-[10px] font-semibold tabular-nums ${
-          whiteWinning ? "text-neutral-800" : "text-neutral-100"
-        }`}
-        style={
-          // Put the label at the winning side's end of the bar.
-          whiteWinning === whiteFromBottom
-            ? { bottom: 2 }
-            : { top: 2 }
-        }
-      >
-        {label}
-      </span>
+      {/* Numeric eval, centred on its own chip - same treatment as the
+          Play-with-Coach bar. Centring means it stays legible whichever side
+          is winning, instead of sitting on a sliver of fill at one end. */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <span className="px-1 py-0.5 rounded text-[10px] md:text-[11px] font-bold leading-none tabular-nums bg-zinc-900/85 text-neutral-100 shadow-sm">
+          {label}
+        </span>
+      </div>
     </div>
   );
 }
