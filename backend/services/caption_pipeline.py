@@ -8842,8 +8842,36 @@ def build_move_teaching_decision(
     )
 
     # ─── Build the decision ──────────────────────────────────────
+    # The word cap is enforced HERE, where the caption is finalised, and not
+    # only at stage 9. Measured over 3,755 user cards at 50cp+: 18 captions
+    # exceeded the 60-word cap with no change of mine and 19 with the
+    # better-move backstop, so the stage-9 _enforce_word_cap call is not
+    # constraining the final text -- R12_blunder alone ships 9 over-cap
+    # captions with no later appender involved. Everything between stage 9 and
+    # this line appends: the pin context, the opening decorator, the stalemate
+    # lead, the back-rank warning, move-undone, the backstop. Only the backstop
+    # checked the cap, and even it was defeated -- on Qf6 in 9b845c4c it left
+    # the caption at exactly 60 words and BACK_RANK then added 21 more.
+    #
+    # Six guards and a seventh for the next appender is the wrong shape. This
+    # is the one place every caption passes through, which is why a sentence
+    # appended BELOW this line never reaches a card -- a bug this file has
+    # already had, with the back-rank warning, earlier the same day.
+    #
+    # _enforce_word_cap cuts at the last sentence boundary inside the window
+    # and logs what it dropped, so no text disappears silently.
+    _final_caption = caption_payload.get("caption") or ""
+    if _final_caption:
+        try:
+            from services.caption_renderer import _enforce_word_cap as _cap_fn
+            _final_caption = _cap_fn(
+                _final_caption, caption_payload.get("rule_name") or "")
+        except Exception as _cap_exc:
+            logger.warning(
+                f"[word_cap] final enforcement failed "
+                f"m{inputs.full_move_number}: {_cap_exc!r}")
     text = TextSurface(
-        caption=caption_payload.get("caption") or "",
+        caption=_final_caption,
         rule_name=caption_payload.get("rule_name") or "R_FALLBACK",
     )
     # V5 move_output reads from caption_payload (renderer output),
