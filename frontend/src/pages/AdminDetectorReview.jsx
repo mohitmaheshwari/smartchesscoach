@@ -20,6 +20,7 @@
  * detector_quality stays the only authority over what reaches a player.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import ErrorBoundary from "../components/ErrorBoundary";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -622,6 +623,10 @@ export default function AdminDetectorReview() {
 
   return (
     <Layout>
+      {/* One card that throws used to unmount the whole page and leave a
+          blank window -- the app had no error boundary anywhere. The boundary
+          does not fix a crash; it makes the page say what the crash was. */}
+      <ErrorBoundary where={`detector-review (queue: ${detector})`}>
       <div className="max-w-5xl mx-auto py-6 px-4 space-y-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="max-w-2xl">
@@ -1292,6 +1297,7 @@ export default function AdminDetectorReview() {
           </div>
         )}
       </div>
+      </ErrorBoundary>
     </Layout>
   );
 }
