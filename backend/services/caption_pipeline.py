@@ -8675,7 +8675,17 @@ def build_move_teaching_decision(
                 _br = ""
             if _br and _br not in caption_payload["caption"]:
                 _joined = caption_payload["caption"].rstrip() + " " + _br
-                if not _verify_final(_joined):
+                # Fit inside the word cap, for the same reason the better-move
+                # backstop checks it: the final _enforce_word_cap cuts at the
+                # last sentence boundary, so the stage that appends LAST is the
+                # one it eats. Over the pinned sample this lesson was the text
+                # dropped on 3 of 21 truncations, the only 3 that were not
+                # opening-course filler. Declining costs the same lesson and
+                # does not spend the budget on text nobody reads.
+                from services.caption_config import MAX_CAPTION_WORDS as _BR_CAP
+                if len(_joined.split()) > _BR_CAP:
+                    _joined = ""
+                if _joined and not _verify_final(_joined):
                     caption_payload["caption"] = _joined
                     if _board_explanation:
                         _board_explanation = _joined
