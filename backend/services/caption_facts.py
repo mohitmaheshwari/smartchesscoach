@@ -9459,14 +9459,48 @@ _REC_PRINCIPLE_PHRASE = {
     # PAWN, KNIGHT or BISHOP landing on a centre square, so naming the piece
     # type would be false two thirds of the time. "moves into the middle" is
     # true for all three and avoids calling a pawn a piece.
-    "center": "moves into the middle, where it takes squares away from his pieces",
+    # Possessives are TEMPLATED, never baked in: this table is read for
+    # the mover's own move, and the mover is not always the reader. Four
+    # of these five said "your"/"his" outright, which was invisible while
+    # best_move_why only ever rendered on user cards. The moment it
+    # rendered on opponent cards, 288 of 2,739 of them (10.5%) told the
+    # reader that the OPPONENT's piece was theirs -- flagged live by
+    # Mohit on "They missed Nc6 - it puts your knight on a square where
+    # no pawn can chase it away."
+    #   {own}  the mover's own pieces        your / their / the
+    #   {own2} the same, before a noun       your own / their own / its own
+    #   {opp}  the side NOT moving           their / your / the opponent's
+    # Render through _rec_principle_phrase(), never by direct lookup.
+    "center": "moves into the middle, where it takes squares away from {opp} pieces",
     "develop": "brings a new piece into the game",
-    "castle": "tucks your king away from the middle",
+    "castle": "tucks {own} king away from the middle",
     # NOT "a line with no pawns" -- the classifier only checks that none of the
     # player's OWN pawns sit on that file; enemy pawns may still be there.
-    "rook_open_file": "puts your rook on a line where none of your own pawns are in the way",
-    "outpost": "puts your knight on a square where no pawn can chase it away",
+    "rook_open_file": "puts {own} rook on a line where none of {own2} pawns are in the way",
+    "outpost": "puts {own} knight on a square where no pawn can chase it away",
 }
+
+
+def _rec_principle_phrase(
+    principle: Optional[str],
+    mover_is_user: Optional[bool],
+) -> Optional[str]:
+    """Fill _REC_PRINCIPLE_PHRASE's possessives for whoever moved.
+
+    When the caller does not know who moved, the phrasing goes neutral
+    rather than guessing -- the same rule _recommended_move_why already
+    applies to _own. A neutral phrase is never wrong.
+    """
+    template = _REC_PRINCIPLE_PHRASE.get(principle or "")
+    if not template:
+        return None
+    if mover_is_user is True:
+        own, own2, opp = "your", "your own", "their"
+    elif mover_is_user is False:
+        own, own2, opp = "their", "their own", "your"
+    else:
+        own, own2, opp = "the", "its own", "the opponent's"
+    return template.format(own=own, own2=own2, opp=opp)
 
 
 # Below this static-exchange value on the target square, a capture is not a
@@ -10157,13 +10191,13 @@ def _recommended_move_why(
         # CASTLE — its whole purpose is king safety; name that, not an incidental
         # "defends f7" the rook happens to add. Checked before threat/escape/defends.
         if pr == "castle":
-            return _REC_PRINCIPLE_PHRASE["castle"]
+            return _rec_principle_phrase("castle", mover_is_user)
 
         # Non-capture: derive the why from what the move DOES on the board.
         # Every branch is board-verified (true by construction) — right-or-silent.
         moved = board.piece_at(move.from_square)
         if moved is None:
-            return _REC_PRINCIPLE_PHRASE.get(pr)
+            return _rec_principle_phrase(pr, mover_is_user)
         enemy = not mover
         my_val = PIECE_VALUE_CP.get(moved.piece_type, 0)
         after = board.copy()
@@ -10303,7 +10337,7 @@ def _recommended_move_why(
 
         # 5) PRINCIPLE — castle/center/develop/outpost/rook (transferable idea).
         if pr in _REC_PRINCIPLE_PHRASE:
-            return _REC_PRINCIPLE_PHRASE[pr]
+            return _rec_principle_phrase(pr, mover_is_user)
     except Exception:
         return None
     return None
