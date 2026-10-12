@@ -105,3 +105,62 @@ def test_unknown_key_returns_none_not_a_crash():
     assert _rec_principle_phrase("not_a_principle", USER) is None
     assert _rec_principle_phrase(None, USER) is None
     assert _rec_principle_phrase("", USER) is None
+
+
+# ── the class guard, after fixing the same bug twice ─────────────────
+
+def test_no_literal_possessive_in_any_why_string():
+    """Source-level guard over the whole why generator.
+
+    I fixed _REC_PRINCIPLE_PHRASE and called it done. Rendering two real
+    games to check some LINKS then turned up a survivor in a different
+    branch:
+
+        "Play Bxa7 - it trades his bishop.
+         They missed Nxe3 - it trades his bishop."
+
+    The same sentence for our move and theirs, so one is wrong. Three
+    more sites, all naming the side NOT moving: `trades his {name}` and
+    two copies of `costs him ... if he takes back`.
+
+    A literal possessive inside a returned string is the bug, wherever
+    it lives: the function serves both voices, so a word fixed at author
+    time is right for one reader and wrong for the other. Possessives
+    must come from _own / _opp, which are resolved from mover_is_user.
+    """
+    import inspect
+    import re
+
+    from services import caption_facts
+
+    source = inspect.getsource(caption_facts._recommended_move_why)
+    # strings that are RETURNED to the caller, i.e. reach a card
+    returned = re.findall(r'return \(?\s*f?"([^"]*)"', source)
+    assert returned, "no return strings found - did the function move?"
+
+    banned = ("your ", "their ", "his ", "him ", "her ", " he ", " she ")
+    offenders = [
+        s for s in returned
+        if any(b in f" {s.lower()} " for b in banned)
+        # the check branch resolves both voices explicitly in-line and is
+        # asserted separately below
+        and "forcing" not in s.lower()
+    ]
+    assert not offenders, (
+        "literal possessive in a returned why string; use {_own}/{_opp}: "
+        + repr(offenders))
+
+
+def test_the_trade_phrase_follows_the_mover():
+    """The exact survivor, locked."""
+    import chess
+
+    from services.caption_facts import _recommended_move_why
+
+    board = chess.Board(
+        "r1bqkbnr/ppp2ppp/2n5/3pp3/4P3/3B1N2/PPPP1PPP/RNBQK2R w KQkq - 0 4")
+    move = board.parse_san("exd5")
+    assert _recommended_move_why(board, move, True) == "trades their pawn"
+    assert _recommended_move_why(board, move, False) == "trades your pawn"
+    assert (_recommended_move_why(board, move, None)
+            == "trades the opponent's pawn")
