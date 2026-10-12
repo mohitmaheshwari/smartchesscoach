@@ -6927,6 +6927,21 @@ def build_move_teaching_decision(
 
     inject_practical_severity_facts(caption_facts, practical)
 
+    # How bad was THIS mover's move? extract_facts is handed
+    # inputs.cp_loss, which is 0 on an opponent card because the
+    # opponent's loss travels in opp_cp_loss -- so every gate asking
+    # "is this a mistake" read zero and an opponent blunder fell through
+    # to the tier that describes a move approvingly. Mohit's
+    # game_8e1294767490 move 7 Bf5 lost 320cp and rendered "Your
+    # opponent develops the bishop, bringing a new piece into the game".
+    #
+    # cp_loss itself is deliberately NOT changed: 31 readers depend on
+    # it meaning the user's loss. This adds the mover's own loss beside
+    # it so a reader can ask the right question explicitly.
+    caption_facts["mover_cp_loss"] = abs(int(
+        (inputs.cp_loss if inputs.mover_is_user else inputs.opp_cp_loss)
+        or 0))
+
     # ── Which story is this card? One decision, before any arrow. ──────
     # Mohit 2026-10-07: "when an arrow tells mistake or blunder any side (me or
     # opponent) you should first find out if it's a bad move that opponent can
@@ -8522,8 +8537,13 @@ def build_move_teaching_decision(
             _sb_cap = (caption_payload.get("caption") or "").strip()
             _sb_best = (inputs.best_move_san or "").strip()
             _sb_why = (caption_facts.get("best_move_why") or "").strip()
-            _sb_cp = abs(int(inputs.cp_loss or 0))
-            if (_sb_cap and _sb_best and inputs.mover_is_user
+            # The mover's OWN loss, so an opponent card is measured by
+            # how bad the opponent's move was rather than by a field
+            # that is always 0 for them.
+            _sb_cp = abs(int(
+                (inputs.cp_loss if inputs.mover_is_user
+                 else inputs.opp_cp_loss) or 0))
+            if (_sb_cap and _sb_best
                     and _sb_cp >= 100
                     and _sb_best != (inputs.played_san or "")
                     and _sb_best not in _sb_cap
@@ -8533,8 +8553,16 @@ def build_move_teaching_decision(
                 def _sb_fits(_s, _base=_sb_cap, _cap=_SB_CAP):
                     return len((_base + " " + _s).split()) <= _cap
                 _sb_add = _sb_mark = ""
+                # Voice follows the mover. "{best} was better" addressed
+                # to the reader is wrong under a card badged Opponent --
+                # the same bug class as the hardcoded "You played Be7"
+                # on an opponent card, flagged live on eb189840 move 12.
+                _sb_you = bool(inputs.mover_is_user)
                 if _sb_why:
-                    _sb_try = f"{_sb_best} was better — it {_sb_why}."
+                    _sb_try = (
+                        f"{_sb_best} was better — it {_sb_why}."
+                        if _sb_you else
+                        f"They missed {_sb_best} — it {_sb_why}.")
                     if _sb_fits(_sb_try) and not _verify_final(_sb_try):
                         _sb_add, _sb_mark = _sb_try, "→SAY_BETTER_WHY"
                 if not _sb_add:
@@ -8545,7 +8573,8 @@ def build_move_teaching_decision(
                     # wrong, and it still beats a card that describes a
                     # mistake approvingly. Marked so the two forms stay
                     # countable rather than blurring into one number.
-                    _sb_bare = f"{_sb_best} was better here."
+                    _sb_bare = (f"{_sb_best} was better here." if _sb_you
+                                else f"They missed {_sb_best} here.")
                     _sb_add, _sb_mark = (
                         (_sb_bare, "→SAY_BETTER_BARE") if _sb_fits(_sb_bare)
                         else ("", "→SAY_BETTER_TOO_LONG"))
