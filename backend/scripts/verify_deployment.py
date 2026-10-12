@@ -1013,6 +1013,23 @@ async def try_autodiscover_game_id(mongo_url: str | None, db_name: str, db_timeo
 # main
 # =====================================================================
 
+def decide_exit_code(results, required) -> int:
+    """The exit-code contract, as one testable function.
+
+    `required` names the checks THIS deploy target must pass. When it is given
+    it IS the contract: a check outside the set is reported but does not fail
+    the run. deploy.sh relies on that -- its frontend target drops "commit",
+    because a frontend-only deploy cannot move the backend's reported git
+    commit. With no `required` set, any failure fails the run.
+    """
+    required = set(required or [])
+    if required:
+        unmet = [r for r in results
+                 if _check_key(r.name) in required and r.status != PASS]
+        return 1 if unmet else 0
+    return 1 if any(r.status == FAIL for r in results) else 0
+
+
 async def run(args: argparse.Namespace) -> int:
     print("=" * 72)
     print("  CHESSGURU DEPLOYMENT VERIFICATION")
@@ -1081,12 +1098,27 @@ async def run(args: argparse.Namespace) -> int:
             for r in unmet:
                 print(f"    - [{r.status}] {r.name}")
             print()
-            return 1
+            return decide_exit_code(RESULTS, required)
         print("  All required checks passed.")
+        # --require-checks names the contract for THIS deploy target, so a
+        # check outside that set must not fail the run. It used to:
+        # `return 1 if n_fail else 0` here ignored the set entirely and
+        # contradicted deploy.sh, which deliberately drops "commit" from the
+        # frontend set because a frontend-only deploy cannot move the
+        # backend's reported git commit. On 2026-10-12 that shipped a correct
+        # frontend release and reported "release is not live" - the opposite
+        # of the failure mode this script was written to prevent.
+        # Non-required failures are still printed, loudly, every time.
+        if n_fail:
+            print(f"  {n_fail} non-required check(s) FAILED - NOT blocking this "
+                  f"{'/'.join(sorted(required))} deploy, but read them:")
+            for r in RESULTS:
+                if r.status == FAIL and _check_key(r.name) not in required:
+                    print(f"    - [{r.status}] {r.name}")
         print()
-        return 1 if n_fail else 0
+        return decide_exit_code(RESULTS, required)
 
-    return 1 if n_fail else 0
+    return decide_exit_code(RESULTS, required)
 
 
 def main() -> int:
