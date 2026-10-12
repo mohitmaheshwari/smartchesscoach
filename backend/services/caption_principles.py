@@ -190,13 +190,13 @@ PRINCIPLES: List[Dict[str, Any]] = [
         "aligned_moves": "any move that brings a piece off its starting square, ideally with a check or a threat",
         "gate_policy": "endorsement_required + cp_loss_strict",
         "suppress": "once_per_game",
-        "cue_best":   "You are a piece up, but most of your pieces have never moved. The extra piece does nothing until they are out. Bring them out with checks and threats — your opponent has to answer those, so you get the move for free.",
-        "cue_top_n":  "You are a piece up with most of your pieces still at home. Get them out before anything else. A check or a threat develops a piece and forces a reply at the same time.",
+        "cue_best":   "You are ahead on material, but most of your pieces have never moved. Extra material does nothing until your pieces are out. Bring them out before you do anything else.",
+        "cue_top_n":  "You are ahead on material with most of your pieces still at home. Get them out before anything else. Material you cannot use is not an advantage yet.",
         # The gate is endorsement_required, so this cue should be
         # unreachable. Kept so the schema is complete and a later gate
         # change cannot silently ship an empty string
         # ([[feedback_empty_content_ships_silently]]).
-        "cue_absent": "Being a piece up only helps once your pieces are out. As a default: bring every piece into the game before doing anything else.",
+        "cue_absent": "Being ahead on material only helps once your pieces are out. As a default: bring every piece into the game before doing anything else.",
         "visual_signature": {
             "highlight": ["pieces_at_home"],
             "arrows": [("best_move_from", "best_move_to", "green")],
