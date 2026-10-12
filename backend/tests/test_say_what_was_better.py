@@ -204,16 +204,35 @@ class TestWhatItRefuses:
 
 class TestItComposesWithTheGatesBelowIt:
 
-    def test_a_decided_position_strips_the_instruction_back_out(self):
-        """FAILURE 3 would have been ordering. This runs BEFORE the
-        decided-position gate on purpose: in a position the result has already
-        left, the card stops instructing (test_decided_position_gate.py). If
-        the backstop ran after that gate it would put the instruction straight
-        back and undo it. Measured: 345 of the 2,211 cards are silent for this
-        reason, which is the gate working, not a residue."""
+    def test_a_decided_position_does_not_silence_an_engine_backed_card(self):
+        """UPDATED 2026-10-12. This used to assert that a decided position
+        always strips the instruction. It does not any more, and should not.
+
+        Mohit: "being in a lost position should never, by itself, disqualify a
+        move from receiving a useful explanation." Measured over 2,347 of his
+        cards: of 309 silenced by that gate, 43 carried a punishment verdict
+        and 52 an opportunity -- 95 cards where Stockfish's own line explains
+        the move and we said nothing because the eval was past 5.5 pawns.
+
+        This fixture allows forced mate (pv ends Rxc7#), so it HAS an
+        engine-backed verdict and keeps its instruction even at -900.
+        """
         out = _decide(eval_before_cp=-900)
-        assert "Be6" not in out.text.caption
-        assert "DECIDED" in (out.text.rule_name or "")
+        assert "Be6" in out.text.caption, (
+            "a card the engine's own line explains must survive the decided "
+            "gate; the gate is for cards where we would be inventing a lesson")
+
+    def test_but_a_card_with_no_engine_story_still_goes_quiet(self):
+        """The gate still does its original job. The Kxe5 card that prompted
+        it -- a rook ending where the engine inverts its own preference
+        between depth 16 and 28 -- has no punishment or opportunity verdict,
+        so nothing shields it. Pinned in test_decided_position_gate.py."""
+        from services.caption_pipeline import classify_move_story
+        story, _ = classify_move_story(
+            "8/4k3/3R3b/3Kp3/pn2P3/8/P7/8 w - - 1 58", "Kxe5", [], [], "Kc5")
+        assert story == "neither", (
+            "if this card gains a verdict the decided gate stops covering it "
+            "and this test is no longer testing the gate")
 
     def test_and_the_order_is_visible_in_the_source(self):
         """Pinned because the composition above can pass for the wrong reason
