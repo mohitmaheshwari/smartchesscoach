@@ -78,6 +78,9 @@ const ENGINE_LINE_BRUSHES = {
   lineReply:  { key: "elr", color: "#2b2b2b", opacity: 0.6, lineWidth: 9 },
   linePayoff: { key: "elp", color: "#07451a", opacity: 1.0, lineWidth: 13 },
   lineLive:   { key: "ell", color: "#6b0a22", opacity: 1.0, lineWidth: 12 },
+  // The material you LOSE at the end of their line. Thicker than lineLive so
+  // the point of the line is still findable when every arrow in it is red.
+  lineLost:   { key: "elo", color: "#8c0b2b", opacity: 1.0, lineWidth: 14 },
 };
 
 // Our colour tokens -> the vivid brushes. Same meanings, legible paint.
@@ -88,6 +91,13 @@ const VIVID_BRUSH_BY_TOKEN = {
   green: "linePayoff",
   amber: "lineLive",
   yellow: "lineLive",
+  // A punishment line is the opponent's plan: their moves are the threat,
+  // their last move is what it costs you. Both red, so neither can read as
+  // something you are meant to play. `red` had no vivid mapping and fell back
+  // to chessground's bright default, which is the one colour in the panel
+  // that did not match the rest of the palette.
+  red: "lineLive",
+  darkred: "lineLost",
 };
 
 const chessgroundBrushFor = (color) => {
@@ -103,9 +113,54 @@ const chessgroundBrushFor = (color) => {
   return "blue";
 };
 
+// chessground's own palette, copied from chessground/src/state.ts. Needed
+// because passing a `brushes` object REPLACES the defaults rather than
+// extending them -- and passing `undefined` wipes them entirely.
+//
+// Mohit 2026-10-10 saw "Cannot read properties of undefined (reading 'red')"
+// on /admin/geometry-gaps. I had written
+//     brushes: vividArrows ? ENGINE_LINE_BRUSHES : undefined
+// so every board that does NOT ask for the engine-line palette -- which is
+// every admin page -- handed chessground `brushes: undefined`, and the first
+// arrow coloured "red" crashed the render. React unmounted the tree and the
+// page went blank. The engine-line path survived only because its tokens
+// happen to map into ENGINE_LINE_BRUSHES; a plain "green" arrow there would
+// have crashed too, so this was never a two-page bug.
+const CHESSGROUND_DEFAULT_BRUSHES = {
+  green:     { key: "g",      color: "#15781B", opacity: 1,    lineWidth: 10 },
+  red:       { key: "r",      color: "#882020", opacity: 1,    lineWidth: 10 },
+  blue:      { key: "b",      color: "#003088", opacity: 1,    lineWidth: 10 },
+  yellow:    { key: "y",      color: "#e68f00", opacity: 1,    lineWidth: 10 },
+  paleBlue:  { key: "pb",     color: "#003088", opacity: 0.4,  lineWidth: 15 },
+  paleGreen: { key: "pg",     color: "#15781B", opacity: 0.4,  lineWidth: 15 },
+  paleRed:   { key: "pr",     color: "#882020", opacity: 0.4,  lineWidth: 15 },
+  paleGrey:  { key: "pgr",    color: "#4a4a4a", opacity: 0.35, lineWidth: 15 },
+  purple:    { key: "purple", color: "#68217a", opacity: 0.65, lineWidth: 10 },
+};
+
+// Always a full set. The engine-line brushes are ADDED to the defaults,
+// never swapped in for them.
+const BOARD_BRUSHES = {
+  ...CHESSGROUND_DEFAULT_BRUSHES,
+  ...ENGINE_LINE_BRUSHES,
+};
+
 // A 4th tuple slot carries an order number, drawn on the arrow itself.
 // chessground 9.2 positions labels along the line and slots them so they do
 // not collide, so a five-arrow plan reads 1 2 3 4 5 in place.
+// A square painted red, for "this piece is gone". chessground 9.2 has no
+// customHighlights, but a shape may carry customSvg, and a 100x100 rect in
+// its 0-100 viewBox fills exactly one square. Mohit 2026-10-08: "the piece
+// that is under attack should have a red background or something, so we see
+// that this is gone".
+const LOST_PIECE_SQUARE_SVG =
+  '<rect width="100" height="100" fill="#c0262d" opacity="0.42" />';
+
+const chessgroundLostSquareShape = (square) => ({
+  orig: square,
+  customSvg: { html: LOST_PIECE_SQUARE_SVG, center: "orig" },
+});
+
 const chessgroundShapeFor = ([from, to, color, label], vivid = false) => {
   const token = String(color || "").toLowerCase();
   const brush = vivid && VIVID_BRUSH_BY_TOKEN[token]
@@ -525,7 +580,7 @@ const LichessBoard = forwardRef(({
         drawable: {
           enabled: true,
           visible: true,
-          brushes: vividArrows ? ENGINE_LINE_BRUSHES : undefined,
+          brushes: BOARD_BRUSHES,
           autoShapes:
             !disableArrows && arrows.length > 0
               ? arrows.map((a) => chessgroundShapeFor(a, vividArrows))
@@ -677,14 +732,14 @@ const LichessBoard = forwardRef(({
       return;
     }
 
-    const arrowsKey = JSON.stringify(arrows);
+    const arrowsKey = JSON.stringify([arrows, highlights]);
     const circlesKey = JSON.stringify(circles);
     const prevArrowsKey = JSON.stringify(prevArrowsRef.current);
     const prevCirclesKey = JSON.stringify(prevCirclesRef.current);
 
     if (arrowsKey === prevArrowsKey && circlesKey === prevCirclesKey) return;
 
-    prevArrowsRef.current = arrows;
+    prevArrowsRef.current = [arrows, highlights];
     prevCirclesRef.current = circles;
 
     const applyShapes = () => {
@@ -693,17 +748,24 @@ const LichessBoard = forwardRef(({
         return;
       }
       const arrowShapes = (arrows || []).map((a) => chessgroundShapeFor(a, vividArrows));
+      // `highlights` has been accepted as a prop and silently dropped since
+      // this component was written -- declared, never read, so every
+      // caption_highlight_squares value computed upstream went nowhere.
+      const lostShapes = (highlights || [])
+        .map((h) => (typeof h === "string" ? h : h && h.square))
+        .filter(Boolean)
+        .map(chessgroundLostSquareShape);
       // Circles are chessground shapes with no `dest` — they draw as a ring on the square.
       const circleShapes = (circles || []).map(([square, color]) => ({
         orig: square,
         brush: brushFor(color),
       }));
-      const combined = [...arrowShapes, ...circleShapes];
+      const combined = [...lostShapes, ...arrowShapes, ...circleShapes];
       groundRef.current.setAutoShapes(combined);
     };
 
     applyShapes();
-  }, [arrows, circles, disableArrows, vividArrows]);
+  }, [arrows, circles, highlights, disableArrows, vividArrows]);
 
   // Compute icon position for move classification
   const classIcon = moveClassification && CLASSIFICATION_ICONS[moveClassification.type];

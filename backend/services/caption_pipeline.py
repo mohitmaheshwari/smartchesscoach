@@ -5003,6 +5003,8 @@ def _line_sequence_arrows(
     board_after_opp: Optional[chess.Board],
     pv: Optional[List[str]],
     max_arrows: int = 5,
+    *,
+    line_is_ours: bool = True,
 ) -> List[Dict[str, str]]:
     """Draw the whole idea when the point of the move lands two moves later.
 
@@ -5022,6 +5024,30 @@ def _line_sequence_arrows(
         blue      your move
         paleGrey  their forced reply
         green     your payoff -- the capture the whole line was for
+
+    `line_is_ours=False` says the plan belongs to the OPPONENT, which is what
+    a user punishment card is: you played a bad move, now they carry out an
+    idea against you. Then the roles invert and so must the paint --
+
+        red       their move -- the threat being carried out
+        paleGrey  your forced reply
+        darkred   their payoff -- the material you lose
+
+    This is not cosmetic. `us` below is read off the board handed in, and the
+    user-side caller hands in the board AFTER the played move, where the
+    OPPONENT is to move. So `us` resolved to the opponent and every arrow on a
+    user punishment card came out inverted: their moves painted in "your move"
+    blue, your forced replies in "their reply" grey, and -- the part that
+    actually misinforms -- their winning capture painted in "your payoff"
+    green. Measured over 400 games: 61 of 61 user punishment cards that drew a
+    sequence were inverted, and all 61 drew that green. The opponent-card
+    callers and the sacrifice path hand in a board where WE are to move and
+    were always right, which is why this survived: the same builder was
+    correct on the 50 sacrifice-path cards sitting next to the 61 broken ones.
+
+    Found by smartchesscoach-f8 on game 413fcce2 move 8, reading the colours
+    off the board and noticing the green arrow was Black winning White's pawn
+    on a card where Mohit is White.
 
     Drawing the reply matters. Without it the rook arrow describes a path
     that is BLOCKED on the board in front of the player, by their own knight,
@@ -5137,7 +5163,14 @@ def _line_sequence_arrows(
         if len(arrows) >= max_arrows:
             break
         if ours:
-            colour = "green" if idx == payoff else "blue"
+            if line_is_ours:
+                colour = "green" if idx == payoff else "blue"
+            else:
+                # `ours` here means "the side whose plan this is", which when
+                # line_is_ours is False is the opponent. "darkred" degrades to
+                # chessground's plain red off the engine-line panel, because
+                # chessgroundBrushFor tests palered before red.
+                colour = "darkred" if idx == payoff else "red"
         else:
             colour = "palegrey"
         arrows.append({"from": frm, "to": to, "color": colour, "teach": True})
@@ -6058,6 +6091,34 @@ def _story_swing(board_before, first_san, line, side):
     return _story_material(board, side) - start
 
 
+def _story_mate_in_line(board_before, first_san, line, side):
+    """Who gets mated if this line is played out? 'mover', 'opponent', or None.
+
+    Mohit 2026-10-08 on move 20 Nxf7 of 413fcce2: "don't understand arrow here
+    at all." The card had eval_after -9980 and a stored line of Bxe3+ Qf2 Nf3#
+    -- forced mate against him in three -- and the verdict said OPPORTUNITY,
+    because the classifier counts pieces and no piece changes hands before the
+    mate lands. Material is not the only thing a move can lose.
+    """
+    try:
+        board = board_before.copy()
+        if first_san:
+            board.push_san(str(first_san))
+    except (ValueError, AssertionError):
+        return None
+    if board.is_checkmate():
+        return "mover" if board.turn != side else "opponent"
+    for san in line or ():
+        try:
+            board.push_san(str(san))
+        except (ValueError, AssertionError):
+            return None
+        if board.is_checkmate():
+            # The side to move is the one with no escape.
+            return "mover" if board.turn == side else "opponent"
+    return None
+
+
 def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
                         best_move_san=None):
     """Return (story, detail). story is 'punishment' | 'opportunity' | 'neither'.
@@ -6096,6 +6157,21 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
         "played_material_swing_short": played_short,
         "best_material_swing_short": best_short,
     }
+
+    # MATE IS ASKED BEFORE EITHER. The two axes below count material, and a
+    # move can lose the game without a piece changing hands. Move 20 Nxf7 of
+    # 413fcce2 walks into Bxe3+ Qf2 Nf3# and read as an OPPORTUNITY because
+    # the material swing is 0 right up to the mate.
+    _mated = _story_mate_in_line(board, played_san, pv_after_played, mover)
+    if _mated == "mover":
+        detail["punishment_line"] = list(pv_after_played or ())
+        detail["ends_in_mate"] = True
+        return "punishment", detail
+    if (_story_mate_in_line(board, best_move_san, pv_after_best, mover)
+            == "opponent" and _mated is None):
+        detail["missed_move"] = best_move_san
+        detail["missed_mate"] = True
+        return "opportunity", detail
 
     # OPPORTUNITY IS ASKED FIRST, and the order is the whole point.
     #
@@ -6220,6 +6296,254 @@ def _missed_move_arrow(board_before, board_after, facts, caption):
         "color": "blue",
         "teach": True,
     }]
+
+
+try:  # used by describe_line_steps to tell a sacrifice from a capture
+    from services.caption_facts import legal_exchange_gain
+except Exception:  # pragma: no cover - keeps import order faults non-fatal
+    legal_exchange_gain = None
+
+_STEP_PIECE_WORD = {
+    chess.PAWN: "Pawn", chess.KNIGHT: "Knight", chess.BISHOP: "Bishop",
+    chess.ROOK: "Rook", chess.QUEEN: "Queen", chess.KING: "King",
+}
+
+
+def cheaper_chasers(fen_before, played_san, limit=2):
+    """Moves the opponent has that hit the piece we just moved, with something
+    worth less than it.
+
+    Mohit 2026-10-08, on "Their queen has to come straight back to d8": "but
+    why can't the queen stay there, why it has to come back to d8?"
+
+    Fair, because "has to" overstated it and the card never said why. Checked
+    on the board: after 1.e4 e6 2.d4 Qh4 the queen is attacked by NOTHING. It
+    is not forced anywhere. What is true is that White can hit it with Nf3 or
+    g3 whenever he likes -- moves he wants to play regardless -- and every
+    square the queen could go to forward is covered, so its only safe squares
+    are the ones it came from.
+
+    A chaser worth LESS than the piece it hits is what wins the tempo: a pawn
+    or a knight attacking a queen must be answered, a queen attacking a queen
+    is just a trade offer. So the value test is the rule, not a list of piece
+    types.
+
+    Returns a list of SANs, most valuable chase first, or [].
+    """
+    try:
+        board = chess.Board(str(fen_before))
+        move = board.parse_san(str(played_san))
+    except Exception:
+        return []
+    piece = board.piece_at(move.from_square)
+    if piece is None:
+        return []
+    worth = _STORY_PIECE_VALUES.get(piece.piece_type, 0)
+    if worth < 3:
+        return []            # nobody gains a tempo by chasing a pawn
+    board.push(move)
+    landed = move.to_square
+    if board.attackers(not piece.color, landed):
+        return []            # already attacked: that is a different card
+    found = []
+    for candidate in board.legal_moves:
+        attacker = board.piece_at(candidate.from_square)
+        if attacker is None:
+            continue
+        if _STORY_PIECE_VALUES.get(attacker.piece_type, 0) >= worth:
+            continue         # same value or more: a trade offer, not a chase
+        after = board.copy()
+        after.push(candidate)
+        if landed not in after.attacks(candidate.to_square):
+            continue
+        # The chaser must not simply hang where it lands.
+        if after.attackers(piece.color, candidate.to_square) and not \
+                after.attackers(not piece.color, candidate.to_square):
+            continue
+        found.append((_STORY_PIECE_VALUES.get(attacker.piece_type, 0),
+                      board.san(candidate)))
+    found.sort()
+    return [san for _value, san in found[:limit]]
+
+
+def move_is_undone(fen_before, played_san, pv_after_played, within=6):
+    """Does the piece that moved have to come straight back?
+
+    Mohit 2026-10-08 on move 2 Qh4 of a French: "why is this a mistake?" No
+    material changes hands -- the classifier says `neither` -- and the card
+    said "brings the queen to a more active spot", which is praise for the
+    thing that is wrong. The engine's own answer is Nc3 Qd8: the queen goes
+    out and walks straight home while White develops. That is the reason, and
+    it is on the board rather than in anyone's judgement.
+
+    The piece is FOLLOWED, not the square. python-chess does not track
+    identity, so the first version matched any friendly piece landing on the
+    origin and reported "the pawn goes back to b7" (a bishop landed there) and
+    "the knight goes back to g1" (that was castling). Half of every hit was
+    noise: 10.5% of mistakes before the fix, 5.2% after.
+
+    Measured over 4,000 user mistakes against 4,946 engine-approved moves:
+    5.2% against 0.3%, a lift of 17x. For comparison, the positional detector
+    rejected on 2026-10-07 ran at 1.2x.
+
+    Returns {piece, home, plies, san} or None.
+    """
+    try:
+        board = chess.Board(str(fen_before))
+        move = board.parse_san(str(played_san))
+    except Exception:
+        return None
+    piece = board.piece_at(move.from_square)
+    if piece is None:
+        return None
+    home = move.from_square
+    standing_on = move.to_square
+    board.push(move)
+    for index, san in enumerate(list(pv_after_played or ())[:within], start=1):
+        try:
+            step = board.parse_san(str(san))
+        except (ValueError, AssertionError):
+            return None
+        if step.to_square == standing_on:
+            return None                    # it was captured; it never went home
+        if step.from_square == standing_on:
+            if step.to_square == home:
+                return {
+                    "piece": chess.piece_name(piece.piece_type),
+                    "home": chess.square_name(home),
+                    "plies": index,
+                    "san": str(san),
+                }
+            standing_on = step.to_square
+        board.push(step)
+    return None
+
+
+def _say_the_move_is_undone(undone, mover_is_user, chasers=None):
+    """One plain sentence for a move that undoes itself, and why.
+
+    Mohit 2026-10-08: "but why can't the queen stay there, why it has to come
+    back to d8?" The first version said "has to come straight back" and left
+    that unanswered -- and "has to" was not even accurate, because on the
+    French card nothing attacks the queen at all. What is true is that a
+    cheaper piece can chase it for free, so naming the chaser answers the
+    question with a move he can look at.
+    """
+    if not undone:
+        return ""
+    whose = "Your" if mover_is_user else "Their"
+    piece = undone["piece"]
+    home = undone["home"]
+    if chasers:
+        chase = " or ".join(chasers)
+        return (f"{chase} chases the {piece} away, so it goes back to {home}. "
+                f"The move loses time.")
+    return (f"{whose} {piece} comes straight back to {home}. "
+            f"The move loses time.")
+
+
+def describe_line_steps(fen_before, first_san, line, max_steps=6):
+    """Turn an engine line into one short sentence per move.
+
+    Mohit 2026-10-08, looking at a five-arrow board: "can we write short
+    sentences there, like bishop sacrifices on h7 and then checks king, king
+    takes back, fork, something very easy to explain, very short sentences."
+
+    Arrows show WHERE. They cannot show what kind of thing is happening, and a
+    player who does not already see the tactic cannot read it off three lines.
+    So each ply gets a sentence of a few words, in the order they happen.
+
+    Every sentence is derived from the board after that move -- the piece that
+    moved, what it took, whether the king is in check, whether it now attacks
+    two pieces worth taking. Nothing is inferred from the caption or from the
+    evaluation.
+
+    Each step also carries `captured_square`: where a piece just died. The card
+    paints that square red, because Mohit's other half of the same note was
+    "the piece that is under attack should have a red background or something,
+    so we see that this is gone".
+
+    Returns a list of dicts: san, text, from, to, captured_square, side.
+    """
+    try:
+        board = chess.Board(str(fen_before))
+    except Exception:
+        return []
+    moves = [first_san] + list(line or ())
+    mover = board.turn
+    steps = []
+    previous_to = None
+    for san in moves[:max_steps]:
+        if not san:
+            break
+        try:
+            move = board.parse_san(str(san))
+        except (ValueError, AssertionError):
+            break
+        piece = board.piece_at(move.from_square)
+        if piece is None:
+            break
+        word = _STEP_PIECE_WORD.get(piece.piece_type, "Piece")
+        square = chess.square_name(move.to_square)
+        is_capture = board.is_capture(move)
+        victim = board.piece_at(move.to_square)
+        captured_square = square if is_capture else None
+
+        # Does this capture lose material where it lands? Then it is a
+        # sacrifice, and saying "takes the pawn" hides the whole point.
+        sacrifice = False
+        if is_capture:
+            try:
+                gain = legal_exchange_gain(board, move.to_square, board.turn,
+                                           first_move=move)
+                sacrifice = gain is not None and gain < 0
+            except Exception:
+                sacrifice = False
+
+        after = board.copy()
+        after.push(move)
+
+        if after.is_checkmate():
+            text = f"{word} mates on {square}."
+        elif sacrifice:
+            text = f"{word} gives itself up on {square}."
+        elif is_capture and previous_to == move.to_square:
+            text = f"{word} takes back on {square}."
+        elif is_capture and victim is not None:
+            text = f"{word} takes the {chess.piece_name(victim.piece_type)} on {square}."
+        elif is_capture:
+            text = f"{word} takes on {square}."
+        elif after.is_check():
+            text = f"{word} checks the king from {square}."
+        else:
+            text = f"{word} goes to {square}."
+
+        if after.is_check() and not after.is_checkmate() and "check" not in text:
+            text += " Check."
+
+        # A fork is the thing a player most often cannot see, so it is named.
+        hit = []
+        for sq in after.attacks(move.to_square):
+            target = after.piece_at(sq)
+            if (target and target.color != piece.color
+                    and _STORY_PIECE_VALUES.get(target.piece_type, 0) >= 3):
+                hit.append(target.piece_type)
+        if len(hit) >= 2:
+            names = [chess.piece_name(t) for t in sorted(
+                hit, key=lambda t: _STORY_PIECE_VALUES.get(t, 0), reverse=True)[:2]]
+            text += f" It forks the {names[0]} and the {names[1]}."
+
+        steps.append({
+            "san": str(san),
+            "text": text,
+            "from": chess.square_name(move.from_square),
+            "to": square,
+            "captured_square": captured_square,
+            "side": "mover" if piece.color == mover else "opponent",
+        })
+        previous_to = move.to_square
+        board.push(move)
+    return steps
 
 
 def _say_the_missed_chance(board_before, best_san, mover_is_user, caption):
@@ -8127,6 +8451,40 @@ def build_move_teaching_decision(
             or (inputs.eval_after_cp is not None
                 and abs(int(inputs.eval_after_cp)) >= _MATE_CP)
         )
+        # A `neither` card has no material story, and those are the cards
+        # that say the least -- "brings the queen to a more active spot" on
+        # move 2 Qh4 of a French, which is praise for the thing that is wrong.
+        # When the engine's own line walks the piece straight home, that IS
+        # the reason, and it is on the board. 17x against its own base rate;
+        # the positional detector rejected the day before ran at 1.2x.
+        if _story == "neither" and not _mate_on_the_board:
+            _undone = move_is_undone(
+                inputs.fen_before, inputs.played_san,
+                list(inputs.pv_after_played or ()),
+            )
+            _undone_line = _say_the_move_is_undone(
+                _undone,
+                bool(inputs.mover_is_user),
+                cheaper_chasers(inputs.fen_before, inputs.played_san)
+                if _undone else None,
+            )
+            if _undone_line:
+                # The tail survives only if it names the better move. What is
+                # usually there is floor text that PRAISES the move -- "brings
+                # the queen to a more active spot" sitting under "the queen has
+                # to come straight back". Same rule the stalemate lead uses,
+                # and for the same reason: a card may not contradict itself.
+                _tail = (caption_payload.get("caption") or "").strip()
+                if _tail and not _names_the_move(_tail, inputs.best_move_san):
+                    _tail = ""
+                caption_payload["caption"] = (
+                    f"{_undone_line} {_tail}" if _tail else _undone_line
+                )
+                caption_payload["rule_name"] = (
+                    (caption_payload.get("rule_name") or "") + "→MOVE_UNDONE"
+                )
+                _board_explanation = caption_payload["caption"]
+
         if _story == "opportunity" and not _mate_on_the_board:
             _missed_line = _say_the_missed_chance(
                 board_before,
@@ -8358,12 +8716,25 @@ def build_move_teaching_decision(
                 board_before, _after_opp_board, caption_facts,
                 caption_payload.get("caption"),
             )
-        elif _caption_is_about_reply:
+        elif _story == "punishment" and _caption_is_about_reply:
+            # The whole plan, but only when there IS a plan -- material moves
+            # our way and the card is about our reply.
             _teach_arrows = _line_sequence_arrows(
                 _after_opp_board, inputs.pv_after_played
             ) or _line_sequence_arrows(
                 _after_opp_board, caption_facts.get("user_reply_pv")
             ) or _reply_attack_arrows(
+                board_before, played_move, _reply_san
+            )
+        elif _caption_is_about_reply:
+            # `neither`: no material story, so no five-move plan. Mohit
+            # 2026-10-08 on move 4 Nf6 of dfe1055c: "why so many arrows and
+            # didn't understand the reason". The verdict was `neither` and the
+            # card drew Nf3, Qh5, O-O, Bxc3, bxc3 -- with bxc3, an ordinary
+            # recapture, painted green as the payoff -- while the words
+            # mentioned Nf3 and nothing else. The recommended move is drawn,
+            # because the caption names it, and nothing more is claimed.
+            _teach_arrows = _reply_attack_arrows(
                 board_before, played_move, _reply_san
             )
         else:
@@ -8399,7 +8770,12 @@ def build_move_teaching_decision(
     # start drawing on quiet moves. It self-limits: it returns nothing unless
     # our payoff is at least the third step, which is precisely the case the
     # single-move builders cannot draw.
-    if not _teach_arrows and inputs.mover_is_user and (inputs.cp_loss or 0) >= 100:
+    # ...and only when there is a punishment to show. This is the user-side
+    # twin of the opponent gate: a `neither` card has no material story and an
+    # `opportunity` card is about the move NOT played, so neither earns a
+    # five-move plan of what happens next.
+    if (not _teach_arrows and inputs.mover_is_user
+            and (inputs.cp_loss or 0) >= 100 and _story == "punishment"):
         _seq_board = None
         try:
             _seq_board = board_before.copy()
@@ -8407,8 +8783,13 @@ def build_move_teaching_decision(
         except Exception:
             _seq_board = None
         if _seq_board is not None:
+            # The board handed in is AFTER our own move, so the side to move
+            # in it is the opponent and this whole line is theirs, not ours.
+            # Without line_is_ours=False the builder paints their winning
+            # capture in our own "your payoff" green -- see its docstring.
             _teach_arrows = _line_sequence_arrows(
-                _seq_board, list(inputs.pv_after_played or ())
+                _seq_board, list(inputs.pv_after_played or ()),
+                line_is_ours=False,
             )
 
     # Only a punishment card draws a punishment. On Nxd2 -- knight traded for

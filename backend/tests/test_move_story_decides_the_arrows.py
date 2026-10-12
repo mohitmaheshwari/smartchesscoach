@@ -127,7 +127,7 @@ class TestTheArrowsObeyIt:
         drawn, decision = _arrows(BE6)
         assert decision.debug_facts["move_story"] == "punishment"
         assert drawn[0][:2] == ("d3", "h7")            # Bxh7+
-        assert drawn[-1] == ("g5", "e6", "green")      # Nxe6, the fork
+        assert drawn[-1] == ("g5", "e6", "darkred")    # Nxe6, THEIR fork
 
     def test_an_opportunity_draws_one_arrow_for_the_missed_move(self):
         """Mohit on the O-O card: there is no recapture, so it was simply
@@ -598,3 +598,156 @@ class TestTheWordsNameTheChanceToo:
             CrossMoveState(),
         )
         assert "MISSED_CHANCE_SAID" not in (decision.text.rule_name or "")
+
+
+class TestANeitherCardDrawsNoPlan:
+    """Mohit 2026-10-08 on move 4 Nf6 of dfe1055c: "why so many arrows and
+    didn't understand the reason".
+
+    The verdict was `neither` -- no material moves either way -- and the card
+    drew five: Nf3, Qh5, O-O, Bxc3, bxc3, with bxc3 painted GREEN as the
+    payoff. bxc3 recaptures the bishop that just took a knight. It is an even
+    trade, not a point. And the caption mentioned exactly one of the five.
+
+    _line_sequence_arrows ran on the opponent branch regardless of the
+    verdict; the punishment and best-move-plan builders had been gated and
+    this one was missed. Measured on live data: 493 `neither` opponent cards
+    were drawing a 3-to-5 move plan this way, against 113 punishment cards
+    that have earned one.
+
+    A `neither` card now draws the recommended move and what it hits, because
+    the caption names that move and nothing else.
+    """
+
+    NF6 = dict(
+        fen="rnb1k1nr/pppp1ppp/4p3/8/1b1PP2q/2NB4/PPP2PPP/R1BQK1NR b KQkq - 4 4",
+        played="Nf6", best="d5", mine=False, cp=76,
+        pvp=["Nf3", "Qh5", "O-O", "Bxc3", "bxc3", "d5", "exd5", "Qxd5",
+             "c4", "Qd6", "Re1", "O-O"],
+        pvb=["Nf3", "Qd8", "O-O", "Bxc3", "bxc3", "dxe4", "Bxe4", "Nf6"],
+        story="neither")
+
+    def test_the_card_has_no_material_story(self):
+        assert _story(self.NF6)[0] == "neither"
+
+    def test_the_sequence_builder_would_still_draw_five(self):
+        """The builder is not wrong -- it is just not entitled to speak here.
+        If this stops drawing, the gate below is testing nothing."""
+        from services.caption_pipeline import _line_sequence_arrows
+        board = chess.Board(self.NF6["fen"])
+        board.push_san("Nf6")
+        assert len(_line_sequence_arrows(board, self.NF6["pvp"])) >= 3
+
+    def test_the_green_payoff_it_wanted_is_only_a_recapture(self):
+        """bxc3 takes back the bishop that just took a knight. Calling it the
+        payoff is the overstatement the gate removes."""
+        board = chess.Board(self.NF6["fen"])
+        for san in ["Nf6", "Nf3", "Qh5", "O-O", "Bxc3"]:
+            board.push_san(san)
+        assert board.piece_at(chess.parse_square("c3")).piece_type == chess.BISHOP
+        assert board.is_capture(board.parse_san("bxc3"))
+
+    def test_the_card_does_not_draw_the_plan(self):
+        drawn, decision = _arrows(self.NF6)
+        assert decision.debug_facts["move_story"] == "neither"
+        assert len(drawn) <= 2, drawn
+
+    def test_a_punishment_card_still_gets_its_whole_line(self):
+        drawn, decision = _arrows(BE6)
+        assert decision.debug_facts["move_story"] == "punishment"
+        assert len(drawn) == 5
+
+
+class TestMateOutranksMaterial:
+    """Mohit 2026-10-08 on move 20 Nxf7 of 413fcce2: "don't understand arrow
+    here at all."
+
+    The card had eval_after -9980 and a stored line of Bxe3+ Qf2 Nf3# -- forced
+    mate against him in three -- and the verdict said OPPORTUNITY. The
+    classifier counts pieces, and not one piece changes hands before the mate
+    lands, so the material axes saw nothing and the best line's +2 won.
+
+    A move can lose the game without losing a piece. Mate is therefore asked
+    before either material axis.
+
+    741 cards in the corpus carry a line that mates the player. Only 98 carry
+    a verdict so far, and of the three that do, two were wrong.
+    """
+
+    NXF7 = dict(
+        fen="r4rk1/bp3ppp/3N4/p2Pp3/P1B4n/2P1P2q/1P2Q3/R3R1K1 w - - 2 20",
+        played="Nxf7", best="Qf1", mine=True, cp=9404,
+        pvp=["Bxe3+", "Qf2", "Nf3#"],
+        pvb=["Bxe3+", "Rxe3", "Qxe3+", "Qf2", "Qh3", "Be2", "f5", "Qh2"],
+        story="punishment")
+
+    def test_the_line_really_does_mate_the_player(self):
+        """The premise. If this stops holding, the case below proves nothing."""
+        board = chess.Board(self.NXF7["fen"])
+        board.push_san("Nxf7")
+        for san in self.NXF7["pvp"]:
+            board.push_san(san)
+        assert board.is_checkmate()
+        assert board.turn == chess.WHITE        # White -- the mover -- is mated
+
+    def test_no_material_changes_hands_before_the_mate(self):
+        """Why the material axes were blind to it."""
+        _story_name, detail = _story(self.NXF7)
+        assert detail["played_material_swing"] == 0
+
+    def test_walking_into_mate_is_a_punishment(self):
+        story, detail = _story(self.NXF7)
+        assert story == "punishment"
+        assert detail.get("ends_in_mate") is True
+
+    def test_it_draws_the_mating_line(self):
+        drawn, decision = _arrows(self.NXF7)
+        assert decision.debug_facts["move_story"] == "punishment"
+        assert drawn[-1][2] == "darkred"         # the mate, and it is OURS being mated
+        assert drawn[-1][:2] == ("h4", "f3")     # Nf3#
+
+    # A real missed mate out of the corpus. We played h5; Rxg2+ Kh1 Rh2+ Kg1
+    # Rag2# was there. The first draft of this test invented a mate move that
+    # was not legal in the position -- the same fault as the stalemate
+    # fixtures, so the fixture is a real one.
+    MISSED_MATE = dict(
+        fen="6k1/p1P2p1p/b4p2/5N2/8/7P/r1r3P1/2RR2K1 b - - 2 38",
+        played="h5", best="Rxg2+", mine=True, cp=10275,
+        pvp=["Ne3", "Re2", "c8=Q+", "Bxc8", "Rxc8+", "Kh7"],
+        pvb=["Kh1", "Rh2+", "Kg1", "Rag2#"],
+        story="opportunity")
+
+    def test_the_missed_line_really_does_mate_them(self):
+        """The premise, checked rather than assumed."""
+        board = chess.Board(self.MISSED_MATE["fen"])
+        board.push_san(self.MISSED_MATE["best"])
+        for san in self.MISSED_MATE["pvb"]:
+            board.push_san(san)
+        assert board.is_checkmate()
+        assert board.turn == chess.WHITE        # the OPPONENT is mated
+
+    def test_a_missed_mate_is_an_opportunity(self):
+        """The mirror of walking into mate: if the BEST line mates THEM and
+        the played line does not, the lesson is the mate that was there."""
+        story, detail = _story(self.MISSED_MATE)
+        assert story == "opportunity"
+        assert detail.get("missed_mate") is True
+        assert detail["missed_move"] == "Rxg2+"
+
+
+class TestOurOwnNeitherCardsDrawNoPlanEither:
+    """The user-side twin of the opponent gate. Flagged twice before it was
+    fixed: _line_sequence_arrows ran on our own cards whenever cp_loss was
+    100+, regardless of the verdict, so a `neither` card could draw a
+    five-move plan of what happens next."""
+
+    def test_a_punishment_of_ours_keeps_its_line(self):
+        drawn, decision = _arrows(BE6)
+        assert decision.debug_facts["move_story"] == "punishment"
+        assert len(drawn) == 5
+
+    def test_a_neither_card_of_ours_draws_no_plan(self):
+        for case in (NXD2, NC4):
+            drawn, decision = _arrows(case)
+            assert decision.debug_facts["move_story"] == "neither", case["played"]
+            assert len(drawn) <= 2, (case["played"], drawn)

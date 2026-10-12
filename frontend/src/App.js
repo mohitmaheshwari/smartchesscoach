@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import ViewAsBanner from "@/components/ViewAsBanner";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
@@ -352,6 +353,11 @@ function AppRouter() {
         Mounts only on public paths, so it never competes with the provider
         ProtectedRoute installs. */}
     {isPublicCoachingRoomPath(location.pathname) && <CoachingRoomPublic />}
+    {/* Every page, not just the one that crashed first. A boundary on one
+        page does not help the next page, and `//` is NOT a comment inside
+        JSX -- written that way it renders as visible text at the top of the
+        app, which is exactly what it did. */}
+    <ErrorBoundary where="route">
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
@@ -675,6 +681,7 @@ function AppRouter() {
         </ProtectedRoute>
       } />
     </Routes>
+    </ErrorBoundary>
     </div>
   );
 }

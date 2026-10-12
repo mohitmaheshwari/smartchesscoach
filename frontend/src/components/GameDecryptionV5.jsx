@@ -225,14 +225,26 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     } else {
       setArrows([]);
     }
-    // The squares the caption is about land on caption_highlight_squares;
-    // `highlight_squares` is a separate, usually-empty channel. Prefer the
-    // caption's own, fall back to the other so nothing regresses.
-    const capHigh =
-      card?.caption_highlight_squares?.length
-        ? card.caption_highlight_squares
-        : card?.highlight_squares;
-    setHighlights(capHigh?.length ? capHigh : []);
+    // The red square means ONE thing: material is lost here. Mohit
+    // 2026-10-08, asking for it: "the piece that is under attack should have
+    // a red background or something, so we see that this is gone".
+    //
+    // It must NOT be driven by caption_highlight_squares. That is a generic
+    // "the square this caption is about" channel -- on a good move it holds
+    // the destination -- so wiring it to the red fill painted the knight
+    // blood red on "Nice move. You bring your knight out with Nc3", which is
+    // what Mohit saw: "why is knight color changed??"
+    //
+    // The square where material is actually lost is the destination of the
+    // line's PAYOFF arrow: darkred when the line is theirs and we lose the
+    // piece, green when the plan is ours and they do. Both are "this piece is
+    // gone", which is exactly what he asked for, and both come from arrows
+    // the engine's own line produced. A card with no payoff arrow paints
+    // nothing.
+    const payoff = (capArrows || []).filter(
+      (a) => a?.to && (a.color === "darkred" || a.color === "green")
+    );
+    setHighlights(payoff.length ? [payoff[payoff.length - 1].to] : []);
   }, []);
   
   // "What were you thinking?" state
@@ -1596,26 +1608,21 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               : story === "opportunity"
               ? "text-amber-300"
               : "text-zinc-400";
-          // Replay either engine line on the board. Mohit 2026-10-07: "can you
-          // make the stockfish opportunity, punishment line clickable too, so i
-          // can play on the board and help you better" and then "add any real
-          // cool animations... rows drawing up, arrows animating up".
+          // Replay a line, and show what each move IS in words.
           //
-          // Both lines start from fen_before -- the punishment line opens with
-          // the move played, the opportunity line with the move the engine
-          // wanted -- so one replay serves both.
+          // Mohit 2026-10-08: "can we write short sentences there, like bishop
+          // sacrifices on h7 and then checks king, king takes back, fork,
+          // something very easy to explain" -- and "the piece that is under
+          // attack should have a red background or something, so we see that
+          // this is gone".
           //
-          // The arrows ACCUMULATE as the line runs. react-chessboard owns its
-          // arrow drawing, so a single arrow cannot be stroked in; handing it
-          // one more arrow per step makes the whole plan assemble in front of
-          // you, which is the thing worth seeing.
-          //
-          // Both lines alternate from the side that MOVED on this card, so the
-          // even plies belong to them and the odd plies to their opponent --
-          // on an opponent card that means the even plies are theirs, not
-          // yours. The last arrow drawn is always the move just played, in
-          // amber, so the eye lands on it whoever owns it.
-          const seekTo = (moves, idx, running) => {
+          // Arrows say WHERE. A player who cannot already see the tactic
+          // cannot read WHAT off three lines, so each ply gets a sentence of
+          // a few words, and the square where a piece dies turns red as that
+          // step lands. Both come from the backend, computed off the board,
+          // so the words and the picture cannot disagree.
+          const stepsFor = (key) => ((rec.line_steps || {})[key] || []);
+          const seekTo = (moves, idx, running, key) => {
             if (!rec.fen_before) return;
             try {
               const game = new Chess(rec.fen_before);
@@ -1628,17 +1635,15 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                 drawn.push([
                   done.from,
                   done.to,
-                  last
-                    ? "amber"
-                    : moverSide
-                    ? "blue"
-                    : "palegrey",
+                  last ? "amber" : moverSide ? "blue" : "palegrey",
                 ]);
               }
               setBoardFen(game.fen());
               setShowingFutureMoves(true);
               setFutureMoveIndex(0);
               setArrows(drawn);
+              const step = stepsFor(key)[idx];
+              setHighlights(step && step.captured_square ? [step.captured_square] : []);
               if (!running) stopLinePlayback();
             } catch (err) {
               console.warn("engine-line replay failed:", moves[idx], err);
@@ -1653,22 +1658,23 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                 return;
               }
               setPlayingLine({ key, idx: i });
-              seekTo(moves, i, true);
-              lineTimerRef.current = setTimeout(() => step(i + 1), 750);
+              seekTo(moves, i, true, key);
+              lineTimerRef.current = setTimeout(() => step(i + 1), 1200);
             };
             step(0);
           };
           const Line = ({ label, lineKey, first, rest, hint }) => {
             const all = [first, ...rest].filter(Boolean);
             const live = playingLine && playingLine.key === lineKey;
+            const steps = stepsFor(lineKey);
             return (
               <motion.div
-                className="mb-2"
+                className="mb-3"
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, delay: lineKey === "best" ? 0.08 : 0 }}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-1">
                   <p className="text-[10px] uppercase tracking-wider text-zinc-500">
                     {label}
                     {hint ? <span className="normal-case tracking-normal"> — {hint}</span> : null}
@@ -1685,35 +1691,48 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                     </button>
                   ) : null}
                 </div>
-                {all.length ? (
-                  <p className="text-[12px] font-mono text-zinc-200 break-words leading-relaxed">
-                    {all.map((san, i) => {
+
+                {steps.length ? (
+                  <ol className="mb-1">
+                    {steps.map((st, i) => {
                       const isNow = live && playingLine.idx === i;
                       const isPast = live && playingLine.idx > i;
                       return (
-                        <motion.button
-                          key={`${lineKey}-${i}-${san}`}
-                          type="button"
-                          onClick={() => seekTo(all, i, false)}
-                          title={`Play the line up to ${san}`}
-                          animate={isNow ? { scale: [1, 1.18, 1] } : { scale: 1 }}
-                          transition={{ duration: 0.35 }}
+                        <motion.li
+                          key={`${lineKey}-step-${i}`}
+                          onClick={() => seekTo(all, i, false, lineKey)}
+                          animate={isNow ? { x: [0, 3, 0] } : { x: 0 }}
+                          transition={{ duration: 0.3 }}
                           className={
-                            "mr-1 px-1 rounded transition-colors cursor-pointer " +
+                            "flex gap-2 items-baseline text-[12px] leading-snug " +
+                            "cursor-pointer rounded px-1 -mx-1 transition-colors " +
                             (isNow
-                              ? "bg-amber-400/25 text-amber-200 font-semibold"
+                              ? "bg-amber-400/15 text-amber-100"
                               : isPast
-                              ? "text-zinc-500"
-                              : i === 0
-                              ? "text-white font-semibold hover:bg-amber-400/20"
-                              : "text-zinc-300 hover:bg-amber-400/20 hover:text-amber-200")
+                              ? "text-zinc-500 hover:bg-white/5"
+                              : "text-zinc-300 hover:bg-white/5")
                           }
                         >
-                          {san}
-                        </motion.button>
+                          <span className="font-mono text-[11px] text-zinc-500 w-12 shrink-0">
+                            {st.san}
+                          </span>
+                          <span>{st.text}</span>
+                        </motion.li>
                       );
                     })}
-                    <span className="text-zinc-600">({all.length} ply)</span>
+                  </ol>
+                ) : all.length ? (
+                  <p className="text-[12px] font-mono text-zinc-200 break-words leading-relaxed">
+                    {all.map((san, i) => (
+                      <button
+                        key={`${lineKey}-${i}-${san}`}
+                        type="button"
+                        onClick={() => seekTo(all, i, false, lineKey)}
+                        className="mr-1 px-1 rounded text-zinc-300 hover:bg-amber-400/20 hover:text-amber-200 transition-colors"
+                      >
+                        {san}
+                      </button>
+                    ))}
                   </p>
                 ) : (
                   <p className="text-[12px] font-mono text-zinc-600">not stored</p>
@@ -2145,6 +2164,47 @@ const WhyThisWasBad = ({ gameId, move, onArrows }) => {
   );
 };
 
+// The sentences that go with the arrows on the card itself.
+//
+// Colour carries whose move it is and matches the board exactly: their moves
+// red, our forced replies grey, the move that costs the material darkest.
+// `darkred` is the payoff of a line played against us, `green` the payoff of
+// one we could have played.
+const NARRATION_INK = {
+  red: "text-rose-700",
+  darkred: "text-rose-900 font-medium",
+  palegrey: "text-zinc-500",
+  blue: "text-blue-800",
+  green: "text-emerald-800 font-medium",
+};
+
+const ArrowNarration = ({ move }) => {
+  const arrows = (move?.caption_arrows || []).filter((a) => a?.teach && a.from && a.to);
+  if (arrows.length < 2) return null;          // one arrow needs no story
+  const steps = (move?.line_steps || {}).played || [];
+  if (!steps.length) return null;
+  const bySquare = new Map();
+  steps.forEach((st) => {
+    if (st?.from && st?.to && st.text) bySquare.set(`${st.from}${st.to}`, st);
+  });
+  const told = arrows
+    .map((a) => ({ arrow: a, step: bySquare.get(`${a.from}${a.to}`) }))
+    .filter((x) => x.step);
+  if (told.length < 2) return null;
+  return (
+    <ol className="mt-3 space-y-1" data-testid="arrow-narration">
+      {told.map(({ arrow, step }, i) => (
+        <li
+          key={`${arrow.from}${arrow.to}${i}`}
+          className={`text-[13px] leading-snug ${NARRATION_INK[arrow.color] || "text-zinc-600"}`}
+        >
+          {step.text}
+        </li>
+      ))}
+    </ol>
+  );
+};
+
 const MoveCoachingCardV5 = ({
   move,
   gameId,
@@ -2375,6 +2435,21 @@ const MoveCoachingCardV5 = ({
               className="text-sm text-gray-700"
             />
             <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
+            {/* The arrows, in words. Mohit 2026-10-09: "when i am not using
+                show facts, it should still show sentences for the arrow...
+                after caption, it should show the arrows and the small
+                sentences". The narration existed since 2026-10-08 but only
+                inside the ?show_facts=1 panel, so an ordinary reader got the
+                picture with nothing to read it by.
+
+                Matched to the drawn arrows by square, never by index: the
+                steps list starts with the played move, which is not drawn,
+                and extra arrows from other builders are not in the line at
+                all. Matching on from/to means a sentence can only appear
+                beside an arrow that is really on the board, and an arrow with
+                no sentence stays silent rather than borrowing its
+                neighbour's. */}
+            <ArrowNarration move={move} />
           </div>
         )}
 
