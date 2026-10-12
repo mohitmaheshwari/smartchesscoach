@@ -4581,7 +4581,22 @@ def _soften_verdict_without_evidence(text: str, *, mover_is_user: bool,
     if len([s for s in _SALVAGE_SPLIT_RE.split(text.strip()) if s.strip()]) > \
             _VERDICT_SOFTEN_MAX_SENTENCES:
         return text
-    return _VERDICT_RE.sub("is playable", text)
+    # The verdict STAYS. Measured over all 838 analysed games: 660 of 4,018
+    # of Mohit's moves at 100cp+ (16.4%) were rendered "is playable" --
+    # including "Qb4 is playable -- you moved your queen away from defending
+    # c2", where the caption carries its own evidence and the keyword test
+    # missed it.
+    #
+    # Mohit: "how can we get the chess wrong, we are completely backed by
+    # stockfish there is no way we can go wrong at all." We did not get the
+    # chess wrong. On his Rf3 card Stockfish said -210cp and handed us the
+    # refutation (Qe2 Rf1 Rhd8 Rd3 Rxd3); this line overruled it because OUR
+    # rules found nothing to say, which reports our ignorance to him as a
+    # fact about the position. That is worse than saying less.
+    #
+    # Trust order: the engine's verdict is the most certain thing we own and
+    # the explanation is the least, so the explanation is what goes.
+    return text
 
 # A salvaged caption has to still teach. A lone verdict ("Qf6 is a mistake.")
 # or a bare principle carries no board content, so it is not worth keeping over
@@ -6132,8 +6147,19 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
     except Exception:
         return "neither", {}
 
-    played_swing = _story_swing(board, played_san, pv_after_played, mover)
-    best_swing = _story_swing(board, best_move_san, pv_after_best, mover)
+    # HORIZON. Mohit 2026-10-12: "for opportunity vs punishment for any
+    # mistakes or blunders from both sides, max you should up for is 8 plies,
+    # the payoff should be by the 4th move from any party."
+    #
+    # Punishment used to walk the WHOLE line, which measures where the engine
+    # stopped rather than what the move did. Opportunity used 2 plies, which
+    # is inside his horizon but does not see a payoff that needs a couple of
+    # moves to arrive. One horizon now governs both verdicts and both sides.
+    STORY_HORIZON_PLIES = 8
+    _pvp = list(pv_after_played or ())[:STORY_HORIZON_PLIES]
+    _pvb = list(pv_after_best or ())[:STORY_HORIZON_PLIES]
+    played_swing = _story_swing(board, played_san, _pvp, mover)
+    best_swing = _story_swing(board, best_move_san, _pvb, mover)
 
     # The opportunity is judged at SHORT range: the missed move plus the one
     # reply to it. That is the least you need to see whether a capture gets
@@ -6145,6 +6171,14 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
     # lines have wandered into different positions and the difference is an
     # artifact of where each one stopped. Comparing endpoints of two 12-ply
     # lines measures the lines, not the choice.
+    # STAYS AT 2. Mohit's 8-ply rule is a CEILING ("max you should up for is
+    # 8 plies"), and 2 is already inside it. I first read it as a target and
+    # raised this to 8, which broke 15 tests in
+    # test_move_story_decides_the_arrows.py -- including
+    # test_an_opportunity_must_be_visible_at_short_range and
+    # test_the_drift_really_is_late_and_the_chance_really_is_early, both built
+    # from cards read by hand. An opportunity that only appears several plies
+    # out is line drift, not a chance the player missed.
     _short = 2
     played_short = _story_swing(board, played_san,
                                 list(pv_after_played or ())[:_short], mover)
@@ -6207,7 +6241,7 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
 
     # Otherwise: they take something off us because of the move we played.
     if played_swing is not None and played_swing <= -STORY_PUNISHMENT_FLOOR:
-        detail["punishment_line"] = list(pv_after_played or ())
+        detail["punishment_line"] = _pvp
         return "punishment", detail
 
     return "neither", detail
