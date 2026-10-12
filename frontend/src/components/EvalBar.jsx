@@ -51,8 +51,15 @@ export default function EvalBar({ evalCp = null, mateIn = null, orientation = "w
       // Matched to the Play-with-Coach bar (coach-play/EvalBar.jsx): the same
       // gradient surface and border, so the two eval bars in the product stop
       // looking like two different components.
-      className="relative w-6 md:w-7 rounded-md overflow-hidden border border-zinc-700 bg-gradient-to-b from-zinc-800 via-zinc-700 to-zinc-800 select-none"
-      style={{ height: "100%" }}
+      // self-stretch, NOT height:100%. Every child here is absolutely
+      // positioned, so the bar has zero intrinsic content height; height:100%
+      // only resolved when an ancestor had a DEFINITE height. The review row
+      // (GameDecryptionV5) has none - its height comes from the board's
+      // aspect-square, resolved after layout - so the bar rendered 28px x 2px
+      // and read as a stray dash beside the board. Measured 2026-10-12.
+      // align-self: stretch makes the flex row size it, whatever the parent's
+      // align-items happens to be.
+      className="relative self-stretch min-h-[120px] w-6 md:w-7 rounded-md overflow-hidden border border-zinc-700 bg-gradient-to-b from-zinc-800 via-zinc-700 to-zinc-800 select-none"
       data-testid="eval-bar"
       title={`Engine eval: ${label} (${label.startsWith("-") ? "Black" : "White"} better)`}
     >
