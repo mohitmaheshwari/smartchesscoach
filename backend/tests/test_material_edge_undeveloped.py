@@ -242,3 +242,102 @@ def test_no_second_piece_value_table():
 
     assert not hasattr(cf, "_PIECE_CP")
     assert cf.PIECE_VALUE_CP[chess.KNIGHT] - cf.PIECE_VALUE_CP[chess.PAWN] == 200
+
+
+# ── the two false-claim classes the distribution exposed ─────────────
+#
+# Measured over the 457 confirmed fires in the full corpus:
+#
+#     edge 200-390cp ("a piece up")   279   61.1%
+#     edge 400cp+                     178   38.9%  <- cue said "a piece up"
+#     engine's move gives check        28    6.1%
+#     engine's move is quiet          429   93.9%  <- cue said "use checks
+#                                                     and threats", which
+#                                                     points away from the
+#                                                     move the engine wants
+#
+# 61% precision against a 95% bar. Both were in the first version I was
+# ready to ship, and both came from writing the sentence before looking
+# at the distribution. After the fix: 100.0% precision, Wilson lower
+# bound 99.2%.
+
+# a piece up AND a queen up: edge 1100cp
+QUEENLESS_FEN = "rnb1kb1r/pp3ppp/8/2pp4/3Np3/2N5/PPPP1PPP/R1BQKB1R w - - 0 13"
+
+
+def test_why_text_is_present():
+    """The pipeline prefers evidence['why_text'] over the static cue, so
+    an absent why_text silently falls back to generic wording."""
+    ev = _fire(MOHIT_FEN, "Nb3", "Bb5+")
+    assert (ev["evidence"].get("why_text") or "").strip()
+
+
+def test_says_a_piece_up_only_when_it_is_a_piece():
+    board = chess.Board(MOHIT_FEN)
+    assert 200 <= _material_edge_cp(board, chess.WHITE) < 400
+    why = _fire(MOHIT_FEN, "Nb3", "Bb5+")["evidence"]["why_text"]
+    assert "a piece up" in why
+    assert "well ahead" not in why
+
+
+def test_does_not_say_a_piece_up_when_far_ahead():
+    """A queen up is not 'a piece up'. 38.9% of real fires are 400cp+."""
+    board = chess.Board(QUEENLESS_FEN)
+    assert _material_edge_cp(board, chess.WHITE) >= 400
+    why = _fire(QUEENLESS_FEN, "Nb3", "Bb5+")["evidence"]["why_text"]
+    assert "a piece up" not in why
+    assert "well ahead on material" in why
+
+
+def test_checks_and_threats_only_when_the_best_move_checks():
+    """93.9% of real fires have a quiet engine move. Telling those
+    readers to use checks and threats points away from the move the
+    engine actually wants."""
+    board = chess.Board(MOHIT_FEN)
+
+    after_check = board.copy()
+    after_check.push(board.parse_san("Bb5+"))
+    assert after_check.is_check()
+    why_check = _fire(MOHIT_FEN, "Nb3", "Bb5+")["evidence"]["why_text"]
+    assert "with check" in why_check
+
+    after_quiet = board.copy()
+    after_quiet.push(board.parse_san("Be2"))
+    assert not after_quiet.is_check()
+    why_quiet = _fire(MOHIT_FEN, "Nb3", "Be2")["evidence"]["why_text"]
+    assert "with check" not in why_quiet
+    # it must still say what to do
+    assert "Bring them out" in why_quiet
+
+
+def test_every_why_text_names_a_material_state():
+    """A card that asserts nothing about the edge has lost the subject
+    of the lesson."""
+    for fen, best in ((MOHIT_FEN, "Bb5+"), (MOHIT_FEN, "Be2"),
+                      (QUEENLESS_FEN, "Bb5+"), (QUEENLESS_FEN, "Be2")):
+        why = _fire(fen, "Nb3", best)["evidence"]["why_text"]
+        assert ("a piece up" in why) or ("well ahead on material" in why)
+
+
+def test_why_text_fits_the_word_cap():
+    """caption_config MAX_CAPTION_WORDS is 60 and the cap cuts at the
+    LAST sentence boundary, so an over-long why_text loses its final
+    sentence -- which here is the entire recommendation."""
+    from services.caption_config import MAX_CAPTION_WORDS
+
+    for fen, best in ((MOHIT_FEN, "Bb5+"), (QUEENLESS_FEN, "Be2")):
+        why = _fire(fen, "Nb3", best)["evidence"]["why_text"]
+        assert len(why.split()) <= MAX_CAPTION_WORDS, why
+
+
+def test_static_cues_do_not_claim_a_size():
+    """The catalog cues are the fallback when why_text is absent. They
+    are shown on every edge, so they must not name one."""
+    from services.caption_principles import PRINCIPLES
+
+    entry = next(p for p in PRINCIPLES
+                 if p["id"] == "OP_MATERIAL_EDGE_UNDEVELOPED")
+    for key in ("cue_best", "cue_top_n", "cue_absent"):
+        text = entry[key]
+        assert text.strip(), f"{key} is empty"
+        assert "a piece up" not in text, f"{key} claims an edge size"

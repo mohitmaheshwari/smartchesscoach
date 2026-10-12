@@ -7386,6 +7386,25 @@ def _p_op_material_edge_undeveloped(
     if len(home_best) >= len(minors_before):
         return None
     freed = [s for s in minors_before if s not in home_best]
+    # The caption must be true of THIS board. "A piece up" is false on
+    # 38.9% of fires (edge 400cp+) and "use checks and threats" points
+    # away from the engine's move on 93.9% (it is quiet), so neither
+    # goes in a fixed string. why_text is preferred by the pipeline over
+    # the static cue.
+    _lead = ("You are a piece up"
+             if edge < 400 else
+             "You are well ahead on material")
+    if after_best.is_check():
+        _method = ("Bringing a piece out with check is the fastest way "
+                   "— your opponent has to answer, so you develop "
+                   "for free.")
+    else:
+        _method = "Bring them out before you do anything else."
+    why_text = (
+        f"{_lead}, but most of your pieces have never moved. "
+        f"Extra material does nothing until your pieces are out. "
+        f"{_method}"
+    )
     # The engine endorses this principle by definition of condition 4 --
     # its own move is the aligned move. Offer it rather than asking
     # _principle_engine_endorsement to rediscover the fact.
@@ -7396,6 +7415,7 @@ def _p_op_material_edge_undeveloped(
             "pieces_at_home": home_before,
             "developed_by_best": freed,
             "best_move_gives_check": after_best.is_check(),
+            "why_text": why_text,
         },
         "engine_endorsement": "best",
         "aligned_moves_offered": [best_san],
