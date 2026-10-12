@@ -25,6 +25,7 @@ from verify_deployment import (  # noqa: E402
     check_canonical_endpoint,
     check_complete_coaching_journey,
     spike_threshold,
+    decide_exit_code,
 )
 
 
@@ -97,6 +98,51 @@ class TestRequiredChecksSummaryLogic:
         # A FAIL on a check nobody required shouldn't show up as unmet.
         results = [CheckResult(name="7. No spike in failed analysis jobs", status=FAIL)]
         assert self._unmet(results, {"health"}) == []
+
+
+class TestDecideExitCode:
+    """The EXIT CODE, through the real function rather than a reimplementation.
+
+    The class above mirrors the unmet filter in a local helper, which is why a
+    real bug survived it: `run()` computed unmet correctly, printed "All
+    required checks passed", and then returned `1 if n_fail else 0` anyway -
+    ignoring --require-checks completely. On 2026-10-12 that reported "release
+    is not live" for a frontend deploy that was, in fact, live: the only
+    failing check was "1. Git commit match", which deploy.sh deliberately
+    leaves out of the frontend set because a frontend-only deploy cannot move
+    the backend's reported commit.
+    """
+
+    def test_non_required_failure_does_not_fail_the_run(self):
+        # The exact 2026-10-12 shape: frontend deploy, commit check fails.
+        results = [
+            CheckResult(name="1. Git commit match", status=FAIL),
+            CheckResult(name="2. Frontend bundle contains expected marker", status=PASS),
+            CheckResult(name="3. Backend health endpoint", status=PASS),
+        ]
+        assert decide_exit_code(results, {"bundle", "health"}) == 0
+
+    def test_required_failure_still_fails_the_run(self):
+        results = [
+            CheckResult(name="2. Frontend bundle contains expected marker", status=FAIL),
+            CheckResult(name="3. Backend health endpoint", status=PASS),
+        ]
+        assert decide_exit_code(results, {"bundle", "health"}) == 1
+
+    def test_required_skip_still_fails_the_run(self):
+        # A check that never ran has not verified anything.
+        results = [CheckResult(name="1. Git commit match", status=SKIP)]
+        assert decide_exit_code(results, {"commit"}) == 1
+
+    def test_with_no_required_set_any_failure_fails(self):
+        results = [CheckResult(name="7. No spike in failed analysis jobs", status=FAIL)]
+        assert decide_exit_code(results, set()) == 1
+        assert decide_exit_code(results, None) == 1
+
+    def test_all_pass_is_zero_either_way(self):
+        results = [CheckResult(name="3. Backend health endpoint", status=PASS)]
+        assert decide_exit_code(results, {"health"}) == 0
+        assert decide_exit_code(results, None) == 0
 
 
 class _Response:
