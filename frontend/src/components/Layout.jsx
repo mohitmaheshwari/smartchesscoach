@@ -263,44 +263,44 @@ const Layout = ({ children, user, fullBleed = false }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1">
+        <nav className="flex-1 py-3 px-3 space-y-1">
           {navigation.map((item) => {
             const IconComponent = item.icon;
             const active = isActive(item.href);
             return (
               <Link key={item.href} to={item.href}>
                 <div
-                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                   } ${active
-                    ? 'bg-primary/15 text-primary font-medium'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5 dark:hover:bg-white/5'
+                    ? 'bg-primary/15 text-primary font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5 dark:hover:bg-white/5 font-medium'
                   }`}
                   data-testid={"nav-" + item.name.toLowerCase().replaceAll(" ", "-")}
                   title={sidebarCollapsed ? item.name : undefined}
                 >
                   {active && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-5 rounded-r-full bg-primary shadow-[0_0_8px_currentColor]" />
                   )}
-                  <IconComponent className={`w-[18px] h-[18px] flex-shrink-0 ${active ? 'text-primary' : ''}`} strokeWidth={active ? 2 : 1.5} />
-                  {!sidebarCollapsed && <span className="text-[13px]">{item.name}</span>}
+                  <IconComponent className={`w-4 h-4 flex-shrink-0 ${active ? 'text-primary' : 'text-slate-400'}`} strokeWidth={active ? 2.2 : 1.75} />
+                  {!sidebarCollapsed && <span className="text-[14px] font-medium tracking-tight">{item.name}</span>}
                 </div>
               </Link>
             );
           })}
 
-          {/* Play with Coach — Golden CTA */}
-          <div className={`pt-5 ${sidebarCollapsed ? 'px-0' : 'px-0'}`}>
+          {/* Play with Coach — Prominent Studio CTA */}
+          <div className="pt-3">
             <Link to="/play-with-coach">
               <div
-                className={`experience-coach-cta relative w-full flex items-center gap-2.5 px-3 py-3 rounded-xl transition-all duration-200 text-black font-semibold hover:scale-[1.02] active:scale-[0.98] ${
+                className={`relative w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-200 bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold shadow-[0_0_15px_rgba(56,189,248,0.35)] hover:shadow-[0_0_20px_rgba(56,189,248,0.5)] hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${
                   sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                 }`}
                 data-testid="nav-play-coach"
                 title={sidebarCollapsed ? "Play with Coach" : undefined}
               >
-                <Swords className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
-                {!sidebarCollapsed && <span className="text-[13px]">Play with Coach</span>}
+                <Swords className="w-4 h-4 flex-shrink-0" strokeWidth={2.2} />
+                {!sidebarCollapsed && <span className="text-[13.5px] tracking-wide font-bold">Play with Coach</span>}
               </div>
             </Link>
           </div>
@@ -309,25 +309,25 @@ const Layout = ({ children, user, fullBleed = false }) => {
             <div className="pt-2 space-y-1">
               <Link to="/review">
                 <div
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-200 ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${location.pathname === '/review' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  } ${location.pathname === '/review' ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
                   data-testid="nav-review"
                   title={sidebarCollapsed ? 'Review' : undefined}
                 >
-                  <Flag className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.5} />
+                  <Flag className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
                   {!sidebarCollapsed && <span>Review</span>}
                 </div>
               </Link>
               <Link to="/review/authoring">
                 <div
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-200 ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${location.pathname === '/review/authoring' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  } ${location.pathname === '/review/authoring' ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
                   data-testid="nav-review-authoring"
                   title={sidebarCollapsed ? 'Authoring' : undefined}
                 >
-                  <Flag className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.5} />
+                  <Flag className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
                   {!sidebarCollapsed && <span>Authoring</span>}
                 </div>
               </Link>
@@ -338,12 +338,12 @@ const Layout = ({ children, user, fullBleed = false }) => {
             <div className="pt-2">
               <Link to="/admin">
                 <div
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-200 ${
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${isActive('/admin') ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  } ${isActive('/admin') ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
                   data-testid="nav-admin"
                 >
-                  <Settings className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.5} />
+                  <Settings className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
                   {!sidebarCollapsed && <span>Admin</span>}
                 </div>
               </Link>
@@ -362,27 +362,74 @@ const Layout = ({ children, user, fullBleed = false }) => {
         )}
 
         {/* Bottom */}
-        <div className="p-3 space-y-1 border-t border-border/50">
-          <button
-            onClick={toggleTheme}
-            className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`}
-            data-testid="sidebar-theme-toggle"
-          >
-            {theme === "dark" ? <Sun className="w-[18px] h-[18px]" strokeWidth={1.5} /> : <Moon className="w-[18px] h-[18px]" strokeWidth={1.5} />}
-            {!sidebarCollapsed && <span className="text-[13px]">{theme === "dark" ? "Light" : "Dark"}</span>}
-          </button>
+        <div className="p-3 space-y-1.5 border-t border-border/50">
+          {sidebarCollapsed ? (
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center justify-center p-2 text-muted-foreground hover:text-foreground hover:bg-slate-200/60 dark:hover:bg-white/5 transition-all rounded-xl"
+              data-testid="sidebar-theme-toggle"
+              title={theme === "dark" ? "Switch to White Studio Theme" : "Switch to Black Studio Theme"}
+            >
+              {theme === "dark" ? (
+                <span className="w-4 h-4 rounded-full bg-slate-900 border border-slate-600 shadow-[0_0_8px_rgba(255,255,255,0.2)]" />
+              ) : (
+                <span className="w-4 h-4 rounded-full bg-white border border-slate-400 shadow-sm" />
+              )}
+            </button>
+          ) : (
+            <div className="space-y-1">
+              <div className="bg-slate-200/60 dark:bg-white/5 p-1 rounded-xl flex items-center gap-1 border border-slate-300/40 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => theme !== "light" && toggleTheme()}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-mono transition-all ${
+                    theme === "light"
+                      ? "bg-white text-slate-900 shadow-sm border border-slate-200 font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="White Studio Theme"
+                  data-testid="theme-btn-white"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-white border border-slate-400 shadow-sm shrink-0" />
+                  <span>White</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => theme !== "dark" && toggleTheme()}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-mono transition-all ${
+                    theme === "dark"
+                      ? "bg-[#1d2731] text-white shadow-sm border border-white/20 font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                  title="Black Studio Theme"
+                  data-testid="theme-btn-black"
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-950 border border-slate-600 shadow-sm shrink-0" />
+                  <span>Black</span>
+                </button>
+              </div>
+              <button
+                onClick={toggleTheme}
+                className="w-full flex items-center justify-between px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-slate-200/40 dark:hover:bg-white/5 transition-all rounded-lg"
+                data-testid="sidebar-theme-toggle"
+              >
+                <span className="font-mono text-[10.5px] uppercase tracking-wider">{theme === "dark" ? "Black Studio" : "White Studio"}</span>
+                {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-cyan-600" />}
+              </button>
+            </div>
+          )}
 
           <Link to="/settings">
-            <div className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
-              <Settings className="w-[18px] h-[18px]" strokeWidth={1.5} />
-              {!sidebarCollapsed && <span className="text-[13px]">Settings</span>}
+            <div className={`w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-white/5 transition-all rounded-xl ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
+              <Settings className="w-4 h-4" strokeWidth={1.75} />
+              {!sidebarCollapsed && <span className="text-[14px] font-medium">Settings</span>}
             </div>
           </Link>
 
           {/* User */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className={`w-full gap-3 hover:bg-white/5 h-auto py-2 ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="user-menu-trigger">
+              <Button variant="ghost" className={`w-full gap-3 hover:bg-white/5 h-auto py-2 rounded-xl ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="user-menu-trigger">
                 <div className="relative">
                   <Avatar className="h-8 w-8 ring-2 ring-primary/20">
                     <AvatarImage src={userPicture} alt={userName} />
@@ -392,8 +439,8 @@ const Layout = ({ children, user, fullBleed = false }) => {
                 </div>
                 {!sidebarCollapsed && (
                   <div className="flex flex-col items-start min-w-0">
-                    <span className="text-[13px] font-medium truncate max-w-[130px] text-foreground">{userName}</span>
-                    <span className="text-[11px] text-muted-foreground truncate max-w-[130px]">{userEmail}</span>
+                    <span className="text-sm font-semibold truncate max-w-[190px] text-foreground">{userName}</span>
+                    <span className="text-xs text-muted-foreground truncate max-w-[190px]">{userEmail}</span>
                   </div>
                 )}
               </Button>
@@ -490,9 +537,28 @@ const Layout = ({ children, user, fullBleed = false }) => {
                   </Link>
                 )}
                 <div className="border-t border-border my-2" />
-                <Button variant="ghost" onClick={toggleTheme} className="w-full justify-start gap-3">
-                  {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />} {theme === "dark" ? "Light mode" : "Dark mode"}
-                </Button>
+                <div className="flex items-center gap-1.5 p-1 bg-slate-200/60 dark:bg-white/5 rounded-xl border border-slate-300/40 dark:border-white/10 my-1">
+                  <button
+                    type="button"
+                    onClick={() => theme !== "light" && toggleTheme()}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-mono flex items-center justify-center gap-2 transition-all ${
+                      theme === "light" ? "bg-white text-slate-900 font-bold shadow-sm" : "text-muted-foreground"
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-white border border-slate-400 shadow-sm" />
+                    White Studio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => theme !== "dark" && toggleTheme()}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-mono flex items-center justify-center gap-2 transition-all ${
+                      theme === "dark" ? "bg-[#1d2731] text-white font-bold shadow-sm" : "text-muted-foreground"
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-950 border border-slate-600 shadow-sm" />
+                    Black Studio
+                  </button>
+                </div>
                 <Link to="/settings" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="ghost" className="w-full justify-start gap-3"><Settings className="w-4 h-4" /> Settings</Button>
                 </Link>

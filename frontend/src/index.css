@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 @import "@fontsource/outfit/400.css";
 @import "@fontsource/outfit/500.css";
 @import "@fontsource/outfit/600.css";
@@ -5,6 +6,18 @@
 @import "@fontsource/manrope/400.css";
 @import "@fontsource/manrope/500.css";
 @import "@fontsource/manrope/600.css";
+
+body {
+  font-family: 'Plus Jakarta Sans', 'Inter', 'Manrope', system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-weight: 800;
+}
 
 /* ---------------------------------------------------------------------------
    Brand accent.
@@ -30,9 +43,9 @@
   --cg-sq-light: #f0d9b5;
   --cg-sq-dark:  #b58863;
 
-  --cg-accent: #7fb069;
-  --cg-accent-hi: #8fbf78;      /* hover */
-  --cg-accent-rgb: 127 176 105; /* for rgb(... / alpha) */
+  --cg-accent: #38bdf8;
+  --cg-accent-hi: #0ea5e9;      /* hover */
+  --cg-accent-rgb: 56 189 248;  /* for rgb(... / alpha) */
 }
 
 @tailwind base;
@@ -80,7 +93,7 @@
   --card-foreground: 42 24% 94%;
   --popover: 223 27% 10%;
   --popover-foreground: 42 24% 94%;
-  --primary: 38 92% 54%;
+  --primary: 199 89% 48%;
   --primary-foreground: 224 32% 7%;
   --secondary: 222 21% 15%;
   --secondary-foreground: 42 24% 94%;
@@ -90,7 +103,7 @@
   --accent-foreground: 224 32% 7%;
   --border: 220 17% 21%;
   --input: 220 17% 21%;
-  --ring: 38 92% 54%;
+  --ring: 199 89% 48%;
   background:
     radial-gradient(circle at 82% -10%, hsl(var(--primary) / 0.10), transparent 32rem),
     hsl(var(--background));
@@ -286,14 +299,22 @@
     0 1px 0 hsl(0 0% 100% / 0.06) inset;
 }
 
-.experience-v1 .experience-pwc-page .pwc-shell {
+.experience-v1 .experience-pwc-page {
   background:
-    radial-gradient(circle at 24% 22%, hsl(var(--primary) / 0.055), transparent 24rem);
+    radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.09), transparent 45rem),
+    radial-gradient(circle at 85% 20%, rgba(56, 189, 248, 0.05), transparent 35rem),
+    #111823 !important;
+  color: #f1f5f9 !important;
+}
+
+.experience-v1 .experience-pwc-page .pwc-shell {
+  background: transparent !important;
 }
 
 .experience-v1 .experience-pwc-page .pwc-coach-col {
-  border-color: hsl(var(--border) / 0.78);
-  background: hsl(var(--card) / 0.72);
+  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(18, 26, 36, 0.95) !important;
+  backdrop-filter: blur(20px);
 }
 
 .experience-v1 .experience-share-trigger:hover {
@@ -1354,7 +1375,7 @@
 }
 
 .dark .experience-v1 .cg-eyebrow {
-  color: #7ee7c2;
+  color: #38bdf8;
 }
 
 .cg-title {
@@ -1378,16 +1399,16 @@
 .cg-coach-card {
   position: relative;
   padding: clamp(1.25rem, 3vw, 2rem);
-  border: 1px solid rgb(126 231 194 / 0.45);
+  border: 1px solid rgb(56 189 248 / 0.45);
   border-radius: 1.5rem;
-  background: rgb(126 231 194 / 0.13);
+  background: rgb(56 189 248 / 0.13);
 }
 
 .cg-coach-card::before {
   content: "Your coach";
   display: block;
   margin-bottom: 0.75rem;
-  color: #287a61;
+  color: #0284c7;
   font-size: 0.65rem;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -1395,7 +1416,7 @@
 }
 
 .dark .experience-v1 .cg-coach-card::before {
-  color: #7ee7c2;
+  color: #38bdf8;
 }
 
 .cg-panel {

@@ -961,7 +961,7 @@ const Dashboard = ({ user }) => {
                               {" "}({o.color})
                             </span>
                           </span>
-                          <span className="text-xs text-muted-foreground ml-auto text-right">
+                          <span className="text-xs text-muted-foreground ml-auto text-right max-w-[260px] line-clamp-2 leading-relaxed" title={o.reason}>
                             {o.reason}
                           </span>
                         </button>
@@ -987,7 +987,7 @@ const Dashboard = ({ user }) => {
                               {" "}({o.color})
                             </span>
                           </span>
-                          <span className="text-xs text-muted-foreground ml-auto text-right">
+                          <span className="text-xs text-muted-foreground ml-auto text-right max-w-[260px] line-clamp-2 leading-relaxed" title={o.reason}>
                             {o.reason}
                           </span>
                         </div>

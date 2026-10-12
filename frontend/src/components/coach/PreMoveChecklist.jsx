@@ -258,27 +258,25 @@ const PreMoveChecklist = ({
   if (!expanded) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: -10 }}
+        initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-3"
+        className="mb-1 flex justify-center w-full"
       >
         <Button
           variant="outline"
           size="sm"
           onClick={() => setExpanded(true)}
-          className="w-full justify-between bg-purple-50 border-purple-200 hover:bg-purple-100 text-purple-700"
+          className="h-6 px-3 py-0 rounded-full bg-[#16202c]/90 border border-purple-500/30 hover:border-purple-400/50 hover:bg-purple-500/15 text-purple-300 text-[11px] font-mono font-medium flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
           data-testid="pre-move-checklist-expand"
         >
-          <div className="flex items-center gap-2">
-            <Brain className="w-4 h-4" />
-            <span className="text-xs">Pre-Move Checklist</span>
-            {checks.some(c => c.priority === "high") && (
-              <Badge variant="outline" className="text-[10px] px-1 py-0 border-amber-500 text-amber-400">
-                !
-              </Badge>
-            )}
-          </div>
-          <ChevronDown className="w-4 h-4" />
+          <Brain className="w-3 h-3 text-purple-400" />
+          <span>Before You Move</span>
+          {checks.some(c => c.priority === "high") && (
+            <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/60 text-amber-300 bg-amber-500/10">
+              !
+            </Badge>
+          )}
+          <ChevronDown className="w-3 h-3 text-purple-400" />
         </Button>
       </motion.div>
     );
@@ -290,30 +288,32 @@ const PreMoveChecklist = ({
         initial={{ opacity: 0, height: 0 }}
         animate={{ opacity: 1, height: "auto" }}
         exit={{ opacity: 0, height: 0 }}
-        className="mb-3"
+        className="mb-1 max-w-md mx-auto w-full"
       >
-        <Card className="border-purple-200 bg-purple-50" data-testid="pre-move-checklist">
-          <CardContent className="p-3">
+        <Card className="rounded-xl border border-purple-500/30 bg-[#16202c]/95 shadow-xl backdrop-blur-md text-slate-200" data-testid="pre-move-checklist">
+          <CardContent className="p-2 sm:p-2.5">
             {/* Header */}
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Brain className="w-4 h-4 text-purple-600" />
-                <span className="text-sm font-medium text-purple-700">Before You Move</span>
+            <div className="flex items-center justify-between mb-1.5 px-0.5">
+              <div className="flex items-center gap-1.5">
+                <Brain className="w-3.5 h-3.5 text-purple-400" />
+                <span className="text-xs font-semibold text-purple-300 font-mono tracking-wide">Before You Move</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="h-6 w-6 p-0"
+                  className="h-5 w-5 p-0 text-slate-400 hover:text-white hover:bg-white/10 rounded cursor-pointer"
                   onClick={() => setExpanded(false)}
+                  title="Collapse"
                 >
                   <ChevronUp className="w-3 h-3" />
                 </Button>
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                  className="h-5 w-5 p-0 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded cursor-pointer"
                   onClick={handleDismiss}
+                  title="Dismiss"
                 >
                   <X className="w-3 h-3" />
                 </Button>
@@ -321,57 +321,49 @@ const PreMoveChecklist = ({
             </div>
             
             {/* Checklist Items */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               {checks.map((check) => (
                 <motion.div
                   key={check.id}
-                  initial={{ opacity: 0, x: -10 }}
+                  initial={{ opacity: 0, x: -6 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className={`flex items-start gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                  className={`flex items-center gap-2 p-1.5 px-2 rounded-lg cursor-pointer transition-colors ${
                     checkedItems.has(check.id) 
-                      ? 'bg-green-500/10 border border-green-500/30' 
+                      ? 'bg-emerald-500/15 border border-emerald-500/30' 
                       : check.priority === 'high'
-                        ? 'bg-amber-500/10 border border-amber-500/30'
-                        : 'bg-background/50 border border-border/50'
+                        ? 'bg-amber-500/15 border border-amber-500/30'
+                        : 'bg-white/5 border border-white/10 hover:bg-white/10'
                   }`}
                   onClick={() => handleCheck(check.id)}
                   data-testid={`checklist-item-${check.id}`}
                 >
                   {/* Checkbox */}
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
                     checkedItems.has(check.id)
-                      ? 'border-green-500 bg-green-500'
-                      : 'border-muted-foreground'
+                      ? 'border-emerald-500 bg-emerald-500'
+                      : 'border-slate-500 bg-slate-900/50'
                   }`}>
                     {checkedItems.has(check.id) && (
-                      <CheckCircle2 className="w-3 h-3 text-white" />
+                      <CheckCircle2 className="w-2.5 h-2.5 text-slate-950 font-bold" />
                     )}
                   </div>
                   
                   {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{check.icon}</span>
-                      <p className={`text-sm font-medium ${
-                        checkedItems.has(check.id) ? 'text-green-400 line-through' : ''
+                  <div className="flex-1 min-w-0 flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-sm shrink-0">{check.icon}</span>
+                      <p className={`text-xs font-medium truncate ${
+                        checkedItems.has(check.id) ? 'text-emerald-400 line-through opacity-80' : 'text-slate-200'
                       }`}>
                         {check.question}
                       </p>
                     </div>
-                    {check.reason && (
-                      <p className="text-xs text-amber-400 mt-0.5 flex items-center gap-1">
-                        <Lightbulb className="w-3 h-3" />
-                        {check.reason}
-                      </p>
+                    {check.priority === 'high' && !checkedItems.has(check.id) && (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/50 text-amber-300 bg-amber-500/10 shrink-0">
+                        Focus
+                      </Badge>
                     )}
                   </div>
-                  
-                  {/* Priority Badge */}
-                  {check.priority === 'high' && !checkedItems.has(check.id) && (
-                    <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-400 flex-shrink-0">
-                      Focus
-                    </Badge>
-                  )}
                 </motion.div>
               ))}
             </div>
@@ -381,10 +373,10 @@ const PreMoveChecklist = ({
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="mt-2 p-2 rounded bg-green-500/10 border border-green-500/30"
+                className="mt-1.5 p-1 px-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center gap-1.5"
               >
-                <p className="text-xs text-green-400 flex items-center gap-2">
-                  <CheckCircle2 className="w-3 h-3" />
+                <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                <p className="text-[11px] text-emerald-300 font-medium">
                   Good thinking! Now make your move.
                 </p>
               </motion.div>

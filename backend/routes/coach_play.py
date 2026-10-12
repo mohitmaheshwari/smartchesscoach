@@ -812,6 +812,33 @@ async def get_session_behaviors(
     }
 
 
+@router.post("/sync-clock")
+async def sync_clock(request: Dict = Body(...)):
+    """
+    Sync and persist active game clock seconds and pause status.
+    """
+    global db
+    session_id = request.get("session_id")
+    if not session_id:
+        return {"success": False, "error": "Missing session_id"}
+    
+    update_data = {}
+    if "user_time_remaining" in request:
+        update_data["user_time_remaining"] = request["user_time_remaining"]
+    if "coach_time_remaining" in request:
+        update_data["coach_time_remaining"] = request["coach_time_remaining"]
+    if "is_paused" in request:
+        update_data["is_paused"] = bool(request["is_paused"])
+    update_data["last_clock_sync"] = datetime.now(timezone.utc).isoformat()
+
+    if db is not None:
+        await db.coach_sessions.update_one(
+            {"session_id": session_id},
+            {"$set": update_data}
+        )
+    return {"success": True}
+
+
 @router.post("/feedback")
 async def submit_coach_feedback(
     request: Dict = Body(...),
@@ -3648,6 +3675,9 @@ async def get_interactive_coaching(
             import os as _os
             _conductor_digest = None
             _opening_digest = None
+            _concept_digest = None
+            _identity = None
+            _session_focus = None
             _conductor_pulled = set(session_doc.get("conductor_threads_pulled") or [])
             if _os.environ.get("PWC_COACH_CONDUCTOR", "false").lower() == "true":
                 try:

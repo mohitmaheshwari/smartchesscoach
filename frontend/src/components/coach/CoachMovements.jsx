@@ -59,8 +59,8 @@ function Known({ known, assessment }) {
                 ? // The good thing leads and is set largest. A coach who only
                   // names faults loses the client in three sessions, and every
                   // element of the page this replaces was a deficit.
-                  "max-w-[720px] font-heading text-[23px] leading-[1.2] tracking-[-0.025em] text-foreground md:text-[29px]"
-                : "max-w-[640px] border-l-2 border-amber-600/50 pl-4 text-[15px] leading-relaxed text-foreground"
+                  "max-w-[720px] font-heading text-lg md:text-xl font-bold leading-snug tracking-tight text-foreground"
+                : "max-w-[640px] border-l-2 border-amber-600/50 pl-3.5 text-xs sm:text-sm leading-relaxed text-foreground"
             }
           >
             {line.text}
@@ -172,7 +172,7 @@ function Today({ today }) {
 
         <div className="min-w-0 flex-1">
           <p className="cg-eyebrow !text-[10px]">From one of your games</p>
-          <h2 className="mt-3 font-heading text-[22px] leading-[1.2] tracking-[-0.025em] text-foreground md:text-[26px]">
+          <h2 className="mt-2 font-heading text-lg md:text-xl font-bold leading-snug tracking-tight text-foreground">
             You played {today.played_move} here.
           </h2>
 
@@ -270,21 +270,25 @@ function Play({ play }) {
   return (
     <section
       data-testid="coach-play"
-      className="mb-8 overflow-hidden rounded-[28px] border border-primary/25 bg-gradient-to-br from-primary/[0.09] via-card to-primary/[0.03] p-6 md:p-8"
+      className="mb-6 overflow-hidden rounded-2xl border border-cyan-500/25 bg-gradient-to-r from-[#0d2232]/90 via-[#102433]/90 to-[#0c1622]/90 p-5 sm:p-6 shadow-[0_15px_35px_rgba(0,0,0,0.5)] backdrop-blur-2xl relative"
     >
-      <h2 className="font-heading text-[22px] leading-[1.2] tracking-[-0.025em] text-foreground md:text-[26px]">
-        {play.lead}
-      </h2>
-      <p className="mt-3 max-w-[560px] text-[15px] leading-relaxed text-foreground">
-        {play.line}
-      </p>
-      <button
-        type="button"
-        onClick={() => navigate(play.href)}
-        className="cg-primary-action mt-6"
-      >
-        {play.cta}
-      </button>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div>
+          <h2 className="font-heading font-bold text-xl sm:text-2xl tracking-tight text-white">
+            {play.lead}
+          </h2>
+          <p className="mt-1.5 max-w-2xl text-xs sm:text-sm font-normal leading-relaxed text-slate-300">
+            {play.line}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate(play.href)}
+          className="h-10 px-6 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-xs uppercase tracking-wider transition-all inline-flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(56,189,248,0.4)] cursor-pointer hover:scale-[1.02] active:scale-[0.98] shrink-0"
+        >
+          <span>{play.cta}</span>
+        </button>
+      </div>
     </section>
   );
 }
