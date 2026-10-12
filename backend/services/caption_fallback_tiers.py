@@ -68,15 +68,20 @@ def _better_suffix(facts: Dict[str, Any]) -> str:
     firing first) + a meaningful cp band (below this = style; at/above _MISTAKE_CP the
     flagged missed-opportunity path handles it). Verify-safe: best move is engine truth,
     principle is board-verified."""
-    if not facts.get("mover_is_user"):
-        return ""
     best = facts.get("best_move_san")
     played = facts.get("played_san")
     why = facts.get("best_move_why")
-    cp = int(facts.get("cp_loss") or 0)
-    if best and played and best != played and why and 25 <= cp < _MISTAKE_CP:
+    # mover_cp_loss is the mover's OWN loss. facts["cp_loss"] is 0 on an
+    # opponent card, which is why this used to bail on them and why the
+    # mover_is_user guard was here at all.
+    cp = int(facts.get("mover_cp_loss") or facts.get("cp_loss") or 0)
+    if not (best and played and best != played and why):
+        return ""
+    if not (25 <= cp < _MISTAKE_CP):
+        return ""
+    if facts.get("mover_is_user"):
         return f" Though {best} was a bit stronger, it {why}."
-    return ""
+    return f" They had {best}, which {why}."
 
 
 def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tuple[str, str]:
