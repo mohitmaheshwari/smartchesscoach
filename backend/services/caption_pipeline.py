@@ -6155,7 +6155,11 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
     # stopped rather than what the move did. Opportunity used 2 plies, which
     # is inside his horizon but does not see a payoff that needs a couple of
     # moves to arrive. One horizon now governs both verdicts and both sides.
-    STORY_HORIZON_PLIES = 8
+    # 16 plies = 8 moves each side. Mohit first said "max you should up for
+    # is 8 plies, the payoff should be by the 4th move from any party", which
+    # cost 17 cards their punishment verdict; shown that, he revised it to
+    # 8 MOVES. A ply is one side's move, so eight moves is sixteen plies.
+    STORY_HORIZON_PLIES = 16
     _pvp = list(pv_after_played or ())[:STORY_HORIZON_PLIES]
     _pvb = list(pv_after_best or ())[:STORY_HORIZON_PLIES]
     played_swing = _story_swing(board, played_san, _pvp, mover)
@@ -8584,7 +8588,22 @@ def build_move_teaching_decision(
                 # His ruling when the engine-meta clauses were dropped:
                 # "silence is NOT always worse. silence is better than fake
                 # explanation."
+                # What survives the strip has to still SAY something about
+                # this position. Mohit, reading his own cards 2026-10-12, hit
+                # "Look at what is already aimed at your king before you
+                # move." and "Those pieces did not arrive by accident..." --
+                # generic principles left standing after the instruction was
+                # removed, with the arrow gone too. That is not silence, it is
+                # filler wearing silence's clothes, and it is worse than the
+                # card that was there before this gate existed.
+                #
+                # A square reference is the cheapest proof that a sentence is
+                # about THIS board rather than any board. No square, no card.
                 if _stripped != caption_payload["caption"]:
+                    _keeps_board = bool(
+                        _re_pb.search(r"\b[a-h][1-8]\b", _stripped or ""))
+                    if _stripped and not _keeps_board:
+                        _stripped = ""
                     caption_payload["caption"] = _stripped
                     caption_payload["rule_name"] = (
                         (caption_payload.get("rule_name") or "")
