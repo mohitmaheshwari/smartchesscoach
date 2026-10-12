@@ -10094,6 +10094,71 @@ def _line_payoff_after_sacrifice(
     return None
 
 
+def _contested_target(
+    board_before: chess.Board,
+    best_move: Optional[chess.Move],
+) -> Optional[Dict[str, Any]]:
+    """A point the engine's move attacks exactly as often as it is defended.
+
+    Returns the square, the piece standing on it, both counts and a
+    verdict of "wins" (attackers outnumber defenders) or "level" (equal,
+    so one more attacker decides it). Returns None when the defenders
+    outnumber the attackers, because "bring one more" is then wrong
+    advice -- more than one is needed, and a card that cannot say the
+    right thing should say nothing.
+
+    Counts come from _exchange_participants (SEE order, pinned pieces
+    filtered). Kings are excluded there by SEE convention, so a point
+    guarded only by a king reads as undefended; that is the same
+    convention the rest of this module already uses.
+    """
+    if best_move is None:
+        return None
+    try:
+        mover = board_before.turn
+        after = board_before.copy()
+        after.push(best_move)
+        landed = after.piece_at(best_move.to_square)
+        if landed is None or landed.color != mover:
+            return None
+        best: Optional[Dict[str, Any]] = None
+        # only squares the MOVED piece now bears on -- this has to be
+        # about the move, not about the position in general
+        for sq in after.attacks(best_move.to_square):
+            victim = after.piece_at(sq)
+            if victim is None or victim.color == mover:
+                continue
+            if victim.piece_type == chess.KING:
+                continue
+            attackers, defenders = _exchange_participants(after, sq, mover)
+            n_att, n_def = len(attackers), len(defenders)
+            if n_att < 1:
+                continue
+            if n_att > n_def:
+                verdict = "wins"      # more attackers than defenders
+            elif n_att == n_def:
+                verdict = "level"     # one more attacker decides it
+            else:
+                # "bring one more" would be wrong here: they hold it more
+                # times than we hit it, so more than one is needed. Say
+                # nothing rather than give advice that does not work.
+                continue
+            cand = {
+                "square": chess.square_name(sq),
+                "piece": PIECE_TYPE_NAMES.get(victim.piece_type, "piece"),
+                "attackers": n_att,
+                "defenders": n_def,
+                "verdict": verdict,
+                "piece_value_cp": PIECE_VALUE_CP.get(victim.piece_type, 0),
+            }
+            # the most valuable contested point is the one worth teaching
+            if best is None or cand["piece_value_cp"] > best["piece_value_cp"]:
+                best = cand
+        return best
+    except Exception:
+        return None
+
+
 def _recommended_move_why(
     board: chess.Board,
     move: Optional[chess.Move],
@@ -10117,6 +10182,17 @@ def _recommended_move_why(
         return None
     # Possessive for pieces belonging to the MOVER.
     _own = "your" if mover_is_user else ("their" if mover_is_user is False else "the")
+    # ...and the side NOT moving. The capture branch below talks about
+    # the piece being taken and the player who takes it back, both of
+    # which belong to the opponent OF THE MOVER -- which is the reader
+    # on an opponent card. These were "his"/"him"/"he": correct on a
+    # user card by luck, wrong on every opponent card.
+    if mover_is_user is True:
+        _opp, _opp_subj, _opp_obj = "their", "they", "them"
+    elif mover_is_user is False:
+        _opp, _opp_subj, _opp_obj = "your", "you", "you"
+    else:
+        _opp, _opp_subj, _opp_obj = "the opponent's", "the opponent", "them"
     try:
         pr = _classify_move_principle(board, move)
         mover = board.turn
@@ -10169,7 +10245,8 @@ def _recommended_move_why(
                 deflection = _recapture_costs_him(board, move)
                 if deflection is not None:
                     lost_name, lost_square = deflection
-                    return f"costs him the {lost_name} on {lost_square} if he takes back"
+                    return (f"costs {_opp_obj} the {lost_name} on "
+                            f"{lost_square} if {_opp_subj} takes back")
             if see is not None and see >= 200:
                 return "wins material"
             if see is not None and see >= 80:
@@ -10177,7 +10254,7 @@ def _recommended_move_why(
             if see is not None and see >= TRADE_FLOOR_CP:
                 # Genuinely equal-ish: the value is removing the piece, not
                 # material.
-                return f"trades his {name}"
+                return f"trades {_opp} {name}"
             # Below the floor the exchange on that square LOSES material, so
             # this is not a trade and saying so is false. It is a recommended
             # move, though, so it is good for some other reason -- prove the
@@ -10186,7 +10263,8 @@ def _recommended_move_why(
             deflection = _recapture_costs_him(board, move)
             if deflection is not None:
                 lost_name, lost_square = deflection
-                return f"costs him the {lost_name} on {lost_square} if he takes back"
+                return (f"costs {_opp_obj} the {lost_name} on "
+                        f"{lost_square} if {_opp_subj} takes back")
 
         # CASTLE — its whole purpose is king safety; name that, not an incidental
         # "defends f7" the rook happens to add. Checked before threat/escape/defends.
@@ -11293,6 +11371,12 @@ def extract_facts(
         board_before, _best_mv, mover_is_user,
         line=pv_after_best or pv_after_played,
     )
+    # A point the engine's move attacks as many times as it is defended.
+    # Mohit's lesson on e3: naming a weak point is half of it; the
+    # transferable half is "you hit it once, they hold it once -- bring
+    # one more". 925 of 6,566 target-naming cards (14.1%) are in this
+    # state; 77% are already outnumbered and have nothing to prepare.
+    contested_target = _contested_target(board_before, _best_mv)
 
     # DISTINGUISH GATE (2026-07-01, docs/reasoning_correctness_scope.md): a "why the better
     # move is good" that is ALSO true of the move the user PLAYED explains nothing — "Be7
@@ -11380,6 +11464,7 @@ def extract_facts(
         "played_move_principle": played_move_principle,
         "best_move_principle": best_move_principle,
         "best_move_why": best_move_why,
+        "contested_target": contested_target,
         "queen_chased_by_reply": queen_chased_by_reply,
         "queen_chaser_piece": queen_chaser_piece,
         "pv_after_played": list(pv_after_played),
