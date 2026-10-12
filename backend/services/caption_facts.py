@@ -7242,6 +7242,166 @@ def _p_op_finish_development(
     }
 
 
+# ── Detector #35: OP_MATERIAL_EDGE_UNDEVELOPED ─────────────
+#
+# Mohit's lesson, 2026-10-12, on
+#   rnbqkb1r/pp3ppp/8/2pp4/3Np4/2N5/PPPP1PPP/R1BQKB1R w (26.Nb3):
+#
+#   "White is a whole knight up for a pawn. The extra piece is worth
+#    nothing while five of your pieces are still at home. So the lesson
+#    isn't 'don't get chased'. It's: when you're a piece up but
+#    undeveloped, the extra piece does nothing until your pieces are out.
+#    Use checks and threats to develop with tempo."
+#
+# I had first offered him the surface reading of that move (the knight
+# gets chased, tempo) and he corrected it. The material edge is the
+# subject; the undevelopment is why it is worth nothing.
+#
+# Written as four board conditions so it is a pattern and never that
+# position, per [[feedback_design_the_pattern_never_the_position]]:
+#
+#   1. the mover is materially AHEAD by a piece      the wasted edge
+#   2. four+ of the mover's pieces are home          why it is wasted
+#   3. the PLAYED move develops nothing              what went wrong
+#   4. the ENGINE's move does develop                what to do instead
+#
+# 3-vs-4 is the comparison rule. Without it this fires on every move of
+# every won game, which is a base rate and not a lesson -- exactly the
+# failure the MID_BAD_BISHOP note at the bottom of _principles_violated
+# describes. Because the two conditions are about the CHOICE rather than
+# about the position, this detector is an error detector by construction.
+#
+# Fire rate measured BEFORE building, on 2,227 flagged user moves:
+#   edge>=200 home>=4   2  (0.1%)      <- shipped
+#   edge>=200 home>=3   5  (0.2%)
+#   edge>=100 home>=4  12  (0.5%)
+# edge>=100 was rejected: a pawn up is not "the extra piece does
+# nothing", so loosening it would print a claim the lesson can't carry.
+_MATERIAL_EDGE_CP = 200   # a piece for a pawn, which is Mohit's case
+_MIN_PIECES_AT_HOME = 4   # the majority of a seven-piece back rank
+
+# No new home-square table and no new piece-value table: _HOME_SQUARES
+# (a tuple of (square, piece_type) pairs) and PIECE_VALUE_CP both
+# already live in this module. Adding a second _HOME_SQUARES here as a
+# dict silently shadowed the original and broke pieces_still_at_home(),
+# which backs OP_SAME_PIECE_TWICE -- it went quiet rather than crashing,
+# because every detector call is wrapped in `except Exception`.
+# [[feedback_single_source_of_truth]]
+
+
+def _pieces_at_home(
+    board: chess.Board,
+    colour: bool,
+    exclude_queen: bool = False,
+) -> List[str]:
+    """Squares where this side's original piece has never moved.
+
+    exclude_queen drops the queen from the count. It is needed for the
+    "did this move develop something" test but NOT for the "how much of
+    the army is still home" test: Mohit counted d1 among the five pieces
+    still at home in his own example, and she is genuinely sitting there.
+    She just cannot be the piece whose emergence we praise -- see
+    OP_QUEEN_OUT_EARLY, priority 30, in the same catalog.
+    """
+    out: List[str] = []
+    for sq, ptype in _HOME_SQUARES[colour]:
+        if exclude_queen and ptype == chess.QUEEN:
+            continue
+        piece = board.piece_at(sq)
+        if (piece is not None and piece.color == colour
+                and piece.piece_type == ptype):
+            out.append(chess.square_name(sq))
+    return sorted(out)
+
+
+def _material_edge_cp(board: chess.Board, colour: bool) -> int:
+    """Counted on the board handed in. Callers must hand in the board
+    BEFORE the played move: counting after it turns an even recapture
+    into a loss, which is the bug _story_swing documents and which was
+    reintroduced in new code on 2026-10-12 anyway.
+    """
+    return sum(PIECE_VALUE_CP.get(p.piece_type, 0)
+               * (1 if p.color == colour else -1)
+               for p in board.piece_map().values())
+
+
+def _p_op_material_edge_undeveloped(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when a side a piece up spends a move without developing,
+    while the engine's move does develop one."""
+    if facts.get("phase") not in ("opening", "middlegame"):
+        return None
+    cp_loss = facts.get("cp_loss") or 0
+    if cp_loss < 30:
+        return None
+    # cp_loss is 6000+ on delivered checkmates (sign flip on terminal
+    # positions). One of the two cards this detector first fired on was
+    # Nxf7+ at 9330cp: whatever that move is, "finish developing" is not
+    # its lesson.
+    if cp_loss > 1000:
+        return None
+    # A card whose real lesson is "you dropped a piece" must not be
+    # taught as "finish developing". These are the same two facts
+    # TAC_HANGING_PIECE reads, so the two principles cannot disagree
+    # about whether material is hanging -- one source, two readers
+    # ([[feedback_single_source_of_truth]]).
+    if facts.get("is_exchange_losing"):
+        return None
+    for _p in (facts.get("pieces_now_undefended") or []):
+        if _p.get("now_attacked") and _p.get("is_now_hanging"):
+            return None
+    own_color = (chess.WHITE if facts.get("moving_piece_color") == "white"
+                 else chess.BLACK)
+    # 1. the edge that is being wasted
+    edge = _material_edge_cp(board_before, own_color)
+    if edge < _MATERIAL_EDGE_CP:
+        return None
+    # 2. the reason it is wasted
+    home_before = _pieces_at_home(board_before, own_color)
+    if len(home_before) < _MIN_PIECES_AT_HOME:
+        return None
+    played_san = _normalize_san(facts.get("played_san") or "")
+    best_san = _normalize_san(facts.get("best_move_san") or "")
+    if not played_san or not best_san or played_san == best_san:
+        return None
+    try:
+        after_played = board_before.copy()
+        after_played.push(board_before.parse_san(played_san))
+        after_best = board_before.copy()
+        after_best.push(board_before.parse_san(best_san))
+    except Exception:
+        return None
+    # Conditions 3 and 4 compare non-queen pieces only, so that a queen
+    # sortie never reads as development.
+    minors_before = _pieces_at_home(board_before, own_color,
+                                    exclude_queen=True)
+    # 3. the played move developed nothing
+    if len(_pieces_at_home(after_played, own_color,
+                           exclude_queen=True)) < len(minors_before):
+        return None
+    # 4. the engine's move does
+    home_best = _pieces_at_home(after_best, own_color, exclude_queen=True)
+    if len(home_best) >= len(minors_before):
+        return None
+    freed = [s for s in minors_before if s not in home_best]
+    # The engine endorses this principle by definition of condition 4 --
+    # its own move is the aligned move. Offer it rather than asking
+    # _principle_engine_endorsement to rediscover the fact.
+    return {
+        "principle_id": "OP_MATERIAL_EDGE_UNDEVELOPED",
+        "evidence": {
+            "material_edge_cp": edge,
+            "pieces_at_home": home_before,
+            "developed_by_best": freed,
+            "best_move_gives_check": after_best.is_check(),
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_san],
+    }
+
+
 # ── Detector #17: TAC_CHECKS_CAPTURES_THREATS ───────────────────────
 #
 # Edge cases enumerated:
@@ -9165,6 +9325,7 @@ def _principles_violated(
         _p_mid_keep_attackers,
         _p_def_trade_attackers,
         _p_tac_skewer_pattern,
+        _p_op_material_edge_undeveloped,  # added 2026-10-12 — a piece up and still at home
         # MID_BAD_BISHOP and OP_BISHOP_TRADE_DOUBLES_PAWN are deliberately
         # NOT in this tuple. This list answers "what did the player do
         # wrong on this move", and neither of them can. Measured over 800
