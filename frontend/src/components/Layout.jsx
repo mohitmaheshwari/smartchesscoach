@@ -237,7 +237,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
       {/* ═══ Desktop Sidebar ═══ */}
       <aside
         className={`experience-sidebar hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 sidebar-gradient ${
-          sidebarCollapsed ? 'w-[68px]' : 'w-[240px]'
+          sidebarCollapsed ? 'w-[68px]' : 'w-[300px]'
         }`}
       >
         {/* Logo */}
@@ -263,44 +263,44 @@ const Layout = ({ children, user, fullBleed = false }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1">
+        <nav className="flex-1 py-4 px-4 space-y-1.5">
           {navigation.map((item) => {
             const IconComponent = item.icon;
             const active = isActive(item.href);
             return (
               <Link key={item.href} to={item.href}>
                 <div
-                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                  className={`relative w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                   } ${active
-                    ? 'bg-primary/15 text-primary font-medium'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-white/5 dark:hover:bg-white/5'
+                    ? 'bg-primary/15 text-primary font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5 dark:hover:bg-white/5 font-medium'
                   }`}
                   data-testid={"nav-" + item.name.toLowerCase().replaceAll(" ", "-")}
                   title={sidebarCollapsed ? item.name : undefined}
                 >
                   {active && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary" />
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-r-full bg-primary shadow-[0_0_8px_currentColor]" />
                   )}
-                  <IconComponent className={`w-[18px] h-[18px] flex-shrink-0 ${active ? 'text-primary' : ''}`} strokeWidth={active ? 2 : 1.5} />
-                  {!sidebarCollapsed && <span className="text-[13px]">{item.name}</span>}
+                  <IconComponent className={`w-5 h-5 flex-shrink-0 ${active ? 'text-primary' : 'text-slate-400'}`} strokeWidth={active ? 2.2 : 1.75} />
+                  {!sidebarCollapsed && <span className="text-[18px] font-semibold tracking-tight">{item.name}</span>}
                 </div>
               </Link>
             );
           })}
 
-          {/* Play with Coach — Golden CTA */}
-          <div className={`pt-5 ${sidebarCollapsed ? 'px-0' : 'px-0'}`}>
+          {/* Play with Coach — Prominent Studio CTA */}
+          <div className="pt-6">
             <Link to="/play-with-coach">
               <div
-                className={`experience-coach-cta relative w-full flex items-center gap-2.5 px-3 py-3 rounded-xl transition-all duration-200 text-black font-semibold hover:scale-[1.02] active:scale-[0.98] ${
+                className={`relative w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-extrabold shadow-[0_0_20px_rgba(56,189,248,0.4)] hover:shadow-[0_0_25px_rgba(56,189,248,0.6)] hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${
                   sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                 }`}
                 data-testid="nav-play-coach"
                 title={sidebarCollapsed ? "Play with Coach" : undefined}
               >
-                <Swords className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2} />
-                {!sidebarCollapsed && <span className="text-[13px]">Play with Coach</span>}
+                <Swords className="w-5 h-5 flex-shrink-0" strokeWidth={2.2} />
+                {!sidebarCollapsed && <span className="text-[18px] tracking-wide">Play with Coach</span>}
               </div>
             </Link>
           </div>
@@ -309,7 +309,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
             <div className="pt-2 space-y-1">
               <Link to="/review">
                 <div
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-200 ${
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-[16px] transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                   } ${location.pathname === '/review' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
                   data-testid="nav-review"
@@ -321,7 +321,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
               </Link>
               <Link to="/review/authoring">
                 <div
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-200 ${
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-[16px] transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                   } ${location.pathname === '/review/authoring' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
                   data-testid="nav-review-authoring"
@@ -338,7 +338,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
             <div className="pt-2">
               <Link to="/admin">
                 <div
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13px] transition-all duration-200 ${
+                  className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-[16px] transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                   } ${isActive('/admin') ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
                   data-testid="nav-admin"
@@ -420,16 +420,16 @@ const Layout = ({ children, user, fullBleed = false }) => {
           )}
 
           <Link to="/settings">
-            <div className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
-              <Settings className="w-[18px] h-[18px]" strokeWidth={1.5} />
-              {!sidebarCollapsed && <span className="text-[13px]">Settings</span>}
+            <div className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 text-slate-400 hover:text-white hover:bg-white/5 transition-all rounded-xl ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
+              <Settings className="w-5 h-5" strokeWidth={1.75} />
+              {!sidebarCollapsed && <span className="text-[17px] font-semibold">Settings</span>}
             </div>
           </Link>
 
           {/* User */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className={`w-full gap-3 hover:bg-white/5 h-auto py-2 ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="user-menu-trigger">
+              <Button variant="ghost" className={`w-full gap-3 hover:bg-white/5 h-auto py-2 rounded-xl ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="user-menu-trigger">
                 <div className="relative">
                   <Avatar className="h-8 w-8 ring-2 ring-primary/20">
                     <AvatarImage src={userPicture} alt={userName} />
@@ -439,8 +439,8 @@ const Layout = ({ children, user, fullBleed = false }) => {
                 </div>
                 {!sidebarCollapsed && (
                   <div className="flex flex-col items-start min-w-0">
-                    <span className="text-[13px] font-medium truncate max-w-[130px] text-foreground">{userName}</span>
-                    <span className="text-[11px] text-muted-foreground truncate max-w-[130px]">{userEmail}</span>
+                    <span className="text-sm font-semibold truncate max-w-[190px] text-foreground">{userName}</span>
+                    <span className="text-xs text-muted-foreground truncate max-w-[190px]">{userEmail}</span>
                   </div>
                 )}
               </Button>
@@ -570,7 +570,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
       </header>
 
       {/* ═══ Main Content ═══ */}
-      <main className={`experience-main flex-1 min-h-0 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'} pt-14 md:pt-0 bg-background ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
+      <main className={`experience-main flex-1 min-h-0 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[300px]'} pt-14 md:pt-0 bg-background ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
         <div
           className={
             fullBleed

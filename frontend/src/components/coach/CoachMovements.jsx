@@ -270,21 +270,25 @@ function Play({ play }) {
   return (
     <section
       data-testid="coach-play"
-      className="mb-8 overflow-hidden rounded-[28px] border border-primary/25 bg-gradient-to-br from-primary/[0.09] via-card to-primary/[0.03] p-6 md:p-8"
+      className="mb-8 overflow-hidden rounded-3xl border border-cyan-500/30 bg-gradient-to-r from-[#0d2232]/90 via-[#102433]/90 to-[#0c1622]/90 p-7 sm:p-9 shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-2xl relative"
     >
-      <h2 className="font-heading text-[22px] leading-[1.2] tracking-[-0.025em] text-foreground md:text-[26px]">
-        {play.lead}
-      </h2>
-      <p className="mt-3 max-w-[560px] text-[15px] leading-relaxed text-foreground">
-        {play.line}
-      </p>
-      <button
-        type="button"
-        onClick={() => navigate(play.href)}
-        className="cg-primary-action mt-6"
-      >
-        {play.cta}
-      </button>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h2 className="font-heading font-extrabold text-2xl sm:text-3xl lg:text-4xl tracking-tight text-white">
+            {play.lead}
+          </h2>
+          <p className="mt-2.5 max-w-2xl text-base sm:text-lg font-medium leading-relaxed text-slate-200">
+            {play.line}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate(play.href)}
+          className="h-14 px-8 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-extrabold text-[17px] sm:text-[19px] uppercase tracking-wider transition-all inline-flex items-center justify-center gap-3 shadow-[0_0_25px_rgba(56,189,248,0.5)] cursor-pointer hover:scale-[1.02] active:scale-[0.98] shrink-0"
+        >
+          <span>{play.cta}</span>
+        </button>
+      </div>
     </section>
   );
 }

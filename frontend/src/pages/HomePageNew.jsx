@@ -62,10 +62,10 @@ const formatWhen = () => {
 };
 
 const NAV = [
-  { id: "play", icon: Swords, label: "Play with Coach", sub: "coached games", href: "/play-with-coach" },
-  { id: "lab", icon: FlaskConical, label: "Lab", sub: "review games", href: "/lab" },
-  { id: "training", icon: Target, label: "Training", sub: "drill patterns", href: "/training" },
-  { id: "openings", icon: BookOpen, label: "Openings", sub: "your repertoire", href: "/openings" },
+  { id: "play", icon: Swords, label: "Play with Coach", sub: "Spar against adaptive engine with live feedback", href: "/play-with-coach" },
+  { id: "lab", icon: FlaskConical, label: "The Lab", sub: "Review game decryptor & mistake decay analysis", href: "/lab" },
+  { id: "training", icon: Target, label: "Pattern Training", sub: "Tactical drills, piece safety & forks", href: "/training" },
+  { id: "openings", icon: BookOpen, label: "Opening Repertoire", sub: "Master theory, lines & famous traps", href: "/openings" },
 ];
 
 export default function HomePageNew({ user }) {
@@ -316,8 +316,8 @@ export default function HomePageNew({ user }) {
   // ─── First Time / No Games State (Elite Chess Studio Aesthetic) ───
   if (!hasGames) {
     return (
-      <Layout user={user}>
-        <div className="min-h-full py-6 px-4 sm:px-6 relative" data-testid="home-page">
+      <Layout user={user} fullBleed={true}>
+        <div className="min-h-full py-8 px-4 sm:px-6 md:px-8 lg:px-12 w-full max-w-7xl mx-auto relative" data-testid="home-page">
           {/* Subtle Ambient Studio Lighting */}
           <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none" />
           <div className="absolute top-1/2 left-10 w-80 h-80 bg-blue-600/5 dark:bg-violet-600/10 rounded-full blur-[140px] pointer-events-none" />
@@ -325,7 +325,7 @@ export default function HomePageNew({ user }) {
           <motion.div 
             initial={{ opacity: 0, y: 16 }} 
             animate={{ opacity: 1, y: 0 }} 
-            className="max-w-4xl mx-auto space-y-8 relative z-10"
+            className="w-full space-y-8 relative z-10"
           >
             {/* Header Greeting & Timestamp */}
             <div className="flex flex-col sm:flex-row sm:items-baseline justify-between pb-5 border-b border-white/15 gap-3">
@@ -360,7 +360,7 @@ export default function HomePageNew({ user }) {
                       </p>
                       <button
                         onClick={() => navigate("/diagnostic")}
-                        className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white font-heading font-bold text-sm tracking-wide uppercase shadow-[0_0_25px_rgba(168,85,247,0.45)] inline-flex items-center gap-2.5 transition-all cursor-pointer"
+                        className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white font-heading font-bold text-[17px] tracking-wide uppercase shadow-[0_0_25px_rgba(168,85,247,0.45)] inline-flex items-center gap-2.5 transition-all cursor-pointer"
                       >
                         <span>{diagnosticStatus.status === "in_progress" ? "Continue with me" : "Show me how I think"}</span>
                         <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
@@ -397,7 +397,7 @@ export default function HomePageNew({ user }) {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => navigate("/play-with-coach")}
-                    className="px-7 py-4 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-sm sm:text-base uppercase tracking-wider shadow-[0_0_25px_rgba(56,189,248,0.45)] hover:shadow-[0_0_35px_rgba(56,189,248,0.6)] inline-flex items-center gap-3 transition-all cursor-pointer"
+                    className="px-7 py-4 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-[17px] sm:text-[19px] uppercase tracking-wider shadow-[0_0_25px_rgba(56,189,248,0.45)] hover:shadow-[0_0_35px_rgba(56,189,248,0.6)] inline-flex items-center gap-3 transition-all cursor-pointer"
                   >
                     <Swords className="h-5 w-5" strokeWidth={2.5} />
                     <span>Play my first game</span>
@@ -678,32 +678,32 @@ export default function HomePageNew({ user }) {
 
   // ─── Returning User State (Elite Chess Studio Aesthetic) ───
   return (
-    <Layout user={user}>
+    <Layout user={user} fullBleed={true}>
       <motion.div
         variants={pageEnter}
         initial="initial"
         animate="animate"
-        className="min-h-full py-8 px-4 sm:px-6 relative"
+        className="min-h-full py-8 px-4 sm:px-6 md:px-8 lg:px-12 w-full max-w-7xl mx-auto relative"
         data-testid="home-page"
       >
         {/* Soft Ambient Studio Lighting */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/15 rounded-full blur-[140px] pointer-events-none" />
         <div className="absolute top-1/2 left-10 w-80 h-80 bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
 
-        <motion.div variants={staggerContainer} initial="initial" animate="animate" className="max-w-4xl mx-auto space-y-8 relative z-10">
+        <motion.div variants={staggerContainer} initial="initial" animate="animate" className="w-full space-y-8 relative z-10">
           
           {/* ─── GREETING ─── */}
-          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row sm:items-baseline justify-between pb-5 border-b border-white/15 gap-3">
-            <div>
-              <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-300 mb-2 shadow-[0_0_15px_rgba(56,189,248,0.25)]">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                Active Session
-              </span>
-              <h1 className="font-heading font-extrabold text-3xl sm:text-4xl md:text-5xl text-white tracking-tight leading-tight">
+          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-white/10 gap-4">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <h1 className="font-heading font-black text-3xl sm:text-4xl md:text-5xl text-white tracking-tight leading-tight">
                 {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
               </h1>
+              <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-300 shadow-[0_0_15px_rgba(56,189,248,0.3)]">
+                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                <span>Active Session</span>
+              </span>
             </div>
-            <p className="text-slate-300 font-mono text-xs sm:text-sm font-semibold uppercase tracking-wider">{formatWhen()}</p>
+            <p className="text-slate-300 font-mono text-xs sm:text-sm font-bold uppercase tracking-widest">{formatWhen()}</p>
           </motion.div>
 
           {/* ─── THE COACHING SESSION ───
@@ -752,7 +752,7 @@ export default function HomePageNew({ user }) {
                         track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "review_this_game" });
                         navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`);
                       }}
-                      className="px-5 py-2.5 rounded-2xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-200 font-heading font-bold text-xs uppercase tracking-wider inline-flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(56,189,248,0.25)] cursor-pointer"
+                      className="px-5 py-2.5 rounded-2xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-200 font-heading font-bold text-[15px] uppercase tracking-wider inline-flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(56,189,248,0.25)] cursor-pointer"
                     >
                       <span>Review this game</span>
                       <ChevronRight className="h-4 w-4 text-cyan-300" strokeWidth={2.5} />
@@ -907,7 +907,7 @@ export default function HomePageNew({ user }) {
                         }
                         navigate("/training/pattern/piece_safety");
                       }}
-                      className="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(56,189,248,0.4)] transition-all cursor-pointer"
+                      className="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-[15px] uppercase tracking-wider shadow-[0_0_20px_rgba(56,189,248,0.4)] transition-all cursor-pointer"
                     >
                       Practise this
                     </button>
@@ -979,7 +979,7 @@ export default function HomePageNew({ user }) {
                     track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "play_with_coach", has_conversation: true });
                     navigate("/play-with-coach");
                   }}
-                  className="px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-sm sm:text-base uppercase tracking-wider shadow-[0_0_25px_rgba(56,189,248,0.45)] hover:shadow-[0_0_35px_rgba(56,189,248,0.6)] inline-flex items-center gap-3 transition-all cursor-pointer"
+                  className="px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-[17px] sm:text-[19px] uppercase tracking-wider shadow-[0_0_25px_rgba(56,189,248,0.45)] hover:shadow-[0_0_35px_rgba(56,189,248,0.6)] inline-flex items-center gap-3 transition-all cursor-pointer"
                 >
                   <Swords className="h-5 w-5" strokeWidth={2.5} />
                   <span>Play with Coach</span>
@@ -990,12 +990,12 @@ export default function HomePageNew({ user }) {
           ) : (
             <motion.section 
               variants={fadeInUp} 
-              className="bg-gradient-to-b from-[#1b2734] via-[#131d27] to-[#0b1118] border border-white/20 rounded-3xl p-7 sm:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-2xl relative overflow-hidden"
+              className="rounded-3xl border border-white/15 bg-gradient-to-r from-[#172330]/90 via-[#131d27]/95 to-[#0e1620]/95 p-7 sm:p-9 shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-2xl relative overflow-hidden"
             >
               {/* Coach Header */}
-              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-white/10">
+              <div className="flex items-center gap-4 sm:gap-5 mb-6 pb-6 border-b border-white/10">
                 <div className="relative shrink-0">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden ring-2 ring-cyan-400/60 shadow-[0_0_20px_rgba(56,189,248,0.35)] bg-slate-800">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden ring-2 ring-cyan-400/60 shadow-[0_0_20px_rgba(56,189,248,0.35)] bg-slate-800">
                     <img
                       src="/coach-jessica.png"
                       alt="Coach Jessica"
@@ -1006,23 +1006,23 @@ export default function HomePageNew({ user }) {
                       }}
                     />
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full ring-2 ring-[#131d27] flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full ring-2 ring-[#131d27] flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-full animate-ping" />
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-heading font-bold text-xl sm:text-2xl text-white">
+                  <h3 className="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
                     Coach Jessica
                   </h3>
-                  <p className="text-xs font-mono font-semibold text-cyan-400 uppercase tracking-wider">
+                  <p className="text-xs sm:text-sm font-mono font-bold text-cyan-400 uppercase tracking-wider mt-0.5">
                     AI Chess Mentor · Game Decryption
                   </p>
                 </div>
               </div>
 
               {/* Observation Quote Container */}
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 sm:p-6 mb-7">
-                <p className="text-base sm:text-lg md:text-xl leading-relaxed text-slate-100 font-semibold">
+              <div className="bg-slate-950/60 border border-white/10 rounded-2xl p-5 sm:p-7 mb-7 shadow-inner">
+                <p className="text-base sm:text-lg lg:text-xl leading-relaxed text-slate-100 font-medium">
                   {hasGames
                     ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
                     : "I'm still learning how you play. Play a game or two and I'll start noticing your habits."}
@@ -1037,7 +1037,7 @@ export default function HomePageNew({ user }) {
                   });
                   navigate(hasGames ? "/lab" : "/play-with-coach");
                 }}
-                className="px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-sm sm:text-base uppercase tracking-wider shadow-[0_0_25px_rgba(56,189,248,0.45)] hover:shadow-[0_0_35px_rgba(56,189,248,0.6)] inline-flex items-center gap-3 transition-all cursor-pointer"
+                className="h-14 px-8 rounded-2xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-extrabold text-[17px] sm:text-[19px] uppercase tracking-wider shadow-[0_0_25px_rgba(56,189,248,0.45)] hover:shadow-[0_0_35px_rgba(56,189,248,0.6)] inline-flex items-center gap-3 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
               >
                 <span>{hasGames ? "Review your games" : "Play with Coach"}</span>
                 <ArrowRight className="h-5 w-5" strokeWidth={2.5} />
@@ -1045,27 +1045,15 @@ export default function HomePageNew({ user }) {
             </motion.section>
           )}
 
-          {/* The session card and the chances card used to sit here, below
-              everything, each fetching /home/session for itself. Both are now
-              inside the coaching session at the top of the page: the good move
-              the session card celebrated is the board in movement one, and the
-              chances reading is movement one's assessment slot.
-
-              Their mounting note is kept because it is still the rule: both
-              had been wired inside the `canonicalContext ? ... : pic ? ...`
-              ternary, where 51 of 52 users take the other arm, so they rendered
-              for almost nobody. Nothing on this page that does not depend on a
-              player's focus shape may sit inside a test for one. */}
-
-          {/* ─── NAVIGATION TILES ───
-              Deliberately faded — utilities, not today's mission. Mohit,
-              2026-07-31 §7: "Now I'm back inside software... I'd fade
-              those into the background." */}
-          <motion.section variants={fadeInUp} className="mt-20 pt-10 border-t border-border/30 opacity-70 hover:opacity-100 transition-opacity">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70 font-medium mb-4">
-              Other ways to improve
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          {/* ─── STUDIO LEARNING HUB ─── */}
+          <motion.section variants={fadeInUp} className="mt-12 pt-8 border-t border-white/10">
+            <div className="flex items-center gap-2 mb-5">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#38bdf8]" />
+              <p className="text-xs font-mono uppercase tracking-[0.25em] text-cyan-400 font-bold">
+                Studio Learning Hub
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {NAV.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -1075,15 +1063,15 @@ export default function HomePageNew({ user }) {
                       track(ANALYTICS_EVENTS.FUNNEL_HOME_NAV_TILE_CLICKED, { tile: item.id });
                       navigate(item.href);
                     }}
-                    className="group bg-gradient-to-b from-[#1b2633]/90 via-[#131d27]/95 to-[#0b1118] hover:from-[#223244] hover:via-[#192633] hover:to-[#0f1720] border border-white/15 hover:border-cyan-400/60 p-6 rounded-3xl backdrop-blur-xl shadow-lg hover:shadow-[0_15px_40px_rgba(56,189,248,0.2)] transition-all duration-300 text-left relative cursor-pointer"
+                    className="group bg-gradient-to-b from-[#1b2633]/90 via-[#131d27]/95 to-[#0b1118] hover:from-[#223244] hover:via-[#192633] hover:to-[#0f1720] border border-white/15 hover:border-cyan-400/60 p-6 sm:p-7 rounded-3xl backdrop-blur-xl shadow-lg hover:shadow-[0_20px_50px_rgba(56,189,248,0.25)] transition-all duration-300 text-left relative cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-400 group-hover:text-slate-950 group-hover:scale-110 transition-all shadow-sm mb-4">
-                      <Icon className="w-5 h-5" strokeWidth={2} />
+                    <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-400 group-hover:text-slate-950 group-hover:scale-110 transition-all shadow-[0_0_15px_rgba(56,189,248,0.2)] mb-5">
+                      <Icon className="w-6 h-6" strokeWidth={2} />
                     </div>
-                    <p className="text-base sm:text-lg font-heading font-bold text-white group-hover:text-cyan-300 transition-colors tracking-tight">
+                    <p className="text-lg sm:text-xl font-heading font-extrabold text-white group-hover:text-cyan-300 transition-colors tracking-tight">
                       {item.label}
                     </p>
-                    <p className="text-xs sm:text-sm font-medium text-slate-400 group-hover:text-slate-200 mt-1 line-clamp-1">
+                    <p className="text-xs sm:text-sm font-medium text-slate-300/80 group-hover:text-slate-200 mt-2 leading-relaxed">
                       {item.sub}
                     </p>
                   </button>
