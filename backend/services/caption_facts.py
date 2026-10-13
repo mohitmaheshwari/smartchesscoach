@@ -5527,7 +5527,16 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # on a 286-cp blunder is teaching the wrong thing. Fall through
     # to the blunder/mistake rules (added in a later commit) instead.
     # Bug from d7ce40cf corpus: #19 Re7, #17 a3, #9 Bg5.
-    _move_cpl = facts.get("cp_loss") or 0
+    # How bad was THIS move, for whoever played it. This single
+    # line decides the CATEGORY, and the category decides which
+    # rules are even candidates -- so with cp_loss (the USER's
+    # loss, 0 on an opponent card) an opponent move could never
+    # reach category "blunder", and R12_blunder was never offered.
+    # It also left _tactic_ok True on their blunders, qualifying
+    # them for tactic celebration.
+    _move_cpl = (facts.get("mover_cp_loss")
+                 if facts.get("mover_cp_loss") is not None
+                 else (facts.get("cp_loss") or 0))
     _tactic_ok = _move_cpl < MAX_CP_LOSS_FOR_TACTIC_CELEBRATION
 
     # Priority 2: own tactic shape on the played move (gated)
@@ -10479,6 +10488,7 @@ def extract_facts(
     move_history_san: Optional[List[str]] = None,
     full_move_number: Optional[int] = None,
     mover_is_user: Optional[bool] = None,
+    opp_cp_loss: int = 0,
     opp_replies: Optional[List[Dict[str, Any]]] = None,
     opp_reply_is_clear: Optional[bool] = None,
 ) -> Dict[str, Any]:
@@ -11473,7 +11483,15 @@ def extract_facts(
         # caption_pipeline overwrites this with the real mover
         # loss there. Defaulted here so no caller can hand a rule
         # trigger a dict that is simply missing the key.
-        "mover_cp_loss": abs(int(cp_loss or 0)),
+        # How bad was THIS move, for whoever played it. cp_loss
+        # means the USER's loss and is 0 on an opponent card, so
+        # the opponent's own loss has to come in separately --
+        # and it has to be right HERE, because primary_reason is
+        # computed at the end of this function and the category
+        # it picks decides which rules are even candidates.
+        "mover_cp_loss": abs(int(
+            (cp_loss if mover_is_user is not False else opp_cp_loss)
+            or 0)),
         "contested_target": contested_target,
         "queen_chased_by_reply": queen_chased_by_reply,
         "queen_chaser_piece": queen_chaser_piece,
