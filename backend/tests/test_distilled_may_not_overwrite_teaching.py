@@ -24,11 +24,22 @@ def test_fills_a_silent_card():
     assert _distilled_may_replace("   ", "Nf3 develops a piece.") is True
 
 
-def test_never_trades_a_caption_for_silence():
-    """6 cards in the measured run went from text to an empty caption."""
+def test_never_trades_a_REAL_caption_for_silence():
+    """A card about this board is not thrown away for an empty one."""
     assert _distilled_may_replace(
-        "You tidy up the king, keeping it safe.", "") is False
-    assert _distilled_may_replace("You push the h-pawn.", "   ") is False
+        "Rb6. Pins the pawn on b2 to the king.", "", "Rb6") is False
+
+
+def test_generic_filler_may_be_silenced():
+    """156 of the cards this rule kept were verbatim repeats, one of them
+    "Your opponent tidys up the king, keeping it safe." 25 times in a
+    single game. That is what the decided-position gate exists to
+    silence, and Mohit's ruling is that silence beats fake explanation."""
+    assert _distilled_may_replace(
+        "Your opponent tidys up the king, keeping it safe.", "",
+        "Kg2") is True
+    assert _distilled_may_replace(
+        "You push the h-pawn, claiming a little space.", "", "h4") is True
 
 
 def test_keeps_the_named_motif():
@@ -41,14 +52,26 @@ def test_keeps_the_named_motif():
         "simply lose it for nothing; better was Rb1.") is False
 
 
-def test_keeps_the_mate_verdict():
-    """game a0276eda ply81: 'Opp is winning by force' became 'an even
-    trade' while the student was being mated."""
+def test_a_mate_verdict_alone_is_not_teaching():
+    """Measured over 120 re-rendered games: of the 78 cards the mate
+    clause saved, 76 were this sentence, repeated down a lost game while
+    naming nothing about the position. It does not earn protection, and
+    the replacement is often the more useful card. This corrects the case
+    the rule was first built on."""
     assert _distilled_may_replace(
         "Raxe3+. Opp is winning by force. Before moving, calculate every "
         "enemy check to the end.",
         "Raxe3+ takes your knight, but your king can take back — an "
-        "even trade. Recapture to keep material level.") is False
+        "even trade. Recapture to keep material level.",
+        "Raxe3+") is True
+
+
+def test_keeps_a_mate_claim_about_this_board():
+    """A mate claim that names a square is real teaching and still wins."""
+    assert _distilled_may_replace(
+        "Bxf5 misses a forced win — mate on h7 was there.",
+        "Bxf5 takes your knight and nothing takes back.",
+        "Bxf5") is False
 
 
 def test_keeps_the_better_move_why():
@@ -124,3 +147,16 @@ def test_neither_side_names_a_square_is_untouched():
     assert _distilled_may_replace(
         "Your opponent tidys up the king.",
         "Your opponent moved their king. Lesson: keep your king safe.") is True
+
+
+def test_played_move_square_does_not_count_as_board_detail():
+    """A pawn move's SAN *is* a square, so "b6. Opp is winning by force."
+    would pass a naive square test while naming nothing."""
+    assert _distilled_may_replace(
+        "b6. Opp is winning by force. Before moving, calculate every "
+        "enemy check to the end.",
+        "Your opponent played b6, taking more room.", "b6") is True
+    # the same sentence about a DIFFERENT square is board detail
+    assert _distilled_may_replace(
+        "b6. Opp is winning by force — mate lands on g7.",
+        "Your opponent played b6, taking more room.", "b6") is False

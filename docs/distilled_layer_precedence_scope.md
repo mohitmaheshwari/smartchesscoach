@@ -172,3 +172,65 @@ INTERNALERROR — no test anywhere could run. Guarded under
 The 880-game re-render stored the pre-guard text. It has to run again
 once this ships, and the six authored captions the earlier regen
 overwrote still need restoring from `authored_caption_overrides`.
+
+---
+
+## Correction: a marker is only worth protecting if it is teaching
+
+*Same day, after reading the cards the guard saved on live data.*
+
+The guard shipped, then I rendered 120 freshly re-rendered games twice --
+as deployed, and with the guard forced to always allow -- so every card
+it saved could be read beside what the student would have got instead.
+1,348 cards were saved. Two of the clauses were protecting filler.
+
+**The mate clause was wrong, including on the case I built it from.** Of
+the 78 cards it saved, **76** named no square other than the played
+move's own, because the text was always the same sentence:
+
+> b6. Opp is winning by force. Before moving, calculate every enemy check
+> to the end.
+
+That card repeats on every move of a lost game -- ten consecutive moves
+in game `0134bb00`. The replacements it was blocking were frequently the
+more useful card ("Bxd3+ takes your pawn, but your bishop can take back").
+The original example in this doc, `Raxe3+ ... Opp is winning by force`,
+is one of those 76. A mate VERDICT is not teaching; a mate claim that
+names a square is, and that is still protected.
+
+**The never-silence rule was keeping repeats.** 156 of the cards it kept
+were verbatim duplicates within one game, worst case *"Your opponent
+tidys up the king, keeping it safe."* **25 times** in game `00aedb7f`.
+That is exactly what the decided-position gate exists to silence, so the
+rule was fighting a ruling already made.
+
+Both now require the protected text to be **about this board**: to name a
+square the played move's own SAN does not. A pawn move's SAN *is* a
+square, which is why the naive test passed on "b6. Opp is winning by
+force." The motif and opening markers need no such test -- the named fork
+and the named opening ARE the transferable lesson, and all 160 motif
+cards named a real square anyway.
+
+| on 120 live games | before | after |
+|---|---|---|
+| cards the guard saves | 1,348 | 1,033 |
+| mate-clause saves | 78 (76 filler) | **0** |
+| kept text repeats in-game | 162 | **2** |
+| fails both filler tests | 158 | **0** |
+| motif saves (all board-specific) | 185 | 160 |
+
+The 189 opening saves that name no other square are the design: the
+opening name carries the lesson.
+
+> "Rh1+. Skewers the king on f1 -- when it moves, the rook on a1 is
+> exposed." *(kept)* vs "Rh1+ is the best move in this position."
+
+### A harness bug worth recording
+
+The first re-measurement reported 3,700 saved cards with motif collapsing
+to 4 -- the opposite of the intent. The guard had gained a third
+parameter and the harness's always-allow stub still took two, so every
+call raised TypeError inside the `except Exception` around the distilled
+block and the comparison silently inverted. The harness now asserts its
+stub matches the real signature. Same failure mode as the `opp_cp_loss`
+regression: a swallowed TypeError reads as a behaviour change.
