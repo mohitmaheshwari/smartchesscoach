@@ -328,17 +328,17 @@ export default function HomePageNew({ user }) {
             className="w-full space-y-8 relative z-10"
           >
             {/* Header Greeting & Timestamp */}
-            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between pb-5 border-b border-white/15 gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between pb-5 border-b border-slate-200/80 dark:border-white/15 gap-3">
               <div>
-                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-300 mb-2 shadow-[0_0_15px_rgba(56,189,248,0.25)]">
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-50 dark:bg-cyan-950/80 border border-cyan-200 dark:border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300 mb-2 shadow-sm dark:shadow-[0_0_15px_rgba(56,189,248,0.25)]">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                   Studio Onboarding
                 </span>
-                <h1 className="font-heading font-extrabold text-3xl sm:text-4xl md:text-5xl text-white tracking-tight leading-tight">
+                <h1 className="font-heading font-extrabold text-3xl sm:text-4xl md:text-5xl text-slate-900 dark:text-white tracking-tight leading-tight">
                   {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
                 </h1>
               </div>
-              <p className="text-slate-400 font-mono text-xs sm:text-sm font-semibold uppercase tracking-wider">{formatWhen()}</p>
+              <p className="text-slate-500 dark:text-slate-400 font-mono text-xs sm:text-sm font-semibold uppercase tracking-wider">{formatWhen()}</p>
             </div>
 
             {/* Diagnostic CTA */}
@@ -347,13 +347,13 @@ export default function HomePageNew({ user }) {
               return shouldShow;
             })() && (
               <section>
-                <div className="bg-gradient-to-b from-[#251f38] via-[#1c172b] to-[#120e1c] border border-violet-500/40 rounded-3xl p-7 sm:p-9 shadow-[0_20px_50px_rgba(139,92,246,0.15)] backdrop-blur-xl relative overflow-hidden">
+                <div className="bg-white dark:bg-gradient-to-b dark:from-[#251f38] dark:via-[#1c172b] dark:to-[#120e1c] border border-violet-200 dark:border-violet-500/40 rounded-3xl p-7 sm:p-9 shadow-sm dark:shadow-[0_20px_50px_rgba(139,92,246,0.15)] backdrop-blur-xl relative overflow-hidden">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h3 className="font-heading font-bold text-2xl sm:text-3xl text-white mb-2">
+                      <h3 className="font-heading font-bold text-2xl sm:text-3xl text-slate-900 dark:text-white mb-2">
                         Let me learn how you see the board.
                       </h3>
-                      <p className="text-slate-200 font-medium text-sm sm:text-base mb-6 max-w-[580px] leading-relaxed">
+                      <p className="text-slate-600 dark:text-slate-200 font-medium text-sm sm:text-base mb-6 max-w-[580px] leading-relaxed">
                         {diagnosticStatus.status === "in_progress"
                           ? "We have already started. Let’s pick up where you left off."
                           : "A short set of positions will help me choose the right first lesson for you."}
@@ -366,7 +366,7 @@ export default function HomePageNew({ user }) {
                         <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
                       </button>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-400 shrink-0">
+                    <div className="w-12 h-12 rounded-2xl bg-violet-50 dark:bg-violet-500/20 border border-violet-200 dark:border-violet-500/40 flex items-center justify-center text-violet-600 dark:text-violet-400 shrink-0">
                       <Zap className="h-6 w-6" />
                     </div>
                   </div>
@@ -376,19 +376,19 @@ export default function HomePageNew({ user }) {
 
             {/* Hero Session Card */}
             <section>
-              <div className="bg-gradient-to-b from-[#1b2734] via-[#131d27] to-[#0b1118] border border-white/20 rounded-3xl p-7 sm:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-2xl relative overflow-hidden">
+              <div className="bg-white dark:bg-gradient-to-b dark:from-[#1b2734] dark:via-[#131d27] dark:to-[#0b1118] border border-slate-200/90 dark:border-white/20 rounded-3xl p-7 sm:p-10 shadow-sm dark:shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-2xl relative overflow-hidden">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-300 shadow-[0_0_15px_rgba(56,189,248,0.25)]">
-                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-50 dark:bg-cyan-950/80 border border-cyan-200 dark:border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300 shadow-sm dark:shadow-[0_0_15px_rgba(56,189,248,0.25)]">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                     Our First Session
                   </span>
                 </div>
                 
-                <h2 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-4xl text-white tracking-tight mt-1">
+                <h2 className="font-heading font-extrabold text-2xl sm:text-3xl md:text-4xl text-slate-900 dark:text-white tracking-tight mt-1">
                   Let’s begin with your chess—not a generic course.
                 </h2>
                 
-                <p className="text-slate-200 font-medium text-base sm:text-lg mt-3 max-w-[640px] leading-relaxed">
+                <p className="text-slate-600 dark:text-slate-200 font-medium text-base sm:text-lg mt-3 max-w-[640px] leading-relaxed">
                   Play naturally. I’ll watch how you make decisions and choose the first idea worth working on together.
                 </p>
 
@@ -408,18 +408,18 @@ export default function HomePageNew({ user }) {
             </section>
 
             {/* External Accounts Card */}
-            <section className="bg-gradient-to-b from-[#18232e]/90 to-[#10171f]/95 border border-white/15 rounded-3xl p-6 sm:p-7 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-lg">
+            <section className="bg-white dark:bg-gradient-to-b dark:from-[#18232e]/90 dark:to-[#10171f]/95 border border-slate-200/90 dark:border-white/15 rounded-3xl p-6 sm:p-7 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-sm">
               <div>
-                <p className="text-xs font-mono uppercase tracking-[0.22em] text-cyan-400 font-bold mb-1">
+                <p className="text-xs font-mono uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-400 font-bold mb-1">
                   Already play elsewhere?
                 </p>
-                <p className="text-sm sm:text-base text-slate-200 font-medium leading-relaxed max-w-[500px]">
+                <p className="text-sm sm:text-base text-slate-600 dark:text-slate-200 font-medium leading-relaxed max-w-[500px]">
                   Connect your Chess.com or Lichess account and I'll analyze your existing games.
                 </p>
               </div>
               <button
                 onClick={() => navigate("/import")}
-                className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-heading font-bold text-xs sm:text-sm uppercase tracking-wider inline-flex items-center gap-2.5 transition-all self-start sm:self-auto shrink-0 shadow-sm cursor-pointer"
+                className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 border border-slate-200 dark:border-white/20 text-slate-900 dark:text-white font-heading font-bold text-xs sm:text-sm uppercase tracking-wider inline-flex items-center gap-2.5 transition-all self-start sm:self-auto shrink-0 shadow-sm cursor-pointer"
               >
                 <Import className="h-4 w-4" strokeWidth={2} />
                 <span>Connect Chess.com or Lichess</span>
@@ -477,36 +477,36 @@ export default function HomePageNew({ user }) {
             <section className="space-y-4">
               <div className="flex items-baseline justify-between">
                 <div>
-                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-300 mb-1.5 shadow-sm">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950/80 border border-cyan-200 dark:border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300 mb-1.5 shadow-sm">
                     Core Curriculum
                   </span>
-                  <h3 className="font-heading font-bold text-2xl text-white">
+                  <h3 className="font-heading font-bold text-2xl text-slate-900 dark:text-white">
                     The 4 Foundations of 1500+ Chess
                   </h3>
                 </div>
-                <p className="text-xs font-mono font-semibold text-slate-400 hidden sm:block">Proven Plateau Breakers</p>
+                <p className="text-xs font-mono font-semibold text-slate-500 dark:text-slate-400 hidden sm:block">Proven Plateau Breakers</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                 <div 
                   onClick={() => navigate("/training/pattern/piece_safety")}
-                  className="group bg-gradient-to-b from-[#1b2633]/90 via-[#131d27]/95 to-[#0b1118] hover:from-[#223244] hover:via-[#192633] hover:to-[#0f1720] border border-white/15 hover:border-cyan-400/60 p-6 rounded-3xl backdrop-blur-xl shadow-lg hover:shadow-[0_15px_40px_rgba(56,189,248,0.2)] transition-all duration-300 cursor-pointer text-left relative overflow-hidden"
+                  className="group bg-white dark:bg-gradient-to-b dark:from-[#1b2633]/90 dark:via-[#131d27]/95 dark:to-[#0b1118] hover:bg-slate-50 dark:hover:from-[#223244] dark:hover:via-[#192633] dark:hover:to-[#0f1720] border border-slate-200/90 dark:border-white/15 hover:border-cyan-500/60 p-6 rounded-3xl backdrop-blur-xl shadow-sm hover:shadow-md dark:shadow-lg dark:hover:shadow-[0_15px_40px_rgba(56,189,248,0.2)] transition-all duration-300 cursor-pointer text-left relative overflow-hidden"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform">
+                    <div className="w-12 h-12 rounded-2xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 group-hover:scale-105 transition-transform">
                       <Shield className="w-6 h-6" strokeWidth={2} />
                     </div>
-                    <span className="text-xs font-mono font-bold text-cyan-300 bg-cyan-950/80 border border-cyan-500/40 px-3 py-1 rounded-full">
+                    <span className="text-xs font-mono font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/80 border border-cyan-200 dark:border-cyan-500/40 px-3 py-1 rounded-full">
                       600–1200 ELO
                     </span>
                   </div>
-                  <h4 className="font-heading font-bold text-xl text-white mb-2 group-hover:text-cyan-300 transition-colors">
+                  <h4 className="font-heading font-bold text-xl text-slate-900 dark:text-white mb-2 group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition-colors">
                     Piece Safety & Hanging Radar
                   </h4>
-                  <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed mb-5">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-5">
                     The #1 blunder for club players: moving a piece to an attacked square or leaving an unprotected defender behind.
                   </p>
-                  <div className="flex items-center text-xs font-heading font-bold text-cyan-400 gap-2">
+                  <div className="flex items-center text-xs font-heading font-bold text-cyan-600 dark:text-cyan-400 gap-2">
                     <span>Drill safety positions</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -514,23 +514,23 @@ export default function HomePageNew({ user }) {
 
                 <div 
                   onClick={() => navigate("/play-with-coach")}
-                  className="group bg-gradient-to-b from-[#1b2633]/90 via-[#131d27]/95 to-[#0b1118] hover:from-[#223244] hover:via-[#192633] hover:to-[#0f1720] border border-white/15 hover:border-violet-400/60 p-6 rounded-3xl backdrop-blur-xl shadow-lg hover:shadow-[0_15px_40px_rgba(168,85,247,0.2)] transition-all duration-300 cursor-pointer text-left relative overflow-hidden"
+                  className="group bg-white dark:bg-gradient-to-b dark:from-[#1b2633]/90 dark:via-[#131d27]/95 dark:to-[#0b1118] hover:bg-slate-50 dark:hover:from-[#223244] dark:hover:via-[#192633] dark:hover:to-[#0f1720] border border-slate-200/90 dark:border-white/15 hover:border-violet-500/60 p-6 rounded-3xl backdrop-blur-xl shadow-sm hover:shadow-md dark:shadow-lg dark:hover:shadow-[0_15px_40px_rgba(168,85,247,0.2)] transition-all duration-300 cursor-pointer text-left relative overflow-hidden"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400 group-hover:scale-105 transition-transform">
+                    <div className="w-12 h-12 rounded-2xl bg-violet-50 dark:bg-violet-500/10 border border-violet-200 dark:border-violet-500/30 flex items-center justify-center text-violet-600 dark:text-violet-400 group-hover:scale-105 transition-transform">
                       <Target className="w-6 h-6" strokeWidth={2} />
                     </div>
-                    <span className="text-xs font-mono font-bold text-violet-300 bg-violet-950/80 border border-violet-500/40 px-3 py-1 rounded-full">
+                    <span className="text-xs font-mono font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/80 border border-violet-200 dark:border-violet-500/40 px-3 py-1 rounded-full">
                       800–1400 ELO
                     </span>
                   </div>
-                  <h4 className="font-heading font-bold text-xl text-white mb-2 group-hover:text-violet-300 transition-colors">
+                  <h4 className="font-heading font-bold text-xl text-slate-900 dark:text-white mb-2 group-hover:text-violet-600 dark:group-hover:text-violet-300 transition-colors">
                     King Escape Squares & Back-Rank
                   </h4>
-                  <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed mb-5">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-5">
                     Count king flight squares under attack, recognize corridor mates early, and secure king safety during tactical storms.
                   </p>
-                  <div className="flex items-center text-xs font-heading font-bold text-violet-400 gap-2">
+                  <div className="flex items-center text-xs font-heading font-bold text-violet-600 dark:text-violet-400 gap-2">
                     <span>Try Escape Quiz in Coach Play</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -538,23 +538,23 @@ export default function HomePageNew({ user }) {
 
                 <div 
                   onClick={() => navigate("/training")}
-                  className="group bg-gradient-to-b from-[#1b2633]/90 via-[#131d27]/95 to-[#0b1118] hover:from-[#223244] hover:via-[#192633] hover:to-[#0f1720] border border-white/15 hover:border-amber-400/60 p-6 rounded-3xl backdrop-blur-xl shadow-lg hover:shadow-[0_15px_40px_rgba(245,158,11,0.2)] transition-all duration-300 cursor-pointer text-left relative overflow-hidden"
+                  className="group bg-white dark:bg-gradient-to-b dark:from-[#1b2633]/90 dark:via-[#131d27]/95 dark:to-[#0b1118] hover:bg-slate-50 dark:hover:from-[#223244] dark:hover:via-[#192633] dark:hover:to-[#0f1720] border border-slate-200/90 dark:border-white/15 hover:border-amber-500/60 p-6 rounded-3xl backdrop-blur-xl shadow-sm hover:shadow-md dark:shadow-lg dark:hover:shadow-[0_15px_40px_rgba(245,158,11,0.2)] transition-all duration-300 cursor-pointer text-left relative overflow-hidden"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
                       <Zap className="w-6 h-6" strokeWidth={2} />
                     </div>
-                    <span className="text-xs font-mono font-bold text-amber-300 bg-amber-950/80 border border-amber-500/40 px-3 py-1 rounded-full">
+                    <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/80 border border-amber-200 dark:border-amber-500/40 px-3 py-1 rounded-full">
                       1000–1500 ELO
                     </span>
                   </div>
-                  <h4 className="font-heading font-bold text-xl text-white mb-2 group-hover:text-amber-300 transition-colors">
+                  <h4 className="font-heading font-bold text-xl text-slate-900 dark:text-white mb-2 group-hover:text-amber-600 dark:group-hover:text-amber-300 transition-colors">
                     Tactical Motifs & Double Attacks
                   </h4>
-                  <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed mb-5">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-5">
                     Master the foundational geometry of victory: knight forks, absolute pins, skewers, and deadly discovered checks.
                   </p>
-                  <div className="flex items-center text-xs font-heading font-bold text-amber-400 gap-2">
+                  <div className="flex items-center text-xs font-heading font-bold text-amber-600 dark:text-amber-400 gap-2">
                     <span>Solve pattern puzzles</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -562,23 +562,23 @@ export default function HomePageNew({ user }) {
 
                 <div 
                   onClick={() => navigate("/openings")}
-                  className="group bg-gradient-to-b from-[#1b2633]/90 via-[#131d27]/95 to-[#0b1118] hover:from-[#223244] hover:via-[#192633] hover:to-[#0f1720] border border-white/15 hover:border-emerald-400/60 p-6 rounded-3xl backdrop-blur-xl shadow-lg hover:shadow-[0_15px_40px_rgba(16,185,129,0.2)] transition-all duration-300 cursor-pointer text-left relative overflow-hidden"
+                  className="group bg-white dark:bg-gradient-to-b dark:from-[#1b2633]/90 dark:via-[#131d27]/95 dark:to-[#0b1118] hover:bg-slate-50 dark:hover:from-[#223244] dark:hover:via-[#192633] dark:hover:to-[#0f1720] border border-slate-200/90 dark:border-white/15 hover:border-emerald-500/60 p-6 rounded-3xl backdrop-blur-xl shadow-sm hover:shadow-md dark:shadow-lg dark:hover:shadow-[0_15px_40px_rgba(16,185,129,0.2)] transition-all duration-300 cursor-pointer text-left relative overflow-hidden"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform">
                       <BookOpen className="w-6 h-6" strokeWidth={2} />
                     </div>
-                    <span className="text-xs font-mono font-bold text-emerald-300 bg-emerald-950/80 border border-emerald-500/40 px-3 py-1 rounded-full">
+                    <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-500/40 px-3 py-1 rounded-full">
                       1200+ ELO
                     </span>
                   </div>
-                  <h4 className="font-heading font-bold text-xl text-white mb-2 group-hover:text-emerald-300 transition-colors">
+                  <h4 className="font-heading font-bold text-xl text-slate-900 dark:text-white mb-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition-colors">
                     Repertoire & Endgame Conversion
                   </h4>
-                  <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed mb-5">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-5">
                     Build opening confidence that leads to comfortable middlegames, and convert advantages into decisive wins.
                   </p>
-                  <div className="flex items-center text-xs font-heading font-bold text-emerald-400 gap-2">
+                  <div className="flex items-center text-xs font-heading font-bold text-emerald-600 dark:text-emerald-400 gap-2">
                     <span>Explore openings & endgames</span>
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
@@ -588,59 +588,59 @@ export default function HomePageNew({ user }) {
 
             {/* ─── STUDIO SPOTLIGHT: 18 TRAPS & 10 ENDGAMES ─── */}
             <section className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-              <div className="bg-gradient-to-b from-[#1b2633]/90 via-[#131d27]/95 to-[#0b1118] border border-white/15 rounded-3xl p-6 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl flex flex-col justify-between">
+              <div className="bg-white dark:bg-gradient-to-b dark:from-[#1b2633]/90 dark:via-[#131d27]/95 dark:to-[#0b1118] border border-slate-200/90 dark:border-white/15 rounded-3xl p-6 sm:p-7 shadow-sm dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-mono uppercase tracking-[0.22em] text-cyan-300 font-bold bg-cyan-950/80 border border-cyan-500/40 px-3 py-1 rounded-full">
+                    <span className="text-xs font-mono uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-300 font-bold bg-cyan-50 dark:bg-cyan-950/80 border border-cyan-200 dark:border-cyan-500/40 px-3 py-1 rounded-full">
                       Teaching Engine
                     </span>
-                    <span className="text-xs font-mono font-semibold text-slate-400">18 Verified Traps</span>
+                    <span className="text-xs font-mono font-semibold text-slate-500 dark:text-slate-400">18 Verified Traps</span>
                   </div>
-                  <h4 className="font-heading font-bold text-xl sm:text-2xl text-white mb-2">
+                  <h4 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 dark:text-white mb-2">
                     Famous Opening Traps & Defenses
                   </h4>
-                  <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed mb-6">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-6">
                     Learn to recognize and punish Scholar's Mate, the Fried Liver, Legal's Mate, and the Blackburne Shilling before your opponents catch you.
                   </p>
                 </div>
                 <button
                   onClick={() => navigate("/play-with-coach")}
-                  className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-heading font-bold text-xs uppercase tracking-wider inline-flex items-center justify-between transition-all cursor-pointer"
+                  className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 border border-slate-200 dark:border-white/20 text-slate-900 dark:text-white font-heading font-bold text-xs uppercase tracking-wider inline-flex items-center justify-between transition-all cursor-pointer"
                 >
                   <span>Practice Trap Lessons</span>
-                  <ChevronRight className="w-4 h-4 text-cyan-400" />
+                  <ChevronRight className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                 </button>
               </div>
 
-              <div className="bg-gradient-to-b from-[#1b2633]/90 via-[#131d27]/95 to-[#0b1118] border border-white/15 rounded-3xl p-6 sm:p-7 shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl flex flex-col justify-between">
+              <div className="bg-white dark:bg-gradient-to-b dark:from-[#1b2633]/90 dark:via-[#131d27]/95 dark:to-[#0b1118] border border-slate-200/90 dark:border-white/15 rounded-3xl p-6 sm:p-7 shadow-sm dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl flex flex-col justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-mono uppercase tracking-[0.22em] text-violet-300 font-bold bg-violet-950/80 border border-violet-500/40 px-3 py-1 rounded-full">
+                    <span className="text-xs font-mono uppercase tracking-[0.22em] text-violet-700 dark:text-violet-300 font-bold bg-violet-50 dark:bg-violet-950/80 border border-violet-200 dark:border-violet-500/40 px-3 py-1 rounded-full">
                       Endgame Mastery
                     </span>
-                    <span className="text-xs font-mono font-semibold text-slate-400">10 Scenarios</span>
+                    <span className="text-xs font-mono font-semibold text-slate-500 dark:text-slate-400">10 Scenarios</span>
                   </div>
-                  <h4 className="font-heading font-bold text-xl sm:text-2xl text-white mb-2">
+                  <h4 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 dark:text-white mb-2">
                     Endgame Conversions & Techniques
                   </h4>
-                  <p className="text-xs sm:text-sm text-slate-300 font-medium leading-relaxed mb-6">
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-6">
                     Step-by-step interactive exercises: Lucena bridge technique, Philidor passive defense, King & Pawn opposition, and rook cutoffs.
                   </p>
                 </div>
                 <button
                   onClick={() => navigate("/play-with-coach")}
-                  className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-heading font-bold text-xs uppercase tracking-wider inline-flex items-center justify-between transition-all cursor-pointer"
+                  className="px-5 py-3 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 border border-slate-200 dark:border-white/20 text-slate-900 dark:text-white font-heading font-bold text-xs uppercase tracking-wider inline-flex items-center justify-between transition-all cursor-pointer"
                 >
                   <span>Practice Endgame Lessons</span>
-                  <ChevronRight className="w-4 h-4 text-violet-400" />
+                  <ChevronRight className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                 </button>
               </div>
             </section>
 
             {/* ─── EXPLORE STUDIO TOOLS ─── */}
             <section className="pt-2">
-              <p className="text-xs sm:text-sm font-mono uppercase tracking-[0.25em] text-cyan-400 font-bold mb-4 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
+              <p className="text-xs sm:text-sm font-mono uppercase tracking-[0.25em] text-cyan-700 dark:text-cyan-400 font-bold mb-4 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                 Explore Studio Tools
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
@@ -653,15 +653,15 @@ export default function HomePageNew({ user }) {
                         track(ANALYTICS_EVENTS.FUNNEL_HOME_NAV_TILE_CLICKED, { tile: item.id });
                         navigate(item.href);
                       }}
-                      className="group bg-gradient-to-b from-[#1b2633]/90 via-[#131d27]/95 to-[#0b1118] hover:from-[#223244] hover:via-[#192633] hover:to-[#0f1720] border border-white/15 hover:border-cyan-400/60 p-6 rounded-3xl backdrop-blur-xl shadow-lg hover:shadow-[0_15px_40px_rgba(56,189,248,0.2)] transition-all duration-300 text-left relative cursor-pointer"
+                      className="group bg-white hover:bg-slate-50 dark:bg-gradient-to-b dark:from-[#1b2633]/90 dark:via-[#131d27]/95 dark:to-[#0b1118] dark:hover:from-[#223244] dark:hover:via-[#192633] dark:hover:to-[#0f1720] border border-slate-200 hover:border-cyan-500/50 dark:border-white/15 dark:hover:border-cyan-400/60 p-6 rounded-3xl backdrop-blur-xl shadow-sm hover:shadow-md dark:shadow-lg dark:hover:shadow-[0_15px_40px_rgba(56,189,248,0.2)] transition-all duration-300 text-left relative cursor-pointer"
                     >
-                      <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-400 group-hover:text-slate-950 group-hover:scale-110 transition-all shadow-sm mb-4">
+                      <div className="w-12 h-12 rounded-2xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white dark:group-hover:text-slate-950 group-hover:scale-110 transition-all shadow-sm mb-4">
                         <Icon className="w-5 h-5" strokeWidth={2} />
                       </div>
-                      <p className="text-base sm:text-lg font-heading font-bold text-white group-hover:text-cyan-300 transition-colors tracking-tight">
+                      <p className="text-base sm:text-lg font-heading font-bold text-slate-900 group-hover:text-cyan-600 dark:text-white dark:group-hover:text-cyan-300 transition-colors tracking-tight">
                         {item.label}
                       </p>
-                      <p className="text-xs sm:text-sm font-medium text-slate-400 group-hover:text-slate-200 mt-1 line-clamp-1">
+                      <p className="text-xs sm:text-sm font-medium text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200 mt-1 line-clamp-1">
                         {item.sub}
                       </p>
                     </button>
@@ -693,17 +693,17 @@ export default function HomePageNew({ user }) {
         <motion.div variants={staggerContainer} initial="initial" animate="animate" className="w-full space-y-6 relative z-10">
           
           {/* ─── GREETING ─── */}
-          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-3">
-            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-              <h1 className="font-heading font-bold text-xl sm:text-2xl text-white tracking-tight leading-snug">
+          <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-200/80 dark:border-white/10 gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="font-heading font-bold text-2xl sm:text-3xl text-slate-900 dark:text-white tracking-tight leading-snug">
                 {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
               </h1>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-300 shadow-[0_0_12px_rgba(56,189,248,0.25)]">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 dark:bg-cyan-950/80 border border-cyan-200 dark:border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300 shadow-sm dark:shadow-[0_0_12px_rgba(56,189,248,0.25)]">
+                <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
                 <span>Active Session</span>
               </span>
             </div>
-            <p className="text-slate-400 font-mono text-xs font-medium uppercase tracking-wider">{formatWhen()}</p>
+            <p className="text-slate-500 dark:text-slate-400 font-mono text-xs sm:text-sm font-semibold uppercase tracking-wider">{formatWhen()}</p>
           </motion.div>
 
           {/* ─── THE COACHING SESSION ───
@@ -735,27 +735,27 @@ export default function HomePageNew({ user }) {
           <CoachMovements assessment={<ChancesCard />} />
           {lastSession?.story && (
             <motion.section ref={mirrorRef} variants={fadeInUp}>
-              <div className="bg-gradient-to-b from-[#1b2734] via-[#131d27] to-[#0b1118] border border-white/20 rounded-3xl p-7 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-xl relative overflow-hidden">
-                <div className="flex items-center space-x-2 text-xs font-mono uppercase tracking-[0.22em] text-cyan-300 font-bold mb-3">
-                  <Activity className="w-4 h-4 text-cyan-400" />
+              <div className="bg-white dark:bg-gradient-to-b dark:from-[#1b2734] dark:via-[#131d27] dark:to-[#0b1118] border border-slate-200/90 dark:border-white/20 rounded-3xl p-7 sm:p-8 shadow-[0_10px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-xl relative overflow-hidden">
+                <div className="flex items-center space-x-2 text-xs font-mono uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-300 font-bold mb-3">
+                  <Activity className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                   <span>Since you last played</span>
                 </div>
                 
-                <p className="text-base sm:text-lg leading-relaxed text-slate-100 font-medium">
+                <p className="text-base sm:text-lg leading-relaxed text-slate-800 dark:text-slate-100 font-medium">
                   {lastSession.story}
                 </p>
                 
                 {(lastSession.game_id || lastSession.game_ids?.[0]) && (
-                  <div className="mt-5 pt-4 border-t border-white/10">
+                  <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-white/10">
                     <button
                       onClick={() => {
                         track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "review_this_game" });
                         navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`);
                       }}
-                      className="px-5 py-2.5 rounded-2xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-200 font-heading font-bold text-[15px] uppercase tracking-wider inline-flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(56,189,248,0.25)] cursor-pointer"
+                      className="px-5 py-2.5 rounded-2xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 dark:border-cyan-400/50 dark:text-cyan-200 font-heading font-bold text-[15px] uppercase tracking-wider inline-flex items-center gap-2 transition-all shadow-sm cursor-pointer"
                     >
                       <span>Review this game</span>
-                      <ChevronRight className="h-4 w-4 text-cyan-300" strokeWidth={2.5} />
+                      <ChevronRight className="h-4 w-4 text-cyan-600 dark:text-cyan-300" strokeWidth={2.5} />
                     </button>
                   </div>
                 )}
@@ -767,12 +767,12 @@ export default function HomePageNew({ user }) {
           {coachConversation?.has_conversation || canonicalContext ? (
             <motion.section 
               variants={fadeInUp} 
-              className="bg-gradient-to-b from-[#1b2734] via-[#131d27] to-[#0b1118] border border-white/20 rounded-3xl p-7 sm:p-10 shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-2xl relative overflow-hidden"
+              className="bg-white dark:bg-gradient-to-b dark:from-[#1b2734] dark:via-[#131d27] dark:to-[#0b1118] border border-slate-200/90 dark:border-white/20 rounded-3xl p-7 sm:p-10 shadow-[0_10px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-2xl relative overflow-hidden"
             >
               {/* Coach Header */}
-              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-white/10">
+              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-200/80 dark:border-white/10">
                 <div className="relative shrink-0">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden ring-2 ring-cyan-400/60 shadow-[0_0_20px_rgba(56,189,248,0.35)] bg-slate-800">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden ring-2 ring-cyan-500/60 shadow-md bg-slate-100 dark:bg-slate-800">
                     <img
                       src="/coach-jessica.png"
                       alt="Coach Jessica"
@@ -783,34 +783,34 @@ export default function HomePageNew({ user }) {
                       }}
                     />
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full ring-2 ring-[#131d27] flex items-center justify-center">
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#131d27] flex items-center justify-center">
                     <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-heading font-bold text-xl sm:text-2xl text-white">
+                  <h3 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 dark:text-white">
                     Coach Jessica
                   </h3>
-                  <p className="text-xs font-mono font-semibold text-cyan-400 uppercase tracking-wider">
+                  <p className="text-xs font-mono font-semibold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider">
                     AI Chess Mentor · Pattern Intelligence
                   </p>
                 </div>
               </div>
 
               {coachConversation?.thinking_signature && (
-                <div className="bg-black/40 border-l-4 border-cyan-400 p-4 rounded-r-2xl mb-6 text-sm font-mono text-cyan-200 leading-relaxed font-semibold">
+                <div className="bg-cyan-50 dark:bg-black/40 border-l-4 border-cyan-500 p-4 rounded-r-2xl mb-6 text-sm font-mono text-cyan-900 dark:text-cyan-200 leading-relaxed font-semibold">
                   {coachConversation.thinking_signature}
                 </div>
               )}
 
               {coachConversation?.narrative && (
-                <div className="space-y-4 mb-7 bg-white/[0.03] border border-white/10 rounded-2xl p-5 sm:p-6">
-                  <p className="text-base sm:text-lg leading-relaxed text-slate-100 font-semibold">
+                <div className="space-y-4 mb-7 bg-slate-50 dark:bg-white/[0.03] border border-slate-200/90 dark:border-white/10 rounded-2xl p-5 sm:p-6">
+                  <p className="text-base sm:text-lg leading-relaxed text-slate-900 dark:text-slate-100 font-semibold">
                     {coachConversation.narrative.stage_opener}
                   </p>
-                  <p className="text-base sm:text-lg leading-relaxed text-slate-200 font-medium">
+                  <p className="text-base sm:text-lg leading-relaxed text-slate-700 dark:text-slate-200 font-medium">
                     {coachConversation.narrative.continuity}{" "}
-                    <span className="text-white font-bold text-cyan-300">
+                    <span className="text-cyan-700 dark:text-cyan-300 font-bold">
                       {coachConversation.narrative.belief}
                     </span>
                   </p>
@@ -844,22 +844,22 @@ export default function HomePageNew({ user }) {
               ) : pic ? (
                 <div 
                   ref={curriculumDecisionElementRef} 
-                  className="bg-gradient-to-r from-cyan-950/60 to-[#131d27] border-l-4 border-cyan-400 rounded-r-3xl p-6 sm:p-7 mb-7 shadow-lg border border-white/10"
+                  className="bg-cyan-50/80 dark:bg-gradient-to-r dark:from-cyan-950/60 dark:to-[#131d27] border-l-4 border-cyan-500 rounded-r-3xl p-6 sm:p-7 mb-7 shadow-sm dark:shadow-lg border border-cyan-200/90 dark:border-white/10"
                 >
-                  <p className="text-xs uppercase tracking-[0.2em] text-cyan-300 font-mono font-bold mb-2.5 flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-cyan-400" />
+                  <p className="text-xs uppercase tracking-[0.2em] text-cyan-800 dark:text-cyan-300 font-mono font-bold mb-2.5 flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                     <span>
                       {pic.learner_state?.label || "Active Focus"}
                       {pic.learner_state?.refresh_needed ? " · Refresh needed" : ""}
                     </span>
                   </p>
-                  <p className="font-heading text-xl sm:text-2xl font-bold text-white mb-2.5">
+                  <p className="font-heading text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-2.5">
                     {pic.focus_label}
                   </p>
-                  <p className="text-base sm:text-lg leading-relaxed text-slate-100 font-semibold mb-3">
+                  <p className="text-base sm:text-lg leading-relaxed text-slate-800 dark:text-slate-100 font-semibold mb-3">
                     {pic.instruction_text || "Before you move, check whether the piece will be safe on its new square."}
                   </p>
-                  <p className="text-sm leading-relaxed text-slate-300 italic font-medium">
+                  <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300 italic font-medium">
                     I have seen this same decision in more than one of your games. We’ll stay with it until your response begins to change over the board.
                   </p>
                   {/* What else the games show. The picker already ranks these
@@ -945,29 +945,29 @@ export default function HomePageNew({ user }) {
                   </div>
                 </div>
               ) : (
-                <p className="text-base sm:text-lg md:text-xl leading-relaxed text-white font-bold mb-6">
+                <p className="text-base sm:text-lg md:text-xl leading-relaxed text-slate-900 dark:text-white font-bold mb-6">
                   {coachConversation.one_action}
                 </p>
               )}
 
               {coachConversation?.punish_line?.text && (
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-5 flex items-center space-x-3 text-sm text-slate-200">
-                  <Sparkles className="w-5 h-5 text-cyan-400 shrink-0" />
+                <div className="bg-slate-100 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 rounded-2xl p-4 mb-5 flex items-center space-x-3 text-sm text-slate-700 dark:text-slate-200">
+                  <Sparkles className="w-5 h-5 text-cyan-600 dark:text-cyan-400 shrink-0" />
                   <div>
-                    <span className="font-bold text-white">{coachConversation.punish_line.headline}</span>{" "}
-                    <span className="font-medium text-slate-300">{coachConversation.punish_line.habit}</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{coachConversation.punish_line.headline}</span>{" "}
+                    <span className="font-medium text-slate-600 dark:text-slate-300">{coachConversation.punish_line.habit}</span>
                   </div>
                 </div>
               )}
 
               {coachConversation?.encouragement && (
-                <p className="text-sm sm:text-base text-cyan-200/90 mb-3 italic font-medium">
+                <p className="text-sm sm:text-base text-cyan-800 dark:text-cyan-200/90 mb-3 italic font-medium">
                   "{coachConversation.encouragement}"
                 </p>
               )}
 
               {coachConversation?.closing_line && (
-                <p className="text-xs sm:text-sm text-slate-400 mb-8 font-mono font-semibold">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mb-8 font-mono font-semibold">
                   {coachConversation.closing_line}
                 </p>
               )}
@@ -990,12 +990,12 @@ export default function HomePageNew({ user }) {
           ) : (
             <motion.section 
               variants={fadeInUp} 
-              className="rounded-2xl border border-white/15 bg-gradient-to-r from-[#172330]/90 via-[#131d27]/95 to-[#0e1620]/95 p-5 sm:p-6 shadow-[0_15px_35px_rgba(0,0,0,0.6)] backdrop-blur-2xl relative overflow-hidden"
+              className="rounded-2xl border border-slate-200/90 dark:border-white/15 bg-white dark:bg-gradient-to-r dark:from-[#172330]/90 dark:via-[#131d27]/95 dark:to-[#0e1620]/95 p-5 sm:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.6)] backdrop-blur-2xl relative overflow-hidden"
             >
               {/* Coach Header */}
-              <div className="flex items-center gap-3.5 sm:gap-4 mb-4 pb-4 border-b border-white/10">
+              <div className="flex items-center gap-3.5 sm:gap-4 mb-4 pb-4 border-b border-slate-200/80 dark:border-white/10">
                 <div className="relative shrink-0">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden ring-2 ring-cyan-400/60 shadow-[0_0_15px_rgba(56,189,248,0.3)] bg-slate-800">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden ring-2 ring-cyan-500/60 shadow-md bg-slate-100 dark:bg-slate-800">
                     <img
                       src="/coach-jessica.png"
                       alt="Coach Jessica"
@@ -1006,23 +1006,23 @@ export default function HomePageNew({ user }) {
                       }}
                     />
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full ring-2 ring-[#131d27] flex items-center justify-center">
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#131d27] flex items-center justify-center">
                     <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
                   </div>
                 </div>
                 <div>
-                  <h3 className="font-heading font-bold text-lg sm:text-xl text-white tracking-tight">
+                  <h3 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 dark:text-white tracking-tight">
                     Coach Jessica
                   </h3>
-                  <p className="text-[10.5px] sm:text-[11px] font-mono font-semibold text-cyan-400 uppercase tracking-wider mt-0.5">
+                  <p className="text-xs sm:text-sm font-mono font-semibold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider mt-0.5">
                     AI Chess Mentor · Game Decryption
                   </p>
                 </div>
               </div>
 
               {/* Observation Quote Container */}
-              <div className="bg-slate-950/60 border border-white/10 rounded-xl p-3.5 sm:p-4 mb-4 shadow-inner">
-                <p className="text-xs sm:text-sm leading-relaxed text-slate-200 font-normal">
+              <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 rounded-xl p-4 sm:p-5 mb-5 shadow-sm dark:shadow-inner">
+                <p className="text-sm sm:text-base leading-relaxed text-slate-700 dark:text-slate-200 font-normal">
                   {hasGames
                     ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
                     : "I'm still learning how you play. Play a game or two and I'll start noticing your habits."}
@@ -1037,19 +1037,19 @@ export default function HomePageNew({ user }) {
                   });
                   navigate(hasGames ? "/lab" : "/play-with-coach");
                 }}
-                className="h-10 px-5 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-xs uppercase tracking-wider shadow-[0_0_15px_rgba(56,189,248,0.35)] hover:shadow-[0_0_20px_rgba(56,189,248,0.5)] inline-flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                className="h-11 px-6 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_15px_rgba(56,189,248,0.35)] hover:shadow-[0_0_20px_rgba(56,189,248,0.5)] inline-flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
               >
                 <span>{hasGames ? "Review your games" : "Play with Coach"}</span>
-                <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} />
+                <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
               </button>
             </motion.section>
           )}
 
           {/* ─── STUDIO LEARNING HUB ─── */}
-          <motion.section variants={fadeInUp} className="mt-8 pt-6 border-t border-white/10">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#38bdf8]" />
-              <p className="text-[11px] font-mono uppercase tracking-[0.25em] text-cyan-400 font-bold">
+          <motion.section variants={fadeInUp} className="mt-8 pt-6 border-t border-slate-200/80 dark:border-white/10">
+            <div className="flex items-center gap-2.5 mb-4">
+              <span className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_6px_#06b6d4]" />
+              <p className="text-xs sm:text-sm font-mono uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-400 font-bold">
                 Studio Learning Hub
               </p>
             </div>
@@ -1063,15 +1063,15 @@ export default function HomePageNew({ user }) {
                       track(ANALYTICS_EVENTS.FUNNEL_HOME_NAV_TILE_CLICKED, { tile: item.id });
                       navigate(item.href);
                     }}
-                    className="group bg-gradient-to-b from-[#1b2633]/90 via-[#131d27]/95 to-[#0b1118] hover:from-[#223244] hover:via-[#192633] hover:to-[#0f1720] border border-white/15 hover:border-cyan-400/60 p-4 sm:p-5 rounded-2xl backdrop-blur-xl shadow-lg hover:shadow-[0_15px_35px_rgba(56,189,248,0.2)] transition-all duration-300 text-left relative cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                    className="group bg-white hover:bg-slate-50 dark:bg-gradient-to-b dark:from-[#1b2633]/90 dark:via-[#131d27]/95 dark:to-[#0b1118] dark:hover:from-[#223244] dark:hover:via-[#192633] dark:hover:to-[#0f1720] border border-slate-200 hover:border-cyan-500/50 dark:border-white/15 dark:hover:border-cyan-400/60 p-4 sm:p-5 rounded-2xl backdrop-blur-xl shadow-sm hover:shadow-md dark:shadow-lg dark:hover:shadow-[0_15px_35px_rgba(56,189,248,0.2)] transition-all duration-300 text-left relative cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:bg-cyan-400 group-hover:text-slate-950 group-hover:scale-105 transition-all shadow-[0_0_12px_rgba(56,189,248,0.2)] mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white dark:group-hover:text-slate-950 group-hover:scale-105 transition-all shadow-sm mb-3">
                       <Icon className="w-5 h-5" strokeWidth={2} />
                     </div>
-                    <p className="text-sm sm:text-base font-heading font-bold text-white group-hover:text-cyan-300 transition-colors tracking-tight">
+                    <p className="text-base sm:text-lg font-heading font-bold text-slate-900 group-hover:text-cyan-600 dark:text-white dark:group-hover:text-cyan-300 transition-colors tracking-tight">
                       {item.label}
                     </p>
-                    <p className="text-xs font-medium text-slate-400 group-hover:text-slate-200 mt-1 leading-snug">
+                    <p className="text-xs sm:text-sm font-medium text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200 mt-1 leading-snug">
                       {item.sub}
                     </p>
                   </button>

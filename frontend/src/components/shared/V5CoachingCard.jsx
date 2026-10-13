@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { InlineFlag } from "@/components/shared/FlagMoveDialog";
 import ClickableMoves from "@/components/shared/ClickableMove";
+import { describeChessMove } from "@/lib/chessMoveHelper";
 
 // Severity colors and labels — text only, no cryptic icons.
 // Tester reported only "good" / "mistake" labels surfacing despite
@@ -77,6 +78,7 @@ const V5CoachingCard = ({
   coaching,                    // V5Coaching object from backend
   moveSan,                     // The move in SAN notation
   moveNumber,                  // Move number for display
+  selectedColor = "white",     // User's color
   onShowAlternativeMove,       // Callback to show a move on the board
   onAcknowledge,               // Callback when user clicks "I understand"
   isAcknowledged = false,      // Whether concept is already acknowledged
@@ -110,6 +112,13 @@ const V5CoachingCard = ({
   const isGoodMove = ["brilliant", "great", "good", "book"].includes(severity);
   const isMistake = ["inaccuracy", "mistake", "blunder"].includes(severity);
   const isOpponentMove = severity === "context";
+
+  const moveDetail = moveSan
+    ? describeChessMove(moveSan, selectedColor === "white", selectedColor)
+    : null;
+  const bestMoveDetail = coaching.best_move
+    ? describeChessMove(coaching.best_move, selectedColor === "white", selectedColor)
+    : null;
   
   // Shared flag context for all inline flags
   const flagCtx = {
@@ -154,52 +163,79 @@ const V5CoachingCard = ({
       data-testid="v5-coaching-card"
     >
       {/* Header - Clear indication this is about YOUR move */}
-      <div className={`px-4 py-3 border-b ${
+      <div className={`px-3.5 py-2.5 border-b ${
         isGoodMove ? 'border-emerald-500/20' :
         isMistake ? 'border-red-500/20' :
         'border-zinc-700/50'
       }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground uppercase tracking-wide">Your move</span>
-            <span className="font-mono font-bold text-lg text-gray-900">
-              {moveSan}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-sans font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
+              Your last move ({selectedColor === "white" ? "White" : "Black"})
             </span>
-            {/* EVERY-MOVE-TEACHES: demote good/routine moves to a quiet dot so
-                the teaching line leads, not the verdict. Mistakes keep the full
-                label — a student must clearly see a mistake was made. */}
+            <div className="inline-flex items-center gap-1.5 font-mono font-bold text-[15px] text-gray-900 dark:text-white bg-black/5 dark:bg-white/5 px-2 py-0.5 rounded-lg border border-black/10 dark:border-white/10">
+              {moveDetail?.pieceIcon && <span className="text-[17px] leading-none">{moveDetail.pieceIcon}</span>}
+              <span>{moveSan}</span>
+              {moveDetail?.plain && (
+                <span className="text-[11.5px] font-sans font-normal text-muted-foreground ml-1">
+                  ({moveDetail.plain})
+                </span>
+              )}
+            </div>
+            {/* Move verdict */}
             {isMistake ? (
               <Badge
                 variant="outline"
-                className={`text-${config.color}-400 border-${config.color}-500/30`}
+                className={`text-${config.color}-500 border-${config.color}-500/30 text-[11px] px-2 py-0.5 font-bold`}
               >
                 {config.label}
               </Badge>
             ) : (
               <span
-                className={`text-${config.color}-400 text-[10px] leading-none`}
+                className={`text-${config.color}-400 text-[12px] leading-none inline-flex items-center gap-1 font-semibold`}
                 title={config.label}
                 aria-label={config.label}
               >
-                ●
+                <span>●</span> <span className="text-[11.5px]">{config.label}</span>
               </span>
             )}
           </div>
           {coaching.best_move && coaching.best_move !== moveSan && !coaching.hide_best_move && (
-            <span className="text-xs text-muted-foreground">
-              Best: <span className="text-emerald-700 font-mono">{coaching.best_move}</span>
+            <span className="text-[12px] text-muted-foreground inline-flex items-center gap-1">
+              <span>Best:</span>
+              <span className="text-emerald-700 dark:text-emerald-400 font-mono font-bold">
+                {bestMoveDetail ? `${bestMoveDetail.pieceIcon} ${coaching.best_move} (${bestMoveDetail.plain})` : coaching.best_move}
+              </span>
             </span>
           )}
         </div>
       </div>
       
       {/* Content */}
-      <div className="p-4 space-y-4">
+      <div className="p-3.5 space-y-3">
+        {/* Player & Move Identification Banner */}
+        {moveDetail && (
+          <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-cyan-500/10 dark:bg-cyan-950/40 border border-cyan-500/25 text-[12.5px]">
+            <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-sm text-cyan-700 dark:text-cyan-200 shrink-0">
+              {moveDetail.pieceIcon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-muted-foreground font-medium">Aapne chala (You played): </span>
+              <span className="text-cyan-700 dark:text-cyan-200 font-bold">{moveDetail.pieceName}</span>
+              <span className="text-muted-foreground"> {moveDetail.isCapture ? "captured on" : "moved to"} </span>
+              <span className="font-mono font-bold text-gray-900 dark:text-white bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded border border-black/10 dark:border-white/10 text-xs">
+                {moveDetail.dest || moveSan}
+              </span>
+              {moveDetail.isCheck && <span className="text-rose-500 font-bold ml-1.5">⚡ Check!</span>}
+            </div>
+          </div>
+        )}
+
         {/* Main Narrative */}
-        <div className={`text-sm group ${
-          isGoodMove ? 'text-emerald-700' :
-          isMistake ? 'text-gray-900' :
-          'text-gray-700'
+        <div className={`text-[14px] sm:text-[14.5px] leading-relaxed font-normal group ${
+          isGoodMove ? 'text-emerald-700 dark:text-emerald-300' :
+          isMistake ? 'text-gray-900 dark:text-slate-100' :
+          'text-gray-800 dark:text-slate-200'
         }`}>
           {fen && onShowArrow ? (
             <ClickableMoves text={coaching.narrative} fen={fen} onShowArrow={onShowArrow} className="inline" />
@@ -211,11 +247,11 @@ const V5CoachingCard = ({
         
         {/* Opponent Move: Your Plan Now */}
         {isOpponentMove && coaching.your_plan_now && (
-          <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-500/20 group">
-            <p className="text-xs text-blue-400 mb-1 flex items-center gap-1">
-              <Target className="w-3 h-3" /> Your plan now
+          <div className="bg-blue-500/10 rounded-lg p-2.5 border border-blue-500/20 group">
+            <p className="text-[12px] text-blue-400 mb-1 flex items-center gap-1 font-semibold">
+              <Target className="w-3.5 h-3.5" /> Your plan now
             </p>
-            <p className="text-gray-900 text-sm inline">{coaching.your_plan_now}</p>
+            <p className="text-gray-900 dark:text-slate-100 text-[13.5px] leading-relaxed inline">{coaching.your_plan_now}</p>
             <InlineFlag section="your_plan_now" flaggedText={coaching.your_plan_now} context={flagCtx} />
           </div>
         )}

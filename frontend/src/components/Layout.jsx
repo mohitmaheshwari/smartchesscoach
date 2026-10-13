@@ -237,53 +237,53 @@ const Layout = ({ children, user, fullBleed = false }) => {
       {/* ═══ Desktop Sidebar ═══ */}
       <aside
         className={`experience-sidebar hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 sidebar-gradient ${
-          sidebarCollapsed ? 'w-[68px]' : 'w-[240px]'
+          sidebarCollapsed ? 'w-[72px]' : 'w-[270px]'
         }`}
       >
         {/* Logo */}
         <div className={`flex items-center h-16 px-4 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           <Link to="/home" className="flex items-center gap-3 group">
-            <div className="experience-brand-mark w-9 h-9 rounded-xl flex items-center justify-center">
+            <div className="experience-brand-mark w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
               <img src="/chessguru-logo.svg" alt="" className="h-7 w-7" />
             </div>
             {!sidebarCollapsed && (
-              <span className="text-foreground font-heading font-bold text-[15px] tracking-tight">
+              <span className="text-foreground font-heading font-bold text-[17px] tracking-tight">
                 ChessGuru
               </span>
             )}
           </Link>
           {!sidebarCollapsed && (
             <button
-              className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-white/5"
+              className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-white/5"
               onClick={() => setSidebarCollapsed(true)}
             >
-              <ChevronLeft className="w-4 h-4" strokeWidth={1.5} />
+              <ChevronLeft className="w-4 h-4" strokeWidth={1.75} />
             </button>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-3 px-3 space-y-1">
+        <nav className="flex-1 py-3 px-3.5 space-y-1.5">
           {navigation.map((item) => {
             const IconComponent = item.icon;
             const active = isActive(item.href);
             return (
               <Link key={item.href} to={item.href}>
                 <div
-                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
+                  className={`relative w-full flex items-center gap-3.5 px-3.5 py-3 rounded-xl transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                   } ${active
-                    ? 'bg-primary/15 text-primary font-bold shadow-sm'
-                    : 'text-slate-400 hover:text-white hover:bg-white/5 dark:hover:bg-white/5 font-medium'
+                    ? 'bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 font-bold shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 font-medium'
                   }`}
                   data-testid={"nav-" + item.name.toLowerCase().replaceAll(" ", "-")}
                   title={sidebarCollapsed ? item.name : undefined}
                 >
                   {active && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-5 rounded-r-full bg-primary shadow-[0_0_8px_currentColor]" />
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 rounded-r-full bg-cyan-500 shadow-[0_0_8px_currentColor]" />
                   )}
-                  <IconComponent className={`w-4 h-4 flex-shrink-0 ${active ? 'text-primary' : 'text-slate-400'}`} strokeWidth={active ? 2.2 : 1.75} />
-                  {!sidebarCollapsed && <span className="text-[14px] font-medium tracking-tight">{item.name}</span>}
+                  <IconComponent className={`w-5 h-5 flex-shrink-0 ${active ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-500 dark:text-slate-400'}`} strokeWidth={active ? 2.2 : 1.75} />
+                  {!sidebarCollapsed && <span className="text-[15px] font-semibold tracking-tight">{item.name}</span>}
                 </div>
               </Link>
             );
@@ -293,14 +293,14 @@ const Layout = ({ children, user, fullBleed = false }) => {
           <div className="pt-3">
             <Link to="/play-with-coach">
               <div
-                className={`relative w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-200 bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold shadow-[0_0_15px_rgba(56,189,248,0.35)] hover:shadow-[0_0_20px_rgba(56,189,248,0.5)] hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${
+                className={`relative w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold shadow-[0_0_15px_rgba(56,189,248,0.35)] hover:shadow-[0_0_20px_rgba(56,189,248,0.5)] hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${
                   sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                 }`}
                 data-testid="nav-play-coach"
                 title={sidebarCollapsed ? "Play with Coach" : undefined}
               >
-                <Swords className="w-4 h-4 flex-shrink-0" strokeWidth={2.2} />
-                {!sidebarCollapsed && <span className="text-[13.5px] tracking-wide font-bold">Play with Coach</span>}
+                <Swords className="w-5 h-5 flex-shrink-0" strokeWidth={2.2} />
+                {!sidebarCollapsed && <span className="text-[15px] tracking-wide font-bold">Play with Coach</span>}
               </div>
             </Link>
           </div>
@@ -309,25 +309,25 @@ const Layout = ({ children, user, fullBleed = false }) => {
             <div className="pt-2 space-y-1">
               <Link to="/review">
                 <div
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] transition-all duration-200 ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${location.pathname === '/review' ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  } ${location.pathname === '/review' ? 'bg-primary/15 text-primary font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'}`}
                   data-testid="nav-review"
                   title={sidebarCollapsed ? 'Review' : undefined}
                 >
-                  <Flag className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                  <Flag className="w-4 h-4 flex-shrink-0" strokeWidth={1.75} />
                   {!sidebarCollapsed && <span>Review</span>}
                 </div>
               </Link>
               <Link to="/review/authoring">
                 <div
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] transition-all duration-200 ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${location.pathname === '/review/authoring' ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  } ${location.pathname === '/review/authoring' ? 'bg-primary/15 text-primary font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'}`}
                   data-testid="nav-review-authoring"
                   title={sidebarCollapsed ? 'Authoring' : undefined}
                 >
-                  <Flag className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                  <Flag className="w-4 h-4 flex-shrink-0" strokeWidth={1.75} />
                   {!sidebarCollapsed && <span>Authoring</span>}
                 </div>
               </Link>
@@ -338,12 +338,12 @@ const Layout = ({ children, user, fullBleed = false }) => {
             <div className="pt-2">
               <Link to="/admin">
                 <div
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13.5px] transition-all duration-200 ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
-                  } ${isActive('/admin') ? 'bg-primary/15 text-primary font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
+                  } ${isActive('/admin') ? 'bg-primary/15 text-primary font-bold' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'}`}
                   data-testid="nav-admin"
                 >
-                  <Settings className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
+                  <Settings className="w-4 h-4 flex-shrink-0" strokeWidth={1.75} />
                   {!sidebarCollapsed && <span>Admin</span>}
                 </div>
               </Link>
@@ -362,7 +362,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
         )}
 
         {/* Bottom */}
-        <div className="p-3 space-y-1.5 border-t border-border/50">
+        <div className="p-3.5 space-y-2 border-t border-border/50">
           {sidebarCollapsed ? (
             <button
               onClick={toggleTheme}
@@ -377,7 +377,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
               )}
             </button>
           ) : (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="bg-slate-200/60 dark:bg-white/5 p-1 rounded-xl flex items-center gap-1 border border-slate-300/40 dark:border-white/10">
                 <button
                   type="button"
@@ -413,23 +413,23 @@ const Layout = ({ children, user, fullBleed = false }) => {
                 className="w-full flex items-center justify-between px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-slate-200/40 dark:hover:bg-white/5 transition-all rounded-lg"
                 data-testid="sidebar-theme-toggle"
               >
-                <span className="font-mono text-[10.5px] uppercase tracking-wider">{theme === "dark" ? "Black Studio" : "White Studio"}</span>
+                <span className="font-mono text-[11px] uppercase tracking-wider">{theme === "dark" ? "Black Studio" : "White Studio"}</span>
                 {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-cyan-600" />}
               </button>
             </div>
           )}
 
           <Link to="/settings">
-            <div className={`w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-white/5 transition-all rounded-xl ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
+            <div className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-all rounded-xl ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
               <Settings className="w-4 h-4" strokeWidth={1.75} />
-              {!sidebarCollapsed && <span className="text-[14px] font-medium">Settings</span>}
+              {!sidebarCollapsed && <span className="text-[14.5px] font-medium">Settings</span>}
             </div>
           </Link>
 
           {/* User */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className={`w-full gap-3 hover:bg-white/5 h-auto py-2 rounded-xl ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="user-menu-trigger">
+              <Button variant="ghost" className={`w-full gap-3 hover:bg-slate-100 dark:hover:bg-white/5 h-auto py-2.5 px-3 rounded-xl ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="user-menu-trigger">
                 <div className="relative">
                   <Avatar className="h-8 w-8 ring-2 ring-primary/20">
                     <AvatarImage src={userPicture} alt={userName} />
@@ -570,7 +570,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
       </header>
 
       {/* ═══ Main Content ═══ */}
-      <main className={`experience-main flex-1 min-h-0 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[240px]'} pt-14 md:pt-0 bg-background ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
+      <main className={`experience-main flex-1 min-h-0 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[270px]'} pt-14 md:pt-0 bg-background ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
         <div
           className={
             fullBleed

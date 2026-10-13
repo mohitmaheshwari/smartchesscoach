@@ -70,7 +70,8 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--port", type=int, default=8000, help="Bind port.")
     serve.add_argument(
         "--reload",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help="Enable auto-reload for local development.",
     )
     serve.add_argument(
