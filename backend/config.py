@@ -39,12 +39,24 @@ TTS_VOICE = "alloy"
 
 # =============================================================================
 import shutil
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 _env_sf_path = os.getenv("STOCKFISH_PATH")
+_win_fallback = Path.home() / "Downloads" / "stockfish-windows-x86-64-avx2" / "stockfish" / "stockfish-windows-x86-64-avx2.exe"
+
 if _env_sf_path and os.path.exists(_env_sf_path):
     STOCKFISH_PATH = _env_sf_path
+elif shutil.which("stockfish"):
+    STOCKFISH_PATH = shutil.which("stockfish")
+elif shutil.which("stockfish.exe"):
+    STOCKFISH_PATH = shutil.which("stockfish.exe")
+elif _win_fallback.exists():
+    STOCKFISH_PATH = str(_win_fallback)
 else:
-    STOCKFISH_PATH = shutil.which("stockfish") or shutil.which("stockfish.exe") or "/usr/games/stockfish"
+    STOCKFISH_PATH = "/usr/games/stockfish"
 
 STOCKFISH_DEPTH = 18              # Main analysis depth (15-20 recommended)
 STOCKFISH_QUICK_DEPTH = 12        # Quick analysis depth
