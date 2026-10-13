@@ -148,10 +148,24 @@ calls `call_llm`. Free-form LLM answering chess questions, with `position_plan` 
 `build_move_teaching_decision` and gets per-FEN claim verification. This one does
 not. The new vision promotes it to priority 1.
 
-**Opening memory is broken at the input.** The vision's best opening example
-("you've reached this pawn structure four times") depends on matching book lines.
-`coach_memory` feeds `move_history_san` from `move_evaluations`, which stores user
-moves only — so book lines never match. The fix is to read `games.pgn`.
+**Opening memory works — corrected 2026-10-13.** I first wrote that this was
+broken, because `coach_memory` fed `move_history_san` from `move_evaluations`
+(user moves only), so book lines could never match. **That was fixed on
+2026-09-19 in `3d4a4844`** and I had not checked. `coach_memory._history_by_position(pgn)`
+now builds the full both-colour history from the PGN and falls back to the
+user-only list only when the PGN is missing. Session -53 measured the fallback
+rather than trusting the code, across 601 analyses: 600 of 600 PGNs parsed, and
+per-move lookups hit 18,268 of 18,270 (100.0%). So the vision's "you have reached
+this structure four times" coaching is *possible today*, and trap setup lines,
+which alternate colours, can match too.
+
+**Opening content is two populations, not one — corrected 2026-10-13.** I first
+wrote "41 of 79 teachable, 16 with no tree". The honest split, verified against
+`opening_curriculum.json`: **79 entries = 34 authored + 45 harvested**
+(`from_games: true`). All 34 authored openings have a line or a tree — none is
+half-finished — and 16 are richly stocked (italian_game has 13 steps and 10
+traps). The 45 harvested entries were never authored as lessons and 38 of them
+render an empty page. That is a ranked content backlog, not broken authoring.
 
 **"Train With My Coach"** — raised last in the vision as a challenge to the design —
 is the cheapest item on the list. ~30k positions already exist in
@@ -488,9 +502,13 @@ Today: spotting loose pieces before you move.
   conversation is not in V1.
 - **New detectors or new authored content.** Detector promotion is measurably
   exhausted — no remaining promotion changes any user's focus topic.
-- **Opening Compass as a full panel.** Blocked on the half-history input bug and on
-  38 of 79 openings lacking teachable content. V1 names an opening idea in the
-  panel only where the position supports it.
+- **Opening Compass as a full panel.** *Not* cut for missing data — both reasons I
+  first gave were out of date (see 0.6). It is cut on scope discipline: Parts A, B
+  and C are already a large V1, and naming the opening on an ordinary move runs
+  against the standing rule that the opening is named only where the lesson is
+  opening-specific. V1 names an opening idea in the panel only where the position
+  supports it. The capability is now unblocked, which makes a full Compass the
+  strongest candidate for the release after this one.
 - **Pricing, entitlements, premium tiers.** ChessGuru is not live; the current
   accounts predate these features, so their numbers are not signal for packaging.
 - **Spaced repetition scheduling.** Train With My Coach V1 serves positions; the
@@ -607,3 +625,10 @@ Hard gates. Each must be true before the first line of code.
 - I described `position_plans` as having zero readers. That is true of that name,
   but `get_position_plan` exists, runs, and reaches a screen. The planning gap is
   quality, not absence.
+- I said opening memory was broken at the input. It was fixed on 2026-09-19 and I
+  had not checked. Corrected in 0.6 with -53's measurement.
+- I said "41 of 79 openings teachable, 16 with no tree". The real shape is 34
+  authored (all teachable) plus 45 harvested observations. Corrected in 0.6.
+- Both of those were the stated grounds for cutting Opening Compass from V1. The
+  grounds were wrong; the cut now rests on scope discipline instead, and the
+  feature is explicitly named as the next release's best candidate.
