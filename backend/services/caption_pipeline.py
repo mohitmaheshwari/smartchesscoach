@@ -6854,7 +6854,13 @@ def build_move_teaching_decision(
 
     # ─── 1-2. Base caption_facts + practical severity ─────────────
     practical = classify_severity_practical(
-        int(inputs.cp_loss or 0),
+        # The MOVER's own loss, exactly as `canonical` three lines below
+        # already does. Its docstring asks for "mover-POV centipawn loss"
+        # and was being handed the USER's, which is 0 on an opponent
+        # card -- so every opponent move was graded "good" and a 303cp
+        # mistake printed as "an inaccuracy".
+        int(inputs.cp_loss or 0) if inputs.mover_is_user
+        else int(inputs.opp_cp_loss or 0),
         mover_is_user=bool(inputs.mover_is_user),
         mover_is_white=bool(inputs.mover_is_white),
         eval_before_cp=inputs.eval_before_cp,
@@ -6927,6 +6933,7 @@ def build_move_teaching_decision(
                 # and mis-voiced captions).
                 cp_loss=int(inputs.cp_loss or 0),
                 mover_is_user=bool(inputs.mover_is_user),
+                opp_cp_loss=int(inputs.opp_cp_loss or 0),
             )
             logger.debug(f"[caption_pipeline] verified facts: verified={caption_facts.get('verified', False)}")
         except Exception:
@@ -6948,6 +6955,7 @@ def build_move_teaching_decision(
                 move_history_san=list(inputs.move_history_san),
                 full_move_number=int(inputs.full_move_number or 0),
                 mover_is_user=bool(inputs.mover_is_user),
+                opp_cp_loss=int(inputs.opp_cp_loss or 0),
             )
             # Mark as not verified when using fallback
             caption_facts["verified"] = False
