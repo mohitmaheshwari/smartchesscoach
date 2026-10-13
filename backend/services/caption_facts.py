@@ -10132,7 +10132,11 @@ def _contested_target(
                 continue
             attackers, defenders = _exchange_participants(after, sq, mover)
             n_att, n_def = len(attackers), len(defenders)
-            if n_att < 1:
+            # No defender means the target is hanging, not contested.
+            # "You attack it once and they defend it zero times" is a
+            # clumsy way to say it is free, and 1,480 cards would have
+            # said exactly that.
+            if n_att < 1 or n_def < 1:
                 continue
             if n_att > n_def:
                 verdict = "wins"      # more attackers than defenders
