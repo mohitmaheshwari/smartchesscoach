@@ -112,3 +112,27 @@ export function describeChessMove(san, isWhiteMove = true, userColor = "white") 
     short: `${who}: ${pieceIcon} ${san}`,
   };
 }
+
+export function getPlainMoveExplanation(san) {
+  if (!san) return "";
+  const info = describeChessMove(san, true, "white");
+  if (san === "O-O" || san === "0-0") {
+    return "Castle kingside (O-O)";
+  }
+  if (san === "O-O-O" || san === "0-0-0") {
+    return "Castle queenside (O-O-O)";
+  }
+  const actionText = info.isCapture
+    ? `captures on ${info.dest}`
+    : `to square ${info.dest}`;
+  const checkText = info.isCheck
+    ? " with Check!"
+    : info.isCheckmate
+    ? " with Checkmate!"
+    : "";
+  return `${info.pieceIcon} Move ${info.pieceName} ${actionText}${checkText}`;
+}
+
+// Keep alias for backwards compatibility
+export const getHinglishMoveExplanation = getPlainMoveExplanation;
+

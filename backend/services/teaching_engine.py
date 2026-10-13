@@ -56,6 +56,47 @@ def _load_endgame_tree() -> Dict:
     return _ENDGAME_TREE
 
 
+def explain_san_for_beginners(san: str) -> str:
+    """Translate chess SAN (e.g. 'Nf3', 'Bc4', 'O-O') into clear, beginner-friendly English."""
+    if not san:
+        return ""
+    clean = san.replace("+", "").replace("#", "").strip()
+    is_check = "+" in san
+    is_mate = "#" in san
+    is_capture = "x" in san
+
+    if clean in ("O-O", "0-0"):
+        return f"{san} (Castle Kingside)"
+    if clean in ("O-O-O", "0-0-0"):
+        return f"{san} (Castle Queenside)"
+
+    first = clean[0] if clean else ""
+    dest = clean[-2:] if len(clean) >= 2 else clean
+
+    piece_names = {
+        "N": "Knight",
+        "B": "Bishop",
+        "R": "Rook",
+        "Q": "Queen",
+        "K": "King",
+    }
+
+    if first in piece_names:
+        p_name = piece_names[first]
+        action = f"takes on {dest}" if is_capture else f"to {dest}"
+        desc = f"{p_name} {action}"
+    else:
+        action = f"takes on {dest}" if is_capture else f"to {dest}"
+        desc = f"Pawn {action}"
+
+    if is_mate:
+        desc += " with Checkmate!"
+    elif is_check:
+        desc += " with Check!"
+
+    return f"{san} ({desc})"
+
+
 # ─────────────────────────────────────────────
 # TRAP LESSONS
 # ─────────────────────────────────────────────
@@ -75,13 +116,27 @@ async def start_trap_lesson(db, session_id: str, user_id: str, params: Dict) -> 
             "error": "lesson_key is required" if is_opening_plan else "trap_key is required"
         }
 
-    requested_mode = params.get("mode") or (
-        "execution" if is_opening_plan else "avoidance"
-    )
+    requested_mode = params.get("mode")
+    if not requested_mode:
+        if is_opening_plan:
+            requested_mode = "execution"
+        else:
+            session_doc = await db.coach_sessions.find_one({"session_id": session_id})
+            user_color = session_doc.get("user_color") if session_doc else None
+            base_trap = get_trap_for_practice(trap_key, "execution")
+            if base_trap and (not user_color or base_trap.get("trap_for") == user_color):
+                requested_mode = "execution"
+            else:
+                requested_mode = "avoidance"
+
     trap = (
         get_opening_idea_for_practice(trap_key, requested_mode)
         if is_opening_plan
-        else get_trap_for_practice(trap_key, requested_mode)
+        else (
+            get_trap_for_practice(trap_key, requested_mode)
+            or get_trap_for_practice(trap_key, "execution")
+            or get_trap_for_practice(trap_key, "avoidance")
+        )
     )
     if not trap:
         return {
@@ -170,7 +225,7 @@ async def start_trap_lesson(db, session_id: str, user_id: str, params: Dict) -> 
         "message": (
             trap.get("how_to_avoid")
             if answer_hidden
-            else f"Play {next_user_move} and notice why the line works."
+            else f"Play {explain_san_for_beginners(next_user_move)} and notice why the line works."
         ),
         "remaining": remaining,
         "stage": "guided_try",
@@ -194,6 +249,7 @@ async def start_trap_lesson(db, session_id: str, user_id: str, params: Dict) -> 
             "how_to_avoid": trap.get("how_to_avoid", ""),
         },
         "mode": trap.get("mode", "execution"),
+        "user_color": trap.get("user_color", "white"),
     }
 
 
@@ -225,7 +281,7 @@ async def process_trap_move(db, session_id: str, move: str) -> Dict:
             "message": (
                 "Not yet. Find the move that answers the threat before you develop."
                 if answer_hidden
-                else f"Not quite. This guided line uses {expected_move} here."
+                else f"Not quite. This guided line uses {explain_san_for_beginners(expected_move)} here."
             ),
             "hint": trap_data.get("hints", ""),
             "answer_hidden": answer_hidden,
@@ -274,13 +330,35 @@ async def process_trap_move(db, session_id: str, move: str) -> Dict:
     # Check if lesson complete
     if next_idx >= len(full_sequence):
         is_winning = any(um.get("is_winning") and um["move"] == expected_move for um in user_moves)
+        user_id = session_doc.get("user_id")
+        lesson_key = session_doc.get("lesson_key") or session_doc.get("trap_key") or trap_data.get("practice_key")
+        lesson_type = session_doc.get("lesson_type", "trap")
+        if user_id and lesson_key:
+            try:
+                from datetime import datetime, timezone
+                await db.completed_lessons.update_one(
+                    {"user_id": user_id, "lesson_key": lesson_key},
+                    {"$set": {
+                        "user_id": user_id,
+                        "lesson_key": lesson_key,
+                        "lesson_type": lesson_type,
+                        "lesson_name": trap_data.get("name") or session_doc.get("lesson_name", "Trap"),
+                        "completed_at": datetime.now(timezone.utc).isoformat()
+                    }},
+                    upsert=True
+                )
+            except Exception as e:
+                logger.error(f"Failed to record lesson completion: {e}")
+
         return {
             "correct": True,
             "complete": True,
+            "lesson_key": lesson_key,
+            "lesson_name": session_doc.get("lesson_name", "Trap"),
             "teaching_fen": teaching_fen,
             "auto_played": bool(auto_played),
             "auto_played_moves": auto_played,
-            "message": f"Trap complete! {trap_data.get('explanation', 'Well done!')}",
+            "message": f"Lesson complete! {trap_data.get('explanation', 'Well done!')}",
             "why_it_works": trap_data.get("why_it_works", ""),
             "demonstrated": answer_hidden,
             "stage": "independent_proof" if answer_hidden else "guided_try",
@@ -290,9 +368,10 @@ async def process_trap_move(db, session_id: str, move: str) -> Dict:
     next_move = full_sequence[next_idx]
     remaining_user = len([um for um in user_moves if um["index"] >= next_idx])
 
-    msg = f"Good! Now play {next_move}."
+    explained_next = explain_san_for_beginners(next_move)
+    msg = f"Good! Now play {explained_next}."
     if auto_played:
-        msg = f"Opponent played {', '.join(auto_played)}. Now play {next_move}."
+        msg = f"Opponent played {', '.join(auto_played)}. Now play {explained_next}."
 
     next_instruction = {
         "is_user_move": True,
@@ -523,9 +602,32 @@ async def process_endgame_move(db, session_id: str, move: str) -> Dict:
 
     # Check if lesson complete
     if next_idx >= len(positions):
+        user_id = session_doc.get("user_id")
+        lesson_key = session_doc.get("lesson_key") or eg_data.get("lesson_key")
+        category_key = session_doc.get("endgame_category") or eg_data.get("category")
+        if user_id and lesson_key:
+            try:
+                from datetime import datetime, timezone
+                await db.completed_lessons.update_one(
+                    {"user_id": user_id, "lesson_key": lesson_key},
+                    {"$set": {
+                        "user_id": user_id,
+                        "lesson_key": lesson_key,
+                        "category_key": category_key,
+                        "lesson_type": "endgame",
+                        "lesson_name": session_doc.get("lesson_name", "Endgame"),
+                        "completed_at": datetime.now(timezone.utc).isoformat()
+                    }},
+                    upsert=True
+                )
+            except Exception as e:
+                logger.error(f"Failed to record endgame lesson completion: {e}")
+
         response = {
             "correct": True,
             "complete": True,
+            "lesson_key": lesson_key,
+            "lesson_name": session_doc.get("lesson_name", "Endgame"),
             "teaching_fen": new_fen,
             "message": f"Excellent! You've completed the {session_doc.get('lesson_name', 'endgame')} lesson. Rule: {eg_data.get('rule', '')}",
             "stage": "independent_proof",
@@ -2971,10 +3073,12 @@ async def exit_lesson(db, session_id: str, choice: str) -> Dict:
 # LESSON CATALOG (for frontend lesson picker)
 # ─────────────────────────────────────────────
 
-def get_lesson_catalog() -> Dict:
+def get_lesson_catalog(completed_keys: Optional[Any] = None) -> Dict:
     """Return available lessons organized by type for the lesson picker UI."""
     from trick_library_service import get_all_opening_ideas, get_all_traps
     from services.curriculum_content_validator import get_defense_ready_trap_ids
+
+    completed_set = set(completed_keys or [])
 
     # Traps
     traps = get_all_traps()
@@ -2983,14 +3087,16 @@ def get_lesson_catalog() -> Dict:
     for trap in traps:
         if trap.get("content_id") not in defense_ready:
             continue
+        trap_key = trap["key"]
         trap_lessons.append({
-            "key": trap["key"],
+            "key": trap_key,
             "name": trap["name"],
             "opening": trap.get("opening", ""),
             "difficulty": trap.get("difficulty", "intermediate"),
             "description": trap.get("description", ""),
             "trap_for": trap.get("trap_for", ""),
             "tactical_theme": trap.get("tactical_theme", ""),
+            "completed": trap_key in completed_set,
         })
 
     opening_idea_lessons = [
@@ -3003,6 +3109,7 @@ def get_lesson_catalog() -> Dict:
             "plan_for": lesson.get("trap_for", ""),
             "learning_goal": lesson.get("learning_goal", ""),
             "canonical_source": lesson.get("canonical_source"),
+            "completed": lesson["key"] in completed_set,
         }
         for lesson in get_all_opening_ideas()
     ]
@@ -3013,20 +3120,25 @@ def get_lesson_catalog() -> Dict:
     endgame_lessons = []
     for category in get_all_categories():
         for lesson in category.get("lessons", []):
+            leg_key = lesson["key"]
+            cat_key = category["key"]
+            is_done = (leg_key in completed_set or f"{cat_key}_{leg_key}" in completed_set)
             endgame_lessons.append({
-                "category": category["key"],
+                "category": cat_key,
                 "category_name": category["name"],
-                "lesson_key": lesson["key"],
+                "lesson_key": leg_key,
                 "name": lesson["name"],
                 "rule": lesson.get("rule", ""),
                 "description": lesson.get("description", ""),
                 "positions_count": lesson.get("position_count", 0),
                 "icon": category.get("icon", "book"),
                 "canonical_source": lesson.get("canonical_source"),
+                "completed": is_done,
             })
 
     return {
         "traps": trap_lessons,
         "opening_ideas": opening_idea_lessons,
         "endgames": endgame_lessons,
+        "completed_count": len(completed_set),
     }

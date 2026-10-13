@@ -8,15 +8,17 @@
 @import "@fontsource/manrope/600.css";
 
 body {
-  font-family: 'Plus Jakarta Sans', 'Inter', 'Manrope', system-ui, -apple-system, sans-serif;
+  font-family: 'Manrope', 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
   font-weight: 500;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-weight: 800;
+  font-family: 'Outfit', 'Manrope', system-ui, sans-serif;
+  font-weight: 700;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1168,30 +1170,55 @@ h1, h2, h3, h4, h5, h6 {
   background: #0a0b0c;
 }
 
-/* Flat panel, hairline edge. The green gradient and accent glow made the
-   navigation compete with the board for attention. */
+/* Flat panel, hairline edge. Light mode: clean white studio sidebar. Dark mode: deep off-black studio palette. */
 .experience-v1 .experience-sidebar {
+  color: #1e293b;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.03);
+}
+
+.experience-v1 .experience-sidebar .text-foreground {
+  color: #0f172a;
+}
+
+.experience-v1 .experience-sidebar .text-muted-foreground {
+  color: #64748b;
+}
+
+.experience-v1 .experience-sidebar nav a > div:not(.experience-coach-cta):hover,
+.experience-v1 .experience-sidebar button:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.experience-v1 .experience-sidebar nav a > div.bg-primary\/15 {
+  color: #0284c7;
+  background: rgba(2, 132, 199, 0.12);
+}
+
+.dark .experience-v1 .experience-sidebar {
   color: #f1f2ef;
   background: #0d0e10;
   border-right: 1px solid rgb(255 255 255 / 0.07);
   box-shadow: none;
 }
 
-.experience-v1 .experience-sidebar .text-foreground {
+.dark .experience-v1 .experience-sidebar .text-foreground {
   color: #f1f2ef;
 }
 
-.experience-v1 .experience-sidebar .text-muted-foreground {
+.dark .experience-v1 .experience-sidebar .text-muted-foreground {
   color: rgb(241 242 239 / 0.56);
 }
 
-.experience-v1 .experience-sidebar nav a > div:not(.experience-coach-cta):hover,
-.experience-v1 .experience-sidebar button:hover {
+.dark .experience-v1 .experience-sidebar nav a > div:not(.experience-coach-cta):hover,
+.dark .experience-v1 .experience-sidebar button:hover {
   color: #fff;
   background: rgb(255 255 255 / 0.06);
 }
 
-.experience-v1 .experience-sidebar nav a > div.bg-primary\/15 {
+.dark .experience-v1 .experience-sidebar nav a > div.bg-primary\/15 {
   color: var(--cg-accent);
   background: rgb(var(--cg-accent-rgb) / 0.12);
 }

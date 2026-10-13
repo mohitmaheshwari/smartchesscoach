@@ -21,6 +21,7 @@ const useTeachingMode = ({
   currentFen,
   setChatMessages,
   setCurrentFen,
+  setBoardOrientation,
   setCurrentInsight,
   newGameFn,
   startGameFn,
@@ -65,10 +66,19 @@ const useTeachingMode = ({
       setTeachingOffer(null);
       setActiveLesson(lessonData);
       setLessonInstruction(lessonData.instruction);
+      setLessonComplete(null);
       setIsInTeachingMode(true);
 
       if (lessonData.teaching_fen) {
         setCurrentFen(lessonData.teaching_fen);
+      }
+
+      if (setBoardOrientation) {
+        const lessonColor =
+          lessonData.user_color ||
+          lessonData.trap_info?.user_color ||
+          (lessonData.mode === "avoidance" ? "black" : "white");
+        setBoardOrientation(lessonColor);
       }
 
       // Lead with what the trap/lesson actually teaches — the WHY.
@@ -242,6 +252,29 @@ const useTeachingMode = ({
       setLessonInstruction(null);
       setLessonComplete(completion);
 
+      // Persist completed lesson key locally for immediate UI update
+      try {
+        const lessonKey =
+          completion?.lesson_key ||
+          activeLesson?.trap_key ||
+          activeLesson?.lesson_key ||
+          activeLesson?.key;
+        if (lessonKey) {
+          const stored = JSON.parse(
+            localStorage.getItem("completed_chess_lessons") || "[]"
+          );
+          if (!stored.includes(lessonKey)) {
+            stored.push(lessonKey);
+            localStorage.setItem(
+              "completed_chess_lessons",
+              JSON.stringify(stored)
+            );
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+
       setChatMessages((prev) => [
         ...prev,
         {
@@ -267,17 +300,41 @@ const useTeachingMode = ({
 
       toast.success("Lesson complete!");
     },
-    [setChatMessages]
+    [setChatMessages, activeLesson]
   );
 
   const handleExitLesson = useCallback(
-    async (choice, result) => {
+    async (choice = "continue_game", passedResult = {}) => {
+      let finalRestoredFen = passedResult?.restored_fen;
+
+      if (session?.session_id) {
+        try {
+          const res = await fetch(`${API}/coach/play/teaching/exit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              session_id: session.session_id,
+              choice,
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.restored_fen) {
+              finalRestoredFen = data.restored_fen;
+            }
+          }
+        } catch (err) {
+          console.error("Failed to exit teaching mode on backend:", err);
+        }
+      }
+
       setActiveLesson(null);
       setLessonComplete(null);
       setIsInTeachingMode(false);
 
-      if (choice === "continue_game" && result?.restored_fen) {
-        setCurrentFen(result.restored_fen);
+      if (choice === "continue_game" && finalRestoredFen) {
+        setCurrentFen(finalRestoredFen);
         setChatMessages((prev) => [
           ...prev,
           {
@@ -291,8 +348,11 @@ const useTeachingMode = ({
         newGameFn();
         setTimeout(() => startGameFn(), 500);
       }
+      if (setBoardOrientation && session?.user_color) {
+        setBoardOrientation(session.user_color);
+      }
     },
-    [setChatMessages, setCurrentFen, newGameFn, startGameFn]
+    [session?.session_id, session?.user_color, setChatMessages, setCurrentFen, setBoardOrientation, newGameFn, startGameFn]
   );
 
   const handleTeachingMove = useCallback(
@@ -328,7 +388,11 @@ const useTeachingMode = ({
           const result = await response.json();
 
           if (result.complete) {
+            if (result.teaching_fen) {
+              setCurrentFen(result.teaching_fen);
+            }
             handleLessonComplete(result);
+            return true;
           } else if (result.correct) {
             setCurrentFen(result.teaching_fen);
             handleTeachingMoveValidated(result);

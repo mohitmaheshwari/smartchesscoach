@@ -18,6 +18,7 @@ import {
   Lightbulb,
   X,
   Zap,
+  CheckCircle2,
 } from "lucide-react";
 
 const difficultyColors = {
@@ -41,6 +42,23 @@ const LessonPicker = ({ sessionId, userColor, onStartLesson, onClose }) => {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  const localCompleted = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("completed_chess_lessons") || "[]");
+    } catch {
+      return [];
+    }
+  })();
+
+  const isCompleted = (item, altKey = null) => {
+    if (!item) return false;
+    if (item.completed) return true;
+    const key = item.key || item.lesson_key;
+    if (key && localCompleted.includes(key)) return true;
+    if (altKey && localCompleted.includes(altKey)) return true;
+    return false;
+  };
 
   const handleStart = async (lessonType, params) => {
     setStarting(params.trap_key || params.lesson_key || "loading");
@@ -88,28 +106,41 @@ const LessonPicker = ({ sessionId, userColor, onStartLesson, onClose }) => {
     return lesson.plan_for === userColor;
   });
 
+  const trapsDone = filteredTraps.filter(isCompleted).length;
+  const openingsDone = filteredOpeningIdeas.filter(isCompleted).length;
+  const endgamesDone = (catalog.endgames || []).filter((eg) =>
+    isCompleted(eg, `${eg.category}_${eg.lesson_key}`)
+  ).length;
+
   const tabs = [
-    { key: "traps", label: "Traps", icon: Zap, count: filteredTraps.length },
+    { key: "traps", label: "Traps", icon: Zap, count: filteredTraps.length, done: trapsDone },
     {
       key: "opening_ideas",
       label: "Opening ideas",
       icon: Lightbulb,
       count: filteredOpeningIdeas.length,
+      done: openingsDone,
     },
-    { key: "endgames", label: "Endgames", icon: Crown, count: catalog.endgames?.length || 0 },
+    {
+      key: "endgames",
+      label: "Endgames",
+      icon: Crown,
+      count: catalog.endgames?.length || 0,
+      done: endgamesDone,
+    },
   ];
 
   return (
-    <div className="flex flex-col h-full" data-testid="lesson-picker">
+    <div className="flex flex-col h-full bg-[#121c27]" data-testid="lesson-picker">
       {/* Header */}
-      <div className="p-3 border-b border-border flex items-center justify-between">
+      <div className="p-3.5 border-b border-white/10 flex items-center justify-between bg-[#16222f]">
         <div className="flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium">Lesson Library</span>
+          <BookOpen className="w-4 h-4 text-cyan-400" />
+          <span className="text-sm font-semibold text-slate-100">Interactive Lessons</span>
         </div>
         <button
           onClick={onClose}
-          className="text-muted-foreground hover:text-foreground"
+          className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors"
           data-testid="close-lesson-picker"
         >
           <X className="w-4 h-4" />
@@ -117,155 +148,216 @@ const LessonPicker = ({ sessionId, userColor, onStartLesson, onClose }) => {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border">
+      <div className="flex border-b border-white/10 bg-[#141e2a]">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 px-3 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
+            className={`flex-1 px-2.5 py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
               activeTab === tab.key
-                ? "text-primary border-b-2 border-primary"
-                : "text-muted-foreground hover:text-foreground"
+                ? "text-cyan-300 border-b-2 border-cyan-400 bg-cyan-500/10"
+                : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             }`}
             data-testid={`tab-${tab.key}`}
           >
-            <tab.icon className="w-3.5 h-3.5" />
-            {tab.label}
-            <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">
-              {tab.count}
-            </Badge>
+            <tab.icon className="w-3.5 h-3.5 shrink-0" />
+            <span>{tab.label}</span>
+            {tab.done > 0 ? (
+              <span className="text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                {tab.done}/{tab.count}
+              </span>
+            ) : (
+              <Badge variant="secondary" className="text-[9.5px] px-1 py-0 h-4 bg-white/10 text-slate-300">
+                {tab.count}
+              </Badge>
+            )}
           </button>
         ))}
       </div>
 
       {/* Lesson List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
         {activeTab === "traps" &&
-          filteredTraps.map((trap) => (
-            <button
-              key={trap.key}
-              onClick={() => handleStart("trap", { trap_key: trap.key })}
-              disabled={starting === trap.key}
-              className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all group"
-              data-testid={`trap-${trap.key}`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-3.5 h-3.5 text-amber-500" />
-                  <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                    {trap.name}
-                  </span>
+          filteredTraps.map((trap) => {
+            const completed = isCompleted(trap);
+            return (
+              <button
+                key={trap.key}
+                onClick={() => handleStart("trap", { trap_key: trap.key })}
+                disabled={starting === trap.key}
+                className={`w-full text-left p-3 rounded-xl border transition-all group ${
+                  completed
+                    ? "border-emerald-500/35 bg-gradient-to-r from-emerald-950/30 to-[#14202c] hover:border-emerald-400/60"
+                    : "border-white/10 bg-[#162230]/70 hover:border-cyan-500/40 hover:bg-[#1a2839]"
+                }`}
+                data-testid={`trap-${trap.key}`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="text-sm font-semibold text-slate-100 group-hover:text-cyan-200 transition-colors truncate">
+                      {trap.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {completed && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        Completed
+                      </span>
+                    )}
+                    {starting === trap.key ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                    ) : (
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-cyan-300 transition-colors" />
+                    )}
+                  </div>
                 </div>
-                {starting === trap.key ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" />
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                {trap.opening && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {trap.opening}
-                  </span>
-                )}
-                <Badge
-                  variant="outline"
-                  className={`text-[10px] ${difficultyColors[trap.difficulty] || ""}`}
-                >
-                  {trap.difficulty}
-                </Badge>
-                {trap.tactical_theme && (
-                  <Badge variant="outline" className="text-[10px]">
-                    {trap.tactical_theme}
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  {trap.opening && (
+                    <span className="text-[10.5px] text-slate-400">
+                      {trap.opening}
+                    </span>
+                  )}
+                  <Badge
+                    variant="outline"
+                    className={`text-[9.5px] ${difficultyColors[trap.difficulty] || ""}`}
+                  >
+                    {trap.difficulty}
                   </Badge>
-                )}
-              </div>
-            </button>
-          ))}
+                  {trap.trap_for && (
+                    <Badge variant="outline" className={`text-[9.5px] font-medium ${trap.trap_for === "black" ? "bg-slate-800 text-slate-200 border-slate-600" : "bg-slate-200/20 text-white border-white/30"}`}>
+                      {trap.trap_for === "black" ? "⚫ Play as Black" : "⚪ Play as White"}
+                    </Badge>
+                  )}
+                  {trap.tactical_theme && (
+                    <Badge variant="outline" className="text-[9.5px] border-white/10 text-slate-300">
+                      {trap.tactical_theme}
+                    </Badge>
+                  )}
+                </div>
+              </button>
+            );
+          })}
 
         {activeTab === "opening_ideas" &&
-          filteredOpeningIdeas.map((lesson) => (
-            <button
-              key={lesson.key}
-              onClick={() =>
-                handleStart("opening_plan", { lesson_key: lesson.key })
-              }
-              disabled={starting === lesson.key}
-              className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all group"
-              data-testid={`opening-idea-${lesson.key}`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <Lightbulb className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                    {lesson.name}
-                  </span>
+          filteredOpeningIdeas.map((lesson) => {
+            const completed = isCompleted(lesson);
+            return (
+              <button
+                key={lesson.key}
+                onClick={() =>
+                  handleStart("opening_plan", { lesson_key: lesson.key })
+                }
+                disabled={starting === lesson.key}
+                className={`w-full text-left p-3 rounded-xl border transition-all group ${
+                  completed
+                    ? "border-emerald-500/35 bg-gradient-to-r from-emerald-950/30 to-[#14202c] hover:border-emerald-400/60"
+                    : "border-white/10 bg-[#162230]/70 hover:border-cyan-500/40 hover:bg-[#1a2839]"
+                }`}
+                data-testid={`opening-idea-${lesson.key}`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Lightbulb className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="text-sm font-semibold text-slate-100 group-hover:text-cyan-200 transition-colors truncate">
+                      {lesson.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {completed && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        Completed
+                      </span>
+                    )}
+                    {starting === lesson.key ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                    ) : (
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-cyan-300 transition-colors" />
+                    )}
+                  </div>
                 </div>
-                {starting === lesson.key ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" />
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
-                {lesson.learning_goal || lesson.description}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                {lesson.opening && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {lesson.opening}
-                  </span>
-                )}
-                <Badge
-                  variant="outline"
-                  className={`text-[10px] ${difficultyColors[lesson.difficulty] || ""}`}
-                >
-                  {lesson.difficulty}
-                </Badge>
-              </div>
-            </button>
-          ))}
+                <p className="text-[11px] text-slate-400 line-clamp-2 mt-0.5 leading-snug">
+                  {lesson.learning_goal || lesson.description}
+                </p>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  {lesson.opening && (
+                    <span className="text-[10.5px] text-slate-400">
+                      {lesson.opening}
+                    </span>
+                  )}
+                  <Badge
+                    variant="outline"
+                    className={`text-[9.5px] ${difficultyColors[lesson.difficulty] || ""}`}
+                  >
+                    {lesson.difficulty}
+                  </Badge>
+                  {lesson.plan_for && (
+                    <Badge variant="outline" className={`text-[9.5px] font-medium ${lesson.plan_for === "black" ? "bg-slate-800 text-slate-200 border-slate-600" : "bg-slate-200/20 text-white border-white/30"}`}>
+                      {lesson.plan_for === "black" ? "⚫ Play as Black" : "⚪ Play as White"}
+                    </Badge>
+                  )}
+                </div>
+              </button>
+            );
+          })}
 
         {activeTab === "endgames" &&
-          catalog.endgames?.map((eg) => (
-            <button
-              key={`${eg.category}-${eg.lesson_key}`}
-              onClick={() =>
-                handleStart("endgame", {
-                  category: eg.category,
-                  lesson_key: eg.lesson_key,
-                })
-              }
-              disabled={starting === eg.lesson_key}
-              className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all group"
-              data-testid={`endgame-${eg.lesson_key}`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <Crown className="w-3.5 h-3.5 text-purple-500" />
-                  <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                    {eg.name}
+          catalog.endgames?.map((eg) => {
+            const completed = isCompleted(eg, `${eg.category}_${eg.lesson_key}`);
+            return (
+              <button
+                key={`${eg.category}-${eg.lesson_key}`}
+                onClick={() =>
+                  handleStart("endgame", {
+                    category: eg.category,
+                    lesson_key: eg.lesson_key,
+                  })
+                }
+                disabled={starting === eg.lesson_key}
+                className={`w-full text-left p-3 rounded-xl border transition-all group ${
+                  completed
+                    ? "border-emerald-500/35 bg-gradient-to-r from-emerald-950/30 to-[#14202c] hover:border-emerald-400/60"
+                    : "border-white/10 bg-[#162230]/70 hover:border-cyan-500/40 hover:bg-[#1a2839]"
+                }`}
+                data-testid={`endgame-${eg.lesson_key}`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Crown className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                    <span className="text-sm font-semibold text-slate-100 group-hover:text-cyan-200 transition-colors truncate">
+                      {eg.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {completed && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        Completed
+                      </span>
+                    )}
+                    {starting === eg.lesson_key ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                    ) : (
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-cyan-300 transition-colors" />
+                    )}
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5 leading-snug">
+                  {eg.rule || eg.description}
+                </p>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  <Badge variant="outline" className="text-[9.5px] border-white/10 text-slate-300">
+                    {eg.category_name}
+                  </Badge>
+                  <span className="text-[10.5px] text-slate-400">
+                    {eg.positions_count} position{eg.positions_count !== 1 ? "s" : ""}
                   </span>
                 </div>
-                {starting === eg.lesson_key ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                ) : (
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" />
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                {eg.rule || eg.description}
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="text-[10px]">
-                  {eg.category_name}
-                </Badge>
-                <span className="text-[10px] text-muted-foreground">
-                  {eg.positions_count} position{eg.positions_count !== 1 ? "s" : ""}
-                </span>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
       </div>
     </div>
   );

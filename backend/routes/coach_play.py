@@ -2451,8 +2451,20 @@ async def get_teaching_catalog(
     user: User = Depends(get_current_user)
 ):
     """Return all available lesson types for the lesson picker UI."""
+    global db
     from services.teaching_engine import get_lesson_catalog
-    return get_lesson_catalog()
+
+    completed_keys = set()
+    if db is not None and user:
+        try:
+            cursor = db.completed_lessons.find({"user_id": user.user_id})
+            async for doc in cursor:
+                if doc.get("lesson_key"):
+                    completed_keys.add(doc["lesson_key"])
+        except Exception:
+            pass
+
+    return get_lesson_catalog(completed_keys=completed_keys)
 
 
 @router.post("/escape-squares/check")
@@ -7427,6 +7439,42 @@ async def get_opening_suggestions(user: User = Depends(get_current_user)):
                 "status": status,
                 "status_label": status_label,
             })
+
+        # Ensure at least 5 standard repertoire openings are available to explore
+        existing_names = {o["name"].lower() for o in color_list}
+        defaults = (
+            [
+                "London System",
+                "Italian Game",
+                "Queen's Gambit",
+                "Ruy Lopez",
+                "Scotch Game",
+                "English Opening",
+            ]
+            if color_label == "white"
+            else [
+                "Sicilian Defense",
+                "French Defense",
+                "Caro-Kann Defense",
+                "King's Indian Defense",
+                "Queen's Gambit Declined",
+                "Scandinavian Defense",
+            ]
+        )
+        for d_name in defaults:
+            if len(color_list) >= 5:
+                break
+            if not any(d_name.lower() in ex or ex in d_name.lower() for ex in existing_names):
+                color_list.append({
+                    "name": d_name,
+                    "games": 0,
+                    "wins": 0,
+                    "losses": 0,
+                    "win_rate": 0,
+                    "status": "new",
+                    "status_label": "Try something new",
+                })
+                existing_names.add(d_name.lower())
 
     # Available curriculums
     available = get_available_openings()

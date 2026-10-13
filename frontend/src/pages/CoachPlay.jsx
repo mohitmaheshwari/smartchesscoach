@@ -399,6 +399,7 @@ const CoachPlay = ({ user }) => {
     currentFen,
     setChatMessages,
     setCurrentFen,
+    setBoardOrientation,
     setCurrentInsight: (v) => setCurrentInsight(v),
     newGameFn: () => newGame(),
     startGameFn: () => startGame(),
@@ -459,6 +460,8 @@ const CoachPlay = ({ user }) => {
     handleStartLesson, handleSkipTeachingOffer, handleExitLesson,
     handleTeachingMove, resetTeachingState,
   } = teaching;
+
+  const [showLessonPicker, setShowLessonPicker] = useState(false);
 
   const {
     pastGamesHistory, playerIdentityData,
@@ -4263,6 +4266,10 @@ const CoachPlay = ({ user }) => {
           canUndoLastMove={canUndoLastMove}
           handleUndoMove={handleUndoMove}
           handleExitLesson={handleExitLesson}
+          onOpenLessons={() => {
+            handleExitLesson("continue_game", {});
+            setShowLessonPicker(true);
+          }}
           triggerCoachMove={triggerCoachMove}
           handleStartLesson={handleStartLesson}
           moveClassification={(() => {
@@ -4379,6 +4386,8 @@ const CoachPlay = ({ user }) => {
           handleStartLesson={handleStartLesson}
           handleSkipTeachingOffer={handleSkipTeachingOffer}
           handleExitLesson={handleExitLesson}
+          showLessonPicker={showLessonPicker}
+          setShowLessonPicker={setShowLessonPicker}
           setOpeningGuidance={setOpeningGuidance}
           chatMessages={chatMessages}
           isSendingChat={isSendingChat}

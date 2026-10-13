@@ -148,6 +148,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
     canUndoLastMove,
     handleUndoMove,
     handleExitLesson,
+    onOpenLessons,
     triggerCoachMove,
     handleStartLesson,
     moveClassification,
@@ -573,7 +574,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                     orientation={boardOrientation}
                     lastMove={lastMove}
                     arrows={coachArrows || []}
-                    onMove={(moveData) => {
+                    onMove={async (moveData) => {
                       const canMoveInTeaching =
                         isInTeachingMode &&
                         activeLesson &&
@@ -585,8 +586,19 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                         if (isPaused) {
                           resumeGameClock();
                         }
-                        makeMove(moveData.from, moveData.to);
+                        const accepted = await makeMove(moveData.from, moveData.to);
+                        if (!accepted) {
+                          if (boardRef.current?.setPosition) {
+                            boardRef.current.setPosition(currentFen);
+                          }
+                          return false;
+                        }
+                        return true;
                       }
+                      if (boardRef.current?.setPosition) {
+                        boardRef.current.setPosition(currentFen);
+                      }
+                      return false;
                     }}
                     interactive={
                       (isInTeachingMode &&
@@ -639,19 +651,25 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                   {/* Lesson Complete Overlay */}
                   {lessonComplete && (
                     <div className="absolute inset-0 z-20 bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
-                      <div className="bg-[#16202c] border border-white/20 rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center space-y-4 text-white">
-                        <div className="mx-auto w-11 h-11 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center justify-center text-2xl">
+                      <div className="bg-[#16202c] border border-emerald-500/30 rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center space-y-4 text-white">
+                        <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-2xl shadow-inner">
                           🎉
                         </div>
                         <div className="space-y-2">
-                          <p className="text-[10.5px] uppercase tracking-[0.18em] text-cyan-400 font-semibold">
-                            Trap complete
+                          <p className="text-[10.5px] uppercase tracking-[0.18em] text-emerald-400 font-bold">
+                            {lessonComplete.lesson_type === "trap" ? "Trap Complete" : "Lesson Complete"}
                           </p>
-                          <p className="text-sm leading-relaxed text-slate-200 text-left">
+                          <p className="text-sm leading-relaxed text-slate-200 text-left font-medium">
                             {String(lessonComplete.message || "")
-                              .replace(/^\s*trap complete[!.:\-\s]*/i, "")
-                              .trim() || "Nicely played — that's the whole idea of this trap."}
+                              .replace(/^\s*(trap|lesson)\s*complete[!.:\-\s]*/i, "")
+                              .trim() || "Nicely played — that's the whole idea of this lesson."}
                           </p>
+                          {lessonComplete.why_it_works && (
+                            <p className="text-xs text-emerald-200/90 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5 text-left leading-relaxed">
+                              <strong className="text-emerald-300 block mb-0.5">Why it works:</strong>
+                              {lessonComplete.why_it_works}
+                            </p>
+                          )}
                         </div>
                         <div className="flex gap-2 justify-center pt-1">
                           <Button
@@ -660,14 +678,20 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                             className="flex-1 bg-white/5 border-white/15 text-slate-200 hover:bg-white/10"
                             onClick={() => handleExitLesson("continue_game", {})}
                           >
-                            Continue Game
+                            Return to Game
                           </Button>
                           <Button
                             size="sm"
                             className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold"
-                            onClick={() => handleExitLesson("new_game", {})}
+                            onClick={() => {
+                              if (onOpenLessons) {
+                                onOpenLessons();
+                              } else {
+                                handleExitLesson("continue_game", {});
+                              }
+                            }}
                           >
-                            Next Lesson
+                            Choose Another Lesson
                           </Button>
                         </div>
                       </div>

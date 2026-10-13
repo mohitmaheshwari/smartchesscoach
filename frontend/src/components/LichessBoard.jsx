@@ -223,10 +223,14 @@ const LichessBoard = forwardRef(({
     setPosition: (newFen) => {
       if (groundRef.current) {
         chessRef.current = new Chess(newFen);
+        const targetColor = shouldBeInteractive && !selectionOnly
+          ? (movableColor || (planMode ? "both" : getTurnColor(newFen)))
+          : undefined;
         groundRef.current.set({
           fen: newFen,
           turnColor: getTurnColor(newFen),
           movable: {
+            color: targetColor,
             dests: interactive ? getMovableDests(chessRef.current) : new Map(),
           },
         });
@@ -522,7 +526,7 @@ const LichessBoard = forwardRef(({
                 }
                 
                 if (move) {
-                  currentOnMove({
+                  const moveResult = currentOnMove({
                     from: orig,
                     to: dest,
                     san: move.san,
@@ -545,6 +549,53 @@ const LichessBoard = forwardRef(({
                     },
                     lastMove: [orig, dest],
                   });
+
+                  // If move handler is async and rejects or returns false, revert cleanly!
+                  if (moveResult && typeof moveResult.then === "function") {
+                    moveResult.then((accepted) => {
+                      if (accepted === false && groundRef.current) {
+                        chessRef.current = new Chess(fen);
+                        const revertDests = shouldBeInteractive && showDests
+                          ? (movableColor
+                              ? getMovesForColor(chessRef.current, movableColor)
+                              : (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current)))
+                          : new Map();
+                        const revertColor = shouldBeInteractive && !selectionOnly
+                          ? (movableColor || (planMode ? "both" : getTurnColor(fen)))
+                          : undefined;
+                        groundRef.current.set({
+                          fen: fen,
+                          turnColor: getTurnColor(fen),
+                          movable: {
+                            color: revertColor,
+                            dests: revertDests,
+                          },
+                          lastMove: undefined,
+                        });
+                      }
+                    }).catch(() => {
+                      if (groundRef.current) {
+                        chessRef.current = new Chess(fen);
+                        const revertDests = shouldBeInteractive && showDests
+                          ? (movableColor
+                              ? getMovesForColor(chessRef.current, movableColor)
+                              : (planMode ? getAllPossibleDests(chessRef.current) : getMovableDests(chessRef.current)))
+                          : new Map();
+                        const revertColor = shouldBeInteractive && !selectionOnly
+                          ? (movableColor || (planMode ? "both" : getTurnColor(fen)))
+                          : undefined;
+                        groundRef.current.set({
+                          fen: fen,
+                          turnColor: getTurnColor(fen),
+                          movable: {
+                            color: revertColor,
+                            dests: revertDests,
+                          },
+                          lastMove: undefined,
+                        });
+                      }
+                    });
+                  }
                 } else {
                   // Invalid move - reset position
                   groundRef.current.set({ fen: chess.fen() });
