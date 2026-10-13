@@ -2,7 +2,9 @@
 
 Status: **DRAFT — awaiting Mohit sign-off.** No code until signed.
 Written: 2026-10-13
-Audit base: `working-code` at `f05f9c5d`
+Audit base: **`origin/working-code` at `9cfbbbf9`.** Every code claim below was
+re-verified with `git grep origin/working-code` after the first pass, because the
+local checkout was 134 commits behind. All claims held; line numbers are origin's.
 Author: Claude (smartchesscoach-04), with verified input from sessions -24, -1d, -53, -01
 
 ---
@@ -99,11 +101,11 @@ exists, it ships, and it needs fixing before it needs extending.
 
 Two writers push into the same `coaching_decisions` array:
 
-- `coach_play.py:5582` — the real event: `move_key`, `source`, `layer`, `category`,
+- `coach_play.py:5586` — the real event: `move_key`, `source`, `layer`, `category`,
   `concept_key`, `text`, `move_quality`, `cp_loss`, `best_move`, `eval_before`,
   `eval_after`, `eval_valid`, `caption_verified`, `proposed_at`, `delivered_at`,
   `outcome`. Gated on `unified_v1`, so effectively nobody.
-- `coach_play.py:6341` — a debug log, comment: *"Store decision in session for
+- `coach_play.py:6346` — a debug log, comment: *"Store decision in session for
   export/debugging"*. No `move_key`, no `outcome`. This is the live path.
 
 Production (`chess_coach` database, read 2026-10-13):
