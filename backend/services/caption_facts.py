@@ -10172,6 +10172,81 @@ def _contested_target(
         return None
 
 
+def _reply_gap(
+    board_before: chess.Board,
+    played_san: Optional[str],
+    best_san: Optional[str],
+    pv_after_played: Optional[Sequence[str]],
+    pv_after_best: Optional[Sequence[str]],
+) -> Optional[Dict[str, Any]]:
+    """What the opponent gets to do after the played move, and not after
+    the engine's.
+
+    One ply deep on purpose. Diffing the END of two long lines was tried
+    and measured at 52-62% directional accuracy -- a coin flip -- because
+    over sixteen plies the two positions diverge for reasons that have
+    nothing to do with the move. The opponent's FIRST reply is still
+    about the move that was played.
+
+    Returns the reply, what it does, and the engine-line reply that it is
+    being contrasted with. Returns None when the two replies are the same
+    move, when either is unplayable, or when nothing separates them.
+    """
+    if not (played_san and best_san and pv_after_played and pv_after_best):
+        return None
+    try:
+        reply_played = str(pv_after_played[0])
+        reply_best = str(pv_after_best[0])
+    except Exception:
+        return None
+    if _normalize_san(reply_played) == _normalize_san(reply_best):
+        return None
+
+    def _after(first: str, reply: str):
+        board = board_before.copy()
+        board.push(board.parse_san(str(first)))
+        move = board.parse_san(str(reply))
+        return board, move
+
+    try:
+        b_played, m_played = _after(played_san, reply_played)
+        b_best, m_best = _after(best_san, reply_best)
+    except Exception:
+        return None
+
+    # Only the two facts that earned it. attacks_us (64.5%) and
+    # takes_centre (59.4%) are left out deliberately.
+    played_check = b_played.gives_check(m_played)
+    played_capture = b_played.is_capture(m_played)
+    best_check = b_best.gives_check(m_best)
+    best_capture = b_best.is_capture(m_best)
+
+    allows = []
+    if played_check and not best_check:
+        allows.append("check")
+    if played_capture and not best_capture:
+        allows.append("capture")
+    if not allows:
+        return None
+
+    captured = None
+    if "capture" in allows:
+        if b_played.is_en_passant(m_played):
+            captured = "pawn"
+        else:
+            victim = b_played.piece_at(m_played.to_square)
+            captured = (PIECE_TYPE_NAMES.get(victim.piece_type)
+                        if victim else None)
+    return {
+        "their_reply": _normalize_san(reply_played),
+        "their_reply_after_best": _normalize_san(reply_best),
+        "allows": allows,
+        "captured_piece": captured,
+        "capture_square": (chess.square_name(m_played.to_square)
+                           if "capture" in allows else None),
+    }
+
+
 def _recommended_move_why(
     board: chess.Board,
     move: Optional[chess.Move],
@@ -11478,6 +11553,12 @@ def extract_facts(
         "played_move_principle": played_move_principle,
         "best_move_principle": best_move_principle,
         "best_move_why": best_move_why,
+        # What the played move lets the opponent do immediately
+        # that the engine's move does not. Derived from the board
+        # and both stored lines, one ply deep.
+        "reply_gap": _reply_gap(
+            board_before, played_san, best_move_san,
+            pv_after_played, pv_after_best),
         # How bad was THIS move, for whoever played it. cp_loss
         # means the USER's loss and is 0 on an opponent card;
         # caption_pipeline overwrites this with the real mover

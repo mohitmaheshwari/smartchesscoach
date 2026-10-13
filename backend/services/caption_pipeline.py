@@ -4037,6 +4037,38 @@ def weak_pawn_count_sentence(contested: Optional[Dict[str, Any]]) -> str:
     return ""
 
 
+def reply_gap_sentence(gap: Optional[Dict[str, Any]]) -> str:
+    """One sentence for facts["reply_gap"], or "" when there is none.
+
+    Derived per position from the board and both stored engine lines,
+    one ply deep. Measured over 8,880 flagged cards: when a check
+    separates the two replies it favours the engine's move 80.1% of the
+    time, a capture 69.7%. attacks_us (64.5%) and takes_centre (59.4%)
+    were measured and deliberately NOT used -- too close to a coin flip
+    to be worth a sentence, which is the mistake the end-of-line version
+    made at 52-62%.
+
+    The percentage is not a truth rate: whether their reply gives check
+    is checked on that board and is simply true. It is how often the
+    fact is the DISCRIMINATING one, so a miss is secondary, not false.
+    """
+    gap = gap or {}
+    reply = (gap.get("their_reply") or "").strip()
+    allows = gap.get("allows") or []
+    if not reply or not allows:
+        return ""
+    piece = gap.get("captured_piece")
+    square = gap.get("capture_square")
+    if "check" in allows and "capture" in allows and piece and square:
+        return (f"That lets them play {reply} with check, "
+                f"taking the {piece} on {square}.")
+    if "check" in allows:
+        return f"That lets them play {reply} with check."
+    if piece and square:
+        return f"That lets them take the {piece} on {square} with {reply}."
+    return f"That lets them play {reply}."
+
+
 def _verify_and_recover_caption(
     *,
     caption_payload: Dict[str, Any],
@@ -8649,6 +8681,55 @@ def build_move_teaching_decision(
         except Exception as _sb_exc:
             logger.warning(
                 f"[say_better] backstop failed m{inputs.full_move_number}: {_sb_exc!r}")
+
+        # ── What the move let them do (2026-10-13) ──────────────────
+        # Mohit: "why can't we build it deterministically, we already
+        # have all the chess facts and stockfish there". This is that:
+        # the opponent's first reply in each stored line, differenced,
+        # with the difference read off the board.
+        #
+        # Skipped when the card already explains the played move, so it
+        # cannot double up on "Nxe4 leaves the knight on e4 hanging" or
+        # on a punishment clause that already names the same reply.
+        try:
+            _rg = caption_facts.get("reply_gap") or {}
+            _rg_line = reply_gap_sentence(_rg)
+            _rg_cap = (caption_payload.get("caption") or "").strip()
+            _rg_reply = (_rg.get("their_reply") or "").strip()
+            # The square matters as much as the move. Measured on real
+            # cards: "Qd7 ... you moved your queen away from defending
+            # e5" then "That lets them take the pawn on e5", and
+            # "Bxf7+ ... opponent recaptures on f7" then "That lets
+            # them take the bishop on f7". Both name the square, not
+            # the reply, so a SAN-only check let the duplicate through.
+            _rg_sq = (_rg.get("capture_square") or "").strip()
+            _already = (
+                not _rg_line
+                or not _rg_cap
+                or "lets you play" in _rg_cap
+                or "lets them" in _rg_cap
+                or (_rg_reply and _rg_reply in _rg_cap)
+                or (_rg_sq and _re_pb.search(
+                    r"(?<![A-Za-z0-9])" + _re_pb.escape(_rg_sq)
+                    + r"(?![A-Za-z0-9])", _rg_cap)))
+            if not _already:
+                from services.caption_config import (
+                    MAX_CAPTION_WORDS as _RG_CAP,
+                )
+                _rg_full = (
+                    _rg_cap
+                    + (" " if _rg_cap.endswith((".", "!", "?")) else ". ")
+                    + _rg_line)
+                if (len(_rg_full.split()) <= _RG_CAP
+                        and not _verify_final(_rg_full)):
+                    caption_payload["caption"] = _rg_full
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "")
+                        + "→REPLY_GAP")
+                    _board_explanation = _rg_full
+        except Exception as _rg_exc:
+            logger.warning(
+                f"[reply_gap] m{inputs.full_move_number}: {_rg_exc!r}")
 
         # ── The count on a weak pawn ────────────────────────────────
         # Mohit, on a card reading "Qc1 was better - it attacks the pawn

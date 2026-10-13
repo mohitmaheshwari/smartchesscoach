@@ -19,6 +19,8 @@ import chess
 import logging
 import os
 
+from services.back_rank_mate_puzzle_proof import BACK_RANK_MATE_QUALITY_ID
+from services.forced_mate_puzzle_proof import FORCED_MATE_QUALITY_ID
 from services.verified_puzzle_admission import (
     ADMISSION_VERSION,
     AdmissionStatus,
@@ -27,6 +29,91 @@ from services.verified_puzzle_admission import (
 from services.verified_puzzle_builder import build_imported_game_verdict
 
 logger = logging.getLogger(__name__)
+
+
+# ── The mate drill label ────────────────────────────────────────────────────
+# A forced mate is already PROVEN and already recorded on every row it
+# applies to: `verified_admission.quality_id` is tactic:forced_mate_exact or
+# tactic:back_rank_mate_exact, written by forced_mate_puzzle_proof /
+# back_rank_mate_puzzle_proof, each of which carries its own independent
+# legal-replay verifier. So this label is a VIEW over that one stored fact.
+# Nothing new is detected, nothing is written a second time, and no backfill
+# is needed to find the rows that already exist.
+#
+# Why a view and not a new field. Writing "forced_mate" into `issue_type`
+# was the obvious move and is the wrong one: `issue_type` is also the key
+# four other readers use, and a mate row would silently leave all of them.
+# Measured on the live pool 2026-10-13: 358 of 50,554 approved rows in the
+# diagnostic's seven issue types (0.71%) are proven mates and would have
+# dropped out of onboarding; home.py's `{"issue_type": problem_cat}` query
+# and both PWC pattern maps would have lost them too. Deriving the label
+# costs nothing and subtracts nothing.
+#
+# Why this name. It is the vocabulary the codebase already uses for exactly
+# this thing: caption concept_id "tactic.forced_mate" and the module
+# forced_mate_puzzle_proof. "mate" is new vocabulary for an old idea;
+# "checkmate_pattern" is a dead community_training_positions pattern_type
+# with 0 rows of 53,610 (counted, not assumed).
+#
+# forced_mate is a NARROWER request than the category a mate row is filed
+# under, never a replacement for it. A missed mate's cognitive_gap stays
+# missed_tactic on purpose -- analysis_interpreter explains why routing
+# mates elsewhere was "the single largest source of mislabelling in the
+# product" -- so every row that serves forced_mate keeps serving its broad
+# category as well.
+FORCED_MATE_PATTERN = "forced_mate"
+FORCED_MATE_QUALITY_IDS = (FORCED_MATE_QUALITY_ID, BACK_RANK_MATE_QUALITY_ID)
+
+
+def is_forced_mate_quality(quality_id) -> bool:
+    """Whether a proven answer is a proven mate. The one test, in one place."""
+    return str(quality_id or "") in FORCED_MATE_QUALITY_IDS
+
+
+def forced_mate_mongo_clause() -> Dict:
+    """Pool filter for the mate label, for an indexed query.
+
+    Deliberately independent of `verified_puzzle_admission_enforced()`: the
+    quality_id is only ever written alongside a passing verifier, so this
+    predicate proves the mate on its own and needs no help from the
+    enforcement clause. That also means an unenforced deployment serves the
+    same rows as an enforced one rather than silently serving none.
+    """
+    return {
+        "verified_admission.quality_id": {"$in": list(FORCED_MATE_QUALITY_IDS)}
+    }
+
+
+def pattern_pool_clause(pattern: str) -> Dict:
+    """How a pool query names the requested drill.
+
+    For forced_mate the stored `issue_type` is the broad category the row
+    was filed under (missed_tactic on 358 of 358 live rows), so asking for
+    `issue_type == "forced_mate"` would match nothing. The quality_id is the
+    label's actual source, so it is what the query asks for.
+    """
+    if pattern == FORCED_MATE_PATTERN:
+        return forced_mate_mongo_clause()
+    return {"issue_type": pattern}
+
+
+def stored_pattern_label(document: Dict) -> str:
+    """The drill label a stored pool row should be served under.
+
+    The read-side half of the same rule the write side applies, so a row can
+    never be found under one label and then described to the player as
+    another. `community_puzzles` spells the broad label `issue_type` and
+    `community_training_positions` spells it `pattern_type`; both are read.
+    """
+    verdict = document.get("verified_admission") or {}
+    if is_forced_mate_quality(verdict.get("quality_id")):
+        return FORCED_MATE_PATTERN
+    return (
+        document.get("issue_type")
+        or document.get("pattern_type")
+        or verdict.get("broad_category")
+        or "calculation_depth"
+    )
 
 
 def verified_puzzle_admission_enforced() -> bool:
@@ -49,6 +136,19 @@ def verified_issue_type(verdict) -> str:
 
 def verdict_serves_pattern(document: Dict, pattern: str) -> bool:
     """Return whether a stored verdict honestly supports this drill label."""
+    if pattern == FORCED_MATE_PATTERN:
+        # Checked before the enforcement shortcut below, which returns True
+        # for everything: a mate drill that quietly served non-mates while
+        # unenforced would be a worse lie than serving nothing.
+        if not stored_verdict_is_structurally_current(document):
+            return False
+        verdict = document.get("verified_admission") or {}
+        return (
+            verdict.get("status") in {
+                AdmissionStatus.SPECIFIC.value, AdmissionStatus.BROAD.value,
+            }
+            and is_forced_mate_quality(verdict.get("quality_id"))
+        )
     if not verified_puzzle_admission_enforced():
         return True
     if not stored_verdict_is_structurally_current(document):
@@ -62,6 +162,26 @@ def verdict_serves_pattern(document: Dict, pattern: str) -> bool:
 
 def verified_mongo_clause(pattern: str) -> Dict:
     """Mongo clause equivalent of verdict_serves_pattern for indexed pools."""
+    if pattern == FORCED_MATE_PATTERN:
+        # Same ordering as verdict_serves_pattern, for the same reason.
+        return {
+            "approved": True,
+            "verified_admission.admission_version": ADMISSION_VERSION,
+            "verified_admission.reason_codes.0": {"$exists": True},
+            "verified_admission.source_kind": {"$type": "string", "$ne": ""},
+            "verified_admission.source_fingerprint": {"$type": "string", "$ne": ""},
+            "verified_admission.analysis_fingerprint": {"$type": "string", "$ne": ""},
+            "verified_admission.reconstructed_fen": {"$type": "string", "$ne": ""},
+            "verified_admission.played_move_uci": {"$type": "string", "$ne": ""},
+            "verified_admission.acceptable_moves_uci.0": {"$exists": True},
+            "verified_admission.status": {
+                "$in": [
+                    AdmissionStatus.SPECIFIC.value,
+                    AdmissionStatus.BROAD.value,
+                ]
+            },
+            **forced_mate_mongo_clause(),
+        }
     if not verified_puzzle_admission_enforced():
         return {}
     specific_or_broad = {
@@ -167,6 +287,33 @@ def _forced_mate_position(
             board, best_move_san, list(pv_after_best or []), cp_loss))
     except Exception:
         return False
+
+
+def forced_mate_candidate(move_evaluation: Dict) -> bool:
+    """Cheap candidate test for "this stored move missed a forced mate".
+
+    The same `_forced_mate_position` prover, reading a stored
+    move_evaluation, so a caller that holds one does not unpack it itself.
+    This is the CANDIDATE half only; the full proof with its independent
+    legal replay still runs in forced_mate_puzzle_proof via admission, and
+    the serving filters require that proof, not this.
+
+    It exists because no stored label identifies a missed mate. The
+    cognitive_gap of one is deliberately broad -- measured on the 358 live
+    mate rows it is `missed_tactic` or `tactical_oversight` -- so a caller
+    that pre-filters by gap string would miss them. The prover decides.
+    """
+    pv = move_evaluation.get("pv_after_best") or []
+    try:
+        cp_loss = int(move_evaluation.get("cp_loss") or 0)
+    except (TypeError, ValueError):
+        return False
+    return _forced_mate_position(
+        move_evaluation.get("fen_before"),
+        move_evaluation.get("best_move_san") or move_evaluation.get("best_move"),
+        pv if isinstance(pv, list) else [],
+        cp_loss,
+    )
 
 
 def _is_puzzle_worthy(
@@ -496,6 +643,14 @@ GAP_TO_PWC_PATTERNS = {
     "tactical_oversight": ["tactical_oversight", "tactical"],
     "calculation_depth":  ["calculation_depth"],
     "king_safety":        ["king_safety"],
+    # A proven mate in the PWC pool is filed under pattern_type
+    # "missed_tactic" -- all 344 of them, counted on the live collection
+    # 2026-10-13, 0 under any mate-ish name. This collection answers only
+    # exact-match queries reliably (see the note further down), so the
+    # request asks for the broad pattern_type the rows actually carry and
+    # `verdict_serves_pattern` then narrows it to the proven mates. The
+    # pattern_type is a candidate filter here; the proof is the gate.
+    "forced_mate":        ["missed_tactic"],
     # opening_knowledge / endgame_technique / piece_activity / pawn_structure:
     # no PWC-pool equivalent — those serve from community_puzzles only.
 }
@@ -582,8 +737,8 @@ async def get_pattern_training_puzzles(
     own_cursor = db.community_puzzles.find(
         {
             "shared_by": user_id,
-            "issue_type": pattern,
             "approved": True,
+            **pattern_pool_clause(pattern),
             **verified_mongo_clause(pattern),
         },
     ).sort("created_at", -1).limit(limit)
@@ -603,7 +758,7 @@ async def get_pattern_training_puzzles(
             # Nd4 here" -- the home page's Movement 2 is built on that sentence.
             # Not an answer, so it is not in _PRIVATE_PUZZLE_FIELDS.
             "played_move": p.get("played_move"),
-            "issue_type": p["issue_type"],
+            "issue_type": stored_pattern_label(p),
             "difficulty": p.get("difficulty", "intermediate"),
             "move_number": p.get("move_number"),
             "user_color": p.get("user_color", "white"),
@@ -621,8 +776,8 @@ async def get_pattern_training_puzzles(
 
     community_query = {
         "shared_by": {"$ne": user_id},
-        "issue_type": pattern,
         "approved": True,
+        **pattern_pool_clause(pattern),
         **verified_mongo_clause(pattern),
     }
     if solved_object_ids:
@@ -651,7 +806,7 @@ async def get_pattern_training_puzzles(
             # Carried for symmetry with own_puzzles. Nothing says "you played
             # X" about someone else's game, so no surface should narrate it.
             "played_move": p.get("played_move"),
-            "issue_type": p["issue_type"],
+            "issue_type": stored_pattern_label(p),
             "difficulty": p.get("difficulty", "intermediate"),
             "move_number": p.get("move_number"),
             "user_color": p.get("user_color", "white"),
