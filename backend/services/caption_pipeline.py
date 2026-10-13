@@ -1966,7 +1966,7 @@ def inject_opp_side_narration_facts(
                     _reply_mv,
                     _reply_line,
                     opp_cp_loss or 300,
-                ) or _rmw(_post_opp_board, _reply_mv, line=_reply_line)
+                ) or _rmw(_post_opp_board, _reply_mv, True, line=_reply_line)
                 if _rwhy:
                     caption_facts["opp_user_reply_why"] = _rwhy
                 # WHY THEIR MOVE WAS THE MISTAKE, not just why ours is good.
@@ -8543,8 +8543,19 @@ def build_move_teaching_decision(
             _sb_cp = abs(int(
                 (inputs.cp_loss if inputs.mover_is_user
                  else inputs.opp_cp_loss) or 0))
+            # 100 is the canonical mistake bar for OUR moves -- Mohit on
+            # a 51cp card: "this is actually not a bad move, right we
+            # should stop flagging 51cp as inaccuracy". On an OPPONENT
+            # card the caption has already said "is an inaccuracy" out
+            # loud, so naming what they should have played completes the
+            # sentence rather than escalating it. The band below 100 was
+            # supposed to belong to _better_suffix, but that only runs
+            # inside tier23_caption and these cards never reach it, so
+            # nobody owned it: 2,934 of 2,936 opponent inaccuracy cards
+            # (99.9%) named no better move at all.
+            _sb_floor = 100 if inputs.mover_is_user else 50
             if (_sb_cap and _sb_best
-                    and _sb_cp >= 100
+                    and _sb_cp >= _sb_floor
                     and _sb_best != (inputs.played_san or "")
                     and _sb_best not in _sb_cap
                     and not caption_facts.get("is_checkmate")):
