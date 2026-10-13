@@ -9,7 +9,7 @@
   "trigger": {
     "when": {
       "played_is_best": true,
-      "cp_loss": {"gte": 100}
+      "mover_cp_loss": {"gte": 100}
     }
   },
   "select_variant": [

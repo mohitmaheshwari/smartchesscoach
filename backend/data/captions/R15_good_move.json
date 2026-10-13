@@ -17,7 +17,7 @@
   "requires": ["played_san"],
   "trigger": {
     "when": {
-      "cp_loss": {"lt": 30},
+      "mover_cp_loss": {"lt": 30},
       "mover_is_user": true
     }
   },

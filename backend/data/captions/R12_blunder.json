@@ -143,7 +143,7 @@
   ],
   "trigger": {
     "when": {
-      "cp_loss": {
+      "mover_cp_loss": {
         "gte": 30
       }
     }
@@ -892,7 +892,7 @@
         "mover_is_user": false,
         "why_clause": "absent",
         "opp_failure_clause": "absent",
-        "cp_loss": {
+        "mover_cp_loss": {
           "lt": 250
         }
       }
@@ -903,7 +903,7 @@
         "opp_has_concrete_why": "absent",
         "opp_failure_clause": "absent",
         "user_best_reply_san": "absent",
-        "cp_loss": {
+        "mover_cp_loss": {
           "lt": 100
         }
       }
