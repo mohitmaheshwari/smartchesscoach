@@ -140,3 +140,52 @@ def test_the_sentence_is_short_enough_to_survive_the_cap():
     ):
         assert len(sentence.split()) <= 18, sentence
         assert len(sentence.split()) < MAX_CAPTION_WORDS // 3
+
+
+# ── the anchor, which shipped broken for an hour ─────────────────────
+
+def test_the_square_must_be_named_not_matched_inside_a_san():
+    """The anchor was a substring test, so "f2" matched inside "Rxf2" --
+    the played move's own SAN -- and the sentence attached to a card
+    that never discussed f2:
+
+        "Rxf2. Opponent's rooks are connected; yours aren't yet.
+         You attack f2 more often than they defend it."
+
+    Found by rendering five games and reading them. Every unit test I
+    had written used a square that happened not to sit inside another
+    token, so none of them could catch it.
+    """
+    import re
+
+    pattern = (r"(?<![A-Za-z0-9])%s(?![A-Za-z0-9])")
+
+    # the real failing card: f2 appears ONLY inside Rxf2
+    bad = "Rxf2. Opponent's rooks are connected; yours aren't yet."
+    assert "f2" in bad, "substring test would have passed"
+    assert not re.search(pattern % "f2", bad), (
+        "token test must reject a square that only occurs inside a SAN")
+
+    # the correct card: d5 is named as a square
+    good = "You develop the knight, eyeing their pawn on d5."
+    assert re.search(pattern % "d5", good)
+
+    # and Mohit's own card
+    mohit = ("Qc1 was better - it attacks the pawn on e3, "
+             "which only their queen defends.")
+    assert re.search(pattern % "e3", mohit)
+
+
+def test_pipeline_uses_the_modules_re_alias():
+    """caption_pipeline imports re as _re_pb, not as re. A bare
+    re.search inside the gate raises NameError, and the surrounding
+    try/except swallows it -- the sentence would vanish everywhere with
+    nothing in the logs to say why."""
+    import inspect
+
+    from services import caption_pipeline
+
+    src = inspect.getsource(caption_pipeline)
+    assert "\nimport re\n" not in src, (
+        "if plain re is imported now, this guard can relax")
+    assert "_ct_named = bool(_ct_sq) and bool(_re_pb.search(" in src

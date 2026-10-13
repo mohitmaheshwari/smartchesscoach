@@ -8655,10 +8655,18 @@ def build_move_teaching_decision(
             _ct = caption_facts.get("contested_target") or {}
             _ct_sq = _ct.get("square") or ""
             _ct_cap = (caption_payload.get("caption") or "").strip()
-            # the caption must ALREADY name that square, so the count
+            # The caption must ALREADY name that square, so the count
             # completes a claim the card is making instead of attaching
-            # to an incidental target
-            if (_ct_sq and _ct_sq in _ct_cap
+            # to an incidental target.
+            #
+            # As a STANDALONE token: a plain substring test matches "f2"
+            # inside "Rxf2", the played move's own SAN, which is how the
+            # sentence first shipped onto a card that never discussed
+            # f2 at all.
+            _ct_named = bool(_ct_sq) and bool(_re_pb.search(
+                r"(?<![A-Za-z0-9])" + _re_pb.escape(_ct_sq) + r"(?![A-Za-z0-9])",
+                _ct_cap))
+            if (_ct_named
                     and not caption_facts.get("is_checkmate")):
                 # Short on purpose. The word cap cuts at the LAST
                 # sentence boundary, so a long append is the first thing
