@@ -4007,6 +4007,36 @@ def _verify_phase2_attack_claims(
     return None
 
 
+def weak_pawn_count_sentence(contested: Optional[Dict[str, Any]]) -> str:
+    """The sentence for a contested weak PAWN, or "" when there is none.
+
+    Pawn-only is a correctness filter, not a preference: every other
+    piece answers an extra attacker by moving, so "attack it more often
+    than they defend it" would be false. Measured over 36,380 flagged
+    cards, 2,698 non-pawn targets (knight 851, bishop 760, rook 564,
+    queen 523) would have been taught a rule that does not hold.
+
+    Short on purpose. The word cap cuts at the LAST sentence boundary,
+    so a long append is the first thing silently deleted -- the original
+    26-word wording put Mohit's own card at 56 of 60.
+    """
+    ct = contested or {}
+    if ct.get("piece") != "pawn":
+        return ""
+    if int(ct.get("defenders") or 0) < 1:
+        return ""
+    square = ct.get("square") or ""
+    if not square:
+        return ""
+    if ct.get("verdict") == "wins":
+        return (f"You attack {square} more often than they defend it. "
+                f"That is how a weak pawn falls.")
+    if ct.get("verdict") == "level":
+        return (f"You attack {square} as often as they defend it. "
+                f"One more attacker wins it.")
+    return ""
+
+
 def _verify_and_recover_caption(
     *,
     caption_payload: Dict[str, Any],
@@ -8604,6 +8634,58 @@ def build_move_teaching_decision(
         except Exception as _sb_exc:
             logger.warning(
                 f"[say_better] backstop failed m{inputs.full_move_number}: {_sb_exc!r}")
+
+        # ── The count on a weak pawn ────────────────────────────────
+        # Mohit, on a card reading "Qc1 was better - it attacks the pawn
+        # on e3, which only their queen defends": it should teach the
+        # plan of adding an attacker, "that's a good teaching on
+        # attacking weak pieces".
+        #
+        # Gated hard. The underlying fact is true on 57% of flagged
+        # cards, and a sentence at that rate is wallpaper
+        # ([[feedback_principle_bank_is_filler]]):
+        #   - the caption must ALREADY name that square, so the count
+        #     completes a claim the card is making instead of attaching
+        #     to an incidental target
+        #   - PAWN targets only: every other piece answers an extra
+        #     attacker by moving, so the rule would simply be false
+        #   - at least one real defender: 1v0 is a hanging pawn
+        # 1.87% of flagged cards survive all three.
+        try:
+            _ct = caption_facts.get("contested_target") or {}
+            _ct_sq = _ct.get("square") or ""
+            _ct_cap = (caption_payload.get("caption") or "").strip()
+            # the caption must ALREADY name that square, so the count
+            # completes a claim the card is making instead of attaching
+            # to an incidental target
+            if (_ct_sq and _ct_sq in _ct_cap
+                    and not caption_facts.get("is_checkmate")):
+                # Short on purpose. The word cap cuts at the LAST
+                # sentence boundary, so a long append is the first thing
+                # deleted -- the e3 card renders at 56 of 60 words with
+                # the original wording, one clause from silently losing
+                # the whole lesson. Both forms still end on the rule.
+                _ct_add = weak_pawn_count_sentence(_ct)
+                if _ct_add:
+                    from services.caption_config import (
+                        MAX_CAPTION_WORDS as _CT_CAP,
+                    )
+                    _ct_full = (
+                        _ct_cap
+                        + (" " if _ct_cap.endswith((".", "!", "?")) else ". ")
+                        + _ct_add)
+                    # the word cap cuts at the LAST sentence boundary, so
+                    # an over-long append would delete itself
+                    if (len(_ct_full.split()) <= _CT_CAP
+                            and not _verify_final(_ct_full)):
+                        caption_payload["caption"] = _ct_full
+                        caption_payload["rule_name"] = (
+                            (caption_payload.get("rule_name") or "")
+                            + "→PAWN_COUNT")
+                        _board_explanation = _ct_full
+        except Exception as _ct_exc:
+            logger.warning(
+                f"[pawn_count] m{inputs.full_move_number}: {_ct_exc!r}")
 
         _DECIDED_CP = 550
         try:
