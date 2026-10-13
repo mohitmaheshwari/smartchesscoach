@@ -4610,7 +4610,26 @@ _DC_OPENING_RE = _re_pb.compile(
 _DC_SQUARE_RE = _re_pb.compile(r"\b[a-h][1-8]\b")
 
 
-def _distilled_may_replace(existing: str, new: str) -> bool:
+def _dc_about_this_board(text: str, played_san: str) -> bool:
+    """True when the text names a square the played move's own SAN does not.
+
+    A pawn move's SAN *is* a square, so a naive square test passes on
+    "b6. Opp is winning by force." -- which names nothing about the
+    board. Measured over 120 re-rendered games / 7,345 cards: of the 78
+    cards the mate clause protected, 76 were that sentence, repeated
+    down a lost game, and the replacement was often the more useful one
+    ("Bxd3+ takes your pawn, but your bishop can take back"). Same for
+    the never-silence rule: 156 of the cards it kept were repeats, one
+    of them "Your opponent tidys up the king, keeping it safe." 25 times
+    in a single game -- exactly what the decided-position gate is meant
+    to silence.
+    """
+    own = set(_DC_SQUARE_RE.findall(played_san or ""))
+    return bool(set(_DC_SQUARE_RE.findall(text or "")) - own)
+
+
+def _distilled_may_replace(existing: str, new: str,
+                           played_san: str = "") -> bool:
     """False when the distilled text would drop something the caption in
     hand carries. Structural, not vocabulary: each marker is a thing the
     templates have no slot for, so losing it is information loss, never a
@@ -4620,10 +4639,25 @@ def _distilled_may_replace(existing: str, new: str) -> bool:
     if not existing:
         return True          # genuine coverage: the rules said nothing
     if not new:
-        return False         # never trade a caption for silence
+        # Never trade a caption for silence -- but only a caption that is
+        # about THIS board earns that. A generic line repeated down a lost
+        # game is filler wearing silence's clothes, and Mohit's ruling is
+        # that silence beats fake explanation.
+        return not _dc_about_this_board(existing, played_san)
     _markers = (_DC_MOTIF_RE, _DC_MATE_RE, _DC_WHY_RE, _DC_OPENING_RE)
     for rx in _markers:
         if rx.search(existing) and not rx.search(new):
+            # A mate VERDICT is not teaching. "Opp is winning by force.
+            # Before moving, calculate every enemy check to the end."
+            # says nothing about the position and repeats on every move of
+            # a lost game; 76 of the 78 cards this clause saved were that
+            # sentence. A mate claim that names a square is real and still
+            # protected. The motif and opening markers need no such test:
+            # the named fork and the named opening ARE the transferable
+            # lesson, and all 185 motif cards named a real square anyway.
+            if rx is _DC_MATE_RE and not _dc_about_this_board(
+                    existing, played_san):
+                continue
             return False
     # A square is the cheapest proof that a sentence is about THIS board
     # rather than any board -- the decided-position gate below already
@@ -8256,7 +8290,8 @@ def build_move_teaching_decision(
                 elif _label in _CLAIMS_WE_MISSED and _story != "opportunity":
                     _dc = None
             if _dc and not _distilled_may_replace(
-                    caption_payload.get("caption") or "", _dc[0] or ""):
+                    caption_payload.get("caption") or "", _dc[0] or "",
+                    inputs.played_san or ""):
                 _dc = None
             if _dc and _dc[0]:
                 caption_payload["caption"] = _dc[0]
