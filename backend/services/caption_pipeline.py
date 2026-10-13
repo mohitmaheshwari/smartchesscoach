@@ -6185,11 +6185,18 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
     # stopped rather than what the move did. Opportunity used 2 plies, which
     # is inside his horizon but does not see a payoff that needs a couple of
     # moves to arrive. One horizon now governs both verdicts and both sides.
-    # 16 plies = 8 moves each side. Mohit first said "max you should up for
-    # is 8 plies, the payoff should be by the 4th move from any party", which
-    # cost 17 cards their punishment verdict; shown that, he revised it to
-    # 8 MOVES. A ply is one side's move, so eight moves is sixteen plies.
-    STORY_HORIZON_PLIES = 16
+    # 8 half-moves = 4 moves each side. Mohit 2026-10-13: "never go more
+    # than 4 plies deep meaning 8 moves both sides" -- he counts a ply as a
+    # move by BOTH sides, so four of his plies is eight half-moves. This
+    # constant counts half-moves.
+    #
+    # Measured on 9,310 flagged cards before changing it from 16: the verdict
+    # moves on 6 of them (0.1%). The horizon barely bites because most stored
+    # lines are shorter than either bound -- 93% are 4 plies from before the
+    # 2026-09-25 horizon fix, the newest are 12. The earlier note that "8
+    # plies cost 17 cards their punishment verdict" was measured when the
+    # punishment walk ran to the END of the line rather than to a horizon.
+    STORY_HORIZON_PLIES = 8
     _pvp = list(pv_after_played or ())[:STORY_HORIZON_PLIES]
     _pvb = list(pv_after_best or ())[:STORY_HORIZON_PLIES]
     played_swing = _story_swing(board, played_san, _pvp, mover)
