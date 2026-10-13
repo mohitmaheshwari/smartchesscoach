@@ -146,6 +146,29 @@ def minimum_extraction_cp_loss(user_rating: int) -> int:
 END_PHASE_PLY = 30  # full-move number, not ply
 
 
+def _forced_mate_position(
+    fen_before: str,
+    best_move_san: Optional[str],
+    pv_after_best: Optional[List[str]],
+    cp_loss: int,
+) -> bool:
+    """True when the engine's line from here is a forced mate.
+
+    Reuses missed_mate_detector, which forced_mate_puzzle_proof already
+    depends on, rather than re-deriving "is this a mate" a second time.
+    """
+    try:
+        import chess as _chess
+
+        from services.missed_mate_detector import detect_missed_mate
+
+        board = _chess.Board(fen_before)
+        return bool(detect_missed_mate(
+            board, best_move_san, list(pv_after_best or []), cp_loss))
+    except Exception:
+        return False
+
+
 def _is_puzzle_worthy(
     fen_before: str,
     best_move_san: str,
@@ -158,19 +181,49 @@ def _is_puzzle_worthy(
     """Decide whether a (position, best_move) pair is good teaching
     material. Three checks:
 
-    1. cp_loss within sane bounds (no mate sentinels)
+    1. cp_loss in bounds, OR the line is a proven forced mate
     2. Best move is forcing (capture / check / mate) OR
        pv_tactical_analyzer detects a real pattern
-    3. Phase appropriate for the user's rating
+
+    There is no phase/rating filter: teachability is decided by the
+    forcing test and the admission verifier, not by move number.
     """
     # 1. Bounds
-    if cp_loss <= 0 or cp_loss > PUZZLE_MAX_CP_LOSS:
+    if cp_loss <= 0:
         return False
+    if cp_loss > PUZZLE_MAX_CP_LOSS:
+        # ...unless the engine line is a PROVEN forced mate. The cap
+        # exists to keep mate sentinels out of the pool, but a missed
+        # mate IS the sentinel: cp_loss reads 8,701 / 9,028 / 9,279 and
+        # the position is the single most teachable thing in the game.
+        # Measured on one user: 108 missed mates, 84 over this cap, 96
+        # rejected overall, 12 admitted.
+        #
+        # Proven by detect_missed_mate -- the same prover
+        # forced_mate_puzzle_proof uses -- so nothing is admitted on the
+        # size of a number alone.
+        if not _forced_mate_position(fen_before, best_move_san,
+                                     pv_after_best, cp_loss):
+            return False
 
-    # 3. Phase filter — endgame mistakes for low-rated users aren't
-    # the tactical pattern training the system serves.
-    if user_rating < ENDGAME_FILTER_RATING and move_number > END_PHASE_PLY:
-        return False
+    # 3. (removed 2026-10-13) There used to be a phase filter here:
+    #     if user_rating < ENDGAME_FILTER_RATING and
+    #        move_number > END_PHASE_PLY: return False
+    #
+    # It justified itself as "they need pattern training, not endgame
+    # conversion grind", but it never tested for an endgame -- it tested
+    # move_number > 30, which is usually a middlegame with most pieces
+    # still on. And it sat above the two gates that DO judge teaching
+    # value: the forcing test below, and the admission verifier whose
+    # own comment says "admission still decides if it is teachable".
+    #
+    # Measured over 3,001 games: of 7,273 positions that passed every
+    # other gate, 1,351 (18.6%) were rejected by this rule alone, 93 of
+    # them missed MATES. A mate in two at move 40 is the most drillable
+    # thing a 1200 can be given.
+    #
+    # Mohit 2026-10-13: "anything in the game can be taught and should
+    # be taught, so every teaching lesson should be taken."
 
     # 2. Forcing test (cheap): capture / check / mate marker in SAN.
     san = (best_move_san or "").strip()
