@@ -13,7 +13,7 @@
     "when": {
       "phase": "opening",
       "moving_piece_type": {"in": ["knight", "bishop"]},
-      "cp_loss": {"lt": 30}
+      "mover_cp_loss": {"lt": 30}
     }
   },
   "variants": {

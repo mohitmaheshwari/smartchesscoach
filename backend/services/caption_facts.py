@@ -11468,6 +11468,12 @@ def extract_facts(
         "played_move_principle": played_move_principle,
         "best_move_principle": best_move_principle,
         "best_move_why": best_move_why,
+        # How bad was THIS move, for whoever played it. cp_loss
+        # means the USER's loss and is 0 on an opponent card;
+        # caption_pipeline overwrites this with the real mover
+        # loss there. Defaulted here so no caller can hand a rule
+        # trigger a dict that is simply missing the key.
+        "mover_cp_loss": abs(int(cp_loss or 0)),
         "contested_target": contested_target,
         "queen_chased_by_reply": queen_chased_by_reply,
         "queen_chaser_piece": queen_chaser_piece,

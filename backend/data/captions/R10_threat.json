@@ -10,7 +10,7 @@
   "trigger": {
     "when": {
       "max_threat_see_cp": {"gte": 200},
-      "cp_loss": {"lt": 30}
+      "mover_cp_loss": {"lt": 30}
     }
   },
   "variants": {

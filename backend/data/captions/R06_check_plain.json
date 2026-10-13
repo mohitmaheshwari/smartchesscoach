@@ -8,7 +8,7 @@
   "trigger": {
     "when": {
       "is_check": true,
-      "cp_loss": {"lt": 30}
+      "mover_cp_loss": {"lt": 30}
     }
   },
   "variants": {
