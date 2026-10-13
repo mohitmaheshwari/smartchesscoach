@@ -4562,6 +4562,93 @@ _CAUSAL_PERSONAL_CAPTIONS_ENABLED = os.environ.get(
 ) not in ("0", "false", "False", "")
 
 
+# ── A coverage net may not overwrite teaching ────────────────────────
+#
+# The distilled layer runs LAST, after the rule cascade has already chosen
+# a caption, and it replaces the TEXT and the rule_name. Its own docstring
+# calls it a coverage net ("91% coverage"), but measured over 60 games /
+# 3,303 cards with the flag forced both ways (prod runs it ON):
+#
+#   overrides                              2,164 (65.5% of all cards)
+#     filled a card the rules left SILENT       0
+#     overwrote text the rules had written  2,158 (99.7%)
+#     replaced text with an EMPTY caption       6
+#
+# So it never does the job it is named for. Most of the rewording is fine
+# or better for a 600-1500 reader, but 246 cards (11.4% of overrides) lost
+# something the templates structurally cannot carry:
+#
+#   named motif (fork/pin/skewer/...)   lost 87, gained  3
+#   opening name                        lost 96, gained 29
+#   why-clause on the better move       lost 40, gained  3
+#   mate / winning-by-force verdict     lost 18, gained  1
+#
+# The worst single case: a mate card ("Opp is winning by force. Before
+# moving, calculate every enemy check to the end.") became "Raxe3+ takes
+# your knight, but your king can take back - an even trade." The student
+# is being mated and the card tells them material is level.
+#
+# This is a precedence bug, not a quality bug. A fixed-sentence template
+# cannot name THIS fork or THIS opening, so it must abstain when the
+# caption in hand already does, and must never trade text for silence.
+# Mohit's standing rules: never silence a card; explain why the
+# recommended move is good; name the opening where the lesson is the
+# opening.
+_DC_MOTIF_RE = _re_pb.compile(
+    r"\b(fork(?:ing|s|ed)?|pin(?:ning|s|ned)?|skewer(?:ing|s|ed)?|discovered"
+    r"|overload(?:ed|ing)?|trapp?(?:ed|ing))\b", _re_pb.I)
+_DC_MATE_RE = _re_pb.compile(
+    r"\b(mate|mating|winning by force|forced win)\b", _re_pb.I)
+_DC_WHY_RE = _re_pb.compile(
+    r"(was better\s*[—\-,:]\s*\w|better was [^.,]+,\s*(?:since|because)"
+    r"|was better because)", _re_pb.I)
+_DC_OPENING_RE = _re_pb.compile(
+    r"\b([A-Z][a-z']+(?: [A-Z][a-z']+)*) (Opening|Game|Defense|Defence|Attack"
+    r"|Gambit|Variation|System)\b")
+
+
+_DC_SQUARE_RE = _re_pb.compile(r"\b[a-h][1-8]\b")
+
+
+def _distilled_may_replace(existing: str, new: str) -> bool:
+    """False when the distilled text would drop something the caption in
+    hand carries. Structural, not vocabulary: each marker is a thing the
+    templates have no slot for, so losing it is information loss, never a
+    rewording."""
+    existing = (existing or "").strip()
+    new = (new or "").strip()
+    if not existing:
+        return True          # genuine coverage: the rules said nothing
+    if not new:
+        return False         # never trade a caption for silence
+    _markers = (_DC_MOTIF_RE, _DC_MATE_RE, _DC_WHY_RE, _DC_OPENING_RE)
+    for rx in _markers:
+        if rx.search(existing) and not rx.search(new):
+            return False
+    # A square is the cheapest proof that a sentence is about THIS board
+    # rather than any board -- the decided-position gate below already
+    # judges a stripped caption that way. Measured over the same 60 games:
+    # 318 of 1,857 overwrites (17.1%) replaced a caption that named a
+    # square with one that named none, and `distilled:good_was_best` is
+    # the largest stored rule in the corpus (4,422 cards) while saying
+    # only "X is the best move in this position":
+    #
+    #   "Qh5+ -- check, and attacks the pawn on h7 too. You attack h7
+    #    more often than they defend it. That is how a weak pawn falls."
+    #                   became
+    #   "Qh5+ is the best move in this position."
+    #
+    # Exempt a replacement that pays for the square by GAINING one of the
+    # markers above: "Nf6 -- controls d5, e4" -> "Indian Defense setup.
+    # Black delays committing pawns to the centre" is an upgrade, and
+    # blocking it to save a square would cost real teaching.
+    if _DC_SQUARE_RE.search(existing) and not _DC_SQUARE_RE.search(new):
+        if not any(rx.search(new) and not rx.search(existing)
+                   for rx in _markers):
+            return False
+    return True
+
+
 _SALVAGE_SPLIT_RE = _re_pb.compile(r"(?<=[.!?])\s+")
 
 # "X was better — <Capitalised sentence>" is a broken join. The em-dash slot
@@ -8168,6 +8255,9 @@ def build_move_teaching_decision(
                     _dc = None
                 elif _label in _CLAIMS_WE_MISSED and _story != "opportunity":
                     _dc = None
+            if _dc and not _distilled_may_replace(
+                    caption_payload.get("caption") or "", _dc[0] or ""):
+                _dc = None
             if _dc and _dc[0]:
                 caption_payload["caption"] = _dc[0]
                 caption_payload["rule_name"] = _dc[1]

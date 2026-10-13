@@ -53,8 +53,25 @@ async def regen_one(db, game_id: str, user_id: str, *, dry_run: bool) -> dict:
 
     stored_version = analysis.get("decryption_v5_version", 0)
 
+    # game_id is REQUIRED: without it the service skips
+    # authored_caption_overrides for every move and silently drops
+    # hand-authored captions (190 docs over 29 games). It warns about
+    # exactly this, and this script is a production caller -- it
+    # rewrites the stored cards.
+    #
+    # opponent_move_evaluations likewise: 71% of games carry them, and
+    # without them the regenerated game has no opponent cards at all.
     decryption_data = await generate_game_decryption_v5(
-        pgn, user_color, move_evaluations, user_id, db
+        pgn,
+        user_color,
+        move_evaluations,
+        user_id,
+        db,
+        game_id=game_id,
+        opponent_move_evaluations=(
+            (analysis.get("stockfish_analysis") or {})
+            .get("opponent_move_evaluations") or []
+        ),
     )
     if not decryption_data:
         return {"status": "no_output", "prev_version": stored_version}
