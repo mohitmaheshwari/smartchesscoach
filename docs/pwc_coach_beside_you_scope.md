@@ -142,11 +142,44 @@ p90         66
 Bimodal — a mass of very short sessions plus a real tail of full games. Anything
 that needs a 20-move arc serves about a third of sessions.
 
-**The on-demand chat is our least-verified surface.** `generate_response_to_user`
-calls `call_llm`. Free-form LLM answering chess questions, with `position_plan` and
-`personal_context` as context. Every other coaching surface routes through
-`build_move_teaching_decision` and gets per-FEN claim verification. This one does
-not. The new vision promotes it to priority 1.
+**The on-demand chat is the surviving exception to a ruling Mohit already made.**
+This is stronger than "it is unverified", and the distinction matters.
+
+On 2026-05-27 the LLM was deliberately removed from PWC's per-move coaching. The
+comment in `routes/coach_play.py` records it:
+
+> Phase 1.4 LLM polish task REMOVED 2026-05-27 (Mohit: "no LLM in coaching").
+> This was the last live LLM path in PWC — an async task that rewrote the V5
+> teaching block via `llm_caption_generator`. The deterministic V5 draft
+> (`build_move_teaching_decision` output) is the ground truth and the only text
+> shown now.
+
+That holds for the per-move path. It is **not** true of the chat. Verified at
+origin:
+
+```
+POST /coach/play/chat          coach_play.py:1613, 1671
+  -> generate_response_to_user     coach_commentary.py
+     -> from llm_service import call_llm    (inside the function)
+```
+
+So a free-form LLM answers chess questions on request, with `position_plan` and
+`personal_context` as context, while every per-move surface is deterministic and
+verified. The new vision promotes that one path to priority 1. Routing it through
+verified evidence is therefore not a new architectural preference — it is applying
+a decision already taken to the one surface that escaped it.
+
+**PWC does not have the cp_loss side-confusion bug — checked, negative.** Session
+-f8 fixed a real one in review (v210–v211): `facts["cp_loss"]` means the *user's*
+loss and is 0 on opponent cards, which six layers read as "how bad was this move",
+so `R12_blunder` wrote 83.7% of user cards and ~0% of opponent cards and 23
+authored `why_clauses_opp` had never rendered. The fix is `mover_cp_loss`. PWC
+never references `mover_cp_loss`, which looked alarming, but PWC has exactly one
+call into the central layer (`realtime_coaching_feedback.py:1430`) and it passes
+`mover_is_user=True` with a `cp_loss` computed explicitly "from user's
+perspective". The mover is always the user on that path, so mover-loss and
+user-loss are the same number. No bug. Recorded so nobody re-checks it — but any
+future PWC work that captions a coach or opponent move must use `mover_cp_loss`.
 
 **Opening memory works — corrected 2026-10-13.** I first wrote that this was
 broken, because `coach_memory` fed `move_history_san` from `move_evaluations`
@@ -477,7 +510,8 @@ Today: spotting loose pieces before you move.
   position-conditional text; remove banned vocabulary ("fianchetto")
 - Route `POST /coach/play/chat` through verified evidence: it may state a
   position-specific claim only when the claim is proven, and must fall back to a
-  general principle otherwise
+  general principle otherwise. This applies Mohit's existing "no LLM in coaching"
+  ruling (2026-05-27) to the one path that still escapes it — see 0.6
 
 **Part C — new capability**
 
