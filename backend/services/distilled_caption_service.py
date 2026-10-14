@@ -307,7 +307,16 @@ def _mistake_caption(inp, lab):
             ueb = _upov(inp.eval_before_cp, inp.user_color)
             if not (ueb is not None and ueb >= 9000):
                 return None
-            mv0 = pvb[0] if pvb else best
+            # The move that STARTS the mating line is the best move. pvb is
+            # pv_after_best, which begins AFTER that move, so pvb[0] is the
+            # opponent's reply -- the same off-by-one the verifier documents
+            # for pv_after_played. The card named the wrong side's move:
+            # "fxg3 missed a checkmate. Qf7 starts a line that forces mate.
+            # Qxf6+ was better" -- Qf7 is the reply to Qxf6+, so the caption
+            # credited the mate to a move the student never gets to play, and
+            # then recommended a different one in the same breath. Invisible
+            # until v214 stopped softening these cards away.
+            mv0 = best
             # Say the word. Mohit 2026-10-05, on a card where Rc8# was mate in
             # one: "It is missed mate not missed skewer... this is a proper
             # mating pattern". The card named Rc8# and called it "far

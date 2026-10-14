@@ -73,6 +73,28 @@ BARE_CARD = dict(
 )
 
 
+# Both fixtures below are forced-mate positions (verified on the board:
+# 737b6fd6 m20 Rd8 runs into Rxc7#, e8d2cf8a m31 d3 runs into Rh5+ Kg8
+# Rh8#). Before v214 the mate card was softened away by a verifier that
+# asked "is the RECOMMENDED move mate?", so both fell through to this
+# backstop -- which is what every assertion below was written against.
+# With the distilled layer on (prod) they now ship the true, more
+# specific mate card instead, covered by TestAForcedMateIsFramedAsOne at
+# the end of this file.
+#
+# So pin the layer OFF for the backstop tests, rather than re-dumping
+# both fixtures and rewriting every assertion around them. These tests
+# are about the backstop; the mate card has its own class.
+@pytest.fixture(autouse=True)
+def _distilled_off():
+    prev = caption_pipeline._DISTILLED_CAPTIONS_ENABLED
+    caption_pipeline._DISTILLED_CAPTIONS_ENABLED = False
+    try:
+        yield
+    finally:
+        caption_pipeline._DISTILLED_CAPTIONS_ENABLED = prev
+
+
 def _decide(card=None, **over):
     return build_move_teaching_decision(
         MoveInputs(**{**(card or WHY_CARD), **over}), CrossMoveState())
@@ -261,3 +283,37 @@ class TestItSurvivesJunk:
         import dataclasses
         field = {f.name: f for f in dataclasses.fields(MoveInputs)}["cp_loss"]
         assert field.type in ("int", int)
+
+
+class TestAForcedMateIsFramedAsOne:
+    """v214. Both fixtures in this file are positions where the opponent
+    forces mate. The verifier used to reject the mate card by asking
+    whether the RECOMMENDED move is mate -- it never is -- so the card
+    fell to the backstop above. With the distilled layer on, as it is on
+    prod, the mate card now ships: it names the better move AND says why,
+    which is strictly more than the backstop could say."""
+
+    @pytest.fixture(autouse=True)
+    def _distilled_on(self):
+        prev = caption_pipeline._DISTILLED_CAPTIONS_ENABLED
+        caption_pipeline._DISTILLED_CAPTIONS_ENABLED = True
+        try:
+            yield
+        finally:
+            caption_pipeline._DISTILLED_CAPTIONS_ENABLED = prev
+
+    def test_the_why_fixture_names_the_mate_and_the_move(self):
+        cap = _decide(WHY_CARD).text.caption
+        assert "Be6" in cap, cap
+        assert "force mate" in cap, cap
+
+    def test_the_bare_fixture_names_the_mate_and_the_move(self):
+        cap = _decide(BARE_CARD).text.caption
+        assert "Rd7" in cap, cap
+        assert "force mate" in cap, cap
+
+    def test_the_mate_is_credited_to_the_opponent_not_to_us(self):
+        for card in (WHY_CARD, BARE_CARD):
+            cap = _decide(card).text.caption.lower()
+            assert "your opponent" in cap, cap
+            assert "you force mate" not in cap, cap
