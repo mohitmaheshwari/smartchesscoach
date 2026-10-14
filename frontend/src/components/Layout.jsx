@@ -26,7 +26,8 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
-  Flag
+  Flag,
+  Target,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { API } from "@/App";
@@ -171,10 +172,9 @@ const Layout = ({ children, user, fullBleed = false }) => {
 
   const navigation = [
     { name: 'Home', href: '/home', icon: Home },
-    { name: 'Learn', href: personalCurriculumEnabled ? '/learn' : '/lab', icon: BookOpen },
-    ...(personalCurriculumEnabled
-      ? [{ name: 'Game Review', href: CURRICULUM_ROUTES.gameReview, icon: FlaskConical }]
-      : []),
+    { name: 'Learn', href: '/learn', icon: BookOpen },
+    { name: 'Game Review', href: '/games', icon: FlaskConical },
+    { name: 'Pattern Training', href: '/training/prescribed', icon: Target },
     { name: 'Progress', href: '/progress', icon: TrendingUp },
   ];
 
@@ -184,24 +184,32 @@ const Layout = ({ children, user, fullBleed = false }) => {
   const isAdmin =
     (user?.role === 'super_admin' || user?.role === 'admin')
     && ADMIN_EMAILS.has((user?.email || '').trim().toLowerCase());
-  const isActive = (href) => location.pathname === href ||
-    (href === '/learn' && [
-      '/training',
-      '/openings',
-      '/openings-overview',
-      '/endgames',
-      '/coach',
-      '/focus',
-    ].some((prefix) => location.pathname.startsWith(prefix))) ||
-    (href === '/lab' && location.pathname.startsWith('/game/')) ||
-    (href === '/lab' && location.pathname.startsWith('/lab/')) ||
-    (href === CURRICULUM_ROUTES.gameReview && [
-      '/game/',
-      '/lab/game/',
-      '/replay/',
-    ].some((prefix) => location.pathname.startsWith(prefix))) ||
-    (href === '/admin' && location.pathname.startsWith('/admin')) ||
-    (href === '/review' && location.pathname.startsWith('/review'));
+  const isActive = (href) => {
+    if (location.pathname === href) return true;
+    if (href === '/learn') {
+      return (
+        location.pathname === '/learn' ||
+        location.pathname === '/lab' ||
+        ['/openings', '/openings-overview', '/endgames', '/coach', '/focus'].some(
+          (prefix) => location.pathname.startsWith(prefix)
+        )
+      );
+    }
+    if (href === '/games') {
+      return (
+        location.pathname === '/games' ||
+        location.pathname.startsWith('/game/') ||
+        location.pathname.startsWith('/lab/game/') ||
+        location.pathname.startsWith('/replay/')
+      );
+    }
+    if (href === '/training/prescribed') {
+      return location.pathname.startsWith('/training');
+    }
+    if (href === '/admin') return location.pathname.startsWith('/admin');
+    if (href === '/review') return location.pathname.startsWith('/review');
+    return false;
+  };
 
   const isReviewer = !!user?.is_reviewer;
 

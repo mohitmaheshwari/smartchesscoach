@@ -1449,14 +1449,6 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             <ChevronsRight className="w-4 h-4" />
           </Button>
         </div>}
-
-        {!hasPersonalizedReview && (
-          <MoveListV5
-            decryptionData={decryptionData}
-            currentMoveIndex={currentMoveIndex}
-            onMoveClick={goToMove}
-          />
-        )}
       </div>
 
       {/* RIGHT: Coaching */}
@@ -1882,6 +1874,16 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
         <div className="text-xs text-gray-400 text-center">
           Arrow keys: left/right navigate • Click moves in explanation to see on board
         </div>
+
+        {!hasPersonalizedReview && (
+          <div className="mt-3">
+            <MoveListV5
+              decryptionData={decryptionData}
+              currentMoveIndex={currentMoveIndex}
+              onMoveClick={goToMove}
+            />
+          </div>
+        )}
       </div>
     </div>
     </>
@@ -3281,8 +3283,19 @@ const FeedbackPanel = ({ move, ruleName, feedbackText, setFeedbackText, onSubmit
 // ─── MOVE LIST V5 ───────────────────────────────────────────────────
 
 const MoveListV5 = ({ decryptionData, currentMoveIndex, onMoveClick }) => {
+  const activeMoveRef = useRef(null);
+
+  useEffect(() => {
+    if (activeMoveRef.current) {
+      activeMoveRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [currentMoveIndex]);
+
   if (!decryptionData?.length) return null;
-  
+
   const pairs = [];
   for (let i = 0; i < decryptionData.length; i += 2) {
     pairs.push({
@@ -3294,51 +3307,105 @@ const MoveListV5 = ({ decryptionData, currentMoveIndex, onMoveClick }) => {
     });
   }
   
-  const moveClass = (m, idx) => {
-    if (currentMoveIndex === idx) return 'bg-emerald-500/30 text-gray-900 ring-1 ring-emerald-500/50';
-    
+  const getMoveStyles = (m, idx) => {
+    const isActive = currentMoveIndex === idx;
     const severity = m.severity || 'good';
-    if (severity === 'blunder') return 'text-red-400 bg-red-500/10 hover:bg-red-500/20';
-    if (severity === 'mistake') return 'text-red-400 hover:bg-red-500/10';
-    if (severity === 'inaccuracy') return 'text-orange-400 hover:bg-orange-500/10';
-    if (m.is_best_move) return 'text-emerald-400 hover:bg-emerald-500/10';
-    if (!m.is_user_move) return 'text-gray-500 hover:bg-gray-100';
-    return 'text-gray-600 hover:bg-gray-100';
+
+    if (isActive) {
+      return 'bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.25)]';
+    }
+
+    if (severity === 'blunder') {
+      return 'text-rose-400 hover:bg-rose-500/15 hover:text-rose-300';
+    }
+    if (severity === 'mistake') {
+      return 'text-amber-400 hover:bg-amber-500/15 hover:text-amber-300';
+    }
+    if (severity === 'inaccuracy') {
+      return 'text-yellow-400/90 hover:bg-yellow-500/15 hover:text-yellow-300';
+    }
+    if (m.is_best_move) {
+      return 'text-emerald-400 hover:bg-emerald-500/15 hover:text-emerald-300';
+    }
+
+    return 'text-zinc-300 hover:bg-white/10 hover:text-white';
   };
-  
-  const indicator = (m) => {
+
+  const getGlyphBadge = (m) => {
     const severity = m.severity || 'good';
-    if (severity === 'blunder') return <span className="text-red-400 ml-0.5">??</span>;
-    if (severity === 'mistake') return <span className="text-red-400 ml-0.5">?</span>;
-    if (severity === 'inaccuracy') return <span className="text-orange-400 ml-0.5">?!</span>;
-    if (m.is_best_move) return <span className="text-emerald-400 ml-0.5">!</span>;
+    if (severity === 'blunder') return <span className="ml-1 text-[10px] font-bold text-rose-400">??</span>;
+    if (severity === 'mistake') return <span className="ml-1 text-[10px] font-bold text-amber-400">?</span>;
+    if (severity === 'inaccuracy') return <span className="ml-1 text-[10px] font-bold text-yellow-400">?!</span>;
+    if (m.is_best_move) return <span className="ml-1 text-[10px] font-bold text-emerald-400">!</span>;
     return null;
   };
 
   return (
-    <ScrollArea className="h-[180px] rounded-lg border border-gray-200 bg-gray-50">
-      <div className="p-2 space-y-1">
-        {pairs.map(p => (
-          <div key={p.num} className="flex items-center gap-1 text-sm">
-            <span className="w-8 text-gray-500 text-right shrink-0">{p.num}.</span>
-            <button 
-              onClick={() => onMoveClick(p.wi)} 
-              className={`px-2 py-0.5 rounded font-mono transition-colors ${moveClass(p.w, p.wi)}`}
-            >
-              {p.w.move_san}{indicator(p.w)}
-            </button>
-            {p.b && (
-              <button 
-                onClick={() => onMoveClick(p.bi)} 
-                className={`px-2 py-0.5 rounded font-mono transition-colors ${moveClass(p.b, p.bi)}`}
-              >
-                {p.b.move_san}{indicator(p.b)}
-              </button>
-            )}
-          </div>
-        ))}
+    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/70 shadow-xl backdrop-blur-md overflow-hidden">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-3.5 py-2 border-b border-zinc-800/60 bg-zinc-900/40 text-[11px] font-semibold text-zinc-400 tracking-wider uppercase">
+        <span className="w-10 text-center text-zinc-500">Move</span>
+        <span className="flex-1 px-3">White</span>
+        <span className="flex-1 px-3">Black</span>
       </div>
-    </ScrollArea>
+
+      {/* Move list table */}
+      <ScrollArea className="h-[240px] px-1 py-1.5">
+        <div className="space-y-0.5">
+          {pairs.map((p, pIdx) => {
+            const isWhiteActive = currentMoveIndex === p.wi;
+            const isBlackActive = currentMoveIndex === p.bi;
+            const isRowHighlighted = isWhiteActive || isBlackActive;
+
+            return (
+              <div 
+                key={p.num} 
+                className={`flex items-center text-[13px] rounded-lg transition-colors ${
+                  isRowHighlighted 
+                    ? 'bg-zinc-800/50' 
+                    : pIdx % 2 === 0 
+                    ? 'bg-zinc-900/20' 
+                    : 'bg-transparent'
+                }`}
+              >
+                {/* Move Number */}
+                <span className="w-10 text-center font-mono text-[11px] text-zinc-500 select-none py-1.5 shrink-0">
+                  {p.num}.
+                </span>
+
+                {/* White Move */}
+                <div className="flex-1 px-1">
+                  <button 
+                    ref={isWhiteActive ? activeMoveRef : null}
+                    onClick={() => onMoveClick(p.wi)} 
+                    className={`w-full text-left px-2.5 py-1 rounded-md font-mono transition-all flex items-center justify-between group ${getMoveStyles(p.w, p.wi)}`}
+                  >
+                    <span>{p.w.move_san}</span>
+                    {getGlyphBadge(p.w)}
+                  </button>
+                </div>
+
+                {/* Black Move */}
+                <div className="flex-1 px-1">
+                  {p.b ? (
+                    <button 
+                      ref={isBlackActive ? activeMoveRef : null}
+                      onClick={() => onMoveClick(p.bi)} 
+                      className={`w-full text-left px-2.5 py-1 rounded-md font-mono transition-all flex items-center justify-between group ${getMoveStyles(p.b, p.bi)}`}
+                    >
+                      <span>{p.b.move_san}</span>
+                      {getGlyphBadge(p.b)}
+                    </button>
+                  ) : (
+                    <span className="inline-block px-2.5 py-1 text-zinc-600 font-mono text-xs">—</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    </div>
   );
 };
 

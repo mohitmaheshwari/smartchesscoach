@@ -20,6 +20,7 @@ import CanonicalTrainingAssignment from "@/components/training/CanonicalTraining
 import PICPieceSafetyLesson from "@/components/training/PICPieceSafetyLesson";
 import PersonalizedLessonWorkspace from "@/components/training/PersonalizedLessonWorkspace";
 import TimeProfilePanel from "@/components/training/TimeProfilePanel";
+import Layout from "@/components/Layout";
 import useMoveCaption from "@/hooks/useMoveCaption";
 import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 import { Chess } from "chess.js";
@@ -686,15 +687,17 @@ export default function PrescribedTraining({ user = null }) {
   
   if (error || !trainingData) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
-          <p className="text-red-500">{error || "No training data available"}</p>
-          <Button onClick={() => navigate("/home")} className="mt-4">
-            Go Home
-          </Button>
+      <Layout user={user}>
+        <div className="min-h-[60vh] bg-background flex items-center justify-center">
+          <div className="text-center">
+            <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-4" />
+            <p className="text-red-500">{error || "No training data available"}</p>
+            <Button onClick={() => navigate("/home")} className="mt-4">
+              Go Home
+            </Button>
+          </div>
         </div>
-      </div>
+      </Layout>
     );
   }
   
@@ -781,8 +784,9 @@ export default function PrescribedTraining({ user = null }) {
   })();
 
   return (
-    <div className="experience-page experience-training-page min-h-screen bg-background text-foreground" data-testid="prescribed-training">
-      <div className="cg-page cg-page--wide">
+    <Layout user={user}>
+      <div className="experience-page experience-training-page min-h-screen bg-background text-foreground" data-testid="prescribed-training">
+        <div className="cg-page cg-page--wide">
 
         {/* Back nav — subtle. navigate(-1) is a no-op when this page was
             reached with no prior in-app history (direct link, refresh, or
@@ -1092,7 +1096,8 @@ export default function PrescribedTraining({ user = null }) {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </Layout>
   );
 }
 

@@ -119,9 +119,14 @@ const AllGames = ({ user }) => {
 
   const coaching = data?.coaching;
   const groupedGames = coaching?.grouped_games || {};
-  const allGamesRaw = coaching?.all_games?.length
+  const coachingGames = coaching?.all_games?.length
     ? coaching.all_games
     : Object.values(groupedGames).flatMap(g => g.games || []);
+
+  // Backend /api/lab-coach-pick returns games directly in `data.games`
+  const allGamesRaw = data?.games?.length
+    ? data.games
+    : coachingGames;
 
   const seen = new Set();
   const uniqueGames = allGamesRaw.filter(g => {
@@ -131,8 +136,8 @@ const AllGames = ({ user }) => {
   });
 
   const sortByDate = (a, b) => {
-    const da = new Date(a.analyzed_at || a.created_at || a.date || 0).getTime();
-    const db = new Date(b.analyzed_at || b.created_at || b.date || 0).getTime();
+    const da = new Date(a.played_at || a.analyzed_at || a.created_at || a.date || 0).getTime();
+    const db = new Date(b.played_at || b.analyzed_at || b.created_at || b.date || 0).getTime();
     return db - da;
   };
 

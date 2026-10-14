@@ -58,33 +58,33 @@ h1, h2, h3, h4, h5, h6 {
    Scoped to Layout's rollout class. Existing pages remain untouched when
    REACT_APP_FRONTEND_EXPERIENCE_V1_ENABLED is false. */
 .experience-v1 {
-  --background: 42 33% 97%;
-  --foreground: 222 36% 12%;
-  --card: 42 38% 99%;
-  --card-foreground: 222 36% 12%;
-  --popover: 42 38% 99%;
-  --popover-foreground: 222 36% 12%;
-  --primary: 38 92% 50%;
-  --primary-foreground: 224 32% 8%;
-  --secondary: 42 22% 92%;
-  --secondary-foreground: 222 30% 16%;
-  --muted: 42 20% 92%;
-  --muted-foreground: 218 11% 42%;
-  --accent: 174 58% 38%;
+  --background: 210 24% 97%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 199 89% 48%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 93%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 20% 93%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 199 89% 48%;
   --accent-foreground: 0 0% 100%;
-  --border: 38 18% 84%;
-  --input: 38 18% 84%;
-  --ring: 38 92% 50%;
+  --border: 214 20% 88%;
+  --input: 214 20% 88%;
+  --ring: 199 89% 48%;
   --success: 154 57% 38%;
   --warning: 38 92% 50%;
   --critical: 356 63% 56%;
-  --experience-ink: 224 32% 8%;
-  --experience-teal: 174 58% 38%;
+  --experience-ink: 222 47% 11%;
+  --experience-teal: 199 89% 48%;
   --experience-rose: 356 63% 56%;
-  --experience-shadow: 222 35% 9%;
+  --experience-shadow: 222 40% 10%;
   color: hsl(var(--foreground));
   background:
-    radial-gradient(circle at 82% -10%, hsl(var(--primary) / 0.11), transparent 30rem),
+    radial-gradient(circle at 82% -10%, hsl(var(--primary) / 0.05), transparent 30rem),
     hsl(var(--background));
 }
 
@@ -1100,38 +1100,35 @@ h1, h2, h3, h4, h5, h6 {
    through the authenticated product. Functionality stays page-owned;
    these are the shared relationship and hierarchy primitives. */
 .experience-v1 {
-  --background: 42 41% 96%;
-  --foreground: 157 48% 6%;
-  --card: 42 48% 99%;
-  --card-foreground: 157 48% 6%;
-  --popover: 42 48% 99%;
-  --popover-foreground: 157 48% 6%;
-  /* 2026-09-23: was acid lime 82 87% 62%. This is the app's real accent
-     token - it is redefined here, later than the amber at the top of the
-     file, so this one wins. Now our green, matching --cg-accent. */
-  --primary: 101 31% 55%;
-  --primary-foreground: 157 48% 6%;
-  --secondary: 39 30% 91%;
-  --secondary-foreground: 157 38% 12%;
-  --muted: 40 26% 91%;
-  --muted-foreground: 159 14% 35%;
-  --accent: 158 65% 70%;
-  --accent-foreground: 158 58% 15%;
-  --border: 42 20% 82%;
-  --input: 42 20% 82%;
-  --ring: 101 31% 55%;   /* was lime; focus ring follows the accent */
-  --success: 158 56% 39%;
-  --warning: 38 92% 54%;
-  --critical: 10 100% 70%;
-  --experience-ink: 157 48% 6%;
-  --experience-teal: 158 56% 39%;
-  --experience-rose: 10 100% 70%;
-  --experience-shadow: 157 46% 6%;
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 199 89% 48%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 94%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 20% 94%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 199 89% 48%;
+  --accent-foreground: 0 0% 100%;
+  --border: 214 20% 90%;
+  --input: 214 20% 90%;
+  --ring: 199 89% 48%;
+  --success: 154 57% 38%;
+  --warning: 38 92% 50%;
+  --critical: 356 63% 56%;
+  --experience-ink: 222 47% 11%;
+  --experience-teal: 199 89% 48%;
+  --experience-rose: 356 63% 56%;
+  --experience-shadow: 222 40% 10%;
   color: hsl(var(--foreground));
   background:
-    radial-gradient(circle at 92% -5%, rgb(var(--cg-accent-rgb) / 0.16), transparent 30rem),
-    radial-gradient(circle at 14% 102%, rgb(126 231 194 / 0.12), transparent 28rem),
-    #f4efe4;
+    radial-gradient(circle at 92% -5%, rgb(var(--cg-accent-rgb) / 0.08), transparent 30rem),
+    radial-gradient(circle at 14% 102%, rgba(56, 189, 248, 0.05), transparent 28rem),
+    #f8fafc;
 }
 
 /* Dark — the coaching room.
