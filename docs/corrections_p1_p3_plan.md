@@ -7,25 +7,43 @@ analysed, 128 users, 630,695 move observations).
 Companion to [player_understanding_measurement_map.md](player_understanding_measurement_map.md),
 which is where these three priorities come from.
 
+**Revision 2, 2026-10-14** — resolves the four issues raised on revision 1.
+Three turned out worse than revision 1 said, and one of them stops a piece of
+this work shipping. See §6. All figures below are revision-2 figures.
+
+All measurements here were taken against **live production** through the SSH
+tunnel on local port 27018 (verified: `ssh.exe` to `72.60.204.176`, server
+`8a18e4f5fa93`, `chess_coach`, 20,297 games). Every probe was read-only. The
+one exception, the restore test in §4.1, wrote only a throwaway database and
+then removed it.
+
 ---
 
 ## 0. Four things the measurement changed about the plan
 
 Read this first; each one altered a design decision.
 
-1. **The CCT defect is bigger than I said and reaches nobody.** 78.5% of
-   register verdicts change, not 56.2%. But `decision_register` is read by no
-   service other than its own writer, `cct_held_initiative` has no frontend
-   reference, and `coaching_takeaway` — the one string the corruption can
-   produce — is read by nothing at all. All three observation readers in
-   `routes/` use narrow explicit projections that exclude these fields. **No
-   tester has ever seen output from this defect.** It is a prerequisite to
-   build on, not a live harm, and it needs no user communication.
+1. **The CCT defect is bigger than I said, and "reaches nobody" was wrong.**
+   78.5% of register verdicts change, not 56.2%. Revision 1 then claimed the
+   defect reached no player. That held for `decision_register` (read only by
+   its own writer) and for `coaching_takeaway` (read by nothing), but **not for
+   `cct_held_initiative`**, and I had checked only for a frontend reference to
+   the field name rather than tracing the strings derived from it.
 
-2. **`move_evaluations` has two shapes, not one.** 254 of 300 games are
-   user-moves-only; 43 are ply-indexed; 2 are neither. The current code is
-   *correct* for the ply-indexed 15%. A blind recompute would break those, so
-   the shape must be detected per game.
+   It does reach players. `game_mirror._cct_discipline_line` turns it into
+   *"You kept the attack going after a miss in N different moments across these
+   N games — real CCT discipline."* That line is appended to the mirror `story`
+   at `game_mirror.py:998`, returned by `/coach/mirror-session` and
+   `/home/dashboard-v2`, and rendered in `HomePageNew.jsx`. **37 users meet its
+   exact gate today.** So there *is* a tester-facing conclusion built on the
+   defect — see §4.3.
+
+2. **`move_evaluations` has two shapes, not one.** Census over 1,000 games,
+   every game in exactly one bucket: **948 user-moves-only (affected), 50
+   ply-indexed, 2 matching neither shape — sum 1,000.** So **94.8% affected**,
+   not the 85% revision 1 reported from a 300-game sample. The current code is
+   *correct* for the 5% that are ply-indexed, so the shape must be detected per
+   game; a blind recompute would break those 50.
 
 3. **The date problem is 20 fields across 9 collections, not 3.** And the
    worst case is one I had not named: `user_active_focus` stores five fields
@@ -55,7 +73,7 @@ twice.
 ```python
 # backend/analysis_worker.py ~1308 — INPUT side
 best_san_by_ply = []
-for me in move_evaluations:            # user-only in 85% of games
+for me in move_evaluations:            # user-only in 94.8% of games
     best_san_by_ply.append(me.get("best_move_san") or me.get("best_move"))
 
 # ~1322 — MERGE-BACK side
@@ -91,7 +109,9 @@ work unnecessary. That is the negative control the first claim lacked.
 | `game_analyses.…move_evaluations.cct_*` | 287,718 of 634,290 have `cct_forcing` present (45.4%) | 7 fields per row |
 | `game_analyses.cct_held_initiative` | 17,766 games | derived from the same tags |
 | `move_observations.decision_register` | 224,963 (35.7%) | exactly equals `cct_had_forcing_options` True — confirms the gate |
-| `move_observations.coaching_takeaway` containing "wrong register" | 34,274 (5.43%), 57 users | the only player-reachable string |
+| `move_observations.coaching_takeaway` containing "wrong register" | 34,274 (5.43%), 57 users | written, read by nothing |
+| `game_analyses.cct_held_initiative.count > 0` | 435 games, 45 users | **feeds a rendered coaching sentence** |
+| `game_analyses.cct.cct_decisions > 0` | 13,640 games | gates that sentence (needs ≥2 per window) |
 
 Current stored distribution of `decision_register`:
 quiet_when_best_was_quiet 105,414 · wrong_register 102,795 ·
@@ -114,13 +134,16 @@ CCT flags were untrustworthy. So `/progress/area-grades`, which reads
 | `cct_creates_threat` | `data_freshness.py`, `analysis_worker.py` |
 | `cct_played_forcing_when_best_was_forcing` | `analysis_worker.py` only |
 | `decision_register` | `move_observation_deriver.py` (its own writer) only |
-| `cct_held_initiative` | `coaching_library.py`, `game_mirror.py`, `routes/coach.py` |
+| `cct_held_initiative` | `coaching_library.py`, `game_mirror.py`, `routes/coach.py` — **player-facing, see §4.3** |
 | `cct_aggregate` | `cct_detector.py`, `cct_voice.py`, `analysis_worker.py` |
 
 ### 1.5 Dry-run result, 150 games
 
-Already run; writes nothing. Shapes detected: user-only 107, ply-indexed 43,
-unknown 2 (skipped). 3,869 user moves compared.
+Already run; writes nothing. 152 games were read, of which 2 matched neither
+shape and were skipped, leaving **150 recomputed: 107 user-only + 43
+ply-indexed**. 3,869 user moves compared. (Revision 1 printed these 43 beside
+the separate 1,000-game census, which found 50 — two different samples, and
+conflating them was the accounting error.)
 
 | `decision_register` | Stored | Corrected |
 |---|---|---|
@@ -149,6 +172,15 @@ real fix should move it — misalignment manufactures mismatch.
 3. Stamp `cct_alignment_version: 2` on the analysis document whenever tags are
    written. This is what makes the backfill resumable and the rollback
    selective. No existing document has it, so absence means version 1.
+4. **Suppress `game_mirror._cct_discipline_line` for the duration.** It is the
+   one player-facing claim built on the defect (§4.3), and it praises. Returning
+   `""` from it is a one-line change that removes a sentence from the mirror
+   story and touches nothing else. It comes back only after acceptance tests 10
+   and 12.
+5. **Drop the "wrong register" string**, per your decision. `_coaching_takeaway`
+   stops emitting it, and the backfill unsets it on the 34,274 rows that carry
+   it. It describes a mismatch without telling the player what to do, and
+   nothing reads it.
 
 **Backfill (after the code is deployed and verified — never before).**
 
@@ -204,6 +236,9 @@ throughout; only the `cct_*` interpretation layer on top of them is rewritten.
 | 7 | Non-CCT fields on backfilled rows | `missed_pattern`, `execution_quality`, `phase`, `cp_loss` unchanged on every touched row |
 | 8 | Corpus fingerprint, 400 games | only CCT-derived rows differ; diffed per row, not in aggregate |
 | 9 | No artificial events | counts of `user_concept_understanding`, `puzzle_attempts`, `learning_sessions`, `user_active_focus`, `focus_history` identical before and after |
+| 10 | Held-initiative base rate, recomputed | the corrected firing rate is measured over ≥1,000 games and reviewed before `_cct_discipline_line` is re-enabled. If it fires on nearly every game it is a constant, not a strength, and the sentence is retired rather than shipped |
+| 11 | Mirror story, line suppressed | `/coach/mirror-session` for the 37 affected users returns a `story` identical to today minus the CCT sentence, and nothing else |
+| 12 | Mirror story, line restored | after test 10 passes, the sentence reappears only for users whose recomputed count still clears the gate, and the count it quotes equals the recomputed value |
 
 ---
 
@@ -247,10 +282,17 @@ store **naive** datetimes, which compare fine inside Mongo but raise
 Converting all 20 is more risk than value. Convert the fields that gate a
 retention or progress read:
 
-- **In scope (Phase A):** all five mixed `user_active_focus` fields plus
-  `superseded_at`; all five `user_concept_understanding` fields;
-  `puzzle_attempts.created_at`; both `focus_history` fields;
-  `user_opening_progress.last_practiced_at`. That is 13 fields, ~24,000 values.
+- **In scope (Phase A): 15 fields, 5 collections, 23,377 values.** Revision 1
+  said 13, miscounting its own list. Itemised so it reconciles:
+
+  | Collection | Fields (with row counts) | Fields | Values |
+  |---|---|---|---|
+  | `user_active_focus` | `started_at` 301, `locked_until` 301, `updated_at` 340, `created_at` 339, `closed_at` 73, `superseded_at` 46 | 6 | 1,400 |
+  | `user_concept_understanding` | `created_at` 5,074, `updated_at` 5,074, `last_clean_game_at` 1,668, `mastered_at` 1,037, `mastery_stripped_at` 251 | 5 | 13,104 |
+  | `user_opening_progress` | `last_practiced_at` 8,177 | 1 | 8,177 |
+  | `puzzle_attempts` | `created_at` 572 | 1 | 572 |
+  | `focus_history` | `started_at` 62, `graduated_at` 62 | 2 | 124 |
+  | **Total** | | **15** | **23,377** |
 - **Deferred:** `thinking_scores.calculated_at` (19,508) — `thinking_scores` is
   on the do-not-build list, so converting it buys nothing;
   `coaching_summaries.generated_at`; `focus_outcome_shadow.observed_on` (a
@@ -349,18 +391,43 @@ stages, five are diagnoses about *us* — the file's own `MEANS` map calls them
 re-engagement, a wrong ask, a wrong diagnosis. Those go to the internal record
 only (§4.2) and are never rendered.
 
-Exactly one stage is a fact about the player: `practised_and_moved`. That
-surfaces as a line inside the **existing** post-game reflection card, saying in
-plain words that the habit we named has got better, with no numbers. One
-additional line in a card that already renders the focus — not a new card, per
-the small-N rule that additive surfaces cost more than they return.
+Exactly one stage is a fact about the player: `practised_and_moved`. You asked
+that it be shown only when sufficient, valid evidence supports the specific
+improvement claim. I measured the evidence behind all 41 current cases, and
+**it does not meet that bar. The player-facing line cannot ship in this piece
+of work.**
 
-Open decision, flagged rather than assumed: I have confirmed
-`PostGameReflection.jsx` and `SessionReflectionCard.jsx` render the active
-focus, but not yet which endpoint feeds them. That is a ten-minute trace and
-the plan should not guess at it. **If you would rather the player-facing half
-wait entirely and only the internal record ship now, say so** — the
-measurement is the valuable part and it stands alone.
+Distribution across the 41 cases, looked at before choosing any threshold:
+
+| | min | p25 | median | p75 | max |
+|---|---|---|---|---|---|
+| improvement in the pattern's rate | −66.5% | −40.7% | −18.0% | −12.3% | −10.5% |
+| games since the focus started | 4 | 14 | 52 | 257 | **1,588** |
+| **practice events** | **1** | **1** | **1** | **1** | **2** |
+
+Two independent reasons that is not enough:
+
+- **40 of the 41 rest on a single practice event.** Requiring two drops it to
+  1 of 41; requiring three drops it to 0. "You practised this and it improved"
+  cannot be said honestly off one puzzle, and attributing the change to our
+  coaching off one event is the causal claim we have no basis for. Note the
+  practice count is also understated until Phase A1 lands (§2.3) — so this
+  number should be **re-measured after Phase A**, and the gate chosen then,
+  from the corrected distribution.
+- **The comparison window is unbounded.** `evaluate_landing` splits *all*
+  analysed games before the focus start against *all* games after, so
+  `games_since` reaches 1,588: for those players the "after" period is most of
+  their career and the delta says nothing about the focus. This is a real
+  defect in the service, not a display problem. A bounded window (the N games
+  either side of the start) is needed before any delta is trustworthy.
+
+**So Phase 3 ships the measurement only.** All six stages go to the internal
+record; nothing is rendered; `COACHING_LANDED_RENDER_ENABLED` stays off and
+unused. The display returns as its own scoped piece of work once (a) Phase A
+has corrected the practice counts, (b) the window is bounded, and (c) the
+re-measured distribution shows cases that clear a gate chosen from it. That
+also settles the open question from revision 1 about which endpoint feeds the
+post-game card: it is not needed yet.
 
 ### 3.4 Rollback
 
@@ -390,20 +457,44 @@ measurement, which is the mistake the shadow loop made in September.
 
 ### 4.1 Snapshots — verified feasible
 
-`mongodump` and `mongorestore` are both present in `chess-coach-mongodb`, and
-`/data/db` has 849G free of 1,007G. Memory says the runbook has no backup
-commands and there is no `/backup` mount; dumping inside the existing `/data/db`
-volume resolves that without new infrastructure.
+**Tested on production, 2026-10-14, as you asked.** Dumped
+`chess_coach.focus_history` gzipped inside the mongo container, restored it
+into a throwaway namespace, compared every document, dropped the throwaway and
+removed the dump:
 
-Before each phase, dump only the collections that phase writes, to
-`/data/db/_snapshots/<phase>_<utc>/`, then `docker cp` the directory out so the
-copy does not depend on the container. Phase 1 covers `game_analyses` and
-`move_observations`; Phase A covers the 5 collections in §2.2's in-scope list;
-Phase 3 needs none, as it only creates a new collection.
+```
+prod docs     : 62      restored docs : 62      counts match  : true
+docs compared : 62      byte-identical: true (mismatches: 0)
+throwaway dropped       removed /tmp/snap_20261014T150516Z
+```
 
-Each snapshot is verified by restoring it into a throwaway database and
-comparing document counts before the phase is allowed to proceed. An unverified
-snapshot is not a rollback plan.
+So the mechanism is proven, not assumed. Two corrections to revision 1's
+assumptions about where it runs:
+
+- **The dump must run on the server, not through the tunnel.** `mongodump` and
+  `mongorestore` live in `chess-coach-mongodb` on `72.60.204.176`; the host
+  disk is 193G with **93G free**. Revision 1 quoted "849G free of 1,007G",
+  which is a *local* volume and irrelevant — the data is on the server.
+- **Sizes, measured:** `game_analyses` 19,575 docs / 4,891 MB and
+  `move_observations` 630,695 docs / 1,498 MB, so Phase 1's full dump is
+  ~6.4 GB uncompressed. Phase A's five collections total ~6 MB.
+
+Because 6.4 GB is a big dump to take for a change that touches a handful of
+fields, the primary rollback for Phase 1 is a **targeted field-level
+snapshot**: the old value of every field the backfill changes, written to
+`interpretation_corrections` (§4.2) as it goes. That restores exactly what
+changed, needs no 6.4 GB, and is the same record the audit requires. The full
+gzipped dump is taken as well, once, as the disaster fallback — not as the
+routine path.
+
+Every snapshot is verified by restore-and-compare, as above, before its phase
+is allowed to proceed. An unverified snapshot is not a rollback plan.
+
+**Housekeeping, needs your say-so:** the server still holds
+`chess_coach_restoretest_20260911T034109Z`, **1,907.8 MB** — 57% the size of
+`chess_coach` itself (3,342.7 MB) — left over from a restore test on
+2026-09-11 that was never dropped. I have not touched it. Shall I drop it?
+Dropping a database on production is not something I will do unprompted.
 
 ### 4.2 The internal record of corrected interpretations
 
@@ -418,11 +509,29 @@ ever — it is a record for us.
 
 Measured, not assumed:
 
-- **CCT / `decision_register`: nothing to flag.** `coaching_takeaway` is
-  written and read by nothing; `decision_register` is read only by its own
-  writer; `cct_held_initiative` has no frontend reference; all three `routes/`
-  readers of `move_observations` use narrow projections that exclude these
-  fields. No tester has seen a conclusion derived from the defect.
+- **One conclusion HAS been presented to testers, and revision 1 missed it.**
+  `cct_held_initiative` reaches the screen through
+  `game_mirror._cct_discipline_line` → mirror `story` →
+  `/coach/mirror-session` and `/home/dashboard-v2` → `HomePageNew.jsx`. The
+  sentence is *"You kept the attack going after a miss in N different moments
+  across these N games — real CCT discipline."* It is a **congratulatory**
+  claim, computed by `detect_held_initiative_segments(tagged_user_moves,
+  move_evaluations)` from the same misaligned tags, so the count it quotes is
+  not trustworthy. **37 users meet its gate** (≥2 qualifying games and ≥2 held
+  moments in the window); 45 have at least one qualifying game.
+
+  What I can and cannot say about it: the detector fires on **435 of 17,766
+  games (2.4%)**, and where it fires it almost always fires once, so it is a
+  rare signal rather than a constant. I have *not* measured whether the moments
+  it names are real, and I am not going to assert either way. The honest
+  position is that a praise sentence derived from a proven-misaligned input
+  should not be shown until it is recomputed and its base rate checked — so
+  **the line is suppressed for the duration of the fix** (§1.6) and restored
+  only after acceptance test 10 below.
+
+- **`decision_register` and `coaching_takeaway`: nothing to flag.** Read only
+  by their own writer and by nothing at all respectively; all three `routes/`
+  readers of `move_observations` use narrow projections that exclude them.
 - **One thing to fix on the way past, unrelated to correctness.** The string
   `"Played in the wrong register — forcing vs quiet mismatch."` sits on 34,274
   rows for 57 users. If it is ever rendered it will fail the voice rules
@@ -442,17 +551,18 @@ Measured, not assumed:
 ### 4.4 Sequence and gates
 
 ```
-P1 code ──► verify ──► P1 dry-run ──► GATE ──► P1 backfill
-                                                   │
-P2 A1 readers ──► verify ──► A2 dry-run ──► GATE ──► A3 apply per field
-                                                   │
-                                                   ▼
-                                      P3 loop call ──► accumulate ──► GATE ──► render flag
+P1  code (+ suppress mirror line, drop wrong-register) ──► verify
+      └─► dry-run ──► GATE ──► backfill ──► base-rate check ──► GATE ──► restore mirror line
+
+P2  A1 tolerant readers ──► verify ──► A2 dry-run ──► GATE ──► A3 apply, field by field
+
+P3  (needs A1 live) loop call ──► internal record only ──► STOP
+      └─► re-measure the practice distribution ──► separate scoped work for any display
 ```
 
 Every gate is a human look at a dry-run report, not a green test suite. Phase 3
-cannot start before Phase A1 is live (§3.2). Phases 1 and 2 are independent of
-each other and can proceed in parallel.
+cannot start before Phase A1 is live (§3.2), and now ends at the internal
+record. Phases 1 and 2 are independent and can run in parallel.
 
 ### 4.5 Out of scope, explicitly
 
@@ -463,14 +573,31 @@ mastery or focus record created by any migration. No change to
 
 ---
 
-## 5. What I need from you
+## 5. Your three decisions, as recorded
 
-1. **Phase 3's player-facing half** — ship the one `practised_and_moved` line
-   into the existing post-game card, or hold it and ship only the internal
-   measurement for now?
-2. **The "wrong register" string** — drop it, or rewrite it in plain English?
-3. **Phase A scope** — 13 fields as scoped in §2.2, or include
-   `thinking_scores.calculated_at` (19,508 rows) for completeness even though
-   nothing should read it?
+1. **Show verified improvement in the existing post-game card** — accepted as
+   the destination. But the evidence to verify it does not exist yet (§3.3:
+   40 of 41 cases rest on one practice event, and the comparison window is
+   unbounded), so this piece of work ships the measurement and no display. The
+   card is where it goes when the evidence clears a gate chosen from the
+   corrected distribution.
+2. **Remove the unused "wrong register" message** — done as specified, §1.6
+   step 5: stop emitting it, unset the 34,274 existing rows.
+3. **Keep the date migration to genuinely necessary fields** — held at the 15
+   gating fields in §2.2. `thinking_scores.calculated_at` (19,508 rows) stays
+   out: nothing should read `thinking_scores`, so converting it buys nothing.
 
-Nothing is implemented until these are answered and the plan is signed off.
+## 6. Revision 2: the four issues resolved
+
+| Issue raised | Resolution |
+|---|---|
+| Date-field count said 13, list showed 15 | **15 confirmed.** Itemised table in §2.2 that reconciles to 15 fields / 5 collections / 23,377 values. Revision 1 miscounted its own list. |
+| Shape totals did not match sample sizes | **Fixed, and the number moved.** Clean 1,000-game census: 948 + 50 + 2 = 1,000, so **94.8% affected**, not 85%. The dry run is 150 recomputed (107 + 43) out of 152 read. Revision 1 printed the dry run's 43 next to the census and conflated two samples. |
+| `cct_held_initiative` has backend readers — confirm it cannot indirectly influence player-facing coaching | **It can, and it does.** Traced to a rendered sentence for **37 users** (§4.3). Revision 1's "reaches nobody" is withdrawn; it was based on a frontend grep for the field name, not on the strings derived from it. The line is suppressed during the fix and restored only after a base-rate check. |
+| `practised_and_moved` should display only on sufficient valid evidence | **It does not have it.** 40 of 41 cases rest on a single practice event; `games_since` reaches 1,588 because the comparison window is unbounded. **The display is cut from this work** (§3.3). |
+
+Also fixed in passing: the restore mechanism is now **tested on production**
+rather than asserted (§4.1), and revision 1's disk figures were from the wrong
+machine.
+
+Nothing is implemented until this revision is signed off.
