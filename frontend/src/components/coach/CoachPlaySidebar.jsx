@@ -1154,7 +1154,7 @@ const CoachPlaySidebar = ({
       {cleanUIMode && session && !gameOver ? (
         <>
           {/* Elite Coach Persona Header */}
-          <div className="px-4 py-3.5 border-b border-white/10 bg-[#16212e]/95 backdrop-blur-md">
+          <div className="px-4 py-3.5 border-b border-border dark:border-white/10 bg-card dark:bg-[#16212e]/95 backdrop-blur-md">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="relative shrink-0">
@@ -1163,20 +1163,20 @@ const CoachPlaySidebar = ({
                     alt="Coach Jessica"
                     className="w-8 h-8 rounded-full object-cover ring-2 ring-cyan-500/80 shadow-md"
                   />
-                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#16212e]" />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-card dark:ring-[#16212e]" />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-slate-100 text-xs tracking-tight">Coach Jessica</span>
-                    <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">AI Coach</span>
+                    <span className="font-semibold text-foreground dark:text-slate-100 text-xs tracking-tight">Coach Jessica</span>
+                    <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold border border-cyan-500/30">AI Coach</span>
                   </div>
-                  <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                  <div className="text-[10px] text-muted-foreground dark:text-slate-400 font-mono flex items-center gap-1">
                     {loadingFeedback ? (
-                      <span className="text-cyan-400 font-medium flex items-center gap-1">
+                      <span className="text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-1">
                         <Loader2 className="w-2.5 h-2.5 animate-spin" /> Analyzing position...
                       </span>
                     ) : (
-                      <span className="text-emerald-400">● Live Coaching</span>
+                      <span className="text-emerald-600 dark:text-emerald-400">● Live Coaching</span>
                     )}
                   </div>
                 </div>
@@ -1184,18 +1184,18 @@ const CoachPlaySidebar = ({
 
               <div className="flex items-center gap-2">
                 {openingGuidance?.opening_key && (
-                  <span className="text-[11px] text-slate-400 font-mono tabular-nums capitalize hidden sm:inline">
+                  <span className="text-[11px] text-muted-foreground dark:text-slate-400 font-mono tabular-nums capitalize hidden sm:inline">
                     {openingGuidance.opening_key.replace(/_/g, " ")}
                   </span>
                 )}
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 text-[11px] bg-white/5 border-white/10 hover:bg-white/10 text-slate-300 rounded-xl"
+                  className="h-7 text-[11px] bg-muted/60 dark:bg-white/5 border-border dark:border-white/10 hover:bg-muted dark:hover:bg-white/10 text-foreground dark:text-slate-300 rounded-xl"
                   onClick={() => setShowLessonPicker(true)}
                   data-testid="open-lessons-btn"
                 >
-                  <BookOpen className="w-3 h-3 mr-1 text-cyan-400" />
+                  <BookOpen className="w-3 h-3 mr-1 text-cyan-500 dark:text-cyan-400" />
                   Lessons
                 </Button>
               </div>
@@ -1474,19 +1474,19 @@ const CoachPlaySidebar = ({
                   initial="initial"
                   animate="animate"
                   exit="exit"
-                  className="relative overflow-hidden rounded-xl border border-cyan-500/30 bg-gradient-to-b from-[#182330] to-[#121c27] px-3.5 py-2.5 shadow-md backdrop-blur-md"
+                  className="relative overflow-hidden rounded-xl border border-cyan-500/30 bg-card dark:bg-gradient-to-b dark:from-[#182330] dark:to-[#121c27] px-3.5 py-2.5 shadow-sm dark:shadow-md backdrop-blur-md"
                   data-testid="coach-thinking-shimmer"
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="text-[9.5px] font-mono uppercase px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30 tracking-wider flex items-center gap-1.5 shrink-0">
-                      <Loader2 className="w-3 h-3 animate-spin text-cyan-400 shrink-0" />
+                    <span className="text-[9.5px] font-mono uppercase px-2 py-0.5 rounded bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold border border-cyan-500/30 tracking-wider flex items-center gap-1.5 shrink-0">
+                      <Loader2 className="w-3 h-3 animate-spin text-cyan-500 dark:text-cyan-400 shrink-0" />
                       Evaluating
                     </span>
-                    <p className="text-[12px] text-cyan-300/90 font-medium truncate">
+                    <p className="text-[12px] text-cyan-700 dark:text-cyan-300/90 font-medium truncate">
                       Evaluating position &amp; candidate responses…
                     </p>
                   </div>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent animate-shimmer pointer-events-none" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent animate-shimmer pointer-events-none" />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1531,14 +1531,14 @@ const CoachPlaySidebar = ({
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                className="relative overflow-hidden rounded-2xl border border-cyan-500/35 bg-gradient-to-b from-[#192432] via-[#131d28] to-[#101720] p-3.5 space-y-3 shadow-xl backdrop-blur-xl">
+                className="relative overflow-hidden rounded-2xl border border-cyan-500/35 bg-card dark:bg-gradient-to-b dark:from-[#192432] dark:via-[#131d28] dark:to-[#101720] p-3.5 space-y-3 shadow-md dark:shadow-xl backdrop-blur-xl">
                 {/* Ambient glowing accent */}
                 <div className="absolute -top-10 -right-10 w-28 h-28 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
 
                 {/* Eyebrow: Move Pill + Intent Badges + Status Label (Single avatar at top header) */}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] uppercase tracking-wider font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    <span className="text-[10px] uppercase tracking-wider font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
                       {interactiveCoaching.coachMoveCoaching.v2_label
                         ? "Teaching moment"
                         : "Coach played"}
@@ -1548,11 +1548,11 @@ const CoachPlaySidebar = ({
                         className={`text-[9.5px] uppercase tracking-wider font-semibold rounded-full px-2 py-0.5 inline-flex items-center border ${
                           interactiveCoaching.coachMoveCoaching.v2_intent ===
                           "fork_opportunity"
-                            ? "border-rose-400/40 bg-rose-500/15 text-rose-300"
+                            ? "border-rose-400/40 bg-rose-500/15 text-rose-600 dark:text-rose-300"
                             : interactiveCoaching.coachMoveCoaching.v2_intent ===
                               "hanging_piece_punishment"
-                              ? "border-amber-400/40 bg-amber-500/15 text-amber-300"
-                              : "border-cyan-400/40 bg-cyan-500/15 text-cyan-300"
+                              ? "border-amber-400/40 bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                              : "border-cyan-400/40 bg-cyan-500/15 text-cyan-700 dark:text-cyan-300"
                         }`}
                       >
                         {interactiveCoaching.coachMoveCoaching.v2_label}
@@ -1562,11 +1562,11 @@ const CoachPlaySidebar = ({
 
                   {/* Move Pill */}
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-mono text-xs px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-200 font-bold border border-cyan-500/40 shadow-[0_0_10px_rgba(6,182,212,0.25)] inline-flex items-center gap-1.5">
+                    <span className="font-mono text-xs px-2.5 py-1 rounded-lg bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-800 dark:text-cyan-200 font-bold border border-cyan-500/40 shadow-sm inline-flex items-center gap-1.5">
                       {coachMoveDesc?.pieceIcon && <span className="text-sm leading-none">{coachMoveDesc.pieceIcon}</span>}
                       <span>{lastCoachMoveSan || "?"}</span>
                       {coachMoveDesc?.plain && (
-                        <span className="text-[10px] font-sans font-medium text-cyan-300/80 bg-cyan-950/50 px-1.5 py-0.5 rounded border border-cyan-500/20">
+                        <span className="text-[10px] font-sans font-medium text-cyan-700 dark:text-cyan-300/80 bg-cyan-500/10 dark:bg-cyan-950/50 px-1.5 py-0.5 rounded border border-cyan-500/20">
                           {coachMoveDesc.plain}
                         </span>
                       )}
@@ -1576,28 +1576,28 @@ const CoachPlaySidebar = ({
 
                 {/* Move Breakdown Callout */}
                 {coachMoveDesc && (
-                  <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-cyan-950/40 border border-cyan-500/25 text-[12.5px]">
-                    <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-xs text-cyan-200 shrink-0">
+                  <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-cyan-500/10 dark:bg-cyan-950/40 border border-cyan-500/25 text-[12.5px]">
+                    <div className="w-6 h-6 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-xs text-cyan-700 dark:text-cyan-200 shrink-0">
                       {coachMoveDesc.pieceIcon}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <span className="text-slate-400 font-medium">Coach played: </span>
-                      <span className="text-cyan-200 font-bold">{coachMoveDesc.pieceName}</span>
-                      <span className="text-slate-300"> {coachMoveDesc.isCapture ? "captured on" : "moved to"} </span>
-                      <span className="text-white font-mono font-bold bg-white/10 px-1.5 py-0.5 rounded border border-white/10">{coachMoveDesc.dest || lastCoachMoveSan}</span>
-                      {coachMoveDesc.isCheck && <span className="text-rose-400 font-bold ml-1.5">⚡ Check!</span>}
+                      <span className="text-muted-foreground dark:text-slate-400 font-medium">Coach played: </span>
+                      <span className="text-cyan-800 dark:text-cyan-200 font-bold">{coachMoveDesc.pieceName}</span>
+                      <span className="text-muted-foreground dark:text-slate-300"> {coachMoveDesc.isCapture ? "captured on" : "moved to"} </span>
+                      <span className="text-foreground dark:text-white font-mono font-bold bg-muted/70 dark:bg-white/10 px-1.5 py-0.5 rounded border border-border dark:border-white/10">{coachMoveDesc.dest || lastCoachMoveSan}</span>
+                      {coachMoveDesc.isCheck && <span className="text-rose-600 dark:text-rose-400 font-bold ml-1.5">⚡ Check!</span>}
                     </div>
                   </div>
                 )}
 
                 {/* The explanation — Coach's Speech Bubble */}
-                <div className="relative rounded-xl bg-white/[0.04] border border-white/5 p-3">
-                  <p className="group text-[14px] sm:text-[14.5px] leading-relaxed text-slate-100 font-normal">
+                <div className="relative rounded-xl bg-muted/40 dark:bg-white/[0.04] border border-border dark:border-white/5 p-3">
+                  <p className="group text-[14px] sm:text-[14.5px] leading-relaxed text-foreground dark:text-slate-100 font-normal">
                     <ClickableMoves
                       text={interactiveCoaching.coachMoveCoaching.explanation}
                       fen={currentFen}
                       onShowArrow={onShowArrow}
-                      className="inline text-cyan-200 hover:text-cyan-100 underline decoration-cyan-400/40 font-medium"
+                      className="inline text-cyan-700 dark:text-cyan-200 hover:text-cyan-600 dark:hover:text-cyan-100 underline decoration-cyan-400/40 font-medium"
                     />
                     <InlineFlag
                       section="coach_explanation"
@@ -1609,14 +1609,14 @@ const CoachPlaySidebar = ({
 
                 {/* Socratic hint — Illuminated Coach's Challenge Box */}
                 {interactiveCoaching.coachMoveCoaching.hint_for_user && (
-                  <div className="rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-amber-500/5 p-3 space-y-1 shadow-md">
+                  <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 dark:bg-gradient-to-r dark:from-amber-500/15 dark:via-amber-500/10 dark:to-amber-500/5 p-3 space-y-1 shadow-sm">
                     <div className="flex items-center gap-1.5">
-                      <Lightbulb className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                      <span className="text-[11px] font-mono uppercase tracking-[0.16em] font-bold text-amber-400">
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-pulse" />
+                      <span className="text-[11px] font-mono uppercase tracking-[0.16em] font-bold text-amber-700 dark:text-amber-400">
                         Coach's Challenge
                       </span>
                     </div>
-                    <p className="group text-[13.5px] text-amber-100/95 leading-relaxed font-normal">
+                    <p className="group text-[13.5px] text-amber-900 dark:text-amber-100/95 leading-relaxed font-normal">
                       {interactiveCoaching.coachMoveCoaching.hint_for_user}
                       <InlineFlag
                         section="coach_socratic_hint"
@@ -1631,12 +1631,12 @@ const CoachPlaySidebar = ({
                 {interactiveCoaching.coachMoveCoaching.opponent_opportunity && (
                   <div className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 p-2.5 space-y-1">
                     <div className="flex items-center gap-1.5">
-                      <Target className="w-3.5 h-3.5 text-emerald-400" />
-                      <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-emerald-400">
+                      <Target className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <p className="text-[10px] uppercase tracking-[0.18em] font-bold text-emerald-700 dark:text-emerald-400">
                         Can you see it?
                       </p>
                     </div>
-                    <p className="group text-[12.5px] text-emerald-100 leading-snug font-normal">
+                    <p className="group text-[12.5px] text-emerald-900 dark:text-emerald-100 leading-snug font-normal">
                       {interactiveCoaching.coachMoveCoaching.opponent_opportunity.message}
                       <InlineFlag
                         section="opponent_opportunity"
@@ -1649,11 +1649,11 @@ const CoachPlaySidebar = ({
 
                 {/* Trap Warning with Teach me / I understand buttons */}
                 {interactiveCoaching.coachMoveCoaching.trap_warning && (
-                  <div className="rounded-xl border border-rose-400/30 bg-rose-500/[0.04] p-3 mt-1 space-y-2">
-                    <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-rose-400">
+                  <div className="rounded-xl border border-rose-400/40 bg-rose-500/10 dark:bg-rose-500/[0.04] p-3 mt-1 space-y-2">
+                    <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-rose-700 dark:text-rose-400">
                       Trap · {interactiveCoaching.coachMoveCoaching.trap_warning.name}
                     </p>
-                    <p className="group text-[12.5px] text-slate-200 leading-snug">
+                    <p className="group text-[12.5px] text-rose-950 dark:text-slate-200 leading-snug">
                       {interactiveCoaching.coachMoveCoaching.trap_warning.hint}
                       <InlineFlag
                         section="trap_warning_hint"
@@ -1662,7 +1662,7 @@ const CoachPlaySidebar = ({
                       />
                     </p>
                     {interactiveCoaching.coachMoveCoaching.trap_warning.question && (
-                      <p className="group italic text-[12.5px] text-slate-300/80">
+                      <p className="group italic text-[12.5px] text-rose-900/80 dark:text-slate-300/80">
                         {interactiveCoaching.coachMoveCoaching.trap_warning.question}
                         <InlineFlag
                           section="trap_warning_question"
@@ -1672,7 +1672,7 @@ const CoachPlaySidebar = ({
                       </p>
                     )}
                     {interactiveCoaching.coachMoveCoaching.trap_warning.error && (
-                      <p className="text-[11.5px] text-rose-400">
+                      <p className="text-[11.5px] text-rose-600 dark:text-rose-400">
                         {interactiveCoaching.coachMoveCoaching.trap_warning.error}
                       </p>
                     )}
@@ -1748,7 +1748,7 @@ const CoachPlaySidebar = ({
                               console.error("Failed to dismiss trap:", e);
                             }
                           }}
-                          className="flex-1 py-1.5 text-[11.5px] font-medium rounded-lg border border-white/15 text-slate-300 hover:bg-white/5 transition-colors"
+                          className="flex-1 py-1.5 text-[11.5px] font-medium rounded-lg border border-border dark:border-white/15 text-muted-foreground dark:text-slate-300 hover:bg-muted dark:hover:bg-white/5 transition-colors"
                         >
                           I understand
                         </button>
@@ -1773,15 +1773,15 @@ const CoachPlaySidebar = ({
 
             {/* ═══ Ask Coach Jessica — Interactive Prompt Chips (Placed right after Coach Played) ═══ */}
             {!gameOver && (
-              <div className="rounded-2xl border border-cyan-500/25 bg-gradient-to-b from-[#182330]/90 to-[#121c27]/90 p-3 shadow-md backdrop-blur-md space-y-2.5">
+              <div className="rounded-2xl border border-cyan-500/25 bg-card dark:bg-gradient-to-b dark:from-[#182330]/90 dark:to-[#121c27]/90 p-3 shadow-sm dark:shadow-md backdrop-blur-md space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="text-[10px] font-mono uppercase tracking-[0.18em] font-bold text-slate-300">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+                    <span className="text-[10px] font-mono uppercase tracking-[0.18em] font-bold text-foreground dark:text-slate-300">
                       Ask Coach Jessica
                     </span>
                   </div>
-                  <span className="text-[9.5px] text-slate-400 font-mono">
+                  <span className="text-[9.5px] text-muted-foreground dark:text-slate-400 font-mono">
                     Instant AI Guidance
                   </span>
                 </div>
@@ -1797,14 +1797,14 @@ const CoachPlaySidebar = ({
                     }}
                     className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-semibold transition-all text-center shadow-sm ${
                       isSendingChat && activePromptQuery === "Hint"
-                        ? "bg-amber-500/20 border-amber-500/50 text-amber-300 ring-1 ring-amber-500/30"
-                        : "bg-white/5 hover:bg-amber-500/15 border-white/5 hover:border-amber-500/35 text-slate-200 hover:text-amber-200"
+                        ? "bg-amber-500/20 border-amber-500/50 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/30"
+                        : "bg-muted/60 hover:bg-amber-500/10 dark:bg-white/5 dark:hover:bg-amber-500/15 border-border dark:border-white/5 hover:border-amber-500/35 text-foreground dark:text-slate-200 hover:text-amber-700 dark:hover:text-amber-200"
                     } ${isSendingChat ? "opacity-75 cursor-not-allowed" : ""}`}
                   >
                     {isSendingChat && activePromptQuery === "Hint" ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400 shrink-0" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500 dark:text-amber-400 shrink-0" />
                     ) : (
-                      <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
                     )}
                     <span>Get Hint</span>
                   </button>
@@ -1820,14 +1820,14 @@ const CoachPlaySidebar = ({
                     }}
                     className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-semibold transition-all text-center shadow-sm ${
                       isSendingChat && activePromptQuery === "Threat Radar"
-                        ? "bg-rose-500/20 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/30"
-                        : "bg-white/5 hover:bg-rose-500/15 border-white/5 hover:border-rose-500/35 text-slate-200 hover:text-rose-200"
+                        ? "bg-rose-500/20 border-rose-500/50 text-rose-700 dark:text-rose-300 ring-1 ring-rose-500/30"
+                        : "bg-muted/60 hover:bg-rose-500/10 dark:bg-white/5 dark:hover:bg-rose-500/15 border-border dark:border-white/5 hover:border-rose-500/35 text-foreground dark:text-slate-200 hover:text-rose-700 dark:hover:text-rose-200"
                     } ${isSendingChat ? "opacity-75 cursor-not-allowed" : ""}`}
                   >
                     {isSendingChat && activePromptQuery === "Threat Radar" ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-400 shrink-0" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-500 dark:text-rose-400 shrink-0" />
                     ) : (
-                      <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                      <ShieldAlert className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 shrink-0" />
                     )}
                     <span>Threat Radar</span>
                   </button>
@@ -1843,14 +1843,14 @@ const CoachPlaySidebar = ({
                     }}
                     className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-[11px] font-semibold transition-all text-center shadow-sm col-span-2 ${
                       isSendingChat && activePromptQuery === "Strategic Plan"
-                        ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-300 ring-1 ring-cyan-500/30"
-                        : "bg-white/5 hover:bg-cyan-500/15 border-white/5 hover:border-cyan-500/35 text-slate-200 hover:text-cyan-200"
+                        ? "bg-cyan-500/20 border-cyan-500/50 text-cyan-700 dark:text-cyan-300 ring-1 ring-cyan-500/30"
+                        : "bg-muted/60 hover:bg-cyan-500/10 dark:bg-white/5 dark:hover:bg-cyan-500/15 border-border dark:border-white/5 hover:border-cyan-500/35 text-foreground dark:text-slate-200 hover:text-cyan-700 dark:hover:text-cyan-200"
                     } ${isSendingChat ? "opacity-75 cursor-not-allowed" : ""}`}
                   >
                     {isSendingChat && activePromptQuery === "Strategic Plan" ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400 shrink-0" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-500 dark:text-cyan-400 shrink-0" />
                     ) : (
-                      <Target className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      <Target className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400 shrink-0" />
                     )}
                     <span>Strategic Plan Check</span>
                   </button>
@@ -1858,8 +1858,8 @@ const CoachPlaySidebar = ({
 
                 {/* Loading state indicator */}
                 {isSendingChat && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-950/60 border border-cyan-500/30 text-xs text-cyan-300">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400 shrink-0" />
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500/10 dark:bg-cyan-950/60 border border-cyan-500/30 text-xs text-cyan-700 dark:text-cyan-300">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-500 dark:text-cyan-400 shrink-0" />
                     <span className="font-medium">Coach Jessica is analyzing the position…</span>
                   </div>
                 )}
@@ -1869,37 +1869,37 @@ const CoachPlaySidebar = ({
                   <motion.div
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="relative rounded-xl border border-cyan-500/35 bg-gradient-to-b from-cyan-950/60 to-[#121c27] p-3 space-y-1.5 shadow-md"
+                    className="relative rounded-xl border border-cyan-500/35 bg-card dark:bg-gradient-to-b dark:from-cyan-950/60 dark:to-[#121c27] p-3 space-y-1.5 shadow-sm dark:shadow-md"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <Sparkles className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                        <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-cyan-300 shrink-0">
+                        <Sparkles className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400 shrink-0" />
+                        <span className="text-[10px] font-mono uppercase tracking-wider font-bold text-cyan-700 dark:text-cyan-300 shrink-0">
                           Coach's Advice
                         </span>
                         {latestChatResponse.context?.user_question && (
-                          <span className="text-[10.5px] text-slate-400 font-sans truncate">
+                          <span className="text-[10.5px] text-muted-foreground dark:text-slate-400 font-sans truncate">
                             • {latestChatResponse.context.user_question}
                           </span>
                         )}
                       </div>
                       <button
                         onClick={() => setDismissedChatId(latestChatResponse.id || latestChatResponse.timestamp)}
-                        className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-white/10 transition-colors shrink-0"
+                        className="text-muted-foreground hover:text-foreground dark:text-slate-400 dark:hover:text-white p-0.5 rounded hover:bg-muted dark:hover:bg-white/10 transition-colors shrink-0"
                         title="Dismiss"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    <p className="text-[13px] leading-relaxed text-slate-100 font-normal">
+                    <p className="text-[13px] leading-relaxed text-foreground dark:text-slate-100 font-normal">
                       {latestChatResponse.message}
                     </p>
 
                     {latestChatResponse.best_move && (
                       <div className="flex items-center gap-2 pt-1 border-t border-cyan-500/20 text-xs">
-                        <span className="text-slate-400 font-medium">Idea on board:</span>
-                        <span className="font-mono font-bold text-cyan-300 bg-cyan-900/40 px-2 py-0.5 rounded border border-cyan-500/30">
+                        <span className="text-muted-foreground dark:text-slate-400 font-medium">Idea on board:</span>
+                        <span className="font-mono font-bold text-cyan-700 dark:text-cyan-300 bg-cyan-500/10 dark:bg-cyan-900/40 px-2 py-0.5 rounded border border-cyan-500/30">
                           {latestChatResponse.best_move}
                         </span>
                       </div>
@@ -1915,7 +1915,7 @@ const CoachPlaySidebar = ({
                 variants={slideInRight}
                 initial="initial"
                 animate="animate"
-                className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-[#13221c] via-[#0f1a16] to-[#0c1411] p-3.5 space-y-2.5 shadow-xl backdrop-blur-xl"
+                className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-card dark:bg-gradient-to-b dark:from-[#13221c] dark:via-[#0f1a16] dark:to-[#0c1411] p-3.5 space-y-2.5 shadow-md dark:shadow-xl backdrop-blur-xl"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1923,11 +1923,11 @@ const CoachPlaySidebar = ({
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                     </span>
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400">
+                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                       Your Turn · {selectedColor === "white" ? "White to move" : "Black to move"}
                     </span>
                   </div>
-                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                     Aapki Baari
                   </span>
                 </div>
@@ -1936,34 +1936,34 @@ const CoachPlaySidebar = ({
                   {lastCoachMoveSan ? (() => {
                     const desc = describeChessMove(lastCoachMoveSan, selectedColor !== "white", selectedColor);
                     return (
-                      <p className="text-slate-300 leading-relaxed font-normal">
-                        Coach Jessica just played <span className="font-semibold text-cyan-300 font-mono">{desc.pieceIcon} {desc.plain} ({lastCoachMoveSan})</span>.
+                      <p className="text-foreground/90 dark:text-slate-300 leading-relaxed font-normal">
+                        Coach Jessica just played <span className="font-semibold text-cyan-700 dark:text-cyan-300 font-mono">{desc.pieceIcon} {desc.plain} ({lastCoachMoveSan})</span>.
                       </p>
                     );
                   })() : (
-                    <p className="text-slate-300 leading-relaxed font-normal">
+                    <p className="text-foreground/90 dark:text-slate-300 leading-relaxed font-normal">
                       Game start! Open with a pawn or knight to control the center.
                     </p>
                   )}
 
-                  <div className="rounded-xl bg-black/30 border border-white/5 p-2.5 space-y-1.5 text-[12.5px]">
-                    <div className="flex items-start gap-2 text-slate-300">
-                      <span className="text-emerald-400 font-bold text-xs mt-0.5">1.</span>
-                      <span><strong className="text-white">Threat Check:</strong> Kya Coach ke move se aapka koi piece attack ho raha hai?</span>
+                  <div className="rounded-xl bg-muted/60 dark:bg-black/30 border border-border dark:border-white/5 p-2.5 space-y-1.5 text-[12.5px]">
+                    <div className="flex items-start gap-2 text-foreground/80 dark:text-slate-300">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs mt-0.5">1.</span>
+                      <span><strong className="text-foreground dark:text-white">Threat Check:</strong> Kya Coach ke move se aapka koi piece attack ho raha hai?</span>
                     </div>
-                    <div className="flex items-start gap-2 text-slate-300">
-                      <span className="text-emerald-400 font-bold text-xs mt-0.5">2.</span>
-                      <span><strong className="text-white">Opportunity Check:</strong> Kya Coach ne koi square ya piece unprotected chhoda?</span>
+                    <div className="flex items-start gap-2 text-foreground/80 dark:text-slate-300">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs mt-0.5">2.</span>
+                      <span><strong className="text-foreground dark:text-white">Opportunity Check:</strong> Kya Coach ne koi square ya piece unprotected chhoda?</span>
                     </div>
-                    <div className="flex items-start gap-2 text-slate-300">
-                      <span className="text-emerald-400 font-bold text-xs mt-0.5">3.</span>
-                      <span><strong className="text-white">Your Next Move:</strong> Piece develop karein, center control karein ya king safe karein.</span>
+                    <div className="flex items-start gap-2 text-foreground/80 dark:text-slate-300">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-xs mt-0.5">3.</span>
+                      <span><strong className="text-foreground dark:text-white">Your Next Move:</strong> Piece develop karein, center control karein ya king safe karein.</span>
                     </div>
                   </div>
 
                   {interactiveCoaching?.coachMoveCoaching?.hint_for_user && (
-                    <div className="text-[12.5px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 flex items-start gap-2 font-normal leading-relaxed">
-                      <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                    <div className="text-[12.5px] text-amber-800 dark:text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 flex items-start gap-2 font-normal leading-relaxed">
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                       <span>{interactiveCoaching.coachMoveCoaching.hint_for_user}</span>
                     </div>
                   )}
@@ -2132,7 +2132,7 @@ const CoachPlaySidebar = ({
           </div>
 
           {/* Footer - Move History */}
-          <div className="p-4 border-t border-white/10 bg-[#141d27]/90">
+          <div className="p-4 border-t border-border dark:border-white/10 bg-card dark:bg-[#141d27]/90">
             <MoveHistorySection
               moves={session?.move_history?.map((m) => m.move) || []}
               currentMoveIndex={(session?.move_history?.length || 0) - 1}

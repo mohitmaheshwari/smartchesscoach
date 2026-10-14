@@ -355,7 +355,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
         {/* ─── TOP: ELITE CHESS STUDIO PLAYER HEADER & DUAL ANALOG CLOCKS ─── */}
         <div className="flex items-center justify-between gap-2 sm:gap-4 mb-1.5 sm:mb-2 w-full shrink-0">
           {/* Left Player: Tomasz (You) */}
-          <div className="flex items-center gap-2 sm:gap-2.5 py-1.5 px-3 sm:px-3.5 rounded-xl bg-[#18222e]/95 border border-white/10 shadow-md backdrop-blur-md min-w-[120px] sm:min-w-[155px]">
+          <div className="flex items-center gap-2 sm:gap-2.5 py-1.5 px-3 sm:px-3.5 rounded-xl bg-card dark:bg-[#18222e]/95 border border-border dark:border-white/10 shadow-sm dark:shadow-md backdrop-blur-md min-w-[120px] sm:min-w-[155px]">
             <div className="relative shrink-0">
               <img
                 src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&crop=faces"
@@ -363,58 +363,58 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                 className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover ring-2 ring-amber-500/80 shadow-sm"
               />
               {isPlayerTurn && !gameOver && (
-                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#18222e] animate-pulse" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-card dark:ring-[#18222e] animate-pulse" />
               )}
             </div>
             <div className="flex flex-col justify-center min-w-0">
-              <span className="font-semibold text-slate-100 text-xs sm:text-sm tracking-tight truncate">
+              <span className="font-semibold text-foreground dark:text-slate-100 text-xs sm:text-sm tracking-tight truncate">
                 {user?.name || "Tomasz"}
               </span>
-              <span className="text-[10px] text-slate-400 font-medium tracking-wide">
+              <span className="text-[10px] text-muted-foreground dark:text-slate-400 font-medium tracking-wide">
                 Master
               </span>
             </div>
           </div>
 
           {/* Center: Dual Circular Analog Chess Clocks (Wide Studio Edition) */}
-          <div className="flex items-center gap-3 sm:gap-6 px-4 sm:px-6 py-1.5 sm:py-2 rounded-2xl bg-[#111822]/95 border border-white/10 shadow-lg min-w-[200px] sm:min-w-[260px] justify-center">
+          <div className="flex items-center gap-3 sm:gap-6 px-4 sm:px-6 py-1.5 sm:py-2 rounded-2xl bg-card dark:bg-[#111822]/95 border border-border dark:border-white/10 shadow-sm dark:shadow-lg min-w-[200px] sm:min-w-[260px] justify-center">
             {/* Player Analog Clock */}
             <div
               className={`relative flex flex-col items-center px-1.5 py-0.5 rounded-xl transition-all ${
                 isPlayerTurn && !gameOver
                   ? "bg-cyan-500/15 ring-1 ring-cyan-500/50 shadow-[0_0_12px_rgba(56,189,248,0.25)]"
-                  : "opacity-70"
+                  : "opacity-75"
               }`}
             >
-              <span className="text-[8px] font-mono uppercase tracking-widest text-slate-400 font-bold mb-0.5 select-none">
+              <span className="text-[8px] font-mono uppercase tracking-widest text-muted-foreground dark:text-slate-400 font-bold mb-0.5 select-none">
                 You
               </span>
-              <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-slate-600 bg-slate-950 shadow-inner flex items-center justify-center">
-                <div className="absolute inset-0.5 rounded-full border border-dashed border-slate-700/60" />
+              <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-950 shadow-inner flex items-center justify-center">
+                <div className="absolute inset-0.5 rounded-full border border-dashed border-slate-400/40 dark:border-slate-700/60" />
                 <div
-                  className="absolute w-0.5 h-3 sm:h-3.5 bg-cyan-400 rounded-full origin-bottom transition-transform duration-200"
+                  className="absolute w-0.5 h-3 sm:h-3.5 bg-cyan-500 dark:bg-cyan-400 rounded-full origin-bottom transition-transform duration-200"
                   style={{
                     bottom: "50%",
                     transform: `rotate(${(playerSeconds % 60) * 6}deg)`,
                     boxShadow: "0 0 5px #38bdf8",
                   }}
                 />
-                <div className="w-1.5 h-1.5 rounded-full bg-cyan-300 z-10" />
+                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 dark:bg-cyan-300 z-10" />
               </div>
-              <span className="text-[11px] sm:text-xs font-mono text-cyan-300 mt-1 font-bold tracking-wider">
+              <span className="text-[11px] sm:text-xs font-mono text-cyan-600 dark:text-cyan-300 mt-1 font-bold tracking-wider">
                 {formatTime(playerSeconds)}
               </span>
             </div>
 
             {isPaused ? (
               <div className="flex flex-col items-center justify-center px-1">
-                <span className="text-[8px] font-mono font-bold uppercase tracking-wider text-amber-400 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded-full animate-pulse flex items-center gap-0.5">
+                <span className="text-[8px] font-mono font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 rounded-full animate-pulse flex items-center gap-0.5">
                   <Pause className="w-2.5 h-2.5" />
                   PAUSED
                 </span>
               </div>
             ) : (
-              <div className="w-px h-9 sm:h-10 bg-white/10" />
+              <div className="w-px h-9 sm:h-10 bg-border dark:bg-white/10" />
             )}
 
             {/* Coach Analog Clock */}
@@ -422,48 +422,48 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
               className={`relative flex flex-col items-center px-1.5 py-0.5 rounded-xl transition-all ${
                 !isPlayerTurn && !gameOver
                   ? "bg-amber-500/15 ring-1 ring-amber-500/50 shadow-[0_0_12px_rgba(251,191,36,0.25)]"
-                  : "opacity-70"
+                  : "opacity-75"
               }`}
             >
-              <span className="text-[8px] font-mono uppercase tracking-widest text-slate-400 font-bold mb-0.5 select-none">
+              <span className="text-[8px] font-mono uppercase tracking-widest text-muted-foreground dark:text-slate-400 font-bold mb-0.5 select-none">
                 Coach
               </span>
-              <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-slate-600 bg-slate-950 shadow-inner flex items-center justify-center">
-                <div className="absolute inset-0.5 rounded-full border border-dashed border-slate-700/60" />
+              <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-950 shadow-inner flex items-center justify-center">
+                <div className="absolute inset-0.5 rounded-full border border-dashed border-slate-400/40 dark:border-slate-700/60" />
                 <div
-                  className="absolute w-0.5 h-3 sm:h-3.5 bg-amber-400 rounded-full origin-bottom transition-transform duration-200"
+                  className="absolute w-0.5 h-3 sm:h-3.5 bg-amber-500 dark:bg-amber-400 rounded-full origin-bottom transition-transform duration-200"
                   style={{
                     bottom: "50%",
                     transform: `rotate(${(coachSeconds % 60) * 6}deg)`,
                     boxShadow: "0 0 5px #fbbf24",
                   }}
                 />
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-300 z-10" />
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-300 z-10" />
               </div>
-              <span className="text-[11px] sm:text-xs font-mono text-amber-300 mt-1 font-bold tracking-wider">
+              <span className="text-[11px] sm:text-xs font-mono text-amber-600 dark:text-amber-300 mt-1 font-bold tracking-wider">
                 {formatTime(coachSeconds)}
               </span>
             </div>
           </div>
 
           {/* Right Player: Coach Jessica */}
-          <div className="flex items-center gap-2 sm:gap-2.5 py-1.5 px-3 sm:px-3.5 rounded-xl bg-[#18222e]/95 border border-cyan-500/25 shadow-md backdrop-blur-md min-w-[120px] sm:min-w-[155px] justify-end">
+          <div className="flex items-center gap-2 sm:gap-2.5 py-1.5 px-3 sm:px-3.5 rounded-xl bg-card dark:bg-[#18222e]/95 border border-cyan-500/30 dark:border-cyan-500/25 shadow-sm dark:shadow-md backdrop-blur-md min-w-[120px] sm:min-w-[155px] justify-end">
             <div className="flex flex-col justify-center text-right min-w-0">
               <div className="flex items-center justify-end gap-1">
-                <span className="text-[8.5px] font-mono font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                <span className="text-[8.5px] font-mono font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
                   GM
                 </span>
-                <span className="font-semibold text-slate-100 text-xs sm:text-sm tracking-tight truncate">
+                <span className="font-semibold text-foreground dark:text-slate-100 text-xs sm:text-sm tracking-tight truncate">
                   Coach Jessica
                 </span>
               </div>
               <span className="text-[10px] font-medium tracking-wide">
                 {coachThinking ? (
-                  <span className="text-cyan-400 font-medium flex items-center justify-end gap-1 animate-pulse">
+                  <span className="text-cyan-600 dark:text-cyan-400 font-medium flex items-center justify-end gap-1 animate-pulse">
                     <Loader2 className="w-2.5 h-2.5 animate-spin" /> Analyzing
                   </span>
                 ) : (
-                  <span className="text-slate-400">Master · 2200</span>
+                  <span className="text-muted-foreground dark:text-slate-400">Master · 2200</span>
                 )}
               </span>
             </div>
@@ -474,9 +474,9 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                 className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover ring-2 ring-cyan-500/80 shadow-[0_0_10px_rgba(6,182,212,0.3)]"
               />
               {!isPlayerTurn && !gameOver ? (
-                <div className="absolute -bottom-0.5 -left-0.5 w-2.5 h-2.5 rounded-full bg-cyan-400 ring-2 ring-[#18222e] animate-ping" />
+                <div className="absolute -bottom-0.5 -left-0.5 w-2.5 h-2.5 rounded-full bg-cyan-400 ring-2 ring-card dark:ring-[#18222e] animate-ping" />
               ) : (
-                <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-[#18222e]" />
+                <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-card dark:ring-[#18222e]" />
               )}
             </div>
           </div>
@@ -484,9 +484,9 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
 
         {/* Paused state alert banner */}
         {isPaused && !showResumeModal && (
-          <div className="flex items-center justify-between gap-3 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-500/15 to-amber-500/20 border border-amber-500/35 text-amber-200 text-xs mb-1.5 shadow-lg backdrop-blur-md animate-in fade-in duration-200 w-full max-w-lg mx-auto">
+          <div className="flex items-center justify-between gap-3 px-3.5 py-1.5 rounded-xl bg-amber-500/15 dark:bg-gradient-to-r dark:from-amber-500/20 dark:via-amber-500/15 dark:to-amber-500/20 border border-amber-500/35 text-amber-800 dark:text-amber-200 text-xs mb-1.5 shadow-sm dark:shadow-lg backdrop-blur-md animate-in fade-in duration-200 w-full max-w-lg mx-auto">
             <div className="flex items-center gap-2">
-              <Pause className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <Pause className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
               <span className="font-medium">Time paused — clocks are frozen.</span>
             </div>
             <button
@@ -503,17 +503,17 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
         {/* ─── MAIN MATCH CENTER: BOARD STAGE FLANKED BY CAPTURED PIECES TRAYS ─── */}
         <div className="flex items-center justify-between xl:justify-center gap-3 sm:gap-5 lg:gap-6 xl:gap-8 w-full flex-1 min-h-0">
           {/* Left Flanking Tray: Captured Pieces (White captures) */}
-          <div className="hidden lg:flex flex-col items-center justify-start p-3 sm:p-3.5 w-32 sm:w-40 lg:w-48 xl:w-56 rounded-2xl bg-[#141d27]/90 border border-white/10 shadow-lg backdrop-blur-md self-stretch shrink-0">
+          <div className="hidden lg:flex flex-col items-center justify-start p-3 sm:p-3.5 w-32 sm:w-40 lg:w-48 xl:w-56 rounded-2xl bg-card dark:bg-[#141d27]/90 border border-border dark:border-white/10 shadow-sm dark:shadow-lg backdrop-blur-md self-stretch shrink-0">
             <div className="flex items-center justify-between w-full px-1.5 mb-2.5 shrink-0">
-              <span className="text-[10px] sm:text-xs font-mono text-slate-300 uppercase tracking-widest font-bold select-none">
+              <span className="text-[10px] sm:text-xs font-mono text-muted-foreground dark:text-slate-300 uppercase tracking-widest font-bold select-none">
                 Captures
               </span>
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-white/10 text-amber-300 border border-white/10">
+              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-muted dark:bg-white/10 text-amber-600 dark:text-amber-300 border border-border dark:border-white/10">
                 {capturedWhite.length}
               </span>
             </div>
             {capturedWhite.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-500/60 text-xs font-mono select-none">
+              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground/60 dark:text-slate-500/60 text-xs font-mono select-none">
                 <span className="text-base opacity-40 mb-1">⚔️</span>
                 <span>No captures</span>
               </div>
@@ -522,7 +522,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                 {capturedWhite.map((symbol, idx) => (
                   <span
                     key={idx}
-                    className="w-8 h-8 sm:w-9 sm:h-9 xl:w-10 xl:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-lg sm:text-xl xl:text-2xl text-slate-100 filter drop-shadow select-none hover:scale-125 transition-transform"
+                    className="w-8 h-8 sm:w-9 sm:h-9 xl:w-10 xl:h-10 rounded-xl bg-muted/70 dark:bg-white/5 border border-border dark:border-white/10 flex items-center justify-center text-lg sm:text-xl xl:text-2xl text-foreground dark:text-slate-100 filter drop-shadow select-none hover:scale-125 transition-transform"
                   >
                     {symbol}
                   </span>
@@ -533,12 +533,12 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
 
           {/* Center: Metallic Slate Chessboard Chassis with Bezel Coordinates & Just-Below Controls */}
           <div className="flex flex-col items-center justify-center max-w-[min(94vw,calc(100vh-210px),720px)] w-full mx-auto shrink-0 flex-1">
-            <div className="relative p-2 sm:p-2.5 rounded-2xl bg-[#161f2a] border border-white/15 shadow-[0_15px_45px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.1)] w-full">
+            <div className="relative p-2 sm:p-2.5 rounded-2xl bg-card dark:bg-[#161f2a] border border-border dark:border-white/15 shadow-md dark:shadow-[0_15px_45px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.1)] w-full">
               {/* Outer Bezel Coordinates: Top A–H */}
               <div className="flex items-center gap-1 sm:gap-1.5 pb-1">
                 <div className="w-3 sm:w-4 shrink-0" />
                 <div className="w-3 sm:w-3.5 shrink-0" />
-                <div className="flex-1 flex justify-between text-[10px] sm:text-xs font-mono text-slate-400 font-bold tracking-wider select-none">
+                <div className="flex-1 flex justify-between text-[10px] sm:text-xs font-mono text-muted-foreground dark:text-slate-400 font-bold tracking-wider select-none">
                   {files.map((f) => (
                     <span key={f} className="flex-1 text-center opacity-85">{f}</span>
                   ))}
@@ -548,7 +548,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
 
               <div className="flex items-stretch gap-1 sm:gap-1.5">
                 {/* Outer Bezel Coordinates: Left 8–1 */}
-                <div className="flex flex-col justify-between self-stretch text-[10px] sm:text-xs font-mono text-slate-400 font-bold select-none w-3 sm:w-4 shrink-0">
+                <div className="flex flex-col justify-between self-stretch text-[10px] sm:text-xs font-mono text-muted-foreground dark:text-slate-400 font-bold select-none w-3 sm:w-4 shrink-0">
                   {ranks.map((r) => (
                     <span key={r} className="flex-1 flex items-center justify-center opacity-85">{r}</span>
                   ))}
@@ -565,7 +565,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
 
                 {/* The Chessboard Stage (Elite Metallic Carbon Slate Theme) */}
                 <div
-                  className="studio-chess-theme experience-board-stage flex-1 relative rounded-xl sm:rounded-2xl overflow-hidden aspect-square border border-white/15 shadow-2xl"
+                  className="studio-chess-theme experience-board-stage flex-1 relative rounded-xl sm:rounded-2xl overflow-hidden aspect-square border border-border dark:border-white/15 shadow-sm dark:shadow-2xl"
                   data-testid="coach-play-board-stage"
                 >
                   <LichessBoard
@@ -615,6 +615,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                       (!isPlayerTurn || gameOver)
                     }
                     showDests={true}
+                    movableColor={selectedColor}
                     disableArrows={false}
                     moveClassification={moveClassification}
                     showCoordinates={false}
@@ -642,7 +643,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                   {hideEvalBar && isPlayerTurn && !gameOver && (
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10">
                       <div className="px-3 py-1.5 rounded-full bg-cyan-500/90 text-slate-950 text-xs font-bold shadow-lg animate-pulse">
-                        <Lightbulb className="w-3 h-3 inline mr-1" />
+                        <Lightbulb className="w-3.5 h-3.5 inline mr-1" />
                         Find the opportunity!
                       </div>
                     </div>
@@ -651,22 +652,22 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                   {/* Lesson Complete Overlay */}
                   {lessonComplete && (
                     <div className="absolute inset-0 z-20 bg-background/80 backdrop-blur-md flex items-center justify-center p-4">
-                      <div className="bg-[#16202c] border border-emerald-500/30 rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center space-y-4 text-white">
-                        <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-2xl shadow-inner">
+                      <div className="bg-card dark:bg-[#16202c] border border-emerald-500/30 rounded-2xl shadow-2xl p-6 max-w-sm w-full text-center space-y-4 text-foreground dark:text-white">
+                        <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-2xl shadow-inner">
                           🎉
                         </div>
                         <div className="space-y-2">
-                          <p className="text-[10.5px] uppercase tracking-[0.18em] text-emerald-400 font-bold">
+                          <p className="text-[10.5px] uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400 font-bold">
                             {lessonComplete.lesson_type === "trap" ? "Trap Complete" : "Lesson Complete"}
                           </p>
-                          <p className="text-sm leading-relaxed text-slate-200 text-left font-medium">
+                          <p className="text-sm leading-relaxed text-foreground/90 dark:text-slate-200 text-left font-medium">
                             {String(lessonComplete.message || "")
                               .replace(/^\s*(trap|lesson)\s*complete[!.:\-\s]*/i, "")
                               .trim() || "Nicely played — that's the whole idea of this lesson."}
                           </p>
                           {lessonComplete.why_it_works && (
-                            <p className="text-xs text-emerald-200/90 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5 text-left leading-relaxed">
-                              <strong className="text-emerald-300 block mb-0.5">Why it works:</strong>
+                            <p className="text-xs text-emerald-700 dark:text-emerald-200/90 bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5 text-left leading-relaxed">
+                              <strong className="text-emerald-600 dark:text-emerald-300 block mb-0.5">Why it works:</strong>
                               {lessonComplete.why_it_works}
                             </p>
                           )}
@@ -675,7 +676,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                           <Button
                             size="sm"
                             variant="outline"
-                            className="flex-1 bg-white/5 border-white/15 text-slate-200 hover:bg-white/10"
+                            className="flex-1 bg-muted/60 dark:bg-white/5 border-border dark:border-white/15 text-foreground dark:text-slate-200 hover:bg-muted dark:hover:bg-white/10"
                             onClick={() => handleExitLesson("continue_game", {})}
                           >
                             Return to Game
@@ -700,7 +701,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                 </div>
 
                 {/* Outer Bezel Coordinates: Right 8–1 */}
-                <div className="flex flex-col justify-between self-stretch text-[10px] sm:text-xs font-mono text-slate-400 font-bold select-none w-3 sm:w-4 shrink-0">
+                <div className="flex flex-col justify-between self-stretch text-[10px] sm:text-xs font-mono text-muted-foreground dark:text-slate-400 font-bold select-none w-3 sm:w-4 shrink-0">
                   {ranks.map((r) => (
                     <span key={r} className="flex-1 flex items-center justify-center opacity-85">{r}</span>
                   ))}
@@ -711,7 +712,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
               <div className="flex items-center gap-1 sm:gap-1.5 pt-1">
                 <div className="w-3 sm:w-4 shrink-0" />
                 <div className="w-3 sm:w-3.5 shrink-0" />
-                <div className="flex-1 flex justify-between text-[10px] sm:text-xs font-mono text-slate-400 font-bold tracking-wider select-none">
+                <div className="flex-1 flex justify-between text-[10px] sm:text-xs font-mono text-muted-foreground dark:text-slate-400 font-bold tracking-wider select-none">
                   {files.map((f) => (
                     <span key={f} className="flex-1 text-center opacity-85">{f}</span>
                   ))}
@@ -723,12 +724,12 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
             {/* Quick Controls & Move History JUST UNDER THE CHESSBOARD */}
             <div className="flex items-center justify-between gap-2 mt-2 w-full px-0.5">
               {/* Quick Toolbar (Flip, Sound, Pause, Restart, Resign) */}
-              <div className="flex items-center gap-1 sm:gap-1.5 p-1 px-2 rounded-xl bg-[#18222e]/95 border border-white/10 shadow-md backdrop-blur-md shrink-0">
+              <div className="flex items-center gap-1 sm:gap-1.5 p-1 px-2 rounded-xl bg-card dark:bg-[#18222e]/95 border border-border dark:border-white/10 shadow-sm dark:shadow-md backdrop-blur-md shrink-0">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={flipBoard}
-                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg cursor-pointer"
+                  className="h-7 w-7 text-muted-foreground dark:text-slate-300 hover:text-foreground dark:hover:text-white hover:bg-muted dark:hover:bg-white/10 rounded-lg cursor-pointer"
                   title="Flip Board"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
@@ -743,7 +744,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                     setMuted(next);
                   }}
                   data-testid="board-sound-toggle"
-                  className="h-7 w-7 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg cursor-pointer"
+                  className="h-7 w-7 text-muted-foreground dark:text-slate-300 hover:text-foreground dark:hover:text-white hover:bg-muted dark:hover:bg-white/10 rounded-lg cursor-pointer"
                   title={soundOff ? "Sound Off" : "Sound On"}
                 >
                   {soundOff ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
@@ -774,12 +775,12 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                       data-testid="pause-board-btn"
                       className={`h-7 w-7 rounded-lg transition-all cursor-pointer ${
                         isPaused
-                          ? "text-cyan-300 bg-cyan-500/20 hover:bg-cyan-500/30 ring-1 ring-cyan-400/50"
-                          : "text-slate-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+                          ? "text-cyan-600 dark:text-cyan-300 bg-cyan-500/15 dark:bg-cyan-500/20 hover:bg-cyan-500/25 ring-1 ring-cyan-500/50"
+                          : "text-muted-foreground dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-cyan-500/10"
                       }`}
                       title={isPaused ? "Resume Time" : "Pause Time"}
                     >
-                      {isPaused ? <Play className="w-3.5 h-3.5 fill-current text-cyan-400" /> : <Pause className="w-3.5 h-3.5" />}
+                      {isPaused ? <Play className="w-3.5 h-3.5 fill-current text-cyan-500 dark:text-cyan-400" /> : <Pause className="w-3.5 h-3.5" />}
                     </Button>
 
                     <Button
@@ -787,7 +788,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                       size="icon"
                       onClick={() => setShowRestartConfirm(true)}
                       data-testid="restart-board-btn"
-                      className="h-7 w-7 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg cursor-pointer"
+                      className="h-7 w-7 text-muted-foreground dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10 rounded-lg cursor-pointer"
                       title="Restart Game"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
@@ -798,7 +799,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                       size="icon"
                       onClick={resignGame}
                       data-testid="resign-btn"
-                      className="h-7 w-7 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer"
+                      className="h-7 w-7 text-muted-foreground dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer"
                       title="Resign Game"
                     >
                       <Flag className="w-3.5 h-3.5" />
@@ -808,8 +809,8 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
               </div>
 
               {/* Move History Pills */}
-              <div className="flex items-center gap-1.5 p-1 px-2.5 rounded-xl bg-[#18222e]/95 border border-white/10 shadow-md backdrop-blur-md overflow-x-auto min-w-0 flex-1 ml-2">
-                <span className="text-[9.5px] font-mono uppercase tracking-wider text-slate-400 font-bold mr-1 shrink-0">
+              <div className="flex items-center gap-1.5 p-1 px-2.5 rounded-xl bg-card dark:bg-[#18222e]/95 border border-border dark:border-white/10 shadow-sm dark:shadow-md backdrop-blur-md overflow-x-auto min-w-0 flex-1 ml-2">
+                <span className="text-[9.5px] font-mono uppercase tracking-wider text-muted-foreground dark:text-slate-400 font-bold mr-1 shrink-0">
                   History
                 </span>
                 {historyPills.map((pill, idx) => {
@@ -817,7 +818,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                     return (
                       <span
                         key={idx}
-                        className="text-xs font-mono px-2 py-0.5 rounded-lg border whitespace-nowrap shrink-0 bg-white/5 text-slate-400 border-white/10"
+                        className="text-xs font-mono px-2 py-0.5 rounded-lg border whitespace-nowrap shrink-0 bg-muted/60 dark:bg-white/5 text-muted-foreground dark:text-slate-400 border-border dark:border-white/10"
                       >
                         Start
                       </span>
@@ -829,25 +830,25 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                       title={pill.fullDescription || pill.text}
                       className={`text-xs font-mono px-2 py-0.5 rounded-lg border inline-flex items-center gap-1.5 whitespace-nowrap transition-all shrink-0 select-none cursor-help ${
                         pill.isLatest
-                          ? "bg-cyan-500/20 text-cyan-200 border-cyan-500/50 font-bold shadow-[0_0_10px_rgba(56,189,248,0.25)] ring-1 ring-cyan-400/40"
-                          : "bg-white/5 text-slate-300 border-white/10 hover:bg-white/10"
+                          ? "bg-cyan-500/15 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-200 border-cyan-500/40 dark:border-cyan-500/50 font-bold shadow-sm ring-1 ring-cyan-500/40"
+                          : "bg-muted/60 dark:bg-white/5 text-foreground dark:text-slate-300 border-border dark:border-white/10 hover:bg-muted dark:hover:bg-white/10"
                       }`}
                     >
-                      <span className="text-[10px] text-slate-400 font-semibold">
+                      <span className="text-[10px] text-muted-foreground dark:text-slate-400 font-semibold">
                         #{pill.moveNum}
                       </span>
                       <span
                         className={`text-[9px] font-sans font-bold uppercase tracking-wider px-1 py-0.2 rounded border ${
                           pill.isUser
-                            ? "bg-cyan-500/25 text-cyan-300 border-cyan-400/30"
-                            : "bg-amber-500/25 text-amber-300 border-amber-400/30"
+                            ? "bg-cyan-500/20 dark:bg-cyan-500/25 text-cyan-700 dark:text-cyan-300 border-cyan-500/30 dark:border-cyan-400/30"
+                            : "bg-amber-500/20 dark:bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/30 dark:border-amber-400/30"
                         }`}
                       >
                         {pill.isUser ? "You" : "Coach"}
                       </span>
                       <span className="text-sm leading-none">{pill.pieceIcon}</span>
-                      <span className="font-semibold text-white">{pill.san}</span>
-                      <span className="text-[10px] font-sans text-slate-400 font-normal hidden sm:inline">
+                      <span className="font-semibold text-foreground dark:text-white">{pill.san}</span>
+                      <span className="text-[10px] font-sans text-muted-foreground dark:text-slate-400 font-normal hidden sm:inline">
                         ({pill.plain})
                       </span>
                     </span>
@@ -858,17 +859,17 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
           </div>
 
           {/* Right Flanking Tray: Captured Pieces (Black captures) */}
-          <div className="hidden lg:flex flex-col items-center justify-start p-3 sm:p-3.5 w-32 sm:w-40 lg:w-48 xl:w-56 rounded-2xl bg-[#141d27]/90 border border-white/10 shadow-lg backdrop-blur-md self-stretch shrink-0">
+          <div className="hidden lg:flex flex-col items-center justify-start p-3 sm:p-3.5 w-32 sm:w-40 lg:w-48 xl:w-56 rounded-2xl bg-card dark:bg-[#141d27]/90 border border-border dark:border-white/10 shadow-sm dark:shadow-lg backdrop-blur-md self-stretch shrink-0">
             <div className="flex items-center justify-between w-full px-1.5 mb-2.5 shrink-0">
-              <span className="text-[10px] sm:text-xs font-mono text-slate-300 uppercase tracking-widest font-bold select-none">
+              <span className="text-[10px] sm:text-xs font-mono text-muted-foreground dark:text-slate-300 uppercase tracking-widest font-bold select-none">
                 Captures
               </span>
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-white/10 text-cyan-300 border border-white/10">
+              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-muted dark:bg-white/10 text-cyan-700 dark:text-cyan-300 border border-border dark:border-white/10">
                 {capturedBlack.length}
               </span>
             </div>
             {capturedBlack.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-500/60 text-xs font-mono select-none">
+              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground/60 dark:text-slate-500/60 text-xs font-mono select-none">
                 <span className="text-base opacity-40 mb-1">⚔️</span>
                 <span>No captures</span>
               </div>
@@ -877,7 +878,7 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                 {capturedBlack.map((symbol, idx) => (
                   <span
                     key={idx}
-                    className="w-8 h-8 sm:w-9 sm:h-9 xl:w-10 xl:h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-lg sm:text-xl xl:text-2xl text-slate-300 filter drop-shadow select-none hover:scale-125 transition-transform"
+                    className="w-8 h-8 sm:w-9 sm:h-9 xl:w-10 xl:h-10 rounded-xl bg-muted/70 dark:bg-white/5 border border-border dark:border-white/10 flex items-center justify-center text-lg sm:text-xl xl:text-2xl text-foreground dark:text-slate-300 filter drop-shadow select-none hover:scale-125 transition-transform"
                   >
                     {symbol}
                   </span>

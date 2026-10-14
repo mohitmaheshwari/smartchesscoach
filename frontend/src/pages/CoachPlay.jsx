@@ -2655,7 +2655,14 @@ const CoachPlay = ({ user }) => {
       const data = await response.json();
       if (!ownsSession()) return false;
       if (!response.ok) {
-        toast.error(data.detail || "Invalid move");
+        if (data.current_fen) {
+          setCurrentFen(data.current_fen);
+          boardRef.current?.setPosition?.(data.current_fen);
+        }
+        setIsPlayerTurn(data.is_player_turn !== undefined ? data.is_player_turn : isPlayerTurn);
+        setIsCoachThinking(false);
+        setLoadingFeedback(false);
+        toast.error(typeof data.detail === "string" && !data.detail.toLowerCase().includes("illegal san") ? data.detail : "That move is not legal in this position.");
         return false;
       }
       if (unifiedExperience && !unifiedFirstMoveTrackedRef.current) {

@@ -303,6 +303,14 @@ h1, h2, h3, h4, h5, h6 {
 
 .experience-v1 .experience-pwc-page {
   background:
+    radial-gradient(circle at 50% 0%, hsl(var(--primary) / 0.05), transparent 45rem),
+    radial-gradient(circle at 85% 20%, hsl(var(--primary) / 0.03), transparent 35rem),
+    hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.dark .experience-v1 .experience-pwc-page {
+  background:
     radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.09), transparent 45rem),
     radial-gradient(circle at 85% 20%, rgba(56, 189, 248, 0.05), transparent 35rem),
     #111823 !important;
@@ -314,6 +322,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .experience-v1 .experience-pwc-page .pwc-coach-col {
+  border-left: 1px solid hsl(var(--border) / 0.8) !important;
+  background: hsl(var(--card)) !important;
+}
+
+.dark .experience-v1 .experience-pwc-page .pwc-coach-col {
   border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
   background: rgba(18, 26, 36, 0.95) !important;
   backdrop-filter: blur(20px);
@@ -343,24 +356,35 @@ h1, h2, h3, h4, h5, h6 {
   min-height: 100vh;
 }
 
-.experience-v1 .experience-route-public,
-.experience-v1 .experience-login-page,
-.experience-v1 .experience-pricing-page,
-.experience-v1 .experience-public-learning-page {
+.dark .experience-v1 .experience-route-public,
+.dark .experience-v1 .experience-login-page,
+.dark .experience-v1 .experience-pricing-page,
+.dark .experience-v1 .experience-public-learning-page {
   background:
     radial-gradient(circle at 78% 0%, hsl(38 92% 54% / 0.12), transparent 30rem),
     radial-gradient(circle at 8% 52%, hsl(174 58% 38% / 0.08), transparent 34rem),
     hsl(224 34% 5%);
 }
 
-.experience-v1 .experience-landing-page {
+.experience-v1 .experience-route-public,
+.experience-v1 .experience-login-page,
+.experience-v1 .experience-pricing-page,
+.experience-v1 .experience-public-learning-page {
+  background: transparent;
+}
+
+.dark .experience-v1 .experience-landing-page {
   background:
     radial-gradient(circle at 72% 4%, hsl(38 92% 54% / 0.13), transparent 34rem),
     radial-gradient(circle at 8% 58%, hsl(174 58% 38% / 0.07), transparent 36rem),
     hsl(224 34% 5%);
 }
 
-.experience-v1 .experience-landing-page header {
+.experience-v1 .experience-landing-page {
+  background: transparent;
+}
+
+.dark .experience-v1 .experience-landing-page header {
   border-color: hsl(38 22% 22% / 0.62);
 }
 
@@ -659,7 +683,14 @@ h1, h2, h3, h4, h5, h6 {
   padding: clamp(0.4rem, 1vw, 0.75rem);
   border: 1px solid hsl(var(--border) / 0.76);
   border-radius: 1.1rem;
-  /* Neutral, so nothing tints the board. */
+  /* Neutral in light, deep carbon in dark */
+  background: hsl(var(--card));
+  box-shadow:
+    0 12px 35px hsl(var(--experience-shadow) / 0.08),
+    0 1px 0 hsl(0 0% 100% / 0.5) inset;
+}
+
+.dark .experience-v1 .experience-board-stage {
   background: #141618;
   box-shadow:
     0 26px 70px hsl(var(--experience-shadow) / 0.24),

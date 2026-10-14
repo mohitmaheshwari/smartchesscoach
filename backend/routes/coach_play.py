@@ -10894,6 +10894,15 @@ async def _process_move_and_respond(
                     except Exception as _pe:
                         logger.warning(f"[predict] defer setup failed (non-fatal, applying normally): {_pe}")
 
+                if not coach_move:
+                    try:
+                        legal_mvs = list(board.legal_moves)
+                        if legal_mvs:
+                            coach_move = board.san(legal_mvs[0])
+                            logger.info(f"Fallback to legal move {coach_move} for {session_id}")
+                    except Exception as _fb_err:
+                        logger.warning(f"Legal move fallback error: {_fb_err}")
+
                 if coach_move:
                     chess_move = board.parse_san(coach_move)
                     board.push(chess_move)
@@ -10957,10 +10966,6 @@ async def _process_move_and_respond(
                     # Get new evaluation
                     eval_score, mate_in = await opponent.get_evaluation(fen_after_coach)
 
-                    # Seed the eval-bar cache with the eval we JUST computed so the /state
-                    # poll that detects this coach move returns instantly instead of running
-                    # the SAME get_evaluation again (that redundant Stockfish was contending
-                    # with get_move on the thread pool → 2.7s /state in the HAR). 2026-06-25.
                     try:
                         from coach_play.coach_game_session import (
                             _EVAL_BAR_CACHE as _EBC, _EVAL_BAR_CACHE_MAX as _EBC_MAX,
@@ -10972,21 +10977,12 @@ async def _process_move_and_respond(
                     except Exception:
                         pass
 
-                    # === PUNISHMENT-PUZZLE ARMING ===
-                    # If the coach just played an exploitable move, arm
-                    # a guided puzzle: store observation/challenge/reveal
-                    # in session.active_puzzle. The user's next move will
-                    # be evaluated against the expected refutation.
-                    # Confidence-gated — fires only when stockfish + PV
-                    # confirm a concrete win (mate, undefended ≥minor,
-                    # overextended pawn). See coach_play.punishment_puzzle.
                     if not coach_game_over and not session_doc.get("opening_teaching_active"):
                         try:
                             from coach_play.punishment_puzzle import evaluate_for_puzzle
                             from stockfish_service import get_best_moves_for_position
                             import uuid as _uuid
 
-                            # Multi-PV from user's POV
                             user_chess_color = chess.WHITE if user_color == "white" else chess.BLACK
                             top_raw = get_best_moves_for_position(
                                 fen_after_coach, num_moves=3, depth=12,
@@ -10998,19 +10994,16 @@ async def _process_move_and_respond(
                                     ev = entry.get("evaluation")
                                     mate = entry.get("mate_in")
                                     if mate is not None:
-                                        # Mate eval: convert to large signed cp
                                         ev_cp = 30000 if mate > 0 else -30000
                                     elif ev is not None:
-                                        ev_cp = ev  # already cp
+                                        ev_cp = ev
                                     else:
                                         continue
-                                    # get_best_moves returns score from white's POV
                                     if user_chess_color == chess.BLACK:
                                         ev_cp = -ev_cp
                                     if san:
                                         pv_top_moves.append((san, int(ev_cp)))
 
-                            # Frequency cap from puzzle_history
                             puzzle_count = len(fresh_session.get("puzzle_history", []) or []) if fresh_session else 0
                             board_before_coach = chess.Board(fen_after_user)
                             board_after_coach = chess.Board(fen_after_coach)
@@ -11045,228 +11038,9 @@ async def _process_move_and_respond(
                                     "type": "puzzle_armed",
                                     "puzzle": puzzle_doc,
                                 })
-                                logger.info(
-                                    f"[PUZZLE] armed pattern={spec.pattern_type} "
-                                    f"after coach_move={coach_move} session={session_id}"
-                                )
                         except Exception as puzzle_err:
                             logger.warning(f"[PUZZLE] arming failed (non-fatal): {puzzle_err}")
 
-                    # === OPENING DETECTION AFTER COACH'S MOVE ===
-                    # This enables immediate detection for openings where the coach makes the defining move
-                    # (e.g., 1.e4 for French Defense: coach plays e4, user will play e6)
-                    if not coach_game_over and len(move_history) <= 24 and not session_doc.get("opening_offer_shown") and not session_doc.get("opening_teaching_active"):
-                        try:
-                            from services.opening_teaching_integration import check_opening_and_offer_teaching
-                            
-                            # Get updated move history (including coach's move)
-                            all_moves_for_detection = [m.get("move", "") for m in move_history]
-                            
-                            opening_offer = await check_opening_and_offer_teaching(
-                                db=db,
-                                session_id=session_id,
-                                move_history=all_moves_for_detection,
-                                user_color=user_color,
-                                user_id=session_doc.get("user_id", "unknown")
-                            )
-                            
-                            if opening_offer:
-                                # Fit-check: same gating as the user-move
-                                # branch above. Suppress when the opening is
-                                # in the user's "avoid" list.
-                                from services.opening_fit import opening_in_avoid_list
-                                _uid_for_fit = session_doc.get("user_id", "unknown")
-                                should_skip = await opening_in_avoid_list(
-                                    db, _uid_for_fit, opening_offer.get("opening_key")
-                                )
-                                if should_skip:
-                                    logger.info(
-                                        f"Suppressed post-coach teaching offer for "
-                                        f"{opening_offer['opening_name']} — poor fit "
-                                        f"for user {_uid_for_fit}"
-                                    )
-                                    await db.coach_sessions.update_one(
-                                        {"session_id": session_id},
-                                        {"$set": {"opening_offer_shown": True}}
-                                    )
-                                else:
-                                    await db.coach_messages.insert_one({
-                                        "session_id": session_id,
-                                        "type": "opening_teaching_offer",
-                                        "message": opening_offer["message"],
-                                        "trigger": "opening_detected",
-                                        "opening_name": opening_offer["opening_name"],
-                                        "opening_key": opening_offer["opening_key"],
-                                        "options": opening_offer["options"],
-                                        "trap_name": opening_offer.get("trap_name"),
-                                        "created_at": datetime.now(timezone.utc),
-                                        "read": False,
-                                    })
-                                    logger.info(f"Opening detected after coach move: {opening_offer['opening_name']}")
-
-                                    # Mark as shown so we don't show again
-                                    await db.coach_sessions.update_one(
-                                        {"session_id": session_id},
-                                        {"$set": {"opening_offer_shown": True}}
-                                    )
-                        except Exception as e:
-                            logger.warning(f"Opening detection after coach move failed: {e}")
-                    
-                    # === TEACHING: Generate coach's teaching message ===
-                    # When decision engine is active, run coach move through it too
-                    coach_move_number = len(move_history) // 2
-                    # Coach move coaching is now handled by evaluate-pending on the NEXT user move
-                    # (opponent idea signals). No separate coach move message emission needed.
-                    if engine_handled and not coach_game_over:
-                        pass  # Silent — evaluate-pending handles opponent awareness
-
-                    if not engine_handled and not coach_game_over:
-                        try:
-                            from services.move_by_move_coach import generate_move_commentary
-                            from coach_engine.opening_plans import build_opening_coaching_context
-                            
-                            all_moves = [m.get("move", "") for m in move_history]
-                            opening_plan = build_opening_coaching_context(all_moves)
-                            
-                            # Use move-by-move coach for opening moves
-                            if coach_move_number <= 15:
-                                commentary = generate_move_commentary(
-                                    fen_before=fen_after_user,
-                                    fen_after=fen_after_coach,
-                                    move_san=coach_move,
-                                    move_by="coach",
-                                    all_moves=all_moves,
-                                    user_color=user_color,
-                                    user_rating=user_rating,
-                                    opening_plan=opening_plan,
-                                )
-                                
-                                msg_text = commentary.message
-                                trigger_type = "opening_teaching"
-                                
-                                if msg_text:
-                                    msg_doc = {
-                                        "session_id": session_id,
-                                        "type": "coach",
-                                        "message": msg_text,
-                                        "trigger": trigger_type,
-                                        "move": coach_move,
-                                        "move_number": coach_move_number,
-                                        "is_coach_move": True,
-                                        "created_at": datetime.now(timezone.utc),
-                                        "read": False,
-                                        "teaching_type": commentary.teaching_type,
-                                    }
-                                    if commentary.question:
-                                        msg_doc["question"] = {"prompt": commentary.question}
-                                    if commentary.trap_warning:
-                                        msg_doc["trap_warning"] = commentary.trap_warning
-                                    if commentary.next_hint:
-                                        msg_doc["next_hint"] = commentary.next_hint
-                                    
-                                    # Include opening info
-                                    if opening_plan:
-                                        msg_doc["opening_key"] = opening_plan.get("key")
-                                        msg_doc["opening_name"] = opening_plan.get("name")
-                                    
-                                    await db.coach_messages.insert_one(msg_doc)
-                            else:
-                                # Fall back to Active Teaching Engine for middlegame+
-                                from services.active_teaching_engine import generate_teaching_feedback
-                                
-                                feedback = generate_teaching_feedback(
-                                    fen=fen_after_coach,
-                                    last_move_uci=chess_move.uci(),
-                                    student_rating=user_rating,
-                                    phase="after_coach_move",
-                                    student_color=user_color,
-                                    move_context={
-                                        "teaching_goal": teaching_context.get("teaching_goal", "natural_play"),
-                                        "why_instructive": teaching_context.get("why_instructive", ""),
-                                        "concept_taught": teaching_context.get("concept_taught", ""),
-                                        "student_challenge": teaching_context.get("student_challenge", ""),
-                                        "move_san": coach_move,
-                                        "game_phase": teaching_context.get("teaching_content", {}).get("game_phase", "middlegame"),
-                                        # V2 enriched data
-                                        "v2": teaching_context.get("v2", False),
-                                        "intent_reason": teaching_context.get("intent_reason", ""),
-                                        "v2_breakdown": teaching_context.get("v2_breakdown", {}),
-                                    }
-                                )
-                                
-                                if not feedback.get("error") and feedback.get("message"):
-                                    await db.coach_messages.insert_one({
-                                        "session_id": session_id,
-                                        "type": "coach",
-                                        "message": feedback["message"],
-                                        "trigger": "teaching",
-                                        "move": coach_move,
-                                        "move_number": coach_move_number,
-                                        "is_coach_move": True,
-                                        "created_at": datetime.now(timezone.utc),
-                                        "read": False,
-                                        "concept": feedback.get("concept"),
-                                        "hints": feedback.get("hints", []),
-                                    })
-                        except Exception as e:
-                            logger.warning(f"Opening teaching generation failed: {e}")
-                    
-                    # === NEW: INTELLIGENT POSITION COACHING ===
-                    # Offer position-based coaching when not in opening/endgame teaching
-                    # This connects all our analysis systems to provide contextual suggestions
-                    # Position coaching disabled — v2 system handles all coaching
-                    if False and not coach_game_over:
-                        try:
-                            should_offer_position_coaching = (
-                                not session_doc.get("opening_teaching_active") and
-                                not session_doc.get("position_coaching_offered") and
-                                len(move_history) >= 12
-                            )
-
-                            if should_offer_position_coaching:
-                                from services.intelligent_position_coach import analyze_position_and_suggest
-                                
-                                # Analyze the current position
-                                position_coaching = await analyze_position_and_suggest(
-                                    board=board,  # Board after coach's move
-                                    move_history=move_history_san + [coach_move],
-                                    user_color=user_color,
-                                    user_id=session_doc.get("user_id", "unknown"),
-                                    db=db
-                                )
-                                
-                                if position_coaching:
-                                    # Store the position coaching offer as a message
-                                    await db.coach_messages.insert_one({
-                                        "session_id": session_id,
-                                        "type": "position_coaching",
-                                        "message": position_coaching.get("main_idea", ""),
-                                        "trigger": "position_analysis",
-                                        "structure_name": position_coaching.get("structure_name"),
-                                        "structure_type": position_coaching.get("structure_type"),
-                                        "game_phase": position_coaching.get("game_phase"),
-                                        "key_characteristics": position_coaching.get("key_characteristics", []),
-                                        "strategic_plans": position_coaching.get("strategic_plans", []),
-                                        "tactical_features": position_coaching.get("tactical_features", {}),
-                                        "tactical_insights": position_coaching.get("tactical_insights", []),
-                                        "teaching_points": position_coaching.get("teaching_points", []),
-                                        "critical_squares": position_coaching.get("critical_squares", []),
-                                        "options": position_coaching.get("options", []),
-                                        "created_at": datetime.now(timezone.utc),
-                                        "read": False,
-                                    })
-                                    
-                                    # Mark that we've offered position coaching
-                                    await db.coach_sessions.update_one(
-                                        {"session_id": session_id},
-                                        {"$set": {"position_coaching_offered": True}}
-                                    )
-                                    
-                                    logger.info(f"Position coaching offered: {position_coaching.get('structure_name')} ({position_coaching.get('game_phase')})")
-                        except Exception as e:
-                            logger.warning(f"Intelligent position coaching failed: {e}")
-                    
-                    # Update session
                     update_fields = {
                         "coach_move_pending": False,
                         "last_coach_move": {
@@ -11280,16 +11054,9 @@ async def _process_move_and_respond(
                         "evaluation": {"score": eval_score, "mate_in": mate_in}
                     }
 
-                    # If V2 created a teaching opportunity, store it for consequence tracking
                     if v2_pending_opportunity:
                         update_fields["pending_opportunity"] = v2_pending_opportunity
 
-                    # The revision guard above narrows the window but does not
-                    # close it: it is a separate read from this write. Commit the
-                    # coach move as a compare-and-swap so a concurrent
-                    # trigger_coach_move_endpoint or _apply_coach_move cannot be
-                    # overwritten. `move_history` already carries the appended
-                    # entry, so swap on the length BEFORE it.
                     _coach_entry = move_history[-1]
                     if not await _append_move_atomically(
                         db,
@@ -11301,13 +11068,11 @@ async def _process_move_and_respond(
                         extra_set=update_fields,
                     ):
                         logger.info(
-                            "Coach move %s for %s not stored; another path "
-                            "already resolved this turn",
+                            "Coach move %s for %s not stored; another path already resolved this turn",
                             coach_move, session_id[:8],
                         )
                         return
 
-                    # SSE: push to the frontend EventSource subscriber
                     publish_session_event(session_id, {
                         "type": "coach_turn_ready",
                         "move": coach_move,
@@ -11319,7 +11084,7 @@ async def _process_move_and_respond(
                             "result": coach_result,
                         })
                 else:
-                    # No valid move (shouldn't happen)
+                    # Truly no legal moves left for coach
                     await db.coach_sessions.update_one(
                         {"session_id": session_id},
                         {"$set": {"coach_move_pending": False}}

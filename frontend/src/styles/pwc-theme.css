@@ -16,31 +16,31 @@
 
 /* ── White Studio / Slate Studio Theme ── */
 .pwc-root {
-  --background: 218 22% 16%;      /* #1c2430 refined studio slate */
-  --foreground: 210 20% 96%;
-  --card: 218 24% 19%;            /* #222d3b frosted card */
-  --card-foreground: 210 20% 96%;
-  --popover: 218 24% 19%;
-  --popover-foreground: 210 20% 96%;
+  --background: 210 24% 97%;      /* Clean light studio slate */
+  --foreground: 222 47% 11%;      /* Deep crisp text */
+  --card: 0 0% 100%;              /* Pure white cards */
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
   --primary: 199 89% 48%;         /* #38bdf8 cyan */
-  --primary-foreground: 210 9% 4%;
-  --secondary: 218 20% 24%;
-  --secondary-foreground: 210 20% 96%;
-  --muted: 218 18% 22%;
-  --muted-foreground: 215 15% 65%;
-  --accent: 218 20% 24%;
-  --accent-foreground: 210 20% 96%;
-  --border: 218 16% 28%;          /* #354456 */
-  --input: 218 16% 28%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 93%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 20% 93%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 210 20% 93%;
+  --accent-foreground: 222 47% 11%;
+  --border: 214 20% 88%;          /* #dbe2ea */
+  --input: 214 20% 88%;
   --ring: 199 89% 48%;
 
   /* design-named tokens */
-  --pwc-accent: #38bdf8;
-  --pwc-accent-soft: rgba(56, 189, 248, 0.14);
-  --pwc-accent-ring: rgba(56, 189, 248, 0.45);
-  --pwc-ok: #34d399;
-  --pwc-warn: #fbbf24;
-  --pwc-bad: #f87171;
+  --pwc-accent: #0284c7;
+  --pwc-accent-soft: rgba(2, 132, 199, 0.12);
+  --pwc-accent-ring: rgba(2, 132, 199, 0.45);
+  --pwc-ok: #059669;
+  --pwc-warn: #d97706;
+  --pwc-bad: #e11d48;
 
   /* Mobile bottom-sheet sizing. Peek is a small persistent coach bar so the
      BOARD owns the screen (in the real app you move on the board, not via
