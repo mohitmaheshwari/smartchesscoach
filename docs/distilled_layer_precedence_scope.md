@@ -234,3 +234,82 @@ call raised TypeError inside the `except Exception` around the distilled
 block and the comparison silently inverted. The harness now asserts its
 stub matches the real signature. Same failure mode as the `opp_cp_loss`
 regression: a swallowed TypeError reads as a behaviour change.
+
+---
+
+## The mate claim was checked against the wrong move
+
+*2026-10-14, after Mohit approved fixing the mate binding only.*
+
+Wrapping `verify_caption` during a real render over 150 games / 8,494
+cards recorded every rejection with the caption it threw away. Of 1,164
+rejections, **1,029 stand** -- the verifier is mostly right, and its
+best catches are real:
+
+> "Bxf7+ ... you simply **lose it for nothing**"
+> -- the stored line also removes 100cp of opponent material.
+
+Of the 160 mate rejections, **113 blamed a move that was not played**,
+from two causes.
+
+**1. "force mate" was not "forced win".** `_MATE_ALLOWED_RX` listed
+`lets ... forced win`, but the only template that claims mate --
+`data/distilled_templates.json` `allowed_mate` -- says *"lets your
+opponent force mate"*. Every caption from it fell past the
+opponent-mates branch into a block asking *is the RECOMMENDED move
+mate?*, which it never is:
+
+> "Qd2 lets your opponent force mate, so play Qxf5+ instead"
+> rejected as "claims checkmate but Qxf5+ is not mate"
+
+**2. "missed a checkmate" read as "delivered checkmate".**
+`_MATE_MISSED_RX` covered "missed mate" but not "missed **a**
+checkmate", so a bare `\bcheckmate\b` in `_MATE_DELIVERED_RX` caught
+48 captions and classified them as the mover DELIVERING mate when they
+say the opposite. That block then tested only the FIRST move, while the
+caption says it *"starts a line that forces mate"* -- the mate lands at
+the end.
+
+The block now walks the line the claim belongs to, exactly as the
+opponent-mates branch already walked `pv_after_played`:
+`pv_after_best` for the user's own missed mate, `pv_after_played` for
+the opponent's. **The proof requirement is unchanged and still fails
+closed** -- the line must reach a checkmate delivered by the side the
+caption credits, or the claim is rejected. Five of the twelve tests are
+negative controls for exactly that.
+
+### The honest result: the fix is correct and buys little today
+
+| | before | after |
+|---|---|---|
+| mate rejections blaming a move not played | 113 | **0** |
+| mate rejections total | 160 | 153 |
+| all rejections | 1,164 | 1,131 |
+
+Seven cards per 150 games. The reason is the interesting part -- the
+length of the line each remaining claim depends on:
+
+| plies | cases |
+|---|---|
+| 0 (nothing stored) | 38 |
+| 1 | 1 |
+| 2 | 1 |
+| 4 | 111 |
+| 12 | 2 |
+
+**151 of 153 (99%) have 4 plies or fewer.** A 4-ply line proves
+mate-in-2 at best, and the stored mate distribution runs to mate-in-7
+(`{1:171, 2:74, 3:29, 4:24, 6:25, 7:21}`). These claims cannot be proven
+at the depth we stored, so no verifier change can ship them. The real
+unlock is re-analysis depth -- the same 4-ply staleness behind the 47
+unprovable missed mates and the short punishment lines.
+
+What this change buys: the rejection reason is now truthful and
+diagnosable instead of blaming an unrelated move, and the wrong gate is
+gone, so the cards ship the moment the lines are long enough.
+
+### Not pursued, with the number
+
+Negation ("that needs White's pawn on c4, **not** e4" flagged for
+claiming a pawn on c4) is real but **6 cases** of 1,164. Not worth
+relaxing a check whose other 1,029 rejections are correct.
