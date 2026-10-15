@@ -24,6 +24,7 @@ import Layout from "@/components/Layout";
 import useMoveCaption from "@/hooks/useMoveCaption";
 import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 import { Chess } from "chess.js";
+import { playForSan, playBlunder } from "@/lib/chessSounds";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -426,6 +427,7 @@ export default function PrescribedTraining({ user = null }) {
     }
     if (move === null) return false;
 
+    playForSan(move.san);
     setUserMove(move.san);
     const userMoveUci = `${sourceSquare}${targetSquare}${move.promotion || ""}`;
 
@@ -512,6 +514,7 @@ export default function PrescribedTraining({ user = null }) {
         setSolvedCount((prev) => prev + 1);
         setEncouragement(feedback || `Solid. ${bestSan} was sharper.`);
       } else {
+        try { playBlunder(); } catch { /* ignore */ }
         setPuzzleState(
           result.concept_result === "pass" ? "concept_pass" : "incorrect"
         );

@@ -2908,7 +2908,11 @@ const CoachPlay = ({ user }) => {
               highlightMove(lastMove.uci);
               setCoachLastMoveSquare(lastMove.uci.slice(2, 4));
             }
-            if (lastMove?.move || lastMove?.san) setLastCoachMoveSan(lastMove.san || lastMove.move);
+            if (lastMove?.move || lastMove?.san) {
+              const san = lastMove.san || lastMove.move;
+              setLastCoachMoveSan(san);
+              playForSan(san);
+            }
             setCoachMoveExplanation(lastMove?.explanation || null);
 
             if (data.game_over || data.session.status === "completed") {

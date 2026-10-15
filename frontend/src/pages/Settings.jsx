@@ -22,9 +22,10 @@ import { Switch } from "@/components/ui/switch";
 import Layout from "@/components/Layout";
 import { useTheme } from "@/context/ThemeContext";
 import { toast } from "sonner";
-import { Loader2, Send, Sparkles, User, Database, Mail, Palette, Shield, LogOut } from "lucide-react";
+import { Loader2, Send, Sparkles, User, Database, Mail, Palette, Shield, LogOut, Volume2 } from "lucide-react";
 import { resetAnalyticsContext } from "@/lib/analytics";
 import { Capacitor } from "@capacitor/core";
+import { isMuted, setMuted, playForSan } from "@/lib/chessSounds";
 
 // ─── Row: title + description on the left, control on the right ──────────────
 function Row({ title, desc, children }) {
@@ -75,6 +76,7 @@ const Settings = ({ user }) => {
   const [loadingEmail, setLoadingEmail] = useState(true);
   const [savingEmail, setSavingEmail] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => !isMuted());
 
   useEffect(() => {
     fetchEmailSettings();
@@ -304,6 +306,30 @@ const Settings = ({ user }) => {
                 checked={theme === "dark"}
                 onCheckedChange={toggleTheme}
                 data-testid="theme-switch"
+              />
+            </div>
+          </Row>
+          <Row
+            title="Board sound effects"
+            desc="Synthesized wooden clicks for piece moves, captures, checks, and coaching moments."
+          >
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs text-slate-400 uppercase tracking-wider font-semibold">
+                {soundEnabled ? "Enabled" : "Muted"}
+              </span>
+              <Switch
+                checked={soundEnabled}
+                onCheckedChange={(val) => {
+                  setSoundEnabled(val);
+                  setMuted(!val);
+                  if (val) {
+                    playForSan("e4");
+                    toast.success("Sound effects enabled");
+                  } else {
+                    toast.info("Sound effects muted");
+                  }
+                }}
+                data-testid="sound-effects-switch"
               />
             </div>
           </Row>

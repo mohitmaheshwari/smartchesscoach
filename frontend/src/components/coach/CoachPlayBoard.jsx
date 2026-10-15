@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MOTION_TIMING } from "@/lib/motion";
 import LichessBoard from "@/components/LichessBoard";
 import { Button } from "@/components/ui/button";
-import { isMuted, setMuted } from "@/lib/chessSounds";
+import { isMuted, setMuted, playForSan } from "@/lib/chessSounds";
 import { Badge } from "@/components/ui/badge";
 import PreMoveChecklist from "@/components/coach/PreMoveChecklist";
 import { OpeningCorrectionDialog } from "@/components/openings/OpeningCorrectionDialog";
@@ -803,6 +803,28 @@ const CoachPlayBoard = forwardRef(function CoachPlayBoard(
                       title="Resign Game"
                     >
                       <Flag className="w-3.5 h-3.5" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        const next = !soundOff;
+                        setSoundOff(next);
+                        setMuted(next);
+                        if (!next) {
+                          playForSan("e4");
+                        }
+                      }}
+                      data-testid="sound-board-btn"
+                      className={`h-7 w-7 rounded-lg transition-all cursor-pointer ${
+                        soundOff
+                          ? "text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                          : "text-muted-foreground dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-cyan-500/10"
+                      }`}
+                      title={soundOff ? "Sound Muted (Click to Unmute)" : "Sound On (Click to Mute)"}
+                    >
+                      {soundOff ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                     </Button>
                   </>
                 )}

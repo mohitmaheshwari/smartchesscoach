@@ -1024,62 +1024,64 @@ export default function HomePageNew({ user }) {
           ) : (
             <motion.section 
               variants={fadeInUp} 
-              className="rounded-2xl border border-slate-200/90 studio-card-coach p-5 sm:p-7 shadow-[0_10px_30px_rgba(0,0,0,0.06)] relative overflow-hidden"
+              className="studio-card-coach p-4 sm:p-5 md:p-6 relative overflow-hidden"
             >
               {/* Subtle ambient cyan glow highlight inside Coach Jessica panel */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] pointer-events-none" />
 
-              {/* Coach Header */}
-              <div className="flex items-center gap-3.5 sm:gap-4 mb-4 pb-4 border-b border-slate-200/80 dark:border-cyan-500/15 relative z-10">
-                <div className="relative shrink-0">
-                  <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-xl overflow-hidden ring-2 ring-cyan-400/80 shadow-[0_0_15px_rgba(6,182,212,0.4)] bg-slate-100 dark:bg-slate-900">
-                    <img
-                      src="/coach-jessica.png"
-                      alt="Coach Jessica"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80";
-                      }}
-                    />
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 relative z-10">
+                {/* Left: Avatar + Title & Message */}
+                <div className="flex items-start sm:items-center gap-3.5 sm:gap-4 min-w-0 flex-1">
+                  <div className="relative shrink-0">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden ring-2 ring-cyan-400/80 shadow-[0_0_15px_rgba(6,182,212,0.4)] bg-slate-900">
+                      <img
+                        src="/coach-jessica.png"
+                        alt="Coach Jessica"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80";
+                        }}
+                      />
+                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-slate-950 flex items-center justify-center">
+                      <div className="w-1 h-1 bg-white rounded-full animate-ping" />
+                    </div>
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#071b32] flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h3 className="font-heading font-bold text-base sm:text-lg text-white tracking-tight">
+                        Coach Jessica
+                      </h3>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/30 text-[10px] sm:text-[11px] font-mono font-semibold text-cyan-300 uppercase tracking-wider">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                        AI Chess Mentor
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm leading-relaxed text-slate-300 font-normal">
+                      {hasGames
+                        ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
+                        : "I'm still learning how you play. Play a game or two and I'll start noticing your habits."}
+                    </p>
                   </div>
                 </div>
-                <div>
-                  <h3 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 dark:text-white tracking-tight">
-                    Coach Jessica
-                  </h3>
-                  <p className="text-xs sm:text-sm font-mono font-semibold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                    AI Chess Mentor · Game Decryption
-                  </p>
-                </div>
-              </div>
 
-              {/* Observation Quote Container */}
-              <div className="bg-slate-50 dark:bg-[#071728]/70 border border-slate-200/90 dark:border-cyan-500/20 rounded-xl p-4 sm:p-5 mb-5 shadow-sm dark:shadow-inner relative z-10">
-                <p className="text-sm sm:text-base leading-relaxed text-slate-700 dark:text-slate-200 font-normal">
-                  {hasGames
-                    ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
-                    : "I'm still learning how you play. Play a game or two and I'll start noticing your habits."}
-                </p>
+                {/* Right: Action Button */}
+                <button
+                  onClick={() => {
+                    track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, {
+                      cta: hasGames ? "review_games" : "play_with_coach",
+                      has_conversation: false,
+                    });
+                    navigate(hasGames ? "/games?tab=coach" : "/play-with-coach");
+                  }}
+                  className="h-10 sm:h-11 px-5 sm:px-6 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_20px_rgba(6,182,212,0.45)] hover:shadow-[0_0_28px_rgba(6,182,212,0.65)] inline-flex items-center justify-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] shrink-0"
+                >
+                  <span>{hasGames ? "Review your games" : "Play with Coach"}</span>
+                  <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
+                </button>
               </div>
-
-              <button
-                onClick={() => {
-                  track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, {
-                    cta: hasGames ? "review_games" : "play_with_coach",
-                    has_conversation: false,
-                  });
-                  navigate(hasGames ? "/games?tab=coach" : "/play-with-coach");
-                }}
-                className="h-11 px-7 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_20px_rgba(6,182,212,0.45)] hover:shadow-[0_0_30px_rgba(6,182,212,0.65)] inline-flex items-center gap-2.5 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] relative z-10"
-              >
-                <span>{hasGames ? "Review your games" : "Play with Coach"}</span>
-                <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
-              </button>
             </motion.section>
           )}
 
