@@ -93,12 +93,20 @@ identity:
 - **Coach games have no platform at all**, correctly. They already carry
   `coach_session_id`, which is the one uniquely-indexed field in the
   collection. That is their identity; no new work.
-- **First, try to recover the platform id from the PGN.** Both platforms
-  write it into the headers (`[Site "https://lichess.org/xyz"]`,
-  `[Link "https://www.chess.com/game/live/..."]`), so a record with no `url`
-  column may still carry a recoverable id. Recovery runs before any content
-  identity is considered, because a recovered platform id is strong and a
-  content identity is weak.
+- **First, try to recover the platform id from the PGN — and measurement says
+  this nearly closes the gap.** Of 400 sampled records with no `url`:
+
+  | Platform | Records | Usable headers |
+  |---|---|---|
+  | chess.com | 348 | **both `[Site]` and `[Link]`** |
+  | coach | 52 | none (expected — they have `coach_session_id`) |
+
+  So **87% of the no-url records carry a recoverable platform id**, and every
+  one of the remainder is a coach game that already has a unique identity.
+  Recovery runs before any content identity is considered, because a recovered
+  platform id is strong and a content identity is weak — and on these numbers
+  the weak path should end up carrying almost nothing. Any record that still
+  needs it is worth listing individually rather than batch-processing.
 - **Only then fall back to a content identity**, and the earlier version of
   this rule was too weak. Same moves in the same minute **can** describe
   different games — two players repeating a short forced line, a rematch, a
