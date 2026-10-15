@@ -4482,11 +4482,16 @@ const CoachPlay = ({ user }) => {
         onPlayAgain={newGame}
         onReviewGame={() => {
           setShowResultModal(false);
-          const gid = summary?.game_id || session?.session_id;
+          let gid = summary?.game_id;
+          if (!gid && session?.session_id) {
+            gid = session.session_id.startsWith("coach_")
+              ? session.session_id
+              : `coach_${session.session_id.slice(0, 12)}`;
+          }
           if (gid) {
-            navigate(`/lab/game/${gid}`);
+            navigate(`/game/${gid}`);
           } else {
-            navigate("/lab");
+            navigate("/games?tab=coach");
           }
         }}
         onClose={() => setShowResultModal(false)}

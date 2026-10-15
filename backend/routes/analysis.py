@@ -917,16 +917,23 @@ Evaluations: "blunder", "mistake", "inaccuracy", "good", "solid", "neutral"
 @router.get("/analysis/{game_id}", tags=["Analysis"])
 async def get_analysis(game_id: str, user: User = Depends(get_current_user)):
     """Get analysis for a specific game"""
+    candidate_ids = [game_id]
+    if not game_id.startswith("coach_") and len(game_id) >= 12:
+        candidate_ids.append(f"coach_{game_id[:12]}")
+    elif game_id.startswith("coach_"):
+        candidate_ids.append(game_id.replace("coach_", ""))
+
     analysis = await db.game_analyses.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
+        {"game_id": {"$in": candidate_ids}, "user_id": user.user_id},
         {"_id": 0, "_cqs_internal": 0}  # Exclude internal CQS data
     )
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
 
+    actual_game_id = analysis.get("game_id", game_id)
     # Also get the game to extract full move list
     game = await db.games.find_one(
-        {"game_id": game_id},
+        {"$or": [{"game_id": {"$in": candidate_ids}}, {"coach_session_id": game_id}]},
         {"_id": 0, "pgn": 1, "user_color": 1}
     )
 
@@ -993,19 +1000,24 @@ async def get_enriched_analysis(game_id: str, user: User = Depends(get_current_u
     - Coach voice summary
     - Specific moment insights
     """
-    from services.human_coach_layer import enrich_game_analysis
+    candidate_ids = [game_id]
+    if not game_id.startswith("coach_") and len(game_id) >= 12:
+        candidate_ids.append(f"coach_{game_id[:12]}")
+    elif game_id.startswith("coach_"):
+        candidate_ids.append(game_id.replace("coach_", ""))
 
     # Get base analysis
     analysis = await db.game_analyses.find_one(
-        {"game_id": game_id, "user_id": user.user_id},
+        {"game_id": {"$in": candidate_ids}, "user_id": user.user_id},
         {"_id": 0, "_cqs_internal": 0}
     )
     if not analysis:
         raise HTTPException(status_code=404, detail="Analysis not found")
 
+    target_id = analysis.get("game_id", game_id)
     # Enrich with human coach layer
     try:
-        enriched = await enrich_game_analysis(db, game_id, user.user_id, analysis)
+        enriched = await enrich_game_analysis(db, target_id, user.user_id, analysis)
         return enriched
     except Exception as e:
         logger.warning(f"Failed to enrich analysis: {e}")

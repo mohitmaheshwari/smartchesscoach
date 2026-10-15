@@ -518,14 +518,32 @@ async def get_game_coach_review(game_id: str, user: User = Depends(get_current_u
     """
     import chess
 
+    candidate_ids = [game_id]
+    if not game_id.startswith("coach_") and len(game_id) >= 12:
+        candidate_ids.append(f"coach_{game_id[:12]}")
+    elif game_id.startswith("coach_"):
+        candidate_ids.append(game_id.replace("coach_", ""))
+
     game = await db.games.find_one(
-        {"game_id": game_id, **user_scope_filter(user)}, {"_id": 0}
+        {
+            "$and": [
+                user_scope_filter(user),
+                {
+                    "$or": [
+                        {"game_id": {"$in": candidate_ids}},
+                        {"coach_session_id": game_id},
+                    ]
+                }
+            ]
+        },
+        {"_id": 0}
     )
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
+    actual_game_id = game.get("game_id", game_id)
     analysis = await db.game_analyses.find_one(
-        {"game_id": game_id}, {"_id": 0}
+        {"game_id": {"$in": [actual_game_id, *candidate_ids]}}, {"_id": 0}
     )
     if not analysis:
         raise HTTPException(status_code=404, detail="Game not analyzed yet")

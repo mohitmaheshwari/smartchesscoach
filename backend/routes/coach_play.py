@@ -11419,6 +11419,7 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
         response = {
             "has_data": True,
             "session_id": session_id,
+            "game_id": f"coach_{session_id[:12]}",
             "result": game_result,
 
             # How you played
@@ -11491,6 +11492,7 @@ async def get_postgame_reflection(session_id: str, user: User = Depends(get_curr
         response = {
             "has_data": True,
             "session_id": session_id,
+            "game_id": f"coach_{session_id[:12]}",
             "result": game_result,
             "accuracy": 0,
             "total_blunders": 0,

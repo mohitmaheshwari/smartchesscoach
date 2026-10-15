@@ -320,11 +320,17 @@ const OpeningLesson = () => {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => navigate("/openings")}
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate("/lab");
+              }
+            }}
             className="-ml-3 mb-2 h-8 text-muted-foreground hover:text-foreground sm:mb-3"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
-            Back to Repertoire
+            Back
           </Button>
           
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">

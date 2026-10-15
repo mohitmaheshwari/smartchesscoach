@@ -63,7 +63,7 @@ const formatWhen = () => {
 
 const NAV = [
   { id: "play", icon: Swords, label: "Play with Coach", sub: "Spar against adaptive engine with live feedback", href: "/play-with-coach" },
-  { id: "lab", icon: FlaskConical, label: "The Lab", sub: "Review game decryptor & mistake decay analysis", href: "/lab" },
+  { id: "lab", icon: FlaskConical, label: "The Lab", sub: "Review game decryptor & mistake decay analysis", href: "/games?tab=coach" },
   { id: "training", icon: Target, label: "Pattern Training", sub: "Tactical drills, piece safety & forks", href: "/training" },
   { id: "openings", icon: BookOpen, label: "Opening Repertoire", sub: "Master theory, lines & famous traps", href: "/openings" },
 ];
@@ -317,10 +317,27 @@ export default function HomePageNew({ user }) {
   if (!hasGames) {
     return (
       <Layout user={user} fullBleed={true}>
-        <div className="min-h-full py-8 px-4 sm:px-6 md:px-8 lg:px-12 w-full max-w-7xl mx-auto relative" data-testid="home-page">
-          {/* Subtle Ambient Studio Lighting */}
-          <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none" />
-          <div className="absolute top-1/2 left-10 w-80 h-80 bg-blue-600/5 dark:bg-violet-600/10 rounded-full blur-[140px] pointer-events-none" />
+        <div className="min-h-full py-8 px-4 sm:px-6 md:px-8 lg:px-12 w-full max-w-7xl mx-auto relative overflow-hidden chess-studio-bg" data-testid="home-page">
+          {/* Futuristic Atmospheric Ambient Lighting */}
+          <div className="absolute top-0 right-1/4 w-[480px] h-[480px] bg-cyan-500/15 rounded-full blur-[150px] pointer-events-none" />
+          <div className="absolute top-1/3 left-4 w-[400px] h-[400px] bg-blue-600/12 rounded-full blur-[160px] pointer-events-none" />
+          <div className="absolute bottom-10 right-10 w-[450px] h-[450px] bg-cyan-600/10 rounded-full blur-[180px] pointer-events-none" />
+
+          {/* Faint Chessboard Perspective Grid at the bottom */}
+          <div className="chess-perspective-grid" />
+
+          {/* Subtle Chess Piece Silhouettes */}
+          <div className="chess-silhouette top-12 -left-8 text-cyan-400 select-none">
+            <svg className="w-56 h-56" viewBox="0 0 45 45" fill="currentColor">
+              <path d="M22.5 4c-1.6 0-3 1.4-3 3 0 .7.3 1.4.7 1.9-2.2.8-3.7 2.9-3.7 5.3 0 1.9.9 3.6 2.4 4.6-2.5 1.5-4.2 4.2-4.4 7.2h16c-.2-3-1.9-5.7-4.4-7.2 1.5-1 2.4-2.7 2.4-4.6 0-2.4-1.5-4.5-3.7-5.3.4-.5.7-1.2.7-1.9 0-1.6-1.4-3-3-3zm-9 24.5c-.8 0-1.5.7-1.5 1.5v6c0 .8.7 1.5 1.5 1.5h18c.8 0 1.5-.7 1.5-1.5v-6c0-.8-.7-1.5-1.5-1.5h-18zm-2 11c-.6 0-1 .4-1 1v1.5h24V40.5c0-.6-.4-1-1-1h-22z" />
+            </svg>
+          </div>
+
+          <div className="chess-silhouette top-2/3 -right-10 text-cyan-400 select-none">
+            <svg className="w-64 h-64" viewBox="0 0 45 45" fill="currentColor">
+              <path d="M9 39h27v-3H9v3zm3-4.5h21v-4H12v4zm3.5-5.5h14c0-2-1-4-3-5.5 1-1.5 1.5-3 1.5-5 0-3.6-2.9-6.5-6.5-6.5S14 15.4 14 19c0 2 .5 3.5 1.5 5-2 1.5-3 3.5-3 5.5zM22.5 6l-2 3h4l-2-3z" />
+            </svg>
+          </div>
 
           <motion.div 
             initial={{ opacity: 0, y: 16 }} 
@@ -347,7 +364,7 @@ export default function HomePageNew({ user }) {
               return shouldShow;
             })() && (
               <section>
-                <div className="bg-white dark:bg-gradient-to-b dark:from-[#251f38] dark:via-[#1c172b] dark:to-[#120e1c] border border-violet-200 dark:border-violet-500/40 rounded-3xl p-7 sm:p-9 shadow-sm dark:shadow-[0_20px_50px_rgba(139,92,246,0.15)] backdrop-blur-xl relative overflow-hidden">
+                <div className="bg-white studio-card-coach p-7 sm:p-9 shadow-sm relative overflow-hidden">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h3 className="font-heading font-bold text-2xl sm:text-3xl text-slate-900 dark:text-white mb-2">
@@ -355,7 +372,7 @@ export default function HomePageNew({ user }) {
                       </h3>
                       <p className="text-slate-600 dark:text-slate-200 font-medium text-sm sm:text-base mb-6 max-w-[580px] leading-relaxed">
                         {diagnosticStatus.status === "in_progress"
-                          ? "We have already started. Let’s pick up where you left off."
+                           ? "We have already started. Let’s pick up where you left off."
                           : "A short set of positions will help me choose the right first lesson for you."}
                       </p>
                       <button
@@ -376,7 +393,7 @@ export default function HomePageNew({ user }) {
 
             {/* Hero Session Card */}
             <section>
-              <div className="bg-white dark:bg-gradient-to-b dark:from-[#1b2734] dark:via-[#131d27] dark:to-[#0b1118] border border-slate-200/90 dark:border-white/20 rounded-3xl p-7 sm:p-10 shadow-sm dark:shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-2xl relative overflow-hidden">
+              <div className="bg-white dark:studio-card p-7 sm:p-10 shadow-sm relative overflow-hidden">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-cyan-50 dark:bg-cyan-950/80 border border-cyan-200 dark:border-cyan-500/40 text-xs font-mono font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-300 shadow-sm dark:shadow-[0_0_15px_rgba(56,189,248,0.25)]">
                     <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
@@ -408,7 +425,7 @@ export default function HomePageNew({ user }) {
             </section>
 
             {/* External Accounts Card */}
-            <section className="bg-white dark:bg-gradient-to-b dark:from-[#18232e]/90 dark:to-[#10171f]/95 border border-slate-200/90 dark:border-white/15 rounded-3xl p-6 sm:p-7 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-sm">
+            <section className="bg-white dark:studio-card p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-sm">
               <div>
                 <p className="text-xs font-mono uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-400 font-bold mb-1">
                   Already play elsewhere?
@@ -683,12 +700,29 @@ export default function HomePageNew({ user }) {
         variants={pageEnter}
         initial="initial"
         animate="animate"
-        className="min-h-full py-8 px-4 sm:px-6 md:px-8 lg:px-12 w-full max-w-7xl mx-auto relative"
+        className="min-h-full py-8 px-4 sm:px-6 md:px-8 lg:px-12 w-full max-w-7xl mx-auto relative overflow-hidden chess-studio-bg"
         data-testid="home-page"
       >
-        {/* Soft Ambient Studio Lighting */}
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-cyan-500/15 rounded-full blur-[140px] pointer-events-none" />
-        <div className="absolute top-1/2 left-10 w-80 h-80 bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
+        {/* Futuristic Atmospheric Ambient Lighting */}
+        <div className="absolute top-0 right-1/4 w-[480px] h-[480px] bg-cyan-500/15 rounded-full blur-[150px] pointer-events-none" />
+        <div className="absolute top-1/3 left-4 w-[400px] h-[400px] bg-blue-600/12 rounded-full blur-[160px] pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-[450px] h-[450px] bg-cyan-600/10 rounded-full blur-[180px] pointer-events-none" />
+
+        {/* Faint Chessboard Perspective Grid at the bottom */}
+        <div className="chess-perspective-grid" />
+
+        {/* Subtle, Low-Opacity Chess Piece Silhouettes along outer edges */}
+        <div className="chess-silhouette top-12 -left-8 text-cyan-400 select-none">
+          <svg className="w-56 h-56" viewBox="0 0 45 45" fill="currentColor">
+            <path d="M22.5 4c-1.6 0-3 1.4-3 3 0 .7.3 1.4.7 1.9-2.2.8-3.7 2.9-3.7 5.3 0 1.9.9 3.6 2.4 4.6-2.5 1.5-4.2 4.2-4.4 7.2h16c-.2-3-1.9-5.7-4.4-7.2 1.5-1 2.4-2.7 2.4-4.6 0-2.4-1.5-4.5-3.7-5.3.4-.5.7-1.2.7-1.9 0-1.6-1.4-3-3-3zm-9 24.5c-.8 0-1.5.7-1.5 1.5v6c0 .8.7 1.5 1.5 1.5h18c.8 0 1.5-.7 1.5-1.5v-6c0-.8-.7-1.5-1.5-1.5h-18zm-2 11c-.6 0-1 .4-1 1v1.5h24V40.5c0-.6-.4-1-1-1h-22z" />
+          </svg>
+        </div>
+
+        <div className="chess-silhouette top-2/3 -right-10 text-cyan-400 select-none">
+          <svg className="w-64 h-64" viewBox="0 0 45 45" fill="currentColor">
+            <path d="M9 39h27v-3H9v3zm3-4.5h21v-4H12v4zm3.5-5.5h14c0-2-1-4-3-5.5 1-1.5 1.5-3 1.5-5 0-3.6-2.9-6.5-6.5-6.5S14 15.4 14 19c0 2 .5 3.5 1.5 5-2 1.5-3 3.5-3 5.5zM22.5 6l-2 3h4l-2-3z" />
+          </svg>
+        </div>
 
         <motion.div variants={staggerContainer} initial="initial" animate="animate" className="w-full space-y-6 relative z-10">
           
@@ -735,7 +769,7 @@ export default function HomePageNew({ user }) {
           <CoachMovements assessment={<ChancesCard />} />
           {lastSession?.story && (
             <motion.section ref={mirrorRef} variants={fadeInUp}>
-              <div className="bg-white dark:bg-gradient-to-b dark:from-[#1b2734] dark:via-[#131d27] dark:to-[#0b1118] border border-slate-200/90 dark:border-white/20 rounded-3xl p-7 sm:p-8 shadow-[0_10px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-xl relative overflow-hidden">
+              <div className="bg-white studio-card border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-[0_10px_30px_rgba(0,0,0,0.06)] relative overflow-hidden">
                 <div className="flex items-center space-x-2 text-xs font-mono uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-300 font-bold mb-3">
                   <Activity className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                   <span>Since you last played</span>
@@ -746,13 +780,13 @@ export default function HomePageNew({ user }) {
                 </p>
                 
                 {(lastSession.game_id || lastSession.game_ids?.[0]) && (
-                  <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-white/10">
+                  <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-cyan-500/15">
                     <button
                       onClick={() => {
                         track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "review_this_game" });
                         navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`);
                       }}
-                      className="px-5 py-2.5 rounded-2xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 dark:border-cyan-400/50 dark:text-cyan-200 font-heading font-bold text-[15px] uppercase tracking-wider inline-flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border border-cyan-200 dark:bg-cyan-500/20 dark:hover:bg-cyan-500/30 dark:border-cyan-400/50 dark:text-cyan-200 font-heading font-bold text-[14px] uppercase tracking-wider inline-flex items-center gap-2 transition-all shadow-sm cursor-pointer"
                     >
                       <span>Review this game</span>
                       <ChevronRight className="h-4 w-4 text-cyan-600 dark:text-cyan-300" strokeWidth={2.5} />
@@ -767,10 +801,10 @@ export default function HomePageNew({ user }) {
           {coachConversation?.has_conversation || canonicalContext ? (
             <motion.section 
               variants={fadeInUp} 
-              className="bg-white dark:bg-gradient-to-b dark:from-[#1b2734] dark:via-[#131d27] dark:to-[#0b1118] border border-slate-200/90 dark:border-white/20 rounded-3xl p-7 sm:p-10 shadow-[0_10px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-2xl relative overflow-hidden"
+              className="bg-white studio-card-coach border border-slate-200/90 rounded-2xl p-7 sm:p-9 shadow-[0_10px_30px_rgba(0,0,0,0.06)] relative overflow-hidden"
             >
               {/* Coach Header */}
-              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-200/80 dark:border-white/10">
+              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-200/80 dark:border-cyan-500/15">
                 <div className="relative shrink-0">
                   <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden ring-2 ring-cyan-500/60 shadow-md bg-slate-100 dark:bg-slate-800">
                     <img
@@ -990,12 +1024,15 @@ export default function HomePageNew({ user }) {
           ) : (
             <motion.section 
               variants={fadeInUp} 
-              className="rounded-2xl border border-slate-200/90 dark:border-white/15 bg-white dark:bg-gradient-to-r dark:from-[#172330]/90 dark:via-[#131d27]/95 dark:to-[#0e1620]/95 p-5 sm:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.6)] backdrop-blur-2xl relative overflow-hidden"
+              className="rounded-2xl border border-slate-200/90 studio-card-coach p-5 sm:p-7 shadow-[0_10px_30px_rgba(0,0,0,0.06)] relative overflow-hidden"
             >
+              {/* Subtle ambient cyan glow highlight inside Coach Jessica panel */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] pointer-events-none" />
+
               {/* Coach Header */}
-              <div className="flex items-center gap-3.5 sm:gap-4 mb-4 pb-4 border-b border-slate-200/80 dark:border-white/10">
+              <div className="flex items-center gap-3.5 sm:gap-4 mb-4 pb-4 border-b border-slate-200/80 dark:border-cyan-500/15 relative z-10">
                 <div className="relative shrink-0">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden ring-2 ring-cyan-500/60 shadow-md bg-slate-100 dark:bg-slate-800">
+                  <div className="w-13 h-13 sm:w-15 sm:h-15 rounded-xl overflow-hidden ring-2 ring-cyan-400/80 shadow-[0_0_15px_rgba(6,182,212,0.4)] bg-slate-100 dark:bg-slate-900">
                     <img
                       src="/coach-jessica.png"
                       alt="Coach Jessica"
@@ -1006,7 +1043,7 @@ export default function HomePageNew({ user }) {
                       }}
                     />
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#131d27] flex items-center justify-center">
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-[#071b32] flex items-center justify-center">
                     <div className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
                   </div>
                 </div>
@@ -1014,14 +1051,15 @@ export default function HomePageNew({ user }) {
                   <h3 className="font-heading font-bold text-xl sm:text-2xl text-slate-900 dark:text-white tracking-tight">
                     Coach Jessica
                   </h3>
-                  <p className="text-xs sm:text-sm font-mono font-semibold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider mt-0.5">
+                  <p className="text-xs sm:text-sm font-mono font-semibold text-cyan-700 dark:text-cyan-400 uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
                     AI Chess Mentor · Game Decryption
                   </p>
                 </div>
               </div>
 
               {/* Observation Quote Container */}
-              <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 rounded-xl p-4 sm:p-5 mb-5 shadow-sm dark:shadow-inner">
+              <div className="bg-slate-50 dark:bg-[#071728]/70 border border-slate-200/90 dark:border-cyan-500/20 rounded-xl p-4 sm:p-5 mb-5 shadow-sm dark:shadow-inner relative z-10">
                 <p className="text-sm sm:text-base leading-relaxed text-slate-700 dark:text-slate-200 font-normal">
                   {hasGames
                     ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
@@ -1035,9 +1073,9 @@ export default function HomePageNew({ user }) {
                     cta: hasGames ? "review_games" : "play_with_coach",
                     has_conversation: false,
                   });
-                  navigate(hasGames ? "/lab" : "/play-with-coach");
+                  navigate(hasGames ? "/games?tab=coach" : "/play-with-coach");
                 }}
-                className="h-11 px-6 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_15px_rgba(56,189,248,0.35)] hover:shadow-[0_0_20px_rgba(56,189,248,0.5)] inline-flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                className="h-11 px-7 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_20px_rgba(6,182,212,0.45)] hover:shadow-[0_0_30px_rgba(6,182,212,0.65)] inline-flex items-center gap-2.5 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] relative z-10"
               >
                 <span>{hasGames ? "Review your games" : "Play with Coach"}</span>
                 <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
@@ -1046,9 +1084,9 @@ export default function HomePageNew({ user }) {
           )}
 
           {/* ─── STUDIO LEARNING HUB ─── */}
-          <motion.section variants={fadeInUp} className="mt-8 pt-6 border-t border-slate-200/80 dark:border-white/10">
+          <motion.section variants={fadeInUp} className="mt-8 pt-6 border-t border-slate-200/80 dark:border-cyan-500/15">
             <div className="flex items-center gap-2.5 mb-4">
-              <span className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_6px_#06b6d4]" />
+              <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#38bdf8]" />
               <p className="text-xs sm:text-sm font-mono uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-400 font-bold">
                 Studio Learning Hub
               </p>
@@ -1063,7 +1101,7 @@ export default function HomePageNew({ user }) {
                       track(ANALYTICS_EVENTS.FUNNEL_HOME_NAV_TILE_CLICKED, { tile: item.id });
                       navigate(item.href);
                     }}
-                    className="group bg-white hover:bg-slate-50 dark:bg-gradient-to-b dark:from-[#1b2633]/90 dark:via-[#131d27]/95 dark:to-[#0b1118] dark:hover:from-[#223244] dark:hover:via-[#192633] dark:hover:to-[#0f1720] border border-slate-200 hover:border-cyan-500/50 dark:border-white/15 dark:hover:border-cyan-400/60 p-4 sm:p-5 rounded-2xl backdrop-blur-xl shadow-sm hover:shadow-md dark:shadow-lg dark:hover:shadow-[0_15px_35px_rgba(56,189,248,0.2)] transition-all duration-300 text-left relative cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                    className="group bg-white hover:bg-slate-50 studio-card p-4 sm:p-5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 text-left relative cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
                   >
                     <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white dark:group-hover:text-slate-950 group-hover:scale-105 transition-all shadow-sm mb-3">
                       <Icon className="w-5 h-5" strokeWidth={2} />

@@ -270,7 +270,7 @@ function Play({ play }) {
   return (
     <section
       data-testid="coach-play"
-      className="mb-6 overflow-hidden rounded-2xl border border-slate-200/90 dark:border-cyan-500/25 bg-white dark:bg-gradient-to-r dark:from-[#0d2232]/90 dark:via-[#102433]/90 dark:to-[#0c1622]/90 p-5 sm:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_15px_35px_rgba(0,0,0,0.5)] backdrop-blur-2xl relative"
+      className="mb-6 overflow-hidden rounded-2xl border border-slate-200/90 dark:border-cyan-500/25 bg-white studio-card p-5 sm:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)] backdrop-blur-2xl relative"
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div>
@@ -284,7 +284,7 @@ function Play({ play }) {
         <button
           type="button"
           onClick={() => navigate(play.href)}
-          className="h-11 px-7 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-xs sm:text-sm uppercase tracking-wider transition-all inline-flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(56,189,248,0.4)] cursor-pointer hover:scale-[1.02] active:scale-[0.98] shrink-0"
+          className="h-11 px-7 rounded-xl bg-gradient-to-r from-cyan-400 via-cyan-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-heading font-bold text-xs sm:text-sm uppercase tracking-wider transition-all inline-flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(6,182,212,0.45)] hover:shadow-[0_0_28px_rgba(6,182,212,0.65)] cursor-pointer hover:scale-[1.02] active:scale-[0.98] shrink-0"
         >
           <span>{play.cta}</span>
         </button>

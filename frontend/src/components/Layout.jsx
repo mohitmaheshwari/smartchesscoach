@@ -241,7 +241,9 @@ const Layout = ({ children, user, fullBleed = false }) => {
   const userInitial = userName.charAt(0);
 
   return (
-    <div className={`min-h-screen flex bg-background ${EXPERIENCE_V1_ENABLED ? "experience-v1" : ""}`}>
+    <div className={`min-h-screen flex bg-background relative ${EXPERIENCE_V1_ENABLED ? "experience-v1" : ""}`}>
+      {/* Global Futuristic Chess Studio Backdrop for all screens */}
+      <div className="chess-studio-backdrop" />
       {/* ═══ Desktop Sidebar ═══ */}
       <aside
         className={`experience-sidebar hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 sidebar-gradient ${
@@ -578,7 +580,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
       </header>
 
       {/* ═══ Main Content ═══ */}
-      <main className={`experience-main flex-1 min-h-0 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[270px]'} pt-14 md:pt-0 bg-background ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
+      <main className={`experience-main flex-1 min-h-0 transition-all duration-300 ${sidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[270px]'} pt-14 md:pt-0 bg-transparent dark:bg-transparent relative z-10 ${EXPERIENCE_V1_ENABLED ? 'pb-20 md:pb-0' : ''}`}>
         <div
           className={
             fullBleed

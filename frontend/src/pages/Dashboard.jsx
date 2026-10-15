@@ -610,51 +610,7 @@ const Dashboard = ({ user }) => {
             </div>
           </div>
 
-          {/* ━━━━━━━━━━ LEARN NEXT · Engine 2 curriculum ━━━━━━━━━━ */}
-          {/* The Lab's identity: the forward-looking learning PATH. "Learn next"
-              is the prerequisite-gated, rating-aware pick from Engine 2; the skill
-              tree below shows what you've mastered / next / locked. (Progress is
-              the report card — how you're doing; this is the syllabus — what to
-              learn next.) 2026-07-07. */}
-          {learnNext && (
-            <motion.section ref={recommendationElementRef} {...revealOnScroll} className="mb-12 md:mb-16">
-              <div className="experience-eyebrow text-[10.5px] uppercase tracking-[0.22em] text-violet-500 dark:text-violet-300/80 font-semibold mb-5">
-                Learn next
-              </div>
-              <div className="experience-focus-card experience-surface rounded-2xl border border-violet-500/20 bg-violet-500/[0.04] p-6 md:p-7">
-                <p className="font-serif text-[22px] md:text-[28px] leading-[1.15] tracking-[-0.015em] font-medium text-foreground mb-2">
-                  {learnNext.label}
-                </p>
-                {learnNext.reason && (
-                  <p className="text-[13.5px] text-muted-foreground mb-1">{learnNext.reason}</p>
-                )}
-                {learnNext.fixes && (
-                  <p className="text-[13px] text-muted-foreground/80 mb-5">
-                    Fixes: {learnNext.fixes}
-                  </p>
-                )}
-                <button
-                  onClick={() => {
-                    trackCurriculum(ANALYTICS_EVENTS.CURRICULUM_PRIMARY_CLICKED, {
-                      surface: "legacy_lab",
-                      decision_id: `legacy_engine2:${learnNext.skill_id}`,
-                      decision_source: "engine2_learn_next",
-                      recommendation_kind: "expand",
-                      content_type: "skill",
-                      content_id: learnNext.skill_id,
-                      origin: "recommendation",
-                      is_recommended: true,
-                    });
-                    navigate(`/training/skill/${learnNext.skill_id}`);
-                  }}
-                  className="experience-primary h-11 px-6 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
-                >
-                  Start this lesson
-                  <ArrowRight className="h-4 w-4" strokeWidth={2} />
-                </button>
-              </div>
-            </motion.section>
-          )}
+
 
           {/* ━━━━━━━━━━ YOUR MASTERY · fundamentals + tactics ━━━━━━━━━━ */}
           {/* Fundamentals skill tree (openings/mates/concepts/endgames) AND the

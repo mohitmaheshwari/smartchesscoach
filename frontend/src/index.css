@@ -89,26 +89,24 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .dark .experience-v1 {
-  --background: 224 32% 7%;
-  --foreground: 42 24% 94%;
-  --card: 223 27% 10%;
-  --card-foreground: 42 24% 94%;
-  --popover: 223 27% 10%;
-  --popover-foreground: 42 24% 94%;
-  --primary: 199 89% 48%;
-  --primary-foreground: 224 32% 7%;
-  --secondary: 222 21% 15%;
-  --secondary-foreground: 42 24% 94%;
-  --muted: 222 20% 15%;
-  --muted-foreground: 216 13% 67%;
-  --accent: 174 58% 45%;
-  --accent-foreground: 224 32% 7%;
-  --border: 220 17% 21%;
-  --input: 220 17% 21%;
+  --background: 222 47% 5%;       /* #020817 */
+  --foreground: 210 40% 96%;
+  --card: 216 65% 13%;            /* #0a1e37 / rgba(10,30,55) */
+  --card-foreground: 210 40% 98%;
+  --popover: 216 65% 13%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 199 89% 48%;         /* #0ea5e9 / cyan accent */
+  --primary-foreground: 222 47% 5%;
+  --secondary: 215 45% 15%;
+  --secondary-foreground: 210 40% 96%;
+  --muted: 215 40% 16%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 187 92% 43%;          /* vibrant cyan */
+  --accent-foreground: 222 47% 5%;
+  --border: 215 50% 20%;
+  --input: 215 50% 20%;
   --ring: 199 89% 48%;
-  background:
-    radial-gradient(circle at 82% -10%, hsl(var(--primary) / 0.10), transparent 32rem),
-    hsl(var(--background));
+  background: #020817;
 }
 
 .experience-v1 .experience-sidebar {
@@ -119,9 +117,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .dark .experience-v1 .experience-sidebar {
-  background:
-    linear-gradient(180deg, hsl(224 32% 8% / 0.98), hsl(224 32% 6% / 0.98));
-  box-shadow: 18px 0 56px hsl(0 0% 0% / 0.22);
+  background: linear-gradient(180deg, #061426, #020817);
+  border-right: 1px solid rgba(56, 189, 248, 0.12);
+  box-shadow: 18px 0 56px rgba(0, 0, 0, 0.5);
 }
 
 .experience-v1 .experience-mobile-header {
@@ -1673,3 +1671,124 @@ h1, h2, h3, h4, h5, h6 {
     stroke-dashoffset: 0;
   }
 }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   FUTURISTIC CHESS STUDIO — Atmospheric Background & Card Styling
+   Deep Midnight Navy (#020817, #061426, #071b32) with Cyan Light & Backdrop
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* Full-viewport fixed atmospheric backdrop with 3D chess pieces & lighting */
+.chess-studio-backdrop {
+  display: none;
+}
+
+.dark .chess-studio-backdrop {
+  display: block;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    /* Top-right vibrant cyan volumetric lighting */
+    radial-gradient(circle at 75% 15%, rgba(6, 182, 212, 0.28) 0%, transparent 48%),
+    /* Center ambient azure/sky glow */
+    radial-gradient(circle at 35% 42%, rgba(14, 165, 233, 0.20) 0%, transparent 52%),
+    /* Soft top left ambient illumination */
+    radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.16) 0%, transparent 40%),
+    /* Bottom ambient electric blue lighting */
+    radial-gradient(circle at 50% 92%, rgba(30, 58, 138, 0.32) 0%, transparent 55%),
+    /* Light luminous gradient overlay so the 3D chess studio backdrop is clearly visible and illuminated */
+    linear-gradient(180deg, rgba(6, 18, 36, 0.35) 0%, rgba(8, 24, 48, 0.45) 42%, rgba(4, 14, 28, 0.65) 100%),
+    /* 3D chess studio backdrop image */
+    url('./assets/studio/chess_studio_bg.jpg');
+  background-size: cover;
+  background-position: center 25%;
+  background-repeat: no-repeat;
+  opacity: 1;
+}
+
+.dark .chess-studio-bg {
+  background-color: transparent;
+  position: relative;
+  z-index: 1;
+}
+
+/* Perspective Chess Grid at bottom */
+.chess-perspective-grid {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 380px;
+  background-image: 
+    linear-gradient(to right, rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 95%);
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 95%);
+  transform: perspective(600px) rotateX(45deg);
+  transform-origin: bottom center;
+  pointer-events: none;
+}
+
+/* Glassmorphism Futuristic Studio Cards — overrides any stark white in dark mode */
+.dark .studio-card,
+.dark .cg-panel,
+.dark .cg-coach-card {
+  background: rgba(9, 24, 44, 0.88) !important;
+  border: 1px solid rgba(56, 189, 248, 0.32) !important;
+  border-radius: 20px;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 
+    0 20px 50px -10px rgba(0, 0, 0, 0.75),
+    0 0 25px -5px rgba(6, 182, 212, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  color: #f1f5f9;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .studio-card:hover {
+  background: rgba(12, 32, 58, 0.90) !important;
+  border-color: rgba(56, 189, 248, 0.50) !important;
+  box-shadow: 
+    0 24px 55px -10px rgba(0, 0, 0, 0.85),
+    0 0 35px -5px rgba(6, 182, 212, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+}
+
+/* Prominent Coach Jessica Panel */
+.dark .studio-card-coach {
+  background: linear-gradient(145deg, rgba(14, 36, 64, 0.92), rgba(8, 22, 38, 0.88)) !important;
+  border: 1px solid rgba(56, 189, 248, 0.40) !important;
+  border-radius: 22px;
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+  box-shadow: 
+    0 25px 60px -10px rgba(0, 0, 0, 0.85),
+    0 0 40px -8px rgba(6, 182, 212, 0.22),
+    inset 0 1px 0 rgba(56, 189, 248, 0.25) !important;
+  color: #f1f5f9;
+}
+
+.dark .studio-card-coach:hover {
+  border-color: rgba(56, 189, 248, 0.55) !important;
+  box-shadow: 
+    0 30px 70px -10px rgba(2, 8, 23, 0.95),
+    0 0 50px -5px rgba(6, 182, 212, 0.25),
+    inset 0 1px 0 rgba(56, 189, 248, 0.3) !important;
+}
+
+/* Subtle Chess Piece Silhouette along outer edges */
+.chess-silhouette {
+  position: absolute;
+  opacity: 0.035;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 0 25px rgba(6, 182, 212, 0.25));
+  transition: opacity 0.5s ease;
+}
+.dark .chess-silhouette {
+  opacity: 0.045;
+}
+

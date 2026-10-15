@@ -22,23 +22,18 @@ import { Switch } from "@/components/ui/switch";
 import Layout from "@/components/Layout";
 import { useTheme } from "@/context/ThemeContext";
 import { toast } from "sonner";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, Sparkles, User, Database, Mail, Palette, Shield, LogOut } from "lucide-react";
 import { resetAnalyticsContext } from "@/lib/analytics";
 import { Capacitor } from "@capacitor/core";
 
 // ─── Row: title + description on the left, control on the right ──────────────
-// `last` omits the bottom hairline (used for the last row in a section).
-function Row({ title, desc, children, last = false }) {
+function Row({ title, desc, children }) {
   return (
-    <div
-      className={`grid grid-cols-[1fr_auto] gap-6 items-center pb-6 ${
-        last ? "" : "border-b border-border/60"
-      }`}
-    >
+    <div className="grid grid-cols-[1fr_auto] gap-6 items-center py-4.5 first:pt-0 last:pb-0">
       <div className="min-w-0">
-        <div className="text-[13.5px] text-foreground">{title}</div>
+        <div className="text-sm font-semibold text-slate-100 dark:text-white tracking-tight">{title}</div>
         {desc && (
-          <div className="text-[12px] text-muted-foreground mt-0.5 leading-snug">
+          <div className="text-xs text-slate-400 dark:text-slate-300 mt-0.5 leading-relaxed">
             {desc}
           </div>
         )}
@@ -48,15 +43,22 @@ function Row({ title, desc, children, last = false }) {
   );
 }
 
-// ─── Section: serif title + description + spaced rows ────────────────────────
-function Section({ title, desc, children }) {
+// ─── Section: studio card with icon, title, description, and rows ─────────────
+function Section({ icon: Icon, title, desc, children }) {
   return (
-    <section className="mb-14">
-      <h2 className="font-serif text-[18px] text-foreground font-medium mb-1">
-        {title}
-      </h2>
-      <p className="text-[12.5px] text-muted-foreground mb-7">{desc}</p>
-      <div className="space-y-7">{children}</div>
+    <section className="studio-card p-6 md:p-8 mb-6 border border-slate-700/60 dark:border-cyan-500/25 shadow-lg">
+      <div className="flex items-center gap-2.5 mb-1.5">
+        {Icon && (
+          <div className="w-7 h-7 rounded-lg bg-cyan-950/80 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+            <Icon className="w-4 h-4" />
+          </div>
+        )}
+        <h2 className="font-heading text-lg font-bold text-white tracking-tight">
+          {title}
+        </h2>
+      </div>
+      {desc && <p className="text-xs sm:text-sm text-slate-400 mb-6 leading-relaxed">{desc}</p>}
+      <div className="divide-y divide-slate-700/50 dark:divide-cyan-500/15">{children}</div>
     </section>
   );
 }
@@ -170,80 +172,84 @@ const Settings = ({ user }) => {
 
   return (
     <Layout user={user}>
-      <div className="experience-page experience-utility-page experience-settings-page max-w-[760px] mx-auto px-6 md:px-10 py-12 md:py-16" data-testid="settings-page">
+      <div className="max-w-[800px] mx-auto px-4 sm:px-6 md:px-8 py-8 md:py-12 relative z-10" data-testid="settings-page">
 
         {/* Head */}
-        <div className="cg-hero mb-16">
-          <p className="cg-eyebrow">Your space</p>
-          <h1 className="cg-title">Make the coaching feel right for you.</h1>
-          <p className="cg-lede">Choose how I reach you and how this room should feel. {joinLine}</p>
+        <div className="studio-card p-6 md:p-8 mb-8 border border-slate-700/60 dark:border-cyan-500/25 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] pointer-events-none" />
+          <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-cyan-400 mb-2.5">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <span>Your space</span>
+          </div>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-white tracking-tight mb-2.5">
+            Make the coaching feel right for you.
+          </h1>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-slate-300">
+            <p className="max-w-xl leading-relaxed">
+              Choose how I reach you and how this room should feel.
+            </p>
+            <span className="font-mono text-xs text-cyan-300 bg-cyan-950/80 px-3 py-1 rounded-full border border-cyan-500/35 font-semibold shrink-0 shadow-sm">
+              {joinLine}
+            </span>
+          </div>
         </div>
 
         {/* ─── You ─── */}
-        <Section title="You" desc="The person I’m getting to know through the board.">
+        <Section icon={User} title="You" desc="The person I’m getting to know through the board.">
           <Row
             title="Display name"
             desc="Appears in games and the coach's notes."
           >
-            <span className="text-[13px] text-foreground tabular-nums">
+            <span className="px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-700/80 text-cyan-300 font-mono text-xs font-bold tracking-tight">
               {user?.name || "—"}
             </span>
           </Row>
-          <Row title="Email" desc="Used for sign-in and reminders." last>
-            <span className="text-[13px] text-muted-foreground">
+          <Row title="Email" desc="Used for sign-in and reminders.">
+            <span className="px-3 py-1 rounded-lg bg-slate-900/90 border border-slate-700/80 text-slate-200 font-mono text-xs font-medium">
               {user?.email || "—"}
             </span>
           </Row>
         </Section>
 
         {/* ─── Game imports ─── */}
-        <Section title="Game imports" desc="Where your games come from.">
+        <Section icon={Database} title="Game imports" desc="Where your games come from.">
           <Row
             title="Chess.com"
-            desc={
-              user?.chess_com_username ? (
-                <span className="text-emerald-500/80">
-                  Connected as{" "}
-                  <span className="font-medium text-foreground/80">
-                    {user.chess_com_username}
-                  </span>
-                </span>
-              ) : (
-                "Not connected."
-              )
-            }
+            desc="Sync games played on Chess.com directly to your training history."
           >
-            <span className="text-[12px] text-muted-foreground tabular-nums">
-              {user?.chess_com_username ? "linked" : "—"}
-            </span>
+            {user?.chess_com_username ? (
+              <span className="px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-semibold inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Linked as {user.chess_com_username}
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/70 text-slate-400 font-mono text-xs font-medium">
+                Not connected
+              </span>
+            )}
           </Row>
           <Row
             title="Lichess"
-            desc={
-              user?.lichess_username ? (
-                <span className="text-emerald-500/80">
-                  Connected as{" "}
-                  <span className="font-medium text-foreground/80">
-                    {user.lichess_username}
-                  </span>
-                </span>
-              ) : (
-                "Not connected."
-              )
-            }
-            last
+            desc="Sync games played on Lichess for analysis and mistake detection."
           >
-            <span className="text-[12px] text-muted-foreground tabular-nums">
-              {user?.lichess_username ? "linked" : "—"}
-            </span>
+            {user?.lichess_username ? (
+              <span className="px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-semibold inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Linked as {user.lichess_username}
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/70 text-slate-400 font-mono text-xs font-medium">
+                Not connected
+              </span>
+            )}
           </Row>
         </Section>
 
         {/* ─── The coach ─── */}
-        <Section title="The coach" desc="Choose when you want to hear from me away from the board.">
+        <Section icon={Mail} title="The coach" desc="Choose when you want to hear from me away from the board.">
           {loadingEmail ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
             </div>
           ) : (
             <>
@@ -272,7 +278,6 @@ const Settings = ({ user }) => {
               <Row
                 title="Pattern alerts"
                 desc="Tell me when I'm repeating a mistake across games."
-                last
               >
                 <Switch
                   checked={emailSettings.weakness_alert}
@@ -286,49 +291,58 @@ const Settings = ({ user }) => {
         </Section>
 
         {/* ─── Appearance ─── */}
-        <Section title="Appearance" desc="How the app looks to you.">
+        <Section icon={Palette} title="Appearance" desc="How the app looks to you.">
           <Row
             title="Dark mode"
-            desc="Easier on the eyes at night and during long sessions."
-            last
+            desc="Black Studio theme — easier on the eyes at night and during long sessions."
           >
-            <Switch
-              checked={theme === "dark"}
-              onCheckedChange={toggleTheme}
-              data-testid="theme-switch"
-            />
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs text-slate-400 uppercase tracking-wider font-semibold">
+                {theme === "dark" ? "Black Studio" : "White Studio"}
+              </span>
+              <Switch
+                checked={theme === "dark"}
+                onCheckedChange={toggleTheme}
+                data-testid="theme-switch"
+              />
+            </div>
           </Row>
         </Section>
 
-        {/* ─── Account ─── subtle inline links, never a destructive card */}
-        <section className="mt-20 pt-10 border-t border-border/60">
-          <h2 className="font-serif text-[18px] text-muted-foreground font-medium mb-1">
-            Account
-          </h2>
-          <p className="text-[12.5px] text-muted-foreground/70 mb-7">
-            Rarely needed.
+        {/* ─── Account ─── */}
+        <section className="studio-card p-6 md:p-8 mb-6 border border-slate-700/60 dark:border-cyan-500/25 shadow-lg">
+          <div className="flex items-center gap-2.5 mb-1.5">
+            <div className="w-7 h-7 rounded-lg bg-cyan-950/80 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+              <Shield className="w-4 h-4" />
+            </div>
+            <h2 className="font-heading text-lg font-bold text-white tracking-tight">
+              Account
+            </h2>
+          </div>
+          <p className="text-xs sm:text-sm text-slate-400 mb-6 leading-relaxed">
+            Testing utilities and session controls.
           </p>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-[12.5px]">
+          <div className="flex flex-wrap items-center gap-3 pt-1">
             <button
               onClick={sendTestEmail}
               disabled={sendingTest}
-              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+              className="px-4 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500/50 text-slate-200 hover:text-white transition-all text-xs font-semibold inline-flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
               data-testid="send-test-email-btn"
             >
               {sendingTest ? (
-                <Loader2 className="w-3 h-3 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
               ) : (
-                <Send className="w-3 h-3" />
+                <Send className="w-3.5 h-3.5 text-cyan-400" />
               )}
               Send test email
             </button>
-            <span className="text-border">·</span>
             <button
               onClick={handleLogout}
               disabled={loggingOut}
-              className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+              className="px-4 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:text-rose-200 transition-all text-xs font-semibold inline-flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
               data-testid="logout-button"
             >
+              <LogOut className="w-3.5 h-3.5" />
               {loggingOut ? "Signing out…" : "Sign out"}
             </button>
           </div>

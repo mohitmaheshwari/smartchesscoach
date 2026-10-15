@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
@@ -45,9 +45,11 @@ const fmtDate = (g) => {
 
 const AllGames = ({ user }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "coach";
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("imported");
+  const [tab, setTab] = useState(initialTab === "coach" ? "coach" : "imported");
   const [expandedGameId, setExpandedGameId] = useState(null);
   const [recommendation, setRecommendation] = useState(null);
   const [recommendationBusy, setRecommendationBusy] = useState(false);
@@ -218,62 +220,73 @@ const AllGames = ({ user }) => {
       superseded: "Needs a fresh review",
       not_reviewed: "Not reviewed",
     };
+    const res = resultWord(g);
+    const resColor = res === "Won" 
+      ? "text-emerald-400 font-bold" 
+      : res === "Lost" 
+      ? "text-rose-400 font-bold" 
+      : "text-slate-300 font-bold";
+
     return (
-      <div className="cg-panel overflow-hidden">
+      <div className="cg-panel overflow-hidden border border-slate-700/60 dark:border-cyan-500/25 shadow-md hover:border-cyan-400/50 transition-all">
         <div
           onClick={() => setExpandedGameId(isExpanded ? null : g.game_id)}
-          className="flex items-center justify-between p-4 hover:bg-emerald-500/[0.045] cursor-pointer transition-all group"
+          className="flex items-center justify-between p-4 hover:bg-cyan-500/[0.06] cursor-pointer transition-all group"
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <Swords className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground/60" strokeWidth={2} />
+          <div className="flex items-center gap-3.5 min-w-0">
+            <Swords className="w-4 h-4 flex-shrink-0 text-cyan-400 group-hover:scale-110 transition-transform" strokeWidth={2} />
             <div className="min-w-0 flex-1">
-              <div className="text-sm text-foreground truncate">
-                {resultWord(g)}
-                {g.platform === "coach"
-                  ? " vs Coach"
-                  : g.opponent && g.opponent !== "Opponent"
-                  ? ` vs ${g.opponent}`
-                  : ""}
+              <div className="text-sm sm:text-base text-foreground truncate flex items-center flex-wrap gap-1.5">
+                <span className={resColor}>{res}</span>
+                <span className="text-slate-200 font-semibold">
+                  {g.platform === "coach"
+                    ? " vs Coach"
+                    : g.opponent && g.opponent !== "Opponent"
+                    ? ` vs ${g.opponent}`
+                    : ""}
+                </span>
                 {g.opening ? (
-                  <span className="text-[10px] text-muted-foreground/40 ml-2">{g.opening}</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-cyan-950/70 border border-cyan-500/35 text-cyan-300 font-mono text-[11px] font-medium tracking-tight">
+                    {g.opening}
+                  </span>
                 ) : null}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className={`rounded-full px-2 py-1 text-[9px] font-medium ${
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide border ${
               reviewState === "started"
-                ? "bg-amber-100 text-amber-800"
+                ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
                 : reviewState === "completed"
-                  ? "bg-emerald-100 text-emerald-800"
+                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
                   : reviewState === "recommended"
-                    ? "bg-lime-200 text-emerald-950"
-                    : "bg-muted text-muted-foreground"
+                    ? "bg-cyan-500/20 text-cyan-200 border-cyan-400/50 shadow-[0_0_10px_rgba(56,189,248,0.25)]"
+                    : "bg-slate-800/90 text-slate-300 border-slate-700/80"
             }`}>
               {reviewStateLabels[reviewState] || "Not reviewed"}
             </span>
-            <span className="text-[10px] text-muted-foreground/50">{fmtDate(g)}</span>
-            <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground/30 group-hover:text-primary transition-all ${isExpanded ? "rotate-90" : ""}`} />
+            <span className="text-xs text-slate-400 font-mono font-medium">{fmtDate(g)}</span>
+            <ChevronRight className={`w-4 h-4 text-slate-400 group-hover:text-cyan-400 transition-all ${isExpanded ? "rotate-90 text-cyan-400" : ""}`} />
           </div>
         </div>
 
         {isExpanded && (
-          <div className="px-3 pb-3 pt-1 bg-muted/20 border-t border-muted/30">
+          <div className="px-4 pb-4 pt-3 bg-slate-950/70 border-t border-cyan-500/20 backdrop-blur-md">
             {g.coach_take && (
-              <p className="text-sm leading-relaxed text-foreground/85 mb-3">{g.coach_take}</p>
+              <p className="text-sm sm:text-base leading-relaxed text-slate-100 mb-3 font-normal">{g.coach_take}</p>
             )}
             {g.coach_line ? (
-              <p className="text-[11px] text-muted-foreground/60 mb-2">
+              <p className="text-xs font-mono text-cyan-300/90 mb-3">
                 {g.coach_line.charAt(0).toUpperCase() + g.coach_line.slice(1)}.
               </p>
             ) : g.critical_move ? (
-              <p className="text-[11px] text-muted-foreground/60 mb-2">
+              <p className="text-xs font-mono text-cyan-300/90 mb-3">
                 There is a turning point in this game worth looking at together.
               </p>
             ) : null}
             <button
               onClick={(e) => { e.stopPropagation(); navigate(`/game/${g.game_id}`); }}
-              className="cg-primary-action !min-h-9 !px-4 !py-2 text-xs"
+              className="cg-primary-action !min-h-9 !px-5 !py-2 text-xs cursor-pointer shadow-[0_0_15px_rgba(56,189,248,0.35)] hover:shadow-[0_0_24px_rgba(56,189,248,0.55)]"
             >
               Review this with me
             </button>
@@ -451,19 +464,23 @@ const AllGames = ({ user }) => {
             </h2>
           </div>
 
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/30 border border-border/40">
+          <div className="flex items-center gap-1.5 p-1.5 rounded-xl bg-slate-900/80 border border-slate-700/60 dark:border-cyan-500/25 backdrop-blur-md">
             <button
               onClick={() => { setTab("imported"); setExpandedGameId(null); }}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                tab === "imported" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              className={`flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
+                tab === "imported" 
+                  ? "bg-cyan-500 text-slate-950 shadow-md font-bold" 
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
               Games from your accounts
             </button>
             <button
               onClick={() => { setTab("coach"); setExpandedGameId(null); }}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                tab === "coach" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              className={`flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-all ${
+                tab === "coach" 
+                  ? "bg-cyan-500 text-slate-950 shadow-md font-bold" 
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
               }`}
             >
               Games with your coach
@@ -471,15 +488,15 @@ const AllGames = ({ user }) => {
           </div>
 
           {activeGames.length === 0 ? (
-            <div className="cg-coach-card text-center py-10">
-              <p className="text-sm text-muted-foreground/80 mb-4">
+            <div className="cg-coach-card text-center py-10 shadow-xl">
+              <p className="text-base sm:text-lg font-medium text-slate-100 dark:text-white max-w-xl mx-auto mb-5 leading-relaxed">
                 {tab === "coach"
                   ? "We have not played together yet. One natural game is enough to begin."
                   : "Connect the place where you already play and I’ll start looking through your games."}
               </p>
               <button
                 onClick={() => navigate(tab === "coach" ? "/play-with-coach" : "/import")}
-                className="cg-primary-action text-xs"
+                className="cg-primary-action text-xs cursor-pointer shadow-[0_0_20px_rgba(56,189,248,0.45)] hover:shadow-[0_0_28px_rgba(56,189,248,0.65)] hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
                 {tab === "coach" ? <><Swords className="w-3.5 h-3.5" />Play with Coach</> : <><Import className="w-3.5 h-3.5" />Import games</>}
               </button>
