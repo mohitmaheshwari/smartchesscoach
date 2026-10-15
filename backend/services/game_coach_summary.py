@@ -235,6 +235,29 @@ def _extract_facts(move_evaluations: List[Dict], user_color: str) -> Dict:
     }
 
 
+def _material_leaked_line(blunders: List[Dict]) -> str:
+    """Total cost of the blunders, in words a player can check.
+
+    Repair 1.2: this was `sum(cp_loss) / 100` labelled "pawns worth", which
+    printed "Total material leaked: 99.3 pawns worth" on a game containing a
+    mate-score blunder. Mate rows are excluded from the arithmetic and
+    reported separately, because no number of pawns describes a mate.
+    """
+    mate_rows = [b for b in blunders
+                 if (b.get("cp_loss") or 0) >= MATE_SENTINEL_CP]
+    material_rows = [b for b in blunders
+                     if (b.get("cp_loss") or 0) < MATE_SENTINEL_CP]
+    parts = []
+    if material_rows:
+        pawns = sum(b["cp_loss"] for b in material_rows) / 100
+        parts.append(f"Material given away: about {pawns:.1f} pawns worth")
+    if mate_rows:
+        n = len(mate_rows)
+        parts.append(f"{n} of these threw away a forced mate"
+                     if n > 1 else "One of these threw away a forced mate")
+    return "; ".join(parts) if parts else "No material lost to these moves"
+
+
 def _describe_termination(termination: str, total_user_moves: int) -> str:
     """Open the verdict with HOW the game ended, in coach voice.
 
@@ -258,12 +281,28 @@ def _describe_termination(termination: str, total_user_moves: int) -> str:
 def _describe_opponent(profile: Dict) -> str:
     """One sentence about opponent behaviour — did they hand you chances back?
 
-    Key question: was this clearly outplayed, or mutual fumbling?
+    THREE states, not two (repair 1.3,
+    docs/game_review_repair_and_timeline_scope.md):
+
+        errors offered     we saw them, and can say how many
+        none offered       we had opponent rows and none was an error
+        NOT RECORDED       we had no opponent rows at all, so we cannot say
+
+    The third state is the normal one and used to be invisible.
+    `_extract_facts` derives `opponent_moves` from `move_evaluations`, and
+    that array holds ONLY the user's moves on the large majority of games
+    (measured: 948 of 1,000 sampled games are user-moves-only). So
+    `opponent_moves` is empty, `opponent_blunders` is empty, and the old
+    first branch asserted "your opponent played clean" about a game where
+    nothing of the opponent's was ever evaluated. It was not a rare
+    mis-fire; it was structurally unavoidable.
     """
     opp_blunders = profile["opponent_blunders"]
     opp_mistakes = profile["opponent_mistakes"]
     offered_chances = profile["opponent_offered_chances"]
 
+    if not profile.get("opponent_moves"):
+        return "We have no evaluation of your opponent's moves in this game."
     if not opp_blunders and not opp_mistakes:
         return "Your opponent played clean — no mistakes to punish."
     if offered_chances:
@@ -416,7 +455,7 @@ def _summarize_loss(profile: Dict, opening_name: str, termination: str) -> Dict:
         listing = ", ".join(f"Move {b['move_number']} {b['san']}" for b in blunders[:5])
         extra = [
             f"Blunders: {listing}" + (f" (+{len(blunders) - 5} more)" if len(blunders) > 5 else ""),
-            f"Total material leaked: {sum(b['cp_loss'] for b in blunders) / 100:.1f} pawns worth",
+            _material_leaked_line(blunders),
             "Pattern: piece safety — the habit, not the calculation",
         ]
         return _build_summary(
@@ -1029,8 +1068,18 @@ async def compute_game_memory(
 # ─── HELPERS ──────────────────────────────────────────────────────
 
 
+# At or above this a cp figure is a mate-score difference, not an amount of
+# material -- Stockfish mate sentinels sit at +/-9000 and above. Repair 1.2.
+MATE_SENTINEL_CP = 9000
+
+
 def _cp_to_pieces(cp: int) -> str:
     """Convert centipawns to human-readable piece equivalent."""
+    if cp >= MATE_SENTINEL_CP:
+        # Repair 1.2: a mate score is not material. This used to return
+        # "a queen" for a 9,108cp swing, which is both wrong and smaller
+        # than what actually happened.
+        return "a forced mate"
     if cp >= 900:
         return "a queen"
     elif cp >= 500:
