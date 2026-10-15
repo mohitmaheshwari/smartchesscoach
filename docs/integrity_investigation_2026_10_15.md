@@ -86,16 +86,27 @@ recomputes rather than assumes.
 
 ### 1.4 Scope beyond this player
 
-A 1,500-game sample, confirmed by `(user_id, move-hash)`:
+A 1,500-game sample, confirmed by `(user_id, move-hash)`. **Corrected: the
+original table invited 1,500 − 1,416 = 84 and that conflates two different
+things.** Full accounting:
 
 | | |
 |---|---|
-| distinct keys | 1,416 |
-| extra records | **77 (5.1%)** |
-| users affected in the sample | **7** |
+| records sampled | 1,500 |
+| PGNs that produced a move hash | 1,493 |
+| PGNs that did not ("no moves in mainline") | **7** |
+| distinct `(user_id, move-hash)` keys | 1,416 |
+| extra records beyond one per key | **77** |
 
-Not universal, but not confined to one account either. His recent window
-(13%) is worse than both his own history (3.6%) and this sample.
+Both identities reconcile: 1,493 = 1,416 + 77, and 1,500 = 1,493 + 7. So the
+duplicate rate is **77 of 1,493 hashable records (5.2%)**, and the 7 remaining
+records never entered the keyspace at all — they are unidentifiable, not
+duplicates. 84 was never a count of anything. **7 users affected.**
+
+A better product-wide figure came from the identity survey for the
+idempotency scope: grouping on `(user_id, url)` where a url exists,
+**1,245 keys hold more than one record, 1,397 extra records, worst key holds
+5.** That is 6.9% of 20,367 games, and it supersedes the sample estimate.
 
 ---
 
@@ -199,9 +210,37 @@ duplicated games were slightly worse than his average on that measure, so the
 duplicates were making his most-corroborated weakness look marginally worse
 than it is. That is precisely the reweighting you flagged.
 
-**The canonical numbers for this player are now the "distinct only" column.**
-Earlier figures (2,986 moves, mate 20/29, free 179/211) came from separate
-passes with slightly different guards and are superseded.
+**Corrected: that column is 87 distinct games out of 100 records, not the
+last 100 distinct games.** Walking further back (113 records, 13 duplicates
+dropped) gives a true 100-distinct-game window, 2026-09-01 to 2026-10-15, and
+these are the canonical figures:
+
+| | 100 distinct games |
+|---|---|
+| his moves | **2,996** |
+| won / lost / drew | 48 / 52 / 0 |
+| mate in 1 taken | **22 of 31 (71%)** |
+| free 3+ piece taken | **182 of 215 (85%)** — 33 of those in check |
+| reached +3 and won | **45 of 76 (59%)** |
+| capture preference | **4.14×** |
+| check preference | **2.84×** |
+| punished opponent errors | **108 of 171 (63%)** |
+| answered a threat | **162 of 268 (60%)** |
+
+| Phase | Moves | Mean cp lost | Blunder rate |
+|---|---|---|---|
+| opening | 996 | 41.9 | 5% |
+| **middlegame** | 1,448 | **121.8** | 13% |
+| endgame | 552 | 67.2 | 7% |
+
+Two readings move materially against the 87-game column: the middlegame is
+worse (121.8cp against 116.2) and the endgame is worse (67.2cp against 50.6),
+because the extra 13 games reach back to 2026-09-01. Threat response settles
+at **60%**.
+
+**These are the canonical numbers for this player.** Every earlier figure
+(2,986 moves / mate 20 of 29 / free 179 of 211, and the 87-game column above)
+is superseded.
 
 ### 3.1 The 211 / 213 reconciliation
 
@@ -279,3 +318,14 @@ recomputed over 87 distinct games (§3) and its recorded-mastery column struck
 as evidence about teaching (§2.3). Data integrity is the priority. No deletion,
 no production cleanup, no new scoring system, and no further profile
 conclusions until the duplicates are resolved.
+
+---
+
+## 7. Follow-on scope
+
+The import fix is scoped separately in
+[import_idempotency_scope.md](import_idempotency_scope.md), covering canonical
+identity (including missing IDs and URL variants), database-enforced
+uniqueness and conflict handling, preservation of the clock-bearing copy, and
+reconciliation across the 28 collections that reference a game — with
+historical deletion and production migration gated separately.
