@@ -36,6 +36,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Any
 
+from services import mate_state
+
 
 # ── Configuration knobs ─────────────────────────────────────────────────
 
@@ -265,33 +267,25 @@ def _pick_principle_template(gap: str, phase: str) -> Dict[str, str]:
     return _PRINCIPLE_TABLE.get((gap, phase)) or _FALLBACK_BY_PHASE.get(phase) or _FALLBACK_BY_PHASE["middlegame"]
 
 
-# A cp_loss at or above this is not a centipawn quantity at all: it is the
-# difference between two mate scores (Stockfish sentinels sit at +/-9000 and
-# above). Rendering it as "-9108cp" told a player he lost ninety-one pawns.
-# Repair 1.2, docs/game_review_repair_and_timeline_scope.md.
-MATE_SENTINEL_CP = 9000
+# Mate detection and the transition wording live in services/mate_state so
+# this module and game_coach_summary cannot drift apart again -- they did,
+# which was finding P2 of the 116fbd90 review.
+MATE_SENTINEL_CP = mate_state.MATE_SENTINEL_CP
+_is_mate_swing = mate_state.is_mate_related
 
 
-def _is_mate_swing(ev: Dict[str, Any]) -> bool:
-    """True when this row's cost is a mate-score difference, not material."""
-    if abs(int(ev.get("cp_loss") or 0)) >= MATE_SENTINEL_CP:
-        return True
-    for field in ("eval_before", "eval_after"):
-        v = ev.get(field)
-        if isinstance(v, (int, float)) and abs(v) >= MATE_SENTINEL_CP:
-            return True
-    return bool(ev.get("mate_info"))
-
-
-def _format_cp(cp: int, mate: bool = False) -> str:
+def _format_cp(cp: int, mate_transition: Optional[str] = None) -> str:
     """Tag for the cost badge on each card — keeps the model honest.
 
-    `mate=True` means the two evaluations either side of this move were mate
-    scores, so their difference is not a material amount. Say what happened
-    instead of inventing a centipawn figure.
+    `mate_transition` is the label from services/mate_state when this row is
+    about a mate rather than about material. The first version of this repair
+    printed "lost a forced mate" for every mate row, which was wrong in both
+    directions: it said that when the player had ALLOWED a mate (never had one
+    to lose), and when the player still HAD a forced mate and had merely found
+    a slower one. The transition decides the words.
     """
-    if mate:
-        return "lost a forced mate"
+    if mate_transition:
+        return mate_transition
     return f"-{int(cp)}cp"
 
 
@@ -465,7 +459,9 @@ def compose_story(
             principle_text = tmpl["principle"]
             title_text = tmpl["title"]
 
-        is_mate = _is_mate_swing(ev)
+        # P1 from the review: carry the direction, not just the fact.
+        transition = mate_state.mate_transition(ev, user_color)
+        is_mate = transition is not None
         principle = {
             "n": len(principles) + 1,
             "move_number": mn,
@@ -473,8 +469,13 @@ def compose_story(
             "san_played": played,
             "san_best": best,
             "cp_loss": cp_loss,
-            "cp_loss_label": _format_cp(cp_loss, mate=is_mate),
+            "cp_loss_label": _format_cp(cp_loss, mate_transition=transition),
             "cost_is_mate": is_mate,
+            "mate_transition": transition,
+            # KEPT_MATE / ESCAPED_MATE / DELIVERED_MATE did not go against the
+            # player, so a consumer must not render them as a loss.
+            "mate_cost_the_player": (
+                mate_state.costs_the_player(transition) if is_mate else None),
             "title": title_text,
             "diagnosis": diagnosis_text,
             "principle": principle_text,

@@ -15,6 +15,7 @@ Everything is derived from Stockfish eval + existing analysis data.
 import logging
 from typing import Dict, List, Optional
 
+from services import mate_state
 from services.player_identity import BlunderType
 
 _VALID_BLUNDER_TYPES = {t.value for t in BlunderType}
@@ -112,12 +113,25 @@ def _extract_facts(move_evaluations: List[Dict], user_color: str) -> Dict:
         move_number = m.get("move_number") or ((i // 2) + 1)
         san = m.get("san", m.get("move", "?"))
 
+        # P2 from the review: carry mate provenance onto every row so the
+        # downstream partition can exclude mate-related moves regardless of
+        # how small the cp delta happens to be. Partitioning on
+        # `cp_loss >= 9000` alone let a 9970 -> 8585 row (cp_loss 1,385, a
+        # mate thrown away) through as ordinary material, which is also how
+        # this module and game_coach_review came to disagree about the same
+        # row. One shared test, in services/mate_state.
+        mate_related = mate_state.is_mate_related(m)
+
         if not is_user_move:
             opponent_moves.append({
                 "index": i,
                 "move_number": move_number,
                 "san": san,
                 "cp_loss": cp_loss,
+                "mate_related": mate_related,
+                "mate_info": m.get("mate_info"),
+                "eval_before_raw": m.get("eval_before"),
+                "eval_after_raw": m.get("eval_after"),
             })
             continue
 
@@ -141,6 +155,10 @@ def _extract_facts(move_evaluations: List[Dict], user_color: str) -> Dict:
             "best_move": best_move,
             "phase": _phase_from_move_number(move_number),
             "user_mate_after": user_mate_after,
+            # P2: same mate provenance as the opponent rows above, so the
+            # blunder partition can be mate-aware without re-deriving it.
+            "mate_related": mate_related,
+            "mate_info": m.get("mate_info"),
             # cognitive_gap tagged upstream by analysis_interpreter — needed
             # for the SCATTERED_MISTAKES theme detection below.
             "cognitive_gap": m.get("cognitive_gap") or "",
@@ -235,27 +253,43 @@ def _extract_facts(move_evaluations: List[Dict], user_color: str) -> Dict:
     }
 
 
-def _material_leaked_line(blunders: List[Dict]) -> str:
-    """Total cost of the blunders, in words a player can check.
+def _blunder_cost_line(blunders: List[Dict]) -> str:
+    """How much these moves cost, in the only unit we actually have.
 
-    Repair 1.2: this was `sum(cp_loss) / 100` labelled "pawns worth", which
-    printed "Total material leaked: 99.3 pawns worth" on a game containing a
-    mate-score blunder. Mate rows are excluded from the arithmetic and
-    reported separately, because no number of pawns describes a mate.
+    Two corrections from the 116fbd90 review.
+
+    P1: the previous version summed `cp_loss`, divided by 100 and called the
+    result "Material given away: about N pawns worth". Centipawn loss is the
+    evaluation shift, not material: it also covers positional change, a missed
+    opportunity, or a sacrifice with compensation, and nothing here looks at
+    the board. See memory/feedback_cp_loss_is_not_material.md. So the number
+    is reported in centipawns, which is what it is, and no material claim is
+    made at all.
+
+    P2: mate rows are partitioned on `mate_related` provenance rather than on
+    the size of the delta, so a 9970 -> 8585 move (cp_loss 1,385, a mate
+    thrown away) is excluded from the arithmetic instead of counted as 13.8
+    pawns.
     """
-    mate_rows = [b for b in blunders
-                 if (b.get("cp_loss") or 0) >= MATE_SENTINEL_CP]
-    material_rows = [b for b in blunders
-                     if (b.get("cp_loss") or 0) < MATE_SENTINEL_CP]
+    # Apply the shared test here as well as trusting the `mate_related` stamp
+    # from _extract_facts. Trusting the stamp alone left the helper wrong when
+    # called directly with raw rows -- which is exactly how the reviewer
+    # reproduced the 9970 -> 8585 case -- because a raw row carries no stamp
+    # and its 1,385 delta is under the sentinel.
+    def _is_mate(b):
+        return bool(b.get("mate_related")) or mate_state.is_mate_related(b)
+
+    mate_rows = [b for b in blunders if _is_mate(b)]
+    other_rows = [b for b in blunders if not _is_mate(b)]
     parts = []
-    if material_rows:
-        pawns = sum(b["cp_loss"] for b in material_rows) / 100
-        parts.append(f"Material given away: about {pawns:.1f} pawns worth")
+    if other_rows:
+        total = int(sum(b.get("cp_loss") or 0 for b in other_rows))
+        parts.append(f"Evaluation lost across these moves: {total} centipawns")
     if mate_rows:
         n = len(mate_rows)
-        parts.append(f"{n} of these threw away a forced mate"
-                     if n > 1 else "One of these threw away a forced mate")
-    return "; ".join(parts) if parts else "No material lost to these moves"
+        parts.append(f"{n} of these involved a forced mate"
+                     if n > 1 else "One of these involved a forced mate")
+    return "; ".join(parts) if parts else "These moves cost nothing measurable"
 
 
 def _describe_termination(termination: str, total_user_moves: int) -> str:
@@ -455,7 +489,7 @@ def _summarize_loss(profile: Dict, opening_name: str, termination: str) -> Dict:
         listing = ", ".join(f"Move {b['move_number']} {b['san']}" for b in blunders[:5])
         extra = [
             f"Blunders: {listing}" + (f" (+{len(blunders) - 5} more)" if len(blunders) > 5 else ""),
-            _material_leaked_line(blunders),
+            _blunder_cost_line(blunders),
             "Pattern: piece safety — the habit, not the calculation",
         ]
         return _build_summary(
@@ -1068,9 +1102,9 @@ async def compute_game_memory(
 # ─── HELPERS ──────────────────────────────────────────────────────
 
 
-# At or above this a cp figure is a mate-score difference, not an amount of
-# material -- Stockfish mate sentinels sit at +/-9000 and above. Repair 1.2.
-MATE_SENTINEL_CP = 9000
+# One definition, in services/mate_state, so this module and
+# game_coach_review cannot drift apart again (review finding P2).
+MATE_SENTINEL_CP = mate_state.MATE_SENTINEL_CP
 
 
 def _cp_to_pieces(cp: int) -> str:

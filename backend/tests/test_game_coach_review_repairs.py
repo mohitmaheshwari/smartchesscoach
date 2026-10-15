@@ -26,9 +26,9 @@ from services.game_coach_review import (  # noqa: E402
     compose_story,
 )
 from services.game_coach_summary import (  # noqa: E402
+    _blunder_cost_line,
     _cp_to_pieces,
     _describe_opponent,
-    _material_leaked_line,
     compute_game_summary,
 )
 
@@ -103,7 +103,10 @@ def test_1_1_a_renamed_key_is_caught_here_not_in_the_output():
     ({"cp_loss": 9108}, True),
     ({"cp_loss": 100, "eval_before": 9970}, True),
     ({"cp_loss": 100, "eval_after": -9840}, True),
+    # Production rows use {"before": n, "after": n}; this asserts that an
+    # unfamiliar key shape is still recognised as mate-related.
     ({"cp_loss": 100, "mate_info": {"mate_in": 3}}, True),
+    ({"cp_loss": 100, "mate_info": {"before": None, "after": None}}, False),
     ({"cp_loss": 100}, False),
 ])
 def test_1_2_mate_swing_detection(row, expected):
@@ -112,10 +115,15 @@ def test_1_2_mate_swing_detection(row, expected):
 
 def test_1_2_mate_is_never_labelled_in_centipawns():
     """The symptom: '-9108cp' and '-1385cp' on cards whose cost was the
-    difference between two mate scores."""
+    difference between two mate scores.
+
+    The label is now the transition rather than a fixed phrase -- see
+    test_mate_state_and_cost_wording.py, which covers the review finding that
+    "lost a forced mate" was wrong for a player who ALLOWED one.
+    """
     assert _format_cp(300) == "-300cp"
-    assert "cp" not in _format_cp(9108, mate=True)
-    assert _format_cp(9108, mate=True) == "lost a forced mate"
+    assert "cp" not in _format_cp(9108, mate_transition="gave up a forced mate")
+    assert _format_cp(9108, mate_transition="allowed a forced mate") ==         "allowed a forced mate"
 
 
 def test_1_2_mate_card_label_and_flag():
@@ -124,6 +132,7 @@ def test_1_2_mate_card_label_and_flag():
     card = next(p for p in out["principles"] if p["move_number"] == 20)
     assert card["cost_is_mate"] is True
     assert "cp" not in card["cp_loss_label"]
+    assert card["mate_transition"] is not None
 
 
 def test_1_2_cp_to_pieces_does_not_call_a_mate_a_queen():
@@ -131,13 +140,18 @@ def test_1_2_cp_to_pieces_does_not_call_a_mate_a_queen():
     assert _cp_to_pieces(9108) == "a forced mate"
 
 
-def test_1_2_material_leaked_line_excludes_mate_rows():
-    """The symptom: 'Total material leaked: 99.3 pawns worth'."""
-    line = _material_leaked_line([{"cp_loss": 300}, {"cp_loss": 9108}])
+def test_1_2_cost_line_excludes_mate_rows():
+    """The symptom: 'Total material leaked: 99.3 pawns worth'.
+
+    The wording also stopped claiming material at all -- review finding P1,
+    covered in detail in test_mate_state_and_cost_wording.py.
+    """
+    line = _blunder_cost_line([{"cp_loss": 300}, {"cp_loss": 9108}])
     assert "99" not in line and "91" not in line
-    assert "3.0 pawns" in line
+    assert "300 centipawns" in line
+    assert "pawns worth" not in line
     assert "forced mate" in line
-    assert _material_leaked_line([{"cp_loss": 9108}]).startswith("One of these")
+    assert _blunder_cost_line([{"cp_loss": 9108}]).startswith("One of these")
 
 
 # ── Repair 1.3 — three states for opponent evidence ───────────────────────
