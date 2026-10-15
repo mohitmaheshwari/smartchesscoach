@@ -7,6 +7,34 @@ deliverable. Acceptance is judged on the same four games used throughout
 Target: **`services/game_coach_review.compose_story()`**, extended to read
 `game_moments_service` rather than duplicating it. No fourth service.
 
+**Revision 2, 2026-10-15** — four amendments. The governing distinction is now
+§0.3; the timeline is halfmove-level (§2.1); the claim that the four
+computations need no engine analysis is **withdrawn** (§2.2); the thresholds are
+marked proposed with the distribution attached (§2.4); and the shadow corpus
+gains four move classes beyond the illustrative games (§3.2). Sequencing is
+§6: repairs first and tested, timeline in shadow, evidence reviewed before any
+player-facing explanation.
+
+## 0.3 The governing distinction
+
+Two kinds of statement, and they need different evidence. Conflating them is
+the mistake this scope exists to avoid, and I have now made it twice.
+
+| | Example | What verifies it |
+|---|---|---|
+| **Board fact** | "The bishop on e6 now attacks the queen on c4." | the position alone, legally, with python-chess. No engine |
+| **Causal explanation** | "This move made losing material unavoidable." | **verified continuations and alternatives** — the lines, not the geometry |
+
+**"The evaluation worsened" is not a sufficient gate.** It establishes that the
+engine disliked the move. It does not establish that *my stated reason* is why.
+A move can drop 300cp for a reason entirely unrelated to the loose piece I
+happen to have spotted — which is exactly how the hanging-rook reading and the
+six-safe-squares reading both went wrong.
+
+So every timeline row carries its evidence class, and a causal sentence may
+only be rendered when a continuation supports it. Where it cannot be
+supported, the row says **unverified** and the board fact is shown alone.
+
 ---
 
 ## 0. Two verifications first — both corrected me
@@ -105,39 +133,83 @@ the selection; §1 keeps the current behaviour until then.
 One new structure, built only from facts already stored or computable from the
 board. Nothing is a score.
 
-### 2.1 Shape
+### 2.1 Shape — every halfmove, not every one of his moves
 
-For each of his moves, a row carrying what is **verified**:
+Amendment 1, and it changes the structure. In Game A **`11.b4` does not attack
+the queen; `11…Be6` does.** A timeline with one row per *his* move cannot
+express that, and would wrongly attach the attack to b4. So the unit is the
+**halfmove**, both colours, in order.
 
 ```
-timeline[]
-  move_number, san, phase
-  eval_before, eval_after, cp_loss, engine_best      (stored)
+timeline[]            # one row per halfmove, in play order
+  ply, move_number, side, san, phase
+  # engine columns: HIS halfmoves only -- move_evaluations stores no
+  # opponent evaluations at all, so these are absent, not zero, on
+  # opponent rows
+  eval_before, eval_after, cp_loss, engine_best, pv_after_played,
+  pv_after_best                                      (stored, his rows only)
   mate_state                                         (separate, never cp)
-  material_balance                                   (computed from the board)
-  his_piece_now_attacked_undefended[]                (computed: square, piece)
-  opponent_just_created[]                            (computed: what their last
-                                                      move newly attacks)
-  he_answered_it | he_did_not                        (computed)
+  # board columns: computable on EVERY halfmove, either colour
+  material_balance
+  became_loose[]        pieces attacked-and-undefended after, not before
+  line_unblocked[]      a line from an enemy piece to one of his that this
+                        move cleared, by the mover's own piece leaving it
+  defender_left[]       a square that lost its last defender
+  newly_attacks[]       what this halfmove newly attacks (either side)
+  # answer columns
+  answered_previous_threat | did_not                 (computed)
   opponent_error_offered, he_punished_it             (move_observations, or
                                                       NOT RECORDED)
-  what_this_move_changed[]                           (see 2.2)
+  # see 2.2
+  explanation[]         each with its evidence class and status
 ```
 
-### 2.2 The one genuinely new computation
+Opponent halfmoves therefore carry board facts and no engine facts. That is a
+statement of what we have, not a gap to paper over: `move_evaluations` holds
+zero opponent evaluations.
 
-`what_this_move_changed` — the cross-move link, and the only part that is new
-analysis. Four board-verifiable facts, each a before/after comparison:
+### 2.2 The computations, reclassified — and the no-engine promise withdrawn
 
-- **a piece of his became loose** (attacked and undefended after, not before)
-- **he stopped blocking a line** (a line from an enemy piece to one of his
-  became clear because his own piece left it) — the Rh6+/Nxf7 mechanism
-- **a defender left** (a square he was defending lost its last defender)
-- **the opponent's options changed** — specifically, whether a piece of his
-  that was safe now has no square that holds, which is what `11.b4` did
+Revision 1 claimed all four were board-verifiable with no engine call. **That
+was wrong for the fourth**, and the fourth is the one that mattered in Game A.
 
-Each is computed with python-chess from the stored `fen_before` pairs. No
-engine call, no new score, no threshold.
+| Computation | Class | Verified by |
+|---|---|---|
+| **a piece became loose** — attacked and undefended after, not before | **board fact** | position only |
+| **a line was unblocked** — the mover's own piece left a line from an enemy piece to one of his (the Rh6+/Nxf7 mechanism) | **board fact** | position only |
+| **a defender left** — a square lost its last defender | **board fact** | position only |
+| **"the piece now has no square that holds"** | **causal / evaluation claim** | *not* geometry. Needs every retreat evaluated |
+
+The fourth is an evaluation claim wearing geometry's clothes. Counting attackers
+and defenders told me Game A's queen had six safe squares; the engine says each
+of them is ~100cp worse than conceding the queen. So:
+
+**Rule: the fourth claim may be rendered only from already-verified evidence,
+and otherwise is marked unverified and not shown.**
+
+What already-verified evidence exists, measured over 638,222 stored user-move
+rows:
+
+| Stored evidence | Present on |
+|---|---|
+| `best_move` / `best_move_uci` | effectively all rows |
+| **`pv_after_played`** non-empty | **207,053 (32.4%)** |
+| **`pv_after_best`** non-empty | **206,564 (32.4%)** |
+| `threat` non-null | 197,687 (31.0%) |
+
+So a continuation-backed causal claim is possible on **at most about a third of
+moves**. On the rest it is left unverified. That is a hard ceiling from existing
+data, and no part of this scope may pretend otherwise.
+
+Game A happens to be inside the ceiling, and the stored evidence is sufficient
+without any new engine call: `best_move` on move 12 is **`bxc5` itself**. The
+engine's own best move concedes the queen, which is exactly the claim — "it
+could not be saved" — and it is read, not computed. Where `best_move` at the
+next halfmove is *not* the conceding move, the claim is unsupported and stays
+unverified.
+
+**No new engine analysis is in scope.** Where existing evidence is insufficient,
+the answer is silence on the causal claim, not a new Stockfish pass.
 
 ### 2.3 Three columns, kept apart
 
@@ -152,13 +224,36 @@ Per your instruction, every timeline row is labelled:
 The third column is never inferred. A row with no recorded intention says so,
 and move 11 becomes a candidate for the threat-assessment question.
 
-### 2.4 Turning point, replaced
+### 2.4 Turning point, replaced — with PROPOSED thresholds
 
-Not `max(cp_loss)`. A move qualifies as a turning point when it both costs
-≥150cp **and** changes the game's state (level→losing, winning→level,
-losing→lost). A game may have none, one, or several — Game D has several, and
-saying so is the point. Where a game has no such move, the review says the
-game was never decided by one, rather than naming the largest cp_loss.
+Not `max(cp_loss)`. A move qualifies when it both costs enough **and** changes
+the game's state (level→losing, winning→level, losing→lost). A game may have
+none, one, or several — Game D has several, and saying so is the point.
+
+**The numbers are proposals, not settled.** 150cp and the 200cp recovery
+threshold in §2.5 were picked before I looked at anything, which is the error
+this project keeps paying for. The distribution over all 638,222 user moves:
+
+| cp_loss | Share |
+|---|---|
+| 0–1 | 47.1% |
+| 1–25 | 13.9% |
+| 25–50 | 10.3% |
+| 50–100 | 11.2% |
+| 100–150 | 5.5% |
+| **150–200** | **3.2%** |
+| 200–300 | 3.2% |
+| 300–500 | 2.7% |
+| 500–1000 | 1.3% |
+| 1000+ | 1.5% |
+
+≥150cp is **11.9%** of moves, so at ~30 of his moves per game that is roughly
+3.6 candidates per game before the state-change conjunction narrows it.
+
+**Gate: both thresholds are chosen from this distribution plus worked examples
+AND counterexamples before either is locked.** The counterexample that matters
+most is a move above the threshold that changed no state and taught nothing —
+if those are common, the threshold is wrong, not the move.
 
 ### 2.5 Recovery, which is currently invisible
 
@@ -182,6 +277,31 @@ Plus, across all four: `good_moves` non-empty wherever candidates exist; no
 empty user-facing string; no malformed opener; every intention column blank or
 sourced; and a stated uncertainty line wherever observations are missing.
 
+### 3.2 The shadow corpus — four classes beyond the illustrative games
+
+Amendment 4. Four games cannot validate an explanation generator, and the four
+chosen all end badly or messily. The shadow run must include move classes where
+**the evaluation falls or the geometry fires but the explanation would be
+false**. All four are samplable from flags already stored:
+
+| Class | How it is sampled | Available |
+|---|---|---|
+| **sacrifices** — material given up on purpose | `is_sacrifice: true` | **38,714 (6.1%)** |
+| **sound exchanges** — a capture recaptured, eval unchanged | `evaluation: best` plus a capture with a legal recapture | `is_best` on 335,106 (52.5%) |
+| **harmless attacks** — a piece becomes "loose" and nothing comes of it | `became_loose` fires and `cp_loss` is 0 | the 300,561 moves at 0–1cp |
+| **successful counterplay** — the eval falls and he goes on to win anyway | a recovery segment followed by a win | Games B and C already qualify |
+
+**The validation question is whether the explanation is TRUE, not whether the
+evaluation fell.** For each shadow row carrying an explanation, the check is:
+does a verified continuation show the stated mechanism actually operating? A
+row where the eval fell and the stated reason is wrong counts as a **failure**,
+not a success — which is the opposite of how a cp_loss-driven check would score
+it.
+
+Target to agree before enabling anything: the share of rendered explanations
+that survive that check. I will not propose a number before the shadow data
+exists.
+
 ### Regression
 
 `compose_story`'s current output is fingerprinted over 400 games before any
@@ -199,13 +319,37 @@ No homepage change. The import-idempotency work
 neither blocks the other, though the timeline should de-duplicate its game list
 at read time.
 
+## 6. Sequencing
+
+As directed: verification built in from the start, timeline in shadow until
+validated.
+
+1. **The six repairs (§1), implemented and tested, shipped on their own.** None
+   needs the timeline, all six are defects in live output, and the
+   `evaluation`-key fix alone makes strengths appear for the first time.
+2. **The timeline developed in shadow** — written to its own field, rendered to
+   nobody, with every row carrying its evidence class and status.
+3. **The shadow evidence reviewed** against §3.2, including the counterexample
+   classes, before any player-facing explanation is enabled. The flag gates the
+   render only, never the computation, so the shadow series keeps accumulating.
+
 ## 5. One open question
 
-§2.2's four computations are the new analysis, and they are the part most likely
-to produce confident nonsense — my last two attempts to reason from board
-geometry against the engine were both wrong (§0.2, and the earlier
-hanging-rook reading). I would gate each of the four on an engine check before
-it may appear in text: the claim is only rendered if the engine agrees the
-position worsened. **Do you want that gate from the start, or should the four
-fire freely in a shadow field first so we can measure how often they disagree
-with the engine before anything is shown?**
+Answered: both, per §6. The remaining question is narrower.
+
+**The causal claim has a 32.4% ceiling** (§2.2) because that is where
+`pv_after_played` exists. Three options, and I do not think this one is mine to
+pick:
+
+1. Render the causal sentence only on that third, and show board facts alone on
+   the rest — honest, and silent on two games in three.
+2. Show the board fact plus an explicitly hedged sentence on the remainder
+   ("the piece was loose here; we have not checked whether that is what cost
+   the move") — more coverage, and it puts an unverified clause in front of a
+   player.
+3. Backfill `pv_after_played` for the games being reviewed, which is new engine
+   work and currently out of scope.
+
+My preference is 1, because option 2 is how a true board observation becomes an
+unsupported diagnosis. But coverage has been a stated first-class concern
+before now, so it is your call.
