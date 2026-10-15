@@ -9,6 +9,12 @@ Companion to [player_understanding_measurement_map.md](player_understanding_meas
 (what the data can support) and [corrections_p1_p3_plan.md](corrections_p1_p3_plan.md)
 (the three corrections in flight).
 
+**Revision 2, 2026-10-15** — four corrections accepted, and the proposed
+consolidation narrowed to a single concept. The ceiling measurement in §8
+reverses one of revision 1's conclusions. Three of revision 1's claims are
+withdrawn in §9; the player investigations that produced them are in
+[player_investigations_2026_10_15.md](player_investigations_2026_10_15.md).
+
 ---
 
 ## 1. The claim we want to be able to make
@@ -23,11 +29,20 @@ the same idea**:
 |---|---|---|---|---|
 | prompted | shown it, responded | `user_concept_understanding` | `concept_id` | 218 |
 | independent, succeeded | did it unaided in a game | `move_observations` | `concept_used` | 14 |
-| independent, failed | tried unaided and missed | `move_observations` | `missed_pattern` / `subtype` | 6 / 26 |
+| independent, **opportunity not taken** | the position offered it; they did not play it | `move_observations` | `missed_pattern` / `subtype` | 6 / 26 |
 | retained | met it later, still right | `user_concept_understanding` | `streak_clean`, `mastered_at` | — |
 
 **The sentence is not currently sayable about any player, for any idea.** Not
 because the data is thin. Because of §2.
+
+One wording correction, which matters more than it looks: the third slot is
+**"opportunity not taken"**, never "tried and failed". A `missed_pattern` row
+says the position offered something and they did not play it. It cannot
+distinguish *did not see it* from *saw it and miscalculated* from *saw it and
+rejected it for a reason*. Only an asked question separates those, so the
+profile must not phrase an unmade move as an attempt. The target sentence's
+"struggle to calculate the reply independently" is therefore **not derivable
+from game data at all** — it needs Q3's instrument.
 
 ## 2. The blocker: five concept vocabularies, no shared key
 
@@ -211,13 +226,23 @@ instruments built for exactly that purpose have **4 attempts (one user)** and
 **one completed 20-puzzle session**. 19 of 45 diagnostic sessions recorded zero
 answers.
 
-So the binding constraint is not instrument design — we have good instruments —
-it is **asking capacity and completion**. A profile defined as "ask six
-questions" will return six empty answers. The definition therefore needs an
-**asking budget**: at most one question per session, chosen by what the profile
-most lacks, and a completion measurement for every probe. If we cannot get a
-20-puzzle diagnostic finished by more than one person, a six-part battery is
-not the next thing to build.
+**Correction accepted: these counts do not demonstrate failed asking.**
+ChessGuru is pre-launch, so 4 calculation-test attempts is equally consistent
+with nobody ever having been *offered* the test. "Asked and declined" and
+"never asked" are different failures with different fixes, and the data above
+cannot tell them apart — it records attempts, not invitations.
+
+What the counts do establish is that **no answers exist yet**, so any profile
+defined on asked evidence starts empty. Two consequences:
+
+- **Measure invitations, not just attempts.** Every probe needs an offered/
+  started/completed funnel before its completion rate means anything. The
+  19-of-45 diagnostic sessions with zero recorded answers are the one place
+  that does look like genuine drop-off, and even that needs the funnel to
+  confirm.
+- **One question per session is a hypothesis, not an established ceiling.** It
+  is a sensible starting point for not overloading a 600–1500 player, and it
+  should be tested, not assumed. I have no evidence for any particular ceiling.
 
 ## 5. Evidence requirements
 
@@ -231,7 +256,21 @@ most cells for a long time, and the profile must read well when it is.
 | **C — observed once** | "came up once; too early to say" | 1 observation, any source |
 | **B — pattern** | "this keeps happening" | ≥3 independent observations of the same idea, across ≥3 games, within a bounded window |
 | **A — conditional** | "recognises with a prompt, not yet alone" | B on the independent side **plus** ≥1 prompted observation of **the same idea** (needs §2 fixed) |
-| **A+ — retained** | "holds it now" | A **plus** ≥2 later clean independent encounters after the teaching |
+| **A+ — retained** | "holds it now" | A **plus** the four retention conditions below |
+
+**These numbers are proposals, not settled thresholds.** Each one must be
+chosen from the distribution of the evidence that actually exists, after the
+contract in §7 is demonstrated — not fixed here. In particular, "a few clean
+encounters" is not retention. Grade A+ requires all four of:
+
+1. **Relevant opportunity** — the later positions actually offered the idea. A
+   clean game that never presented it is not evidence of anything.
+2. **Unfamiliarity** — at least one later encounter is a position they have not
+   been taught or shown.
+3. **Meaningful delay** — enough time and enough games between the teaching and
+   the later encounters that this is memory rather than recency. The length is
+   an open question, to be set from the data.
+4. **Unassisted** — no hint, reveal or help event on the later encounters.
 
 Four rules the grades must obey, each one a lesson already paid for:
 
@@ -253,10 +292,10 @@ in plain English, no numbers, no failure scoreboard.
 Ordered by what unblocks the most, and all of it consolidation rather than new
 features:
 
-1. **Pick one concept identity and make every source write it.** Start with the
-   ~48 ids that are real rather than the 218 or the 238. This is the only item
-   that turns the target sentence from unsayable into sayable, and it deletes
-   vocabularies rather than adding one.
+1. **Demonstrate the evidence contract on ONE idea** (section 7). Not a
+   consolidation project. Zero id overlap proves a join problem; it does not
+   prove the five vocabularies should collapse, and genuinely different
+   concepts stay unmapped.
 2. **Give the independent side a failure branch.** `concept_used` records only
    good moves, so "struggles alone" is unsayable from it today.
 3. **Stop discarding the breadth probe**, and measure why 19 of 45 diagnostic
@@ -264,28 +303,99 @@ features:
    new instrument.
 4. **Ask the calculation test of real users.** It answers Q3 as specified and
    has four attempts.
-5. **Calibrate `time_flag` from the distribution** of 501,863 `time_spent_seconds`
-   values. Q4's data is present and its switch is off.
-6. **Ask Q1's two missing fields once** — time available, preferred games — and
-   do not infer them.
+5. ~~Calibrate `time_flag`~~ — **withdrawn, see section 9.** The flag is
+   correctly narrow and was already recalibrated on 2026-09-26.
+6. **Ask Q1's two missing fields once** — time available, preferred games —
+   and do not infer them. Store them as *stated preferences*, somewhere that
+   cannot be mistaken for a measured outcome.
 7. **Reframe Q6 per concept**, and treat any modality comparison as a designed
    experiment with its own scope.
 
 Nothing here needs a new detector, a new scoring engine, or a homepage change.
 
-## 7. Open questions for you
+## 7. The narrow concept-evidence contract, on one idea
 
-1. **Concept identity is the gate.** Do you want this profile defined on top of
-   one consolidated vocabulary — which means a consolidation project before any
-   profile feature — or should I define the profile against today's five
-   vocabularies and accept that its strongest grade is B?
-2. **Do you accept the per-concept reframing of Q6** (§4.1), and should
-   `coaching_profile.preferred_learning_style` be removed given it is an
-   unmeasured default on every user?
-3. **Asking budget** — is one question per session the right ceiling, and
-   which question gets priority when the profile is empty?
-4. **This player.** You asked me to investigate the missed-mate, capture-
-   consequence and clock hypotheses while also checking what the games have not
-   exposed. The first three are answerable from data in hand; the fourth needs
-   him to finish a diagnostic and a calculation test. Shall I run the three and
-   report, or wait until the profile is defined?
+Approved direction: prove the bridge on a single teachable idea before any
+broad consolidation, because that tests whether an identity bridge produces a
+**trustworthy coaching conclusion**, which is the only thing worth finding out.
+
+**The contract.** For one idea, a record that links its evidence without
+destroying anything:
+
+```
+concept_evidence_link
+  idea_key     the one idea, named once
+  members      [ {source, source_id, role} ... ]
+  role         lesson | assisted_attempt | opportunity
+               | independent_success | opportunity_not_taken
+  provenance   which collection and field asserted this membership,
+               who added it, when, and why
+  unmapped     ids considered and deliberately NOT linked, with reasons
+```
+
+Three rules it must obey, all three from your review:
+
+- **Original ids are preserved.** Nothing is renamed, merged or deleted in any
+  source collection. The link is a new, additive join record; every source
+  keeps its own vocabulary, and `provenance` says who claimed the equivalence.
+- **Genuinely different concepts stay unmapped**, and the `unmapped` list is
+  part of the record, so a later reader sees what was rejected rather than
+  guessing why something is absent.
+- **`opportunity_not_taken` is never read as an attempt.** It is a fifth role,
+  not a flavour of failure.
+
+**Which idea.** The candidate needs real volume on both sides. From the ceiling
+measurement, `missed:piece_safety` and `missed:king_safety` each reach grade B
+for 55 players, and the taught side carries `DEF_*` concepts aimed at the same
+ground. **I propose piece safety.** The demonstration: for one player, assemble
+the five roles and see whether the result supports a coaching sentence a human
+would sign.
+
+**The acceptance test is a human read, not a count.** The contract passes if,
+for three players, the assembled evidence produces a sentence you would show
+them, and fails if it produces something technically true and coaching-useless.
+That is a judgement on purpose, because that is what is being tested.
+
+## 8. The ceiling, measured, and it reverses a revision-1 claim
+
+Revision 1 said "not known will be the honest answer for most cells for a long
+time." **That is wrong.** Measured across all 60 players with any observable
+idea:
+
+| | |
+|---|---|
+| distinct observable ideas | 46 |
+| **player x idea cells already at grade B** (3+ games) | **1,868** |
+| per player | median 34, max 43 |
+| players with zero | 5 |
+| ideas no player reaches grade B on | **1** of 46 |
+
+Fourteen ideas reach grade B for 53 to 55 players each. So the profile is **not
+data-poor, it is join-poor**: the independent side alone already supports a
+grade-B claim on a median of 34 ideas per player. A bridge would not create
+cells, it would attach prompted evidence to cells that already exist, which is
+exactly why one idea is the right size of first step.
+
+## 9. Three revision-1 claims withdrawn
+
+| Claim | Status |
+|---|---|
+| "`time_flag` fires on 0.4%, so the threshold was never calibrated" | **Withdrawn.** It is deliberately narrow (mistakes only, speed relative to that player's own pace in that game, skipping already-losing positions) and was rewritten on 2026-09-26 after the previous test was measured vacuous on 11,984 of 11,984 fires. Its docstring already says it must never be aggregated into an impulsiveness claim. 0.56% is what correct looks like. I inferred a defect from a firing rate. |
+| "This player has a capture-consequence habit (13%)" | **Withdrawn.** The opportunity-adjusted preference ratio is **0.78x**, so he picks losing captures *less* often than they are available, and the engine clears 53 of the 95 as sound exchanges. |
+| "Not known will be most cells for a long time" | **Withdrawn**, see section 8: 1,868 cells are already at grade B. |
+
+## 10. Open questions for you
+
+1. **Is piece safety the right idea to demonstrate the contract on?** It has
+   the most volume on both sides. If you would rather prove it on something
+   narrower and more clearly teachable, name it.
+2. **`preferred_learning_style`: readers checked, as you asked, and there are
+   none.** The only two references in the codebase are in
+   `coaching_model.py` — the schema docstring and the initialisation default.
+   Nothing reads it. So there is no live bug and no urgency; the only risk is
+   something starting to read it later. My recommendation is to leave the field
+   and record that it is an unmeasured default, then put any *stated*
+   preference somewhere explicitly marked as stated. Removing it is also safe.
+3. **The retention conditions in section 5** — relevant opportunity,
+   unfamiliarity, meaningful delay, unassisted. Do you accept all four as
+   requirements before any numbers are chosen?
