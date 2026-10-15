@@ -7,6 +7,13 @@ deliverable. Acceptance is judged on the same four games used throughout
 Target: **`services/game_coach_review.compose_story()`**, extended to read
 `game_moments_service` rather than duplicating it. No fourth service.
 
+**Revision 3, 2026-10-15** — decision taken: **verified causal explanations
+where supported, board facts and game context elsewhere. No backfill in this
+scope.** Three corrections follow from it: PV availability is not explanation
+coverage (§2.2a); `best_move: bxc5` does **not** establish that the queen could
+not be saved, and the licensed wording is weaker (§0.2a); and coverage means
+selected moments, not a sentence per move (§2.6).
+
 **Revision 2, 2026-10-15** — four amendments. The governing distinction is now
 §0.3; the timeline is halfmove-level (§2.1); the claim that the four
 computations need no engine analysis is **withdrawn** (§2.2); the thresholds are
@@ -198,19 +205,77 @@ rows:
 | **`pv_after_best`** non-empty | **206,564 (32.4%)** |
 | `threat` non-null | 197,687 (31.0%) |
 
-So a continuation-backed causal claim is possible on **at most about a third of
-moves**. On the rest it is left unverified. That is a hard ceiling from existing
-data, and no part of this scope may pretend otherwise.
+### 2.2a PV availability is not explanation coverage
 
-Game A happens to be inside the ceiling, and the stored evidence is sufficient
-without any new engine call: `best_move` on move 12 is **`bxc5` itself**. The
-engine's own best move concedes the queen, which is exactly the claim — "it
-could not be saved" — and it is read, not computed. Where `best_move` at the
-next halfmove is *not* the conceding move, the claim is unsupported and stays
-unverified.
+The 32.4% is an upper bound on one kind of evidence, and it is the wrong number
+to plan with, in **both** directions:
+
+- **A stored PV does not establish a proposed cause.** `pv_after_played` is one
+  line. It shows what the engine expects next; it never shows that every
+  alternative was worse. So the whole "unavoidable" family of claims is
+  **unverifiable from stored data at any coverage level** — not 32.4%, zero.
+- **Some claims need no PV at all.** "The bishop on e6 attacks the queen on c4",
+  "this move left the knight on e6 attacked and undefended", "his own piece
+  left the f6–h4 line" are each decided by the position, legally, and are
+  available on **every** halfmove.
+
+So the decision is **claim by claim**, not coverage-wide:
+
+| Claim | Evidence it needs | PV required | Availability |
+|---|---|---|---|
+| X now attacks Y | position | no | every halfmove |
+| a piece became loose | position, before/after | no | every halfmove |
+| a line was unblocked | position, before/after | no | every halfmove |
+| a defender left | position, before/after | no | every halfmove |
+| he answered the previous threat | position + the move played | no | every halfmove |
+| material changed by N | position | no | every halfmove |
+| the engine's line after this move gives up the queen | `pv_after_played` / `pv_after_best` must actually contain it | **yes** | where the PV exists **and** contains the event |
+| this move was a turning point | stored evals + state change | no | every one of his moves |
+| **"losing material was unavoidable"** | **every alternative evaluated** | PV is insufficient | **not available** |
+
+The third column is the gate, and the last row is the one to remember.
+
+**Game A, and what the stored evidence actually licenses.** Revision 2 said
+`best_move: bxc5` showed the queen could not be saved. **It does not.** It
+identifies the engine's preferred continuation; it says nothing about why every
+alternative is worse. One best move is one data point, not a ranking.
+
+What I may write from stored evidence:
+
+> "The engine's continuation after b4 gives up the queen for material."
+
+What I may **not** write from stored evidence:
+
+> ~~"After b4 the queen could not be saved."~~
+> ~~"Every retreat loses more."~~
+
+I did establish the stronger claim earlier — a depth-20 run ranked all 38
+legal moves and put `bxc5` at −374 against the best queen move `Qxe6` at
+−482. **But that was a new engine call, which this scope forbids.** So it is
+true, and the shipped product cannot say it. That gap between what I verified
+ad hoc and what the product may claim is the distinction worth holding onto.
 
 **No new engine analysis is in scope.** Where existing evidence is insufficient,
 the answer is silence on the causal claim, not a new Stockfish pass.
+
+### 2.2b What to say when the cause is unsupported
+
+Not a hedged guess. An invented cause with a softener in front of it is still
+an invented cause. Where no verified cause is available, the row reports what
+is known and nothing more:
+
+- **the threat created** — what the opponent's halfmove newly attacks (board)
+- **the response played** — and whether it answered that threat (board)
+- **the verified continuation** — the stored PV where one exists, quoted as the
+  engine's expectation rather than as a consequence
+- **how the game developed** — the eval and material path around the moment
+- **the remaining uncertainty**, stated where it matters: which of these we
+  could not establish, and that his intention is unknown unless asked
+
+Game A's move 11 under this rule reads as: level before it, −363 after it, the
+engine preferred `d4`; `11…Be6` attacks the queen on c4; the engine's
+continuation gives up the queen for material. No sentence claims b4 *made* the
+loss unavoidable, because nothing stored shows that.
 
 ### 2.3 Three columns, kept apart
 
@@ -264,6 +329,24 @@ opponent errors in the same window (or `NOT RECORDED`). Game C and Game B both
 contain one and neither is currently mentioned.
 
 ---
+
+### 2.6 Coverage means selected moments, not a sentence per move
+
+Coverage here is **useful, trustworthy reviews** — not an explanation attached
+to every move. 47.1% of his moves cost under 1cp; an ordinary developing move
+needs no causal account and saying something about it would be filler.
+
+So the timeline computes every halfmove and the review **selects**: the
+connected moments that carry the game's shape, plus the demonstrated strengths.
+A review of six moments where five carry verified causes is a better review
+than thirty moments where eight do.
+
+The measurement that follows from this is in §5 step 4: after shadow
+validation, count the **important** moments — the selected ones — that remain
+unexplained. That number, not PV availability, is what could later justify
+targeted engine enrichment. It does not justify any now, and it must not delay
+§1.
+
 
 ## 3. Acceptance — the same four games
 
@@ -333,24 +416,22 @@ validated.
 3. **The shadow evidence reviewed** against §3.2, including the counterexample
    classes, before any player-facing explanation is enabled. The flag gates the
    render only, never the computation, so the shadow series keeps accumulating.
+4. **Then, and only then, measure the unexplained important moments** (§2.6).
+   If selected moments routinely lack a verified cause, that is the evidence
+   for targeted engine enrichment — a later, separately scoped piece of work.
+   It is not part of this implementation and does not gate steps 1 to 3.
 
-## 6. One open question
+## 6. The decision, recorded
 
-Answered: both, per §5. The remaining question is narrower.
+**Decided: verified causal explanations where supported; board facts and game
+context everywhere else. No hedged causes. No backfill in this scope.**
 
-**The causal claim has a 32.4% ceiling** (§2.2) because that is where
-`pv_after_played` exists. Three options, and I do not think this one is mine to
-pick:
+The qualifications that came with it are now in the body rather than here:
+PV availability is not explanation coverage and the decision is claim by claim
+(§2.2a); unsupported moments report the threat, the response, the verified
+continuation and the game's development, with the uncertainty stated, rather
+than a softened guess (§2.2b); coverage means selected moments (§2.6); and the
+count of unexplained *important* moments after shadow validation is what could
+justify targeted enrichment later (§5 step 4).
 
-1. Render the causal sentence only on that third, and show board facts alone on
-   the rest — honest, and silent on two games in three.
-2. Show the board fact plus an explicitly hedged sentence on the remainder
-   ("the piece was loose here; we have not checked whether that is what cost
-   the move") — more coverage, and it puts an unverified clause in front of a
-   player.
-3. Backfill `pv_after_played` for the games being reviewed, which is new engine
-   work and currently out of scope.
-
-My preference is 1, because option 2 is how a true board observation becomes an
-unsupported diagnosis. But coverage has been a stated first-class concern
-before now, so it is your call.
+Nothing is open. The scope is ready for implementation in the §5 order.
