@@ -5,6 +5,11 @@ code changed. Window: his **100 most recent analysed games**, 2026-09-08 to
 2026-10-14 — 2,986 of his moves, 90,048 legal moves across those positions,
 2,958 observation rows. Record in the window: **48 won, 52 lost**.
 
+**Revision 2, 2026-10-15.** Four corrections from your review, all measured
+and all upheld, plus two errors of my own that your FEN replay exposed. Three
+of the corrections change a headline. See section 12; it is the first thing to
+read, because several numbers below are superseded by it.
+
 ## How to read this
 
 Four evidence classes, kept apart on purpose:
@@ -51,10 +56,9 @@ Three, all accepted:
 2026-02-10. He also has an **active focus he chose or was given**:
 `{cluster: "calculation", name: "Calculation Discipline"}`.
 
-Ratings disagree and the disagreement matters: `assessed_rating` 1241 and
-`detected_rating` 1241 (source: chess.com) against `lichess_rating` **1490** —
-while 87 of his last 100 games are **lichess blitz**. So we are coaching him at
-a band ~250 points below the pool he actually plays in.
+Ratings disagree, and verifying *what the application actually uses* changed
+the finding — see section 12.3. Four numbers are in play, and the one the app
+resolves is **920**, not the 1241 I reported.
 
 **Tentative / missing.** No practice time, no preferred game type, no stated
 improvement target. `coaching_profile.preferred_learning_style` reads
@@ -175,16 +179,23 @@ A narrow, classical, open-game repertoire: 1.e4 as White, 1...e5 against e4.
 rate over 994 moves — and on recorded mastery: of 13 `concept_type: opening`
 rows, **12 mastered, 1 stripped**, his best ratio of any type.
 
-**One concrete, repeated failure.** The same position appears twice in two
-different games, and he played the same losing move both times:
+**One position worth teaching — but not for the reason I first gave.**
 
 ```
 r1bqk2r/pppp1Bpp/2n5/2b1P3/6n1/2p2N2/PP3PPP/RNBQ1RK1 b kq - 0 8
-games 5bb3e449 and 81663a72, move 8, he played Kf8 both times
+he played Kf8, at 80cp
 ```
 
-A free 3-point piece was available and declined, at 80cp, twice. **A recurring
-position he gets wrong is the most teachable thing in this entire profile.**
+You replayed it and you are right: **Black is in check.** The only legal moves
+are Kf8, Kxf7 and Ke7. So "he declined free material" is the wrong description
+— he was in a forced position with three options and chose a king retreat over
+the capture. The teaching question is **why retreat rather than capture**, which
+is a question about his evaluation of the resulting position, not about whether
+he saw the bishop.
+
+And it is **not recurring**. The two "different games" are the same game
+imported twice (section 12.5): same platform, same minute, same result, same
+colour, two `game_id`s, PGN lengths 564 and 1234. One occurrence, not two.
 
 **Tentative / missing.** `missed_pattern: opening_knowledge` fires 52 times in
 43 games, which is high, but it cannot say *which* opening. Without
@@ -335,10 +346,9 @@ taught record, kept separate.
 Two things stand out. **`piece_safety` 9 of 24 (38%)** is his worst type with
 real volume — and `piece_safety` is also his second-largest game pattern (98 in
 62 games). Those two sources share the same id, so this is a genuine
-cross-source convergence, not a forced join. Second, **`weakness_type:
-"unknown"` is 0 of 16** — sixteen attempts, none correct, no type recorded.
-That looks like a broken puzzle set rather than a skill fact and should not be
-counted against him.
+cross-source convergence, not a forced join. Second, **`weakness_type: "unknown"` is 0 of 16**, and section 12.4 shows why
+that is not a skill fact — though not for the reason I guessed. No move was
+ever submitted on any of them, and the puzzles themselves are not broken.
 
 **Lessons (assisted):** 21 sessions, 7 completed, **6 with a
 `help_requested` event**. States: `learning` 9, `can_do_with_help` 4,
@@ -348,7 +358,7 @@ counted against him.
 **33**, `mastery_stripped_at` set on **42**, `last_clean_game_at` on 77,
 `streak_clean ≥ 1` on 63. States: `monitoring` 75, `shown` 37.
 
-| concept_type | Rows | Mastered | Stripped |
+| concept_type | Rows | Mastered | Stripped (ALL artifact — see 12.4) |
 |---|---|---|---|
 | endgame | 73 | 5 | 30 |
 | tactical | 17 | 8 | 5 |
@@ -358,10 +368,15 @@ counted against him.
 | defense | 3 | 3 | 0 |
 | general | 2 | 0 | 1 |
 
-**More masteries stripped (42) than held (33).** But "mastered" here is a
-stored state reached without any unfamiliarity, delay or no-assistance
-condition, so **none of it is verified retention** and it should not be
-reported to him as "you have mastered X".
+**"More masteries stripped (42) than held (33)" is withdrawn — it was an
+artifact, not forgetting.** All 42 stripped rows carry
+`mastery_stripped_reason: "artifact_backfill_cleanup"`, and **0 of the 42 ever
+had `mastered_at` set**: they were never held, so nothing was lost. See
+section 12.4 for the corrected table.
+
+The surviving caution still holds: "mastered" is a stored state reached with no
+unfamiliarity, delay or no-assistance condition, so **none of it is verified
+retention** and none of it should be shown to him as "you have mastered X".
 
 **The breadth probe he nearly finished.** Three `diagnostic_sessions` carry
 attempts — 37 in total, one session reaching all 20 — and every session is
@@ -404,7 +419,7 @@ not directly comparable to each other.
 | my "left a piece hanging" detector | 2 of 5 sampled examples had cp_loss 0; engine disagrees, and there is no cross-player baseline |
 | my two-ply "losing capture" heuristic | disagreed with Stockfish on 53 of 95 moves and was wrong all 53 times |
 | `subtype: missed_generic_tactic` (42), `generic_endgame_slip` (17), `generic_oversight` (10) | a count without a diagnosis; "generic" means the detector could not name the motif |
-| `puzzle_attempts.weakness_type: "unknown"` (16, 0 correct) | looks like a broken puzzle set, not a skill fact |
+| `puzzle_attempts.weakness_type: "unknown"` (16, 0 correct) | **abandoned, not failed** — `moves_tried: []` on all 16; other users solve the same puzzles (section 12.4) |
 | `coaching_profile.preferred_learning_style` | unmeasured default on all 128 users, no reader |
 | `concept_used` as evidence of ability | written only on good moves; can congratulate, can never show the converse |
 
@@ -426,9 +441,15 @@ opening — and in two specific places. He misses roughly two in five threats
 against him (`king_safety` 112 flags across 60 of 100 games, `threat_response`
 also his weakest prompted concept). And he reached +3 in 77 games and won 45.
 
-**The most useful single thing I can say about him today:** the knowledge is
-there and the execution is not. That is a far better problem to have than the
-reverse, and it points at process rather than curriculum.
+**What I can and cannot conclude.** I previously wrote "the knowledge is
+there and the execution is not". **That overreaches and is withdrawn.** The
+prompted set he answered tops out at a puzzle rating of 1300 with a median of
+898, while he plays at 1490 — so it shows *foundational recognition*, not
+knowledge at the complexity his games present. Nothing above distinguishes a
+knowledge gap from an execution gap at his playing strength, and the two can
+coexist. What is supportable: **at around 900 his recognition of standard
+motifs is sound, and his blitz middlegame is where his games are lost.** Those
+are two facts, not one causal story.
 
 **What I still need to learn, and why.**
 
@@ -456,3 +477,209 @@ he got wrong twice in two games
 (`r1bqk2r/pppp1Bpp/2n5/2b1P3/6n1/2p2N2/PP3PPP/RNBQ1RK1 b kq - 0 8`, Kf8 both
 times). It is his own game, it recurs, it is in his main repertoire, and it is
 concrete. Everything else above is a measurement; that is a lesson.
+
+---
+
+## 12. Revision 2 — the four corrections, measured
+
+### 12.1 "Knowledge is there, execution is not" — premature, withdrawn
+
+The prompted evidence is not at the complexity of his games:
+
+| Puzzle difficulty | Understood |
+|---|---|
+| under 850 | 4 of 5 |
+| 850–999 | 17 of 17 |
+| 1000–1199 | 0 of 1 |
+| 1200+ | 11 of 14 |
+
+Ratings span 777–1300, median **898**. He plays lichess blitz at **1490**, and
+**no position above 1300 was ever put to him.** For scale, his own flagged
+mistakes have a median `cp_loss` of 231 and a p90 of 764.
+
+Worth noting in his favour: he took 11 of 14 at 1200+, so his recognition does
+not collapse at the top of the tested range. But the range stops ~190 points
+below his playing strength, so the evidence supports **foundational recognition
+at around 900**, not knowledge at blitz-game complexity. **Knowledge and
+execution gaps can coexist and this data cannot separate them.**
+
+### 12.2 "Stops at the first forcing move" — one explanation of several
+
+Weakened to a candidate, and the alternatives named rather than dismissed. Any
+of these fits the five positions equally well:
+
+- he did not see the mate at all (a pattern gap, not a search gap)
+- he saw it, calculated it, and miscalculated the reply
+- he saw a forcing move, judged it good enough, and did not look for better
+- blitz: he had a move that looked winning and moved on
+- the mates were of a shape he does not hold (back-rank, smothered, etc.)
+
+And you are right that **twenty selected problems would not settle it either**:
+choosing positions where a second forcing move beats the first presupposes the
+mechanism, which is selection bias. A fair design would mix positions where the
+first forcing move *is* best with positions where it is not, and compare.
+
+### 12.3 The rating — the app uses **920**, and I had it wrong
+
+Verified by calling the canonical resolver rather than reading fields:
+
+| Source | Value |
+|---|---|
+| `users.rating_source` | `chess.com` |
+| `users.assessed_rating` | 1241 |
+| `users.detected_rating` | 1241 |
+| `users.lichess_rating` | **1490** |
+| `player_profiles.current_rating` | 1199 |
+| `get_current_rating()` (sync) | 1241 |
+| **`resolve_coaching_rating()` (canonical, async)** | **920** |
+
+The canonical resolver returns **920**, with `source: recent_game_median`,
+`platform: chess.com`, `sample_games: 3`, `as_of: 2026-09-24`. It takes the
+median of his three most recent **chess.com** game ratings, because
+`rating_source` names chess.com.
+
+His play has moved and the anchor has not:
+
+| Platform | Games | Time control |
+|---|---|---|
+| chess.com | 628 | **rapid 542**, blitz 54, other 32 |
+| lichess | 115 | **blitz 115** |
+| coach | 137 | untimed |
+
+So the app anchors him on three old chess.com *rapid* games while his recent
+play is lichess *blitz*. Corroboration that this reaches difficulty selection:
+`routes/training.py` and `routes/diagnostic.py` both import the resolver, and
+the puzzles he was actually served sit at a median rating of **898** —
+consistent with a 920 anchor, not with 1241 or 1490.
+
+**So the direction of my claim survives but the number and mechanism were
+wrong.** It is not "1241 versus 1490". It is that four ratings exist, the app
+resolves the lowest, and it derives it from a platform and time control he has
+largely stopped playing.
+
+### 12.4 Mastery stripping and the "unknown" puzzles — both artifacts
+
+**Mastery stripping: not forgetting.** All 42 stripped rows carry
+`mastery_stripped_reason: "artifact_backfill_cleanup"`, and 0 of the 42 ever had
+`mastered_at` set. The artifact rows are visibly corrupt: `concept_id` and
+`concept_text` do not match each other (`concept_id: "blocked_bishop"` carries
+a queen-mate endgame instruction; `"knight_on_rim"` carries "castle early"),
+and `shown_count` runs to 10,593, 6,118 and 1,366. Every one of the 17 rows
+with `shown_count > 50` is an artifact; no clean row exceeds 50.
+
+Excluding them, the real picture is 76 rows, 33 mastered, **0 genuinely
+stripped**:
+
+| concept_type | Clean rows | Mastered |
+|---|---|---|
+| endgame | 43 | **5** |
+| opening | 12 | **12** |
+| tactical | 12 | 8 |
+| middlegame | 5 | 5 |
+| defense | 3 | 3 |
+| general | 1 | 0 |
+
+So the endgame signal (5 of 43) is real and is his weakest area; the opening
+strength (12 of 12) is real; and **"positional: 0 of 5" was entirely artifact**
+and should be struck from section 5. 36 of the 76 clean rows have
+`shown_count: 0` — never shown to him at all.
+
+**The 16 "unknown" puzzle failures: abandoned, not failed, and the puzzles are
+not broken.** All 16 have `moves_tried: []` and `time_taken_ms: null` — **no
+move was ever submitted.** They cover only 6 distinct `puzzle_id`s, so he met
+the same few repeatedly. The control settles the "broken set" guess: across all
+users those same 6 puzzles have 5 correct attempts from 5 different users. They
+are solvable. These 16 rows are an engagement record, not a skill record, and
+my "broken puzzle set" reading was wrong.
+
+### 12.5 My own error: 13% of the window is duplicate records
+
+Your FEN replay led me to check the two "different games", and they are one
+game imported twice. Quantified over the window:
+
+| | |
+|---|---|
+| analysed game records in the window | 100 |
+| distinct (platform, minute, result, colour) keys | **87** |
+| keys with more than one record | 12 |
+| extra records | **13** |
+
+So the window holds about **87 distinct games, not 100**. One chess.com key
+holds **three** records with byte-identical PGN lengths. Across all 880 of his
+game records, 32 extras (3.6%) — the recent window is worse than his history.
+
+What this does and does not change:
+
+- **Counts are inflated by ~13%.** His 2,986 moves are nearer 2,600; the
+  48–52 record is nearer 42–45; every absolute count in sections 2–9 should be
+  read as an upper bound.
+- **Rates mostly survive**, because a duplicated game duplicates numerator and
+  denominator together: 85% free-material conversion, 69% mate conversion,
+  113cp middlegame, 57% threat response.
+- **Any "this recurred" claim is invalid without de-duplicating first.** That
+  is exactly the claim I made about the Kf8 position.
+
+### 12.6 And the free-material split
+
+Checking whether my free-material detector counted forced positions: 33 of the
+211 opportunities were in check. The rates are almost identical either way —
+**not in check 151 of 180 (84%), in check 28 of 33 (85%)** — so the 85%
+headline stands. But every example I quoted came from the in-check subset, so
+the illustrations were wrong even though the aggregate was right.
+
+---
+
+## 13. The next assessment: recognition, then evaluation
+
+Per your direction, and designed to investigate the strongest reported concern
+without presuming its cause. No code; this is the design.
+
+**The concern.** Threat handling: `missed_pattern: king_safety` 112 flags
+across 60 of the window's games, threats answered 155 of 272 (57%), and
+`threat_response` is also his weakest prompted concept (2 of his 5 diagnostic
+misses). Two instruments, same direction.
+
+**The design.** Positions drawn from **his own games**, at the moment after the
+opponent has created a threat, asked in three steps with no clock. Each step is
+recorded before the next is shown, because the order is what separates the
+causes:
+
+1. **Recognition** — "What is your opponent threatening?" Free or
+   multiple-choice over squares/pieces. Recorded before any move is requested.
+2. **Response** — "What do you play?" One move.
+3. **Evaluation** — "What do you expect after that?" The continuation, two or
+   three moves deep.
+
+**What each outcome pattern would mean**, written before seeing any data so the
+reading is not fitted afterwards:
+
+| Step 1 | Step 2 | Step 3 | Reading |
+|---|---|---|---|
+| wrong | — | — | he does not see the threat: a **recognition** gap |
+| right | wrong | — | sees it, cannot answer it: an **evaluation/calculation** gap |
+| right | right | wrong | answers it without knowing why: fragile, likely to fail when the position shifts |
+| right | right | right | he can do this untimed — which points at the clock, and we cannot see his clock |
+
+**Sample and conditions.** Eight to twelve positions, from his own games, mixed
+difficulty, no clock, assistance recorded if offered. Mixed in deliberately:
+two or three positions where **no** real threat exists, as a control against
+him answering "yes there is a threat" to every prompt.
+
+**What it will not settle.** It is untimed, so it cannot distinguish "cannot do
+this" from "cannot do this in six seconds" — and he plays blitz at a median 5s
+per move. Until clock extraction works for his lichess games, that distinction
+stays out of reach, and the assessment should be read with that written on it.
+
+**Instruments to reuse, not rebuild.** `calculation_test` already grades a line
+on `found_the_idea` / `sound_through` / `judged_the_end` with `stopped_early` —
+steps 2 and 3 are its existing fields. Step 1 is the one genuinely new thing
+asked for, and nothing currently stores an answer to "what do you see"
+(`user_misconceptions` and `home_today_answers` both hold 0 rows).
+
+## 14. Standing position
+
+Per your recommendation: **the nine-area profile stays as our working
+understanding, with its uncertainties intact.** No process-only training is
+prescribed. The three strongest things we hold are that his opening phase is
+genuinely clean, his blitz middlegame is where games are lost, and threat
+handling is his most-corroborated weakness — with the cause unknown.
