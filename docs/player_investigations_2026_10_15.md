@@ -45,11 +45,17 @@ Traceable positions — FEN is before his move:
 | `coach_cf7d6a6d` | 17 | axb5 | Qd1# | 0 | `r1bqk2r/1p3p1p/p3p1nb/1NP5/4R1p1/6P1/PPP2P1P/K5NR b kq - 0 17` |
 | `coach_cf7d6a6d` | 24 | Bxe4 | Qxa2# | 0 | `r3k2r/1p6/2b1p1p1/qpP5/4N3/6P1/PPPb1P1P/K7 b kq - 1 24` |
 
-A pattern worth a human eye: in six of the nine he played **a check that was
-not the mate** (Re4+, Bd7+, Be6+, Rxd7+, Be5+, and Rxh4 taking a queen). He is
-not failing to look for forcing moves — he is taking the first forcing move he
-sees. That is a hypothesis about *how* he searches, not a measurement, and it
-is exactly the sort of thing only an asked question settles.
+A pattern worth a human eye: in **five** of the nine he played a check that
+was not the mate — Re4+, Bd7+, Be6+, Rxd7+, Be5+. (Corrected: Rxh4 is a queen
+capture, not a check, so it does not belong in that five. The other three were
+Bd5, axb5 and Bxe4.)
+
+**"He stops at the first forcing move" is a HYPOTHESIS, not a finding.** It is
+inferred from five positions and nothing measures it. It gained one piece of
+independent support later the same day — of his four calculation-test
+attempts, the one where he found the idea but fell short of the required depth
+is marked `stopped_early: true` — but that is n=4. Only an asked question
+settles it.
 
 ---
 
@@ -100,10 +106,15 @@ look: these moves are fine. A capture that is recaptured is an *exchange*, and
 the material comes back or the compensation is real. My two-ply heuristic
 cannot see that; Stockfish can.
 
-**What survives.** 42 of the 95 cost 50cp or more (median `eval_before` ≈ −3cp,
-i.e. balanced positions). That is 42 genuinely costly losing-captures in 2,986
-moves — **1.4%** — at a below-base-rate preference. Not a signature weakness.
-**I withdraw H2.**
+**What survives, and the correct status.** 42 of the 95 cost 50cp or more
+(median `eval_before` ≈ −3cp, i.e. balanced positions) and remain
+unexplained. That is 1.4% of his 2,986 moves at a below-base-rate preference.
+
+So the honest verdict is **unproven, not refuted**. The preference ratio shows
+he does not *prefer* losing captures; it does not show the absence of a
+weakness, and 42 costly cases is not zero. H2 is **not supported by this
+evidence** — which is a different and weaker claim than "refuted", and the
+earlier wording overstated it.
 
 ---
 
