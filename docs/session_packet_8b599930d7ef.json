@@ -1,0 +1,763 @@
+{
+ "user_id": "user_8b599930d7ef",
+ "schema": "coaching_session.reply_check.v1",
+ "built": "2026-10-15",
+ "engine": "Stockfish 17.1",
+ "root_depth": 14,
+ "reply_depth": 16,
+ "instrument": "lesson_question_spec.calculation_depth",
+ "items": [
+  {
+   "kind": "reply_missed",
+   "game_id": "3a41fb4c-a229-49b4-8801-89a51cbdb24e",
+   "platform": "lichess",
+   "date": "2026-08-31",
+   "time_control": "blitz",
+   "move_number": 28,
+   "to_move": "black",
+   "fen": "4r3/2Q3kp/5np1/p3rp2/2q5/P1PR4/6PP/3R1K2 b - - 0 28",
+   "preceding_moves": [
+    "26.Kf1 Rae8",
+    "27.Qxb7 Qxc4"
+   ],
+   "grading_family": "single_best",
+   "printed_question": "One move holds this position after their reply. Find it.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Qxc7"
+   ],
+   "n_moves_that_hold": 1,
+   "n_legal": 9,
+   "share_of_moves_that_blunder": 88.9,
+   "accept_expected_replies": [
+    "Qxc4"
+   ],
+   "engine_best": "Qxc7",
+   "engine_best_cp": 796,
+   "eval_before_user_pov": 924.0,
+   "what_he_played": "R8e7",
+   "his_move_cost_cp": 1338.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": -414.0,
+   "regained_later_user_pov": -426.0,
+   "game_result_for_him": "lost",
+   "all_moves_that_hold": [
+    "Qxc7"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Qxc4"
+  },
+  {
+   "kind": "reply_missed",
+   "game_id": "20250391-0cbc-4732-8b1a-6dec9af2f030",
+   "platform": "chess.com",
+   "date": "2026-06-16",
+   "time_control": "rapid",
+   "move_number": 26,
+   "to_move": "white",
+   "fen": "8/pp3Qrk/2p4p/3p1P2/6n1/1B1P4/PPP3PP/6K1 w - - 1 26",
+   "preceding_moves": [
+    "24.Qxe7 Ng4",
+    "25.Qxf7+ Rg7"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Bxd5",
+    "Qe6",
+    "Qe8",
+    "Qf8",
+    "Qh5"
+   ],
+   "n_moves_that_hold": 5,
+   "n_legal": 27,
+   "share_of_moves_that_blunder": 85.2,
+   "accept_expected_replies": [
+    "Rxf7"
+   ],
+   "engine_best": "Qe8",
+   "engine_best_cp": 655,
+   "eval_before_user_pov": 786.0,
+   "what_he_played": "f6",
+   "his_move_cost_cp": 1311.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": -525.0,
+   "regained_later_user_pov": -533.0,
+   "game_result_for_him": "lost",
+   "all_moves_that_hold": [
+    "Bxd5",
+    "Qe6",
+    "Qe8",
+    "Qf8",
+    "Qh5"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Rxf7"
+  },
+  {
+   "kind": "reply_missed",
+   "game_id": "6d16034d-0bd3-448f-8c9d-be743b2f6812",
+   "platform": "chess.com",
+   "date": "2026-06-03",
+   "time_control": "rapid",
+   "move_number": 14,
+   "to_move": "white",
+   "fen": "r2q2k1/pp2b1p1/n1p2n1p/4p3/4P1Q1/3P4/PPP3PP/RNB2RK1 w - - 1 14",
+   "preceding_moves": [
+    "12.Qg5 h6",
+    "13.Qxg4 Kg8"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Qd1",
+    "Qe2",
+    "Qe6+",
+    "Qf3",
+    "Qf5",
+    "Qg3",
+    "Qg6",
+    "Qh3",
+    "Qh4"
+   ],
+   "n_moves_that_hold": 9,
+   "n_legal": 42,
+   "share_of_moves_that_blunder": 78.6,
+   "accept_expected_replies": [
+    "Nxg4",
+    "Bc5+"
+   ],
+   "engine_best": "Qe6+",
+   "engine_best_cp": 436,
+   "eval_before_user_pov": 411.0,
+   "what_he_played": "Bxh6",
+   "his_move_cost_cp": 1079.0,
+   "his_move_was_capture": true,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": -668.0,
+   "regained_later_user_pov": -497.0,
+   "game_result_for_him": "lost",
+   "all_moves_that_hold": [
+    "Qd1",
+    "Qe2",
+    "Qe6+",
+    "Qf3",
+    "Qf5",
+    "Qg3",
+    "Qg6",
+    "Qh3",
+    "Qh4"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Nxg4"
+  },
+  {
+   "kind": "reply_missed",
+   "game_id": "2f12436c-0798-4c93-8715-f1871740a4df",
+   "platform": "lichess",
+   "date": "2026-09-25",
+   "time_control": "blitz",
+   "move_number": 12,
+   "to_move": "black",
+   "fen": "rn2k1n1/1bpp2p1/pq6/1pb3N1/4P2r/1B1P4/PPP2PP1/RN1Q1RK1 b q - 0 12",
+   "preceding_moves": [
+    "10.O-O hxg5",
+    "11.Nxf7 Rxh4"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Bd6",
+    "Nc6",
+    "Ne7",
+    "Nf6",
+    "Nh6",
+    "Qd6",
+    "Qf6",
+    "Qh6",
+    "a5",
+    "b4",
+    "d5"
+   ],
+   "n_moves_that_hold": 11,
+   "n_legal": 44,
+   "share_of_moves_that_blunder": 70.5,
+   "accept_expected_replies": [
+    "Qxg4"
+   ],
+   "engine_best": "Qd6",
+   "engine_best_cp": 433,
+   "eval_before_user_pov": 458.0,
+   "what_he_played": "Rg4",
+   "his_move_cost_cp": 937.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": -447.0,
+   "regained_later_user_pov": -366.0,
+   "game_result_for_him": "lost",
+   "all_moves_that_hold": [
+    "Bd6",
+    "Nc6",
+    "Ne7",
+    "Nf6",
+    "Nh6",
+    "Qd6",
+    "Qf6",
+    "Qh6",
+    "a5",
+    "b4",
+    "d5"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Qxg4"
+  },
+  {
+   "kind": "reply_missed",
+   "game_id": "c175c090-6065-408b-a895-bf55ff46bf43",
+   "platform": "chess.com",
+   "date": "2026-06-08",
+   "time_control": "rapid",
+   "move_number": 37,
+   "to_move": "white",
+   "fen": "r1br1k2/pp4pp/3p4/2pQ4/8/1P6/1P3P2/4R1K1 w - - 0 37",
+   "preceding_moves": [
+    "35.Qd5+ Kf8",
+    "36.Re1 d6"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Kf1",
+    "Kh2",
+    "Qf3+",
+    "Qg5",
+    "Re2",
+    "Re3",
+    "Re4",
+    "b4"
+   ],
+   "n_moves_that_hold": 8,
+   "n_legal": 39,
+   "share_of_moves_that_blunder": 74.4,
+   "accept_expected_replies": [
+    "Bxf5"
+   ],
+   "engine_best": "Re4",
+   "engine_best_cp": 423,
+   "eval_before_user_pov": 411.0,
+   "what_he_played": "Qf5+",
+   "his_move_cost_cp": 1252.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": true,
+   "eval_after_his_move_user_pov": -841.0,
+   "regained_later_user_pov": 413.0,
+   "game_result_for_him": "won",
+   "all_moves_that_hold": [
+    "Kf1",
+    "Kh2",
+    "Qf3+",
+    "Qg5",
+    "Re2",
+    "Re3",
+    "Re4",
+    "b4"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Bxf5"
+  },
+  {
+   "kind": "reply_missed",
+   "game_id": "b2e11649-db10-4d9a-a15a-4bffff46a4fe",
+   "platform": "chess.com",
+   "date": "2026-07-07",
+   "time_control": "rapid",
+   "move_number": 29,
+   "to_move": "black",
+   "fen": "r4k2/ppb1Rqpp/8/3N1b2/3Q4/P4B2/1P2KPP1/r7 b - - 5 29",
+   "preceding_moves": [
+    "27.Ne7 Bc7",
+    "28.Nd5 Bf5"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Qxe7+",
+    "Re8"
+   ],
+   "n_moves_that_hold": 2,
+   "n_legal": 49,
+   "share_of_moves_that_blunder": 93.9,
+   "accept_expected_replies": [
+    "Nxf6"
+   ],
+   "engine_best": "Qxe7+",
+   "engine_best_cp": 475,
+   "eval_before_user_pov": 486.0,
+   "what_he_played": "Qf6",
+   "his_move_cost_cp": 1085.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": -599.0,
+   "regained_later_user_pov": 620.0,
+   "game_result_for_him": "won",
+   "all_moves_that_hold": [
+    "Qxe7+",
+    "Re8"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Nxf6"
+  },
+  {
+   "kind": "reply_missed",
+   "game_id": "game_692ab776c5b1",
+   "platform": "chess.com",
+   "date": "2026-02-24",
+   "time_control": "600",
+   "move_number": 24,
+   "to_move": "black",
+   "fen": "2r2rk1/1pp2pp1/p4n1p/2q1nQ2/5N1P/P5P1/1P3PK1/3RR3 b - - 1 24",
+   "preceding_moves": [
+    "22.Rad1 Qe7",
+    "23.Rfe1 Qxc5"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Ned7",
+    "Nfd7",
+    "Nfg4",
+    "Qc6+",
+    "Rce8",
+    "Rfe8"
+   ],
+   "n_moves_that_hold": 6,
+   "n_legal": 45,
+   "share_of_moves_that_blunder": 88.9,
+   "accept_expected_replies": [
+    "Qxc5"
+   ],
+   "engine_best": "Qc6+",
+   "engine_best_cp": 546,
+   "eval_before_user_pov": 570.0,
+   "what_he_played": "Neg4",
+   "his_move_cost_cp": 1137.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": -567.0,
+   "regained_later_user_pov": -534.0,
+   "game_result_for_him": "lost",
+   "all_moves_that_hold": [
+    "Ned7",
+    "Nfd7",
+    "Nfg4",
+    "Qc6+",
+    "Rce8",
+    "Rfe8"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Qxc5"
+  },
+  {
+   "kind": "reply_missed",
+   "game_id": "a40f17f5-6868-4252-be13-b7935b329f58",
+   "platform": "chess.com",
+   "date": "2026-05-13",
+   "time_control": "rapid",
+   "move_number": 24,
+   "to_move": "white",
+   "fen": "r2q3r/1b1k1p2/2p1p3/1B1p2Q1/3P4/2P1P3/2P2PPP/R4RK1 w - - 0 24",
+   "preceding_moves": [
+    "22.axb5 axb5",
+    "23.Bxb5+ c6"
+   ],
+   "grading_family": "single_best",
+   "printed_question": "One move holds this position after their reply. Find it.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Qxd8+"
+   ],
+   "n_moves_that_hold": 1,
+   "n_legal": 45,
+   "share_of_moves_that_blunder": 97.8,
+   "accept_expected_replies": [
+    "Qxg5"
+   ],
+   "engine_best": "Qxd8+",
+   "engine_best_cp": 460,
+   "eval_before_user_pov": 471.0,
+   "what_he_played": "Ba4",
+   "his_move_cost_cp": 963.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": -488.0,
+   "regained_later_user_pov": 0.0,
+   "game_result_for_him": "lost",
+   "all_moves_that_hold": [
+    "Qxd8+"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Qxg5"
+  },
+  {
+   "kind": "reply_handled",
+   "game_id": "bcba0a27-599b-4137-903e-4284aa8c398b",
+   "platform": "chess.com",
+   "date": "2026-05-23",
+   "time_control": "rapid",
+   "move_number": 27,
+   "to_move": "white",
+   "fen": "5rk1/ppN2p1p/4p1p1/1B2Q3/3nP3/7P/3qbPP1/1R3R1K w - - 3 27",
+   "preceding_moves": [
+    "25.h3 Bf3",
+    "26.Kh1 Be2"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Bxe2",
+    "Ne8",
+    "Rfc1",
+    "Rfe1"
+   ],
+   "n_moves_that_hold": 4,
+   "n_legal": 45,
+   "share_of_moves_that_blunder": 91.1,
+   "accept_expected_replies": [
+    "Nc6",
+    "Nxe2"
+   ],
+   "engine_best": "Ne8",
+   "engine_best_cp": 595,
+   "eval_before_user_pov": 601.0,
+   "what_he_played": "Bxe2",
+   "his_move_cost_cp": 32.0,
+   "his_move_was_capture": true,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": 569.0,
+   "regained_later_user_pov": 769.0,
+   "game_result_for_him": "won",
+   "all_moves_that_hold": [
+    "Bxe2",
+    "Ne8",
+    "Rfc1",
+    "Rfe1"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Nc6"
+  },
+  {
+   "kind": "reply_handled",
+   "game_id": "19a8e290-3d37-4816-93f3-cd59dcc9c58b",
+   "platform": "chess.com",
+   "date": "2026-06-22",
+   "time_control": "rapid",
+   "move_number": 25,
+   "to_move": "black",
+   "fen": "2kr3r/pp3p1p/1q3p2/6b1/3P4/2P2Q2/6PP/1R3R1K b - - 2 25",
+   "preceding_moves": [
+    "23.Bf3 Bxf3",
+    "24.Qxf3 Bg5"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Qa6",
+    "Qc6",
+    "Qc7"
+   ],
+   "n_moves_that_hold": 3,
+   "n_legal": 37,
+   "share_of_moves_that_blunder": 91.9,
+   "accept_expected_replies": [
+    "h4"
+   ],
+   "engine_best": "Qc6",
+   "engine_best_cp": 280,
+   "eval_before_user_pov": 312.0,
+   "what_he_played": "Qc7",
+   "his_move_cost_cp": 34.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": 278.0,
+   "regained_later_user_pov": 674.0,
+   "game_result_for_him": "won",
+   "all_moves_that_hold": [
+    "Qa6",
+    "Qc6",
+    "Qc7"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "h4"
+  },
+  {
+   "kind": "reply_handled",
+   "game_id": "088762f5-5346-4b15-8e5b-e39dca84550e",
+   "platform": "chess.com",
+   "date": "2026-06-16",
+   "time_control": "rapid",
+   "move_number": 37,
+   "to_move": "white",
+   "fen": "8/4RB2/1p1kp3/8/7P/8/bP6/6K1 w - - 2 37",
+   "preceding_moves": [
+    "35.h4 Bxa2",
+    "36.Bf7 Kd6"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Bxe6",
+    "Ra7",
+    "Rb7",
+    "Rc7",
+    "Re8",
+    "Rxe6+"
+   ],
+   "n_moves_that_hold": 6,
+   "n_legal": 19,
+   "share_of_moves_that_blunder": 68.4,
+   "accept_expected_replies": [
+    "Ke5",
+    "Bc4",
+    "b5"
+   ],
+   "engine_best": "Ra7",
+   "engine_best_cp": 578,
+   "eval_before_user_pov": 594.0,
+   "what_he_played": "Re8",
+   "his_move_cost_cp": 28.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": 566.0,
+   "regained_later_user_pov": 711.0,
+   "game_result_for_him": "lost",
+   "all_moves_that_hold": [
+    "Bxe6",
+    "Ra7",
+    "Rb7",
+    "Rc7",
+    "Re8",
+    "Rxe6+"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Ke5"
+  },
+  {
+   "kind": "reply_handled",
+   "game_id": "8ff0b880-0d6f-42b3-9198-1ac71eab5d06",
+   "platform": "chess.com",
+   "date": "2026-05-19",
+   "time_control": "rapid",
+   "move_number": 15,
+   "to_move": "black",
+   "fen": "1rbq1rk1/2p2ppp/1b1p4/1N2p3/4n3/B4N1P/2PPQPP1/1R3RK1 b - - 1 15",
+   "preceding_moves": [
+    "13.Ba3 Bb6",
+    "14.O-O Nxe4"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Bb7",
+    "Bf5",
+    "Nc5",
+    "Nf6",
+    "Ng3",
+    "Ng5"
+   ],
+   "n_moves_that_hold": 6,
+   "n_legal": 39,
+   "share_of_moves_that_blunder": 87.2,
+   "accept_expected_replies": [
+    "Qe1",
+    "Qd1"
+   ],
+   "engine_best": "Ng3",
+   "engine_best_cp": 435,
+   "eval_before_user_pov": 429.0,
+   "what_he_played": "Ng3",
+   "his_move_cost_cp": 0.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": false,
+   "eval_after_his_move_user_pov": 444.0,
+   "regained_later_user_pov": 847.0,
+   "game_result_for_him": "lost",
+   "all_moves_that_hold": [
+    "Bb7",
+    "Bf5",
+    "Nc5",
+    "Nf6",
+    "Ng3",
+    "Ng5"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Qe1"
+  },
+  {
+   "kind": "reply_handled",
+   "game_id": "0b82f2a2-c757-4a19-9634-bb2e15447439",
+   "platform": "chess.com",
+   "date": "2026-06-15",
+   "time_control": "rapid",
+   "move_number": 12,
+   "to_move": "white",
+   "fen": "rn1q1b1r/ppp1nQ1p/1k1p1N2/3Pp1p1/4P3/3B3P/PPP2P1P/R1B1K2R w KQ - 1 12",
+   "preceding_moves": [
+    "10.Nxf6+ Kc6",
+    "11.d5+ Kb6"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Be3+",
+    "Bxg5",
+    "Ne8",
+    "Nxh7",
+    "a4"
+   ],
+   "n_moves_that_hold": 5,
+   "n_legal": 41,
+   "share_of_moves_that_blunder": 82.9,
+   "accept_expected_replies": [
+    "c5"
+   ],
+   "engine_best": "Be3+",
+   "engine_best_cp": 668,
+   "eval_before_user_pov": 725.0,
+   "what_he_played": "Be3+",
+   "his_move_cost_cp": 0.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": true,
+   "eval_after_his_move_user_pov": 713.0,
+   "regained_later_user_pov": 720.0,
+   "game_result_for_him": "won",
+   "all_moves_that_hold": [
+    "Be3+",
+    "Bxg5",
+    "Ne8",
+    "Nxh7",
+    "a4"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "c5"
+  },
+  {
+   "kind": "reply_handled",
+   "game_id": "1435d6fd-0140-47a6-8e87-7cef27702048",
+   "platform": "chess.com",
+   "date": "2026-06-23",
+   "time_control": "rapid",
+   "move_number": 29,
+   "to_move": "black",
+   "fen": "5r2/ppNk2p1/7p/2b1B3/1n2P3/3P3P/bP1K2P1/2R5 b - - 5 29",
+   "preceding_moves": [
+    "27.Nc7+ Kd7",
+    "28.Be5 Rf8"
+   ],
+   "grading_family": "any_safe",
+   "printed_question": "Play a move that still holds up after their reply. More than one move works here.",
+   "reason_prompt": "How did you pick it?",
+   "reason_options": [
+    "followed_the_line",
+    "best_right_now"
+   ],
+   "accept_moves": [
+    "Bb6",
+    "Be7",
+    "Bf2",
+    "Rf2+",
+    "b6"
+   ],
+   "n_moves_that_hold": 5,
+   "n_legal": 44,
+   "share_of_moves_that_blunder": 95.5,
+   "accept_expected_replies": [
+    "Kc3"
+   ],
+   "engine_best": "Rf2+",
+   "engine_best_cp": 665,
+   "eval_before_user_pov": 699.0,
+   "what_he_played": "Rf2+",
+   "his_move_cost_cp": 0.0,
+   "his_move_was_capture": false,
+   "his_move_gave_check": true,
+   "eval_after_his_move_user_pov": 717.0,
+   "regained_later_user_pov": 1148.0,
+   "game_result_for_him": "lost",
+   "all_moves_that_hold": [
+    "Bb6",
+    "Be7",
+    "Bf2",
+    "Rf2+",
+    "b6"
+   ],
+   "grading_rule": "accept any legal move whose root evaluation is within 200cp of the engine's best at depth 14; the list above is that set in full",
+   "engine_reply_to_his_move": "Kc3"
+  }
+ ],
+ "grader_alignment_checked": true
+}
