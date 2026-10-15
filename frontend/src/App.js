@@ -44,6 +44,7 @@ import UnifiedProgress from "@/pages/UnifiedProgress";  // Merged progress + jou
 import SafetyLesson from "@/pages/SafetyLesson";  // show-don't-ask piece-safety lesson
 import Reflect from "@/pages/Reflect";
 import Onboarding from "@/pages/Onboarding";
+import ReplyCheck from "@/pages/ReplyCheck";
 import DiagnosticPuzzles from "@/pages/DiagnosticPuzzles";
 import ActivationHub from "@/pages/ActivationHub";
 import MissionRunner from "@/pages/MissionRunner";
@@ -347,6 +348,11 @@ function AppRouter() {
       <Route path="/onboarding" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <Onboarding user={user} />}
+        </ProtectedRoute>
+      } />
+      <Route path="/reply-check" element={
+        <ProtectedRoute>
+          {({ user }) => <ReplyCheck user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/diagnostic" element={

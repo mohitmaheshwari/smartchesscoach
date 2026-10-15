@@ -36,6 +36,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Any
 
+from services import mate_state
+
 
 # ── Configuration knobs ─────────────────────────────────────────────────
 
@@ -53,6 +55,11 @@ MAX_PRINCIPLES = 5
 # quality moves to surface.
 MIN_GOOD_MOVES_TO_SHOW = 1
 MAX_GOOD_MOVES_TO_SHOW = 2
+
+# The move-quality field on a stockfish_analysis.move_evaluations row. Named
+# here so there is one place to fix, and asserted by a contract test.
+QUALITY_FIELD = "evaluation"
+GOOD_QUALITY_VALUES = ("best", "excellent", "brilliant")
 
 
 # ── (cognitive_gap, phase) → principle template ─────────────────────────
@@ -260,8 +267,25 @@ def _pick_principle_template(gap: str, phase: str) -> Dict[str, str]:
     return _PRINCIPLE_TABLE.get((gap, phase)) or _FALLBACK_BY_PHASE.get(phase) or _FALLBACK_BY_PHASE["middlegame"]
 
 
-def _format_cp(cp: int) -> str:
-    """Tag for the cp_loss badge on each card — keeps the model honest."""
+# Mate detection and the transition wording live in services/mate_state so
+# this module and game_coach_summary cannot drift apart again -- they did,
+# which was finding P2 of the 116fbd90 review.
+MATE_SENTINEL_CP = mate_state.MATE_SENTINEL_CP
+_is_mate_swing = mate_state.is_mate_related
+
+
+def _format_cp(cp: int, mate_transition: Optional[str] = None) -> str:
+    """Tag for the cost badge on each card — keeps the model honest.
+
+    `mate_transition` is the label from services/mate_state when this row is
+    about a mate rather than about material. The first version of this repair
+    printed "lost a forced mate" for every mate row, which was wrong in both
+    directions: it said that when the player had ALLOWED a mate (never had one
+    to lose), and when the player still HAD a forced mate and had merely found
+    a slower one. The transition decides the words.
+    """
+    if mate_transition:
+        return mate_transition
     return f"-{int(cp)}cp"
 
 
@@ -279,7 +303,7 @@ _CAPTION_VERB_TO_TITLE = [
 ]
 
 
-def _title_for_caption(caption: str, fallback: str) -> str:
+def _title_for_caption(caption: str, fallback: Optional[str]) -> Optional[str]:
     """If the caption opens with a known failure-mode verb (per the
     R12_blunder failure variants shipped 2026-06-02), pick the short
     title matching that verb. Otherwise return the fallback (which is
@@ -294,7 +318,13 @@ def _title_for_caption(caption: str, fallback: str) -> str:
     for verb, title in _CAPTION_VERB_TO_TITLE:
         if body.startswith(verb):
             return title
-    return fallback
+    # Repair 1.6: the fallback is the (gap, phase) template title, written for
+    # a template body. Attaching it to a stored caption produced headers that
+    # contradicted the text under them -- "King in the corner = mate" over a
+    # body reading "it runs into Bxg8, taking your bishop". No title is better
+    # than a wrong one, so when the caption's shape is unrecognised the card
+    # goes out without a header.
+    return None
 
 
 def _split_r12_caption(caption: str) -> tuple:
@@ -429,6 +459,9 @@ def compose_story(
             principle_text = tmpl["principle"]
             title_text = tmpl["title"]
 
+        # P1 from the review: carry the direction, not just the fact.
+        transition = mate_state.mate_transition(ev, user_color)
+        is_mate = transition is not None
         principle = {
             "n": len(principles) + 1,
             "move_number": mn,
@@ -436,12 +469,32 @@ def compose_story(
             "san_played": played,
             "san_best": best,
             "cp_loss": cp_loss,
-            "cp_loss_label": _format_cp(cp_loss),
+            "cp_loss_label": _format_cp(cp_loss, mate_transition=transition),
+            "cost_is_mate": is_mate,
+            "mate_transition": transition,
+            # KEPT_MATE / ESCAPED_MATE / DELIVERED_MATE did not go against the
+            # player, so a consumer must not render them as a loss.
+            "mate_cost_the_player": (
+                mate_state.costs_the_player(transition) if is_mate else None),
             "title": title_text,
             "diagnosis": diagnosis_text,
             "principle": principle_text,
             "fen_before": ev.get("fen_before"),
             "gap": gap or None,
+        }
+        # Repair 1.4: an empty string is not teaching. _split_r12_caption can
+        # return an empty principle when the stored caption is a single clause,
+        # and that shipped as `"remedy": ""`. Drop blank strings rather than
+        # render them.
+        #
+        # `title` is dropped when it is None as well, which is how repair 1.6
+        # suppresses a header that would contradict its own body. Other keys
+        # keep their None (`gap` is deliberately None on a row with no
+        # cognitive_gap, and the frontend reads the key).
+        principle = {
+            k: v for k, v in principle.items()
+            if not (isinstance(v, str) and not v.strip())
+            and not (k == "title" and v is None)
         }
         principles.append(principle)
 
@@ -464,11 +517,19 @@ def compose_story(
     }
 
     # ── 3. Opener line ──
-    op = (opening_name or "").strip() or "this game"
+    # Repair 1.5: `op` fell back to the literal "this game" and was then
+    # interpolated after the definite article, producing "You played the this
+    # game" on every lichess game -- the lichess importer stores no opening
+    # name. Branch the sentence instead of the noun.
+    op = (opening_name or "").strip()
     rl = result_arc["result_label"]
+    # `rl` already reads "you lost as White" / "you won as Black", so the
+    # no-opening branch must not prepend another "you".
+    lead = (f"You played the {op} and {rl}. " if op
+            else f"In this game {rl}. ")
     opener = (
-        f"You played the {op} and {rl}. "
-        f"The game turned at move {turning['move_number']} in the {turning['phase']}."
+        lead
+        + f"The game turned at move {turning['move_number']} in the {turning['phase']}."
     )
 
     # ── 4. Good moves credit ──
@@ -476,9 +537,16 @@ def compose_story(
     # non-trivial position. Pick the most impressive — earliest in
     # the game with the lowest cp_loss against an interesting position
     # (heuristic: top of the move list with classification == 'best').
+    # Repair 1.1: this filter read e["classification"], which does not exist
+    # on any stored row -- the field is `evaluation`. Counted on one 50-move
+    # game: 0 rows carry a `classification` key, while `evaluation` carries
+    # best/excellent/good/inaccuracy/mistake/blunder. So good_moves was []
+    # on every game ever rendered. tests/test_game_coach_review_repairs.py
+    # asserts the key against a real row so a rename breaks the test instead
+    # of silently emptying the output.
     good_candidates = [
         e for e in user_evals
-        if (e.get("classification") in ("best", "excellent", "brilliant"))
+        if (e.get(QUALITY_FIELD) in GOOD_QUALITY_VALUES)
         and (e.get("cp_loss") or 0) == 0
         and (e.get("move_number") or 0) >= 6   # skip book moves
     ]
@@ -492,6 +560,10 @@ def compose_story(
         })
 
     # ── 5. Summary table ──
+    # Repair 1.4: a row whose remedy is empty teaches nothing and reads as a
+    # bug -- two of five rows in one real game shipped `"remedy": ""`. Omit
+    # the row; the mistake still appears as a principle card above, so
+    # nothing is hidden.
     summary_table = [
         {
             "mistake": f"{p['san_played']} (move {p['move_number']})",
@@ -499,6 +571,7 @@ def compose_story(
             "remedy": p["principle"],
         }
         for p in principles
+        if (p.get("principle") or "").strip()
     ]
 
     # ── 6. Homework ──
