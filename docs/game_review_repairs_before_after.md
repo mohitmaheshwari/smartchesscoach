@@ -186,3 +186,114 @@ backend/tests/test_game_coach_review_repairs.py  +280 (new)
 
 Nothing else is staged — the worktree holds unrelated untracked scripts that
 were deliberately left out.
+
+---
+
+# Revision after Codex's review of `116fbd90`
+
+Commit **`047a334a`**. All three findings were within repair 1.2. Timeline
+untouched, no data written, no deploy.
+
+## P1 — mate transitions now carry direction
+
+`"lost a forced mate"` was printed for every mate row. Both of the reviewer's
+counterexamples are now covered:
+
+| Case | Before | After |
+|---|---|---|
+| `mate_info {before: null, after: -3}`, White to play — he **allowed** a mate, never had one | `lost a forced mate` | **`allowed a forced mate`** |
+| `mate_info {before: 3, after: 13}` — he **still has** a forced mate, just slower | `lost a forced mate` | **`still had a forced mate`**, `mate_cost_the_player: false` |
+
+New `services/mate_state.py` derives the transition from `mate_info` plus
+`user_color`: gave up / allowed / still had / escaped / delivered / turned
+yours into theirs / involved-but-unknown, with `costs_the_player()` so a
+consumer cannot render KEPT, ESCAPED or DELIVERED as a loss.
+
+**Why `mate_info` and not the eval sign.** I verified the convention rather
+than assuming it. Over 300 production games ending in checkmate, the last row
+carrying `mate_info`:
+
+| | before | after | games |
+|---|---|---|---|
+| white won | +1 | 0 | 89 |
+| black won | −1 | 0 | 50 |
+| white lost | — | −1 | 72 |
+| black lost | — | +1 | 79 |
+
+Consistent every time: **white-relative, signed, 0 = delivered.**
+
+The evaluations are *not* usable for direction. In the same games black winners
+show a positive final eval **and** black losers also show a positive final
+eval — user-relative and white-relative cannot both hold, so the stored sign is
+inconsistent across rows. Game C confirms it from the other side: its raw m20
+`eval_before` is **−9970**, while `game_coach_summary` (which sign-flips for
+black) reported **+9970** for the same row. So evals are used only as a
+magnitude hint for *whether* a mate is involved, never for whose.
+
+Verified on the two real cases, both **black** players — the risky direction:
+
+```
+Game C m20  mate_info {before: -3, after: None}  -> gave up a forced mate
+Game D m51  mate_info {before: None, after: 16}  -> allowed a forced mate
+```
+
+## P1 — no material claim from cp_loss
+
+| | |
+|---|---|
+| **before** | `"Material given away: about 3.5 pawns worth"` from `cp_loss` alone |
+| **after** | `"Evaluation lost across these moves: 352 centipawns"` |
+
+Game D's line, end to end: `"Total material leaked: 99.3 pawns worth"` →
+**`"Evaluation lost across these moves: 827 centipawns; One of these involved a
+forced mate"`**.
+
+The reviewer is right that this is the existing rule in
+`memory/feedback_cp_loss_is_not_material.md`. My wording had also slipped the
+pre-commit hook on a technicality — it blocks *"gives up about N pawns"* and I
+wrote *"given away … pawns worth"*. `_material_leaked_line` is renamed
+`_blunder_cost_line` and reports centipawns, the honest unit.
+
+## P2 — mate detected below the cutoff, and one shared test
+
+The partition was `cp_loss >= 9000`, so a 9970 → 8585 row (cp_loss 1,385, a
+mate thrown away) went through as 13.8 pawns — and that is also how the two
+repaired consumers came to disagree about the same row. Both now call
+`mate_state.is_mate_related`, which checks `mate_info` and both evaluations,
+not just the delta. `_extract_facts` stamps `mate_related` onto every user and
+opponent row, and the cost line applies the shared test itself.
+
+**A real bug my first attempt at this fix still had:** trusting the stamp alone
+left the helper wrong when called directly with raw rows — precisely how the
+reviewer reproduced it. My own new test caught it before this commit.
+
+`MATE_SENTINEL_CP` is now defined once, in `mate_state`.
+
+## Tests, actual
+
+```
+backend/tests/test_mate_state_and_cost_wording.py   49 new
+backend/tests/test_game_coach_review_repairs.py     updated for the rename
+  both files:                                       83 passed in 0.75s
+
+ten suites (8 pre-existing + 2 new):  179 passed, 28 skipped in 4.96s
+baseline, 8 pre-existing suites:       96 passed, 28 skipped
+```
+
+179 = 96 + 83. The baseline figure matches the reviewer's independent run.
+
+The new file covers: both of the reviewer's counterexamples verbatim;
+all seven transitions in **both colours**; the 3.5-pawns case; the 1,385
+under-cutoff case; a mixed blunder list; and two **public-summary**
+regressions rather than helper-only ones, as the review asked.
+
+## Still outstanding before deploy
+
+Unchanged, and not addressed by this commit:
+
+- **Live API and browser smoke.** `test_all_flows.py` needs an API this
+  environment does not have, and the 28 skipped tests are live-API tests — they
+  are not evidence those routes pass.
+- The reviewer's note that the before/after document lives on the branch head
+  rather than inside the reviewed code commit still holds; this section is in
+  the same document, one commit later.
