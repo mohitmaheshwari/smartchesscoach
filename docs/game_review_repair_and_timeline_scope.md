@@ -15,28 +15,6 @@ gains four move classes beyond the illustrative games (§3.2). Sequencing is
 §6: repairs first and tested, timeline in shadow, evidence reviewed before any
 player-facing explanation.
 
-## 0.3 The governing distinction
-
-Two kinds of statement, and they need different evidence. Conflating them is
-the mistake this scope exists to avoid, and I have now made it twice.
-
-| | Example | What verifies it |
-|---|---|---|
-| **Board fact** | "The bishop on e6 now attacks the queen on c4." | the position alone, legally, with python-chess. No engine |
-| **Causal explanation** | "This move made losing material unavoidable." | **verified continuations and alternatives** — the lines, not the geometry |
-
-**"The evaluation worsened" is not a sufficient gate.** It establishes that the
-engine disliked the move. It does not establish that *my stated reason* is why.
-A move can drop 300cp for a reason entirely unrelated to the loose piece I
-happen to have spotted — which is exactly how the hanging-rook reading and the
-six-safe-squares reading both went wrong.
-
-So every timeline row carries its evidence class, and a causal sentence may
-only be rendered when a continuation supports it. Where it cannot be
-supported, the row says **unverified** and the board fact is shown alone.
-
----
-
 ## 0. Two verifications first — both corrected me
 
 ### 0.1 `good_moves` is a one-word data-contract bug
@@ -107,6 +85,29 @@ That is a cross-move claim, and it is the shape §2 has to produce: **b4's real
 cost is what it did to the queen's options.**
 
 ---
+
+## 0.3 The governing distinction
+
+Two kinds of statement, and they need different evidence. Conflating them is
+the mistake this scope exists to avoid, and I have now made it twice.
+
+| | Example | What verifies it |
+|---|---|---|
+| **Board fact** | "The bishop on e6 now attacks the queen on c4." | the position alone, legally, with python-chess. No engine |
+| **Causal explanation** | "This move made losing material unavoidable." | **verified continuations and alternatives** — the lines, not the geometry |
+
+**"The evaluation worsened" is not a sufficient gate.** It establishes that the
+engine disliked the move. It does not establish that *my stated reason* is why.
+A move can drop 300cp for a reason entirely unrelated to the loose piece I
+happen to have spotted — which is exactly how the hanging-rook reading and the
+six-safe-squares reading both went wrong.
+
+So every timeline row carries its evidence class, and a causal sentence may
+only be rendered when a continuation supports it. Where it cannot be
+supported, the row says **unverified** and the board fact is shown alone.
+
+---
+
 
 ## 1. Part one — repair the existing review
 
@@ -319,7 +320,7 @@ No homepage change. The import-idempotency work
 neither blocks the other, though the timeline should de-duplicate its game list
 at read time.
 
-## 6. Sequencing
+## 5. Sequencing
 
 As directed: verification built in from the start, timeline in shadow until
 validated.
@@ -333,9 +334,9 @@ validated.
    classes, before any player-facing explanation is enabled. The flag gates the
    render only, never the computation, so the shadow series keeps accumulating.
 
-## 5. One open question
+## 6. One open question
 
-Answered: both, per §6. The remaining question is narrower.
+Answered: both, per §5. The remaining question is narrower.
 
 **The causal claim has a 32.4% ceiling** (§2.2) because that is where
 `pv_after_played` exists. Three options, and I do not think this one is mine to
