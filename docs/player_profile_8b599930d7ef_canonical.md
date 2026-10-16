@@ -1041,32 +1041,48 @@ PGNs, retained on **0 of 23,735** analysis rows.
 5. **Time not allocated to narrowness.** Same ~4.2s on a one-good-move position
    as on a six-good-move position, at double the blunder rate.
 
-### The first coaching priority, and the evidence for it
+### The first coaching focus, and what the evidence does and does not say
 
-**Teach him to check the opponent's immediate reply before committing, using his
-own 240 positions, starting with the 90 where material was left to that reply.**
+> **Revised after the sitting of 2026-10-16 — read §11 with this.** What follows
+> is a **possible teaching focus, not an established diagnosis.** The historical
+> errors show what happened on the board. They do not show what he considered
+> before moving, and the one direct test of that went partly against this focus.
 
-The evidence:
+**A candidate focus: checking the opponent's immediate reply before committing,
+worked from his own 240 positions, starting with the 90 where material was left
+to that reply.**
 
-- **Consequence is measured, not assumed.** 187 games contain such a slip and
-  conversion falls 78% → 44%. Closing even part of that gap is the largest
-  available swing in his record; the 94 lost games among them are 13.5% of his
-  694 rated games.
-- **The mechanism is engine-verified and shallow.** In 90 of 240 cases the
+What the evidence supports:
+
+- **An association, not a proven cost.** 187 games contain such a slip and
+  conversion in them is 44% against 78% in games without one. Those two sets of
+  games differ in more ways than the slip — they are sharper, longer, and more
+  often against stronger opposition — so the difference is a reason to look
+  here, not a measure of what fixing it would return.
+- **The shape is engine-verified; the cause is not.** In 90 of 240 cases the
   refutation is the opponent's next move, and it is a capture or a check every
-  time — a one-ply check, not a calculation programme. A further 34 are exchange
-  errors with the same structure.
-- **It is corroborated by independent instruments.** His own most-selected
-  reason for a move is that it *looks active* (34 of 82) and his least-selected
-  is that he *checked the square he was moving to* (4 of 82). Two of his nine
-  reflection answers are "I did not notice the piece attacking mine". His
-  recorded misconception `piece_left_unsafe` has 51 instances. Four separate
-  sources point at the same one-ply gap.
+  time. That describes the position, not his thinking: a move can be refuted in
+  one ply whether he failed to look, looked and missed it, or looked and judged
+  it acceptable. A further 34 are exchange errors with the same structure.
+- **Four self-report sources lean the same way**, none of them decisive. His
+  most-selected reason for a move is that it *looks active* (34 of 82) and his
+  least-selected is that he *checked the square he was moving to* (4 of 82). Two
+  of his nine reflection answers are "I did not notice the piece attacking
+  mine". `piece_left_unsafe` has 51 instances. All four are consistent with this
+  focus and none of them rules out the alternatives in §11.3.
 - **It is narrow enough to be teachable.** This is 6% of his winning-position
   moves, not a rebuild of his game. He already plays 67% of those positions at
   near-engine strength.
 - **It does not require a psychological claim.** No complacency, no
-  over-confidence — a procedural habit with a measured cost.
+  over-confidence.
+
+What the direct test said (§11): on the four sitting trials where his move gave
+ground he named a reply on three — but at depth 20 each named reply was the
+*easier* one, leaving him 220, 70 and 421cp better off than the opponent's best.
+So he was looking at a reply, and not at the one that refutes the move. That is
+a third reading, distinct from both "does not look" and "looks and misjudges",
+and it is the one this focus would have to be rewritten around if a second
+sitting confirms it.
 
 **What not to tell him.** That he plays worse when he is ahead: controlling for
 phase and clock he does not. That he is losing games he had already won: a +300
@@ -1155,9 +1171,10 @@ taken from the last stored evaluation, which belongs to a different position.
 
 **Resignations — the clearest result here.** Of the 58 he resigned, 17 ended
 with a forced mate against him and 41 had an ordinary evaluation. **All 41 were
-losing. Not one was at +100 or better.** *Observed: he has never resigned a
-position that favoured him.* That contradicts the reading that he fails to
-register an advantage.
+losing. Not one was at +100 or better.** *Observed, and bounded to these games:
+no favourable resignation was found among the 58 analysed.* That is evidence
+against the reading that he fails to register an advantage; it does not settle
+how he assesses positions generally, which these games cannot speak to.
 
 **Abandonments.** Of the 51 he lost this way, 2 ended facing mate and 49 had an
 ordinary evaluation: 23 losing, 7 worse, 11 level, 7 better, **1 clearly
@@ -1215,11 +1232,27 @@ capture two times in three. The damage sits in the third where he does not.
 | candidate | verdict |
 |---|---|
 | **position assessment** | **not supported.** The sitting's six under-rates reduce to one unexplained trial, and 58 resignations contradict it outright |
-| **reply checking** (§9's priority) | **weakened.** On 3 of the 4 treatment trials where his move gave ground he named a reply as damaging as the engine's own. He was looking |
+| **reply checking** (§9's focus) | **changed, not simply weakened** — see the correction below |
 | **candidate generation** | **the strongest of the three, and not established.** 296 decisions where the winning move was a capture and he played something else, mean 238.6cp; plus the one sitting trial where he named the refutation, rated the outcome correctly, and played the move anyway |
 
-**The honest answer is that it is unresolved between candidate generation and
-evaluation.** Nothing here separates *he never considered the capture* from *he
+**Correction, made at depth 20.** §11.1 reported that on 3 of the 4 trials he
+named a reply "as damaging as the engine's own". That came from the packet's
+50cp window at **depth 14**. Re-checked at **depth 20**, each named reply is the
+*easier* one:
+
+| trial | he played | he predicted | their actual best | gap |
+|---|---|---|---|---|
+| `6d16034d` m14 | `Rxf6` | `Bxf6` → **+176** | `Bc5+` → −44 | **220cp easier** |
+| `c175c090` m37 | `Qe4` | `Bd7` → **+146** | `Kg8` → +81 | 70cp easier |
+| `game_692ab` m24 | `Nd3` | `Qxc5` → **+498** | `Qxd3` → +77 | **421cp easier** |
+
+So he is not failing to look at a reply, and he is not naming the refutation
+either. He names **a** reply — a plausible, often natural recapture — and it is
+not the one that costs him. That is a third reading, and it sits between the two
+the session was built to separate.
+
+**With that, the answer is unresolved between candidate generation, evaluation,
+and looking at the wrong reply.** Nothing here separates *he never considered the capture* from *he
 considered it and judged it wrong*. Both produce the same record. That
 distinction needs his answer, on the positions where he gives ground, and it is
 the one question worth a second sitting.
@@ -1233,3 +1266,37 @@ containing a 400cp+ slip differ from games without one in more ways than the
 slip: they are sharper, longer, and more often against stronger opposition. The
 difference is real and worth acting on; "closing that gap would recover 34
 points of conversion" does not follow from it.
+
+---
+
+## 12. Deployed-review layout check, 2026-10-16 (closed)
+
+The six game-review repairs went live on 2026-10-16 in `0484ff3a`. The layout
+risk was specific: a cost badge styled `font-mono tabular-nums px-1.5` inside a
+`flex-wrap` row, sized in practice for a 7-character token like `-352cp`, now
+holding a 21- or 22-character sentence.
+
+**Inspected.** The real `compose_story` output for game `game_f2c022e03` — the
+third game scanned, not chosen for looking good — carrying both
+`allowed a forced mate` and a populated `good_moves`. Rendered through the exact
+DOM `LabV2.jsx` emits, with the **production stylesheet** `main.e30eaf1d.css`
+fetched from chessguru.ai, in headless Chrome.
+
+| width | result |
+|---|---|
+| 1264px desktop | all five cards one line each; the mate badge sits inline; measured overflow **0**; strengths panel and recap render |
+| 360 / 390 / 414px columns | header row wraps as designed — title on line one, `m28 Qd2 → Qxf5+ [allowed a forced mate]` on line two, inside the column at all three. The short `-379cp` badge stays on the title's line. No overflow, clipping or truncation |
+
+**A false alarm of my own**, recorded so it is not repeated: a first screenshot
+at `--window-size=390` appeared to clip badly. Chrome headless clamps the
+viewport to about 494px, so the page laid out at 494 and the capture cropped it.
+Measuring rather than reading the picture is what caught it; the fixed-width
+columns are the valid test.
+
+**The limitation.** This exercised the real payload, the real markup and the
+production CSS in a real browser. It did **not** exercise the live authenticated
+page at `chessguru.ai/game/{id}`, which needs a signed-in session. Anyone
+opening one game review can confirm in a glance that the badge sits where this
+check puts it.
+
+**Closed.** Not to be reopened without a specific reported fault.
