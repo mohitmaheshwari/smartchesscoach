@@ -14,6 +14,16 @@ jest.mock("lucide-react", () => ({
   ChevronRight: () => <span />, Clock3: () => <span data-testid="clock-icon" />,
 }), { virtual: true });
 
+// The board is the same react-chessboard the section below it uses, so the
+// test records what the card ASKS it to draw rather than counting squares.
+const boardProps = [];
+jest.mock("react-chessboard", () => ({
+  Chessboard: (props) => {
+    boardProps.push(props);
+    return <div data-testid="board" />;
+  },
+}), { virtual: true });
+
 const CARD = {
   state: "clock",
   headline: "You outplayed them. The clock ended it.",
@@ -44,6 +54,7 @@ describe("LastGameCard", () => {
   let container, root;
 
   beforeEach(() => {
+    boardProps.length = 0;
     global.IS_REACT_ACT_ENVIRONMENT = true;
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -67,7 +78,7 @@ describe("LastGameCard", () => {
     expect(container.textContent).toContain("You outplayed them. The clock ended it.");
     expect(container.textContent).toContain("They played");
     expect(container.textContent).toContain("Bxd4");
-    expect(container.querySelector("[role='img']")).toBeTruthy();
+    expect(container.querySelector("[data-testid='board']")).toBeTruthy();
   });
 
   test("no engine figure reaches the screen", async () => {
@@ -106,10 +117,23 @@ describe("LastGameCard", () => {
     expect(container.textContent).toBe("");
   });
 
-  test("the board is turned to the side he played", async () => {
+  test("the board shows the position before the move, turned to his side", async () => {
     mock(200, CARD);
     await render();
-    const squares = container.querySelectorAll("[role='img'] > div");
-    expect(squares.length).toBe(64);
+    expect(boardProps).toHaveLength(1);
+    expect(boardProps[0].position).toBe(CARD.turning_point.fen_before);
+    // He was Black in this fixture; showing it from White's side would put
+    // the moment he is being asked to look at upside down.
+    expect(boardProps[0].boardOrientation).toBe("black");
+    expect(boardProps[0].arePiecesDraggable).toBe(false);
+  });
+
+  test("it is drawn with the page's own board, not one of its own", async () => {
+    mock(200, CARD);
+    await render();
+    // The first cut drew a board out of unicode glyphs and a text-shadow
+    // outline, which is what "UX sucks" was about.
+    expect(container.querySelector("[data-testid='board']")).toBeTruthy();
+    expect(container.textContent).not.toContain("♚");
   });
 });

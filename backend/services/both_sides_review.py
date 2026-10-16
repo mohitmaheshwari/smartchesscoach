@@ -33,7 +33,7 @@ import chess.pgn
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = "both_sides_review.v1"
+SCHEMA_VERSION = "both_sides_review.v2"
 CACHE_COLLECTION = "game_both_sides"
 
 # Depth 12 is enough to say which of two club players held together better.
@@ -46,12 +46,45 @@ CLAMP = 1500
 # A bound on the work one page load can cause.
 MAX_PLIES = 160
 BLUNDER_CP = 200
+# His reply counts as going straight at a mistake if it costs no more than
+# this. The card used to ASSERT that he punished it and never checked.
+PUNISHED_CP = 30
+# From his point of view, the eval at which he is not merely worse but lost.
+LOSING_CP = -200
+# Share of HIS OWN turns spent lost before "you were the steadier player"
+# stops being the story. Measured over his 30 most recent games: the share is
+# 0% in the median game, and the values run 0,0,...,2,11,20,23,27 and then
+# 55,55 -- so the two games he was genuinely rescued in sit on the far side of
+# a gap, and anything from 0.30 to 0.50 separates them identically.
+RESCUED_SHARE = 0.40
 
 _TIME_CONTROL_TAG = re.compile(r'\[TimeControl "([^"]+)"\]')
 
 
 def _clamp(value: int) -> int:
     return max(-CLAMP, min(CLAMP, value))
+
+
+def mate_reply_cost(
+    end: "chess.Board", colour: bool, n_moves: int, turning_index: int
+) -> Optional[int]:
+    """0 when he answered their mistake by mating them, otherwise None.
+
+    The eval loop stops at game over, so the mating move never gets a cost --
+    and the card therefore said nothing about the best answer a player can
+    possibly give. This reads it off the final position instead:
+
+      * their mistake is the second-to-last ply  (n_moves == turning_index + 2)
+      * the game ended in mate
+      * the side to move in that final position is NOT him, so the mate is his
+
+    Pure, so it can be tested without an engine.
+    """
+    if n_moves != turning_index + 2:
+        return None
+    if not end.is_checkmate() or end.turn == colour:
+        return None
+    return 0
 
 
 def review_both_sides(pgn: str, user_color: str) -> Optional[Dict[str, Any]]:
@@ -92,6 +125,13 @@ def review_both_sides(pgn: str, user_color: str) -> Optional[Dict[str, Any]]:
     his: list = []
     theirs: list = []
     turning: Optional[Dict[str, Any]] = None
+    turning_index: Optional[int] = None
+    # How much of the game he spent lost, counted over HIS OWN turns. A player
+    # told he was the sharper player in a game he was losing for half of has
+    # been told something he will not recognise.
+    his_turns = 0
+    his_turns_lost = 0
+    losses: Dict[int, int] = {}
     board = game.board()
     for index, move in enumerate(moves):
         if index + 1 >= len(evals) or evals[index] is None or evals[index + 1] is None:
@@ -105,7 +145,14 @@ def review_both_sides(pgn: str, user_color: str) -> Optional[Dict[str, Any]]:
             break
         mine = mover == colour
         (his if mine else theirs).append(loss)
+        losses[index] = loss
+        if mine:
+            his_turns += 1
+            pov = evals[index] if colour == chess.WHITE else -evals[index]
+            if pov < LOSING_CP:
+                his_turns_lost += 1
         if turning is None or loss > turning["cost"]:
+            turning_index = index
             turning = {
                 "move_number": board.fullmove_number,
                 "san": san,
@@ -118,6 +165,21 @@ def review_both_sides(pgn: str, user_color: str) -> Optional[Dict[str, Any]]:
 
     if len(his) < 5 or len(theirs) < 5:
         return None
+
+    # Did he actually go straight at their mistake? The move right after it is
+    # his, and we already know what it cost.
+    reply_cost: Optional[int] = None
+    if turning_index is not None and turning["whose"] == "theirs":
+        reply_cost = losses.get(turning_index + 1)
+        # Mating them is the clearest punishment there is, but the eval loop
+        # stops at game over, so the mating move never gets a cost and the
+        # card stayed quiet about his best possible answer.
+        if reply_cost is None:
+            end = game.board()
+            for played in moves:
+                end.push(played)
+            reply_cost = mate_reply_cost(end, colour, len(moves), turning_index)
+
     return {
         "schema_version": SCHEMA_VERSION,
         "depth": DEPTH,
@@ -128,6 +190,9 @@ def review_both_sides(pgn: str, user_color: str) -> Optional[Dict[str, Any]]:
         "his_blunders": sum(1 for x in his if x >= BLUNDER_CP),
         "their_blunders": sum(1 for x in theirs if x >= BLUNDER_CP),
         "turning_point": turning,
+        "reply_cost": reply_cost,
+        "his_turns": his_turns,
+        "his_turns_lost": his_turns_lost,
     }
 
 
@@ -146,26 +211,49 @@ def card_from_review(
     """
     sharper = review["his_mean_cp"] < review["their_mean_cp"]
     # A timeout is a timeout whoever's flag fell, so `decided_by` records the
-    # game. Only the rare card -- he was sharper AND his own flag fell --
+    # game. Only the rare card -- he was steadier AND his own flag fell --
     # turns it into the story he reads.
     on_time = str(termination) == "timeout"
     flagged = lost and on_time
     turning = review.get("turning_point") or {}
     theirs = turning.get("whose") == "theirs"
 
+    # "You went straight at it" used to be asserted from `theirs` alone and
+    # never checked. Measured over 30 games it fired on 16 and was true on 12,
+    # so one time in four it credited him with a punishment he had not played.
+    # `reply_cost` is what his answering move actually cost, from the pass the
+    # review already makes. Against a fresh depth-14 check it agrees 13/16 and
+    # every disagreement is this one erring low, so it never says he took a
+    # chance he missed -- it only stays quiet on about one he did take in five.
+    reply_cost = review.get("reply_cost")
+    punished = theirs and reply_cost is not None and reply_cost <= PUNISHED_CP
+
+    # Steadier, in a game he was lost in for much of, is not a thing he will
+    # recognise as a description of what happened to him.
+    his_turns = review.get("his_turns") or 0
+    rescued = bool(his_turns) and (review.get("his_turns_lost") or 0) / his_turns >= RESCUED_SHARE
+
     if sharper and flagged:
         # The rare and expensive one: he earned it and the clock took it.
         state = "clock"
-        headline = "You outplayed them. The clock ended it."
+        headline = "You were the steadier player. The clock ended it."
+        detail = "The game was still yours when your flag fell."
+    elif sharper and won and rescued:
+        # The story of the game is theirs, so it is told as theirs.
+        state = "rescued"
+        headline = "They were winning this one and let it go."
         detail = (
-            "You were the steadier player here and your flag fell with the "
-            "game still yours."
+            "You stayed in it, and when the chance came you took it."
+            if punished
+            else "You stayed in it until it came back to you."
         )
     elif sharper and won:
         state = "sharper"
-        headline = "You were the sharper player in that one."
+        headline = "You were the steadier player in that one."
         detail = (
             "They went wrong and you went straight at it."
+            if punished
+            else "They went wrong, and the game came your way."
             if theirs
             else "You kept it together better than they did."
         )
@@ -181,7 +269,9 @@ def card_from_review(
         state = "outplayed"
         headline = "They held together better than you did."
         detail = (
-            "They handed you something early and it did not survive."
+            "They gave you a chance and you took it, but the rest got away."
+            if punished
+            else "They gave you a chance and it went by."
             if theirs
             else "They gave you less to work with than you gave them."
         )
@@ -191,6 +281,7 @@ def card_from_review(
         "detail": detail,
         "decided_by": "clock" if on_time else "board",
         "turning_point_is_theirs": bool(theirs),
+        "punished": bool(punished),
     }
 
 
@@ -281,6 +372,9 @@ async def last_game_card(db, user_id: str) -> Optional[Dict[str, Any]]:
                 "his_blunders": review["his_blunders"],
                 "their_blunders": review["their_blunders"],
                 "depth": review["depth"],
+                "reply_cost": review.get("reply_cost"),
+                "his_turns_lost": review.get("his_turns_lost"),
+                "his_turns": review.get("his_turns"),
                 "counted_by": "both sides of the PGN, evaluated here",
             },
         }
