@@ -1076,3 +1076,160 @@ position is won 64% of the time. That he is improving: he is flat.
 degrades sharply under time pressure (13% → 28% as the clock drains) while his
 level-position accuracy does not (13% → 11%). Any conversion training should be
 practised with a clock, because that is where the skill fails.
+
+---
+
+## 11. The sitting of 2026-10-16, and what 694 games say about it
+
+Added after the reply-check session was run. §9's first priority is **marked
+provisional** at the end of this section.
+
+### 11.1 What the sitting recorded
+
+Fourteen positions, 2026-10-16, 01:48–02:11. Every answer given before any
+evidence was shown.
+
+**Assistance: none.** The page offers no hint, no engine line and no evaluation
+before recording, so nothing was assisted. **Revisions: 0 of 14** — offered
+every time, taken never. **Reason and reflection choices: 0 of 14** — both
+optional in the page, both skipped, so neither existing instrument captured
+anything. **Recognised: 1 of 14** (position 1), and I had described that
+position in detail in conversation beforehand, so it is excluded below.
+
+**Move accuracy**
+
+| | chose a holding move |
+|---|---|
+| treatment — positions he got wrong before | 4 of 8 |
+| control — positions he got right before | 5 of 6 |
+| the fair sub-comparison (§7 limit 2: 5+ holding moves only) | treatment **1 of 5**, control **3 of 4** |
+
+**Predicted replies.** The page's own summary said "4/14 named the capture".
+**That is the wrong denominator.** A material-winning reply existed after the
+move he chose on only **6 of the 14** trials; on the other eight there was
+nothing to take and the measure could not score. He named it on **4 of those 6**.
+
+The three trials marked *pending verification* were checked afterwards and were
+all sound: `d5`, `Bf7+` and `Kc6` are legal and reasonable — two leave him
++65cp and +77cp better off than the engine's own reply, one is within 50cp of
+it. They were pending only for sitting outside the stored top six. The holding
+mechanism worked; the summary tile made it look like a fault.
+
+**Position assessments — and the distinction that matters.** Six of fourteen
+were below the engine's figure, but they are not one thing:
+
+| | n | which |
+|---|---|---|
+| directionally wrong | **2** | #3 called it *"losing"* at **+786**; #10 called it *"worse"* at **+486** |
+| understated, same direction | 4 | *"level"* at +312, +411, +458, +570 |
+| about right | 7 | |
+| over-rated | 1 | |
+
+**The four understated ones are not errors.** Calling a +312 position *"level"*
+is a reasonable verbal description of an engine advantage; words and centipawns
+are not the same scale, and the mapping I compared them against was my own
+invention. Only the two directional ones are unambiguous.
+
+And one of those two is explained. On #3 he had chosen `h3`, which takes the
+position from +786 to **−364** — *"losing"* describes what he was about to
+produce. On four trials his "now" answer fits the position **after** his move
+better than the one in front of him. **#10 is the only unexplained directional
+misread in the sitting: +486 before, +469 after, and he said "worse" to both.**
+
+He gave the **same rating before and after the reply on 14 of 14**. With the
+above, the two questions probably collapsed into one — a fault in my page, not
+a finding about him, and it cost the session's cleanest measurement.
+
+### 11.2 What the 694 rated games say
+
+Final positions replayed from the PGN and evaluated directly at depth 16, not
+taken from the last stored evaluation, which belongs to a different position.
+`termination` is crossed with his result, because it does not say who stopped.
+
+| termination | he won | he lost | reading |
+|---|---|---|---|
+| resignation | 111 | **58** | a resignation he lost is his |
+| abandonment | 64 | **51** | |
+| timeout | 24 | **157** | |
+| checkmate | 120 | 91 | decided on the board |
+
+**Resignations — the clearest result here.** Of the 58 he resigned, 17 ended
+with a forced mate against him and 41 had an ordinary evaluation. **All 41 were
+losing. Not one was at +100 or better.** *Observed: he has never resigned a
+position that favoured him.* That contradicts the reading that he fails to
+register an advantage.
+
+**Abandonments.** Of the 51 he lost this way, 2 ended facing mate and 49 had an
+ordinary evaluation: 23 losing, 7 worse, 11 level, 7 better, **1 clearly
+better** (+378, with 484 seconds still on his clock). **8 of 49 (16%) were at
++100 or better.** *Bounded:* chess.com reports abandonment without saying why,
+so the board can be read but a disconnection cannot be told from a decision to
+stop playing.
+
+**Timeouts.** Of the 157 he lost, 13 ended with mate against him, 2 with a
+forced mate **for** him, and 142 had an ordinary evaluation. **31 of 142 (22%)
+were at +100 or better; 21 at +300 or better or holding mate.** Split by the
+clock he last had:
+
+| clock at his last recorded move | games | of which +300 or better |
+|---|---|---|
+| under 10 seconds — a flag falling | 14 | 10 |
+| 10–60 seconds | 2 | 1 |
+| 1–3 minutes | 3 | 3 |
+| **over 3 minutes** | **13** | **6** |
+
+Those 13 are all chess.com rapid with **333 to 577 seconds remaining**. Two of
+the scrambles ended with a forced mate available and one second on the clock.
+*Bounded:* a timeout while ahead is as consistent with clock management, or with
+walking away from the board, as with anything about how he reads a position —
+and the two halves of that table are plainly different events.
+
+**Exchange decisions, per decision rather than by frequency.** In positions
+where he was already clearly better (+300 and up, mates excluded):
+
+| the engine's best move was | decisions | he found it | missing it costs | 300cp+ |
+|---|---|---|---|---|
+| a capture | 1,374 | **66%** | mean 215.3cp | 25% |
+| not a capture | 2,602 | **33%** | mean 137.5cp | 14% |
+
+Within the capture half: he played the engine's capture 907 times (66%), played
+a *different* capture 171 times (12%, mean 175.0cp), and **did not capture at
+all 296 times (22%, mean 238.6cp, 29% of them costing 300cp or more).**
+
+Verified examples of an exchange that damaged a winning position: `ff3f130a`
+m18 `hxg3` at +403 → −700 when `Re2` held it; `e915cd2f` m34 `Qxg5+` at +907 →
+−109 when `Qb8+` held it; `2de0f441` m26 `cxd6` at +430 → −439 when `hxg3` held
+it. Against those, `22464363` is a game where he took four times in a row
+exactly as the engine wanted (`Nxd6+`, `Qxd6`, `Qxc3`, `Rxe8+`) and won it.
+
+*A correction to my own first pass:* I compared "a capture he made cost 58cp"
+with "a capture he declined cost 239cp". That pair is not fair — declining the
+best move is a deviation by construction, so it cannot help but cost more. The
+table above compares two deviations and is the honest version.
+
+So his exchanges when winning are mostly good: he plays the engine's own
+capture two times in three. The damage sits in the third where he does not.
+
+### 11.3 Where the next coaching focus should go
+
+| candidate | verdict |
+|---|---|
+| **position assessment** | **not supported.** The sitting's six under-rates reduce to one unexplained trial, and 58 resignations contradict it outright |
+| **reply checking** (§9's priority) | **weakened.** On 3 of the 4 treatment trials where his move gave ground he named a reply as damaging as the engine's own. He was looking |
+| **candidate generation** | **the strongest of the three, and not established.** 296 decisions where the winning move was a capture and he played something else, mean 238.6cp; plus the one sitting trial where he named the refutation, rated the outcome correctly, and played the move anyway |
+
+**The honest answer is that it is unresolved between candidate generation and
+evaluation.** Nothing here separates *he never considered the capture* from *he
+considered it and judged it wrong*. Both produce the same record. That
+distinction needs his answer, on the positions where he gives ground, and it is
+the one question worth a second sitting.
+
+**§9's first priority is therefore provisional.** Not withdrawn — eight
+treatment trials cannot overturn a pattern measured across 240 moves — but the
+direct test went against it, and it should not be taught as settled.
+
+**And the 78% / 44% figure is an association, not a proven cost.** Games
+containing a 400cp+ slip differ from games without one in more ways than the
+slip: they are sharper, longer, and more often against stronger opposition. The
+difference is real and worth acting on; "closing that gap would recover 34
+points of conversion" does not follow from it.
