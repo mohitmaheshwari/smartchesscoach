@@ -41,15 +41,36 @@ _MATE_RX = re.compile(
     re.I,
 )
 _MATE_DELIVERED_RX = re.compile(r"\bcheckmate\b|#", re.I)
+# "lets your opponent force mate" -- the wording of the only template
+# that claims mate, data/distilled_templates.json "allowed_mate". The
+# list below covered "lets ... forced win" but not "... force mate", so
+# every caption from that template fell past the opponent-mates branch
+# into the final block, which asks "is the RECOMMENDED move mate?" --
+# it never is, so the card was replaced by the generic floor. Measured
+# over 150 games: 113 of 160 mate rejections blamed a move that was not
+# played, e.g. "Qd2 lets your opponent force mate, so play Qxf5+
+# instead" rejected as "claims checkmate but Qxf5+ is not mate".
+#
+# This does NOT relax the proof. The opponent-mates branch fails closed:
+# the stored pv_after_played still has to reach an actual checkmate on
+# the board, or the caption is rejected anyway. The fix only routes the
+# claim to the check that can prove it. Requiring the opponent to be
+# named keeps "lets you force mate" out of this branch.
 _MATE_ALLOWED_RX = re.compile(
     r"\ballows? (?:mate|a forced win)\b|"
     r"\ballows?\s+\S+#|"
     r"\blets\b.*\bforced win\b|"
+    r"\b(?:allows?|lets?|gives?)\b[^.]*\b(?:opponent|them|their|they)\b[^.]*"
+    r"\b(?:mate|mating)\b|"
     r"\bleaves? (?:mate|a forced win|you a forced win)\b",
     re.I,
 )
+# "missed a checkmate" is a MISSED claim, but this list only had
+# "missed mate", so the phrase fell through to _MATE_DELIVERED_RX
+# (a bare \bcheckmate\b) and 48 captions were classified as the
+# mover DELIVERING mate when they say the opposite.
 _MATE_MISSED_RX = re.compile(
-    r"\bmiss(?:es|ed) (?:mate|a forced win|the finish)\b",
+    r"\bmiss(?:es|ed) (?:mate|a checkmate|a forced win|the finish)\b",
     re.I,
 )
 _MATE_ALREADY_RX = re.compile(
@@ -700,22 +721,54 @@ def _check_mate(
             return violations + unproven
         return violations + unproven
 
+    # A mate claim does not have to mean "this move IS mate". The template
+    # that produces most of them says the move "starts a line that forces
+    # mate" -- the mate lands at the END of the line. Testing only the
+    # first move asked the wrong question and rejected true captions: of
+    # 160 mate rejections measured over 150 games, 113 blamed a move that
+    # was not played, 65 of those being "X missed a checkmate. Y starts a
+    # line that forces mate."
+    #
+    # So walk the line the claim belongs to, exactly as the opponent-mates
+    # branch above walks pv_after_played. The proof requirement is
+    # unchanged and still FAILS CLOSED: the line has to reach an actual
+    # checkmate delivered by the side the caption credits, or the claim is
+    # rejected.
     try:
-        b = chess.Board(facts["fen_before"])
+        start = chess.Board(facts["fen_before"])
+        mover = start.turn
         if facts.get("is_user_move"):
-            rec = facts.get("best_move_san") or facts.get("move_san")
+            # The user's own best line: "you missed a mate here."
+            first = facts.get("best_move_san") or facts.get("move_san")
+            rest = list(facts.get("pv_after_best") or ())
+            mating_side = mover
         else:
-            pv = facts.get("pv_after_played") or []
-            rec = pv[0] if pv else None
-        if not rec:
+            # An opponent move with no allowed/already wording: the mate, if
+            # any, is theirs and lives in the line after what they played.
+            first = facts.get("move_san")
+            rest = list(facts.get("pv_after_played") or ())
+            mating_side = mover
+        if not first:
             return []
-        b.push_san(rec)
-        if not b.is_checkmate():
-            return [{"check": "mate",
-                     "detail": f"claims checkmate but {rec} is not mate"}]
+        b = start.copy(stack=False)
+        b.push_san(str(first))
+        if b.is_checkmate() and b.turn != mating_side:
+            return []
+        for san in rest[:12]:
+            b.push_san(str(san))
+            if b.is_checkmate():
+                # In a finished position the side to move is the mated one.
+                if b.turn != mating_side:
+                    return []
+                break
+        return [{"check": "mate",
+                 "detail": (f"claims checkmate but the line from {first} does "
+                            f"not reach a mate delivered by the mover")}]
     except Exception:
-        pass
-    return []
+        # An unreplayable line is not proof. Returning clean here is how
+        # 6,632 captions once passed with lines that never mated.
+        return [{"check": "mate",
+                 "detail": "mate claim could not be replayed on the board"}]
 
 
 _OUTPOST_RX = re.compile(r"\boutpost\b|no pawn can chase", re.I)

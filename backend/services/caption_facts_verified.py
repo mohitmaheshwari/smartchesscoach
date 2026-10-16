@@ -172,6 +172,11 @@ def extract_facts_verified(
     full_move_number: int = 1,
     cp_loss: Optional[int] = None,
     mover_is_user: bool = True,
+    # The OPPONENT's own loss. cp_loss is the USER's and is 0
+    # on an opponent card, and extract_facts needs the mover's
+    # loss before it computes primary_reason -- the category
+    # that decides which rules are candidates at all.
+    opp_cp_loss: int = 0,
 ) -> Dict[str, Any]:
     """
     Extract facts with Stockfish verification (synchronous).
@@ -209,6 +214,7 @@ def extract_facts_verified(
         move_history_san=move_history_san or [],
         full_move_number=full_move_number,
         mover_is_user=mover_is_user,
+        opp_cp_loss=opp_cp_loss,
     )
 
     # Verify against Stockfish

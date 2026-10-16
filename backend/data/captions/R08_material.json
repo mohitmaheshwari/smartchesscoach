@@ -12,7 +12,7 @@
   "trigger": {
     "when": {
       "material_gain_meets_threshold": true,
-      "cp_loss": {"lt": 30}
+      "mover_cp_loss": {"lt": 30}
     }
   },
   "select_variant": [

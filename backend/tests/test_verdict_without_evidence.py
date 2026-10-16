@@ -1,10 +1,25 @@
-"""A mistake verdict must be earned.
+"""The engine's verdict is never softened. The EXPLANATION is what gives way.
 
-R12 already refuses to assert "X is a mistake" on a user move under 250cp with
-no why-clause. The fallback paths never got that rule, so 362 captions in one
-user's corpus announced a verdict with no reason attached - 70% of them at
-cp 100-199. These cases lock the rule in at the composition boundary, where
-every path sees it.
+REVERSED 2026-10-12. This file used to assert the opposite: that a verdict with
+no why-clause attached should be downgraded to "is playable" below 250cp. The
+intent was "a mistake verdict must be earned", which sounds right and is not.
+
+Measured over all 838 of Mohit's analysed games: 660 of 4,018 moves at 100cp+
+(16.4%) were rendered "is playable" -- real mistakes, described to him as fine.
+One of them was "Qb4 is playable -- you moved your queen away from defending
+c2", where the caption carries its own evidence and the keyword test simply
+missed it. His Rf3 card read "Rf3 is playable" on a 210cp loss for which
+Stockfish had already handed us the full refutation, Qe2 Rf1 Rhd8 Rd3 Rxd3.
+
+Mohit: "how can we get the chess wrong, we are completely backed by stockfish
+there is no way we can go wrong at all." We never did get the chess wrong. The
+engine's number was right in our data every time; this rule overruled it
+whenever OUR rules failed to find words, which reports our ignorance to the
+player as a fact about the position.
+
+The trust order was inverted and is now explicit: the engine's verdict is the
+most certain thing we own and the explanation is the least, so when evidence is
+missing the explanation goes and the verdict stays.
 """
 import sys
 
@@ -14,12 +29,16 @@ from services.caption_pipeline import _soften_verdict_without_evidence as soften
 
 CASES = [
     # (caption, mover_is_user, cp_loss, expect)
-    # --- softened: verdict asserted, nothing backs it up, modest loss ---
+    # --- KEPT, and these three are the reversal. All are 100-111cp, which is
+    # the canonical mistake band in services/severity.py. The engine called
+    # them mistakes and they are mistakes; the captions are merely thin. A
+    # thin explanation is a reason to say less, never a reason to tell the
+    # player the move was fine. ---
     ("Bf6 is a mistake. f5 was better. When defending in the middlegame, "
-     "fix your worst piece first.", True, 100, "soften"),
+     "fix your worst piece first.", True, 100, "keep"),
     ("Qd7 is a mistake. Opponent has developed 4 pieces; you've developed 1 piece.",
-     True, 111, "soften"),
-    ("Qf5+ is a mistake. Your queen on f5 is out alone.", True, 103, "soften"),
+     True, 111, "keep"),
+    ("Qf5+ is a mistake. Your queen on f5 is out alone.", True, 103, "keep"),
 
     # --- kept: the caption names a consequence, so the verdict is earned ---
     ("Qd7 is a mistake - it drops the pawn after Bxe5. Qxc4 was better.",

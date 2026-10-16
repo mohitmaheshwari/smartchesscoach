@@ -1966,7 +1966,7 @@ def inject_opp_side_narration_facts(
                     _reply_mv,
                     _reply_line,
                     opp_cp_loss or 300,
-                ) or _rmw(_post_opp_board, _reply_mv, line=_reply_line)
+                ) or _rmw(_post_opp_board, _reply_mv, True, line=_reply_line)
                 if _rwhy:
                     caption_facts["opp_user_reply_why"] = _rwhy
                 # WHY THEIR MOVE WAS THE MISTAKE, not just why ours is good.
@@ -4007,6 +4007,68 @@ def _verify_phase2_attack_claims(
     return None
 
 
+def weak_pawn_count_sentence(contested: Optional[Dict[str, Any]]) -> str:
+    """The sentence for a contested weak PAWN, or "" when there is none.
+
+    Pawn-only is a correctness filter, not a preference: every other
+    piece answers an extra attacker by moving, so "attack it more often
+    than they defend it" would be false. Measured over 36,380 flagged
+    cards, 2,698 non-pawn targets (knight 851, bishop 760, rook 564,
+    queen 523) would have been taught a rule that does not hold.
+
+    Short on purpose. The word cap cuts at the LAST sentence boundary,
+    so a long append is the first thing silently deleted -- the original
+    26-word wording put Mohit's own card at 56 of 60.
+    """
+    ct = contested or {}
+    if ct.get("piece") != "pawn":
+        return ""
+    if int(ct.get("defenders") or 0) < 1:
+        return ""
+    square = ct.get("square") or ""
+    if not square:
+        return ""
+    if ct.get("verdict") == "wins":
+        return (f"You attack {square} more often than they defend it. "
+                f"That is how a weak pawn falls.")
+    if ct.get("verdict") == "level":
+        return (f"You attack {square} as often as they defend it. "
+                f"One more attacker wins it.")
+    return ""
+
+
+def reply_gap_sentence(gap: Optional[Dict[str, Any]]) -> str:
+    """One sentence for facts["reply_gap"], or "" when there is none.
+
+    Derived per position from the board and both stored engine lines,
+    one ply deep. Measured over 8,880 flagged cards: when a check
+    separates the two replies it favours the engine's move 80.1% of the
+    time, a capture 69.7%. attacks_us (64.5%) and takes_centre (59.4%)
+    were measured and deliberately NOT used -- too close to a coin flip
+    to be worth a sentence, which is the mistake the end-of-line version
+    made at 52-62%.
+
+    The percentage is not a truth rate: whether their reply gives check
+    is checked on that board and is simply true. It is how often the
+    fact is the DISCRIMINATING one, so a miss is secondary, not false.
+    """
+    gap = gap or {}
+    reply = (gap.get("their_reply") or "").strip()
+    allows = gap.get("allows") or []
+    if not reply or not allows:
+        return ""
+    piece = gap.get("captured_piece")
+    square = gap.get("capture_square")
+    if "check" in allows and "capture" in allows and piece and square:
+        return (f"That lets them play {reply} with check, "
+                f"taking the {piece} on {square}.")
+    if "check" in allows:
+        return f"That lets them play {reply} with check."
+    if piece and square:
+        return f"That lets them take the {piece} on {square} with {reply}."
+    return f"That lets them play {reply}."
+
+
 def _verify_and_recover_caption(
     *,
     caption_payload: Dict[str, Any],
@@ -4500,6 +4562,127 @@ _CAUSAL_PERSONAL_CAPTIONS_ENABLED = os.environ.get(
 ) not in ("0", "false", "False", "")
 
 
+# ── A coverage net may not overwrite teaching ────────────────────────
+#
+# The distilled layer runs LAST, after the rule cascade has already chosen
+# a caption, and it replaces the TEXT and the rule_name. Its own docstring
+# calls it a coverage net ("91% coverage"), but measured over 60 games /
+# 3,303 cards with the flag forced both ways (prod runs it ON):
+#
+#   overrides                              2,164 (65.5% of all cards)
+#     filled a card the rules left SILENT       0
+#     overwrote text the rules had written  2,158 (99.7%)
+#     replaced text with an EMPTY caption       6
+#
+# So it never does the job it is named for. Most of the rewording is fine
+# or better for a 600-1500 reader, but 246 cards (11.4% of overrides) lost
+# something the templates structurally cannot carry:
+#
+#   named motif (fork/pin/skewer/...)   lost 87, gained  3
+#   opening name                        lost 96, gained 29
+#   why-clause on the better move       lost 40, gained  3
+#   mate / winning-by-force verdict     lost 18, gained  1
+#
+# The worst single case: a mate card ("Opp is winning by force. Before
+# moving, calculate every enemy check to the end.") became "Raxe3+ takes
+# your knight, but your king can take back - an even trade." The student
+# is being mated and the card tells them material is level.
+#
+# This is a precedence bug, not a quality bug. A fixed-sentence template
+# cannot name THIS fork or THIS opening, so it must abstain when the
+# caption in hand already does, and must never trade text for silence.
+# Mohit's standing rules: never silence a card; explain why the
+# recommended move is good; name the opening where the lesson is the
+# opening.
+_DC_MOTIF_RE = _re_pb.compile(
+    r"\b(fork(?:ing|s|ed)?|pin(?:ning|s|ned)?|skewer(?:ing|s|ed)?|discovered"
+    r"|overload(?:ed|ing)?|trapp?(?:ed|ing))\b", _re_pb.I)
+_DC_MATE_RE = _re_pb.compile(
+    r"\b(mate|mating|winning by force|forced win)\b", _re_pb.I)
+_DC_WHY_RE = _re_pb.compile(
+    r"(was better\s*[—\-,:]\s*\w|better was [^.,]+,\s*(?:since|because)"
+    r"|was better because)", _re_pb.I)
+_DC_OPENING_RE = _re_pb.compile(
+    r"\b([A-Z][a-z']+(?: [A-Z][a-z']+)*) (Opening|Game|Defense|Defence|Attack"
+    r"|Gambit|Variation|System)\b")
+
+
+_DC_SQUARE_RE = _re_pb.compile(r"\b[a-h][1-8]\b")
+
+
+def _dc_about_this_board(text: str, played_san: str) -> bool:
+    """True when the text names a square the played move's own SAN does not.
+
+    A pawn move's SAN *is* a square, so a naive square test passes on
+    "b6. Opp is winning by force." -- which names nothing about the
+    board. Measured over 120 re-rendered games / 7,345 cards: of the 78
+    cards the mate clause protected, 76 were that sentence, repeated
+    down a lost game, and the replacement was often the more useful one
+    ("Bxd3+ takes your pawn, but your bishop can take back"). Same for
+    the never-silence rule: 156 of the cards it kept were repeats, one
+    of them "Your opponent tidys up the king, keeping it safe." 25 times
+    in a single game -- exactly what the decided-position gate is meant
+    to silence.
+    """
+    own = set(_DC_SQUARE_RE.findall(played_san or ""))
+    return bool(set(_DC_SQUARE_RE.findall(text or "")) - own)
+
+
+def _distilled_may_replace(existing: str, new: str,
+                           played_san: str = "") -> bool:
+    """False when the distilled text would drop something the caption in
+    hand carries. Structural, not vocabulary: each marker is a thing the
+    templates have no slot for, so losing it is information loss, never a
+    rewording."""
+    existing = (existing or "").strip()
+    new = (new or "").strip()
+    if not existing:
+        return True          # genuine coverage: the rules said nothing
+    if not new:
+        # Never trade a caption for silence -- but only a caption that is
+        # about THIS board earns that. A generic line repeated down a lost
+        # game is filler wearing silence's clothes, and Mohit's ruling is
+        # that silence beats fake explanation.
+        return not _dc_about_this_board(existing, played_san)
+    _markers = (_DC_MOTIF_RE, _DC_MATE_RE, _DC_WHY_RE, _DC_OPENING_RE)
+    for rx in _markers:
+        if rx.search(existing) and not rx.search(new):
+            # A mate VERDICT is not teaching. "Opp is winning by force.
+            # Before moving, calculate every enemy check to the end."
+            # says nothing about the position and repeats on every move of
+            # a lost game; 76 of the 78 cards this clause saved were that
+            # sentence. A mate claim that names a square is real and still
+            # protected. The motif and opening markers need no such test:
+            # the named fork and the named opening ARE the transferable
+            # lesson, and all 185 motif cards named a real square anyway.
+            if rx is _DC_MATE_RE and not _dc_about_this_board(
+                    existing, played_san):
+                continue
+            return False
+    # A square is the cheapest proof that a sentence is about THIS board
+    # rather than any board -- the decided-position gate below already
+    # judges a stripped caption that way. Measured over the same 60 games:
+    # 318 of 1,857 overwrites (17.1%) replaced a caption that named a
+    # square with one that named none, and `distilled:good_was_best` is
+    # the largest stored rule in the corpus (4,422 cards) while saying
+    # only "X is the best move in this position":
+    #
+    #   "Qh5+ -- check, and attacks the pawn on h7 too. You attack h7
+    #    more often than they defend it. That is how a weak pawn falls."
+    #                   became
+    #   "Qh5+ is the best move in this position."
+    #
+    # Exempt a replacement that pays for the square by GAINING one of the
+    # markers above: "Nf6 -- controls d5, e4" -> "Indian Defense setup.
+    # Black delays committing pawns to the centre" is an upgrade, and
+    # blocking it to save a square would cost real teaching.
+    if _DC_SQUARE_RE.search(existing) and not _DC_SQUARE_RE.search(new):
+        if not any(rx.search(new) and not rx.search(existing)
+                   for rx in _markers):
+            return False
+    return True
+
+
 _SALVAGE_SPLIT_RE = _re_pb.compile(r"(?<=[.!?])\s+")
 
 # "X was better — <Capitalised sentence>" is a broken join. The em-dash slot
@@ -4581,7 +4764,22 @@ def _soften_verdict_without_evidence(text: str, *, mover_is_user: bool,
     if len([s for s in _SALVAGE_SPLIT_RE.split(text.strip()) if s.strip()]) > \
             _VERDICT_SOFTEN_MAX_SENTENCES:
         return text
-    return _VERDICT_RE.sub("is playable", text)
+    # The verdict STAYS. Measured over all 838 analysed games: 660 of 4,018
+    # of Mohit's moves at 100cp+ (16.4%) were rendered "is playable" --
+    # including "Qb4 is playable -- you moved your queen away from defending
+    # c2", where the caption carries its own evidence and the keyword test
+    # missed it.
+    #
+    # Mohit: "how can we get the chess wrong, we are completely backed by
+    # stockfish there is no way we can go wrong at all." We did not get the
+    # chess wrong. On his Rf3 card Stockfish said -210cp and handed us the
+    # refutation (Qe2 Rf1 Rhd8 Rd3 Rxd3); this line overruled it because OUR
+    # rules found nothing to say, which reports our ignorance to him as a
+    # fact about the position. That is worse than saying less.
+    #
+    # Trust order: the engine's verdict is the most certain thing we own and
+    # the explanation is the least, so the explanation is what goes.
+    return text
 
 # A salvaged caption has to still teach. A lone verdict ("Qf6 is a mistake.")
 # or a bare principle carries no board content, so it is not worth keeping over
@@ -6132,8 +6330,30 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
     except Exception:
         return "neither", {}
 
-    played_swing = _story_swing(board, played_san, pv_after_played, mover)
-    best_swing = _story_swing(board, best_move_san, pv_after_best, mover)
+    # HORIZON. Mohit 2026-10-12: "for opportunity vs punishment for any
+    # mistakes or blunders from both sides, max you should up for is 8 plies,
+    # the payoff should be by the 4th move from any party."
+    #
+    # Punishment used to walk the WHOLE line, which measures where the engine
+    # stopped rather than what the move did. Opportunity used 2 plies, which
+    # is inside his horizon but does not see a payoff that needs a couple of
+    # moves to arrive. One horizon now governs both verdicts and both sides.
+    # 8 half-moves = 4 moves each side. Mohit 2026-10-13: "never go more
+    # than 4 plies deep meaning 8 moves both sides" -- he counts a ply as a
+    # move by BOTH sides, so four of his plies is eight half-moves. This
+    # constant counts half-moves.
+    #
+    # Measured on 9,310 flagged cards before changing it from 16: the verdict
+    # moves on 6 of them (0.1%). The horizon barely bites because most stored
+    # lines are shorter than either bound -- 93% are 4 plies from before the
+    # 2026-09-25 horizon fix, the newest are 12. The earlier note that "8
+    # plies cost 17 cards their punishment verdict" was measured when the
+    # punishment walk ran to the END of the line rather than to a horizon.
+    STORY_HORIZON_PLIES = 8
+    _pvp = list(pv_after_played or ())[:STORY_HORIZON_PLIES]
+    _pvb = list(pv_after_best or ())[:STORY_HORIZON_PLIES]
+    played_swing = _story_swing(board, played_san, _pvp, mover)
+    best_swing = _story_swing(board, best_move_san, _pvb, mover)
 
     # The opportunity is judged at SHORT range: the missed move plus the one
     # reply to it. That is the least you need to see whether a capture gets
@@ -6145,6 +6365,14 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
     # lines have wandered into different positions and the difference is an
     # artifact of where each one stopped. Comparing endpoints of two 12-ply
     # lines measures the lines, not the choice.
+    # STAYS AT 2. Mohit's 8-ply rule is a CEILING ("max you should up for is
+    # 8 plies"), and 2 is already inside it. I first read it as a target and
+    # raised this to 8, which broke 15 tests in
+    # test_move_story_decides_the_arrows.py -- including
+    # test_an_opportunity_must_be_visible_at_short_range and
+    # test_the_drift_really_is_late_and_the_chance_really_is_early, both built
+    # from cards read by hand. An opportunity that only appears several plies
+    # out is line drift, not a chance the player missed.
     _short = 2
     played_short = _story_swing(board, played_san,
                                 list(pv_after_played or ())[:_short], mover)
@@ -6207,7 +6435,7 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
 
     # Otherwise: they take something off us because of the move we played.
     if played_swing is not None and played_swing <= -STORY_PUNISHMENT_FLOOR:
-        detail["punishment_line"] = list(pv_after_played or ())
+        detail["punishment_line"] = _pvp
         return "punishment", detail
 
     return "neither", detail
@@ -6622,6 +6850,59 @@ def _say_the_missed_chance(board_before, best_san, mover_is_user, caption):
     return f"{subject} {best_san}, taking {owner} {piece_name} on {square}."
 
 
+
+def _drop_the_better_move_clause(caption: str, best_san: str) -> str:
+    """Remove the "X was stronger" half, keep what the move actually did.
+
+    In a position already lost by six pawns the engine's preference between
+    two losing moves is not stable enough to instruct from -- it inverted
+    between depth 22 and 28 on the card that prompted this. What the played
+    move DID is still true and still worth saying; what it should have been
+    is not.
+    """
+    import re as _re
+    if not caption or not best_san:
+        return caption
+    # TRUNCATE at the instruction, do not filter around it. Whatever follows
+    # "Kc5 was better" is commentary on Kc5: dropping only the middle sentence
+    # left "Kxe5 is a mistake. The same piece on a square that attacks more
+    # targets is the stronger move." -- a principle with nothing left to point
+    # at. feedback_principle_bank_is_filler
+    sentences = _re.split(r"(?<=[.!?])\s+", caption.strip())
+    kept = []
+    for sentence in sentences:
+        if best_san in sentence:
+            break
+        kept.append(sentence)
+    # A closing habit sentence survives the cut. smartchesscoach-24, on the
+    # counter-attack lesson landed in 72204b9a, which names the better move in
+    # sentence ONE: breaking there threw away "When something of yours is
+    # attacked, look for your own attack before you move it", which does not
+    # depend on the engine's preference and stays true in a decided position.
+    # It qualifies only if it names no square and no move -- otherwise it is
+    # commentary on the instruction we just removed, not a habit.
+    _tail = sentences[-1] if sentences else ""
+    # A habit has to stand on its own. "The same piece on a square that
+    # attacks more targets is stronger" names no square and is still
+    # commentary on the move just deleted -- it opens with a back-reference
+    # to it. feedback_principle_bank_is_filler
+    _refers_back = _re.match(r"\s*(it|this|that|those|these|the same)\b",
+                             _tail, _re.IGNORECASE)
+    if (_tail and _tail not in kept
+            and best_san not in _tail
+            and not _refers_back
+            and not _re.search(r"\b[a-h][1-8]\b", _tail)
+            and not _re.search(r"\b[KQRBN][a-h]?x?[a-h][1-8]", _tail)):
+        kept.append(_tail)
+    out = " ".join(kept).strip()
+    # Half a sentence is worse than none: a clause joined by a semicolon or a
+    # dash can leave "You played Kxe5;" standing on its own.
+    out = _re.sub(r"[;,—-]\s*$", ".", out).strip()
+    if out.endswith(";"):
+        out = out[:-1] + "."
+    return out if len(out.split()) >= 4 else ""
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -6733,7 +7014,13 @@ def build_move_teaching_decision(
 
     # ─── 1-2. Base caption_facts + practical severity ─────────────
     practical = classify_severity_practical(
-        int(inputs.cp_loss or 0),
+        # The MOVER's own loss, exactly as `canonical` three lines below
+        # already does. Its docstring asks for "mover-POV centipawn loss"
+        # and was being handed the USER's, which is 0 on an opponent
+        # card -- so every opponent move was graded "good" and a 303cp
+        # mistake printed as "an inaccuracy".
+        int(inputs.cp_loss or 0) if inputs.mover_is_user
+        else int(inputs.opp_cp_loss or 0),
         mover_is_user=bool(inputs.mover_is_user),
         mover_is_white=bool(inputs.mover_is_white),
         eval_before_cp=inputs.eval_before_cp,
@@ -6806,6 +7093,7 @@ def build_move_teaching_decision(
                 # and mis-voiced captions).
                 cp_loss=int(inputs.cp_loss or 0),
                 mover_is_user=bool(inputs.mover_is_user),
+                opp_cp_loss=int(inputs.opp_cp_loss or 0),
             )
             logger.debug(f"[caption_pipeline] verified facts: verified={caption_facts.get('verified', False)}")
         except Exception:
@@ -6827,6 +7115,7 @@ def build_move_teaching_decision(
                 move_history_san=list(inputs.move_history_san),
                 full_move_number=int(inputs.full_move_number or 0),
                 mover_is_user=bool(inputs.mover_is_user),
+                opp_cp_loss=int(inputs.opp_cp_loss or 0),
             )
             # Mark as not verified when using fallback
             caption_facts["verified"] = False
@@ -6835,6 +7124,21 @@ def build_move_teaching_decision(
             caption_facts = {}
 
     inject_practical_severity_facts(caption_facts, practical)
+
+    # How bad was THIS mover's move? extract_facts is handed
+    # inputs.cp_loss, which is 0 on an opponent card because the
+    # opponent's loss travels in opp_cp_loss -- so every gate asking
+    # "is this a mistake" read zero and an opponent blunder fell through
+    # to the tier that describes a move approvingly. Mohit's
+    # game_8e1294767490 move 7 Bf5 lost 320cp and rendered "Your
+    # opponent develops the bishop, bringing a new piece into the game".
+    #
+    # cp_loss itself is deliberately NOT changed: 31 readers depend on
+    # it meaning the user's loss. This adds the mover's own loss beside
+    # it so a reader can ask the right question explicitly.
+    caption_facts["mover_cp_loss"] = abs(int(
+        (inputs.cp_loss if inputs.mover_is_user else inputs.opp_cp_loss)
+        or 0))
 
     # ── Which story is this card? One decision, before any arrow. ──────
     # Mohit 2026-10-07: "when an arrow tells mistake or blunder any side (me or
@@ -7985,6 +8289,10 @@ def build_move_teaching_decision(
                     _dc = None
                 elif _label in _CLAIMS_WE_MISSED and _story != "opportunity":
                     _dc = None
+            if _dc and not _distilled_may_replace(
+                    caption_payload.get("caption") or "", _dc[0] or "",
+                    inputs.played_san or ""):
+                _dc = None
             if _dc and _dc[0]:
                 caption_payload["caption"] = _dc[0]
                 caption_payload["rule_name"] = _dc[1]
@@ -8244,6 +8552,11 @@ def build_move_teaching_decision(
     # that only exists on the happy path is a NameError waiting for a bad card
     # -- this file has already lost a whole caption block that way.
     _back_rank_said = False
+    # Declared out here for the same reason as the name above, and for the
+    # same test: when the stage-4 verifier raises, the except path skips
+    # the block that sets this and the arrow code below still reads it.
+    # test_final_truth_boundary_fails_closed_when_verifier_raises caught it.
+    _opening_named = None
     try:
         from services.narrator_claim_verifier import verify_caption as _stage4_verify
         from services.caption_fallback_tiers import tier23_caption as _stage4_floor
@@ -8330,6 +8643,379 @@ def build_move_teaching_decision(
                         )
                         _board_explanation = _safe
                         _rendered_personalization = False
+        # ─── The game was already over ───────────────────────────────
+        # Mohit 2026-10-09, on Kxe5 in a rook endgame: "why arrows didn't
+        # fire, this is pure tactical mistake". The arrows were the small
+        # half. The card read "You played Kxe5; Kc5 was stronger", and asked
+        # of the engine at three depths:
+        #
+        #     depth 16   Kc5  -615    Kxe5  -696
+        #     depth 22   Kc5  -628    Kxe5  -942
+        #     depth 28   Kxe5 -931    Kc5 -7608
+        #
+        # At depth 28 the ranking inverts: the move the card scolds is the
+        # best one, and the move it recommends collapses. White is -6 to -9
+        # throughout, so every move loses and "cp_loss 100" is the distance
+        # between two lost positions -- exactly where a shallow search is
+        # least stable and most confident.
+        #
+        # Measured over 100 games, 1,056 flagged moves with mate rows already
+        # excluded: 133 (12.6%) stand in a position already lost by six pawns
+        # or more, and all four rows in the corpus where the PLAYED move IS
+        # the engine's best move yet carries a non-zero cp_loss are inside
+        # that band (-5.7, -6.7, -5.8, +13.3).
+        #
+        # DECIDED means decided EITHER WAY -- abs(), so it fires when the
+        # player is six pawns up as well as six down. Two of the four
+        # self-contradiction rows below are winning positions (+6.57, +13.33),
+        # and an instruction is no more trustworthy in a won game than a lost
+        # one. smartchesscoach-24 flagged that the prose said "lost by" while
+        # the code did not.
+        #
+        # The number is set by where the engine stops agreeing with itself,
+        # not by eye. The four rows are at -5.78, -6.74, +6.57 and +13.33, so
+        # 5.5 pawns is the smallest gate that covers all of them; 6.0, which
+        # was my first guess, misses one of the four AND misses the card that
+        # started this by sixteen centipawns. Cost: 175 of 1,056 flagged
+        # moves (16.6%) rather than 133 (12.6%).
+        #
+        # Three pawns would cut 42% and a three-pawn deficit is still a game.
+        # There is no cliff in the curve, so the self-contradiction rows are
+        # the only objective evidence available for where to put it.
+        #
+        # The card is NOT removed -- what goes is the instruction. His own
+        # ruling, recorded in R12_blunder.json when the engine-meta clauses
+        # were dropped: "stop pretending every move deserves a concrete
+        # caption. silence is NOT always worse. silence is better than fake
+        # explanation." And it does not say "you were already losing", which
+        # he has ruled out separately (feedback_caption_tone_undramatic).
+        # ─── SAY WHAT WAS BETTER (backstop) ─────────────────────────
+        # Measured 2026-10-10 over Mohit's own stored reviews: 2,081 of 6,815
+        # of his flagged cards (31%) hold a best_move_san and never mention
+        # it. The board-state producers are the worst -- R16_board_state_
+        # fallback omits on 89% of its 1,160 cards, facts:capture_free on 96%
+        # of 156 -- and they are the RICHEST captions, not the poorest: HIGH
+        # tier is 53% of the omitting cards against 28% of the naming ones.
+        #
+        # So it is not a plumbing fault. Three plumbing hypotheses were
+        # measured against the naming cards as a control and all three died:
+        # the stage-4 verdict distribution is the same either way (81% vs 80%
+        # absent), pv_after_best is present on 77% of the omitting cards, and
+        # the best-move arrow is missing on 88% of BOTH groups. What the
+        # describe-only templates lack is a better-move step at all -- they
+        # write the whole caption, say what the board looks like, and stop.
+        #
+        # The worst of them do not merely omit. "Nxa5 wins the pawn for
+        # nothing -- nothing of theirs guards it" was served on a 77cp mistake
+        # where the engine wanted Be3: the card PRAISES the move it flags.
+        #
+        # Stage 11c above DECORATES an existing "{best} was better" clause
+        # with its why, so it cannot help a caption that never wrote the
+        # clause. This writes it.
+        #
+        # WHY IT SITS HERE, below the verifier, and not up beside 11c:
+        # best_move_why is not always true. The first version appended it
+        # blind and let the whole-caption gate judge; over 60 games 3 of 38
+        # residual cards lost the clause, and the verifier was right --
+        # "Ne4 was better - it opens the line, and your queen can then play
+        # Qh4+" on a KNIGHT move, and "Kd4 was better - 3 opponent pieces are
+        # aimed at your king on c5" where the post-move board has none. Down
+        # here _verify_final is in scope, so the sentence is checked on its
+        # own and a failing why falls back to a form that states no board
+        # fact and therefore cannot be false. The recommendation survives
+        # even when its reason does not.
+        #
+        # Ordering: before the decided-position gate directly below, so a
+        # position the result has already left strips the instruction straight
+        # back out; and before the opening decorator, which needs a named
+        # better move to anchor its lesson to.
+        #
+        # The cp gate is the canonical mistake bar, not the 50cp flag: Mohit
+        # 2026-10-10 on a 51cp card, "this is actually not a bad move, right
+        # we should stop flagging 51cp as inaccuracy". Below 100 the gentler
+        # "Though {best} was a bit stronger" in caption_fallback_tiers owns
+        # the band and this must not talk over it.
+        try:
+            _sb_cap = (caption_payload.get("caption") or "").strip()
+            _sb_best = (inputs.best_move_san or "").strip()
+            _sb_why = (caption_facts.get("best_move_why") or "").strip()
+            # The mover's OWN loss, so an opponent card is measured by
+            # how bad the opponent's move was rather than by a field
+            # that is always 0 for them.
+            _sb_cp = abs(int(
+                (inputs.cp_loss if inputs.mover_is_user
+                 else inputs.opp_cp_loss) or 0))
+            # 100 is the canonical mistake bar for OUR moves -- Mohit on
+            # a 51cp card: "this is actually not a bad move, right we
+            # should stop flagging 51cp as inaccuracy". On an OPPONENT
+            # card the caption has already said "is an inaccuracy" out
+            # loud, so naming what they should have played completes the
+            # sentence rather than escalating it. The band below 100 was
+            # supposed to belong to _better_suffix, but that only runs
+            # inside tier23_caption and these cards never reach it, so
+            # nobody owned it: 2,934 of 2,936 opponent inaccuracy cards
+            # (99.9%) named no better move at all.
+            _sb_floor = 100 if inputs.mover_is_user else 50
+            if (_sb_cap and _sb_best
+                    and _sb_cp >= _sb_floor
+                    and _sb_best != (inputs.played_san or "")
+                    and _sb_best not in _sb_cap
+                    and not caption_facts.get("is_checkmate")):
+                from services.caption_config import MAX_CAPTION_WORDS as _SB_CAP
+                _sb_join = " " if _sb_cap.endswith((".", "!", "?")) else ". "
+                def _sb_fits(_s, _base=_sb_cap, _cap=_SB_CAP):
+                    return len((_base + " " + _s).split()) <= _cap
+                _sb_add = _sb_mark = ""
+                # Voice follows the mover. "{best} was better" addressed
+                # to the reader is wrong under a card badged Opponent --
+                # the same bug class as the hardcoded "You played Be7"
+                # on an opponent card, flagged live on eb189840 move 12.
+                _sb_you = bool(inputs.mover_is_user)
+                if _sb_why:
+                    _sb_try = (
+                        f"{_sb_best} was better — it {_sb_why}."
+                        if _sb_you else
+                        f"They missed {_sb_best} — it {_sb_why}.")
+                    if _sb_fits(_sb_try) and not _verify_final(_sb_try):
+                        _sb_add, _sb_mark = _sb_try, "→SAY_BETTER_WHY"
+                if not _sb_add:
+                    # No why, or a why the board does not support. Naming the
+                    # move alone is incomplete and he has said so -- it
+                    # "raises the student's why? and walks away" -- but it
+                    # asserts nothing about the position, so it cannot be
+                    # wrong, and it still beats a card that describes a
+                    # mistake approvingly. Marked so the two forms stay
+                    # countable rather than blurring into one number.
+                    _sb_bare = (f"{_sb_best} was better here." if _sb_you
+                                else f"They missed {_sb_best} here.")
+                    _sb_add, _sb_mark = (
+                        (_sb_bare, "→SAY_BETTER_BARE") if _sb_fits(_sb_bare)
+                        else ("", "→SAY_BETTER_TOO_LONG"))
+                _sb_full = _sb_cap + _sb_join + _sb_add if _sb_add else ""
+                if _sb_full and not _verify_final(_sb_full):
+                    caption_payload["caption"] = _sb_full
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "") + _sb_mark)
+                    _board_explanation = _sb_full
+                elif not _sb_add:
+                    # Nothing shipped, and the rule name says so. A skip that
+                    # leaves no trace is a skip nobody can count, and an
+                    # unmeasured skip is how a gate drifts.
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "") + _sb_mark)
+        except Exception as _sb_exc:
+            logger.warning(
+                f"[say_better] backstop failed m{inputs.full_move_number}: {_sb_exc!r}")
+
+        # ── What the move let them do (2026-10-13) ──────────────────
+        # Mohit: "why can't we build it deterministically, we already
+        # have all the chess facts and stockfish there". This is that:
+        # the opponent's first reply in each stored line, differenced,
+        # with the difference read off the board.
+        #
+        # Skipped when the card already explains the played move, so it
+        # cannot double up on "Nxe4 leaves the knight on e4 hanging" or
+        # on a punishment clause that already names the same reply.
+        try:
+            _rg = caption_facts.get("reply_gap") or {}
+            _rg_line = reply_gap_sentence(_rg)
+            _rg_cap = (caption_payload.get("caption") or "").strip()
+            _rg_reply = (_rg.get("their_reply") or "").strip()
+            # The square matters as much as the move. Measured on real
+            # cards: "Qd7 ... you moved your queen away from defending
+            # e5" then "That lets them take the pawn on e5", and
+            # "Bxf7+ ... opponent recaptures on f7" then "That lets
+            # them take the bishop on f7". Both name the square, not
+            # the reply, so a SAN-only check let the duplicate through.
+            _rg_sq = (_rg.get("capture_square") or "").strip()
+            _already = (
+                not _rg_line
+                or not _rg_cap
+                or "lets you play" in _rg_cap
+                or "lets them" in _rg_cap
+                or (_rg_reply and _rg_reply in _rg_cap)
+                or (_rg_sq and _re_pb.search(
+                    r"(?<![A-Za-z0-9])" + _re_pb.escape(_rg_sq)
+                    + r"(?![A-Za-z0-9])", _rg_cap)))
+            if not _already:
+                from services.caption_config import (
+                    MAX_CAPTION_WORDS as _RG_CAP,
+                )
+                _rg_full = (
+                    _rg_cap
+                    + (" " if _rg_cap.endswith((".", "!", "?")) else ". ")
+                    + _rg_line)
+                if (len(_rg_full.split()) <= _RG_CAP
+                        and not _verify_final(_rg_full)):
+                    caption_payload["caption"] = _rg_full
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "")
+                        + "→REPLY_GAP")
+                    _board_explanation = _rg_full
+        except Exception as _rg_exc:
+            logger.warning(
+                f"[reply_gap] m{inputs.full_move_number}: {_rg_exc!r}")
+
+        # ── The count on a weak pawn ────────────────────────────────
+        # Mohit, on a card reading "Qc1 was better - it attacks the pawn
+        # on e3, which only their queen defends": it should teach the
+        # plan of adding an attacker, "that's a good teaching on
+        # attacking weak pieces".
+        #
+        # Gated hard. The underlying fact is true on 57% of flagged
+        # cards, and a sentence at that rate is wallpaper
+        # ([[feedback_principle_bank_is_filler]]):
+        #   - the caption must ALREADY name that square, so the count
+        #     completes a claim the card is making instead of attaching
+        #     to an incidental target
+        #   - PAWN targets only: every other piece answers an extra
+        #     attacker by moving, so the rule would simply be false
+        #   - at least one real defender: 1v0 is a hanging pawn
+        # 1.87% of flagged cards survive all three.
+        try:
+            _ct = caption_facts.get("contested_target") or {}
+            _ct_sq = _ct.get("square") or ""
+            _ct_cap = (caption_payload.get("caption") or "").strip()
+            # The caption must ALREADY name that square, so the count
+            # completes a claim the card is making instead of attaching
+            # to an incidental target.
+            #
+            # As a STANDALONE token: a plain substring test matches "f2"
+            # inside "Rxf2", the played move's own SAN, which is how the
+            # sentence first shipped onto a card that never discussed
+            # f2 at all.
+            _ct_named = bool(_ct_sq) and bool(_re_pb.search(
+                r"(?<![A-Za-z0-9])" + _re_pb.escape(_ct_sq) + r"(?![A-Za-z0-9])",
+                _ct_cap))
+            if (_ct_named
+                    and not caption_facts.get("is_checkmate")):
+                # Short on purpose. The word cap cuts at the LAST
+                # sentence boundary, so a long append is the first thing
+                # deleted -- the e3 card renders at 56 of 60 words with
+                # the original wording, one clause from silently losing
+                # the whole lesson. Both forms still end on the rule.
+                _ct_add = weak_pawn_count_sentence(_ct)
+                if _ct_add:
+                    from services.caption_config import (
+                        MAX_CAPTION_WORDS as _CT_CAP,
+                    )
+                    _ct_full = (
+                        _ct_cap
+                        + (" " if _ct_cap.endswith((".", "!", "?")) else ". ")
+                        + _ct_add)
+                    # the word cap cuts at the LAST sentence boundary, so
+                    # an over-long append would delete itself
+                    if (len(_ct_full.split()) <= _CT_CAP
+                            and not _verify_final(_ct_full)):
+                        caption_payload["caption"] = _ct_full
+                        caption_payload["rule_name"] = (
+                            (caption_payload.get("rule_name") or "")
+                            + "→PAWN_COUNT")
+                        _board_explanation = _ct_full
+        except Exception as _ct_exc:
+            logger.warning(
+                f"[pawn_count] m{inputs.full_move_number}: {_ct_exc!r}")
+
+        _DECIDED_CP = 550
+        try:
+            _eval_before = inputs.eval_before_cp
+            # A lost position does not, by itself, disqualify a move from
+            # being explained. The gate exists to stop us REACHING for a
+            # lesson when the engine contradicts itself in a decided
+            # position -- not to suppress one the engine has already given.
+            #
+            # Measured over 2,347 of Mohit's cards: of 309 silenced here, 43
+            # had a punishment verdict and 52 an opportunity -- 95 cards,
+            # 31%, where Stockfish's own line explains the move and we said
+            # nothing because the eval was past 5.5 pawns. A player at -7.0
+            # who then hangs a rook has still hung a rook.
+            #
+            # So the gate now fires only on `neither`, which is precisely the
+            # set where there is no engine-backed story and anything we add
+            # would be us inventing one.
+            # SAFEGUARD: the classification alone does not earn the bypass.
+            # A verdict is only allowed to override the gate when there is an
+            # actual engine continuation behind it -- otherwise a classifier
+            # bug would let an unsupported explanation through precisely where
+            # the gate exists to stop one. The verdict must be backed by the
+            # line it claims to come from: a punishment by the line after the
+            # played move, an opportunity by the line after the engine's.
+            _verdict_backed = (
+                (_story == "punishment" and bool(inputs.pv_after_played))
+                or (_story == "opportunity" and bool(inputs.pv_after_best))
+            )
+            _already_decided = (
+                _eval_before is not None
+                and abs(int(_eval_before)) >= _DECIDED_CP
+                and int(inputs.cp_loss or 0) > 0
+                and not caption_facts.get("is_checkmate")
+                and not _verdict_backed
+            )
+        except (TypeError, ValueError):
+            _already_decided = False
+        if _already_decided and caption_payload.get("caption"):
+            _best = inputs.best_move_san
+            if _best and _best in (caption_payload.get("caption") or ""):
+                _stripped = _drop_the_better_move_clause(
+                    caption_payload["caption"], _best)
+                # Empty is a legitimate outcome, not a failure to strip. On
+                # the card that prompted this the instruction IS the sentence
+                # -- "You played Kxe5; Kc5 was stronger" is one clause -- so
+                # removing the claim removes the card, and that is correct.
+                # His ruling when the engine-meta clauses were dropped:
+                # "silence is NOT always worse. silence is better than fake
+                # explanation."
+                # What survives the strip has to still SAY something about
+                # this position. Mohit, reading his own cards 2026-10-12, hit
+                # "Look at what is already aimed at your king before you
+                # move." and "Those pieces did not arrive by accident..." --
+                # generic principles left standing after the instruction was
+                # removed, with the arrow gone too. That is not silence, it is
+                # filler wearing silence's clothes, and it is worse than the
+                # card that was there before this gate existed.
+                #
+                # A square reference is the cheapest proof that a sentence is
+                # about THIS board rather than any board. No square, no card.
+                if _stripped != caption_payload["caption"]:
+                    _keeps_board = bool(
+                        _re_pb.search(r"\b[a-h][1-8]\b", _stripped or ""))
+                    if _stripped and not _keeps_board:
+                        _stripped = ""
+                    caption_payload["caption"] = _stripped
+                    caption_payload["rule_name"] = (
+                        (caption_payload.get("rule_name") or "")
+                        + ("→DECIDED" if _stripped else "→DECIDED_SILENT")
+                    )
+                    _board_explanation = _stripped
+
+        # ─── Name the opening, where the lesson is an opening lesson ──
+        # Mohit 2026-10-10 on 2...Bg4 in a Philidor, badged inaccuracy at
+        # 51cp with no reason: "it should be captioned in as an opening
+        # teaching... which opening, what's better in this opening".
+        #
+        # It DECORATES: the opening leads and the caption follows intact.
+        # Writing a competing sentence was measured first and dropped -- it
+        # named the opening and deleted the reason, which is a bad trade.
+        # Runs after the decided-position gate on purpose: if that stripped
+        # the instruction there is no better move left to anchor to, and
+        # name_the_opening declines on its own.
+        if (inputs.opening_name and caption_payload.get("caption")
+                and int(inputs.cp_loss or 0) >= 30):
+            try:
+                from services.opening_lessons import name_the_opening
+                _opening_named = name_the_opening(
+                    caption_payload["caption"], inputs.fen_before,
+                    inputs.full_move_number, inputs.best_move_san,
+                    inputs.opening_name)
+            except Exception:
+                _opening_named = None
+            if _opening_named is not None:
+                caption_payload["caption"] = _opening_named.caption
+                caption_payload["rule_name"] = (
+                    (caption_payload.get("rule_name") or "") + "→OPENING")
+                if _board_explanation:
+                    _board_explanation = _opening_named.caption
+
         # A stalemate ends the game as a draw, and 127 of the 132 corpus
         # cards where a winning player stalemated never said so. One read
         # "Your opponent tidys up the king, keeping it safe" on the move that
@@ -8419,7 +9105,17 @@ def build_move_teaching_decision(
                 _br = ""
             if _br and _br not in caption_payload["caption"]:
                 _joined = caption_payload["caption"].rstrip() + " " + _br
-                if not _verify_final(_joined):
+                # Fit inside the word cap, for the same reason the better-move
+                # backstop checks it: the final _enforce_word_cap cuts at the
+                # last sentence boundary, so the stage that appends LAST is the
+                # one it eats. Over the pinned sample this lesson was the text
+                # dropped on 3 of 21 truncations, the only 3 that were not
+                # opening-course filler. Declining costs the same lesson and
+                # does not spend the budget on text nobody reads.
+                from services.caption_config import MAX_CAPTION_WORDS as _BR_CAP
+                if len(_joined.split()) > _BR_CAP:
+                    _joined = ""
+                if _joined and not _verify_final(_joined):
                     caption_payload["caption"] = _joined
                     if _board_explanation:
                         _board_explanation = _joined
@@ -8586,8 +9282,36 @@ def build_move_teaching_decision(
     )
 
     # ─── Build the decision ──────────────────────────────────────
+    # The word cap is enforced HERE, where the caption is finalised, and not
+    # only at stage 9. Measured over 3,755 user cards at 50cp+: 18 captions
+    # exceeded the 60-word cap with no change of mine and 19 with the
+    # better-move backstop, so the stage-9 _enforce_word_cap call is not
+    # constraining the final text -- R12_blunder alone ships 9 over-cap
+    # captions with no later appender involved. Everything between stage 9 and
+    # this line appends: the pin context, the opening decorator, the stalemate
+    # lead, the back-rank warning, move-undone, the backstop. Only the backstop
+    # checked the cap, and even it was defeated -- on Qf6 in 9b845c4c it left
+    # the caption at exactly 60 words and BACK_RANK then added 21 more.
+    #
+    # Six guards and a seventh for the next appender is the wrong shape. This
+    # is the one place every caption passes through, which is why a sentence
+    # appended BELOW this line never reaches a card -- a bug this file has
+    # already had, with the back-rank warning, earlier the same day.
+    #
+    # _enforce_word_cap cuts at the last sentence boundary inside the window
+    # and logs what it dropped, so no text disappears silently.
+    _final_caption = caption_payload.get("caption") or ""
+    if _final_caption:
+        try:
+            from services.caption_renderer import _enforce_word_cap as _cap_fn
+            _final_caption = _cap_fn(
+                _final_caption, caption_payload.get("rule_name") or "")
+        except Exception as _cap_exc:
+            logger.warning(
+                f"[word_cap] final enforcement failed "
+                f"m{inputs.full_move_number}: {_cap_exc!r}")
     text = TextSurface(
-        caption=caption_payload.get("caption") or "",
+        caption=_final_caption,
         rule_name=caption_payload.get("rule_name") or "R_FALLBACK",
     )
     # V5 move_output reads from caption_payload (renderer output),
@@ -9006,6 +9730,13 @@ def build_move_teaching_decision(
             if (_a["from"], _a["to"]) not in _seen_pairs:
                 _arrows_out = _arrows_out + [_a]
                 _seen_pairs.add((_a["from"], _a["to"]))
+
+    # An opening card that names a better move and draws nothing is the
+    # complaint that keeps coming back. The recommended move is legal on the
+    # board before the played move, which is the frame the card renders, so
+    # it can always be drawn -- but only when nothing better is already there.
+    if _opening_named is not None and not _arrows_out:
+        _arrows_out = list(_opening_named.arrows)
 
     visual = VisualSurface(
         arrows=_arrows_out,

@@ -137,6 +137,74 @@ PRINCIPLES: List[Dict[str, Any]] = [
     },
 
     {
+        # Mohit, 2026-10-12, on 26.Nb3 in
+        # rnbqkb1r/pp3ppp/8/2pp4/3Np4/2N5/PPPP1PPP/R1BQKB1R w:
+        #
+        #   "White is a whole knight up for a pawn ... the extra piece is
+        #    worth nothing while five of your pieces are still at home.
+        #    So the lesson here isn't 'don't get chased'. It's: When
+        #    you're a piece up but undeveloped, the extra piece does
+        #    nothing until your pieces are out. Use checks and threats to
+        #    develop with tempo."
+        #
+        # That is his sentence. The cue below says the same thing with
+        # "undeveloped" and "tempo" spelled out, because both are on the
+        # banned-jargon list for a 600-1500 reader
+        # ([[feedback_caption_voice_avoid_chess_jargon]],
+        # [[feedback_caption_very_easy_english]]). The meaning and the
+        # order are his; only those two words are traded for plain ones.
+        # If he wants his wording exactly, this is the line to change.
+        #
+        # Distinct from OP_FINISH_DEVELOPMENT (26), which is about
+        # attacking too early with pieces at home. Here the subject is a
+        # MATERIAL EDGE doing nothing: a different gate (a piece up) and
+        # a different lesson. Priority 25 so the material version wins
+        # when both match.
+        #
+        # Fire rate measured before building, on 2,227 flagged user
+        # moves: 0.1% at these thresholds. Mohit's call to ship it
+        # anyway -- "we are going to be dealing with thousands of games
+        # daily, so you know i need this there".
+        "id": "OP_MATERIAL_EDGE_UNDEVELOPED",
+        "name": "An extra piece needs the others out",
+        "phase_in_scope": ["opening", "middlegame"],
+        # 7, above TAC_CHECKS_CAPTURES_THREATS (9). Rendered on Mohit's
+        # own card at 25, this principle came third and CCT won with the
+        # surface reading he had just rejected -- "the engine had a check
+        # and you played a quiet move". Two reasons the higher number is
+        # right rather than convenient:
+        #
+        #   - it is strictly more specific. CCT fires on 393 of 2,227
+        #     flagged moves; this fires on a material edge PLUS four
+        #     board conditions PLUS engine endorsement by construction.
+        #   - its cue SUBSUMES CCT's advice. "Bring them out with checks
+        #     and threats" says what CCT says and adds why, so promoting
+        #     it loses no teaching.
+        #
+        # It stays below the material claims (TAC_HANGING_PIECE 11,
+        # OP_TRAPPED_KNIGHT 11) in spirit by refusing to fire at all
+        # when is_exchange_losing or a hanging own piece is present --
+        # the gate is in the detector, not in this number.
+        "priority": 7,
+        "match_kind": "counterfactual",
+        "aligned_moves": "any move that brings a piece off its starting square, ideally with a check or a threat",
+        "gate_policy": "endorsement_required + cp_loss_strict",
+        "suppress": "once_per_game",
+        "cue_best":   "You are ahead on material, but most of your pieces have never moved. Extra material does nothing until your pieces are out. Bring them out before you do anything else.",
+        "cue_top_n":  "You are ahead on material with most of your pieces still at home. Get them out before anything else. Material you cannot use is not an advantage yet.",
+        # The gate is endorsement_required, so this cue should be
+        # unreachable. Kept so the schema is complete and a later gate
+        # change cannot silently ship an empty string
+        # ([[feedback_empty_content_ships_silently]]).
+        "cue_absent": "Being ahead on material only helps once your pieces are out. As a default: bring every piece into the game before doing anything else.",
+        "visual_signature": {
+            "highlight": ["pieces_at_home"],
+            "arrows": [("best_move_from", "best_move_to", "green")],
+        },
+        "drill_outline": "5 positions a piece up with 4+ pieces on starting squares; correct answer develops a piece, ideally with check.",
+    },
+
+    {
         "id": "OP_LOOSE_KING_PAWNS",
         "name": "Don't loosen pawns near your king",
         "phase_in_scope": ["opening"],

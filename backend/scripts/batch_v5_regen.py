@@ -53,8 +53,25 @@ async def regen_one(db, game_id: str, user_id: str, *, dry_run: bool) -> dict:
 
     stored_version = analysis.get("decryption_v5_version", 0)
 
+    # game_id is REQUIRED: without it the service skips
+    # authored_caption_overrides for every move and silently drops
+    # hand-authored captions (190 docs over 29 games). It warns about
+    # exactly this, and this script is a production caller -- it
+    # rewrites the stored cards.
+    #
+    # opponent_move_evaluations likewise: 71% of games carry them, and
+    # without them the regenerated game has no opponent cards at all.
     decryption_data = await generate_game_decryption_v5(
-        pgn, user_color, move_evaluations, user_id, db
+        pgn,
+        user_color,
+        move_evaluations,
+        user_id,
+        db,
+        game_id=game_id,
+        opponent_move_evaluations=(
+            (analysis.get("stockfish_analysis") or {})
+            .get("opponent_move_evaluations") or []
+        ),
     )
     if not decryption_data:
         return {"status": "no_output", "prev_version": stored_version}
@@ -93,12 +110,18 @@ async def main(args) -> None:
             {"decryption_v5_version": {"$lt": V5_COACHING_VERSION}},
         ]
 
-    cursor = db.game_analyses.find(query, {"_id": 0, "game_id": 1}).sort("game_id", 1)
+    cursor = db.game_analyses.find(
+        query, {"_id": 0, "game_id": 1, "user_id": 1}).sort("game_id", 1)
     if args.limit and args.limit > 0:
         cursor = cursor.limit(args.limit)
 
-    game_ids = [doc["game_id"] async for doc in cursor]
-    total = len(game_ids)
+    # Carry each game's OWN user_id. Without --user-id this passed "" for
+    # every game, and user_id is what the service uses to load the player
+    # model -- conductor threads, motif/opening/concept memory, authored
+    # overrides. A corpus-wide run would have re-rendered 19k games with
+    # no player context and written the result over the stored cards.
+    targets = [(d["game_id"], d.get("user_id") or "") async for d in cursor]
+    total = len(targets)
     print(f"Target V5_COACHING_VERSION = {V5_COACHING_VERSION}", flush=True)
     print(f"Found {total} game(s) to regen. dry_run={args.dry_run}", flush=True)
     if total == 0:
@@ -108,9 +131,10 @@ async def main(args) -> None:
     summary = {"ok": 0, "no_inputs": 0, "no_output": 0, "missing": 0, "error": 0}
     started = time.time()
 
-    for i, gid in enumerate(game_ids, 1):
+    for i, (gid, gid_user) in enumerate(targets, 1):
         try:
-            res = await regen_one(db, gid, args.user_id or "", dry_run=args.dry_run)
+            res = await regen_one(
+                db, gid, args.user_id or gid_user, dry_run=args.dry_run)
         except Exception as e:
             res = {"status": "error", "error": str(e)}
 

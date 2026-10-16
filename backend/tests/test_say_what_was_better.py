@@ -1,0 +1,319 @@
+"""A flagged card names the move that was better, or says nothing about it.
+
+Mohit's standing complaint about his own review cards is that they describe
+without teaching. Measured 2026-10-10 over his stored reviews: 2,081 of 6,815
+flagged cards (31%) hold a best_move_san and never mention it, and the worst of
+them do not merely omit -- "Nxa5 wins the pawn for nothing" shipped on a 77cp
+mistake where the engine wanted Be3, so the card praises the move it flags.
+
+Over 400 games, at 100cp and above: 2,211 user cards carry a caption and a
+better move, 215 of them now name it because of this backstop, and the cards
+that still omit one went from 50 to 2.
+
+Three failures were measured and corrected before this shape, and each has a
+test below that fails if it comes back. Both fixtures are real cards, dumped
+from the corpus -- the first hand-built one passed while the backstop never
+fired at all, because with empty PVs a different producer names the move.
+"""
+from __future__ import annotations
+
+import inspect
+import os
+import sys
+
+import pytest
+
+_BACKEND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _BACKEND_ROOT not in sys.path:
+    sys.path.insert(0, _BACKEND_ROOT)
+
+from services import caption_pipeline  # noqa: E402
+from services.caption_config import MAX_CAPTION_WORDS  # noqa: E402
+from services.caption_pipeline import (  # noqa: E402
+    CrossMoveState,
+    MoveInputs,
+    build_move_teaching_decision,
+)
+
+# 737b6fd6 move 20. Black plays Rd8 into a forced mate. The card used to open
+# and close on "Look at what is already aimed at your king before you move" --
+# true, and it never said Be6.
+WHY_CARD = dict(
+    fen_before="r1b2rk1/ppp2p1p/7B/2b1p3/4n3/P5P1/BPP3PK/R4R2 b - - 1 20",
+    played_san="Rd8", mover_is_user=True, mover_is_white=False,
+    user_color="black", full_move_number=20, move_history_san=[],
+    best_move_san="Be6", best_move_uci="c8e6",
+    eval_before_cp=-472, eval_after_cp=9940, cp_loss=1482, opp_cp_loss=0,
+    pv_after_played=["Rxf7", "Rd5", "Bxd5", "Be6", "Bxe6", "Bg1+", "Rxg1",
+                     "Kh8", "Bg7+", "Kg8", "Rxc7#"],
+    pv_after_best=["Bxe6", "fxe6", "Bxf8", "Rxf8", "Rxf8+", "Kxf8", "g4",
+                   "h6", "a4", "Nf6", "Kg3", "e4"],
+)
+
+# e8d2cf8a move 31. d3 walks into Rh5+ Kg8 Rh8#. No why for Rd7 survives, so
+# this is the card that exercises the bare form.
+#
+# The FIRST bare fixture here was c5aab8ea move 17 (b5 / Nf4), and it stopped
+# being a bare card the moment the test container got the real
+# backend/data/captions/R12_blunder.json. With the stale file R12_blunder had
+# nothing to say and the backstop supplied a bare recommendation; with the real
+# one R12 produces "b5 is a mistake - it drops the pawn after Bxb5. Nf4 was
+# better - it puts your knight on a strong square the opponent can't
+# challenge..." all by itself, and the backstop correctly stands down because
+# the move is already named. Both fixtures are dumped from the corpus rather
+# than hand-built, which is the only reason the first pair was right at all.
+BARE_CARD = dict(
+    fen_before="4r3/r4p1k/p3b3/1p4R1/1n1p1N2/1P6/PB3PPP/4R1K1 b - - 0 31",
+    played_san="d3", mover_is_user=True, mover_is_white=False,
+    user_color="black", full_move_number=31, move_history_san=[],
+    best_move_san="Rd7", best_move_uci="a7d7",
+    eval_before_cp=360, eval_after_cp=9980, cp_loss=9620, opp_cp_loss=0,
+    pv_after_played=["Rh5+", "Kg8", "Rh8#"],
+    pv_after_best=["Re4", "Nxa2", "Bxd4", "Rxd4"],
+)
+
+
+# Both fixtures below are forced-mate positions (verified on the board:
+# 737b6fd6 m20 Rd8 runs into Rxc7#, e8d2cf8a m31 d3 runs into Rh5+ Kg8
+# Rh8#). Before v214 the mate card was softened away by a verifier that
+# asked "is the RECOMMENDED move mate?", so both fell through to this
+# backstop -- which is what every assertion below was written against.
+# With the distilled layer on (prod) they now ship the true, more
+# specific mate card instead, covered by TestAForcedMateIsFramedAsOne at
+# the end of this file.
+#
+# So pin the layer OFF for the backstop tests, rather than re-dumping
+# both fixtures and rewriting every assertion around them. These tests
+# are about the backstop; the mate card has its own class.
+@pytest.fixture(autouse=True)
+def _distilled_off():
+    prev = caption_pipeline._DISTILLED_CAPTIONS_ENABLED
+    caption_pipeline._DISTILLED_CAPTIONS_ENABLED = False
+    try:
+        yield
+    finally:
+        caption_pipeline._DISTILLED_CAPTIONS_ENABLED = prev
+
+
+def _decide(card=None, **over):
+    return build_move_teaching_decision(
+        MoveInputs(**{**(card or WHY_CARD), **over}), CrossMoveState())
+
+
+class TestTheCardNamesTheBetterMove:
+
+    def test_it_says_what_was_better(self):
+        assert "Be6" in _decide().text.caption
+
+    def test_and_marks_itself_so_the_two_forms_stay_countable(self):
+        assert "SAY_BETTER_WHY" in (_decide().text.rule_name or "")
+
+    def test_what_the_card_already_taught_is_not_replaced_by_it(self):
+        """This decorates. A sibling feature's earlier design wrote a
+        competing caption and dropped the reason; a name is not worth a why."""
+        assert "aimed at your king" in _decide().text.caption
+
+    def test_the_bare_card_names_the_move_with_no_board_claim(self):
+        out = _decide(BARE_CARD)
+        assert "SAY_BETTER_BARE" in (out.text.rule_name or "")
+        assert "Rd7 was better here." in out.text.caption
+
+
+class TestItNeverShipsAWhyTheBoardDoesNotSupport:
+    """FAILURE 1, and the reason this runs below the stage-4 verifier rather
+    than beside the 11c decorator above it. best_move_why is not always true.
+    The first version appended it blind and let the whole-caption gate judge;
+    over 60 games 3 of 38 residual cards lost the clause, and the verifier was
+    right both times I looked:
+
+      "Ne4 was better - it opens the line, and your queen can then play Qh4+
+       to chase the king on e1."   on a KNIGHT move
+      "Kd4 was better - 3 opponent pieces are aimed at your king on c5."
+       where the post-move board has none
+
+    Below the verifier the sentence is checked on its own, so a rejected why
+    costs the reason and not the recommendation. Moving it here also raised
+    coverage from 171 cards to 215 and cut the residue from 50 to 2.
+    """
+
+    def test_the_why_form_is_verified_before_it_is_used(self):
+        block = self._block()
+        assert "_verify_final(_sb_try)" in block
+
+    def test_and_a_rejected_why_falls_back_rather_than_dropping_the_move(self):
+        """The bare card is exactly this path: a why exists, the verifier
+        refuses it, and Rd7 reaches the student anyway."""
+        out = _decide(BARE_CARD)
+        assert "Rd7" in out.text.caption
+        assert "SAY_BETTER_BARE" in (out.text.rule_name or "")
+
+    @staticmethod
+    def _block():
+        src = inspect.getsource(caption_pipeline)
+        return src[src.index("SAY WHAT WAS BETTER"):src.index("_DECIDED_CP = 550")]
+
+
+class TestTheWordCap:
+    """FAILURE 2. caption_renderer enforces the cap at stage 9, which runs
+    BEFORE this backstop, so an appended sentence is never trimmed -- the card
+    just ships over the cap. 8 of 171 appended cards did; 0 of 215 do now.
+
+    Trimming instead of skipping would be worse: _enforce_word_cap cuts at the
+    last sentence boundary inside the window, so the sentence it drops is
+    always the LAST one, which is the recommendation itself. That is how "Play
+    b4 -- your pawn kicks their knight on a5" was lost from a card on
+    2026-09-13, as the warning inside that function says.
+    """
+
+    @pytest.mark.parametrize("card", [WHY_CARD, BARE_CARD])
+    def test_the_appended_card_stays_inside_the_cap(self, card):
+        assert len(_decide(card).text.caption.split()) <= MAX_CAPTION_WORDS
+
+    def test_a_skip_for_length_is_recorded_rather_than_silent(self):
+        """An unmeasured skip is how a gate drifts."""
+        src = inspect.getsource(caption_pipeline)
+        assert "SAY_BETTER_TOO_LONG" in src
+        assert "elif not _sb_add:" in src
+
+    def test_the_cap_is_enforced_where_the_caption_is_finalised(self):
+        """My own guard was not enough, and this is why.
+
+        On Qf6 in 9b845c4c the backstop left the caption at exactly 60 words,
+        inside the cap, and BACK_RANK then appended 21 more. Six stages append
+        below the stage-9 _enforce_word_cap call -- pin context, opening
+        decorator, stalemate lead, back-rank, move-undone, this backstop -- and
+        only this one checked. Measured over an identical pinned sample of
+        3,650 user cards at 50cp+: 25 captions exceeded the 60-word cap without
+        the final enforcement (MOVE_UNDONE 11, R12_blunder 11, BACK_RANK 3) and
+        0 with it. R12_blunder blowing the cap with no later appender involved
+        is the proof that stage 9 was not constraining the final text.
+        """
+        src = inspect.getsource(caption_pipeline)
+        where = src.index("text = TextSurface(")
+        assert "_enforce_word_cap" in src[:where], (
+            "the cap must be applied before the caption is copied into "
+            "TextSurface; below that line it never reaches a card")
+        assert "caption=_final_caption," in src
+
+
+class TestWhatItRefuses:
+
+    def test_it_stays_out_of_the_50_to_99_band(self):
+        """Mohit 2026-10-10 on a 51cp card: "this is actually not a bad move,
+        right we should stop flagging 51cp as inaccuracy". Below the canonical
+        mistake bar the gentler "Though {best} was a bit stronger" wording in
+        caption_fallback_tiers owns the band, and this must not talk over it.
+        Measured: the 50-99 band is left entirely alone, 0 cards touched."""
+        assert "SAY_BETTER" not in (_decide(cp_loss=75).text.rule_name or "")
+
+    def test_it_does_not_coach_the_opponent(self):
+        """On an opponent card the stored better move is THEIRS, and the
+        caption correctly recommends OUR reply. Appending "Be6 was better"
+        there hands the lesson to the wrong player -- and that contamination
+        is why the first measurement of this defect was thrown away and redone
+        split by side."""
+        assert "SAY_BETTER" not in (
+            _decide(mover_is_user=False).text.rule_name or "")
+
+    def test_it_says_nothing_when_the_played_move_was_the_engine_s(self):
+        assert "SAY_BETTER" not in (
+            _decide(best_move_san="Rd8").text.rule_name or "")
+
+    @pytest.mark.parametrize("cp", [0, 10, 99])
+    def test_nothing_below_the_mistake_bar(self, cp):
+        assert "SAY_BETTER" not in (_decide(cp_loss=cp).text.rule_name or "")
+
+
+class TestItComposesWithTheGatesBelowIt:
+
+    def test_a_decided_position_does_not_silence_an_engine_backed_card(self):
+        """UPDATED 2026-10-12. This used to assert that a decided position
+        always strips the instruction. It does not any more, and should not.
+
+        Mohit: "being in a lost position should never, by itself, disqualify a
+        move from receiving a useful explanation." Measured over 2,347 of his
+        cards: of 309 silenced by that gate, 43 carried a punishment verdict
+        and 52 an opportunity -- 95 cards where Stockfish's own line explains
+        the move and we said nothing because the eval was past 5.5 pawns.
+
+        This fixture allows forced mate (pv ends Rxc7#), so it HAS an
+        engine-backed verdict and keeps its instruction even at -900.
+        """
+        out = _decide(eval_before_cp=-900)
+        assert "Be6" in out.text.caption, (
+            "a card the engine's own line explains must survive the decided "
+            "gate; the gate is for cards where we would be inventing a lesson")
+
+    def test_but_a_card_with_no_engine_story_still_goes_quiet(self):
+        """The gate still does its original job. The Kxe5 card that prompted
+        it -- a rook ending where the engine inverts its own preference
+        between depth 16 and 28 -- has no punishment or opportunity verdict,
+        so nothing shields it. Pinned in test_decided_position_gate.py."""
+        from services.caption_pipeline import classify_move_story
+        story, _ = classify_move_story(
+            "8/4k3/3R3b/3Kp3/pn2P3/8/P7/8 w - - 1 58", "Kxe5", [], [], "Kc5")
+        assert story == "neither", (
+            "if this card gains a verdict the decided gate stops covering it "
+            "and this test is no longer testing the gate")
+
+    def test_and_the_order_is_visible_in_the_source(self):
+        """Pinned because the composition above can pass for the wrong reason
+        -- for instance if the backstop simply never fired at all."""
+        src = inspect.getsource(caption_pipeline)
+        assert src.index("SAY WHAT WAS BETTER") < src.index("_DECIDED_CP = 550")
+
+
+class TestItSurvivesJunk:
+
+    @pytest.mark.parametrize("over", [
+        {"best_move_san": None},
+        {"best_move_san": ""},
+        {"eval_before_cp": None},
+        {"pv_after_best": []},
+        {"pv_after_played": []},
+    ])
+    def test_no_raise_on_missing_inputs(self, over):
+        assert _decide(**over) is not None
+
+    def test_cp_loss_is_not_optional_so_none_is_not_a_case(self):
+        """Noted rather than guarded: a None cp_loss raises in stage 9b, far
+        above this code, but MoveInputs declares `cp_loss: int = 0`, so None
+        violates the type and no caller passes it. Pinned so a later reader
+        does not mistake that crash for a defect this backstop introduced."""
+        import dataclasses
+        field = {f.name: f for f in dataclasses.fields(MoveInputs)}["cp_loss"]
+        assert field.type in ("int", int)
+
+
+class TestAForcedMateIsFramedAsOne:
+    """v214. Both fixtures in this file are positions where the opponent
+    forces mate. The verifier used to reject the mate card by asking
+    whether the RECOMMENDED move is mate -- it never is -- so the card
+    fell to the backstop above. With the distilled layer on, as it is on
+    prod, the mate card now ships: it names the better move AND says why,
+    which is strictly more than the backstop could say."""
+
+    @pytest.fixture(autouse=True)
+    def _distilled_on(self):
+        prev = caption_pipeline._DISTILLED_CAPTIONS_ENABLED
+        caption_pipeline._DISTILLED_CAPTIONS_ENABLED = True
+        try:
+            yield
+        finally:
+            caption_pipeline._DISTILLED_CAPTIONS_ENABLED = prev
+
+    def test_the_why_fixture_names_the_mate_and_the_move(self):
+        cap = _decide(WHY_CARD).text.caption
+        assert "Be6" in cap, cap
+        assert "force mate" in cap, cap
+
+    def test_the_bare_fixture_names_the_mate_and_the_move(self):
+        cap = _decide(BARE_CARD).text.caption
+        assert "Rd7" in cap, cap
+        assert "force mate" in cap, cap
+
+    def test_the_mate_is_credited_to_the_opponent_not_to_us(self):
+        for card in (WHY_CARD, BARE_CARD):
+            cap = _decide(card).text.caption.lower()
+            assert "your opponent" in cap, cap
+            assert "you force mate" not in cap, cap

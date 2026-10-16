@@ -284,6 +284,9 @@ def _r05_trigger(f):
         "is_check": bool(f.get("is_check")),
         "threats_created_present": bool(f.get("threats_created")),
         "cp_loss": f.get("cp_loss") or 0,
+        "mover_cp_loss": (f.get("mover_cp_loss")
+                          if f.get("mover_cp_loss") is not None
+                          else (f.get("cp_loss") or 0)),
     })
 
 
@@ -307,6 +310,9 @@ def _r06_trigger(f):
     return should_fire("R06_check_plain", {
         "is_check": bool(f.get("is_check")),
         "cp_loss": f.get("cp_loss") or 0,
+        "mover_cp_loss": (f.get("mover_cp_loss")
+                          if f.get("mover_cp_loss") is not None
+                          else (f.get("cp_loss") or 0)),
     })
 
 
@@ -348,6 +354,9 @@ def _r08_trigger(f):
     return should_fire("R08_material", {
         "material_gain_meets_threshold": delta >= MIN_MATERIAL_CAPTION_GAIN_CP,
         "cp_loss": f.get("cp_loss") or 0,
+        "mover_cp_loss": (f.get("mover_cp_loss")
+                          if f.get("mover_cp_loss") is not None
+                          else (f.get("cp_loss") or 0)),
     })
 
 
@@ -405,6 +414,9 @@ def _r10_trigger(f):
     return should_fire("R10_threat", {
         "max_threat_see_cp": max_see,
         "cp_loss": f.get("cp_loss") or 0,
+        "mover_cp_loss": (f.get("mover_cp_loss")
+                          if f.get("mover_cp_loss") is not None
+                          else (f.get("cp_loss") or 0)),
     })
 
 
@@ -429,6 +441,9 @@ def _r11_trigger(f):
         "phase": f.get("phase"),
         "moving_piece_type": f.get("moving_piece_type"),
         "cp_loss": f.get("cp_loss") or 0,
+        "mover_cp_loss": (f.get("mover_cp_loss")
+                          if f.get("mover_cp_loss") is not None
+                          else (f.get("cp_loss") or 0)),
     })
 
 
@@ -460,7 +475,15 @@ def _r11_render(f):
 
 # R12 — Blunder fallback. cp_loss threshold (>= 100) in R12_blunder.json.
 def _r12_trigger(f):
-    return should_fire("R12_blunder", {"cp_loss": f.get("cp_loss") or 0})
+    return should_fire(
+        "R12_blunder",
+        # The trigger asks how bad THIS move was, so it reads the
+        # mover's own loss. cp_loss is the USER's and is 0 on
+        # every opponent card -- which is why R12, 83.7% of user
+        # captions, had never written one.
+        {"mover_cp_loss": (f.get("mover_cp_loss")
+                          if f.get("mover_cp_loss") is not None
+                          else (f.get("cp_loss") or 0))})
 
 
 def _r12_pick_hanging(undef_list):
@@ -613,6 +636,9 @@ def _r12_render(f):
         "played_san": played,
         "best_move_san": best,
         "cp_loss": f.get("cp_loss") or 0,
+        "mover_cp_loss": (f.get("mover_cp_loss")
+                          if f.get("mover_cp_loss") is not None
+                          else (f.get("cp_loss") or 0)),
         "mover_is_user": f.get("mover_is_user"),
         "best_move_san_differs": bool(best and best != played),
 
@@ -772,6 +798,9 @@ def _r14_trigger(f):
     return should_fire("R14_forced_best", {
         "played_is_best": bool(f.get("played_is_best")),
         "cp_loss": f.get("cp_loss") or 0,
+        "mover_cp_loss": (f.get("mover_cp_loss")
+                          if f.get("mover_cp_loss") is not None
+                          else (f.get("cp_loss") or 0)),
     })
 
 
@@ -793,6 +822,9 @@ def _r15_trigger(f):
     return should_fire("R15_good_move", {
         "played_is_best": bool(f.get("played_is_best")),
         "cp_loss": f.get("cp_loss") or 0,
+        "mover_cp_loss": (f.get("mover_cp_loss")
+                          if f.get("mover_cp_loss") is not None
+                          else (f.get("cp_loss") or 0)),
         "mover_is_user": f.get("mover_is_user") is True,
     })
 

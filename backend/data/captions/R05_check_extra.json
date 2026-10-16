@@ -11,7 +11,7 @@
     "when": {
       "is_check": true,
       "threats_created_present": true,
-      "cp_loss": {"lt": 30}
+      "mover_cp_loss": {"lt": 30}
     }
   },
   "variants": {

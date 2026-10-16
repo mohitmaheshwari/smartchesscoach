@@ -21,6 +21,9 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 
 from services.puzzle_extraction_service import (
+    FORCED_MATE_PATTERN,
+    forced_mate_candidate,
+    is_forced_mate_quality,
     verified_puzzle_admission_enforced,
     verdict_serves_pattern,
 )
@@ -34,11 +37,27 @@ logger = logging.getLogger(__name__)
 
 
 def _verified_pattern_from_verdict(verdict) -> str:
+    """The drill label this proven answer is served under.
+
+    Mirrors `stored_pattern_label` for a verdict that has not been persisted:
+    a proven mate is reported as forced_mate so the card that asks the
+    question and the pool that found the position agree on which lesson this
+    is. The broad category underneath is unchanged.
+    """
+    if is_forced_mate_quality(verdict.quality_id):
+        return FORCED_MATE_PATTERN
     return verdict.broad_category or "calculation_depth"
 
 
 def _verdict_matches_requested(verdict, pattern: str) -> bool:
     """Match a freshly adjudicated object before it has been persisted."""
+    if pattern == FORCED_MATE_PATTERN:
+        # Before the enforcement shortcut, which accepts everything: a mate
+        # drill serving non-mates is worse than a mate drill serving nothing.
+        return (
+            verdict.status in {AdmissionStatus.SPECIFIC, AdmissionStatus.BROAD}
+            and is_forced_mate_quality(verdict.quality_id)
+        )
     if not verified_puzzle_admission_enforced():
         return True
     if verdict.status in {AdmissionStatus.SPECIFIC, AdmissionStatus.BROAD}:
@@ -83,6 +102,11 @@ WEAKNESS_TO_PUZZLE_THEMES = {
                            "interference", "attraction"],
     "missed_tactic":      ["fork", "pin", "skewer", "discoveredAttack",
                            "deflection", "mateIn2", "mateIn3"],
+    # The mate drill. Own-game and community mates come from the proof, not
+    # from a theme; this is only the Lichess fill tier, and it is capped at
+    # mate-in-3 because the stored pool reaches mate-in-7 and "find mate in
+    # seven" is not a drill for a 600-1500.
+    "forced_mate":        ["mateIn1", "mateIn2", "mateIn3"],
     "calculation_depth":  ["long", "veryLong", "intermezzo", "quietMove",
                            "sacrifice", "mateIn3", "mateIn4"],
     "ignore_threat":      ["hangingPiece", "defensiveMove", "trappedPiece",
@@ -269,6 +293,11 @@ PATTERN_COACHING = {
         "what_to_look_for": "Find the piece doing the least, and give it something to do.",
         "why_this_matters": "Your games show pieces left out of play.",
     },
+    "forced_mate": {
+        "lesson": "Finish the Game",
+        "what_to_look_for": "Look at every check first, and ask which one the king cannot answer.",
+        "why_this_matters": "You had a checkmate here in a real game and played something else.",
+    },
     "punish_blunders": {
         "lesson": "Punishing Mistakes",
         "what_to_look_for": "They just erred. Find the move that makes them pay.",
@@ -295,6 +324,11 @@ WEAKNESS_TO_PATTERN_TYPES = {
     "missed_tactic":      ["fork", "pin", "skewer", "tactical_miss", "discovered_attack"],
     "piece_safety":       ["piece_safety", "hanging_piece", "trapped_piece"],
     "king_safety":        ["checkmate_pattern", "back_rank"],
+    # Proven mates in this pool are filed under pattern_type "missed_tactic"
+    # -- all 344 of them, counted 2026-10-13 on the live collection, 0 under
+    # any mate-ish name. The pattern_type narrows the candidates; the proof
+    # (verdict_serves_pattern) is what admits them.
+    "forced_mate":        ["missed_tactic"],
     # These four all pointed at "positional", and community_training_positions
     # contains ZERO rows with pattern_type "positional" -- so every one of them
     # rendered an empty page. The extractor stores the literal pattern name
@@ -1063,6 +1097,16 @@ class CoachingPuzzleService:
         """
         pattern = (weakness_pattern or "").lower().strip()
         move_gap = (move.get("cognitive_gap") or "").lower().strip()
+
+        # forced_mate is the one request no cognitive_gap can answer. A
+        # missed mate is tagged with the BROAD gap on purpose
+        # (analysis_interpreter), and on the 358 proven mate rows in the live
+        # pool that gap is `missed_tactic` or `tactical_oversight` -- neither
+        # of which means "there was a mate here". So the prover answers it,
+        # and `_verdict_matches_requested` still demands the full proof
+        # before the position is served.
+        if pattern == FORCED_MATE_PATTERN:
+            return forced_mate_candidate(move)
 
         # Direct cognitive_gap match — the canonical path.
         if move_gap and move_gap == pattern:

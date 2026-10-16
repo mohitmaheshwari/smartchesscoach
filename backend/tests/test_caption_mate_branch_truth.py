@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import chess
+import re
+
 import pytest
 
 from services.caption_claim_verifier import verify as verify_structured_claim
@@ -82,8 +84,16 @@ def test_audited_best_branch_mates_are_never_framed_as_allowed_mate(case):
 
     assert decision.cause is not None
     assert decision.cause.lesson_kind == "missed_forced_mate"
-    assert "misses mate in 2" in decision.text.caption
-    assert "allows mate" not in decision.text.caption
+    # v214: the distilled missed_mate card is no longer softened away, so it
+    # writes these cards and says "missed a checkmate" rather than the old
+    # rule's "misses mate in 2". What this test is named for -- missed, never
+    # framed as allowed -- is asserted directly instead of via one wording.
+    caption = decision.text.caption
+    assert re.search(r"miss(?:es|ed) (?:mate|a checkmate)", caption), caption
+    assert "allows mate" not in caption
+    assert "lets your opponent" not in caption
+    # and the move credited with the mate is OUR best move, not a reply to it
+    assert case["best"] in caption, caption
     assert decision.explanation.final_verified is True
 
 

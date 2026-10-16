@@ -5527,7 +5527,16 @@ def extract_primary_reason(facts: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # on a 286-cp blunder is teaching the wrong thing. Fall through
     # to the blunder/mistake rules (added in a later commit) instead.
     # Bug from d7ce40cf corpus: #19 Re7, #17 a3, #9 Bg5.
-    _move_cpl = facts.get("cp_loss") or 0
+    # How bad was THIS move, for whoever played it. This single
+    # line decides the CATEGORY, and the category decides which
+    # rules are even candidates -- so with cp_loss (the USER's
+    # loss, 0 on an opponent card) an opponent move could never
+    # reach category "blunder", and R12_blunder was never offered.
+    # It also left _tactic_ok True on their blunders, qualifying
+    # them for tactic celebration.
+    _move_cpl = (facts.get("mover_cp_loss")
+                 if facts.get("mover_cp_loss") is not None
+                 else (facts.get("cp_loss") or 0))
     _tactic_ok = _move_cpl < MAX_CP_LOSS_FOR_TACTIC_CELEBRATION
 
     # Priority 2: own tactic shape on the played move (gated)
@@ -7239,6 +7248,186 @@ def _p_op_finish_development(
         },
         "engine_endorsement": endorsement,
         "aligned_moves_offered": aligned[:5],
+    }
+
+
+# ── Detector #35: OP_MATERIAL_EDGE_UNDEVELOPED ─────────────
+#
+# Mohit's lesson, 2026-10-12, on
+#   rnbqkb1r/pp3ppp/8/2pp4/3Np4/2N5/PPPP1PPP/R1BQKB1R w (26.Nb3):
+#
+#   "White is a whole knight up for a pawn. The extra piece is worth
+#    nothing while five of your pieces are still at home. So the lesson
+#    isn't 'don't get chased'. It's: when you're a piece up but
+#    undeveloped, the extra piece does nothing until your pieces are out.
+#    Use checks and threats to develop with tempo."
+#
+# I had first offered him the surface reading of that move (the knight
+# gets chased, tempo) and he corrected it. The material edge is the
+# subject; the undevelopment is why it is worth nothing.
+#
+# Written as four board conditions so it is a pattern and never that
+# position, per [[feedback_design_the_pattern_never_the_position]]:
+#
+#   1. the mover is materially AHEAD by a piece      the wasted edge
+#   2. four+ of the mover's pieces are home          why it is wasted
+#   3. the PLAYED move develops nothing              what went wrong
+#   4. the ENGINE's move does develop                what to do instead
+#
+# 3-vs-4 is the comparison rule. Without it this fires on every move of
+# every won game, which is a base rate and not a lesson -- exactly the
+# failure the MID_BAD_BISHOP note at the bottom of _principles_violated
+# describes. Because the two conditions are about the CHOICE rather than
+# about the position, this detector is an error detector by construction.
+#
+# Fire rate measured BEFORE building, on 2,227 flagged user moves:
+#   edge>=200 home>=4   2  (0.1%)      <- shipped
+#   edge>=200 home>=3   5  (0.2%)
+#   edge>=100 home>=4  12  (0.5%)
+# edge>=100 was rejected: a pawn up is not "the extra piece does
+# nothing", so loosening it would print a claim the lesson can't carry.
+_MATERIAL_EDGE_CP = 200   # a piece for a pawn, which is Mohit's case
+_MIN_PIECES_AT_HOME = 4   # the majority of a seven-piece back rank
+
+# No new home-square table and no new piece-value table: _HOME_SQUARES
+# (a tuple of (square, piece_type) pairs) and PIECE_VALUE_CP both
+# already live in this module. Adding a second _HOME_SQUARES here as a
+# dict silently shadowed the original and broke pieces_still_at_home(),
+# which backs OP_SAME_PIECE_TWICE -- it went quiet rather than crashing,
+# because every detector call is wrapped in `except Exception`.
+# [[feedback_single_source_of_truth]]
+
+
+def _pieces_at_home(
+    board: chess.Board,
+    colour: bool,
+    exclude_queen: bool = False,
+) -> List[str]:
+    """Squares where this side's original piece has never moved.
+
+    exclude_queen drops the queen from the count. It is needed for the
+    "did this move develop something" test but NOT for the "how much of
+    the army is still home" test: Mohit counted d1 among the five pieces
+    still at home in his own example, and she is genuinely sitting there.
+    She just cannot be the piece whose emergence we praise -- see
+    OP_QUEEN_OUT_EARLY, priority 30, in the same catalog.
+    """
+    out: List[str] = []
+    for sq, ptype in _HOME_SQUARES[colour]:
+        if exclude_queen and ptype == chess.QUEEN:
+            continue
+        piece = board.piece_at(sq)
+        if (piece is not None and piece.color == colour
+                and piece.piece_type == ptype):
+            out.append(chess.square_name(sq))
+    return sorted(out)
+
+
+def _material_edge_cp(board: chess.Board, colour: bool) -> int:
+    """Counted on the board handed in. Callers must hand in the board
+    BEFORE the played move: counting after it turns an even recapture
+    into a loss, which is the bug _story_swing documents and which was
+    reintroduced in new code on 2026-10-12 anyway.
+    """
+    return sum(PIECE_VALUE_CP.get(p.piece_type, 0)
+               * (1 if p.color == colour else -1)
+               for p in board.piece_map().values())
+
+
+def _p_op_material_edge_undeveloped(
+    facts: Dict[str, Any],
+    board_before: chess.Board,
+) -> Optional[Dict[str, Any]]:
+    """Fires when a side a piece up spends a move without developing,
+    while the engine's move does develop one."""
+    if facts.get("phase") not in ("opening", "middlegame"):
+        return None
+    cp_loss = facts.get("cp_loss") or 0
+    if cp_loss < 30:
+        return None
+    # cp_loss is 6000+ on delivered checkmates (sign flip on terminal
+    # positions). One of the two cards this detector first fired on was
+    # Nxf7+ at 9330cp: whatever that move is, "finish developing" is not
+    # its lesson.
+    if cp_loss > 1000:
+        return None
+    # A card whose real lesson is "you dropped a piece" must not be
+    # taught as "finish developing". These are the same two facts
+    # TAC_HANGING_PIECE reads, so the two principles cannot disagree
+    # about whether material is hanging -- one source, two readers
+    # ([[feedback_single_source_of_truth]]).
+    if facts.get("is_exchange_losing"):
+        return None
+    for _p in (facts.get("pieces_now_undefended") or []):
+        if _p.get("now_attacked") and _p.get("is_now_hanging"):
+            return None
+    own_color = (chess.WHITE if facts.get("moving_piece_color") == "white"
+                 else chess.BLACK)
+    # 1. the edge that is being wasted
+    edge = _material_edge_cp(board_before, own_color)
+    if edge < _MATERIAL_EDGE_CP:
+        return None
+    # 2. the reason it is wasted
+    home_before = _pieces_at_home(board_before, own_color)
+    if len(home_before) < _MIN_PIECES_AT_HOME:
+        return None
+    played_san = _normalize_san(facts.get("played_san") or "")
+    best_san = _normalize_san(facts.get("best_move_san") or "")
+    if not played_san or not best_san or played_san == best_san:
+        return None
+    try:
+        after_played = board_before.copy()
+        after_played.push(board_before.parse_san(played_san))
+        after_best = board_before.copy()
+        after_best.push(board_before.parse_san(best_san))
+    except Exception:
+        return None
+    # Conditions 3 and 4 compare non-queen pieces only, so that a queen
+    # sortie never reads as development.
+    minors_before = _pieces_at_home(board_before, own_color,
+                                    exclude_queen=True)
+    # 3. the played move developed nothing
+    if len(_pieces_at_home(after_played, own_color,
+                           exclude_queen=True)) < len(minors_before):
+        return None
+    # 4. the engine's move does
+    home_best = _pieces_at_home(after_best, own_color, exclude_queen=True)
+    if len(home_best) >= len(minors_before):
+        return None
+    freed = [s for s in minors_before if s not in home_best]
+    # The caption must be true of THIS board. "A piece up" is false on
+    # 38.9% of fires (edge 400cp+) and "use checks and threats" points
+    # away from the engine's move on 93.9% (it is quiet), so neither
+    # goes in a fixed string. why_text is preferred by the pipeline over
+    # the static cue.
+    _lead = ("You are a piece up"
+             if edge < 400 else
+             "You are well ahead on material")
+    if after_best.is_check():
+        _method = ("Bringing a piece out with check is the fastest way "
+                   "— your opponent has to answer, so you develop "
+                   "for free.")
+    else:
+        _method = "Bring them out before you do anything else."
+    why_text = (
+        f"{_lead}, but most of your pieces have never moved. "
+        f"Extra material does nothing until your pieces are out. "
+        f"{_method}"
+    )
+    # The engine endorses this principle by definition of condition 4 --
+    # its own move is the aligned move. Offer it rather than asking
+    # _principle_engine_endorsement to rediscover the fact.
+    return {
+        "principle_id": "OP_MATERIAL_EDGE_UNDEVELOPED",
+        "evidence": {
+            "material_edge_cp": edge,
+            "pieces_at_home": home_before,
+            "developed_by_best": freed,
+            "best_move_gives_check": after_best.is_check(),
+            "why_text": why_text,
+        },
+        "engine_endorsement": "best",
+        "aligned_moves_offered": [best_san],
     }
 
 
@@ -9165,6 +9354,7 @@ def _principles_violated(
         _p_mid_keep_attackers,
         _p_def_trade_attackers,
         _p_tac_skewer_pattern,
+        _p_op_material_edge_undeveloped,  # added 2026-10-12 — a piece up and still at home
         # MID_BAD_BISHOP and OP_BISHOP_TRADE_DOUBLES_PAWN are deliberately
         # NOT in this tuple. This list answers "what did the player do
         # wrong on this move", and neither of them can. Measured over 800
@@ -9278,14 +9468,48 @@ _REC_PRINCIPLE_PHRASE = {
     # PAWN, KNIGHT or BISHOP landing on a centre square, so naming the piece
     # type would be false two thirds of the time. "moves into the middle" is
     # true for all three and avoids calling a pawn a piece.
-    "center": "moves into the middle, where it takes squares away from his pieces",
+    # Possessives are TEMPLATED, never baked in: this table is read for
+    # the mover's own move, and the mover is not always the reader. Four
+    # of these five said "your"/"his" outright, which was invisible while
+    # best_move_why only ever rendered on user cards. The moment it
+    # rendered on opponent cards, 288 of 2,739 of them (10.5%) told the
+    # reader that the OPPONENT's piece was theirs -- flagged live by
+    # Mohit on "They missed Nc6 - it puts your knight on a square where
+    # no pawn can chase it away."
+    #   {own}  the mover's own pieces        your / their / the
+    #   {own2} the same, before a noun       your own / their own / its own
+    #   {opp}  the side NOT moving           their / your / the opponent's
+    # Render through _rec_principle_phrase(), never by direct lookup.
+    "center": "moves into the middle, where it takes squares away from {opp} pieces",
     "develop": "brings a new piece into the game",
-    "castle": "tucks your king away from the middle",
+    "castle": "tucks {own} king away from the middle",
     # NOT "a line with no pawns" -- the classifier only checks that none of the
     # player's OWN pawns sit on that file; enemy pawns may still be there.
-    "rook_open_file": "puts your rook on a line where none of your own pawns are in the way",
-    "outpost": "puts your knight on a square where no pawn can chase it away",
+    "rook_open_file": "puts {own} rook on a line where none of {own2} pawns are in the way",
+    "outpost": "puts {own} knight on a square where no pawn can chase it away",
 }
+
+
+def _rec_principle_phrase(
+    principle: Optional[str],
+    mover_is_user: Optional[bool],
+) -> Optional[str]:
+    """Fill _REC_PRINCIPLE_PHRASE's possessives for whoever moved.
+
+    When the caller does not know who moved, the phrasing goes neutral
+    rather than guessing -- the same rule _recommended_move_why already
+    applies to _own. A neutral phrase is never wrong.
+    """
+    template = _REC_PRINCIPLE_PHRASE.get(principle or "")
+    if not template:
+        return None
+    if mover_is_user is True:
+        own, own2, opp = "your", "your own", "their"
+    elif mover_is_user is False:
+        own, own2, opp = "their", "their own", "your"
+    else:
+        own, own2, opp = "the", "its own", "the opponent's"
+    return template.format(own=own, own2=own2, opp=opp)
 
 
 # Below this static-exchange value on the target square, a capture is not a
@@ -9879,6 +10103,150 @@ def _line_payoff_after_sacrifice(
     return None
 
 
+def _contested_target(
+    board_before: chess.Board,
+    best_move: Optional[chess.Move],
+) -> Optional[Dict[str, Any]]:
+    """A point the engine's move attacks exactly as often as it is defended.
+
+    Returns the square, the piece standing on it, both counts and a
+    verdict of "wins" (attackers outnumber defenders) or "level" (equal,
+    so one more attacker decides it). Returns None when the defenders
+    outnumber the attackers, because "bring one more" is then wrong
+    advice -- more than one is needed, and a card that cannot say the
+    right thing should say nothing.
+
+    Counts come from _exchange_participants (SEE order, pinned pieces
+    filtered). Kings are excluded there by SEE convention, so a point
+    guarded only by a king reads as undefended; that is the same
+    convention the rest of this module already uses.
+    """
+    if best_move is None:
+        return None
+    try:
+        mover = board_before.turn
+        after = board_before.copy()
+        after.push(best_move)
+        landed = after.piece_at(best_move.to_square)
+        if landed is None or landed.color != mover:
+            return None
+        best: Optional[Dict[str, Any]] = None
+        # only squares the MOVED piece now bears on -- this has to be
+        # about the move, not about the position in general
+        for sq in after.attacks(best_move.to_square):
+            victim = after.piece_at(sq)
+            if victim is None or victim.color == mover:
+                continue
+            if victim.piece_type == chess.KING:
+                continue
+            attackers, defenders = _exchange_participants(after, sq, mover)
+            n_att, n_def = len(attackers), len(defenders)
+            # No defender means the target is hanging, not contested.
+            # "You attack it once and they defend it zero times" is a
+            # clumsy way to say it is free, and 1,480 cards would have
+            # said exactly that.
+            if n_att < 1 or n_def < 1:
+                continue
+            if n_att > n_def:
+                verdict = "wins"      # more attackers than defenders
+            elif n_att == n_def:
+                verdict = "level"     # one more attacker decides it
+            else:
+                # "bring one more" would be wrong here: they hold it more
+                # times than we hit it, so more than one is needed. Say
+                # nothing rather than give advice that does not work.
+                continue
+            cand = {
+                "square": chess.square_name(sq),
+                "piece": PIECE_TYPE_NAMES.get(victim.piece_type, "piece"),
+                "attackers": n_att,
+                "defenders": n_def,
+                "verdict": verdict,
+                "piece_value_cp": PIECE_VALUE_CP.get(victim.piece_type, 0),
+            }
+            # the most valuable contested point is the one worth teaching
+            if best is None or cand["piece_value_cp"] > best["piece_value_cp"]:
+                best = cand
+        return best
+    except Exception:
+        return None
+
+
+def _reply_gap(
+    board_before: chess.Board,
+    played_san: Optional[str],
+    best_san: Optional[str],
+    pv_after_played: Optional[Sequence[str]],
+    pv_after_best: Optional[Sequence[str]],
+) -> Optional[Dict[str, Any]]:
+    """What the opponent gets to do after the played move, and not after
+    the engine's.
+
+    One ply deep on purpose. Diffing the END of two long lines was tried
+    and measured at 52-62% directional accuracy -- a coin flip -- because
+    over sixteen plies the two positions diverge for reasons that have
+    nothing to do with the move. The opponent's FIRST reply is still
+    about the move that was played.
+
+    Returns the reply, what it does, and the engine-line reply that it is
+    being contrasted with. Returns None when the two replies are the same
+    move, when either is unplayable, or when nothing separates them.
+    """
+    if not (played_san and best_san and pv_after_played and pv_after_best):
+        return None
+    try:
+        reply_played = str(pv_after_played[0])
+        reply_best = str(pv_after_best[0])
+    except Exception:
+        return None
+    if _normalize_san(reply_played) == _normalize_san(reply_best):
+        return None
+
+    def _after(first: str, reply: str):
+        board = board_before.copy()
+        board.push(board.parse_san(str(first)))
+        move = board.parse_san(str(reply))
+        return board, move
+
+    try:
+        b_played, m_played = _after(played_san, reply_played)
+        b_best, m_best = _after(best_san, reply_best)
+    except Exception:
+        return None
+
+    # Only the two facts that earned it. attacks_us (64.5%) and
+    # takes_centre (59.4%) are left out deliberately.
+    played_check = b_played.gives_check(m_played)
+    played_capture = b_played.is_capture(m_played)
+    best_check = b_best.gives_check(m_best)
+    best_capture = b_best.is_capture(m_best)
+
+    allows = []
+    if played_check and not best_check:
+        allows.append("check")
+    if played_capture and not best_capture:
+        allows.append("capture")
+    if not allows:
+        return None
+
+    captured = None
+    if "capture" in allows:
+        if b_played.is_en_passant(m_played):
+            captured = "pawn"
+        else:
+            victim = b_played.piece_at(m_played.to_square)
+            captured = (PIECE_TYPE_NAMES.get(victim.piece_type)
+                        if victim else None)
+    return {
+        "their_reply": _normalize_san(reply_played),
+        "their_reply_after_best": _normalize_san(reply_best),
+        "allows": allows,
+        "captured_piece": captured,
+        "capture_square": (chess.square_name(m_played.to_square)
+                           if "capture" in allows else None),
+    }
+
+
 def _recommended_move_why(
     board: chess.Board,
     move: Optional[chess.Move],
@@ -9902,6 +10270,17 @@ def _recommended_move_why(
         return None
     # Possessive for pieces belonging to the MOVER.
     _own = "your" if mover_is_user else ("their" if mover_is_user is False else "the")
+    # ...and the side NOT moving. The capture branch below talks about
+    # the piece being taken and the player who takes it back, both of
+    # which belong to the opponent OF THE MOVER -- which is the reader
+    # on an opponent card. These were "his"/"him"/"he": correct on a
+    # user card by luck, wrong on every opponent card.
+    if mover_is_user is True:
+        _opp, _opp_subj, _opp_obj = "their", "they", "them"
+    elif mover_is_user is False:
+        _opp, _opp_subj, _opp_obj = "your", "you", "you"
+    else:
+        _opp, _opp_subj, _opp_obj = "the opponent's", "the opponent", "them"
     try:
         pr = _classify_move_principle(board, move)
         mover = board.turn
@@ -9954,7 +10333,8 @@ def _recommended_move_why(
                 deflection = _recapture_costs_him(board, move)
                 if deflection is not None:
                     lost_name, lost_square = deflection
-                    return f"costs him the {lost_name} on {lost_square} if he takes back"
+                    return (f"costs {_opp_obj} the {lost_name} on "
+                            f"{lost_square} if {_opp_subj} takes back")
             if see is not None and see >= 200:
                 return "wins material"
             if see is not None and see >= 80:
@@ -9962,7 +10342,7 @@ def _recommended_move_why(
             if see is not None and see >= TRADE_FLOOR_CP:
                 # Genuinely equal-ish: the value is removing the piece, not
                 # material.
-                return f"trades his {name}"
+                return f"trades {_opp} {name}"
             # Below the floor the exchange on that square LOSES material, so
             # this is not a trade and saying so is false. It is a recommended
             # move, though, so it is good for some other reason -- prove the
@@ -9971,18 +10351,19 @@ def _recommended_move_why(
             deflection = _recapture_costs_him(board, move)
             if deflection is not None:
                 lost_name, lost_square = deflection
-                return f"costs him the {lost_name} on {lost_square} if he takes back"
+                return (f"costs {_opp_obj} the {lost_name} on "
+                        f"{lost_square} if {_opp_subj} takes back")
 
         # CASTLE — its whole purpose is king safety; name that, not an incidental
         # "defends f7" the rook happens to add. Checked before threat/escape/defends.
         if pr == "castle":
-            return _REC_PRINCIPLE_PHRASE["castle"]
+            return _rec_principle_phrase("castle", mover_is_user)
 
         # Non-capture: derive the why from what the move DOES on the board.
         # Every branch is board-verified (true by construction) — right-or-silent.
         moved = board.piece_at(move.from_square)
         if moved is None:
-            return _REC_PRINCIPLE_PHRASE.get(pr)
+            return _rec_principle_phrase(pr, mover_is_user)
         enemy = not mover
         my_val = PIECE_VALUE_CP.get(moved.piece_type, 0)
         after = board.copy()
@@ -10122,7 +10503,7 @@ def _recommended_move_why(
 
         # 5) PRINCIPLE — castle/center/develop/outpost/rook (transferable idea).
         if pr in _REC_PRINCIPLE_PHRASE:
-            return _REC_PRINCIPLE_PHRASE[pr]
+            return _rec_principle_phrase(pr, mover_is_user)
     except Exception:
         return None
     return None
@@ -10182,6 +10563,7 @@ def extract_facts(
     move_history_san: Optional[List[str]] = None,
     full_move_number: Optional[int] = None,
     mover_is_user: Optional[bool] = None,
+    opp_cp_loss: int = 0,
     opp_replies: Optional[List[Dict[str, Any]]] = None,
     opp_reply_is_clear: Optional[bool] = None,
 ) -> Dict[str, Any]:
@@ -11078,6 +11460,12 @@ def extract_facts(
         board_before, _best_mv, mover_is_user,
         line=pv_after_best or pv_after_played,
     )
+    # A point the engine's move attacks as many times as it is defended.
+    # Mohit's lesson on e3: naming a weak point is half of it; the
+    # transferable half is "you hit it once, they hold it once -- bring
+    # one more". 925 of 6,566 target-naming cards (14.1%) are in this
+    # state; 77% are already outnumbered and have nothing to prepare.
+    contested_target = _contested_target(board_before, _best_mv)
 
     # DISTINGUISH GATE (2026-07-01, docs/reasoning_correctness_scope.md): a "why the better
     # move is good" that is ALSO true of the move the user PLAYED explains nothing — "Be7
@@ -11165,6 +11553,27 @@ def extract_facts(
         "played_move_principle": played_move_principle,
         "best_move_principle": best_move_principle,
         "best_move_why": best_move_why,
+        # What the played move lets the opponent do immediately
+        # that the engine's move does not. Derived from the board
+        # and both stored lines, one ply deep.
+        "reply_gap": _reply_gap(
+            board_before, played_san, best_move_san,
+            pv_after_played, pv_after_best),
+        # How bad was THIS move, for whoever played it. cp_loss
+        # means the USER's loss and is 0 on an opponent card;
+        # caption_pipeline overwrites this with the real mover
+        # loss there. Defaulted here so no caller can hand a rule
+        # trigger a dict that is simply missing the key.
+        # How bad was THIS move, for whoever played it. cp_loss
+        # means the USER's loss and is 0 on an opponent card, so
+        # the opponent's own loss has to come in separately --
+        # and it has to be right HERE, because primary_reason is
+        # computed at the end of this function and the category
+        # it picks decides which rules are even candidates.
+        "mover_cp_loss": abs(int(
+            (cp_loss if mover_is_user is not False else opp_cp_loss)
+            or 0)),
+        "contested_target": contested_target,
         "queen_chased_by_reply": queen_chased_by_reply,
         "queen_chaser_piece": queen_chaser_piece,
         "pv_after_played": list(pv_after_played),

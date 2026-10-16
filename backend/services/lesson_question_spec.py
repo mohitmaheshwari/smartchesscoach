@@ -344,6 +344,46 @@ _SPECS: Tuple[QuestionSpec, ...] = (
             ),
         ),
     ),
+    # The mate drill. `single_best` and not `any_safe`, from the measured
+    # distribution rather than a guess: of the 358 proven forced-mate
+    # positions in the live pool, 100 are mate in one, and in 10 of those 100
+    # MORE THAN ONE legal move mates immediately (counted 2026-10-13). The
+    # grader accepts the one stored answer, so the question may not promise
+    # that any mating move will do -- `task_line` says one move is right, the
+    # same contract every other single_best category prints.
+    QuestionSpec(
+        category="forced_mate",
+        question=(
+            "You can force checkmate from here. Find the move that starts it."
+        ),
+        accepts=SINGLE_BEST,
+        task_line=EXACTLY_ONE,
+        reason_prompt="How did you pick it?",
+        reason_options=(
+            ReasonOption(
+                id="counted_king_moves",
+                label="I checked which squares their king could still use.",
+                belief_lead=(
+                    "You were counting the king's squares, so it is one of "
+                    "the checks that slipped past."
+                ),
+            ),
+            ReasonOption(
+                id="took_the_material",
+                label="I took the biggest thing I could take.",
+                belief_lead=(
+                    "You went for material, which is usually right and is "
+                    "not what this position is about."
+                ),
+                misconception_id="takes_material_instead_of_mating",
+                correction=(
+                    "When their king has almost no squares left, look at "
+                    "every check before any capture. Mate ends the game; "
+                    "material only helps you win it."
+                ),
+            ),
+        ),
+    ),
     # Pin and skewer are the same idea seen from two sides, and the one line
     # that differs between these two specs IS the lesson: which of the two
     # pieces on the line is the valuable one. They are written out separately

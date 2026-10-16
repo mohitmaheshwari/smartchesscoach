@@ -68,4 +68,10 @@ with StockfishEngine() as eng:
         print()
 
 print("%s (%d failures)" % ("ALL PASS" if not FAILS else "FAILURES: " + "; ".join(FAILS), len(FAILS)))
-sys.exit(1 if FAILS else 0)
+if __name__ == "__main__":
+    sys.exit(1 if FAILS else 0)
+
+
+def test_no_tie_failures():
+    assert not FAILS, FAILS
+
