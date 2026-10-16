@@ -792,27 +792,27 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @layer base {
-  /* ─── LIGHT MODE ─── Clean white with wine/gold accents ─── */
+  /* ─── LIGHT MODE ─── Eye-friendly Titanium Slate / Soft Studio ─── */
   :root {
-    --background: 0 0% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --background: 216 28% 95%;
+    --foreground: 222 47% 15%;
+    --card: 214 25% 97%;
+    --card-foreground: 222 47% 15%;
+    --popover: 214 25% 97%;
+    --popover-foreground: 222 47% 15%;
     --primary: 353 60% 38%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 94%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 220 14% 94%;
-    --muted-foreground: 220 9% 46%;
+    --secondary: 218 20% 92%;
+    --secondary-foreground: 222 47% 15%;
+    --muted: 218 20% 92%;
+    --muted-foreground: 220 12% 46%;
     --accent: 43 96% 56%;
-    --accent-foreground: 222 47% 11%;
+    --accent-foreground: 222 47% 15%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 353 60% 38%;
+    --border: 218 18% 86%;
+    --input: 218 18% 86%;
+    --ring: 199 89% 48%;
     --radius: 0.75rem;
 
     --success: 152 69% 40%;
@@ -823,8 +823,8 @@ h1, h2, h3, h4, h5, h6 {
     --gold: 43 96% 56%;
     --gold-muted: 43 50% 38%;
 
-    --sidebar-bg: 0 0% 100%;
-    --sidebar-border: 220 13% 91%;
+    --sidebar-bg: 216 24% 95%;
+    --sidebar-border: 218 18% 86%;
   }
 
   /* ─── DARK MODE ─── Deep, immersive, premium ─── */
@@ -992,8 +992,10 @@ h1, h2, h3, h4, h5, h6 {
   border-right: 1px solid hsl(224 20% 14%);
 }
 .sidebar-gradient {
-  background: hsl(var(--sidebar-bg));
-  border-right: 1px solid hsl(var(--sidebar-border));
+  background: rgba(241, 245, 249, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(203, 213, 225, 0.75);
 }
 
 /* ─── SHIMMER for loading states ─── */
@@ -1679,7 +1681,28 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Full-viewport fixed atmospheric backdrop with 3D chess pieces & lighting */
 .chess-studio-backdrop {
-  display: none;
+  display: block;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    /* Top-right soft daylight cyan sky ray */
+    radial-gradient(circle at 76% 14%, rgba(6, 182, 212, 0.16) 0%, transparent 50%),
+    /* Center ambient azure/sky glow */
+    radial-gradient(circle at 30% 38%, rgba(14, 165, 233, 0.12) 0%, transparent 52%),
+    /* Soft top left ambient illumination */
+    radial-gradient(circle at 12% 12%, rgba(56, 189, 248, 0.12) 0%, transparent 44%),
+    /* Bottom ambient soft sky reflection */
+    radial-gradient(circle at 50% 95%, rgba(186, 230, 253, 0.25) 0%, transparent 58%),
+    /* Soothing titanium slate overlay — zero pure-white glare, calm and gentle on the eyes */
+    linear-gradient(180deg, rgba(234, 240, 246, 0.82) 0%, rgba(226, 233, 241, 0.86) 42%, rgba(216, 225, 235, 0.92) 100%),
+    /* 3D chess studio backdrop image */
+    url('./assets/studio/chess_studio_bg.jpg');
+  background-size: cover;
+  background-position: center 25%;
+  background-repeat: no-repeat;
+  opacity: 1;
 }
 
 .dark .chess-studio-backdrop {
@@ -1707,6 +1730,12 @@ h1, h2, h3, h4, h5, h6 {
   opacity: 1;
 }
 
+.chess-studio-bg {
+  background-color: transparent;
+  position: relative;
+  z-index: 1;
+}
+
 .dark .chess-studio-bg {
   background-color: transparent;
   position: relative;
@@ -1731,7 +1760,52 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
 }
 
-/* Glassmorphism Futuristic Studio Cards — overrides any stark white in dark mode */
+/* Studio Cards — Light mode base (Frosted Pearl/Titanium, zero pure-white glare) */
+.studio-card {
+  background: rgba(246, 249, 252, 0.88) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(203, 213, 225, 0.85) !important;
+  border-radius: 20px;
+  box-shadow: 
+    0 10px 25px -5px rgba(15, 23, 42, 0.05),
+    0 1px 3px rgba(15, 23, 42, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  color: #1e293b;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.studio-card:hover {
+  background: rgba(250, 252, 255, 0.95) !important;
+  border-color: rgba(56, 189, 248, 0.50) !important;
+  box-shadow: 
+    0 14px 30px -5px rgba(6, 182, 212, 0.10),
+    0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.studio-card-coach {
+  background: rgba(246, 249, 252, 0.90) !important;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  border-radius: 22px;
+  box-shadow: 
+    0 12px 28px -5px rgba(15, 23, 42, 0.06),
+    0 0 20px -3px rgba(6, 182, 212, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  color: #1e293b;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.studio-card-coach:hover {
+  background: rgba(250, 252, 255, 0.96) !important;
+  border-color: rgba(56, 189, 248, 0.55) !important;
+  box-shadow: 
+    0 16px 35px -5px rgba(6, 182, 212, 0.15),
+    0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+/* Glassmorphism Futuristic Studio Cards — overrides in dark mode */
 .dark .studio-card,
 .dark .cg-panel,
 .dark .cg-coach-card {

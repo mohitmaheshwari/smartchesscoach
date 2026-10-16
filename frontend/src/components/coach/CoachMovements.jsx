@@ -270,7 +270,7 @@ function Play({ play }) {
   return (
     <section
       data-testid="coach-play"
-      className="mb-6 overflow-hidden rounded-2xl border border-slate-200/90 dark:border-cyan-500/25 bg-white studio-card p-5 sm:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.06)] backdrop-blur-2xl relative"
+      className="mb-6 overflow-hidden rounded-2xl border border-slate-300/80 dark:border-cyan-500/25 studio-card p-5 sm:p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] backdrop-blur-2xl relative"
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
         <div>

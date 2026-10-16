@@ -61,6 +61,39 @@ const formatWhen = () => {
   return `${day} · ${time}`;
 };
 
+function StudioTimeBadge() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const day = now.toLocaleDateString(undefined, { weekday: "short" });
+  const dateNum = now.getDate();
+  const month = now.toLocaleDateString(undefined, { month: "short" });
+  const timeStr = now.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return (
+    <div 
+      data-testid="studio-time-badge"
+      className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-white/90 dark:bg-[#0c1829]/90 border border-slate-200/90 dark:border-cyan-500/35 shadow-sm dark:shadow-[0_0_15px_rgba(6,182,212,0.18)] backdrop-blur-md shrink-0"
+    >
+      <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-[13px] tracking-tight">
+        <Clock className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+        <span>{day}, {dateNum} {month}</span>
+      </div>
+      <span className="w-1 h-1 rounded-full bg-cyan-500/70 dark:bg-cyan-400/80" />
+      <span className="font-mono text-xs sm:text-[13px] font-bold text-cyan-700 dark:text-cyan-300 tracking-wide">
+        {timeStr}
+      </span>
+    </div>
+  );
+}
+
 const NAV = [
   { id: "play", icon: Swords, label: "Play with Coach", sub: "Spar against adaptive engine with live feedback", href: "/play-with-coach" },
   { id: "lab", icon: FlaskConical, label: "The Lab", sub: "Review game decryptor & mistake decay analysis", href: "/games?tab=coach" },
@@ -355,7 +388,7 @@ export default function HomePageNew({ user }) {
                   {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
                 </h1>
               </div>
-              <p className="text-slate-500 dark:text-slate-400 font-mono text-xs sm:text-sm font-semibold uppercase tracking-wider">{formatWhen()}</p>
+              <StudioTimeBadge />
             </div>
 
             {/* Diagnostic CTA */}
@@ -364,7 +397,7 @@ export default function HomePageNew({ user }) {
               return shouldShow;
             })() && (
               <section>
-                <div className="bg-white studio-card-coach p-7 sm:p-9 shadow-sm relative overflow-hidden">
+                <div className="studio-card-coach p-7 sm:p-9 shadow-sm relative overflow-hidden">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h3 className="font-heading font-bold text-2xl sm:text-3xl text-slate-900 dark:text-white mb-2">
@@ -737,7 +770,7 @@ export default function HomePageNew({ user }) {
                 <span>Active Session</span>
               </span>
             </div>
-            <p className="text-slate-500 dark:text-slate-400 font-mono text-xs sm:text-sm font-semibold uppercase tracking-wider">{formatWhen()}</p>
+            <StudioTimeBadge />
           </motion.div>
 
           {/* ─── THE COACHING SESSION ───
@@ -769,7 +802,7 @@ export default function HomePageNew({ user }) {
           <CoachMovements assessment={<ChancesCard />} />
           {lastSession?.story && (
             <motion.section ref={mirrorRef} variants={fadeInUp}>
-              <div className="bg-white studio-card border border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-[0_10px_30px_rgba(0,0,0,0.06)] relative overflow-hidden">
+              <div className="studio-card border border-slate-300/80 dark:border-slate-200/90 rounded-2xl p-6 sm:p-8 shadow-[0_10px_30px_rgba(0,0,0,0.05)] relative overflow-hidden">
                 <div className="flex items-center space-x-2 text-xs font-mono uppercase tracking-[0.22em] text-cyan-700 dark:text-cyan-300 font-bold mb-3">
                   <Activity className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                   <span>Since you last played</span>
@@ -801,7 +834,7 @@ export default function HomePageNew({ user }) {
           {coachConversation?.has_conversation || canonicalContext ? (
             <motion.section 
               variants={fadeInUp} 
-              className="bg-white studio-card-coach border border-slate-200/90 rounded-2xl p-7 sm:p-9 shadow-[0_10px_30px_rgba(0,0,0,0.06)] relative overflow-hidden"
+              className="studio-card-coach border border-slate-300/80 dark:border-slate-200/90 rounded-2xl p-7 sm:p-9 shadow-[0_10px_30px_rgba(0,0,0,0.05)] relative overflow-hidden"
             >
               {/* Coach Header */}
               <div className="flex items-center gap-4 mb-6 pb-6 border-b border-slate-200/80 dark:border-cyan-500/15">
@@ -1027,7 +1060,7 @@ export default function HomePageNew({ user }) {
               className="studio-card-coach p-4 sm:p-5 md:p-6 relative overflow-hidden"
             >
               {/* Subtle ambient cyan glow highlight inside Coach Jessica panel */}
-              <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] pointer-events-none" />
+              <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 dark:bg-cyan-500/10 rounded-full blur-[80px] pointer-events-none" />
 
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 relative z-10">
                 {/* Left: Avatar + Title & Message */}
@@ -1044,22 +1077,22 @@ export default function HomePageNew({ user }) {
                         }}
                       />
                     </div>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-slate-950 flex items-center justify-center">
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-950 flex items-center justify-center">
                       <div className="w-1 h-1 bg-white rounded-full animate-ping" />
                     </div>
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h3 className="font-heading font-bold text-base sm:text-lg text-white tracking-tight">
+                      <h3 className="font-heading font-bold text-base sm:text-lg text-slate-900 dark:text-white tracking-tight">
                         Coach Jessica
                       </h3>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/30 text-[10px] sm:text-[11px] font-mono font-semibold text-cyan-300 uppercase tracking-wider">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950/70 border border-cyan-200 dark:border-cyan-500/30 text-[10px] sm:text-[11px] font-mono font-semibold text-cyan-800 dark:text-cyan-300 uppercase tracking-wider">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 dark:bg-cyan-400" />
                         AI Chess Mentor
                       </span>
                     </div>
-                    <p className="text-xs sm:text-sm leading-relaxed text-slate-300 font-normal">
+                    <p className="text-xs sm:text-sm leading-relaxed text-slate-600 dark:text-slate-300 font-normal">
                       {hasGames
                         ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
                         : "I'm still learning how you play. Play a game or two and I'll start noticing your habits."}
@@ -1103,7 +1136,7 @@ export default function HomePageNew({ user }) {
                       track(ANALYTICS_EVENTS.FUNNEL_HOME_NAV_TILE_CLICKED, { tile: item.id });
                       navigate(item.href);
                     }}
-                    className="group bg-white hover:bg-slate-50 studio-card p-4 sm:p-5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 text-left relative cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                    className="group studio-card p-4 sm:p-5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 text-left relative cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
                   >
                     <div className="w-10 h-10 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 group-hover:bg-cyan-500 group-hover:text-white dark:group-hover:text-slate-950 group-hover:scale-105 transition-all shadow-sm mb-3">
                       <Icon className="w-5 h-5" strokeWidth={2} />
