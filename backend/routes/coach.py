@@ -13,7 +13,7 @@ Handles all coach-related functionality including:
 This is a large module covering the AI coaching features.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Body, Query
+from fastapi import APIRouter, HTTPException, Depends, Body, Query, Response
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 from datetime import datetime, timezone
@@ -4929,6 +4929,23 @@ CURRICULUM_SURFACES = frozenset({
     "lab",               # Dashboard.jsx (the Lab page), two strips
     "game_review",       # AllGames.jsx
 })
+
+
+@router.get("/last-game-card")
+async def get_last_game_card(user: User = Depends(get_current_user)):
+    """Who was the better player in the game he just finished.
+
+    Computed from both sides of the PGN, which nothing else in the product
+    does, and cached per game because a finished game's answer never changes.
+    Returns 204 rather than an error shape when there is nothing to say: a
+    home page with no last game should render nothing, not an apology.
+    """
+    from services.both_sides_review import last_game_card
+
+    card = await last_game_card(db, user.user_id)
+    if not card:
+        return Response(status_code=204)
+    return card
 
 
 @router.get("/personal-curriculum")

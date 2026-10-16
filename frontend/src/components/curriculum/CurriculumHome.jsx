@@ -28,6 +28,7 @@
  */
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
+import LastGameCard from "@/components/Home/LastGameCard";
 import CurriculumPrimary from "@/components/curriculum/CurriculumPrimary";
 import CoachMovements from "@/components/coach/CoachMovements";
 import ChancesCard from "@/components/coach/ChancesCard";
@@ -46,6 +47,12 @@ export default function CurriculumHome({ user, curriculum, greeting }) {
         {/* Movements one and two, then the lesson, then the invitation last.
             CoachMovements renders its children between movements two and
             three, so the order on screen is know → think → practise → play. */}
+        {/* Both sides of his last game, before the movements. Mounted in
+            both homes because both ship. */}
+        <div className="mb-8">
+          <LastGameCard />
+        </div>
+
         <CoachMovements assessment={<ChancesCard />}>
           {/* The lesson. Movement two asks the question; this is the only part
               of the page with positions to actually practise behind it, so it

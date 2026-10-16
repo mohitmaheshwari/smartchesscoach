@@ -17,6 +17,7 @@ import { API } from "@/App";
 import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
 import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/lib/motion";
 import Layout from "@/components/Layout";
+import LastGameCard from "@/components/Home/LastGameCard";
 import HomeLoadingSkeleton from "@/components/HomeLoadingSkeleton";
 import CanonicalFocusRail from "@/components/experience/CanonicalFocusRail";
 import CurriculumHome from "@/components/curriculum/CurriculumHome";
@@ -395,6 +396,14 @@ export default function HomePageNew({ user }) {
                 Connect Chess.com or Lichess
               </button>
             </section>
+          </motion.div>
+
+          {/* The only card built from BOTH sides of the board. It fetches on
+              its own and renders nothing until it has an answer, because the
+              review costs a few seconds the first time a game is seen and
+              Home must not wait for it. */}
+          <motion.div variants={fadeInUp} className="mb-8">
+            <LastGameCard />
           </motion.div>
         </div>
       </Layout>
