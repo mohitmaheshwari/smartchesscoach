@@ -145,7 +145,11 @@ def card_from_review(
     has been given arithmetic rather than coaching.
     """
     sharper = review["his_mean_cp"] < review["their_mean_cp"]
-    flagged = lost and str(termination) == "timeout"
+    # A timeout is a timeout whoever's flag fell, so `decided_by` records the
+    # game. Only the rare card -- he was sharper AND his own flag fell --
+    # turns it into the story he reads.
+    on_time = str(termination) == "timeout"
+    flagged = lost and on_time
     turning = review.get("turning_point") or {}
     theirs = turning.get("whose") == "theirs"
 
@@ -185,7 +189,7 @@ def card_from_review(
         "state": state,
         "headline": headline,
         "detail": detail,
-        "decided_by": "clock" if flagged else "board",
+        "decided_by": "clock" if on_time else "board",
         "turning_point_is_theirs": bool(theirs),
     }
 

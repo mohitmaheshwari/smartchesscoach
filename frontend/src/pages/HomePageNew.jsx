@@ -397,14 +397,6 @@ export default function HomePageNew({ user }) {
               </button>
             </section>
           </motion.div>
-
-          {/* The only card built from BOTH sides of the board. It fetches on
-              its own and renders nothing until it has an answer, because the
-              review costs a few seconds the first time a game is seen and
-              Home must not wait for it. */}
-          <motion.div variants={fadeInUp} className="mb-8">
-            <LastGameCard />
-          </motion.div>
         </div>
       </Layout>
     );
@@ -427,6 +419,26 @@ export default function HomePageNew({ user }) {
               {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
             </p>
             <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
+          </motion.div>
+
+          {/* ─── YOUR LAST GAME ───
+              The only card on this page built from BOTH sides of the board,
+              so the only one that can say who was the better player rather
+              than what he did wrong. It fetches on its own and renders
+              nothing until it has an answer, because the review costs a few
+              seconds the first time a game is seen and Home must not wait.
+
+              It sits here, above the session, because it is the part of this
+              page that changes every time he plays -- Mohit, 2026-10-16:
+              *"something that keeps on changing as he keeps on playing
+              games"*.
+
+              It was first mounted inside the `!hasGames` branch above, where
+              a card about his last game cannot ever appear. That is the fifth
+              time this session a finished surface was wired into a branch its
+              audience does not take, and the comment below already said so. */}
+          <motion.div variants={fadeInUp} className="mb-12 md:mb-16">
+            <LastGameCard />
           </motion.div>
 
           {/* ─── THE COACHING SESSION ───

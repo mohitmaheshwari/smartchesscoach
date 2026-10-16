@@ -67,6 +67,15 @@ def test_a_timeout_he_was_losing_anyway_is_not_the_clock_card():
     assert "clock" not in card["headline"].lower()  # but not the story
 
 
+def test_a_timeout_he_won_is_still_decided_by_the_clock():
+    """His last real game ended on his opponent's flag. Recording that as
+    "board" made the field a statement about him rather than about the game."""
+    card = card_from_review(_review(37, 74), won=True, lost=False, termination="timeout")
+    assert card["decided_by"] == "clock"
+    assert card["state"] == "sharper"  # but the clock is not the story
+    assert "clock" not in card["headline"].lower()
+
+
 def test_being_sharper_and_not_winning_is_its_own_state():
     card = card_from_review(_review(50, 80), won=False, lost=True, termination="resignation")
     assert card["state"] == "sharper_no_win"
