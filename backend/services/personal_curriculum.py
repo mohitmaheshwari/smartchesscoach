@@ -483,6 +483,95 @@ class CurriculumDestination:
 
 
 @dataclass(frozen=True)
+class CurriculumJustification:
+    """The three questions a recommendation has to answer.
+
+    A card that says "work on time management" and nothing else cannot be
+    argued with, by the player or by us. `why_subject` says what in HIS play
+    put this here, `why_activity` says why we are reviewing rather than
+    teaching (or the reverse), and `change_signal` names the observation that
+    would move us off it -- so the recommendation is falsifiable instead of
+    merely confident.
+
+    The three strings are player-facing and stay free of counts; the numbers
+    behind them live in `observed`, which the app and a reviewer can read
+    without those figures being written at the player.
+    """
+
+    why_subject: str
+    why_activity: str
+    change_signal: str
+    observed: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for field_name in ("why_subject", "why_activity", "change_signal"):
+            _require_text(getattr(self, field_name), field_name)
+
+    def public_dict(self) -> Dict[str, Any]:
+        return {
+            "why_subject": self.why_subject,
+            "why_activity": self.why_activity,
+            "change_signal": self.change_signal,
+            "observed": dict(self.observed),
+        }
+
+
+# One wording per outcome, so the same decision never gets two explanations on
+# two surfaces. Keyed by outcome because the activity is what the outcome IS.
+_JUSTIFICATION_TEXT: Mapping[CurriculumOutcome, Tuple[str, str, str]] = {
+    CurriculumOutcome.REPAIR: (
+        "This keeps turning up in your own recent games.",
+        "We work on it directly, because it is still costing you positions.",
+        "When it stops showing up in your games, we move on to something else.",
+    ),
+    CurriculumOutcome.REVIEW: (
+        "You have worked on this before, with help.",
+        "We check it without help, because help does not show whether you have it.",
+        "Finding it unaided moves this on. Needing help again brings it back to teaching.",
+    ),
+    CurriculumOutcome.EXPAND: (
+        "Your games are ready for this one next.",
+        "We teach it first, and test it later without help.",
+        "An unaided success moves this forward. Trouble with it makes it the main work.",
+    ),
+    CurriculumOutcome.OBSERVE: (
+        "I have not seen enough of your play to name anything yet.",
+        "We watch first rather than guess.",
+        "A few more analysed games will let me choose.",
+    ),
+    CurriculumOutcome.APPLY: (
+        "You have shown this with help, and your games give you chances to use it.",
+        "We look for it in real play rather than in exercises.",
+        "Using it unaided in a game settles it. Missing the chances returns it to practice.",
+    ),
+    CurriculumOutcome.CONTINUE: (
+        "This is the work you already started.",
+        "We carry on rather than start something new.",
+        "Finishing it, or stalling on it, decides what comes next.",
+    ),
+}
+
+
+def justify(
+    outcome: CurriculumOutcome,
+    observed: Optional[Mapping[str, Any]] = None,
+) -> CurriculumJustification:
+    """Derive the justification from the outcome, carrying the real counts."""
+    try:
+        why_subject, why_activity, change_signal = _JUSTIFICATION_TEXT[outcome]
+    except KeyError:  # pragma: no cover - the enum is closed
+        raise ContractViolation(
+            f"No justification wording registered for outcome {outcome!r}"
+        )
+    return CurriculumJustification(
+        why_subject=why_subject,
+        why_activity=why_activity,
+        change_signal=change_signal,
+        observed=dict(observed or {}),
+    )
+
+
+@dataclass(frozen=True)
 class CurriculumCandidate:
     """One already-selected candidate plus private evidence provenance."""
 
@@ -496,6 +585,10 @@ class CurriculumCandidate:
     evidence_owner: str
     evidence_ref: Optional[str] = None
     detector_quality_id: Optional[str] = None
+    # What was actually counted to put this card here. Not rendered at the
+    # player; read by the app and by anyone auditing the choice.
+    observed_evidence: Mapping[str, Any] = field(default_factory=dict)
+    justification: Optional[CurriculumJustification] = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.outcome, CurriculumOutcome):
@@ -508,6 +601,15 @@ class CurriculumCandidate:
             raise ContractViolation("destination must be a CurriculumDestination")
         for field_name in ("title", "reason", "evidence_summary", "evidence_owner"):
             _require_text(getattr(self, field_name), field_name)
+
+        # Every candidate answers the three questions. A call site may pass a
+        # richer one; nothing is allowed to go out without any.
+        if self.justification is None:
+            object.__setattr__(
+                self,
+                "justification",
+                justify(self.outcome, self.observed_evidence),
+            )
 
         if self.student_state == StudentState.RELIABLE:
             raise ContractViolation(
@@ -544,6 +646,9 @@ class CurriculumCandidate:
             "title": self.title,
             "reason": self.reason,
             "evidence": self.evidence_summary,
+            "justification": (
+                self.justification.public_dict() if self.justification else None
+            ),
             "destination": self.destination.public_dict(),
         }
 
@@ -698,6 +803,13 @@ def _repair_candidate(focus: Mapping[str, Any]) -> Optional[CurriculumCandidate]
         ),
         evidence_owner="user_active_focus via services/focus_bridge.py",
         evidence_ref=str(focus.get("focus_id") or "") or None,
+        observed_evidence={
+            # Already computed above to pass the >=3 gate, then discarded.
+            # It is the only number behind "several of your recent games".
+            "recent_occurrences": occurrence_count,
+            "topic_key": topic_key,
+            "counted_by": "user_active_focus via services/focus_bridge.py",
+        },
         detector_quality_id=(
             str(focus.get("detector_quality_id"))
             if focus.get("detector_quality_id")
@@ -776,6 +888,13 @@ def _knowledge_candidate(
         destination=_knowledge_destination(focus, action),
         evidence_owner="coach_memory.learning.skills",
         evidence_ref=str(focus.get("skill_id") or "") or None,
+        observed_evidence={
+            "skill_id": str(focus.get("skill_id") or "") or None,
+            "seen_before": bool(seen),
+            "caused_trouble": bool(failed),
+            "band": band_name,
+            "counted_by": "coach_memory.learning.skills",
+        },
     )
 
 
@@ -803,6 +922,11 @@ def _observe_candidate(analyzed_games: int) -> CurriculumCandidate:
             canonical_source="coach game session",
         ),
         evidence_owner="games",
+        observed_evidence={
+            "analyzed_games": analyzed_games,
+            "games_still_wanted": remaining,
+            "counted_by": "games",
+        },
     )
 
 
@@ -1024,6 +1148,16 @@ async def _due_personalized_review(
         ),
         evidence_owner="learning_sessions",
         evidence_ref=str(latest.get("skill_id") or lesson_id),
+        observed_evidence={
+            # Deliberately named games, not opportunities. Nobody has checked
+            # that these games CONTAINED a chance to use the idea, so a review
+            # falling due is "time has passed with play in it", not evidence
+            # that he had chances and took them.
+            "analyzed_games_since_lesson": games_since,
+            "opportunities_since_lesson": None,
+            "lesson_id": lesson_id,
+            "counted_by": "learning_sessions",
+        },
     )
 
 
