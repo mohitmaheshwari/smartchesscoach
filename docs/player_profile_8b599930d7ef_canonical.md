@@ -1267,6 +1267,82 @@ slip: they are sharper, longer, and more often against stronger opposition. The
 difference is real and worth acting on; "closing that gap would recover 34
 points of conversion" does not follow from it.
 
+### 11.4 The coaching exchange of 2026-10-16, and what to carry forward
+
+Not a new report — the record of one exchange, kept with the sitting it came
+from.
+
+**The worked example.** `c175c090` move 37, the trial where he chose a move
+that gave ground and had named a reply. Asked what made `Qe4` preferable to the
+alternatives, he answered: **"I don't remember."** Recorded as given. No reason
+was substituted for it, and the cause of that move stays unknown.
+
+**What he demonstrated.**
+
+- Across the 14 positions: a holding move on **9 of 14** — 5 of 6 on the control
+  set, 4 of 8 on the treatment set. He named a reply on 11 of 14; the three
+  marked pending were verified sound afterwards.
+- **He rejected a wrong explanation of mine and was right to.** My first
+  teaching said the queen on d5 was doing three jobs and that every alternative
+  left her there. `Qf3+` and `Qg5` are both in my own holding table and both
+  move her, so the explanation was contradicted by the evidence I had printed
+  under it.
+- **He then supplied the correct distinguishing idea.** Given the line table and
+  the board fact that d8 is undefended, he made the connecting inference I had
+  not: that `Kg8` — the move that saves Black after `Qe4` — is refuted by
+  `Qxd8+` after `Qg5`. Verified at depth 22: after `Qg5`, `Kg8` loses to a
+  forced mate and `Qxd8+` is available; after `Qe4`, `Kg8` leaves +90 and
+  `Qxd8+` does not exist. `Kg8` was not among the replies I had listed.
+
+**What assistance he received.** In the sitting itself, none — no hint, no
+engine line, no evaluation before recording. In the worked example, a great
+deal: the position, the piece list, a depth-22 evaluation of eight candidate
+moves with their continuations, Black's four best replies after both `Qe4` and
+`Qg5`, and the board fact that no black piece defends d8. On the transfer
+position he was told he is much the better side (+466 at depth 22) — supplied as
+support and recorded as such.
+
+**What teaching helped.** Not the first attempt. The framing that worked is the
+one he produced: *name the concrete threat your move makes, then check whether
+it removes their best defence.* Under that framing the comparison in
+`c175c090` collapses to one question — does this move stop `Kg8`? — which
+separates the candidates without counting attacks. Observed on the position he
+had just been walked through. **That is not transfer, and the exchange carries
+no claim that anything was retained.**
+
+**What remains uncertain.**
+
+- Why he played `Qe4`. He does not remember; it stays unknown.
+- Whether the framing survives a position he has not been walked through. That
+  attempt is prepared and unrun.
+- §11.3's question — candidate generation, evaluation, or looking at the wrong
+  reply — is untouched by this exchange.
+
+**What to revisit.**
+
+- The prepared transfer position `cc162a93` move 14 (51 branches, root depth 20,
+  replies depth 18; three moves hold within 200cp — `Qxb7` +447, `Bxe6` +434,
+  `Rxe6` +342 — with a real gap to the next tier at +217).
+- A delayed attempt on an unfamiliar position days later, the shape that already
+  appears in his `piece_safety` chain at 8 and 23 days.
+- In his own games: positions at +300 and up where he plays a quiet move or a
+  check that leaves the opponent's best defence available.
+
+**Next coaching action, and the evidence that would change it.**
+
+> **Run the prepared transfer attempt**, collecting recognition, move and
+> expected reply together before any feedback.
+
+| result | what follows |
+|---|---|
+| sound move **and** a reply that actually answers it | one transfer data point; next step is the delayed attempt, not a new battery |
+| sound move, wrong reply | the work is about replies, not candidate choice |
+| unsound move | return to the comparison on a second taught example before testing transfer again |
+| "I don't remember" / "not sure" | recorded as an answer; no substitute reason |
+
+One sitting and one worked example cannot establish lasting learning, and
+nothing here should be read as establishing it.
+
 ---
 
 ## 12. Deployed-review layout check, 2026-10-16 (closed)
