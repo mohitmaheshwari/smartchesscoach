@@ -794,6 +794,7 @@ async def clock_control_profile(
     db,
     user_id: str,
     *,
+    recent_games: int = 120,
     limit: int = 900,
 ) -> Dict[str, Any]:
     """How often his flag falls, per time control he actually plays.
@@ -803,8 +804,18 @@ async def clock_control_profile(
     problems, and only one of them is about how he uses a clock: the other is
     about which control he sits down to.
 
-    Reads `games`, an existing evidence owner. Bounded to the most recent
-    `limit` games so a Home load does not scan his whole history.
+    Two windows, because they answer different questions and a single one
+    gets this wrong. Measured on one account: over his whole record 600+0 is
+    far and away his most-played control (550 games), but in the last month he
+    played it THREE times -- he had moved to 300+3 on another site and loses
+    30% of those on time. A profile built on the long window would have
+    advised him about a control he has left.
+
+    So `current` is the recent window and decides which control he actually
+    plays now; `history` is the long window and is only used to see whether
+    longer controls have ever treated him better.
+
+    Reads `games`, an existing evidence owner.
     """
     # The control lives in the PGN tag, so it is extracted server-side with
     # $regexFind rather than shipping several megabytes of PGN to pull one
@@ -846,58 +857,71 @@ async def clock_control_profile(
         # category ("rapid") and is then discarded by the parser anyway.
         row["time_control"] = captures[0] or row.get("time_control")
 
-    by_control: Dict[str, Dict[str, Any]] = {}
-    for row in rows:
-        if str(row.get("platform")) == "coach":
-            continue
-        base, increment = _parse_time_control(row.get("time_control"))
-        if base is None:
-            continue
-        label = f"{base}+{increment}"
-        colour = str(row.get("user_color") or "")
-        result = str(row.get("result") or "")
-        lost = (result == "1-0" and colour == "black") or (
-            result == "0-1" and colour == "white"
-        )
-        bucket = by_control.setdefault(
-            label,
-            {
-                "games": 0,
-                "losses": 0,
-                "timeout_losses": 0,
-                "base_seconds": base,
-                "increment_seconds": increment,
-            },
-        )
-        bucket["games"] += 1
-        if lost:
-            bucket["losses"] += 1
-            if str(row.get("termination")) == "timeout":
-                bucket["timeout_losses"] += 1
+    def _group(subset, minimum: int) -> list:
+        by_control: Dict[str, Dict[str, Any]] = {}
+        for row in subset:
+            if str(row.get("platform")) == "coach":
+                continue
+            base, increment = _parse_time_control(row.get("time_control"))
+            if base is None:
+                continue
+            label = f"{base}+{increment}"
+            colour = str(row.get("user_color") or "")
+            result = str(row.get("result") or "")
+            lost = (result == "1-0" and colour == "black") or (
+                result == "0-1" and colour == "white"
+            )
+            bucket = by_control.setdefault(
+                label,
+                {
+                    "games": 0,
+                    "losses": 0,
+                    "timeout_losses": 0,
+                    "base_seconds": base,
+                    "increment_seconds": increment,
+                },
+            )
+            bucket["games"] += 1
+            if lost:
+                bucket["losses"] += 1
+                if str(row.get("termination")) == "timeout":
+                    bucket["timeout_losses"] += 1
+        out = []
+        for label, bucket in by_control.items():
+            if bucket["games"] < minimum:
+                continue
+            bucket = dict(bucket, control=label)
+            bucket["timeout_share_of_games"] = round(
+                100.0 * bucket["timeout_losses"] / bucket["games"], 1
+            )
+            out.append(bucket)
+        out.sort(key=lambda c: -c["games"])
+        return out
 
-    controls = []
-    for label, bucket in by_control.items():
-        if bucket["games"] < 5:
-            continue
-        bucket = dict(bucket, control=label)
-        bucket["timeout_share_of_games"] = round(
-            100.0 * bucket["timeout_losses"] / bucket["games"], 1
-        )
-        controls.append(bucket)
-    controls.sort(key=lambda c: -c["games"])
+    # rows arrive newest first
+    controls = _group(rows[:recent_games], 5)
+    history = _group(rows, 10)
 
-    most_played = controls[0] if controls else None
-    kindest = min(
-        (c for c in controls if c["games"] >= 10),
+    current = controls[0] if controls else None
+    # Only a LONGER control, and only from the long window -- the point is to
+    # find somewhere he has done better, which may be somewhere he has left.
+    longer_better = min(
+        (
+            c
+            for c in history
+            if current and c["base_seconds"] > current["base_seconds"]
+        ),
         key=lambda c: c["timeout_share_of_games"],
         default=None,
     )
     return {
         "counted_by": "games",
         "games_considered": len(rows),
+        "recent_window_games": min(len(rows), recent_games),
         "controls": controls,
-        "most_played": most_played,
-        "lowest_timeout_control": kindest,
+        "history_controls": history,
+        "most_played": current,
+        "lowest_timeout_control": longer_better,
         # True only when a longer control he ALREADY plays loses the flag at
         # less than half the rate of his usual one. A halving rather than a
         # chosen number of points, because no distribution has been looked at
@@ -905,13 +929,11 @@ async def clock_control_profile(
         # is not data-locked. The per-control table is returned either way, so
         # a human can see what the rule is deciding from.
         "a_longer_control_would_help": bool(
-            most_played
-            and kindest
-            and kindest["control"] != most_played["control"]
-            and kindest["base_seconds"] > most_played["base_seconds"]
-            and most_played["timeout_share_of_games"] > 0
-            and kindest["timeout_share_of_games"]
-            < most_played["timeout_share_of_games"] / 2.0
+            current
+            and longer_better
+            and current["timeout_share_of_games"] > 0
+            and longer_better["timeout_share_of_games"]
+            < current["timeout_share_of_games"] / 2.0
         ),
     }
 

@@ -116,10 +116,48 @@ def test_a_longer_control_that_does_not_halve_it_is_not_surfaced():
 
 
 def test_a_shorter_control_is_never_offered_as_the_fix():
-    """Even if the short control happens to look kinder in his record."""
+    """Even if the short control happens to look kinder in his record.
+
+    Only controls longer than the one he plays now are candidates, so a
+    kind-looking short control is not merely rejected at the end -- it never
+    becomes the suggestion.
+    """
     profile = _profile(_rows("600+0", 100, 30) + _rows("180+2", 20, 1))
-    assert profile["lowest_timeout_control"]["control"] == "180+2"
+    assert profile["most_played"]["control"] == "600+0"
+    assert profile["lowest_timeout_control"] is None
     assert profile["a_longer_control_would_help"] is False
+
+
+def test_what_he_plays_now_beats_what_he_used_to_play():
+    """The bug this test exists for, found by asking "last 1 month?".
+
+    His record held 550 games at 600+0 and he had moved to 300+3 elsewhere --
+    three 600+0 games in the last month. A profile over the whole record
+    called 600+0 his control and would have advised him about a control he
+    had left. The recent window decides what he plays; the long window is
+    only consulted for where he has done better.
+    """
+    recent_blitz = _rows("300+3", 80, 24)
+    old_rapid = _rows("600+0", 400, 84)
+    profile = _profile(recent_blitz + old_rapid)
+
+    assert profile["most_played"]["control"] == "300+3", (
+        "the control he plays now, not the one he played most ever"
+    )
+    assert any(c["control"] == "600+0" for c in profile["history_controls"])
+    # 600+0 is longer and kinder (21% against 30%), but not by half, so no
+    # suggestion is made rather than a weak one
+    assert profile["lowest_timeout_control"]["control"] == "600+0"
+    assert profile["a_longer_control_would_help"] is False
+
+
+def test_a_control_he_has_left_can_still_be_the_suggestion():
+    """He played 900+10 twenty times and almost never flagged. It is gone
+    from his recent play, and it is still the right thing to point at."""
+    profile = _profile(_rows("300+3", 80, 24) + _rows("900+10", 20, 1))
+    assert profile["most_played"]["control"] == "300+3"
+    assert profile["lowest_timeout_control"]["control"] == "900+10"
+    assert profile["a_longer_control_would_help"] is True
 
 
 def _clock_focus():
