@@ -771,7 +771,155 @@ def _focus_occurrence_count(focus: Mapping[str, Any]) -> int:
 _CLOCK_TOPICS = frozenset({"time_management", "time_collapse", "time_pressure"})
 
 
-def _repair_candidate(focus: Mapping[str, Any]) -> Optional[CurriculumCandidate]:
+def _parse_time_control(value: Any) -> Tuple[Optional[int], int]:
+    """(base seconds, increment) from a PGN TimeControl value, or (None, 0).
+
+    `games.time_control` does NOT hold this. It holds the platform's category
+    string -- measured on one account's 400 most recent games, every value was
+    "rapid", "blitz" or "untimed". The control itself only exists in the PGN
+    tag: those same games are 600, 300+3 and 180+2. A clock focus reading the
+    category cannot tell a ten-minute game from a three-minute one, which is
+    the whole question.
+    """
+    text = str(value or "").strip()
+    match = re.match(r"^(\d+)\+(\d+)$", text)
+    if match:
+        return int(match.group(1)), int(match.group(2))
+    if text.isdigit():
+        return int(text), 0
+    return None, 0
+
+
+async def clock_control_profile(
+    db,
+    user_id: str,
+    *,
+    limit: int = 900,
+) -> Dict[str, Any]:
+    """How often his flag falls, per time control he actually plays.
+
+    A clock focus cannot choose an action without this. Losing on time in a
+    three-minute game and losing on time in a long game are different
+    problems, and only one of them is about how he uses a clock: the other is
+    about which control he sits down to.
+
+    Reads `games`, an existing evidence owner. Bounded to the most recent
+    `limit` games so a Home load does not scan his whole history.
+    """
+    # The control lives in the PGN tag, so it is extracted server-side with
+    # $regexFind rather than shipping several megabytes of PGN to pull one
+    # string out of each.
+    rows = await db.games.aggregate(
+        [
+            {
+                "$match": {
+                    "user_id": user_id,
+                    "played_at_utc": {"$ne": None},
+                    "platform": {"$ne": "coach"},
+                }
+            },
+            {"$sort": {"played_at_utc": -1}},
+            {"$limit": limit},
+            {
+                "$project": {
+                    "_id": 0,
+                    "user_color": 1,
+                    "result": 1,
+                    "termination": 1,
+                    "platform": 1,
+                    # Read both: most rows carry only the category here, but
+                    # some older imports did store the real control in it.
+                    "time_control": 1,
+                    "tag": {
+                        "$regexFind": {
+                            "input": {"$ifNull": ["$pgn", ""]},
+                            "regex": r'\[TimeControl "([^"]+)"\]',
+                        }
+                    },
+                }
+            },
+        ]
+    ).to_list(limit)
+    for row in rows:
+        captures = ((row.get("tag") or {}).get("captures") or [None])
+        # PGN tag first; fall back to the stored field, which is usually the
+        # category ("rapid") and is then discarded by the parser anyway.
+        row["time_control"] = captures[0] or row.get("time_control")
+
+    by_control: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        if str(row.get("platform")) == "coach":
+            continue
+        base, increment = _parse_time_control(row.get("time_control"))
+        if base is None:
+            continue
+        label = f"{base}+{increment}"
+        colour = str(row.get("user_color") or "")
+        result = str(row.get("result") or "")
+        lost = (result == "1-0" and colour == "black") or (
+            result == "0-1" and colour == "white"
+        )
+        bucket = by_control.setdefault(
+            label,
+            {
+                "games": 0,
+                "losses": 0,
+                "timeout_losses": 0,
+                "base_seconds": base,
+                "increment_seconds": increment,
+            },
+        )
+        bucket["games"] += 1
+        if lost:
+            bucket["losses"] += 1
+            if str(row.get("termination")) == "timeout":
+                bucket["timeout_losses"] += 1
+
+    controls = []
+    for label, bucket in by_control.items():
+        if bucket["games"] < 5:
+            continue
+        bucket = dict(bucket, control=label)
+        bucket["timeout_share_of_games"] = round(
+            100.0 * bucket["timeout_losses"] / bucket["games"], 1
+        )
+        controls.append(bucket)
+    controls.sort(key=lambda c: -c["games"])
+
+    most_played = controls[0] if controls else None
+    kindest = min(
+        (c for c in controls if c["games"] >= 10),
+        key=lambda c: c["timeout_share_of_games"],
+        default=None,
+    )
+    return {
+        "counted_by": "games",
+        "games_considered": len(rows),
+        "controls": controls,
+        "most_played": most_played,
+        "lowest_timeout_control": kindest,
+        # True only when a longer control he ALREADY plays loses the flag at
+        # less than half the rate of his usual one. A halving rather than a
+        # chosen number of points, because no distribution has been looked at
+        # to justify a points threshold; this is deliberately conservative and
+        # is not data-locked. The per-control table is returned either way, so
+        # a human can see what the rule is deciding from.
+        "a_longer_control_would_help": bool(
+            most_played
+            and kindest
+            and kindest["control"] != most_played["control"]
+            and kindest["base_seconds"] > most_played["base_seconds"]
+            and most_played["timeout_share_of_games"] > 0
+            and kindest["timeout_share_of_games"]
+            < most_played["timeout_share_of_games"] / 2.0
+        ),
+    }
+
+
+def _repair_candidate(
+    focus: Mapping[str, Any],
+    clock_profile: Optional[Mapping[str, Any]] = None,
+) -> Optional[CurriculumCandidate]:
     topic_key = str(focus.get("topic_key") or "").strip()
     occurrence_count = _focus_occurrence_count(focus)
     if not topic_key or occurrence_count < 3:
@@ -781,6 +929,36 @@ def _repair_candidate(focus: Mapping[str, Any]) -> Optional[CurriculumCandidate]
     # Curriculum surfaces consume the reviewed player projection instead.
     from services.home_coach_conversation import get_player_safe_focus_copy
     player_copy = get_player_safe_focus_copy(topic_key)
+
+    observed: Dict[str, Any] = {
+        # Already computed above to pass the >=3 gate, then discarded. It is
+        # the only number behind "several of your recent games".
+        "recent_occurrences": occurrence_count,
+        "topic_key": topic_key,
+        "counted_by": "user_active_focus via services/focus_bridge.py",
+    }
+    clock_justification = None
+    if topic_key in _CLOCK_TOPICS and clock_profile:
+        observed["clock_profile"] = dict(clock_profile)
+        if clock_profile.get("a_longer_control_would_help"):
+            # Puzzles cannot train clock use, and neither can a lesson. When
+            # one control he already plays loses the flag far less often, the
+            # lever is which control he sits down to -- say that instead of
+            # promising practice that cannot reach it.
+            clock_justification = CurriculumJustification(
+                why_subject=(
+                    "Your clock is ending these games, not your moves."
+                ),
+                why_activity=(
+                    "This one is not a lesson. The lever is the time control "
+                    "you choose to play."
+                ),
+                change_signal=(
+                    "A control you can finish without hurrying takes this off "
+                    "the list."
+                ),
+                observed=observed,
+            )
     return CurriculumCandidate(
         outcome=CurriculumOutcome.REPAIR,
         student_state=StudentState.LEARNING,
@@ -803,13 +981,8 @@ def _repair_candidate(focus: Mapping[str, Any]) -> Optional[CurriculumCandidate]
         ),
         evidence_owner="user_active_focus via services/focus_bridge.py",
         evidence_ref=str(focus.get("focus_id") or "") or None,
-        observed_evidence={
-            # Already computed above to pass the >=3 gate, then discarded.
-            # It is the only number behind "several of your recent games".
-            "recent_occurrences": occurrence_count,
-            "topic_key": topic_key,
-            "counted_by": "user_active_focus via services/focus_bridge.py",
-        },
+        observed_evidence=observed,
+        justification=clock_justification,
         detector_quality_id=(
             str(focus.get("detector_quality_id"))
             if focus.get("detector_quality_id")
@@ -1295,7 +1468,13 @@ async def build_player_curriculum(
         )
 
         focus = await get_active_focus_bundle(db, user_id)
-        primary = _repair_candidate(focus or {})
+        focus_topic = str((focus or {}).get("topic_key") or "").strip()
+        clock_profile = (
+            await clock_control_profile(db, user_id)
+            if focus_topic in _CLOCK_TOPICS
+            else None
+        )
+        primary = _repair_candidate(focus or {}, clock_profile)
         knowledge = await pick_knowledge_focus(db, user_id)
         if primary is None and knowledge is not None:
             primary = _knowledge_candidate(
