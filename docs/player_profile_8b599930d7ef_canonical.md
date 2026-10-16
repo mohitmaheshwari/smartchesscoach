@@ -1195,11 +1195,13 @@ clock he last had:
 | 1–3 minutes | 3 | 3 |
 | **over 3 minutes** | **13** | **6** |
 
-Those 13 are all chess.com rapid with **333 to 577 seconds remaining**. Two of
-the scrambles ended with a forced mate available and one second on the clock.
-*Bounded:* a timeout while ahead is as consistent with clock management, or with
-walking away from the board, as with anything about how he reads a position —
-and the two halves of that table are plainly different events.
+Those 13 are all chess.com rapid with **333 to 577 seconds remaining** at his
+last recorded move. Two of the under-10-second games ended with a forced mate
+available. *Bounded, and the labels are the clock reading only:* these are
+"last recorded clock under ten seconds" and "last recorded clock over three
+minutes". Why the clock then ran out — time trouble, a disconnection, leaving
+the board — is not recorded anywhere, and none of it speaks to how he reads a
+position.
 
 **Exchange decisions, per decision rather than by frequency.** In positions
 where he was already clearly better (+300 and up, mates excluded):
@@ -1277,22 +1279,27 @@ that gave ground and had named a reply. Asked what made `Qe4` preferable to the
 alternatives, he answered: **"I don't remember."** Recorded as given. No reason
 was substituted for it, and the cause of that move stays unknown.
 
-**What he demonstrated.**
+**Who said what.** An earlier revision of this section credited the player
+with analysis he did not produce. Corrected, and the distinction is kept
+explicit from here on, because the record is worthless if the four voices are
+merged:
 
-- Across the 14 positions: a holding move on **9 of 14** — 5 of 6 on the control
-  set, 4 of 8 on the treatment set. He named a reply on 11 of 14; the three
-  marked pending were verified sound afterwards.
-- **He rejected a wrong explanation of mine and was right to.** My first
-  teaching said the queen on d5 was doing three jobs and that every alternative
-  left her there. `Qf3+` and `Qg5` are both in my own holding table and both
-  move her, so the explanation was contradicted by the evidence I had printed
-  under it.
-- **He then supplied the correct distinguishing idea.** Given the line table and
-  the board fact that d8 is undefended, he made the connecting inference I had
-  not: that `Kg8` — the move that saves Black after `Qe4` — is refuted by
-  `Qxd8+` after `Qg5`. Verified at depth 22: after `Qg5`, `Kg8` loses to a
-  forced mate and `Qxd8+` is available; after `Qe4`, `Kg8` leaves +90 and
-  `Qxd8+` does not exist. `Kg8` was not among the replies I had listed.
+| source | what came from it |
+|---|---|
+| **the player** | the 14 recorded responses, and the single answer "I don't remember" |
+| **code review** | that `Qf3+` and `Qg5` both move the queen, so my attack-counting explanation was contradicted by my own table; and that `Kg8` is the move `Qg5` refutes with `Qxd8+` |
+| **me** | the first explanation, which was wrong; the position selection; the write-up |
+| **the engine** | every evaluation and continuation quoted |
+
+**What the player actually demonstrated.** Only this: across the 14 positions he
+chose a holding move on **9 of 14** — 5 of 6 on the control set, 4 of 8 on the
+treatment set — and named a reply on 11 of 14, with the three marked pending
+verified sound afterwards. Asked why he chose `Qe4`, he said **"I don't
+remember."** That is the complete set of player answers in this exchange.
+
+**The `c175c090` example is presented teaching material.** It was explained to
+him; he was not tested on it. **Whether it benefited him is unmeasured**, and
+no part of the reviewer's analysis should be read as something he produced.
 
 **What assistance he received.** In the sitting itself, none — no hint, no
 engine line, no evaluation before recording. In the worked example, a great
@@ -1302,13 +1309,13 @@ moves with their continuations, Black's four best replies after both `Qe4` and
 position he was told he is much the better side (+466 at depth 22) — supplied as
 support and recorded as such.
 
-**What teaching helped.** Not the first attempt. The framing that worked is the
-one he produced: *name the concrete threat your move makes, then check whether
-it removes their best defence.* Under that framing the comparison in
-`c175c090` collapses to one question — does this move stop `Kg8`? — which
-separates the candidates without counting attacks. Observed on the position he
-had just been walked through. **That is not transfer, and the exchange carries
-no claim that anything was retained.**
+**What teaching was delivered.** Not the first attempt, which was wrong. The
+framing presented to him, which came from code review and not from him, is:
+*compare the candidate against the available captures and forcing moves, and
+for each serious candidate check the opponent's strongest response and the
+position it leaves.* Applied to `c175c090`, that is the question of whether a
+move stops `Kg8`. **Delivered, not tested. No measured benefit, no transfer
+claim, and no claim that anything was retained.**
 
 **What remains uncertain.**
 
