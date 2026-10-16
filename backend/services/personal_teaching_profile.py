@@ -680,3 +680,205 @@ async def build_personal_teaching_profile(
         logger.exception("destination-safety why_now enrichment failed")
 
     return teaching_profile
+
+
+PLAYER_UNDERSTANDING_SCHEMA_VERSION = "player_understanding.v1"
+
+
+def _attempt_rows(session: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
+    """The attempts inside one learning session.
+
+    They live on `events[].attempt`, not in a collection of their own --
+    `lesson_attempts` exists and is empty. Anything reading attempts has to
+    come through here or it finds nothing and reports zero.
+    """
+    out = []
+    for event in session.get("events") or []:
+        attempt = _mapping(event.get("attempt"))
+        if attempt:
+            out.append(attempt)
+    return out
+
+
+def _was_assisted(attempt: Mapping[str, Any]) -> bool:
+    """Assistance is a list, a flag, or a help request -- any of them counts."""
+    if attempt.get("assistance"):
+        return True
+    if attempt.get("requested_help"):
+        return True
+    return False
+
+
+async def _read_rows(collection, query, limit: int) -> Sequence[Mapping[str, Any]]:
+    """Read a bounded set of rows from whatever cursor the caller supplies.
+
+    Motor cursors answer to_list(); some of the fakes the curriculum adapter
+    tests pass in are async-iterable only. This view is advisory -- it must
+    never be the reason a curriculum decision fails -- so an owner it cannot
+    read becomes an empty section and a line in `limits`, not an exception.
+    """
+    if collection is None:
+        return []
+    try:
+        cursor = collection.find(query, {"_id": 0})
+    except Exception:
+        return []
+    to_list = getattr(cursor, "to_list", None)
+    if callable(to_list):
+        try:
+            return await to_list(limit)
+        except Exception:
+            return []
+    rows = []
+    try:
+        async for row in cursor:
+            rows.append(row)
+            if len(rows) >= limit:
+                break
+    except Exception:
+        return rows
+    return rows
+
+
+async def build_player_understanding(
+    db,
+    user_id: str,
+    *,
+    decision: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """What the app knows about this player, read from the existing owners.
+
+    This is the runtime counterpart of a research write-up: the same facts,
+    shaped so a decision can consult them. It creates nothing. Every section
+    names the collection it came from, and anything the owners cannot answer
+    is listed in `limits` rather than filled in.
+
+    Four sections, because those are the four questions a coach needs:
+    what he is good at and bad at, what he has shown WITHOUT help, what he has
+    been taught but never tested on, and what we are currently doing about it.
+
+    Deliberately absent: any mastery claim. `user_concept_understanding`
+    carries `mastered_at`, and on this account every surviving stamp sits on a
+    concept the product never showed him, so it is read for nothing here.
+    """
+    focus_rows = await _read_rows(
+        getattr(db, "user_active_focus", None),
+        {"user_id": user_id, "status": "active"},
+        50,
+    )
+
+    def _focus_view(row: Mapping[str, Any]) -> Dict[str, Any]:
+        return {
+            "label": str(row.get("label") or "").strip() or None,
+            "metric_key": row.get("metric_key"),
+            "kind": row.get("kind"),
+            "his_value": row.get("user_value"),
+            "cohort_mean": row.get("cohort_mean"),
+            "rating_band": row.get("rating_band"),
+            # Focus rows carry a metric and a cohort comparison, not game
+            # references. Saying so beats inventing a link.
+            "supporting_games": [],
+            "counted_by": "user_active_focus",
+        }
+
+    strengths = [
+        _focus_view(r) for r in focus_rows if str(r.get("type")) == "strength"
+    ]
+    difficulties = [
+        _focus_view(r) for r in focus_rows if str(r.get("type")) == "weakness"
+    ]
+
+    # Ordered in Python below rather than on the cursor, so no particular
+    # cursor API is required.
+    sessions = await _read_rows(
+        getattr(db, "learning_sessions", None), {"user_id": user_id}, 200
+    )
+
+    by_skill: Dict[str, Dict[str, Any]] = {}
+    for session in sessions:
+        skill = str(session.get("skill_id") or session.get("content_id") or "").strip()
+        if not skill:
+            continue
+        record = by_skill.setdefault(
+            skill,
+            {
+                "skill_id": skill,
+                "content_kind": session.get("content_kind"),
+                "sessions": 0,
+                "attempts": 0,
+                "unassisted_attempts": 0,
+                "unassisted_correct": 0,
+                "assisted_correct": 0,
+                "last_seen_at": None,
+                "counted_by": "learning_sessions.events[].attempt",
+            },
+        )
+        record["sessions"] += 1
+        seen = session.get("updated_at") or session.get("created_at")
+        if seen and (record["last_seen_at"] is None or str(seen) > str(record["last_seen_at"])):
+            record["last_seen_at"] = seen
+        for attempt in _attempt_rows(session):
+            record["attempts"] += 1
+            assisted = _was_assisted(attempt)
+            correct = bool(attempt.get("correct"))
+            if assisted:
+                record["assisted_correct"] += 1 if correct else 0
+            else:
+                record["unassisted_attempts"] += 1
+                record["unassisted_correct"] += 1 if correct else 0
+
+    taught = sorted(by_skill.values(), key=lambda r: str(r["last_seen_at"] or ""), reverse=True)
+    shown_without_help = [
+        r for r in taught if r["unassisted_correct"] > 0
+    ]
+    only_with_help = [
+        r for r in taught if r["unassisted_correct"] == 0 and r["assisted_correct"] > 0
+    ]
+    # Taught and never answered without help. Not a failure -- an untested
+    # claim, which is a different thing and must not be read as either.
+    untested = [r for r in taught if r["unassisted_attempts"] == 0]
+
+    goal = None
+    if decision:
+        primary = _mapping(_mapping(decision).get("primary"))
+        if primary:
+            just = _mapping(primary.get("justification"))
+            goal = {
+                "title": primary.get("title"),
+                "outcome": primary.get("outcome"),
+                "why_subject": just.get("why_subject"),
+                "why_activity": just.get("why_activity"),
+                "change_signal": just.get("change_signal"),
+                "observed": dict(_mapping(just.get("observed"))),
+                "counted_by": "services.personal_curriculum",
+            }
+
+    limits = [
+        "Focus rows carry a metric and a cohort comparison, not game references, "
+        "so no supporting game sequences are linked here.",
+        "Mastery stamps are not read. Every surviving stamp on this account sits "
+        "on a concept the product never showed him.",
+        "An untested skill is one that has been taught and never answered without "
+        "help. It is not evidence of failure.",
+    ]
+    if not sessions:
+        limits.append("No learning sessions exist for this player yet.")
+    if not focus_rows:
+        limits.append("No active focus rows exist for this player yet.")
+
+    return {
+        "schema_version": PLAYER_UNDERSTANDING_SCHEMA_VERSION,
+        "strengths": strengths,
+        "difficulties": difficulties,
+        "shown_without_help": shown_without_help,
+        "only_with_help": only_with_help,
+        "taught": taught,
+        "untested": untested,
+        "current_goal": goal,
+        "limits": limits,
+        "counted_by": [
+            "user_active_focus",
+            "learning_sessions.events[].attempt",
+            "services.personal_curriculum",
+        ],
+    }

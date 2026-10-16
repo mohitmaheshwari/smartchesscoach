@@ -1580,6 +1580,13 @@ async def build_player_curriculum(
                 "content_version": "resolved_at_session_start",
             },
         )
+    from services.personal_teaching_profile import build_player_understanding
+
+    player_understanding = await build_player_understanding(
+        db,
+        user_id,
+        decision=decision,
+    )
     home_diagnostic = await _home_replay_diagnostic_projection(
         db,
         user_id,
@@ -1602,8 +1609,15 @@ async def build_player_curriculum(
         ),
         "personalized_teaching": {
             "enabled": personalized_enabled,
+            # Per-lesson delivery shaping. Only built when the destination is
+            # a personalized lesson, so a clock focus leaves it null -- that
+            # is correct, and it is why the player-level view below exists
+            # separately rather than being squeezed into this slot.
             "profile": teaching_profile,
         },
+        # What the app knows about the player, read from the existing owners.
+        # Present for every decision, including the ones with no lesson.
+        "player_understanding": player_understanding,
         "home_diagnostic": home_diagnostic,
     }
 
