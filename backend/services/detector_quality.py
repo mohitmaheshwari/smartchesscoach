@@ -933,19 +933,30 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "concept:opening_castling": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="docs/verified_puzzle_detector_data_lock_2026_08_30.md",
-        rationale="The stored best opening move was legal castling.",
-        limitations=("Positive-only candidate; blind review pending.",),
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
+        rationale=(
+            "Board-verifier adjudication: on 61 of 61 fires the move was "
+            "castling by the player. Wilson lower bound 94.1%."
+        ),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "Correction half unmeasured; it speaks only behind a serve-time "
+            "verification.",
+        ),
     ),
     "concept:opening_center": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="docs/verified_puzzle_detector_data_lock_2026_08_30.md",
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
         rationale=(
-            "The stored best opening move advanced a home d- or e-pawn to "
-            "occupy d4/e4 or d5/e5."
+            "Board-verifier adjudication: on 222 of 222 fires a pawn of the "
+            "player's landed on d4, e4, d5 or e5. Wilson lower bound 98.3%."
         ),
-        limitations=("Positive-only candidate; blind review pending.",),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "The correction half held 31 of 37 at depth 18 and speaks only "
+            "behind a serve-time verification.",
+        ),
     ),
     "concept:opening_development_with_tempo": Authorization(
         grade=QualityGrade.SHADOW,
@@ -983,22 +994,40 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "concept:coached_development": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="docs/verified_puzzle_detector_data_lock_2026_08_30.md",
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
         rationale=(
-            "The player developed a home-square minor piece with the exact "
-            "already-stored Stockfish best move during the opening."
+            "Board-verifier adjudication, which the threshold lock permits "
+            "and where it refuses a model by name: on 286 of 286 fires a "
+            "knight or bishop of the player's had left its own home square, "
+            "Wilson lower bound 98.7%. The verifier is independent of the "
+            "detector -- it also found 685 positions where the concept was "
+            "present and the detector stayed silent."
         ),
-        limitations=("Positive application only; no missed claim.",),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "The correction half is not authorized on its own: against a "
+            "fresh depth-18 look it held 53 of 60, under the 95% bar, so it "
+            "speaks only behind a serve-time verification of the claim.",
+        ),
     ),
     "concept:endgame_king_centralization": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="docs/verified_puzzle_detector_data_lock_2026_08_30.md",
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
         rationale=(
-            "In the canonical endgame phase, the stored best king move reduced "
-            "distance to a central square."
+            "Board-verifier adjudication: the king steps towards the middle "
+            "on 100% of fires, and on the 80 fires with 12 pieces or fewer "
+            "remaining the claim held 80 of 80."
         ),
-        limitations=("Positive application only; blind semantic review pending.",),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "AUTHORIZED ONLY WITH THE PIECE-COUNT GATE. 42 of 122 fires occur "
+            "with 13 to 21 pieces on the board, where walking the king to the "
+            "middle is not endgame technique but a way to get mated. No "
+            "wording fixes that; the gate lives in "
+            "services/caption_concept_sentences.py and the detector must stay "
+            "silent above the limit.",
+        ),
     ),
     "concept:endgame_create_passed_pawn": Authorization(
         grade=QualityGrade.SHADOW,
@@ -1061,13 +1090,20 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         limitations=("Positive-only candidate; blind positional review pending.",),
     ),
     "concept:concept_rook_open_file": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="docs/verified_puzzle_detector_data_lock_2026_08_30.md",
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
         rationale=(
-            "The stored best move is recognized by the canonical middlegame "
-            "pattern source as occupying an open file."
+            "Board-verifier adjudication: on 202 of 202 fires a rook of the "
+            "player's reached a file carrying none of the player's own pawns. "
+            "Wilson lower bound 98.1%. An earlier 57% reading was a fault in "
+            "the sentence under test, not in the detector: it demanded a file "
+            "with no pawns of EITHER colour, and of 121 fires 64% were fully "
+            "open and 36% half-open, with not one friendly pawn on the file."
         ),
-        limitations=("Positive-only candidate; blind positional review pending.",),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "The sentence must say none of YOUR pawns, never no pawns.",
+        ),
     ),
     "concept:concept_rook_seventh": Authorization(
         grade=QualityGrade.SHADOW,
@@ -1079,13 +1115,25 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         limitations=("Positive-only candidate; blind positional review pending.",),
     ),
     "concept:concept_central_pawn_break": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="docs/verified_puzzle_detector_data_lock_2026_08_30.md",
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
         rationale=(
-            "The stored best move is recognized by the canonical middlegame "
-            "pattern source as a central pawn break."
+            "Board-verifier adjudication: on 177 of 177 fires the move was a "
+            "pawn of the player's moving on the c-f files. Wilson lower bound "
+            "97.9%."
         ),
-        limitations=("Positive-only candidate; blind positional review pending.",),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "AUTHORIZED ONLY WITH THE PAWN-CONTACT GATE. Only 55 of 177 fires "
+            "have enemy pawns in contact, so the word break overclaims for "
+            "the rest; the gate lives in "
+            "services/caption_concept_sentences.py.",
+            "KNOWN GAP: the gate asks whether enemy pawns meet the pawn after "
+            "the move, and a capture removes the pawn it met, so dxe4 and its "
+            "kind stay silent although a capture in the centre is the "
+            "clearest break there is. Counting captures changes the measured "
+            "population, so it needs its own evidence first.",
+        ),
     ),
     "concept:concept_minority_attack": Authorization(
         grade=QualityGrade.SHADOW,

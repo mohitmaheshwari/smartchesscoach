@@ -95,10 +95,25 @@ def test_research_detectors_do_not_gain_player_authority_from_registration():
     assert ConceptCapability.CAPTION not in london.capabilities
     assert ConceptCapability.PLAN not in london.capabilities
     assert london.opportunity_contract_refs == ()
-    assert all(
-        not binding.allowed_surfaces
-        for binding in index.detector_bindings.values()
-    )
+
+    # Registration grants nothing. A surface appears only where
+    # detector_quality._AUTHORIZATIONS promoted that detector on reviewed
+    # evidence, so the invariant is "surfaces come from the quality table",
+    # not "no detector may ever have one". Six concept detectors were
+    # promoted to caption grade on 2026-10-17 against board-verifier
+    # evidence (docs/detectors_speak_scope.md); this asserts that every
+    # binding with authority has it from there and no other route.
+    from services.detector_quality import QualitySurface, concept_quality_id, is_authorized
+
+    for detector_id, binding in index.detector_bindings.items():
+        for surface in binding.allowed_surfaces:
+            assert is_authorized(
+                concept_quality_id(detector_id), QualitySurface(surface)
+            ), (detector_id, surface)
+        if not is_authorized(concept_quality_id(detector_id), QualitySurface.CAPTION):
+            assert QualitySurface.CAPTION.value not in binding.allowed_surfaces
+        # Nothing here may reach a plan by registration.
+        assert QualitySurface.PLAN.value not in binding.allowed_surfaces, detector_id
     assert all(
         ConceptCapability.MASTERY not in contract.capabilities
         for contract in index.contracts.values()

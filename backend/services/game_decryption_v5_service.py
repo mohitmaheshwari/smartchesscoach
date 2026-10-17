@@ -2936,6 +2936,58 @@ def _get_move_priority(
     return "silent"
 
 
+def _concept_sentence_for_move(
+    board_before, move_san, user_color, full_move_number, eval_data
+):
+    """The one sentence a promoted concept detector may say about this move.
+
+    Six detectors were unmuted on 2026-10-17 (docs/detectors_speak_scope.md)
+    after board-verifier evidence: coached_development 286/286, opening_center
+    222/222, concept_rook_open_file 202/202, concept_central_pawn_break
+    177/177, endgame_king_centralization 80/80 inside its piece-count gate,
+    opening_castling 61/61.
+
+    Corrections stay silent here. Measured against a fresh depth-18 look they
+    held only 84-88%, so one in eight would name an improvement the engine
+    does not back -- and this service reads stored analysis rather than
+    running an engine, so it cannot check the claim at the depth the claim is
+    made at. `pick_concept_sentence` fails closed without a verifier, which is
+    what we want until that verifier exists.
+    """
+    try:
+        import chess as _chess
+        from services.caption_concept_sentences import pick_concept_sentence
+        from services.concept_detectors._runner import run_detectors_for_move
+
+        move = board_before.parse_san(move_san)
+        colour = _chess.WHITE if str(user_color).lower() == "white" else _chess.BLACK
+        if board_before.turn != colour:
+            return None
+        outcomes = run_detectors_for_move(
+            board_before,
+            move,
+            colour,
+            move_number=full_move_number,
+            best_move_san=(eval_data or {}).get("best_move"),
+            best_move_uci=(eval_data or {}).get("best_move_uci"),
+            cp_loss=(eval_data or {}).get("cp_loss"),
+            mate_info=(eval_data or {}).get("mate_info"),
+            include_shadow=True,
+        )
+        if not outcomes:
+            return None
+        return pick_concept_sentence(
+            outcomes=outcomes,
+            board_before=board_before,
+            move=move,
+            user_color=colour,
+            verify_correction=None,
+        )
+    except Exception:
+        # A detector must never be able to break a game review.
+        return None
+
+
 async def generate_game_decryption_v5(
     pgn: str,
     user_color: str,
@@ -3403,6 +3455,16 @@ async def generate_game_decryption_v5(
                     severity = "good"
             
             fen_before = board.fen()
+
+            # ── CONCEPT SENTENCE ──────────────────────────────────
+            # The six detectors unmuted on 2026-10-17. They add one
+            # sentence to the move they fired on; they never replace
+            # the caption and never set a plan.
+            concept_sentence = None
+            if is_user:
+                concept_sentence = _concept_sentence_for_move(
+                    board, move_san, user_color, full_move_number, eval_data
+                )
             
             # ─── ADAPTIVE PRIORITY ────────────────────────────────
             # Determine if this move should be fully explained based on player level
@@ -4771,6 +4833,10 @@ async def generate_game_decryption_v5(
                 # doesn't surface it but other lab consumers may.
                 "is_best_move": is_best_move,
                 "concept_applied": concept_applied,
+                # One sentence from a promoted concept detector, plus the
+                # principle it teaches. None on most moves, and None for
+                # every detector that has not earned caption grade.
+                "concept_sentence": concept_sentence,
 
                 # ── NEW V5 CAPTION PIPELINE (the only text source) ─
                 # Per docs/caption_pipeline_design.md. Frontend reads

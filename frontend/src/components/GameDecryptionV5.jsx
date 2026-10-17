@@ -2435,6 +2435,26 @@ const MoveCoachingCardV5 = ({
               className="text-sm text-gray-700"
             />
             <InlineFlag section="narrative" flaggedText={move.narrative} context={flagCtx} />
+            {/* One sentence from a concept detector that has earned the right
+                to speak. Six were unmuted on 2026-10-17 after board-verifier
+                evidence (docs/detectors_speak_scope.md); forty-two others
+                still compute an opinion and say nothing, which is correct
+                until their claims have been checked. It sits under the
+                caption because it is a second, smaller idea about the same
+                move -- what you did right, and the rule behind it. */}
+            {move.concept_sentence?.sentence && (
+              <div
+                data-testid="concept-sentence"
+                className="mt-2 border-l-2 border-emerald-500/50 pl-3"
+              >
+                <p className="text-sm text-gray-800">
+                  {move.concept_sentence.sentence}
+                </p>
+                <p className="mt-0.5 text-xs text-gray-600">
+                  {move.concept_sentence.principle}
+                </p>
+              </div>
+            )}
             {/* The arrows, in words. Mohit 2026-10-09: "when i am not using
                 show facts, it should still show sentences for the arrow...
                 after caption, it should show the arrows and the small
