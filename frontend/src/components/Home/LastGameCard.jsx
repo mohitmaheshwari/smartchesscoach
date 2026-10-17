@@ -69,6 +69,25 @@ export default function LastGameCard() {
                 arePiecesDraggable={false}
                 boardOrientation={turning.board_orientation === "black" ? "black" : "white"}
                 customBoardStyle={{ borderRadius: "10px" }}
+                /* Draw the move the sentence names. The board shows the
+                   position BEFORE it, so without this the card points at a
+                   move that is not on the board yet -- on 4...Bd6 that meant
+                   a near-starting position with every piece at home and the
+                   only hint in the text. Mohit: "look at board, it doesn't
+                   make sense." */
+                customArrows={
+                  turning.from && turning.to
+                    ? [[turning.from, turning.to, "#b45309"]]
+                    : []
+                }
+                customSquareStyles={
+                  turning.from && turning.to
+                    ? {
+                        [turning.from]: { background: "rgba(180,83,9,0.18)" },
+                        [turning.to]: { background: "rgba(180,83,9,0.28)" },
+                      }
+                    : {}
+                }
               />
             </div>
             {turning.san && (
