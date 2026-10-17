@@ -166,23 +166,105 @@ def _enemy_pawn_in_contact(
     return False
 
 
-def _gate_king_centralization(
-    board: chess.Board, move: chess.Move, colour: chess.Color
-) -> bool:
-    return len(board.piece_map()) <= ENDGAME_PIECE_LIMIT
+def _mover(board: chess.Board, move: chess.Move, colour: chess.Color, kinds=None):
+    piece = board.piece_at(move.from_square)
+    if piece is None or piece.color != colour:
+        return None
+    if kinds and piece.piece_type not in kinds:
+        return None
+    return piece
 
 
-def _gate_central_pawn_break(
-    board: chess.Board, move: chess.Move, colour: chess.Color
-) -> bool:
+def _home_squares(colour: chess.Color):
+    return (
+        {chess.B1, chess.G1, chess.C1, chess.F1}
+        if colour == chess.WHITE
+        else {chess.B8, chess.G8, chess.C8, chess.F8}
+    )
+
+
+def _centre_distance(square: int) -> float:
+    return max(abs(chess.square_file(square) - 3.5), abs(chess.square_rank(square) - 3.5))
+
+
+def p_development(board, move, colour) -> bool:
+    """A knight or bishop of yours left its own home square."""
+    if not _mover(board, move, colour, (chess.KNIGHT, chess.BISHOP)):
+        return False
+    home = _home_squares(colour)
+    return move.from_square in home and move.to_square not in home
+
+
+def p_centre(board, move, colour) -> bool:
+    """A pawn of yours landed on one of the four centre squares."""
+    if not _mover(board, move, colour, (chess.PAWN,)):
+        return False
+    return move.to_square in {chess.D4, chess.E4, chess.D5, chess.E5}
+
+
+def p_castle(board, move, colour) -> bool:
+    """You castled."""
+    return board.turn == colour and board.is_castling(move)
+
+
+def p_rook_open_file(board, move, colour) -> bool:
+    """A rook of yours reached a file carrying none of YOUR pawns.
+
+    Not "no pawns at all": of 121 fires, 64% were fully open files and 36%
+    half-open, and not one had a friendly pawn on the file. Writing the
+    stricter sentence is what made this detector look 57% accurate.
+    """
+    if not _mover(board, move, colour, (chess.ROOK,)):
+        return False
+    file_index = chess.square_file(move.to_square)
+    after = board.copy()
+    after.push(move)
+    for rank in range(8):
+        piece = after.piece_at(chess.square(file_index, rank))
+        if piece is not None and piece.piece_type == chess.PAWN and piece.color == colour:
+            return False
+    return True
+
+
+def p_king_centralization(board, move, colour) -> bool:
+    """With the board emptied, your king stepped towards the middle.
+
+    The piece limit is the whole point: 42 of 122 fires happen with 13 to 21
+    pieces on, where this is not endgame technique but a way to get mated.
+    """
+    if not _mover(board, move, colour, (chess.KING,)):
+        return False
+    if board.is_castling(move):
+        return False
+    if len(board.piece_map()) > ENDGAME_PIECE_LIMIT:
+        return False
+    return _centre_distance(move.to_square) < _centre_distance(move.from_square)
+
+
+def p_central_pawn_break(board, move, colour) -> bool:
+    """A pawn of yours moved in the middle files where pawns actually meet."""
+    if not _mover(board, move, colour, (chess.PAWN,)):
+        return False
+    if chess.square_file(move.to_square) not in (2, 3, 4, 5):
+        return False
     return _enemy_pawn_in_contact(board, move, colour)
 
 
-# A detector here must satisfy its gate as well as hold caption grade.
-GATES: Dict[str, Callable[[chess.Board, chess.Move, chess.Color], bool]] = {
-    "endgame_king_centralization": _gate_king_centralization,
-    "concept_central_pawn_break": _gate_central_pawn_break,
+# The concept, as a decidable statement about the board. One source, used two
+# ways: as the condition a compliment must satisfy before it is said, and as
+# the test a correction's alternative move must pass. Precision was 100% on
+# every promoted detector, so using it as a condition rejects nothing that was
+# measured -- it just makes the sentence and the evidence the same thing.
+CONCEPT_PREDICATES: Dict[str, Callable[[chess.Board, chess.Move, chess.Color], bool]] = {
+    "coached_development": p_development,
+    "opening_center": p_centre,
+    "opening_castling": p_castle,
+    "concept_rook_open_file": p_rook_open_file,
+    "endgame_king_centralization": p_king_centralization,
+    "concept_central_pawn_break": p_central_pawn_break,
 }
+
+GATES = CONCEPT_PREDICATES
 
 
 def may_speak(skill_id: str) -> bool:
@@ -213,13 +295,18 @@ def concept_sentence_for_move(
     if not may_speak(skill_id):
         return None
 
-    gate = GATES.get(skill_id)
-    if gate is not None:
-        try:
-            if not gate(board_before, move, user_color):
+    # The condition applies to a COMPLIMENT, where the predicate describes the
+    # move he played. On a correction the predicate describes the move he did
+    # NOT play, so gating the played move here would silence every correction
+    # -- the alternative is what gets checked, by the verifier below.
+    if outcome == APPLIED:
+        gate = GATES.get(skill_id)
+        if gate is not None:
+            try:
+                if not gate(board_before, move, user_color):
+                    return None
+            except Exception:
                 return None
-        except Exception:
-            return None
 
     if outcome == WRONG:
         if verify_correction is None:
