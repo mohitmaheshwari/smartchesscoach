@@ -2197,6 +2197,32 @@ def process_job(db, job):
                     game.get("pgn") or "", user_color,
                     game.get("time_control"), move_evaluations)
                 logger.info(f"[THINKING SCORE] attached think-time to {_timed} moves for {game_id}")
+                # ...and KEEP it. attach_move_times mutates move_evaluations in
+                # place, but the analysis document was written ~600 lines above
+                # (PHASE 1), so until now every think-time this computed was
+                # used for the thinking score and then dropped on the floor:
+                # 0 of 19,896 analyses carried `time_spent_seconds`, measured
+                # 2026-10-18, with a positive control confirming the field was
+                # absent everywhere rather than merely unsampled.
+                #
+                # It is wanted beyond the score. Think-time is the trigger for
+                # the coach companion (docs/coach_companion_scope.md): over
+                # 900 games the mistake rate runs 12.4% on moves played under
+                # two seconds to 30.8% on moves taking 20-45, and the longest
+                # two thinks of a game carry a 34% mistake rate against a
+                # 20.2% base. None of that is reachable from an aggregate.
+                #
+                # One targeted write per analysed game, and only when a clock
+                # was actually found -- a PGN without %clk must stay "unknown",
+                # never "fast".
+                if _timed:
+                    db.game_analyses.update_one(
+                        {"game_id": game_id, "user_id": user_id},
+                        {"$set": {
+                            "stockfish_analysis.move_evaluations":
+                                move_evaluations,
+                        }},
+                    )
             except Exception as _mt_err:
                 logger.warning(f"[THINKING SCORE] move-time attach failed (non-fatal): {_mt_err}")
 
