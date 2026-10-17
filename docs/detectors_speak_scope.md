@@ -112,17 +112,129 @@ that were wrong, and both are the reason this document exists:
   have failed. Real evidence has to check the claim — did a piece actually
   leave the back rank — not whether the move was good.
 
+## Decisions taken
+
+Mohit, 2026-10-17, answering the three open questions:
+
+1. **Surface — both, starting with game review.** V1 puts the sentence on the
+   move inside game review. Home follows once the sentences have been seen in
+   a real review.
+2. **Collisions — measured, then decided.** Over 150 games, 14% of his moves
+   fire at least one detector and 98% of games carry one. Of the moves that
+   fire, **89% fire exactly one detector**; 11% fire two and 0.4% fire three.
+   The pairs that collide are near-synonyms, which is why two sentences would
+   read as repetition rather than as two ideas:
+
+   | collision | how often | both are saying |
+   |---|---|---|
+   | `opening_center` + `opening_plan_play` | 25 | you took the middle |
+   | `coached_development` + `opening_plan_play` | 17 | you brought a piece out |
+   | `coached_development` + `opening_development_with_tempo` | 12 | you brought a piece out |
+   | `concept_rook_open_file` + `endgame_active_rook` | 10 | your rook got active |
+
+   **One sentence per move, chosen by fixed priority.** The more specific
+   detector wins, because "you brought a piece out and hit something" contains
+   "you brought a piece out" and the reverse is not true.
+3. **Corrections are in scope, not only compliments.** *"everything a coach is
+   never shy to give negative too."* A correction says a different move was
+   better, so it is held to the harder evidence: a FRESH depth-18 engine run,
+   not the stored best move, and the better move must still be clearly better
+   when looked at deeper. A correction that cannot clear that stays silent
+   while its compliment may still ship.
+
 ## Open questions
 
-1. **Where does the sentence go?** Game review is the obvious surface. Home is
-   the other. One of them, not both, for V1.
-2. **What happens when two detectors fire on the same move?** Seven detectors
-   over roughly 40 moves will collide. Proposal: one sentence per move, by
-   fixed priority, decided before any of this ships.
-3. **Does `opening_plan_play` belong here?** It claims the move matched an
-   authored plan, which is only as good as the authoring. It may need the
-   content audit first.
-4. **Do we say anything when a detector says "wrong"?** 64 of 981 fires were
-   negative verdicts, and those scored far better than chance. They are the
-   teachable ones — but a negative sentence is held to a higher bar than a
-   compliment, and this V1 proposes compliments only.
+1. **Does `opening_plan_play` belong here?** It claims the move matched an
+   authored plan, so it is only as true as the authoring. It is excluded from
+   the V1 evidence run until the opening content is audited.
+2. **Wording.** Every sentence below is a draft and none ships before Mohit
+   has read it.
+
+## The sentences (DRAFT — nothing ships before Mohit reads these)
+
+Simple English, one idea per sentence, no chess words a 700 player would have
+to look up, no numbers, and a principle at the end that carries past this one
+game. The correction says what was better and why, because a correction
+without a why is just a verdict.
+
+| detector | when you did it | when you did not |
+|---|---|---|
+| `coached_development` | **You brought a new piece into the game.** A piece left at home is a piece not helping you. | **A piece was still sitting at home, and bringing it out was better here.** A piece left at home is a piece not helping you. |
+| `opening_center` | **Your pawn took a square in the middle.** The middle is the ground both sides want first. | **A pawn into the middle was stronger here.** The middle is the ground both sides want first. |
+| `opening_castling` | **You castled, so your king is tucked away.** Get the king safe before the position opens up. | **Castling was the better move here.** Get the king safe before the position opens up. |
+| `concept_rook_open_file` | **Your rook moved to a file with no pawns in the way.** Rooks want lines with nothing blocking them. | **Your rook belonged on the clear file here.** Rooks want lines with nothing blocking them. |
+| `endgame_king_centralization` | **Your king stepped towards the middle.** When few pieces are left, the king turns into a fighter. | **Walking your king towards the middle was better here.** When few pieces are left, the king turns into a fighter. |
+| `opening_development_with_tempo` | **You brought a piece out and attacked something at the same time.** A new piece that arrives with a threat gains you a free move. | **You could have brought a piece out and made a threat with it.** A new piece that arrives with a threat gains you a free move. |
+| `concept_central_pawn_break` | **You pushed a pawn to challenge theirs in the middle.** When the middle is stuck, a pawn push is how you open it. | **Striking in the middle with a pawn was better here.** When the middle is stuck, a pawn push is how you open it. |
+
+Rules these follow, from what has already been decided about caption voice:
+no move names repeated back ("Nf3 puts your knight on f3"), no figures, no
+tally of past failures, nothing dramatic, and the last sentence is the one a
+player can still use in a game we never see.
+
+## Evidence, measured (2026-10-17, 250-400 sampled games)
+
+Compliments are settled by the board alone. Corrections were re-checked
+against a FRESH depth-18 engine, never the stored best move.
+
+### Compliments — what may speak
+
+| detector | the sentence that was verified | fires | held | Wilson LB | verdict |
+|---|---|---|---|---|---|
+| `coached_development` | a knight or bishop left its home square | 286 | 286 | 98.7% | **PASS** |
+| `opening_center` | a pawn landed on a centre square | 222 | 222 | 98.3% | **PASS** |
+| `concept_rook_open_file` | a rook moved to a file with none of HIS pawns | 202 | 202 | 98.1% | **PASS** |
+| `endgame_king_centralization` | with <=12 pieces, the king stepped towards the middle | 80 | 80 | — | **PASS, gated** |
+| `opening_castling` | he castled | 61 | 61 | 94.1% | **PASS** |
+| `concept_central_pawn_break` | a pawn moved in the middle files | 177 | 177 | 97.9% | **PASS** |
+| `opening_development_with_tempo` | came out and hit something | 20 | 20 | 83.9% | short of the 50-fire floor |
+
+Two of those were my errors, not the detectors':
+
+- **`concept_rook_open_file`** scored 57% until the sentence was fixed. Of 121
+  fires, 64% were fully open files and 36% half-open, and **not one** had a
+  friendly pawn on the file. The detector means "none of YOUR pawns"; I had
+  written "no pawns at all". With the sentence corrected: 202 of 202.
+- **`concept_central_pawn_break`** scored 73% against "where the pawns meet".
+  Every fire is a centre-file pawn move, but only 55 of 177 have enemy pawns
+  in contact. "Break" overclaims for the rest.
+
+One is a genuine detector limit, and it is the valuable one:
+
+- **`endgame_king_centralization`** steps towards the middle on 100% of fires,
+  but only 80 of 122 have 12 pieces or fewer left. The other 42 fire with 13
+  to 21 pieces on the board, where walking the king to the middle is not
+  endgame technique — it is how a player gets mated. **No wording saves that
+  one; it needs the piece-count gate**, and the gate is a condition of
+  promotion rather than a detail of the sentence.
+
+Honest note on the two gated rows: the gate clause (piece count, pawn contact)
+is **enforced**, not verified — it is true because we only fire when it holds.
+What the evidence establishes independently is the detector's own half of the
+sentence: the direction the king moved, and that the move was a centre-file
+pawn move.
+
+### Corrections — what may NOT speak yet
+
+| detector | "a move of this kind was better", at depth 18 | result |
+|---|---|---|
+| `coached_development` | clearly better move exists | 37/40 = 92% |
+| `coached_development` | **tighter**: it is the engine's TOP move | 36/40 = 90%, Wilson LB 77% |
+| `opening_center` | clearly better move exists | 20/23 = 87% |
+| `opening_center` | **tighter**: it is the engine's TOP move | 20/23 = 87%, Wilson LB 68% |
+
+The bar is 95% with a Wilson lower bound of 85%. **Both miss, and tightening
+the gate did not help** — it moved coached_development from 92% to 90%.
+
+The cause is depth, not the idea. The detector decides a correction from the
+best move stored at analysis time; at depth 18 the top move is often a
+different one, and then "bringing a piece out was better here" is a claim
+about a move the deeper engine does not endorse. Two honest ways forward, both
+costed before either is chosen:
+
+1. score the correction at the same depth it will be claimed at, or
+2. soften the sentence so it stops claiming superiority.
+
+Until one of those is done, **corrections stay silent while their compliments
+ship.** Mohit asked for the negatives and the negatives are worth having; they
+are not worth having at 90%.
