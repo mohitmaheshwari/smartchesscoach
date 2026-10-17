@@ -238,3 +238,44 @@ costed before either is chosen:
 Until one of those is done, **corrections stay silent while their compliments
 ship.** Mohit asked for the negatives and the negatives are worth having; they
 are not worth having at 90%.
+
+## The corrections, re-measured cleanly (2026-10-17)
+
+The first correction run reused one engine process across several hundred
+positions, so Stockfish's table carried between unrelated boards. Re-run with
+`ucinewgame` before every position, 400 games:
+
+| detector | some move of this kind is clearly better | it IS the engine's top move |
+|---|---|---|
+| `coached_development` | 53/60 = 88% (LB 78%) | 54/60 = 90% (LB 80%) |
+| `opening_center` | 31/37 = 84% (LB 69%) | 33/37 = 89% (LB 75%) |
+
+**The flawed run and the clean run agree.** The method needed fixing; the
+finding did not change. Corrections sit at 84-90% against a 95% bar, so they
+cannot ship as they are.
+
+### What a wrong correction looks like
+
+Game `02ea7f59`, move 5, he played `dxe5`. The move stored as best at analysis
+time was `Be2`, which develops a piece, so the correction fired:
+
+> "A piece was still sitting at home, and bringing it out was better here."
+
+At depth 18 the move order is `Qd3` +179, `Be3` +169, `Be2` +151, his `dxe5`
++90. The strongest move is a queen move that develops nothing. The card would
+have pushed him towards a principle the position did not want.
+
+### The fix: gate it, do not accept it
+
+Do for corrections what the piece count does for the king: **verify at the
+depth we claim at, at review time, and stay silent when it does not hold.**
+
+- every correction printed has been checked against a fresh deep look, so the
+  one-in-eight like `dxe6` and `Qh4` never reaches a player
+- we lose about 1 correction in 8; the detector simply says nothing there
+- cost is one engine check per correction candidate, about 0.3 per game,
+  cached with the game
+
+This is the honest way to give a coach its negatives: not by lowering the bar
+to 88%, and not by staying silent, but by only speaking where the claim has
+been checked.
