@@ -56,6 +56,32 @@ export function resolveBadgeTier(move) {
     else severity = "good";
   }
 
+  // The words win when they contradict the tier.
+  //
+  // This file exists so "badge and words agree", and on 8.1% of reviewed
+  // cards they do not: measured over 55,135 stored cards, 4,465 carry a
+  // bad `severity` while `severity_practical` -- the classifier the CAPTION
+  // is written from -- says the move was fine. Mohit 2026-10-17 on move 12
+  // d4, badged Mistake above a card reading "d4 is fine - you're still
+  // winning." at +7.4: "it shouldn't be call mistake, really, see for
+  // yourself." The worst of them badge a forced best move: "You were in
+  // check with only 2 legal moves, and Kh1 is the best of them" -- Blunder.
+  //
+  // classify_severity_practical is the right authority here. It scores the
+  // win-probability change rather than raw cp_loss, which is what softens
+  // "+8.6 -> +7.4" to nothing, and its docstring quotes the instruction it
+  // was built for: "don't purely threshold on cp_loss."
+  //
+  // Only ever SOFTENS, and only when the caption itself said nothing bad.
+  // Where the caption does say "is an inaccuracy", badge and words already
+  // agree and the badge stays -- overriding there would re-open the same
+  // gap from the other side. Nothing is hardened: the 2,038 cards whose
+  // practical tier is worse than their severity keep the gentler badge,
+  // because the sentence beside them is the gentler one too.
+  const practical = move.severity_practical;
+  const BAD = new Set(["inaccuracy", "mistake", "blunder", "miss", "serious"]);
+  if (practical === "good" && BAD.has(severity)) return "good";
+
   if (!severity || severity === "context") return null;
   // A tier the board cannot draw is the same as no badge, so never return one.
   return BADGE_TIERS.has(severity) ? severity : null;
