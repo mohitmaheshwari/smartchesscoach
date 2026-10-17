@@ -4037,7 +4037,8 @@ def weak_pawn_count_sentence(contested: Optional[Dict[str, Any]]) -> str:
     return ""
 
 
-def reply_gap_sentence(gap: Optional[Dict[str, Any]]) -> str:
+def reply_gap_sentence(gap: Optional[Dict[str, Any]],
+                       mover_is_user: bool = True) -> str:
     """One sentence for facts["reply_gap"], or "" when there is none.
 
     Derived per position from the board and both stored engine lines,
@@ -4059,14 +4060,21 @@ def reply_gap_sentence(gap: Optional[Dict[str, Any]]) -> str:
         return ""
     piece = gap.get("captured_piece")
     square = gap.get("capture_square")
+    # Whose reply this is depends on who moved. The sentence was written for
+    # a USER card -- "you played X, that lets THEM answer" -- and hardcoded
+    # "them". On an opponent card the mover is the opponent, so the same
+    # words hand their mistake's punishment to them: Mohit 2026-10-17 read
+    # "Opponent's Bd6 is a serious mistake ... That lets them play Qh5 with
+    # check", where Qh5+ is HIS move and the whole point of the card.
+    who = "them" if mover_is_user else "you"
     if "check" in allows and "capture" in allows and piece and square:
-        return (f"That lets them play {reply} with check, "
+        return (f"That lets {who} play {reply} with check, "
                 f"taking the {piece} on {square}.")
     if "check" in allows:
-        return f"That lets them play {reply} with check."
+        return f"That lets {who} play {reply} with check."
     if piece and square:
-        return f"That lets them take the {piece} on {square} with {reply}."
-    return f"That lets them play {reply}."
+        return f"That lets {who} take the {piece} on {square} with {reply}."
+    return f"That lets {who} play {reply}."
 
 
 def _verify_and_recover_caption(
@@ -6297,7 +6305,7 @@ def _story_mate_in_line(board_before, first_san, line, side):
 
 
 def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
-                        best_move_san=None):
+                        best_move_san=None, mover_cp_loss=None):
     """Return (story, detail). story is 'punishment' | 'opportunity' | 'neither'.
 
     `detail` carries what the arrows need: for a punishment, the line the
@@ -6405,10 +6413,40 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
     # punishments -- 508 of 1,578 cards called an opportunity were also losing
     # 2+ immediately ("b5, short played -3, best +0"). A missed chance means
     # there was something there to take.
+    # ...but the chance has to EXPLAIN the move, not merely exist beside it.
+    #
+    # Both axes above count MATERIAL. A move can be a disaster without a piece
+    # changing hands for several plies, and then the material axis sees only
+    # the small thing it can measure. Mohit 2026-10-17 on 4...Bd6, a 431cp
+    # mistake the card answered with "they had Bxf5, grabbing your pawn on f5
+    # for free": "taking a pawn should just be around 1 or 1.5 cp, right? not
+    # 4 something, so obviously there is a bigger threat." And on the picture
+    # that followed from the same verdict, a lone arrow at the pawn they did
+    # not take: "i am not trying to save f5, the check is deadly, does the
+    # arrow show it??"
+    #
+    # It did not, and it could not: this function decides the arrows as well
+    # as the words, so a story chosen on material alone makes the board draw
+    # the pawn too. The eval already knows better and was never asked.
+    #
+    # So when the engine's loss is far bigger than the chance that was missed,
+    # the missed chance is a true fact and not the lesson. Fall through, and
+    # the punishment branch below names what actually happens instead.
+    #
+    # Measured over 600 games / 423 cards where the material lead fires, by
+    # the gap between what the move COST and what the chance WINS:
+    #     gap < 100cp   231  54.6%   the capture is a fair summary
+    #     gap >= 200cp  118  27.9%   <- refused here
+    # with cases like "best Qxe3+ wins 100cp, move cost 773cp".
+    _unexplained = None
+    if mover_cp_loss is not None and best_short is not None:
+        # best_short is in pawns; cp_loss in centipawns.
+        _unexplained = abs(int(mover_cp_loss)) - (best_short * 100.0)
     if (best_short is not None and played_short is not None
             and best_short >= STORY_OPPORTUNITY_FLOOR
             and best_short - played_short >= STORY_OPPORTUNITY_FLOOR
-            and played_short > -STORY_PUNISHMENT_FLOOR):
+            and played_short > -STORY_PUNISHMENT_FLOOR
+            and (_unexplained is None or _unexplained < 200)):
         detail["missed_move"] = best_move_san
         return "opportunity", detail
 
@@ -7136,6 +7174,8 @@ def build_move_teaching_decision(
         inputs.fen_before, inputs.played_san,
         list(inputs.pv_after_played or ()), list(inputs.pv_after_best or ()),
         inputs.best_move_san,
+        mover_cp_loss=(int(inputs.cp_loss or 0) if inputs.mover_is_user
+                       else int(inputs.opp_cp_loss or 0)),
     )
     caption_facts["move_story"] = _story
     caption_facts["move_story_detail"] = _story_detail
@@ -8803,7 +8843,8 @@ def build_move_teaching_decision(
         # on a punishment clause that already names the same reply.
         try:
             _rg = caption_facts.get("reply_gap") or {}
-            _rg_line = reply_gap_sentence(_rg)
+            _rg_line = reply_gap_sentence(
+                _rg, mover_is_user=bool(inputs.mover_is_user))
             _rg_cap = (caption_payload.get("caption") or "").strip()
             _rg_reply = (_rg.get("their_reply") or "").strip()
             # The square matters as much as the move. Measured on real
