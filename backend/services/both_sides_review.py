@@ -285,6 +285,40 @@ def card_from_review(
     }
 
 
+def turning_point_squares(turning: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    """The turning move's squares, read off the stored FEN and SAN.
+
+    Mohit 2026-10-17, on a card whose board was 4...Bd6 -- the position
+    BEFORE the move, so every black piece still sat on its home square:
+    "look, bd6 here, look at board, it doesn't make sense."
+
+    The move was right. Checked against Stockfish, 4...Bd6 swings the game
+    +160 to +612 because it allows Qh5+, the largest swing in that game.
+    What was missing is that the card NAMED a move the picture never drew,
+    on a board that looks untouched, so there was nothing on screen to
+    connect the sentence to.
+
+    Derived here rather than stored by the review, because the reviews are
+    cached: computing it at card-build time fixes every card that already
+    exists without re-analysing a single game. Returns {} when the SAN does
+    not parse, so a bad row costs the arrow and not the card.
+    """
+    if not turning:
+        return {}
+    fen, san = turning.get("fen_before"), turning.get("san")
+    if not fen or not san:
+        return {}
+    try:
+        board = chess.Board(str(fen))
+        move = board.parse_san(str(san))
+    except (ValueError, AssertionError, TypeError):
+        return {}
+    return {
+        "from": chess.square_name(move.from_square),
+        "to": chess.square_name(move.to_square),
+    }
+
+
 async def last_game_card(db, user_id: str) -> Optional[Dict[str, Any]]:
     """The card for his most recent finished game, computing it once."""
     game = await db.games.find_one(
@@ -364,7 +398,10 @@ async def last_game_card(db, user_id: str) -> Optional[Dict[str, Any]]:
             "platform": game.get("platform"),
             "played_at": game.get("played_at_utc"),
             "result": "won" if won else "lost" if lost else "drew",
-            "turning_point": review.get("turning_point"),
+            "turning_point": {
+                **(review.get("turning_point") or {}),
+                **turning_point_squares(review.get("turning_point")),
+            },
             # For a reviewer and for tests. The UI does not render these.
             "measured": {
                 "his_mean_cp": review["his_mean_cp"],

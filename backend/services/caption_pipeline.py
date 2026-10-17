@@ -4037,7 +4037,8 @@ def weak_pawn_count_sentence(contested: Optional[Dict[str, Any]]) -> str:
     return ""
 
 
-def reply_gap_sentence(gap: Optional[Dict[str, Any]]) -> str:
+def reply_gap_sentence(gap: Optional[Dict[str, Any]],
+                       mover_is_user: bool = True) -> str:
     """One sentence for facts["reply_gap"], or "" when there is none.
 
     Derived per position from the board and both stored engine lines,
@@ -4059,14 +4060,21 @@ def reply_gap_sentence(gap: Optional[Dict[str, Any]]) -> str:
         return ""
     piece = gap.get("captured_piece")
     square = gap.get("capture_square")
+    # Whose reply this is depends on who moved. The sentence was written for
+    # a USER card -- "you played X, that lets THEM answer" -- and hardcoded
+    # "them". On an opponent card the mover is the opponent, so the same
+    # words hand their mistake's punishment to them: Mohit 2026-10-17 read
+    # "Opponent's Bd6 is a serious mistake ... That lets them play Qh5 with
+    # check", where Qh5+ is HIS move and the whole point of the card.
+    who = "them" if mover_is_user else "you"
     if "check" in allows and "capture" in allows and piece and square:
-        return (f"That lets them play {reply} with check, "
+        return (f"That lets {who} play {reply} with check, "
                 f"taking the {piece} on {square}.")
     if "check" in allows:
-        return f"That lets them play {reply} with check."
+        return f"That lets {who} play {reply} with check."
     if piece and square:
-        return f"That lets them take the {piece} on {square} with {reply}."
-    return f"That lets them play {reply}."
+        return f"That lets {who} take the {piece} on {square} with {reply}."
+    return f"That lets {who} play {reply}."
 
 
 def _verify_and_recover_caption(
@@ -5173,23 +5181,37 @@ def find_line_payoff(
             if idx >= 2 and ours and cap is not None and idx <= max_arrows:
                 return (idx, _PAYOFF_RECAPTURE)
 
+    # The net test above stops a trade reading as a win, but it summed only
+    # as far as the capture itself -- and the move that pays for a capture is
+    # the one AFTER it. Mohit's Bd3 card: Qa1+ Qd1 Qxd1+ Kxd1 Nxf2+ Ke1 Nxh1.
+    # The old pass took the biggest victim, the queen on d1 (900), netted
+    # +900 over the first three plies and called the queen TRADE the payoff --
+    # Kxd1 takes it straight back one ply later and was never counted. The
+    # card then drew three arrows ending dark-red on a trade, and the real
+    # point, Nxh1 winning the rook, was off the end of the picture.
+    #
+    # So: judge every one of our captures by the net material AFTER the reply
+    # that answers it, and keep the one that actually leaves us ahead -- not
+    # the one that grabs the biggest piece. Same correction the fork-finder
+    # needed an hour earlier, where "first capture" picked that same Qxd1+.
     best_idx = None
-    best_value = 0
+    best_net = 0
     for idx, (ours, _mv, cap, _chk, _m) in enumerate(steps):
         if not ours or cap is None:
             continue
-        value = PIECE_VALUE_CP.get(cap, 0)
-        if value >= 320 and value > best_value:
-            best_idx, best_value = idx, value
-    if best_idx is not None:
+        if PIECE_VALUE_CP.get(cap, 0) < 320:
+            continue
         net = 0
-        for ours, _mv, cap, _chk, _m in steps[: best_idx + 1]:
-            if cap is None:
+        # include the opponent's answer to this capture, when the line has one
+        for o2, _m2, cap2, _c2, _mm2 in steps[: idx + 2]:
+            if cap2 is None:
                 continue
-            value = PIECE_VALUE_CP.get(cap, 0)
-            net += value if ours else -value
-        if net >= 300:
-            return (best_idx, _PAYOFF_MATERIAL)
+            value = PIECE_VALUE_CP.get(cap2, 0)
+            net += value if o2 else -value
+        if net > best_net:
+            best_idx, best_net = idx, net
+    if best_idx is not None and best_net >= 300:
+        return (best_idx, _PAYOFF_MATERIAL)
 
     for idx, (ours, _mv, cap, chk, _m) in enumerate(steps):
         if idx >= 2 and ours and (cap is not None or chk):
@@ -5200,7 +5222,19 @@ def find_line_payoff(
 def _line_sequence_arrows(
     board_after_opp: Optional[chess.Board],
     pv: Optional[List[str]],
-    max_arrows: int = 5,
+    # 5 -> 8 so a payoff inside the stored line can actually be drawn.
+    # `payoff >= max_arrows` hands the whole picture back, so on Mohit's
+    # Bd3 card -- payoff at index 6, Nxh1 winning the rook -- the budget,
+    # not the chooser, was the last thing standing between him and the
+    # fork. Measured over 1,200 games / 10,019 user-mistake lines: the
+    # payoff sits at index 0 or 2 on 4,024 of the 4,037 that have one, so
+    # this costs almost nothing in clutter (5 extra lines drawn at 10
+    # arrows vs 5) and buys the deep tail that 12-ply re-analysis keeps
+    # making bigger. The old complaint behind a small budget -- "what is
+    # this arrow??" on five quiet moves -- is already answered by the
+    # `payoff is None -> return []` guard above: a long line is only ever
+    # drawn when it ENDS in a real payoff.
+    max_arrows: int = 8,
     *,
     line_is_ours: bool = True,
 ) -> List[Dict[str, str]]:
@@ -5275,65 +5309,18 @@ def _line_sequence_arrows(
          cap is not None, chk)
         for ours, mv, cap, chk, _mate in _steps
     ]
-    payoff = None
-    for idx, (ours, _f, _t, is_cap, _chk) in enumerate(steps):
-        if ours and is_cap:
-            payoff = idx
-            break
-
-    # A SACRIFICE is the one case where our capture comes first and the
-    # single-move picture is actively misleading, so the "already drawn
-    # correctly" reasoning above does not apply to it.
+    # USE the shared chooser instead of a second, weaker copy of it.
     #
-    # Mohit 2026-10-02, on "Opponent's b5 is a serious mistake. Play Bxf7+ —
-    # it wins a pawn", drawn as a lone arrow into f7: "it showed me to
-    # sacrifice my bishop, should show me a complete line if theory that is
-    # real coaching, you know?" One arrow into f7 shows a player giving a
-    # bishop away for a pawn and stops; the point is Bxf7+ Kxf7 Qf3+, where
-    # the check forks the king and the loose rook on a8.
-    #
-    # So when our first move is a capture that LOSES material on its own
-    # square -- king recaptures played out, which is what makes it a sacrifice
-    # rather than a win -- the line is drawn through to our last move in it.
-    if payoff == 0 and board_after_opp is not None:
-        try:
-            first = board_after_opp.parse_san(str(pv[0]))
-            gain = legal_exchange_gain(
-                board_after_opp, first.to_square, us, first_move=first
-            )
-        except (ValueError, TypeError, AssertionError, IndexError):
-            gain = 0
-        if gain is not None and gain < 0:
-            # The FIRST of our moves after their forced reply that does
-            # something -- a capture or a check -- and only inside the arrow
-            # budget. Taking the LAST of our moves instead walked a 12-ply PV
-            # to a payoff far past the four arrows we draw, so the picture was
-            # truncated mid-line and ended on THEIR move with no payoff at all
-            # (game_af4d58d0936a move 9, four arrows, no green).
-            # Prefer the move that WINS THE MATERIAL BACK over the first
-            # thing that merely does something.
-            #
-            # Mohit 2026-10-06 on the Ng5 card: "the main idea is bishop takes
-            # the pawn and king takes bishop, our knight checks the king and
-            # the knight now behind our knight gets captured by our queen, so
-            # that's the whole line and arrow doesn't show until there".
-            #
-            # Bxf2+ Kxf2 Ng4+ Kg1 Qxg5: the check at ply 3 is the mechanism,
-            # the capture at ply 5 is the point. Stopping on the first check
-            # showed him giving a bishop away and getting a check for it.
-            _recapture = None
-            _forcing = None
-            for idx, (ours, _f, _t, is_cap, gives_chk) in enumerate(steps):
-                if idx < 2 or not ours:
-                    continue
-                if is_cap and _recapture is None and idx <= max_arrows:
-                    _recapture = idx
-                if (is_cap or gives_chk) and _forcing is None:
-                    _forcing = idx
-            if _recapture is not None:
-                payoff = _recapture
-            elif _forcing is not None and _forcing <= max_arrows - 1:
-                payoff = _forcing
+    # The note above says the payoff choice "lives in one place". It did not:
+    # this function kept its own loop, and that loop took the FIRST capture by
+    # the plan's owner. On Mohit's Bd3 card the first capture is Qxd1+, a
+    # queen trade that Kxd1 answers one ply later, so the picture ended
+    # dark-red on a trade and the real point -- Nxf2+ forking king and rook,
+    # then Nxh1 -- was never drawn. find_line_payoff already ranks mate >
+    # recapture > net material > forcing and nets out the reply, which is
+    # exactly what this was missing, so the local copy is gone.
+    _found = find_line_payoff(board_after_opp, _steps, max_arrows)
+    payoff = _found[0] if _found else None
 
     # Nothing to show, or the single-move builders already say it.
     #
@@ -6318,7 +6305,7 @@ def _story_mate_in_line(board_before, first_san, line, side):
 
 
 def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
-                        best_move_san=None):
+                        best_move_san=None, mover_cp_loss=None):
     """Return (story, detail). story is 'punishment' | 'opportunity' | 'neither'.
 
     `detail` carries what the arrows need: for a punishment, the line the
@@ -6426,10 +6413,40 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
     # punishments -- 508 of 1,578 cards called an opportunity were also losing
     # 2+ immediately ("b5, short played -3, best +0"). A missed chance means
     # there was something there to take.
+    # ...but the chance has to EXPLAIN the move, not merely exist beside it.
+    #
+    # Both axes above count MATERIAL. A move can be a disaster without a piece
+    # changing hands for several plies, and then the material axis sees only
+    # the small thing it can measure. Mohit 2026-10-17 on 4...Bd6, a 431cp
+    # mistake the card answered with "they had Bxf5, grabbing your pawn on f5
+    # for free": "taking a pawn should just be around 1 or 1.5 cp, right? not
+    # 4 something, so obviously there is a bigger threat." And on the picture
+    # that followed from the same verdict, a lone arrow at the pawn they did
+    # not take: "i am not trying to save f5, the check is deadly, does the
+    # arrow show it??"
+    #
+    # It did not, and it could not: this function decides the arrows as well
+    # as the words, so a story chosen on material alone makes the board draw
+    # the pawn too. The eval already knows better and was never asked.
+    #
+    # So when the engine's loss is far bigger than the chance that was missed,
+    # the missed chance is a true fact and not the lesson. Fall through, and
+    # the punishment branch below names what actually happens instead.
+    #
+    # Measured over 600 games / 423 cards where the material lead fires, by
+    # the gap between what the move COST and what the chance WINS:
+    #     gap < 100cp   231  54.6%   the capture is a fair summary
+    #     gap >= 200cp  118  27.9%   <- refused here
+    # with cases like "best Qxe3+ wins 100cp, move cost 773cp".
+    _unexplained = None
+    if mover_cp_loss is not None and best_short is not None:
+        # best_short is in pawns; cp_loss in centipawns.
+        _unexplained = abs(int(mover_cp_loss)) - (best_short * 100.0)
     if (best_short is not None and played_short is not None
             and best_short >= STORY_OPPORTUNITY_FLOOR
             and best_short - played_short >= STORY_OPPORTUNITY_FLOOR
-            and played_short > -STORY_PUNISHMENT_FLOOR):
+            and played_short > -STORY_PUNISHMENT_FLOOR
+            and (_unexplained is None or _unexplained < 200)):
         detail["missed_move"] = best_move_san
         return "opportunity", detail
 
@@ -6670,7 +6687,13 @@ def _say_the_move_is_undone(undone, mover_is_user, chasers=None):
             f"The move loses time.")
 
 
-def describe_line_steps(fen_before, first_san, line, max_steps=6):
+# 6 -> 8 to match the arrow budget. The card joins steps to arrows by
+# from/to and prints only the ones that pair, so a step list shorter than
+# the arrows leaves the payoff arrow -- the dark-red one, the whole point
+# -- drawn with nothing said about it. On Mohit's Bd3 card that was the
+# last gap: seven arrows through to Nxh1, six steps, and the sentence
+# naming the fork landed inside the overlap only by luck.
+def describe_line_steps(fen_before, first_san, line, max_steps=8):
     """Turn an engine line into one short sentence per move.
 
     Mohit 2026-10-08, looking at a five-arrow board: "can we write short
@@ -7151,6 +7174,8 @@ def build_move_teaching_decision(
         inputs.fen_before, inputs.played_san,
         list(inputs.pv_after_played or ()), list(inputs.pv_after_best or ()),
         inputs.best_move_san,
+        mover_cp_loss=(int(inputs.cp_loss or 0) if inputs.mover_is_user
+                       else int(inputs.opp_cp_loss or 0)),
     )
     caption_facts["move_story"] = _story
     caption_facts["move_story_detail"] = _story_detail
@@ -8818,7 +8843,8 @@ def build_move_teaching_decision(
         # on a punishment clause that already names the same reply.
         try:
             _rg = caption_facts.get("reply_gap") or {}
-            _rg_line = reply_gap_sentence(_rg)
+            _rg_line = reply_gap_sentence(
+                _rg, mover_is_user=bool(inputs.mover_is_user))
             _rg_cap = (caption_payload.get("caption") or "").strip()
             _rg_reply = (_rg.get("their_reply") or "").strip()
             # The square matters as much as the move. Measured on real

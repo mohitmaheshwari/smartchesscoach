@@ -128,6 +128,24 @@ describe("LastGameCard", () => {
     expect(boardProps[0].arePiecesDraggable).toBe(false);
   });
 
+  test("it draws the move it names", async () => {
+    // Mohit 2026-10-17, on a card showing 4...Bd6 -- the position BEFORE
+    // the move, so every black piece was still on its home square and the
+    // only sign of the move was the sentence underneath: "look, bd6 here,
+    // look at board, it doesn't make sense."
+    mock(200, { ...CARD, turning_point: { ...CARD.turning_point, from: "c5", to: "d4" } });
+    await render();
+    expect(boardProps[0].customArrows).toEqual([["c5", "d4", "#b45309"]]);
+    expect(Object.keys(boardProps[0].customSquareStyles)).toEqual(["c5", "d4"]);
+  });
+
+  test("a card with no squares draws no arrow rather than a wrong one", async () => {
+    mock(200, CARD);                       // fixture carries no from/to
+    await render();
+    expect(boardProps[0].customArrows).toEqual([]);
+    expect(boardProps[0].customSquareStyles).toEqual({});
+  });
+
   test("it is drawn with the page's own board, not one of its own", async () => {
     mock(200, CARD);
     await render();

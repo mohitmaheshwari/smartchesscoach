@@ -77,3 +77,62 @@ describe("your own moves are unchanged", () => {
     expect(resolveBadgeTier(null)).toBeNull();
   });
 });
+
+describe("the badge does not contradict the caption", () => {
+  // Mohit 2026-10-17, move 12 d4 of 8d05d6b9: the board said Mistake above a
+  // card reading "d4 is fine - you're still winning." at +7.4.
+  // severity='mistake', severity_practical='good', is_mistake=false, and the
+  // engine's own row said evaluation='good'. Three fields said fine; the
+  // badge read the fourth.
+  test("a mistake the caption calls fine is badged good", () => {
+    expect(resolveBadgeTier({
+      severity: "mistake",
+      severity_practical: "good",
+      is_user_move: true,
+    })).toBe("good");
+  });
+
+  test("a blunder badge never survives on a forced best move", () => {
+    // "You were in check with only 2 legal moves, and Kh1 is the best of
+    // them." -- badged Blunder before this.
+    expect(resolveBadgeTier({
+      severity: "blunder",
+      severity_practical: "good",
+      is_user_move: true,
+    })).toBe("good");
+  });
+
+  test("but a caption that DOES say inaccuracy keeps its badge", () => {
+    // "Opponent's Rxd2 is an inaccuracy. Play g5." -- here the badge and the
+    // words already agree, and softening would re-open the gap the other way.
+    expect(resolveBadgeTier({
+      severity: "inaccuracy",
+      severity_practical: "good",
+      caption_severity_word: "inaccuracy",
+      is_user_move: false,
+    })).toBe("inaccuracy");
+  });
+
+  test("nothing is hardened: a gentler severity is left alone", () => {
+    expect(resolveBadgeTier({
+      severity: "good",
+      severity_practical: "inaccuracy",
+      is_user_move: true,
+    })).toBe("good");
+  });
+
+  test("a real mistake still badges as one", () => {
+    expect(resolveBadgeTier({
+      severity: "mistake",
+      severity_practical: "mistake",
+      is_user_move: true,
+    })).toBe("mistake");
+  });
+
+  test("no practical tier at all changes nothing", () => {
+    expect(resolveBadgeTier({
+      severity: "mistake",
+      is_user_move: true,
+    })).toBe("mistake");
+  });
+});

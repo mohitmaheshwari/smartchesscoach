@@ -9866,6 +9866,29 @@ def clearance_reply_why(
             or facts.get("follow_up_promotes")):
         return None
 
+    # The follow-up has to be the move the reader can SEE coming -- our very
+    # next one. _locate_clearance searches the whole line on purpose, and its
+    # docstring is right to: for puzzle extraction the geometry is a clearance
+    # however far away the payoff sits. A caption is a different contract. It
+    # says "clears the way for X", and a reader checks that against the board
+    # in front of them.
+    #
+    # Mohit 2026-10-17 on 4...Bd6, where the card read "Play Qh5+ -- it clears
+    # the way for your queen to give check on f5." The line is
+    #   Qh5+ g6 fxg6 Bg4 Nxg4 Qe7+ Be2 Kd7 Ne3 Nf6 Qf5+ Kc6
+    # and Qf5+ is ELEVEN plies later. Right after Qh5+ there is no queen move
+    # to f5 at all -- the square still has White's own pawn on it. The claim
+    # traces to a real move in a real line and is unreadable as a reason.
+    #
+    # Measured over 4,008 opponent cards, the caption fires 33 times and 28 of
+    # those (84.8%) already have the follow-up at ply 2, our next move. The
+    # five that reach plies 4, 6 and 8 are the ones that read like this. So
+    # gate the CAPTION at 2 and leave the prover alone; a dropped clause falls
+    # through to _recommended_move_why, which stays true and local.
+    _ply = facts.get("follow_up_ply_in_line")
+    if not isinstance(_ply, int) or _ply > 2:
+        return None
+
     follow_uci = str(facts.get("follow_up_move") or "")
     if len(follow_uci) < 4:
         return None
@@ -10798,9 +10821,34 @@ def extract_facts(
                         )
                     except (ValueError, TypeError):
                         _cap_gain = 0
+                # Does the material EXPLAIN the loss, or just accompany it?
+                #
+                # Mohit 2026-10-17, on a card that answered a 431cp mistake
+                # with "they had Bxf5, grabbing your pawn on f5 for free":
+                # "taking a pawn should just be around 1 or 1.5 cp, right?
+                # not 4 something, so obviously there is a bigger threat."
+                #
+                # He is right, and the test is a subtraction on numbers the
+                # card already holds. _cap_gain is what the capture actually
+                # wins, played out with king recaptures; opp_cp_loss is what
+                # the move cost. When the second is far larger than the first,
+                # the free piece is a true fact that is not the reason, and a
+                # card that leads with it under-explains by construction.
+                #
+                # Measured over 600 games / 423 cards where this fires, by the
+                # size of the gap between cost and prize:
+                #     gap < 100cp   231  54.6%   material explains it
+                #     gap >= 100cp  192  45.4%
+                #     gap >= 200cp  118  27.9%   <- gated here
+                #     gap >= 300cp   91  21.5%
+                # with cases like "best Qxe3+ wins 100cp, move cost 773cp".
+                #
+                # 200cp is two pawns of loss the sentence cannot account for.
+                # Below that the capture is a fair summary and the lead stays.
+                _unexplained = abs(int(opp_cp_loss or 0)) - int(_cap_gain or 0)
                 if _cap_pc is not None and _cap_gain >= PIECE_VALUE_CP.get(
                     _cap_pc.piece_type, 0
-                ):
+                ) and _unexplained < 200:
                     opp_failure_missed_capture = True
                     opp_missed_capture_san = best_move_san
                     opp_missed_capture_piece = PIECE_TYPE_NAMES.get(
