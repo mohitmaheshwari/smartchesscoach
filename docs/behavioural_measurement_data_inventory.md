@@ -220,3 +220,70 @@ Needs an engine pass first (MultiPV):
 - anything measuring **the choice among alternatives** rather than the outcome
 - `complexity_seeking`, `simplification_seeking`, `material_greed`
 - position difficulty, and therefore everything that controls for it
+
+
+---
+
+## 8. First detector built under these principles: `trade_seeking`
+
+Measured 2026-10-18. Scripts: `backend/scripts/trait_candidate_trade_seeking*.py`.
+
+**The claim.** When an even trade is on offer and the position is level, this
+player takes it, or leaves the pieces on.
+
+**The design, and why each choice was forced.**
+
+- *Denominated by opportunity.* `taken / offered`, never trades made. Counting
+  trades made measures how many were AVAILABLE, which is a property of the
+  games and not the player.
+- *Level positions only* (`|eval_before| < 100cp`). Trading when ahead is
+  correct play and trading when behind is wrong play, so a raw rate would
+  mostly measure how often this player was winning — strength relabelled as
+  disposition.
+- *An offered trade* is a legal capture where attacker and victim are within a
+  pawn of each other AND the square is defended. An undefended capture is a
+  free piece, not a trade. Positions with one legal move are skipped: no
+  choice, no disposition.
+
+**The four tests.**
+
+| test | result | the bar it had to clear |
+|---|---|---|
+| distinctiveness | spread q3−q1 = **0.156** (0.14 → 0.69) | `too-passive` was rejected at 0.009 |
+| stability | **r = 0.71**, 30 players | the six shipped traits scored 0.72–0.88 |
+| rising bar | 0.48 → 0.63 → 0.65 → **0.74** → 0.59 | `comeback` was flat: 0.12/0.07/0.00/0.14 |
+| not error rate | r = **+0.14** | a trait that tracks error rate is strength |
+| not rating | r = **−0.19** | the other face of strength |
+| **travels across time controls** | **r = +0.70**, 20 players | an artefact of one pool does not travel |
+
+The decisive figure is the gap, not the correlation: a player's own fast and
+slow rates differ by a median of **0.037** while players differ from each
+other by **0.156**. Someone sits four times closer to themselves than to
+other players. Fast 0.368 against slow 0.341 is a 2.7-point nudge toward
+trading when the clock is short — real, and far too small to be what the
+measure is reading.
+
+That also clears the way for `complexity_seeking` and `simplification_seeking`
+later, which would otherwise rest on the same untested assumption.
+
+**What is NOT established: validity.** Everything above is stability, spread
+and the absence of a strength confound. Whether "takes fair trades" means to a
+chess player what it means to this measure needs a human, and that is the same
+gap the six shipped traits still carry. The blind-label packet is the
+apparatus for it (§5).
+
+**Proposed cuts and sample floor**, from the measured population of 32
+players: quartiles 0.260 / 0.343 / 0.417, so a player outside 0.260–0.417
+gets a sentence and everyone else gets none. Floor of 60 offers, because
+stability climbed with the bar and 30 is where it starts.
+
+**Why it is not shipped yet.** `compute_traits` runs per request behind
+`/progress/how-you-play` and reads stored aggregates; counting trade offers
+needs every board of every game replayed. The counting therefore belongs in
+the analysis pipeline, stored per game, with the trait a cheap sum — a
+pipeline change plus a backfill, not a profile change.
+
+**One data defect found on the way.** `user_rating` is 5.9% junk: 948 of
+16,079 rows below 400, minimum 100. Median 1193 is sane so the control above
+survives, but any control built on rating is weaker than it looks until that
+is filtered.
