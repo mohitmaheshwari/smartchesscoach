@@ -180,3 +180,23 @@ def test_the_balanced_line_never_appears_alongside_a_real_one():
     traits = dict(_at("thinks_long", "high"))
     lines = build_profile(traits, **ENOUGH)["lines"]
     assert [l["trait"] for l in lines] == ["thinks_long"]
+
+
+def test_every_spoken_trait_can_be_labelled_blind():
+    """A trait that behaviour_profile speaks but the blind-label packet cannot
+    describe is a trait that can never be checked against a human.
+
+    Caught on 2026-10-18: trade_seeking shipped into CUTS and SENTENCES the
+    same day, and the packet builder died on a KeyError the first time it ran
+    — so the one apparatus that could test the new trait could not name it.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent.parent / "scripts" / "build_blind_label_packet.py"
+    source = path.read_text(encoding="utf-8")
+    # Read the literal rather than importing: the script connects to a db.
+    for trait in CUTS:
+        if trait in SILENT_TRAITS:
+            continue
+        assert '"%s":' % trait in source.split("TRAIT_CHOICES")[1].split("}")[0], trait

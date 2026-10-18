@@ -107,6 +107,8 @@ TRAIT_CHOICES = {
                           "the same few ideas carry most games"),
     "throws_away_won_games": ("lets won positions slip",
                               "converts what they win"),
+    "trade_seeking": ("swaps pieces when the chance comes",
+                      "keeps the pieces on"),
 }
 
 LAYER_TO_CHOICE = {"knowledge": "A", "attention": "B", "no_tactical_gap": "C"}
