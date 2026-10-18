@@ -24,8 +24,6 @@ import {
   TrendingDown,
   Clock,
   Zap,
-  Shield,
-  Swords,
   Crown,
   ChevronDown,
   ChevronUp,
@@ -127,16 +125,6 @@ const DeepMemoryPanel = ({ compact = false }) => {
     );
   }
 
-  // Style icon mapping
-  const styleIcons = {
-    aggressive: <Swords className="w-4 h-4 text-red-400" />,
-    positional: <Shield className="w-4 h-4 text-blue-400" />,
-    tactical: <Zap className="w-4 h-4 text-yellow-400" />,
-    defensive: <Shield className="w-4 h-4 text-green-400" />,
-    universal: <Crown className="w-4 h-4 text-purple-400" />,
-    developing: <User className="w-4 h-4 text-gray-400" />,
-  };
-
   // Trend indicator
   const TrendIndicator = ({ trend }) => {
     if (trend === "improving") {
@@ -187,11 +175,6 @@ const DeepMemoryPanel = ({ compact = false }) => {
           <div className="flex items-center gap-2">
             <Brain className="w-3 h-3 text-primary" />
             <span className="font-medium">{games_analyzed} games analyzed</span>
-            {summary.primary_style && summary.primary_style !== "developing" && (
-              <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">
-                {summary.primary_style}
-              </Badge>
-            )}
             {summary.most_common_blunder && (
               <span className="text-muted-foreground">
                 • Focus: {summary.most_common_blunder.replace(/_/g, " ")}
@@ -270,16 +253,28 @@ const DeepMemoryPanel = ({ compact = false }) => {
       </CardHeader>
       
       <CardContent className="space-y-4 text-xs">
-        {/* Playing Style */}
-        <div className="flex items-center gap-3">
-          {styleIcons[style.primary_style] || styleIcons.developing}
-          <div>
-            <div className="font-medium capitalize">{style.primary_style} Player</div>
-            <div className="text-muted-foreground text-[10px]">
-              {style.confidence > 0.5 ? "Confident classification" : "Still learning your style"}
-            </div>
-          </div>
-        </div>
+        {/* The "{style} Player" line was removed on 2026-10-18. It was not a
+            style. Measured over all 69 identities:
+
+              - the tactical/positional axis is built from WHICH KIND OF
+                MISTAKE DOMINATES, so "positional Player" meant "fewer than
+                half your mistakes were tactical" -- a weakness profile worn
+                as an identity
+              - "tactical" could never be said at all: the rule needs
+                tactical_tendency > 0.50 and the measure tops out AT 0.50,
+                so 0 of 37 players could ever receive it
+              - "aggressive" fired for 35 of 37, because that scale starts at
+                0.42 and nearly everyone clears 0.5
+              - 18 of 69 stored labels disagreed with the rule that is in the
+                code today, and `universal` is a label the code can no longer
+                produce at all
+              - and aggression is one of the fourteen candidates
+                services/behaviour_profile.py measured and REJECTED, twice,
+                at 0.23 and 0.06 stability
+
+            The numbers stay in the payload for ranking and measurement. They
+            are not a sentence about a person until something defensible
+            derives one. See docs/behavioural_measurement_data_inventory.md. */}
 
         {/* Blunder Profile */}
         {blunder.total_blunders > 0 && (

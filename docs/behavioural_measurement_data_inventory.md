@@ -186,6 +186,26 @@ claim the data does not support.
 
 ---
 
+## 6b. RESOLVED, 2026-10-18 — the label is off the screen
+
+Measured over all 69 identities before removing it:
+
+| finding | number |
+|---|---|
+| players who could **ever** be called "tactical" | **0 of 37** — the rule needs `tactical_tendency > 0.50` and the measure tops out AT 0.50 |
+| players the "aggressive" branch fires for | **35 of 37** — that scale starts at 0.42 |
+| stored labels disagreeing with the rule in the code today | **18 of 69** |
+| labels stored that the code can no longer produce | `universal`, and `balanced`/`defensive` were vanishingly rare |
+
+And the axis itself was never a style. `_determine_playing_style` says so:
+*"tactical <-> positional (which kind of mistake dominates)"*. So "positional
+Player" meant **fewer than half your mistakes were tactical** — a weakness
+profile worn as an identity, shown to 25 people.
+
+`DeepMemoryPanel` no longer renders it. The numbers stay in the payload for
+ranking and measurement; they are not a sentence about a person until
+something defensible derives one.
+
 ## 7. What is buildable today, without an engine pass
 
 Needs only fields at 90%+ coverage:
