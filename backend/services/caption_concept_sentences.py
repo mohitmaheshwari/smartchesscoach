@@ -62,113 +62,112 @@ CONCEPT_SENTENCES: Dict[str, Dict[str, Sentence]] = {
     "coached_development": {
         APPLIED: (
             "You brought a new piece into the game.",
-            "A piece left at home is a piece not helping you.",
+            "A piece left at home does not help you.",
         ),
         WRONG: (
-            "A piece was still sitting at home, and bringing it out was "
-            "better here.",
-            "A piece left at home is a piece not helping you.",
+            "You still had a piece at home. Bringing it out was better.",
+            "A piece left at home does not help you.",
         ),
     },
     "opening_center": {
         APPLIED: (
             "Your pawn took a square in the middle.",
-            "The middle is the ground both sides want first.",
+            "Both sides want the middle first.",
         ),
         WRONG: (
             "A pawn into the middle was stronger here.",
-            "The middle is the ground both sides want first.",
+            "Both sides want the middle first.",
         ),
     },
     "opening_castling": {
         APPLIED: (
-            "You castled, so your king is tucked away.",
-            "Get the king safe before the position opens up.",
+            "You castled. Your king is safer there.",
+            "Get your king safe early.",
         ),
         WRONG: (
             "Castling was the better move here.",
-            "Get the king safe before the position opens up.",
+            "Get your king safe early.",
         ),
     },
     "concept_rook_open_file": {
         APPLIED: (
-            "Your rook moved to a file with none of your pawns in the way.",
-            "Rooks want lines with nothing blocking them.",
+            "Your rook moved to a line your own pawns do not block.",
+            "Rooks need clear lines.",
         ),
         WRONG: (
-            "Your rook belonged on the clear file here.",
-            "Rooks want lines with nothing blocking them.",
+            "Your rook should have gone to the clear line.",
+            "Rooks need clear lines.",
         ),
     },
     "endgame_king_centralization": {
         APPLIED: (
             "Your king stepped towards the middle.",
-            "When few pieces are left, the king turns into a fighter.",
+            "With few pieces left, your king is a strong piece.",
         ),
         WRONG: (
-            "Walking your king towards the middle was better here.",
-            "When few pieces are left, the king turns into a fighter.",
+            "Moving your king towards the middle was better here.",
+            "With few pieces left, your king is a strong piece.",
         ),
     },
     "concept_central_pawn_break": {
         APPLIED: (
-            "You pushed a pawn to challenge theirs in the middle.",
-            "When the middle is stuck, a pawn push is how you open it.",
+            "You pushed a pawn at theirs in the middle.",
+            "A pawn push opens up a stuck middle.",
         ),
         WRONG: (
-            "Striking in the middle with a pawn was better here.",
-            "When the middle is stuck, a pawn push is how you open it.",
+            "A pawn push in the middle was better here.",
+            "A pawn push opens up a stuck middle.",
         ),
     },
     "opening_development_with_tempo": {
         APPLIED: (
             "You brought a piece out and attacked something at the same time.",
-            "A new piece that arrives with a threat gains you a free move.",
+            "A new piece that makes a threat wins you a free move.",
         ),
         WRONG: (
-            "You could have brought a piece out and made a threat with it.",
-            "A new piece that arrives with a threat gains you a free move.",
+            "You could have brought a piece out and made a threat.",
+            "A new piece that makes a threat wins you a free move.",
         ),
     },
     # --- drafted 2026-10-18, awaiting evidence and Mohit's read ---------
     "concept_rook_seventh": {
         APPLIED: (
-            "Your rook reached the row their pawns started on.",
-            "Pawns on their starting row cannot run from a rook.",
+            "Your rook reached the row where their pawns start.",
+            "Pawns on that row cannot run away.",
         ),
         WRONG: (
-            "Your rook belonged on the row their pawns started on.",
-            "Pawns on their starting row cannot run from a rook.",
+            "Your rook should have gone to that row.",
+            "Pawns on that row cannot run away.",
         ),
     },
     "endgame_create_passed_pawn": {
         APPLIED: (
-            "You made a pawn with no enemy pawn left in its path.",
-            "A pawn with a clear road is what endgames are won with.",
+            "You made a pawn with no pawn left to stop it.",
+            "A pawn with a clear road wins endings.",
         ),
         WRONG: (
             "Making a pawn with a clear road was better here.",
-            "A pawn with a clear road is what endgames are won with.",
+            "A pawn with a clear road wins endings.",
         ),
     },
     "concept_knight_outpost": {
         APPLIED: (
             "Your knight landed where no pawn can chase it away.",
-            "A knight that cannot be pushed back is worth more than one that can.",
+            "A knight nobody can push back is worth more.",
         ),
         WRONG: (
-            "Your knight belonged where no pawn could chase it away.",
-            "A knight that cannot be pushed back is worth more than one that can.",
+            "Your knight should have gone where no pawn can chase it.",
+            "A knight nobody can push back is worth more.",
         ),
     },
     "endgame_opposition": {
         APPLIED: (
-            "Your king stepped up to face theirs with one square between.",
-            "When kings face each other, the one who must move first gives ground.",
+            "Your king stepped up to face theirs, one square apart.",
+            "When kings face each other, whoever moves first gives way.",
         ),
         WRONG: (
-            "Stepping up to face their king was better here.",
-            "When kings face each other, the one who must move first gives ground.",
+            "Moving up to face their king was better here.",
+            "When kings face each other, whoever moves first gives way.",
         ),
     },
 }

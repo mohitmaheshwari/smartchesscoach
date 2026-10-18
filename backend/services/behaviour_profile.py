@@ -124,11 +124,12 @@ SILENT_TRAITS = frozenset({"error_rate"})
 # a player should read it and think "yes, that is me".
 SENTENCES: Dict[str, Dict[str, str]] = {
     "trade_seeking": {
-        # "fair" is a grade word (Excellent / Good / Fair / Needs work) and
-        # the voice guard rightly refuses it. "Even" says the same thing
-        # about the pieces without grading the move.
-        "high": "When an even swap is on offer, you usually take it.",
-        "low": "When an even swap is on offer, you usually leave the pieces on.",
+        # Mohit, 2026-10-18: "both are difficult languages and i hate to read
+        # difficult english". The first try was "when an even swap is on
+        # offer" -- "on offer" is an idiom and "even swap" makes the reader
+        # work out what even means. Short words, one idea, no idiom.
+        "high": "When you can swap pieces, you usually do.",
+        "low": "When you can swap pieces, you usually keep them on.",
     },
     "thinks_long": {
         "high": "You take long thinks. When a position gets hard, you stop and work.",
