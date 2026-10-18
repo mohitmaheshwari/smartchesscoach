@@ -130,6 +130,47 @@ CONCEPT_SENTENCES: Dict[str, Dict[str, Sentence]] = {
             "A new piece that arrives with a threat gains you a free move.",
         ),
     },
+    # --- drafted 2026-10-18, awaiting evidence and Mohit's read ---------
+    "concept_rook_seventh": {
+        APPLIED: (
+            "Your rook reached the row their pawns started on.",
+            "Pawns on their starting row cannot run from a rook.",
+        ),
+        WRONG: (
+            "Your rook belonged on the row their pawns started on.",
+            "Pawns on their starting row cannot run from a rook.",
+        ),
+    },
+    "endgame_create_passed_pawn": {
+        APPLIED: (
+            "You made a pawn with no enemy pawn left in its path.",
+            "A pawn with a clear road is what endgames are won with.",
+        ),
+        WRONG: (
+            "Making a pawn with a clear road was better here.",
+            "A pawn with a clear road is what endgames are won with.",
+        ),
+    },
+    "concept_knight_outpost": {
+        APPLIED: (
+            "Your knight landed where no pawn can chase it away.",
+            "A knight that cannot be pushed back is worth more than one that can.",
+        ),
+        WRONG: (
+            "Your knight belonged where no pawn could chase it away.",
+            "A knight that cannot be pushed back is worth more than one that can.",
+        ),
+    },
+    "endgame_opposition": {
+        APPLIED: (
+            "Your king stepped up to face theirs with one square between.",
+            "When kings face each other, the one who must move first gives ground.",
+        ),
+        WRONG: (
+            "Stepping up to face their king was better here.",
+            "When kings face each other, the one who must move first gives ground.",
+        ),
+    },
 }
 
 
@@ -255,6 +296,90 @@ def p_central_pawn_break(board, move, colour) -> bool:
 # the test a correction's alternative move must pass. Precision was 100% on
 # every promoted detector, so using it as a condition rejects nothing that was
 # measured -- it just makes the sentence and the evidence the same thing.
+def p_rook_seventh(board, move, colour) -> bool:
+    """A rook of yours reached the rank their pawns start on."""
+    if not _mover(board, move, colour, (chess.ROOK,)):
+        return False
+    target = 6 if colour == chess.WHITE else 1
+    return chess.square_rank(move.to_square) == target
+
+
+def _is_passed(board: chess.Board, square: int, colour: chess.Color) -> bool:
+    """No enemy pawn on this file or either neighbour, ahead of this square."""
+    piece = board.piece_at(square)
+    if piece is None or piece.piece_type != chess.PAWN or piece.color != colour:
+        return False
+    f = chess.square_file(square)
+    r = chess.square_rank(square)
+    ahead = range(r + 1, 8) if colour == chess.WHITE else range(0, r)
+    for file_index in (f - 1, f, f + 1):
+        if not 0 <= file_index <= 7:
+            continue
+        for rank_index in ahead:
+            other = board.piece_at(chess.square(file_index, rank_index))
+            if other is not None and other.piece_type == chess.PAWN and other.color != colour:
+                return False
+    return True
+
+
+def p_create_passed_pawn(board, move, colour) -> bool:
+    """A pawn of yours ended the move with no enemy pawn left in its path,
+    and did not already have one before it."""
+    if not _mover(board, move, colour, (chess.PAWN,)):
+        return False
+    if _is_passed(board, move.from_square, colour):
+        return False
+    after = board.copy()
+    after.push(move)
+    return _is_passed(after, move.to_square, colour)
+
+
+def p_knight_outpost(board, move, colour) -> bool:
+    """A knight of yours landed where no enemy pawn can ever attack it, and
+    one of your own pawns defends it."""
+    if not _mover(board, move, colour, (chess.KNIGHT,)):
+        return False
+    after = board.copy()
+    after.push(move)
+    square = move.to_square
+    f = chess.square_file(square)
+    r = chess.square_rank(square)
+    # Could an enemy pawn ever come down an adjacent file to hit it?
+    ahead = range(r + 1, 8) if colour == chess.WHITE else range(0, r)
+    for file_index in (f - 1, f + 1):
+        if not 0 <= file_index <= 7:
+            continue
+        for rank_index in ahead:
+            other = after.piece_at(chess.square(file_index, rank_index))
+            if other is not None and other.piece_type == chess.PAWN and other.color != colour:
+                return False
+    # And is it held by one of ours?
+    for square_from in after.attackers(colour, square):
+        piece = after.piece_at(square_from)
+        if piece is not None and piece.piece_type == chess.PAWN:
+            return True
+    return False
+
+
+def p_opposition(board, move, colour) -> bool:
+    """Your king stepped up to face theirs with exactly one square between,
+    on the same file, rank or diagonal."""
+    if not _mover(board, move, colour, (chess.KING,)):
+        return False
+    theirs = board.king(not colour)
+    if theirs is None:
+        return False
+    after = board.copy()
+    after.push(move)
+    mine = after.king(colour)
+    if mine is None:
+        return False
+    df = abs(chess.square_file(mine) - chess.square_file(theirs))
+    dr = abs(chess.square_rank(mine) - chess.square_rank(theirs))
+    aligned = (df == 0 and dr == 2) or (dr == 0 and df == 2) or (df == 2 and dr == 2)
+    return aligned and after.turn != colour
+
+
 CONCEPT_PREDICATES: Dict[str, Callable[[chess.Board, chess.Move, chess.Color], bool]] = {
     "coached_development": p_development,
     "opening_center": p_centre,
@@ -262,9 +387,48 @@ CONCEPT_PREDICATES: Dict[str, Callable[[chess.Board, chess.Move, chess.Color], b
     "concept_rook_open_file": p_rook_open_file,
     "endgame_king_centralization": p_king_centralization,
     "concept_central_pawn_break": p_central_pawn_break,
+    # Drafted, not yet promoted: these speak only once _AUTHORIZATIONS says so.
+    "concept_rook_seventh": p_rook_seventh,
+    "endgame_create_passed_pawn": p_create_passed_pawn,
+    "concept_knight_outpost": p_knight_outpost,
+    "endgame_opposition": p_opposition,
 }
 
 GATES = CONCEPT_PREDICATES
+
+
+# When the caption above has already made the point, the sentence is not a
+# second idea -- it is the same idea twice. Measured over 12 rendered reviews:
+# 6 of 35 sentences landed under a caption saying the same thing, and every
+# one was `opening_center` under the opening-intro rule on move one, where the
+# caption already reads "White takes a share of the center".
+#
+# Keyed on the rule that wrote the caption. Only entries with a measured clash
+# are listed; guessing at the rest would silence sentences for no reason.
+# Measured over 25,757 stored cards: the distilled layer has its own authored
+# caption for several of these ideas, and each fires on 0.4-1.0% of cards --
+# good_develop 169, good_rook_activity 129, good_castle 121, good_centralize
+# 118, good_rook_open_file 109, good_luft 30. Where one of those wrote the
+# caption, the sentence below it is the same idea in a second voice.
+SUPPRESS_WHEN_CAPTION_RULE_CONTAINS: Dict[str, Tuple[str, ...]] = {
+    "opening_center": ("center", "centre", "centrali"),
+    "concept_rook_open_file": ("rook_open_file", "rook_activity"),
+    "endgame_king_centralization": ("king_activity", "centrali"),
+    "concept_central_pawn_break": ("pawn_break",),
+    "coached_development": ("develop",),
+    "opening_castling": ("castl",),
+}
+
+
+def already_said(caption_rule: Optional[str], skill_id: str) -> bool:
+    """True when the caption above the sentence has already made this point."""
+    if not caption_rule:
+        return False
+    needles = SUPPRESS_WHEN_CAPTION_RULE_CONTAINS.get(skill_id)
+    if not needles:
+        return False
+    rule = str(caption_rule).lower()
+    return any(needle in rule for needle in needles)
 
 
 def may_speak(skill_id: str) -> bool:

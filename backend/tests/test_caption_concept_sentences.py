@@ -305,3 +305,53 @@ def test_every_sentence_keeps_the_voice(skill_id):
         # No tally of past failures.
         for banned in ("again", "as usual", "every time", "always do this"):
             assert banned not in both.lower(), (skill_id, outcome, banned)
+
+
+# ------------------------------------------------- not the same idea twice
+
+def test_the_sentence_is_dropped_when_the_caption_already_said_it():
+    """Measured over 12 rendered reviews: 6 of 35 sentences landed under a
+    caption making the same point, every one of them "you took the middle"
+    under an opening-intro caption that had just said "White takes a share of
+    the center". A second voice saying the same thing is not a second idea."""
+    from services.caption_concept_sentences import already_said
+
+    assert already_said("R_TIER2_center→R_PROMOTED_opening_intro", "opening_center") is True
+    assert already_said("distilled:good_rook_open_file", "concept_rook_open_file") is True
+
+
+def test_an_unrelated_caption_leaves_the_sentence_alone():
+    from services.caption_concept_sentences import already_said
+
+    # The most common rule over those sentences, and it says nothing about
+    # what the move achieved -- only that it was the engine's pick.
+    assert already_said("distilled:good_was_best", "opening_center") is False
+    assert already_said("R12_blunder→OPENING", "coached_development") is False
+    assert already_said(None, "opening_center") is False
+    assert already_said("", "opening_center") is False
+
+
+def test_a_detector_with_no_measured_clash_is_not_silenced_on_a_guess():
+    """Only detectors with an observed overlap are listed. Guessing at the
+    rest would drop sentences for no reason."""
+    from services.caption_concept_sentences import already_said
+
+    assert already_said("distilled:anything_at_all", "opening_castling") is False
+
+
+def test_the_five_drafted_on_2026_10_18_are_inert_until_evidence_clears():
+    """Words exist for them so they can be measured against the sentence they
+    would actually say. Words must never be what lets a detector speak."""
+    board = chess.Board()
+    for skill_id in ("concept_rook_seventh", "endgame_create_passed_pawn",
+                     "concept_knight_outpost", "endgame_opposition",
+                     "opening_development_with_tempo"):
+        assert skill_id in CONCEPT_SENTENCES, skill_id
+        assert may_speak(skill_id) is False, skill_id
+        assert concept_sentence_for_move(
+            skill_id=skill_id,
+            outcome=APPLIED,
+            board_before=board,
+            move=board.parse_san("Nf3"),
+            user_color=chess.WHITE,
+        ) is None, skill_id
