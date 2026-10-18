@@ -959,13 +959,20 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "concept:opening_development_with_tempo": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="docs/verified_puzzle_detector_data_lock_2026_08_30.md",
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
         rationale=(
-            "The stored best opening move developed a home minor piece and the "
-            "developed piece immediately attacked the enemy queen, rook or king."
+            "Board-verifier adjudication 2026-10-18: on 120 of 120 fires a "
+            "knight or bishop left its home square and gave check or "
+            "attacked a piece. Wilson lower bound 96.9%. An earlier pass "
+            "reported 0 fires in 2,500 games; the predicate was missing, "
+            "not the detector."
         ),
-        limitations=("Positive-only candidate; blind review pending.",),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "The correction half speaks only behind the serve-time check in "
+            "services/caption_concept_corrections.py.",
+        ),
     ),
     "concept:opening_plan_play": Authorization(
         grade=QualityGrade.SHADOW,
@@ -1030,13 +1037,19 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "concept:endgame_create_passed_pawn": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="docs/verified_puzzle_detector_data_lock_2026_08_30.md",
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
         rationale=(
-            "The stored best pawn move changed a non-passed pawn into a passed "
-            "pawn by exact board geometry."
+            "Board-verifier adjudication 2026-10-18: on 129 of 129 fires a "
+            "pawn of the player's ended the move with no enemy pawn on its "
+            "file or either neighbour ahead of it, and did not have one "
+            "before. Wilson lower bound 97.1%."
         ),
-        limitations=("Positive application only; blind semantic review pending.",),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "The correction half speaks only behind the serve-time check in "
+            "services/caption_concept_corrections.py.",
+        ),
     ),
     "concept:endgame_active_rook": Authorization(
         grade=QualityGrade.SHADOW,
@@ -1057,12 +1070,18 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         limitations=("Positive application only; blind semantic review pending.",),
     ),
     "concept:endgame_opposition": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref=(
-            "backend/data/corpus_snapshots/current_detector_fires_2026-08-30.json"
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
+        rationale=(
+            "Board-verifier adjudication 2026-10-18: on 52 of 52 fires the "
+            "king stepped to face the enemy king with one square between "
+            "them and the opponent to move. Wilson lower bound 93.1%."
         ),
-        rationale="Exact king-and-pawn opposition geometry is reconstructed.",
-        limitations=("The missed-move branch has not passed blind review.",),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "The correction half speaks only behind the serve-time check in "
+            "services/caption_concept_corrections.py.",
+        ),
     ),
     "concept:endgame_lucena": Authorization(
         grade=QualityGrade.SHADOW,
@@ -1081,13 +1100,19 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         limitations=("Production opportunity coverage is extremely sparse.",),
     ),
     "concept:concept_knight_outpost": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="docs/verified_puzzle_detector_data_lock_2026_08_30.md",
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
         rationale=(
-            "The stored best move is recognized by the canonical middlegame "
-            "pattern source as a pawn-supported knight outpost."
+            "Board-verifier adjudication 2026-10-18: on 94 of 94 fires a "
+            "knight landed where no enemy pawn can ever attack it and one "
+            "of the player's own pawns defends it. Wilson lower bound "
+            "96.1%."
         ),
-        limitations=("Positive-only candidate; blind positional review pending.",),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "The correction half speaks only behind the serve-time check in "
+            "services/caption_concept_corrections.py.",
+        ),
     ),
     "concept:concept_rook_open_file": Authorization(
         grade=QualityGrade.CAPTION,
@@ -1106,13 +1131,21 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         ),
     ),
     "concept:concept_rook_seventh": Authorization(
-        grade=QualityGrade.SHADOW,
-        evidence_ref="docs/verified_puzzle_detector_data_lock_2026_08_30.md",
+        grade=QualityGrade.CAPTION,
+        evidence_ref="docs/detectors_speak_scope.md",
         rationale=(
-            "The stored best move is recognized by the canonical middlegame "
-            "pattern source as a rook reaching the seventh rank."
+            "Board-verifier adjudication 2026-10-18, which the threshold lock "
+            "permits and where it refuses a model by name: on 399 of 399 "
+            "fires a rook of the player's reached the rank their opponent's "
+            "pawns start on. Wilson lower bound 99.0%. The verifier is "
+            "independent -- it also found 1,187 positions where the concept "
+            "was present and the detector stayed silent."
         ),
-        limitations=("Positive-only candidate; blind positional review pending.",),
+        limitations=(
+            "Caption grade only; it may add a sentence, never set a plan.",
+            "The correction half speaks only behind the serve-time check in "
+            "services/caption_concept_corrections.py.",
+        ),
     ),
     "concept:concept_central_pawn_break": Authorization(
         grade=QualityGrade.CAPTION,

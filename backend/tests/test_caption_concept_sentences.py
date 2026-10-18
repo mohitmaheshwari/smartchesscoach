@@ -52,21 +52,38 @@ def _no(board, move, colour):
 # ---------------------------------------------------------------- permission
 
 def test_permission_comes_from_the_quality_table_not_from_this_file():
-    """Sentences exist for seven detectors; six have earned caption grade.
-    opening_development_with_tempo is correct on all 20 of its fires and is
-    short of the 50-fire floor, so having words must not let it speak."""
-    assert "opening_development_with_tempo" in CONCEPT_SENTENCES
-    assert may_speak("opening_development_with_tempo") is False
+    """Having a sentence written must never be what lets a detector speak.
 
+    Until 2026-10-18 this was shown with opening_development_with_tempo,
+    which had words and no permission. All eleven have now earned caption
+    grade, so the invariant is asserted directly instead: every sentence's
+    permission is whatever detector_quality says and nothing else.
+    """
+    from services.detector_quality import (
+        QualitySurface,
+        concept_quality_id,
+        is_authorized,
+    )
+
+    for skill_id in CONCEPT_SENTENCES:
+        assert may_speak(skill_id) is is_authorized(
+            concept_quality_id(skill_id), QualitySurface.CAPTION), skill_id
+
+
+def test_a_sentence_without_permission_stays_silent(monkeypatch):
+    """The mechanism, forced: revoke permission and the words must not
+    reach anyone, however well written they are."""
+    import services.caption_concept_sentences as mod
+
+    monkeypatch.setattr(mod, "may_speak", lambda _skill_id: False)
     board = chess.Board()
-    said = concept_sentence_for_move(
-        skill_id="opening_development_with_tempo",
+    assert mod.concept_sentence_for_move(
+        skill_id="coached_development",
         outcome=APPLIED,
         board_before=board,
         move=board.parse_san("Nf3"),
         user_color=chess.WHITE,
-    )
-    assert said is None
+    ) is None
 
 
 def test_the_six_that_earned_it_may_speak():
@@ -339,19 +356,27 @@ def test_a_detector_with_no_measured_clash_is_not_silenced_on_a_guess():
     assert already_said("distilled:anything_at_all", "opening_castling") is False
 
 
-def test_the_five_drafted_on_2026_10_18_are_inert_until_evidence_clears():
-    """Words exist for them so they can be measured against the sentence they
-    would actually say. Words must never be what lets a detector speak."""
-    board = chess.Board()
-    for skill_id in ("concept_rook_seventh", "endgame_create_passed_pawn",
-                     "concept_knight_outpost", "endgame_opposition",
-                     "opening_development_with_tempo"):
+def test_the_five_drafted_on_2026_10_18_earned_their_permission():
+    """They were written inert and promoted the same day, on evidence:
+
+        concept_rook_seventh            399/399  Wilson LB 99.0%
+        opening_development_with_tempo  120/120  Wilson LB 96.9%
+        endgame_create_passed_pawn      129/129  Wilson LB 97.1%
+        concept_knight_outpost           94/94   Wilson LB 96.1%
+        endgame_opposition               52/52   Wilson LB 93.1%
+
+    Each has a sentence, a predicate the sentence was measured against, and
+    a row in detector_quality carrying those numbers.
+    """
+    from services.caption_concept_sentences import CONCEPT_PREDICATES
+    from services.detector_quality import _AUTHORIZATIONS, concept_quality_id
+
+    for skill_id in ("concept_rook_seventh", "opening_development_with_tempo",
+                     "endgame_create_passed_pawn", "concept_knight_outpost",
+                     "endgame_opposition"):
         assert skill_id in CONCEPT_SENTENCES, skill_id
-        assert may_speak(skill_id) is False, skill_id
-        assert concept_sentence_for_move(
-            skill_id=skill_id,
-            outcome=APPLIED,
-            board_before=board,
-            move=board.parse_san("Nf3"),
-            user_color=chess.WHITE,
-        ) is None, skill_id
+        assert skill_id in CONCEPT_PREDICATES, skill_id
+        assert may_speak(skill_id) is True, skill_id
+        auth = _AUTHORIZATIONS[concept_quality_id(skill_id)]
+        assert "Board-verifier adjudication" in auth.rationale, skill_id
+        assert "Wilson lower bound" in auth.rationale, skill_id

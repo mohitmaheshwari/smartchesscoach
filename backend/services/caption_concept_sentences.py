@@ -360,6 +360,26 @@ def p_knight_outpost(board, move, colour) -> bool:
     return False
 
 
+def p_development_tempo(board, move, colour) -> bool:
+    """A piece came off your back rank and hit something on the way.
+
+    "Hit something" is a check, or an attack on a piece that is not a pawn --
+    a knight arriving to attack a pawn is not winning a tempo in any sense a
+    player would recognise.
+    """
+    if not p_development(board, move, colour):
+        return False
+    after = board.copy()
+    after.push(move)
+    if after.is_check():
+        return True
+    for square in after.attacks(move.to_square):
+        piece = after.piece_at(square)
+        if piece is not None and piece.color != colour and piece.piece_type != chess.PAWN:
+            return True
+    return False
+
+
 def p_opposition(board, move, colour) -> bool:
     """Your king stepped up to face theirs with exactly one square between,
     on the same file, rank or diagonal."""
@@ -391,6 +411,10 @@ CONCEPT_PREDICATES: Dict[str, Callable[[chess.Board, chess.Move, chess.Color], b
     "endgame_create_passed_pawn": p_create_passed_pawn,
     "concept_knight_outpost": p_knight_outpost,
     "endgame_opposition": p_opposition,
+    # Omitted when the other four were added on 2026-10-18, which made the
+    # evidence pass report 0 fires in 2,500 games for a detector that fires
+    # 21 times in 200. A missing predicate reads exactly like a dead detector.
+    "opening_development_with_tempo": p_development_tempo,
 }
 
 GATES = CONCEPT_PREDICATES
