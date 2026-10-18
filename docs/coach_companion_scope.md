@@ -58,24 +58,38 @@ than one played in under two. The independently computed `is_critical` flag
 tracks it almost exactly, so long thinks land on genuinely sharp positions
 rather than merely slow ones.
 
-A raw threshold is too noisy (over 10s is 25% of all moves). The cadence comes
-from picking the longest few thinks **of that game**:
+A raw threshold is too noisy (over 10s is 25% of all moves), and absolute
+seconds are the wrong unit anyway — `move_time_analyzer` says so in its own
+docstring: *"a 2-second move is normal in bullet, rushed in rapid."* Compare
+each move against the SAME PLAYER'S median, which that service already
+computes and stores as `median_user_move_s` on 12,047 games.
 
-    pick              moments   mistake   critical   median think
-    top-1 per game        739     33.8%     34.8%        31s
-    top-2 per game      1,478     34.1%     34.8%        26s
-    top-3 per game      2,214     32.7%     33.2%        23s
+Measured over 2,500 games / 77,000 timed moves, by multiple of the player's
+own pace:
 
-**top-2 is the design**: ~7% of moves, 34% hit rate, about two moments in a
-55-move game.
+    x own pace      moves   mistake >=100cp   median
+     0-1  x        37,439       14.1%           2s
+     1-2  x        20,195       22.1%           6s
+     2-4  x        12,459       27.3%          12s
+     4-8  x         5,203       29.6%          22s
+     8-15 x         1,380       31.0%          37s   <- peak
+    15-30 x           272       26.8%          62s   <- falls
+    30+   x            52       26.9%         143s   <- falls
+            base                19.7%
 
-### What this trigger will NOT do, stated up front
+**The signal peaks at 8-15x and then DECLINES.** Past 15x the mistake rate
+drops back toward baseline while the median time climbs to 62s and 143s.
+That is the shape of people leaving the board, not calculating. An earlier
+version of this scope said "the two longest thinks of the game", and on
+Mohit's own games that picked a 131x moment and a 54x moment, both cp_loss 0
+— it was selecting for absence.
 
-top-2 catches **11.8% of all mistakes**. Hesitation finds the moments the
-player *knows* are hard. It will never catch the blunder played instantly and
-confidently — that is a different trigger, and the existing "you usually rush
-here" pattern line is what it was always for. This is a companion, not a
-safety net. **The guardian keeps catastrophe and does not change.**
+So the trigger is a **band, not a maximum**: 4x to 15x the player's own
+median, at most two a game.
+
+    moments chosen   3,419   (1.37 per game)
+    games with none    521   (21% -- the coach says nothing at all)
+    mistake rate      32.8%  (base 19.7%)
 
 ## The moment, as the player sees it
 
@@ -84,18 +98,37 @@ back down.
 
 Beside the board, not blocking, not a modal:
 
-> **Taking your time. What is the knight looking at?**
-> `[ tap a square ]`   `[ nothing ]`   `[ show me ]`
+> **Taking your time. If you play that, what is their best answer?**
+> `[ tap a square ]`   `[ not sure ]`   `[ show me ]`
 
-The player taps **f7**.
+The player taps the square they are worried about.
 
-> **Yes — f7. And what is defending it?**
+> **Yes — Nxe6 is the one. Everything else lets you keep the pawn.**
 
-...or, if they tapped a square the knight does not attack:
+...or, when they tap something the opponent cannot play:
 
-> **It does not reach there yet. From where it stands it hits e5 and g5.**
+> **They cannot get there. The move to look at is Nxe6.**
 
 Then it stops talking. Two beats. The player plays whatever they like.
+
+### Why THIS question, and not "what is your knight looking at?"
+
+The first draft asked what the moved piece attacks. Measured on the 3,419
+moments the band selects, that question is unanswerable on a third of them:
+
+    piece attacks something   66.1%   mistake 33.2%
+    piece attacks nothing     32.4%   mistake 32.1%
+    castling                   1.5%   mistake 29.4%
+
+The "attacks nothing" moments carry the SAME mistake rate as the others, so
+they are equally worth speaking on — the question simply did not fit them. On
+Mohit's own games it produced *"What is the king looking at? (nothing yet)"*
+on castling, which is worse than silence.
+
+"What is their best answer?" fits every move type, including castling and
+quiet developing moves. The truth is already stored as `pv_after_played[0]`,
+so it is checkable without an engine call at speak-time. And it teaches the
+one habit this rating band needs most: look at the reply before you commit.
 
 ### Rules the moment obeys
 
@@ -127,10 +160,13 @@ of Mohit's questions.**
 
 ## Build order
 
-1. **Think-time as data.** `%clk` is in the PGN and the analysis pipeline
-   drops it (0 of 23,735 rows keep it). Parse it into `move_evaluations` as
-   `think_seconds`. Nothing else can be built until this exists, and it is
-   independently useful for the behavioural focus work.
+1. ~~**Think-time as data.**~~ **DONE 2026-10-18.** The parse was never
+   missing — `attach_move_times` had always run, but in PHASE 6, after the
+   analysis document is written in PHASE 1, so the mutation fed the thinking
+   score and died with the request. 0 of 19,896 analyses carried
+   `time_spent_seconds`. Now persisted on write, and backfilled: **18,822 of
+   19,896 (94.6%), 588,190 moves timed.** The 1,074 without are PGNs with no
+   clock and stay "unknown", never "fast".
 2. **The trigger, offline.** The top-2-longest-thinks selection over a
    finished game, so it can be measured on the corpus before anything is live.
 3. **The question.** One board-answerable question per moment, derived from
