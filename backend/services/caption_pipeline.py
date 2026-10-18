@@ -4999,7 +4999,27 @@ def _reply_attack_arrows(
         piece = after_reply.piece_at(square)
         if not piece or piece.color == mover or piece.piece_type == chess.KING:
             continue
-        see = static_exchange_eval(after_reply, square, mover) or 0
+        # Ask the KING-AWARE evaluator. static_exchange_eval skips kings in
+        # recapture sequences by convention, so a square the enemy king
+        # guards reads as free: on
+        # r4rk1/1bq1nppp/1p2pn2/1B1p2N1/PB1P4/8/2P2PPP/R2QR1K1 after Qd3 it
+        # scored h7 at +100 and this drew a green PAYOFF arrow d3->h7, while
+        # the engine line (Rfd8 a5 Nf5) never goes near h7 and the card's own
+        # verdict said "neither, material 0". Mohit 2026-10-18: "why our
+        # system build this arrow for plan??"
+        #
+        # legal_exchange_gain plays the captures out with the king included
+        # and returns 0 there. SEE itself must stay as it is -- the gap
+        # between the two is what test_sacrifice_line uses to recognise a
+        # sacrifice -- so the fix belongs at this call, not in SEE.
+        # The side to move after our reply is the opponent, and the question
+        # here is "do we threaten to win it", so ask from our turn.
+        try:
+            _probe = after_reply.copy()
+            _probe.turn = mover
+            see = legal_exchange_gain(_probe, square, mover) or 0
+        except (ValueError, TypeError, AssertionError):
+            see = 0
         if see >= 100:
             targets.append((square, see))
 
