@@ -1467,6 +1467,19 @@ def process_job(db, job):
             analysis_doc["trap_fires"] = []
             analysis_doc["trap_fires_version"] = TRAP_SCANNER_VERSION
 
+        # ── TRADE OFFERS (behavioural) ────────────────────────────────
+        # The stored half of the trade_seeking trait. Counted here because
+        # it needs every board replayed, and /progress/how-you-play answers
+        # a live request off stored aggregates. A game that cannot be read
+        # contributes nothing rather than a guess.
+        # docs/behavioural_measurement_data_inventory.md section 8.
+        try:
+            from services.trade_offers import count_trade_offers
+            analysis_doc["trade_offers"] = count_trade_offers(move_evaluations)
+        except Exception as _trade_exc:
+            logger.info(f"[trade_offers] skipped: {_trade_exc}")
+
+
         # V5 detector fires (Path A per worker-side-detector-migration —
         # only decryption_v5_data + version are written eagerly here;
         # the downstream pipeline cct/habits/truth_line continues to be

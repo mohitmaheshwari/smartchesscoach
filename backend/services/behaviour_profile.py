@@ -93,6 +93,14 @@ CUTS: Dict[str, tuple] = {
     # Failing to convert a winning position. Quartiles at a sample where the
     # measure is reliable (100+ winning positions): 0.29 / 0.33 / 0.38.
     "throws_away_won_games": (0.29, 0.38),
+    # Taking the even trades that were offered, level positions only.
+    # Quartiles over the 32 players with 30+ offers, 2026-10-18:
+    # 0.260 / 0.343 / 0.417. Stability 0.71 and climbing with the bar,
+    # spread 0.156, and it is NOT strength: r +0.14 against error rate,
+    # -0.19 against rating, and a player's own fast/slow rates differ by
+    # 0.037 where players differ from each other by 0.156.
+    # docs/behavioural_measurement_data_inventory.md section 8.
+    "trade_seeking": (0.260, 0.417),
 }
 
 # Traits that need more than the usual history before they may be spoken.
@@ -103,7 +111,10 @@ CUTS: Dict[str, tuple] = {
 # at 150 -- climbing exactly as Spearman-Brown predicts for attenuation
 # (0.43 implies 0.60 at double length and 0.75 at quadruple). So the trait is
 # real and the early reading was noise, not weakness.
-MIN_SAMPLE = {"throws_away_won_games": 60}
+MIN_SAMPLE = {"throws_away_won_games": 60, "trade_seeking": 60}
+# trade_seeking: stability climbed 0.48 -> 0.63 -> 0.65 -> 0.74 as the bar
+# rose from 10 to 80 offers per half, so 30 is where it starts to mean
+# something and 60 is where it holds.
 
 # Carried for ranking and measurement, never rendered. See the module docstring.
 SILENT_TRAITS = frozenset({"error_rate"})
@@ -112,6 +123,13 @@ SILENT_TRAITS = frozenset({"error_rate"})
 # other players. Written to be recognisable rather than flattering or damning --
 # a player should read it and think "yes, that is me".
 SENTENCES: Dict[str, Dict[str, str]] = {
+    "trade_seeking": {
+        # "fair" is a grade word (Excellent / Good / Fair / Needs work) and
+        # the voice guard rightly refuses it. "Even" says the same thing
+        # about the pieces without grading the move.
+        "high": "When an even swap is on offer, you usually take it.",
+        "low": "When an even swap is on offer, you usually leave the pieces on.",
+    },
     "thinks_long": {
         "high": "You take long thinks. When a position gets hard, you stop and work.",
         "low": "You keep moving. Long thinks are rare for you, even in sharp positions.",
@@ -306,6 +324,26 @@ async def compute_traits(db, user_id: str) -> Dict[str, Any]:
             failed = sum(1 for g in finished if not user_won(g))
             traits["throws_away_won_games"] = failed / len(finished)
             samples["throws_away_won_games"] = len(finished)
+
+    # Trade seeking is counted once per game, when the game is analysed, and
+    # only summed here: it needs every board replayed and this function
+    # answers a live request. A game analysed before the counter existed
+    # simply has no `trade_offers`, so it contributes nothing rather than a
+    # zero -- an absent count is not a player who declines every trade.
+    offers = taken = 0
+    async for row in db.game_analyses.find(
+        {"user_id": user_id, "trade_offers": {"$ne": None}},
+        {"_id": 0, "trade_offers": 1},
+    ):
+        counts = row.get("trade_offers") or {}
+        try:
+            offers += int(counts.get("offers") or 0)
+            taken += int(counts.get("taken") or 0)
+        except (TypeError, ValueError):
+            continue
+    if offers:
+        traits["trade_seeking"] = taken / offers
+        samples["trade_seeking"] = offers
 
     return {"traits": traits, "moves": total_moves,
             "timed_moves": timed, "samples": samples}
