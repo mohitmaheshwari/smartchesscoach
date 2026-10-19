@@ -151,8 +151,34 @@
             "on_correct": "Right. Kd5 makes Black give ground.",
             "on_wrong": "e5 lets Black play ...Ke7 and build the same face-to-face drawing setup.",
             "rule_reminder": "Advance the King first. The pawn advances last."
+          },
+          {
+            "fen": "8/2k5/2P5/2K5/8/8/8/8 b - - 2 44",
+            "side_to_move": "black",
+            "expected_result": "draw",
+            "correct_move_san": "Kc8",
+            "correct_move_uci": "c7c8",
+            "wrong_example_san": "Kd8",
+            "prompt": "Black has K on c7. White has K on c5 and P on c6. Black to move. Can you save the draw?",
+            "idea": "Step straight back, in front of the pawn. Then, when the white king comes up, face it head on and it can never get past.",
+            "on_correct": "Kc8 keeps your king in front of the pawn. When White's king steps up, you face it head on, and it can never get past you. A pawn on its own cannot promote, so the game is drawn.",
+            "on_wrong": "Kd8 steps to the side and lets the white king in. White plays Kd6, takes the square in front of the pawn, and pushes your king away. The pawn promotes.",
+            "rule_reminder": "Step straight back, never to the side. Stay in front of the pawn."
+          },
+          {
+            "fen": "8/8/8/5kp1/8/6K1/8/8 w - - 4 47",
+            "side_to_move": "white",
+            "expected_result": "draw",
+            "correct_move_san": "Kf3",
+            "correct_move_uci": "g3f3",
+            "wrong_example_san": "Kh3",
+            "prompt": "White has K on g3. Black has K on f5 and P on g5. White to move. Can you hold the draw?",
+            "idea": "Put your king straight in front of his, with one square between them. Then he has to move first, and you step across after him.",
+            "on_correct": "Kf3 faces his king head on. Black has to move first, and wherever his king goes you step across and stay in front of the pawn. White wins the pawn and the game is drawn.",
+            "on_wrong": "Kh3 gives up the face off. Black answers Kf4, keeps your king away from the pawn, and walks it home.",
+            "rule_reminder": "Face his king with one square between you, and let him move first."
           }
-        ]
+]
       },
       "key_squares": {
         "name": "The Squares Your King Needs",
@@ -368,8 +394,21 @@
             "on_correct": "Kd4 is the one square inside the box. The King runs diagonally (Kc3, Kb2) to intercept the pawn at a1.",
             "on_wrong": "Kd5 drops to the d-file but stays on rank 5 — outside the box. Tempting but wrong. The pawn promotes in 3 moves and you can't catch it from this distance.",
             "rule_reminder": "The diagonal entering move is always the best — it crosses both the file AND the rank in one step."
+          },
+          {
+            "fen": "8/8/8/2p1K2P/8/8/1k6/8 w - - 0 46",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "Kd5",
+            "correct_move_uci": "e5d5",
+            "wrong_example_san": "h6",
+            "prompt": "White has K on e5 and P on h5. Black has K on b2 and P on c5. White to move. How do you win?",
+            "idea": "Draw the square from his pawn to the end of the board. Step inside it and your king catches the pawn. His king is too far away to do the same to yours.",
+            "on_correct": "Kd5 steps inside the square of the black pawn, so your king catches it. His king is too far from your pawn to catch it, so yours goes through and wins.",
+            "on_wrong": "h6 races without stopping his pawn. Black pushes c4 and runs too. Both pawns promote and the win is gone.",
+            "rule_reminder": "Stop his runner first, then push your own."
           }
-        ]
+]
       },
       "breakthrough": {
         "name": "Pawn Breakthrough",
@@ -704,8 +743,60 @@
             "on_correct": "Qa5 controls the key squares. Next, approach with your King. This center-pawn position is a clean win.",
             "on_wrong": "Qd5 blocks the d-file but your King is too far. Qa5 lets you approach while maintaining control.",
             "rule_reminder": "Center and knight pawns are the usual clean wins. Rook pawns and bishop pawns can have corner stalemate defenses."
+          },
+          {
+            "fen": "8/8/8/7p/8/5k2/6p1/6K1 b - - 1 62",
+            "side_to_move": "black",
+            "expected_result": "win",
+            "correct_move_san": "h4",
+            "correct_move_uci": "h5h4",
+            "wrong_example_san": "Kg3",
+            "prompt": "Black has K on f3, P on g2 and P on h5. White has K on g1. Black to move. How do you win?",
+            "idea": "Before you move your king, look at what the white king has left. If it has no move and is not in check, the game is a draw on the spot.",
+            "on_correct": "h4 keeps it simple. The white king still has a square, so the game goes on, your pawn promotes, and you mate.",
+            "on_wrong": "Kg3 takes away every square the white king has left. It cannot move and it is not in check, so the game is drawn by stalemate.",
+            "rule_reminder": "When he is down to one square, leave him that square."
+          },
+          {
+            "fen": "8/6p1/8/7p/7k/8/6p1/6K1 b - - 1 48",
+            "side_to_move": "black",
+            "expected_result": "win",
+            "correct_move_san": "Kg5",
+            "correct_move_uci": "h4g5",
+            "wrong_example_san": "Kg3",
+            "prompt": "Black has K on h4, P on g2, P on h5 and P on g7. White has K on g1. Black to move. How do you win?",
+            "idea": "Nearly every move here wins. Only one throws it away: the one that leaves the white king with nothing to move.",
+            "on_correct": "Kg5 leaves the white king free to move, so the game goes on and your extra pawns win it.",
+            "on_wrong": "Kg3 leaves the white king nowhere to go, and it is not in check. That is stalemate, and the whole win is gone.",
+            "rule_reminder": "Count his moves before you move your king."
+          },
+          {
+            "fen": "3k4/3P4/4P3/3K4/8/8/8/8 w - - 3 59",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "Kc6",
+            "correct_move_uci": "d5c6",
+            "wrong_example_san": "Kd6",
+            "prompt": "White has K on d5, P on d7 and P on e6. Black has K on d8. White to move. How do you win?",
+            "idea": "Your pawn is one square from promoting and his king sits right in front of it. Step your king up and he has nothing left to move. Step to the side instead.",
+            "on_correct": "Kc6 leaves the black king a square to step to. He has to move aside, and then your pawn promotes.",
+            "on_wrong": "Kd6 takes the last square from the black king. He is not in check and has no move, so the game is drawn by stalemate.",
+            "rule_reminder": "With the pawn ready to promote, step aside, not forward."
+          },
+          {
+            "fen": "7k/1R5P/8/6K1/8/8/8/8 w - - 1 80",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "Rb8+",
+            "correct_move_uci": "b7b8",
+            "wrong_example_san": "Kg6",
+            "prompt": "White has K on g5, R on b7 and P on h7. Black has K on h8. White to move. How do you win?",
+            "idea": "His king is shut in the corner behind your own pawn. Walking your king closer leaves him nothing to move, so use the rook to force him out.",
+            "on_correct": "Rb8+ forces the black king out of the corner. Once he steps out, your pawn goes through and promotes.",
+            "on_wrong": "Kg6 looks natural, but your own pawn already covers his last square. He is not in check and cannot move, so the game is drawn by stalemate.",
+            "rule_reminder": "When his king is boxed in, check him out of the box instead of walking closer."
           }
-        ]
+]
       }
     }
   },

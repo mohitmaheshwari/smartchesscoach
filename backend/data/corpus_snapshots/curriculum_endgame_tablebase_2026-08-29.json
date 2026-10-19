@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source": "https://tablebase.lichess.ovh/standard",
   "source_documentation": "https://github.com/lichess-org/lila-tablebase/blob/main/README.md",
-  "retrieved_at": "2026-08-29T18:53:45.261115+00:00",
+  "retrieved_at": "2026-10-19T06:36:29.424247+00:00",
   "canonical_content_source": "backend/data/coaching/endgame_theory_tree.json",
   "eligibility": "valid standard-chess positions with seven pieces or fewer",
   "entries": [
@@ -1141,6 +1141,48 @@
       "response_sha256": "8ba57722c3cf4dbfeb535f71224d3f0e0fd545f3ababd56ad3deeee2822ec29a"
     },
     {
+      "content_id": "king_and_pawn/opposition",
+      "position_index": 3,
+      "fen": "8/2k5/2P5/2K5/8/8/8/8 b - - 2 44",
+      "stored_move_uci": "c7c8",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "c7c8",
+          "san": "Kc8",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "1b541d577187b40040664180cdc48938ea2b4b8bf05844c1ab819d9add17b7f1"
+    },
+    {
+      "content_id": "king_and_pawn/opposition",
+      "position_index": 4,
+      "fen": "8/8/8/5kp1/8/6K1/8/8 w - - 4 47",
+      "stored_move_uci": "g3f3",
+      "root_category": "draw",
+      "move_category_from_opponent_turn": "draw",
+      "preserves_wdl": true,
+      "dtz": 0,
+      "precise_dtz": 0,
+      "preserving_moves": [
+        {
+          "uci": "g3f3",
+          "san": "Kf3",
+          "category_from_opponent_turn": "draw",
+          "dtz": 0,
+          "precise_dtz": 0
+        }
+      ],
+      "response_sha256": "4f1953e474e5c9c9649d82e78d062a27f1820724f1f15abc09339a8597575aab"
+    },
+    {
       "content_id": "king_and_pawn/key_squares",
       "position_index": 0,
       "fen": "7k/8/8/8/8/8/1PK5/8 w - - 0 1",
@@ -1363,6 +1405,27 @@
         }
       ],
       "response_sha256": "c156330cb3ef34adb80aa87c067dac01a4587e83b605edd26fe8c9918a7da168"
+    },
+    {
+      "content_id": "king_and_pawn/square_rule",
+      "position_index": 3,
+      "fen": "8/8/8/2p1K2P/8/8/1k6/8 w - - 0 46",
+      "stored_move_uci": "e5d5",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -2,
+      "precise_dtz": -2,
+      "preserving_moves": [
+        {
+          "uci": "e5d5",
+          "san": "Kd5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        }
+      ],
+      "response_sha256": "76523e1c1a097d2a476336bad3e02cc8ff89831917cc2ace9e5db26eadc929f6"
     },
     {
       "content_id": "king_and_pawn/breakthrough",
@@ -3449,6 +3512,195 @@
         }
       ],
       "response_sha256": "17d6689067512372f112ab1271d9fa439e6eb6e76530b8b6a3d83b4e4880e363"
+    },
+    {
+      "content_id": "queen_vs_pawn/stalemate_tricks",
+      "position_index": 3,
+      "fen": "8/8/8/7p/8/5k2/6p1/6K1 b - - 1 62",
+      "stored_move_uci": "h5h4",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -2,
+      "precise_dtz": -2,
+      "preserving_moves": [
+        {
+          "uci": "h5h4",
+          "san": "h4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        }
+      ],
+      "response_sha256": "80cd63e2ee24c384545a77b8bfd2f6d9374a20af6a96c73761ede4ff459109bd"
+    },
+    {
+      "content_id": "queen_vs_pawn/stalemate_tricks",
+      "position_index": 4,
+      "fen": "8/6p1/8/7p/7k/8/6p1/6K1 b - - 1 48",
+      "stored_move_uci": "h4g5",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -2,
+      "precise_dtz": -2,
+      "preserving_moves": [
+        {
+          "uci": "h4h3",
+          "san": "Kh3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "g7g5",
+          "san": "g5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "h4g4",
+          "san": "Kg4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "h4g5",
+          "san": "Kg5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "g7g6",
+          "san": "g6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        }
+      ],
+      "response_sha256": "1240d082c9cc1749027bd9b2f2fd36ab6d0191090c93cfb79446091b48d494eb"
+    },
+    {
+      "content_id": "queen_vs_pawn/stalemate_tricks",
+      "position_index": 5,
+      "fen": "3k4/3P4/4P3/3K4/8/8/8/8 w - - 3 59",
+      "stored_move_uci": "d5c6",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -2,
+      "precise_dtz": -2,
+      "preserving_moves": [
+        {
+          "uci": "d5c6",
+          "san": "Kc6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "d5e5",
+          "san": "Ke5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "d5d4",
+          "san": "Kd4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "d5e4",
+          "san": "Ke4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        },
+        {
+          "uci": "d5c5",
+          "san": "Kc5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "d5c4",
+          "san": "Kc4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -6,
+          "precise_dtz": -6
+        }
+      ],
+      "response_sha256": "47d0e0b6b2cda41442f43f9d6a9dc0081845a16c67648e8ee3227ca398894567"
+    },
+    {
+      "content_id": "queen_vs_pawn/stalemate_tricks",
+      "position_index": 6,
+      "fen": "7k/1R5P/8/6K1/8/8/8/8 w - - 1 80",
+      "stored_move_uci": "b7b8",
+      "root_category": "win",
+      "move_category_from_opponent_turn": "loss",
+      "preserves_wdl": true,
+      "dtz": -2,
+      "precise_dtz": -2,
+      "preserving_moves": [
+        {
+          "uci": "b7b8",
+          "san": "Rb8+",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "b7b1",
+          "san": "Rb1",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "b7b2",
+          "san": "Rb2",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "b7b3",
+          "san": "Rb3",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "b7b4",
+          "san": "Rb4",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "b7b5",
+          "san": "Rb5",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        },
+        {
+          "uci": "b7b6",
+          "san": "Rb6",
+          "category_from_opponent_turn": "loss",
+          "dtz": -2,
+          "precise_dtz": -2
+        }
+      ],
+      "response_sha256": "2b589e8b4dc9d03c74dbccca9de48556ccb1f2b86668d629987d505ebf2e32a8"
     },
     {
       "content_id": "bishop_endgames/opposite_color_bishops",

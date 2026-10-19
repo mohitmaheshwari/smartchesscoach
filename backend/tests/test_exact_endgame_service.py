@@ -62,7 +62,37 @@ def test_committed_tablebase_snapshot_is_legal_complete_and_auditable():
     snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
     entries = snapshot["entries"]
 
-    assert len(entries) == 51
+    # The count used to be written here as a literal, which said nothing
+    # about what it was counting and went stale the moment a lesson gained a
+    # position. The real rule is that every tablebase-covered position in the
+    # tree carries exactly one piece of committed evidence -- so derive it,
+    # and a position added without rerunning the snapshot script fails here
+    # instead of reaching players unverified.
+    tree = json.loads(
+        (
+            Path(__file__).resolve().parents[1]
+            / "data"
+            / "coaching"
+            / "endgame_theory_tree.json"
+        ).read_text(encoding="utf-8")
+    )
+    eligible = {
+        (f"{category_key}/{lesson_key}", index)
+        for category_key, category in tree.items()
+        if not category_key.startswith("_")
+        for lesson_key, lesson in (category.get("lessons") or {}).items()
+        for index, position in enumerate(lesson.get("positions") or [])
+        if chess.popcount(chess.Board(position["fen"]).occupied) <= 7
+    }
+    covered = {
+        (entry["content_id"], int(entry["position_index"]))
+        for entry in entries
+    }
+    assert covered == eligible, (
+        "committed tablebase evidence does not match the lesson tree; "
+        "rerun scripts/snapshot_curriculum_tablebase.py"
+    )
+
     identities = set()
     for entry in entries:
         board = chess.Board(entry["fen"])
