@@ -92,6 +92,46 @@ caption must be written for that, with the passer as an optional extra clause.
 
 ---
 
+## 0c. Numbers locked (`/lock-via-data`, 2026-10-19)
+
+Two choices I had picked by hand in the prototype. Both were wrong, and the
+bake-off ran all nine combinations over the same 500 games.
+
+```
+ rear_min  survive  fires(bad)  fires(good)    prec     lift   gold
+      100     none         126            3     98%     180x   True   <- LOCKED
+      100    proxy          53            1     98%     228x   True   (prototype)
+      100      see          74            2     97%     159x   True
+      300     none          36            1     97%     155x  False
+      300    proxy          17            0    100%      inf  False
+      300      see          20            1     95%      86x  False
+      500     none          20            0    100%      inf  False
+      500    proxy           9            0    100%      inf  False
+      500      see          11            0    100%      inf  False
+```
+
+**LOCKED: rear unit worth ≥ 100 (a pawn).**
+Evidence: precision is 97–100% at every rear_min, so raising it buys nothing
+and costs coverage — 300 drops to 36 fires, 500 to 20. Both also **drop the
+gold case**, whose rear unit is a pawn. Rejected 300 and 500 on that basis.
+
+**LOCKED: no slider-survival check at all.**
+Evidence: precision is **98% with the check and 98% without it**, while the
+check costs 58% of coverage (126 → 53). The hand-rolled proxy and the repo's
+real `static_exchange_eval` both lose fires and buy no precision.
+**Why it is redundant:** the gate already requires that *Stockfish's own best
+reply* lands on the entry square. The engine does not play a move that hangs
+the piece, so the survival test re-decides something the engine already
+decided. Rejected `proxy` (−58% coverage, no precision gain) and `see` (−41%
+coverage, −1 point of precision).
+
+**Locked baseline: 126 fires on 2,285 user mistakes (5.5%), 3 on 9,815 good
+moves (0.03%), 98% precision proxy, 180x lift, gold case passes.**
+This supersedes the 72/2 figure in 0b, which was measured with the prototype's
+unnecessary survival check.
+
+---
+
 ## 1. What it is
 
 When two of your own pieces stand on the same line and the front one is not
@@ -159,8 +199,9 @@ description is not.
 The fact fires only when **all** of these hold. Each was measured in 0b.
 
 - Two own units on one line; the front is undefended **or** worth more than
-  the rear; the rear is worth at least a pawn.
-- An enemy slider can reach the line in one move, and surviving there.
+  the rear; the rear is worth **at least a pawn** (locked, 0c).
+- An enemy slider can reach the line in one move. **No survival test** — the
+  engine gate below already settles it (locked, 0c).
 - **The engine's best move addresses it** — guards the entry square, defends
   the front unit, or moves one of the pair off the line.
 - **The opponent's actual best reply lands on that entry square.**
@@ -207,11 +248,11 @@ lock against rather than a blank.
 
 - **Gold case.** Move-30 card renders the explanation and survives the claim
   verifier. Binary, must pass.
-- **Coverage.** Fires on ~72 user mistakes per 500 games (3.2% of mistakes,
-  ~1 in 8 games). A V1 that fires on materially fewer means the port lost
-  something.
-- **Precision.** Fires on no more than ~0.02% of good moves (2 in 9,815 at
-  measurement). Every fire is checked by walking the line.
+- **Coverage.** Fires on ~126 user mistakes per 500 games (5.5% of mistakes).
+  A V1 that fires on materially fewer means the port lost something. Locked in
+  0c.
+- **Precision.** Fires on no more than ~0.03% of good moves (3 in 9,815 at
+  measurement, 98% precision proxy). Every fire is checked by walking the line.
 - **Truth over prose.** Each fired caption passes the per-FEN claim verifier:
   the front unit really is attacked, the rear really is behind it, the
   recommended move really does address it.
@@ -261,9 +302,9 @@ inline. See Section 2.
    the variant is authored.
 4. **A corpus fingerprint is captured** over existing offensive-polarity cards
    so the no-regression criterion is a per-row diff, not a vibe.
-5. **The prototype gate is ported, not rewritten.** The measured gate lives in
-   the throwaway probe used for 0b; the port must reproduce **72 / 2** on the
-   same 500 games before anything else is believed.
+5. **The prototype gate is ported, not rewritten,** with the 0c locks applied
+   (rear_min 100, no survival check). The port must reproduce **126 / 3** on
+   the same 500 games before anything else is believed.
 6. **`/audit-pre-code` has run** and passed.
 
 ---
