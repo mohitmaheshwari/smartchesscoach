@@ -118,12 +118,12 @@ You played Rc1; Ra1 was the stronger move here.
 ```
 ♟ Ne4                                          [ Your move ]
 
-Your knight and your pawn are on the same line. Their queen attacks the
-knight, and when the knight moves the pawn goes too. Nbd7 keeps them off
+Your knight and your pawn share a line. Their queen can come to f3 and hit
+the knight. When the knight moves, the pawn goes too. Nbd7 keeps them off
 that line.
 
-When two of your pieces sit on one line, check what happens if the front
-one has to move.
+When two of your pieces share a line, ask what happens if the front one
+must move.
 ```
 
 **After — the gold case, where the rear unit is the passed pawn (5 of 72).
@@ -132,12 +132,12 @@ Same sentence, one extra clause:**
 ```
 ♟ Rc1                                          [ Your move ]
 
-Your bishop and your pawn are on the same line. Their rook can land under
-the bishop, and when the bishop moves the pawn goes too. That pawn is the
-only one that can win this for you. Ra1 takes that square away.
+Your bishop and your pawn share a line. Their rook can come to a2 and hit
+the bishop. When the bishop moves, the pawn goes too. That pawn is the
+only one that can win this. Ra1 takes that square away.
 
-When two of your pieces sit on one line, check what happens if the front
-one has to move.
+When two of your pieces share a line, ask what happens if the front one
+must move.
 ```
 
 Both inside the 60-word cap in `caption_config.json`. No numbers. The motif
