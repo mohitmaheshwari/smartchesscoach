@@ -160,3 +160,76 @@ def test_the_fact_reaches_extract_facts():
     assert hit["front_piece_square"] == "a3"
     # and the offensive fact is still empty here, as measured
     assert facts.get("aligned_pieces_evidence") == []
+
+
+# ------------------------------------------------- the rendered card
+
+def _render(rating: int = 1400) -> str:
+    """Through the real central layer, not a hand-rolled harness —
+    memory/feedback_audit_captions_via_real_render_path."""
+    from services.caption_pipeline import (
+        CrossMoveState, MoveInputs, build_move_teaching_decision,
+    )
+
+    history = ["d4", "d5", "Nf3", "Nc6", "Bf4", "c5", "e3", "cxd4",
+               "exd4", "Nf6", "c3", "Bg4", "Qb3", "Qc8"] * 4
+    decision = build_move_teaching_decision(
+        MoveInputs(
+            fen_before=GOLD, played_san="Rc1", mover_is_user=True,
+            mover_is_white=True, user_color="white", full_move_number=30,
+            move_history_san=history, prev_move_san="Rxf2",
+            best_move_san="Ra1", eval_before_cp=292, eval_after_cp=8,
+            cp_loss=284, pv_after_played=GOLD_PV,
+            pv_after_best=["Rd2", "a5", "Bd7", "Bc5"], user_rating=rating,
+        ),
+        CrossMoveState(),
+    )
+    return decision.text.caption or "", decision.text.rule_name or ""
+
+
+def test_the_card_explains_instead_of_shrugging():
+    """Before this feature the card read, in full:
+    'You played Rc1; Ra1 was the stronger move here.'"""
+    caption, _ = _render()
+    assert "skewer" in caption
+    assert "bishop on a3" in caption
+    assert "pawn on a4" in caption
+    assert "stronger move here" not in caption
+
+
+def test_the_card_survives_the_claim_verifier():
+    """This card used to carry R12_blunder->FINAL_VERIFY_SOFTENED: a why was
+    produced and then stripped. If that suffix comes back, the explanation is
+    being thrown away again."""
+    _, rule_name = _render()
+    assert "FINAL_VERIFY_SOFTENED" not in rule_name
+    assert "FINAL_VERIFY_SILENT" not in rule_name
+
+
+def test_the_card_keeps_its_principle_ending():
+    """The generic board-state why ('The f-file is open and opponent's rook
+    controls it') was outranking the authored principle, because
+    user_with_failure_and_alternative only needs a why_clause to be present.
+    memory/feedback_selector_picks_transferable_lesson"""
+    caption, _ = _render()
+    assert "share a line" in caption
+    assert "f-file is open" not in caption
+
+
+def test_the_card_says_why_the_better_move_is_better():
+    """'Ra1 was better' on its own is incomplete —
+    memory/feedback_explain_why_recommended_move_good. The claim is gated on
+    own_alignment_best_guards_entry so it is never asserted when untrue."""
+    caption, _ = _render()
+    assert "Ra1 covers a2" in caption
+
+
+@pytest.mark.parametrize("rating", [800, 1400, 1900])
+def test_the_card_fits_the_word_cap_at_every_band(rating):
+    import json
+
+    with open(BACKEND_ROOT / "data" / "captions" / "caption_config.json",
+              encoding="utf-8") as fh:
+        cap = json.load(fh).get("max_caption_words") or 60
+    caption, _ = _render(rating)
+    assert len(caption.split()) <= cap, f"{len(caption.split())} words at {rating}"

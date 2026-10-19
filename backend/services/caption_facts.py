@@ -12143,6 +12143,25 @@ def extract_facts(
         # exposed as a fact: it sits on 41% of good moves and would attach a
         # confident explanation to correct play.
         "own_alignment_confirmed": own_alignment_confirmed,
+        # Flattened for the caption rules, which match on scalar keys the way
+        # saved_piece / counter_attack_square already do. None when the gate
+        # did not fire, so a `present` condition is false.
+        "own_alignment_front_piece": (own_alignment_confirmed or {}).get("front_piece"),
+        "own_alignment_front_square": (own_alignment_confirmed or {}).get("front_piece_square"),
+        "own_alignment_rear_piece": (own_alignment_confirmed or {}).get("rear_piece"),
+        "own_alignment_rear_square": (own_alignment_confirmed or {}).get("rear_piece_square"),
+        "own_alignment_entry_square": (own_alignment_confirmed or {}).get("entry_square"),
+        "own_alignment_attacker_piece": (own_alignment_confirmed or {}).get("attacker_piece"),
+        "own_alignment_rear_is_passed_pawn": bool(
+            (own_alignment_confirmed or {}).get("rear_is_passed_pawn")
+        ),
+        # Gates the variant that says WHY the better move is better. Only true
+        # when the engine's move really does cover the square the slider wanted
+        # — otherwise it answered the shape some other way and that sentence
+        # would be a false claim.
+        "own_alignment_best_guards_entry": bool(
+            (own_alignment_confirmed or {}).get("best_move_guards_entry")
+        ),
         "discovered_attack_evidence": discovered_attack_evidence,
 
         # QUEEN SORTIE EVIDENCE (commit #3) — DICT or None, not bool.
