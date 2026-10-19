@@ -2,6 +2,9 @@
 
 Status: **DRAFT, awaiting Mohit signoff.** No code until he signs off.
 Path chosen in Section 0: **EXTEND** (agreed 2026-10-19).
+Section 0 and the gate were **re-measured 2026-10-19** after Mohit asked how
+this works for positions other than the gold one. The answer changed the
+feature — see Section 0b.
 
 Gold case: game `66090078-5673-447e-a9d5-58b3a3005c27`, move 30.
 FEN `8/6pp/6k1/3p4/P2Pn1b1/B7/5rPP/3R1BK1 w - - 0 30`.
@@ -15,67 +18,92 @@ Today's card: *"You played Rc1; Ra1 was the stronger move here."*
 **What already touches this need.** `caption_facts.py:4779` owns pin/skewer
 geometry. Its own opening line is *"Pin/skewer shapes share a common geometry:
 a sliding **own** piece lines up two **enemy** pieces."* It already computes
-`front_value_vs_rear` with `"higher" → classic skewer shape` — the exact
-taxonomy this feature needs. `_own_passed_pawns()` at line 6947 already finds
-passed pawns. `services/line_motif_geometry.py` already provides `walk_line`,
-`squares_between`, `blockers_between` and `slider_travels`, used today by the
-clearance / interference / xray puzzle-proof services.
+`front_value_vs_rear` with `"higher" → classic skewer shape`.
+`_own_passed_pawns()` at line 6947 already finds passed pawns.
+`services/line_motif_geometry.py` already provides `walk_line`,
+`squares_between`, `blockers_between`, `slider_travels`.
 
-**What it provides on the gold case.** Nothing. The real extractor was run on
-the real move and returned 124 facts, of which:
+**What it provides on the gold case.** Nothing. The real extractor returned
+124 facts, of which `aligned_pieces_evidence = []` and no passed-pawn fact at
+all. `pieces_now_undefended` caught only the d4 pawn.
 
-```
-aligned_pieces_evidence = []          <- fired nothing
-(no passed-pawn fact present at all)
-pieces_now_undefended   = [ d4 pawn, lost_defender d1 ]
-```
+**Three genuine gaps:** polarity (own slider → enemy pieces only, never the
+mirror), agency (fires on an alignment the move **creates**, never one it
+failed to **prevent**), and no passed-pawn fact reaching the move. A fourth
+detail explains why the loose bishop was invisible: `pieces_now_undefended`
+is a **delta** fact and the bishop was already undefended before the move.
 
-**Overlap vs genuine differentiation.** The geometry, the value table, the
-`front_value_vs_rear` taxonomy and the renderer are all shared — that is pure
-overlap and must not be rebuilt. Three things genuinely differ:
+**Decision: EXTEND.** A parallel detector would duplicate the geometry, the
+value table, the taxonomy and the renderer, against
+[memory/feedback_single_source_of_truth].
 
-1. **Polarity.** The walker looks for *our slider → two enemy pieces*. It
-   cannot see *enemy slider → two of our own units*.
-2. **Agency.** It fires on an alignment the played move **creates**. Here the
-   alignment already exists; the mistake is failing to **guard the entry
-   square**. A "what did this move create" detector structurally cannot see
-   "what did this move fail to prevent".
-3. **The rear unit's meaning.** A passed pawn behind the loose piece is not
-   just material — it is the only winning asset in the position. Nothing
-   currently tells a caption that.
-
-Supporting detail for why the loose bishop was invisible:
-`pieces_now_undefended` is a **delta** fact. It caught d4 losing its defender
-because the rook left d1. The a3 bishop was *already* undefended before the
-move, so a change-based fact can never see it.
-
-**Decision: EXTEND** `caption_facts.py`. A parallel detector would duplicate
-four things that already exist, against
-[memory/feedback_single_source_of_truth]. Where the two readings need to
-*speak* differently, that is handled at the caption-variant level, not with a
-second detector.
-
-Also observed and NOT part of this scope: the gold move is stored with
+Out of scope but observed: the gold move is stored with
 `cognitive_gap: king_safety`, which is wrong — no king is involved.
+
+---
+
+## 0b. Does this generalise? Measured, and it nearly didn't
+
+Mohit: *"how do you make it work for other similar positions?"* The naive
+generalisation **fails**, and the control is what proved it. 500 games,
+2,285 user mistakes against a control of 9,815 good moves:
+
+| gate | mistakes | good moves | lift |
+|---|---|---|---|
+| shape present | 52.3% | 40.8% | 1.3x |
+| + engine's best move addresses it | 46.5% | 35.8% | **1.3x** |
+| + opponent's real reply enters the square | 6.1% | 0.1% | 85x |
+| + that entering move **attacks the front unit** | 4.4% | 0.04% | 107x |
+| + front and rear are not the king, reply is not mate | **3.2%** | **0.02%** | **155x** |
+| *(+ rear unit is a passed pawn)* | *2.4%* | *2.0%* | *1.2x* |
+
+Two things this kills:
+
+1. **Geometry alone is noise.** The shape sits on 41% of *good* moves. Shipping
+   on geometry would attach a confident explanation to a third of correct play.
+2. **The passed pawn is not the gate.** It is as common under good moves as
+   bad (1.2x). Requiring it collapses the family to 5 cases — a position, not
+   a pattern, exactly what
+   [memory/feedback_design_the_pattern_never_the_position] warns against.
+
+What generalises is **the engine's own punishment line**: the opponent really
+does enter that square, and the entering move really does attack the front
+unit. Engine gates, board explains
+([memory/feedback_engine_gates_board_explains_caption_silent]).
+
+The king exclusion matters and was found by reading cases, not statistics: at
+the 107x gate, `Qd2#` and `Re2+` were being caught — those are checks and
+mates whose alignment is incidental. They are a different lesson.
+
+**Final measured family: 72 cases across 61 of 500 games — about one every
+eight games — against 2 of 9,815 good moves. Precision proxy 97%.**
+The gold case passes the gate. Median `cp_loss` 188.
+
+Composition of the 72:
+
+```
+rear unit (what gets won) : pawn 54 · rook 9 · knight 6 · bishop 3
+front unit (what must move): knight 28 · pawn 20 · bishop 11 · queen 10 · rook 3
+rear is a passed pawn      : 5 of 72   (7%)
+```
+
+So the common case is **"you lose a pawn"**, not "you lose the game". The
+caption must be written for that, with the passer as an optional extra clause.
 
 ---
 
 ## 1. What it is
 
 When two of your own pieces stand on the same line and the front one is not
-defended, your opponent can attack the front one and take whatever is sitting
-behind it. Today the coach says nothing about this — it just names a better
-move. This change lets the coach see that shape **before** anything is lost,
-say it in plain words, and say why the better move fixes it. It matters most
-when the thing behind is a passed pawn, because then the player is not losing
-a pawn, they are losing the whole game plan.
+safe, your opponent can attack the front one and take whatever is behind it.
+Today the coach says nothing about this — it just names a better move. This
+change lets the coach see the shape, confirm with the engine that the opponent
+really is about to do it, and say it in plain words, including what the better
+move does about it.
 
 ---
 
 ## 2. What the user sees
-
-The same card that exists today, with a real explanation in place of the
-one-line shrug.
 
 **Today:**
 
@@ -83,160 +111,154 @@ one-line shrug.
 ♟ Rc1                                          [ Your move ]
 
 You played Rc1; Ra1 was the stronger move here.
-
-  ▸ Why? Play it out
 ```
 
-**After:**
+**After — the common case (knight in front of a pawn, 1 of the 72):**
+
+```
+♟ Ne4                                          [ Your move ]
+
+Your knight and your pawn are on the same line. Their queen attacks the
+knight, and when the knight moves the pawn goes too. Nbd7 keeps them off
+that line.
+
+When two of your pieces sit on one line, check what happens if the front
+one has to move.
+```
+
+**After — the gold case, where the rear unit is the passed pawn (5 of 72).
+Same sentence, one extra clause:**
 
 ```
 ♟ Rc1                                          [ Your move ]
 
-Your bishop and your pawn are on the same line. Their rook can land
-under the bishop. The bishop has to move, and your pawn goes with it.
-That pawn is the only thing that can win this game for you. Ra1 takes
-that square away and sits behind the pawn.
+Your bishop and your pawn are on the same line. Their rook can land under
+the bishop, and when the bishop moves the pawn goes too. That pawn is the
+only one that can win this for you. Ra1 takes that square away.
 
-Keep your rook behind a passed pawn.
-
-  ▸ Why? Play it out
+When two of your pieces sit on one line, check what happens if the front
+one has to move.
 ```
 
-59 words including the principle line, inside the 60-word cap.
-No jargon word for the motif itself — the shape is described, not named.
-No numbers. The principle sentence is the universal takeaway, per
+Both inside the 60-word cap in `caption_config.json`. No numbers. The motif
+is described, not named — see Open Questions. The principle sentence is the
+universal takeaway, per
 [memory/feedback_caption_keep_explicit_principle_ending].
 
 ---
 
 ## 3. In scope (V1)
 
-- The alignment walker runs in **both polarities**: own slider → two enemy
-  units (today's behaviour, unchanged) and enemy slider → two own units (new).
-- The new polarity fires on an alignment that **already exists** on the board
-  before the played move, not only one the move creates.
-- Evidence emitted uses the existing `front_value_vs_rear` vocabulary; no new
-  taxonomy.
-- The front unit must be **undefended** for the new polarity to fire.
-- The enemy slider must be able to **reach the line in one move**, and that
-  entry square is emitted as a fact.
-- A passed-pawn fact is surfaced on every move from the existing
-  `_own_passed_pawns()`, so a caption can name the rear unit as the passer.
-- One new caption variant in `R12_blunder.json` for the case, with a `why`
-  and a principle ending.
-- The recommended move is explained, not just named — it must say what `Ra1`
-  does ([memory/feedback_explain_why_recommended_move_good]).
-- Today's offensive behaviour is unchanged: a before/after corpus fingerprint
-  shows zero diff on cards that fire today
+The fact fires only when **all** of these hold. Each was measured in 0b.
+
+- Two own units on one line; the front is undefended **or** worth more than
+  the rear; the rear is worth at least a pawn.
+- An enemy slider can reach the line in one move, and surviving there.
+- **The engine's best move addresses it** — guards the entry square, defends
+  the front unit, or moves one of the pair off the line.
+- **The opponent's actual best reply lands on that entry square.**
+- **That entering move attacks the front unit.**
+- Neither front nor rear is the king, and the reply is not mate.
+- Stockfish has already called the played move a mistake. This fact never
+  decides *that* a move is bad, only *why*.
+
+Plus:
+
+- The existing offensive polarity is untouched; a corpus fingerprint shows
+  zero diff on cards that fire today
   ([memory/feedback_snapshot_the_corpus_before_refactoring]).
-- The gold case above renders the explanation, not the floor rung.
+- One caption variant in `R12_blunder.json`, with the optional passer clause.
+- The recommended move is explained, not just named.
+- The gold case renders the explanation, not the floor rung.
 
 ---
 
 ## 4. Explicitly out of scope (V1)
 
-- **Naming the motif.** The caption describes the shape; it does not say
-  "skewer" or "pin". Jargon decision deferred — see Open Questions.
-- **Arrows for this case.** The payoff is several moves away, so a green
-  arrow would promise material it cannot deliver inside the window
-  ([memory/project_a_count_is_not_a_payoff]). Arrows stay as they are.
+- **Naming the motif** ("skewer"). Open question.
+- **Checks and mates** where the king is the front or rear unit. Measured as
+  a distinct family; different lesson, different caption.
+- **Arrows.** The payoff can be several moves out, so a green arrow would
+  promise material it cannot deliver in-window
+  ([memory/project_a_count_is_not_a_payoff]).
 - **Fixing `move_story`.** The `neither / short range 0/0` verdict is the
-  reason the card fell to the floor rung, but widening the material horizon
-  is a separate and much larger change. This feature works by adding a static
-  fact, not by changing the verdict.
-- **The `cognitive_gap` mislabel** on this move (`king_safety`). Category
-  correctness belongs to `/classify-moves-from-gold`.
-- **Pins against our own king** (absolute pins). The rear-unit-is-king case
-  already has handling and is not touched.
-- **PWC live play.** It routes through the same central layer and will pick
-  this up automatically; no PWC-specific work and no PWC-specific claim.
-- **Backfill of old games.** Re-rendering history is a version-bump decision,
-  listed in Pre-code.
+  proximate reason the card fell to the floor rung, but widening the material
+  horizon is a much larger change. This works by adding a static fact.
+- **The `cognitive_gap` mislabel.** Belongs to `/classify-moves-from-gold`.
+- **Absolute pins against our own king.** Already handled elsewhere.
+- **PWC-specific work.** It routes through the same central layer.
+- **Backfill of old games.** Version-bump decision, see Pre-code.
 
 ---
 
 ## 5. Success criteria
 
-Numbers deliberately left unlocked — picking a threshold before seeing the
-distribution is the sin in
-[memory/feedback_threshold_before_distribution_is_sin]. `/lock-via-data`
-fills these in after Section 7's distribution run.
+Now measured rather than guessed, so `/lock-via-data` has a distribution to
+lock against rather than a blank.
 
-- **Gold case.** The move-30 card renders the explanation and survives the
-  claim verifier. Binary, must pass.
-- **Coverage.** The new polarity fires on at least _N_ user mistakes across
-  the measured corpus, where _N_ comes from the distribution run. A detector
-  that fires on one position is a hard-code, not a family
-  ([memory/feedback_design_the_pattern_never_the_position]).
-- **Truth.** Every fired case is checked by walking the line: the front unit
-  really is attackable, really is undefended, and the rear unit really is
-  lost after the front one moves. Target false-positive rate locked by data.
-- **It reaches a person.** The share of these cards reaching the screen with
-  a `why` — measured on the rendered card, not the registry
+- **Gold case.** Move-30 card renders the explanation and survives the claim
+  verifier. Binary, must pass.
+- **Coverage.** Fires on ~72 user mistakes per 500 games (3.2% of mistakes,
+  ~1 in 8 games). A V1 that fires on materially fewer means the port lost
+  something.
+- **Precision.** Fires on no more than ~0.02% of good moves (2 in 9,815 at
+  measurement). Every fire is checked by walking the line.
+- **Truth over prose.** Each fired caption passes the per-FEN claim verifier:
+  the front unit really is attacked, the rear really is behind it, the
+  recommended move really does address it.
+- **It reaches a person.** Share of these cards reaching the screen carrying a
+  `why`, measured on the rendered card
   ([memory/feedback_verify_to_the_screen_not_the_registry]).
-- **No regression.** Zero diff on the existing offensive-polarity cards.
+- **No regression.** Zero diff on existing offensive-polarity cards.
 
 ---
 
 ## 6. Open questions
 
-- **Question:** Does the caption get to say the word "skewer"?
-  **Why unresolved:** the audience is 600–1500 and
-  [memory/feedback_caption_voice_avoid_chess_jargon] says avoid jargon, but a
-  named motif is also how a player searches for and remembers a pattern.
-  **Unblocking step:** Mohit's call on the mockup in Section 2.
-
-- **Question:** Is "passed pawn" itself too much jargon for the principle
-  line, versus something like "free pawn"?
-  **Why unresolved:** same tension; "passed pawn" is standard and taught
-  early, but it is still a term.
-  **Unblocking step:** Mohit's call on the mockup.
-
-- **Question:** Should the fact fire when the rear unit is an ordinary pawn
-  or piece rather than a passed pawn?
-  **Why unresolved:** the shape is the same but the urgency is not. Firing
-  everywhere risks noise; firing only on passers may be too narrow to be a
-  family.
-  **Unblocking step:** the distribution run — count positions by rear-unit
-  type before deciding.
+- **Question:** May the caption say "skewer"?
+  **Why unresolved:** [memory/feedback_caption_voice_avoid_chess_jargon] says
+  avoid jargon for 600–1500, but a named motif is how a player searches for
+  and remembers a pattern.
+  **Unblocking step:** Mohit's call on the Section 2 mockups.
 
 - **Question:** Does the claim verifier accept this sentence shape?
-  **Why unresolved:** this card already shows `R12_blunder→FINAL_VERIFY_SOFTENED`,
-  so a `why` was produced and then stripped. The verifier reads prose
-  literally ([memory/project_claim_verifier_reads_prose_literally]).
-  **Unblocking step:** run the candidate sentence through the verifier before
-  writing the variant.
+  **Why unresolved:** this card already reads
+  `R12_blunder→FINAL_VERIFY_SOFTENED`, so a `why` was produced and stripped.
+  The verifier reads prose literally
+  ([memory/project_claim_verifier_reads_prose_literally]).
+  **Unblocking step:** run both candidate sentences through the verifier
+  before authoring the variant. This is Pre-code item 3.
 
-- **Question:** Does this need a `V5_COACHING_VERSION` bump, and do old games
-  get re-rendered?
-  **Why unresolved:** a bump re-renders the back catalogue, which is a cost
-  and a risk decision, not a technical one.
-  **Unblocking step:** Mohit's call once coverage is known.
+- **Question:** Is one variant enough, or does `front worth more` (49%) want
+  different words from `front undefended` (51%)?
+  **Why unresolved:** "it has to move because it is worth more" and "it has to
+  move because nothing defends it" are different reasons to a learner.
+  **Unblocking step:** draft both sentences and read ten real cases of each.
+
+- **Question:** `V5_COACHING_VERSION` bump, and do old games re-render?
+  **Why unresolved:** a bump re-renders the back catalogue — a cost and risk
+  decision, not a technical one.
+  **Unblocking step:** Mohit's call now that coverage is known.
+
+*Resolved by 0b, previously open:* whether to require a passed pawn — **no**,
+it is 1.2x and would shrink the family to 5. Whether the rear unit may be an
+ordinary pawn or piece — **yes**, that is 95% of the family.
 
 ---
 
 ## 7. Pre-code requirements
 
-Each one is a hard gate. No first line of code until all are true.
-
-1. **Mohit has explicitly signed off on this document.** Not "sounds good".
-2. **Distribution run completed** over a real corpus: how many user mistakes
-   carry this shape, split by rear-unit type (passed pawn / other pawn /
-   piece) and by whether the front unit is undefended. Feeds Section 5 and
-   the third open question. Run on the server, per
-   [memory/project_local_container_not_prod].
-3. **`/lock-via-data` has run** on every number Section 5 leaves blank.
-4. **The candidate caption sentence has been through the claim verifier**
-   and passes, before the variant is authored. This card is already being
-   softened by `FINAL_VERIFY`; authoring a sentence the verifier will strip
-   wastes the whole build.
-5. **A corpus fingerprint is captured** over the existing offensive-polarity
-   cards, so the no-regression criterion in Section 5 can be checked as a
-   per-row diff rather than a vibe.
-6. **The engine gate is confirmed**: this fact only ever explains a move
-   Stockfish already called a mistake. It never decides *that* a move is bad
-   ([memory/feedback_engine_gates_board_explains_caption_silent]).
-7. **`/audit-pre-code` has run** and passed.
+1. **Mohit has explicitly signed off on this document.**
+2. **`/lock-via-data` has run** on the coverage and precision numbers in
+   Section 5, against the distribution in 0b.
+3. **Both candidate caption sentences have passed the claim verifier**, before
+   the variant is authored.
+4. **A corpus fingerprint is captured** over existing offensive-polarity cards
+   so the no-regression criterion is a per-row diff, not a vibe.
+5. **The prototype gate is ported, not rewritten.** The measured gate lives in
+   the throwaway probe used for 0b; the port must reproduce **72 / 2** on the
+   same 500 games before anything else is believed.
+6. **`/audit-pre-code` has run** and passed.
 
 ---
 
@@ -244,4 +266,7 @@ Each one is a hard gate. No first line of code until all are true.
 +0.05, Re1 +0.01, Rc1 −0.03 — Ra1 is the only move that keeps anything. After
 `Rc1 Ra2` every one of White's five best replies moves the bishop; defending
 a3 instead loses outright (`Rc3` −6.67, `Rc4` −6.90). The engine's own line
-then plays `31.Bc5 Rxa4`, capturing the passer.*
+then plays `31.Bc5 Rxa4`, capturing the passer. The stored `pv_after_played`
+is only four plies (`Ra2 Bf8 Kf7 Bc5`), which is why a gate requiring the rear
+unit to be visibly captured in the stored line rejects the gold case and was
+not used.*
