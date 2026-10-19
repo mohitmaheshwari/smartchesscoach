@@ -52,6 +52,46 @@
             "on_correct": "Qg7 is checkmate. The queen gives the check and your king protects the queen.",
             "on_wrong": "That is only another check. Look for a queen square protected by your king that also covers every escape square.",
             "rule_reminder": "For the finish, the queen checks and the king protects the queen."
+          },
+          {
+            "fen": "8/8/8/8/5Q2/4K2k/6r1/8 b - - 5 40",
+            "side_to_move": "black",
+            "expected_result": "draw",
+            "correct_move_san": "Rg3+",
+            "correct_move_uci": "g2g3",
+            "wrong_example_san": "Re2+",
+            "prompt": "This is a draw if you find it. Only one of your 14 moves holds it.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/5P2/6K1/2k3P1/8/7q/8/8 b - - 0 53",
+            "side_to_move": "black",
+            "expected_result": "win",
+            "correct_move_san": "Qh8",
+            "correct_move_uci": "h3h8",
+            "wrong_example_san": "Qd3+",
+            "prompt": "You are winning. 1 of your 29 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/5K2/6q1/5p2/7Q/2k5/8/8 w - - 1 55",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "Kxg6",
+            "correct_move_uci": "f7g6",
+            "wrong_example_san": "Ke7",
+            "prompt": "You are winning. 1 of your 3 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "2QK4/8/8/p7/q7/6k1/8/8 b - - 1 57",
+            "side_to_move": "black",
+            "expected_result": "win",
+            "correct_move_san": "Qh4+",
+            "correct_move_uci": "a4h4",
+            "wrong_example_san": "Qd4+",
+            "prompt": "You are winning. 1 of your 23 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
           }
         ]
       },
@@ -151,6 +191,46 @@
             "on_correct": "Right. Kd5 makes Black give ground.",
             "on_wrong": "e5 lets Black play ...Ke7 and build the same face-to-face drawing setup.",
             "rule_reminder": "Advance the King first. The pawn advances last."
+          },
+          {
+            "fen": "8/2k5/2P5/2K5/8/8/8/8 b - - 2 44",
+            "side_to_move": "black",
+            "expected_result": "draw",
+            "correct_move_san": "Kc8",
+            "correct_move_uci": "c7c8",
+            "wrong_example_san": "Kd8",
+            "prompt": "This is a draw if you find it. Only one of your 3 moves holds it.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/8/8/8/2pK4/8/2Pk4/8 w - - 4 44",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "c3",
+            "correct_move_uci": "c2c3",
+            "wrong_example_san": "Kxc4",
+            "prompt": "You are winning. 1 of your 6 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/6p1/4K2p/4P1k1/8/8/8/8 b - - 0 46",
+            "side_to_move": "black",
+            "expected_result": "draw",
+            "correct_move_san": "h5",
+            "correct_move_uci": "h6h5",
+            "wrong_example_san": "Kg6",
+            "prompt": "This is a draw if you find it. Only one of your 7 moves holds it.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/8/8/5kp1/8/6K1/8/8 w - - 4 47",
+            "side_to_move": "white",
+            "expected_result": "draw",
+            "correct_move_san": "Kf3",
+            "correct_move_uci": "g3f3",
+            "wrong_example_san": "Kh3",
+            "prompt": "This is a draw if you find it. Only one of your 5 moves holds it.",
+            "source": "real game, verified against the 5-piece tablebase"
           }
         ]
       },
@@ -172,15 +252,30 @@
             "on_correct": "Good. Kd3 heads toward the key square c4. Once your King arrives there, the pawn promotes by force.",
             "on_wrong": "That move can still win because Black's King is far away, but it does not practise today's idea. Walk your King toward a4, b4, or c4 before relying on the pawn.",
             "rule_reminder": "For a pawn on b2, aim your King for a4, b4, or c4 before pushing.",
-            "help_squares": ["a4", "b4", "c4"],
+            "help_squares": [
+              "a4",
+              "b4",
+              "c4"
+            ],
             "reason_contract": {
               "prompt": "What is Kd3 preparing?",
               "choices": [
-                {"id": "reach_c4", "label": "Reach c4, then let the b-pawn follow."},
-                {"id": "pawn_leads", "label": "Push the pawn first and keep my King behind it."},
-                {"id": "not_sure", "label": "I am not sure yet."}
+                {
+                  "id": "reach_c4",
+                  "label": "Reach c4, then let the b-pawn follow."
+                },
+                {
+                  "id": "pawn_leads",
+                  "label": "Push the pawn first and keep my King behind it."
+                },
+                {
+                  "id": "not_sure",
+                  "label": "I am not sure yet."
+                }
               ],
-              "accepted_choice_ids": ["reach_c4"],
+              "accepted_choice_ids": [
+                "reach_c4"
+              ],
               "success_text": "Exactly. Kd3 starts the walk to c4, where your King can lead the pawn.",
               "correction_text": "Kd3 matters because it starts the walk to c4. Get your King in front before sending the pawn forward."
             },
@@ -193,11 +288,22 @@
                 "reason_contract": {
                   "prompt": "What is Kc3 preparing?",
                   "choices": [
-                    {"id": "reach_c4", "label": "Reach c4, then let the b-pawn follow."},
-                    {"id": "pawn_leads", "label": "Push b3 next and keep my King beside the pawn."},
-                    {"id": "not_sure", "label": "I am not sure yet."}
+                    {
+                      "id": "reach_c4",
+                      "label": "Reach c4, then let the b-pawn follow."
+                    },
+                    {
+                      "id": "pawn_leads",
+                      "label": "Push b3 next and keep my King beside the pawn."
+                    },
+                    {
+                      "id": "not_sure",
+                      "label": "I am not sure yet."
+                    }
                   ],
-                  "accepted_choice_ids": ["reach_c4"],
+                  "accepted_choice_ids": [
+                    "reach_c4"
+                  ],
                   "success_text": "Exactly. Kc3 prepares c4, where your King can lead the pawn.",
                   "correction_text": "Kc3 matters because it prepares c4. Get your King in front before sending the pawn forward."
                 }
@@ -210,11 +316,22 @@
                 "reason_contract": {
                   "prompt": "What is Kb3 preparing?",
                   "choices": [
-                    {"id": "reach_b4", "label": "Reach b4 and lead the pawn from the front."},
-                    {"id": "king_beside", "label": "Stay beside the pawn while it moves first."},
-                    {"id": "not_sure", "label": "I am not sure yet."}
+                    {
+                      "id": "reach_b4",
+                      "label": "Reach b4 and lead the pawn from the front."
+                    },
+                    {
+                      "id": "king_beside",
+                      "label": "Stay beside the pawn while it moves first."
+                    },
+                    {
+                      "id": "not_sure",
+                      "label": "I am not sure yet."
+                    }
                   ],
-                  "accepted_choice_ids": ["reach_b4"],
+                  "accepted_choice_ids": [
+                    "reach_b4"
+                  ],
                   "success_text": "Exactly. Kb3 prepares b4, putting your King in front of the pawn.",
                   "correction_text": "Kb3 is useful because it prepares b4. In this ending, your King should lead from the front."
                 }
@@ -234,15 +351,30 @@
             "on_correct": "Kd4 occupies the key square. Black's King can't prevent promotion now.",
             "on_wrong": "Kf3 still wins, but it does not step onto a target square yet. Kd4, Ke4, or Kf4 reaches one immediately.",
             "rule_reminder": "For a pawn on e2, get your King to d4, e4, or f4 before pushing.",
-            "help_squares": ["d4", "e4", "f4"],
+            "help_squares": [
+              "d4",
+              "e4",
+              "f4"
+            ],
             "reason_contract": {
               "prompt": "Why is Kd4 useful now?",
               "choices": [
-                {"id": "occupy_d4", "label": "It reaches d4, so my King can lead the e-pawn."},
-                {"id": "chases_king", "label": "It chases the black King away immediately."},
-                {"id": "not_sure", "label": "I am not sure yet."}
+                {
+                  "id": "occupy_d4",
+                  "label": "It reaches d4, so my King can lead the e-pawn."
+                },
+                {
+                  "id": "chases_king",
+                  "label": "It chases the black King away immediately."
+                },
+                {
+                  "id": "not_sure",
+                  "label": "I am not sure yet."
+                }
               ],
-              "accepted_choice_ids": ["occupy_d4"],
+              "accepted_choice_ids": [
+                "occupy_d4"
+              ],
               "success_text": "Right. Kd4 reaches a target square and puts your King in front of the pawn.",
               "correction_text": "Kd4 matters because it reaches d4, one of the three target squares in front of the e-pawn."
             },
@@ -255,11 +387,22 @@
                 "reason_contract": {
                   "prompt": "Why is Ke4 useful now?",
                   "choices": [
-                    {"id": "occupy_e4", "label": "My King reaches e4 and stands in front of the pawn."},
-                    {"id": "push_next", "label": "It means I should push e3 immediately, whatever Black does."},
-                    {"id": "not_sure", "label": "I am not sure yet."}
+                    {
+                      "id": "occupy_e4",
+                      "label": "My King reaches e4 and stands in front of the pawn."
+                    },
+                    {
+                      "id": "push_next",
+                      "label": "It means I should push e3 immediately, whatever Black does."
+                    },
+                    {
+                      "id": "not_sure",
+                      "label": "I am not sure yet."
+                    }
                   ],
-                  "accepted_choice_ids": ["occupy_e4"],
+                  "accepted_choice_ids": [
+                    "occupy_e4"
+                  ],
                   "success_text": "Right. Ke4 puts your King directly in front of the e-pawn.",
                   "correction_text": "Ke4 matters because your King reaches e4 and leads the pawn from the front."
                 }
@@ -272,11 +415,22 @@
                 "reason_contract": {
                   "prompt": "Why is Kf4 useful now?",
                   "choices": [
-                    {"id": "occupy_f4", "label": "It reaches f4, one of the squares that helps my pawn promote."},
-                    {"id": "wins_pawn", "label": "It wins a black pawn on the next move."},
-                    {"id": "not_sure", "label": "I am not sure yet."}
+                    {
+                      "id": "occupy_f4",
+                      "label": "It reaches f4, one of the squares that helps my pawn promote."
+                    },
+                    {
+                      "id": "wins_pawn",
+                      "label": "It wins a black pawn on the next move."
+                    },
+                    {
+                      "id": "not_sure",
+                      "label": "I am not sure yet."
+                    }
                   ],
-                  "accepted_choice_ids": ["occupy_f4"],
+                  "accepted_choice_ids": [
+                    "occupy_f4"
+                  ],
                   "success_text": "Right. Kf4 reaches the third target square in front of the e-pawn.",
                   "correction_text": "Kf4 matters because f4 is one of the three target squares for the e-pawn."
                 }
@@ -296,15 +450,30 @@
             "on_correct": "Good practical choice. Kd4 keeps the most options, while accurate Black defence still holds the draw.",
             "on_wrong": "Kb4 also holds the draw, but it steps toward the edge. Kd4 is the clearer try because it tests Black from the centre.",
             "rule_reminder": "A target square only wins when your King gets there before the defending King can block it.",
-            "help_squares": ["b5", "c5", "d5"],
+            "help_squares": [
+              "b5",
+              "c5",
+              "d5"
+            ],
             "reason_contract": {
               "prompt": "What does Kd4 test?",
               "choices": [
-                {"id": "test_both_routes", "label": "Whether Black can stop my King from either side."},
-                {"id": "wins_now", "label": "It wins immediately because my King reached the fourth rank."},
-                {"id": "not_sure", "label": "I am not sure yet."}
+                {
+                  "id": "test_both_routes",
+                  "label": "Whether Black can stop my King from either side."
+                },
+                {
+                  "id": "wins_now",
+                  "label": "It wins immediately because my King reached the fourth rank."
+                },
+                {
+                  "id": "not_sure",
+                  "label": "I am not sure yet."
+                }
               ],
-              "accepted_choice_ids": ["test_both_routes"],
+              "accepted_choice_ids": [
+                "test_both_routes"
+              ],
               "success_text": "Exactly. Kd4 keeps both routes open, but Black is close enough to hold the draw.",
               "correction_text": "Kd4 keeps both routes open. You still have to count whether Black can block your King in time."
             }
@@ -319,7 +488,12 @@
           "headline": "Draw the box. Step inside.",
           "body": "When a pawn is racing to promote and no piece defends it, imagine a square from the pawn to its promotion square. If your King can step INSIDE that box on its turn, the pawn is caught. If it can't, the pawn promotes.\n\nA King's diagonal move counts the same as a straight move — that's why this works. Moving diagonally gets you closer to both the pawn's file AND the promotion rank at the same time.",
           "example_fen": "4k3/8/8/8/1p6/8/8/4K3 w - - 0 1",
-          "example_corners": ["b4", "b1", "e1", "e4"],
+          "example_corners": [
+            "b4",
+            "b1",
+            "e1",
+            "e4"
+          ],
           "example_caption": "Black's pawn is on b4 running to b1. The box is b4–b1–e1–e4. White's King on e1 is already inside the box — the pawn is caught.",
           "cta": "Got it — let me try"
         },
@@ -331,7 +505,12 @@
             "correct_move_san": "Kf5",
             "correct_move_uci": "g6f5",
             "wrong_example_san": "Kf6",
-            "square_corners": ["b5", "b1", "f1", "f5"],
+            "square_corners": [
+              "b5",
+              "b1",
+              "f1",
+              "f5"
+            ],
             "concept": "The box is b5–f5–f1–b1 (the green circles). Your King is on g6 — outside the box, both file (g) and rank (6). Look for the ONE move that steps inside both dimensions.",
             "prompt": "Which move enters the box?",
             "idea": "The box is files b–f × ranks 1–5. From g6 the King can only reach f5 as a box square — Kf5 is the unique entering move. From there, the King races diagonally to catch the pawn.",
@@ -346,7 +525,12 @@
             "correct_move_san": "Kd4",
             "correct_move_uci": "c5d4",
             "wrong_example_san": "Kd5",
-            "square_corners": ["g4", "g1", "d1", "d4"],
+            "square_corners": [
+              "g4",
+              "g1",
+              "d1",
+              "d4"
+            ],
             "concept": "The box is g4–g1–d1–d4 (files d–g, ranks 1–4). Your King is on c5 — one file west and one rank north of the box corner. Only one diagonal step lands you inside both boundaries.",
             "prompt": "Which move enters the box?",
             "idea": "From c5 only Kd4 lands on a file d–g AND a rank 1–4 square. Other moves either stay outside the file range (b-squares) or outside the rank range (d5, d6). Kd4 races diagonally to intercept the pawn before it promotes.",
@@ -361,13 +545,58 @@
             "correct_move_san": "Kd4",
             "correct_move_uci": "e5d4",
             "wrong_example_san": "Kd5",
-            "square_corners": ["a4", "a1", "d1", "d4"],
+            "square_corners": [
+              "a4",
+              "a1",
+              "d1",
+              "d4"
+            ],
             "concept": "The box is a4–a1–d1–d4 (files a–d, ranks 1–4). Your King is on e5 — one file east and one rank north of the box corner. Find the single move that steps inside both file and rank at once.",
             "prompt": "Which move enters the box?",
             "idea": "From e5 only Kd4 is inside the box (file d ≤ d, rank 4 ≤ 4). Other moves either stay on file e (outside) or on rank 5 (outside). Kd4 races diagonally to catch the a-pawn.",
             "on_correct": "Kd4 is the one square inside the box. The King runs diagonally (Kc3, Kb2) to intercept the pawn at a1.",
             "on_wrong": "Kd5 drops to the d-file but stays on rank 5 — outside the box. Tempting but wrong. The pawn promotes in 3 moves and you can't catch it from this distance.",
             "rule_reminder": "The diagonal entering move is always the best — it crosses both the file AND the rank in one step."
+          },
+          {
+            "fen": "8/8/2K5/8/1p5k/P7/7P/8 w - - 0 40",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "axb4",
+            "correct_move_uci": "a3b4",
+            "wrong_example_san": "Kb6",
+            "prompt": "You are winning. 1 of your 11 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/8/2K5/8/1p5k/P7/7P/8 w - - 0 40",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "axb4",
+            "correct_move_uci": "a3b4",
+            "wrong_example_san": "Kb6",
+            "prompt": "You are winning. 1 of your 11 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/8/8/5K2/2p5/8/2P2k2/8 w - - 0 42",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "Ke4",
+            "correct_move_uci": "f5e4",
+            "wrong_example_san": "Ke5",
+            "prompt": "You are winning. 1 of your 9 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/8/8/2p1K2P/8/8/1k6/8 w - - 0 46",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "Kd5",
+            "correct_move_uci": "e5d5",
+            "wrong_example_san": "h6",
+            "prompt": "You are winning. 1 of your 8 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
           }
         ]
       },
@@ -387,7 +616,16 @@
             "on_correct": "g6 forces Black to choose which outside pawn White will free. The middle pawn is the key that opens one side.",
             "on_wrong": "h6 lets Black answer ...gxh6 and keep the pawns under control. Offer the middle pawn with g6 first.",
             "rule_reminder": "When three pawns face three pawns, test the middle-pawn offer. It can free either outside pawn.",
-            "verification": {"method": "stockfish", "status": "verified", "fen": "k7/5ppp/8/5PPP/8/8/8/K7 w - - 0 1", "move_uci": "g5g6", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 599}
+            "verification": {
+              "method": "stockfish",
+              "status": "verified",
+              "fen": "k7/5ppp/8/5PPP/8/8/8/K7 w - - 0 1",
+              "move_uci": "g5g6",
+              "engine": "Stockfish 18",
+              "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+              "depth": 20,
+              "selected_score_cp": 599
+            }
           },
           {
             "fen": "7k/ppp5/8/PPP5/8/8/8/7K w - - 0 1",
@@ -400,7 +638,16 @@
             "on_correct": "b6 makes one of the outside pawns impossible to stop. Calculate both captures before you play it.",
             "on_wrong": "a6 closes one route and gives Black time. The middle-pawn offer with b6 is what opens a path.",
             "rule_reminder": "Do not memorize a file. Recognize the shape: the middle pawn is sacrificed so an outside pawn can run.",
-            "verification": {"method": "stockfish", "status": "verified", "fen": "7k/ppp5/8/PPP5/8/8/8/7K w - - 0 1", "move_uci": "b5b6", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 607}
+            "verification": {
+              "method": "stockfish",
+              "status": "verified",
+              "fen": "7k/ppp5/8/PPP5/8/8/8/7K w - - 0 1",
+              "move_uci": "b5b6",
+              "engine": "Stockfish 18",
+              "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+              "depth": 20,
+              "selected_score_cp": 607
+            }
           },
           {
             "fen": "k7/5pp1/6p1/5P1P/8/8/8/K7 w - - 0 1",
@@ -433,7 +680,16 @@
             "on_correct": "Kf2 begins centralization. Next: Ke3, then Kd3 or Ke4. The King will dominate the center.",
             "on_wrong": "a3 wastes time on the flank. Your King is on g1 doing nothing — that's the real problem.",
             "rule_reminder": "Queens are gone? King to the center. This is endgame rule #1.",
-            "verification": {"method": "stockfish", "status": "verified", "fen": "8/pp3k2/8/3p4/3P4/8/PP6/6K1 w - - 0 1", "move_uci": "g1f2", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 0}
+            "verification": {
+              "method": "stockfish",
+              "status": "verified",
+              "fen": "8/pp3k2/8/3p4/3P4/8/PP6/6K1 w - - 0 1",
+              "move_uci": "g1f2",
+              "engine": "Stockfish 18",
+              "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+              "depth": 20,
+              "selected_score_cp": 0
+            }
           },
           {
             "fen": "8/5k2/4p3/3pP3/3P4/8/8/4K3 w - - 0 1",
@@ -513,6 +769,46 @@
             "on_correct": "Ke7 is the next step. The Rook on e4 is ready to block checks. The pawn will promote.",
             "on_wrong": "Kg8 moves the wrong direction. You need to step TOWARD the Rook to use the bridge.",
             "rule_reminder": "Bridge built? King marches toward the Rook. The Rook blocks the checks."
+          },
+          {
+            "fen": "8/7R/8/7p/6rk/8/2K5/8 b - - 3 34",
+            "side_to_move": "black",
+            "expected_result": "win",
+            "correct_move_san": "Rd4",
+            "correct_move_uci": "g4d4",
+            "wrong_example_san": "Kg5",
+            "prompt": "You are winning. 1 of your 16 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/8/8/pk1K4/8/1r6/8/R7 b - - 2 47",
+            "side_to_move": "black",
+            "expected_result": "win",
+            "correct_move_san": "a4",
+            "correct_move_uci": "a5a4",
+            "wrong_example_san": "Kb4",
+            "prompt": "You are winning. 1 of your 14 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/8/8/6K1/r4P2/4k3/7P/8 w - - 3 53",
+            "side_to_move": "white",
+            "expected_result": "draw",
+            "correct_move_san": "h4",
+            "correct_move_uci": "h2h4",
+            "wrong_example_san": "f5",
+            "prompt": "This is a draw if you find it. Only one of your 10 moves holds it.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/4k3/7P/5PK1/2r5/8/8/8 w - - 1 53",
+            "side_to_move": "white",
+            "expected_result": "draw",
+            "correct_move_san": "h7",
+            "correct_move_uci": "h6h7",
+            "wrong_example_san": "Kg6",
+            "prompt": "This is a draw if you find it. Only one of your 4 moves holds it.",
+            "source": "real game, verified against the 5-piece tablebase"
           }
         ]
       },
@@ -559,6 +855,46 @@
             "on_correct": "Ra5+ is precise. It forces the King to choose: leave the pawn or go in front of it (blocking promotion).",
             "on_wrong": "Rxe6 removes the pawn but gives up the active checking setup; White's rook is still on e1, so this is not a King-versus-King ending. Ra5+ is the exact defensive move.",
             "rule_reminder": "Checks from behind are the defender's best friend. The attacker's King can't advance AND support the pawn."
+          },
+          {
+            "fen": "8/8/8/8/4kRr1/6P1/5K2/8 b - - 1 50",
+            "side_to_move": "black",
+            "expected_result": "draw",
+            "correct_move_san": "Rxf4+",
+            "correct_move_uci": "g4f4",
+            "wrong_example_san": "Ke5",
+            "prompt": "This is a draw if you find it. Only one of your 4 moves holds it.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/8/2R5/5K1k/8/2B4r/8/8 w - - 0 51",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "Bd2",
+            "correct_move_uci": "c3d2",
+            "wrong_example_san": "Rc8",
+            "prompt": "You are winning. 1 of your 27 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/7R/8/8/6KP/7r/5k2/8 b - - 8 51",
+            "side_to_move": "black",
+            "expected_result": "draw",
+            "correct_move_san": "Rg3+",
+            "correct_move_uci": "h3g3",
+            "wrong_example_san": "Kg2",
+            "prompt": "This is a draw if you find it. Only one of your 16 moves holds it.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/8/8/8/5k2/8/1r4BK/8 w - - 1 55",
+            "side_to_move": "white",
+            "expected_result": "draw",
+            "correct_move_san": "Kh3",
+            "correct_move_uci": "h2h3",
+            "wrong_example_san": "Kg1",
+            "prompt": "This is a draw if you find it. Only one of your 3 moves holds it.",
+            "source": "real game, verified against the 5-piece tablebase"
           }
         ]
       },
@@ -704,6 +1040,46 @@
             "on_correct": "Qa5 controls the key squares. Next, approach with your King. This center-pawn position is a clean win.",
             "on_wrong": "Qd5 blocks the d-file but your King is too far. Qa5 lets you approach while maintaining control.",
             "rule_reminder": "Center and knight pawns are the usual clean wins. Rook pawns and bishop pawns can have corner stalemate defenses."
+          },
+          {
+            "fen": "8/8/8/7p/8/5k2/6p1/6K1 b - - 1 62",
+            "side_to_move": "black",
+            "expected_result": "win",
+            "correct_move_san": "h4",
+            "correct_move_uci": "h5h4",
+            "wrong_example_san": "Kg3",
+            "prompt": "You are winning. 1 of your 7 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "8/6p1/8/7p/7k/8/6p1/6K1 b - - 1 48",
+            "side_to_move": "black",
+            "expected_result": "win",
+            "correct_move_san": "Kg5",
+            "correct_move_uci": "h4g5",
+            "wrong_example_san": "Kg3",
+            "prompt": "You are winning. 5 of your 6 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "3k4/3P4/4P3/3K4/8/8/8/8 w - - 3 59",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "Kc6",
+            "correct_move_uci": "d5c6",
+            "wrong_example_san": "Kd6",
+            "prompt": "You are winning. 6 of your 8 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
+          },
+          {
+            "fen": "7k/1R5P/8/6K1/8/8/8/8 w - - 1 80",
+            "side_to_move": "white",
+            "expected_result": "win",
+            "correct_move_san": "Rb8+",
+            "correct_move_uci": "b7b8",
+            "wrong_example_san": "Kg6",
+            "prompt": "You are winning. 7 of your 21 moves keeps the win -- find one.",
+            "source": "real game, verified against the 5-piece tablebase"
           }
         ]
       }
@@ -730,7 +1106,16 @@
             "on_correct": "Bd3 activates the good bishop. It eyes f5 and h7. Your pawns don't block your bishop — that's the key.",
             "on_wrong": "Bd1 retreats the bishop to a passive square. Use the open diagonals — that's why it's a good bishop.",
             "rule_reminder": "Pawns on dark squares + light-squared bishop = GOOD. The bishop has open highways.",
-            "verification": {"method": "stockfish", "status": "verified", "fen": "8/5k2/4p3/3pPp2/3P1P2/8/4BK2/8 w - - 0 1", "move_uci": "e2d3", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 99974}
+            "verification": {
+              "method": "stockfish",
+              "status": "verified",
+              "fen": "8/5k2/4p3/3pPp2/3P1P2/8/4BK2/8 w - - 0 1",
+              "move_uci": "e2d3",
+              "engine": "Stockfish 18",
+              "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+              "depth": 20,
+              "selected_score_cp": 99974
+            }
           },
           {
             "fen": "8/3b1k2/2p1p3/4Pp2/3P1P2/8/5K2/8 b - - 0 1",
@@ -743,7 +1128,16 @@
             "on_correct": "c5 gives the bishop a route to b5 and a4. The bishop becomes useful because one blocking pawn moved away.",
             "on_wrong": "Ke8 leaves the bishop trapped behind c6. Fix the piece that has no route before making a waiting King move.",
             "rule_reminder": "If your bishop is blocked by your own pawns, move one blocking pawn to open a diagonal.",
-            "verification": {"method": "stockfish", "status": "verified", "fen": "8/3b1k2/2p1p3/4Pp2/3P1P2/8/5K2/8 b - - 0 1", "move_uci": "c6c5", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 936}
+            "verification": {
+              "method": "stockfish",
+              "status": "verified",
+              "fen": "8/3b1k2/2p1p3/4Pp2/3P1P2/8/5K2/8 b - - 0 1",
+              "move_uci": "c6c5",
+              "engine": "Stockfish 18",
+              "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+              "depth": 20,
+              "selected_score_cp": 936
+            }
           },
           {
             "fen": "8/p4k2/1p2b3/1Pp1p3/2P1P3/4B3/P7/6K1 w - - 0 1",
@@ -756,7 +1150,16 @@
             "on_correct": "Kf2 improves the King and keeps every pawn option open. White has made a useful move without overstating the position.",
             "on_wrong": "a4 commits a pawn before the King is ready. Improve the King first, then decide where the pawn structure should change.",
             "rule_reminder": "Call a bishop bad only when its own pawns truly restrict it; otherwise improve the King and compare concrete targets.",
-            "verification": {"method": "stockfish", "status": "verified", "fen": "8/p4k2/1p2b3/1Pp1p3/2P1P3/4B3/P7/6K1 w - - 0 1", "move_uci": "g1f2", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": -60}
+            "verification": {
+              "method": "stockfish",
+              "status": "verified",
+              "fen": "8/p4k2/1p2b3/1Pp1p3/2P1P3/4B3/P7/6K1 w - - 0 1",
+              "move_uci": "g1f2",
+              "engine": "Stockfish 18",
+              "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+              "depth": 20,
+              "selected_score_cp": -60
+            }
           }
         ]
       },
@@ -829,7 +1232,16 @@
             "on_correct": "Ne3 starts the journey toward d5 or f5, where the knight can attack pawns instead of watching from the edge.",
             "on_wrong": "Nb2 heads to the wrong side. The knight needs to reach a central outpost like d5 or f5.",
             "rule_reminder": "Plan the whole knight route: starting square, landing square, and the target it will attack.",
-            "verification": {"method": "stockfish", "status": "verified", "fen": "8/p1p2k2/1p1p4/3Pp3/1PP1P3/8/5K2/3N4 w - - 0 1", "move_uci": "d1e3", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 530}
+            "verification": {
+              "method": "stockfish",
+              "status": "verified",
+              "fen": "8/p1p2k2/1p1p4/3Pp3/1PP1P3/8/5K2/3N4 w - - 0 1",
+              "move_uci": "d1e3",
+              "engine": "Stockfish 18",
+              "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+              "depth": 20,
+              "selected_score_cp": 530
+            }
           },
           {
             "fen": "8/5k2/3n4/4p3/4P3/3NK3/8/8 w - - 0 1",
@@ -855,7 +1267,16 @@
             "on_correct": "Nf3 reroutes to g5, attacking e6 and h7. Knights can change direction quickly — that's their superpower.",
             "on_wrong": "Nb5 reaches an outpost but has no targets. The kingside offers real weaknesses to attack.",
             "rule_reminder": "Knights reroute easily. Don't settle for a pretty square — aim for one that attacks real weaknesses.",
-            "verification": {"method": "stockfish", "status": "verified", "fen": "8/p4k2/1p2p3/3pP3/1P1N4/P7/5K2/8 w - - 0 1", "move_uci": "d4f3", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 737}
+            "verification": {
+              "method": "stockfish",
+              "status": "verified",
+              "fen": "8/p4k2/1p2p3/3pP3/1P1N4/P7/5K2/8 w - - 0 1",
+              "move_uci": "d4f3",
+              "engine": "Stockfish 18",
+              "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+              "depth": 20,
+              "selected_score_cp": 737
+            }
           }
         ]
       },
@@ -1020,7 +1441,16 @@
             "on_correct": "a4 preserves White's queenside option. The important diagnosis comes first: this pawn becomes an outside passer only after Black's b-pawn can no longer capture it.",
             "on_wrong": "Kf3 may improve the King, but it misses the lesson in this position. Before choosing a plan, check the adjacent b-pawn and decide whether the a-pawn is truly passed.",
             "rule_reminder": "A pawn is passed only when no enemy pawn on its file or a neighboring file can stop it on the way forward.",
-            "verification": {"method": "stockfish", "status": "verified", "fen": "8/8/1p2k1p1/1P4p1/6P1/4K3/P7/8 w - - 0 1", "move_uci": "a2a4", "engine": "Stockfish 18", "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911", "depth": 20, "selected_score_cp": 733}
+            "verification": {
+              "method": "stockfish",
+              "status": "verified",
+              "fen": "8/8/1p2k1p1/1P4p1/6P1/4K3/P7/8 w - - 0 1",
+              "move_uci": "a2a4",
+              "engine": "Stockfish 18",
+              "engine_sha256": "c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+              "depth": 20,
+              "selected_score_cp": 733
+            }
           },
           {
             "fen": "8/5k2/6p1/4p1P1/4K3/8/P7/8 w - - 0 1",
