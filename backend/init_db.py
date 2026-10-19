@@ -77,6 +77,19 @@ async def init_database():
     await db.games.create_index("user_id")
     await db.games.create_index([("user_id", 1), ("platform", 1)])
     await db.games.create_index([("user_id", 1), ("is_analyzed", 1)])
+    # One row per game the platform gave us an id for. Partial so the rows
+    # imported before platform_game_id existed (and coach-play games, which
+    # have no platform id) are simply not covered rather than colliding on a
+    # shared null. This index is the only thing that stops two concurrent
+    # syncs both passing the existence check and writing the same game —
+    # measured 2026-10-18, 13 of one user's 127 lichess games were stored
+    # twice, 11 of the pairs sharing an imported_at to the second.
+    await db.games.create_index(
+        [("user_id", 1), ("platform", 1), ("platform_game_id", 1)],
+        name="games_platform_game_id_unique",
+        unique=True,
+        partialFilterExpression={"platform_game_id": {"$exists": True}},
+    )
     print("  ✓ games indexes")
     
     # Game analyses indexes

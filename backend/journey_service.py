@@ -16,6 +16,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List, Optional
 import httpx
+from pymongo.errors import DuplicateKeyError
 
 # Import centralized config
 from config import (
@@ -130,29 +131,67 @@ async def backfill_opening_info(db, user_id: str = None) -> int:
     return updated
 
 
+def chesscom_archive_months(since_timestamp: Optional[int], now: datetime) -> List[tuple]:
+    """
+    Every (year, month) archive a sync has to read, oldest first.
+
+    Chess.com serves one archive per calendar month. Reading only the current
+    month loses every game played before the 1st that we had not yet imported:
+    on the 1st the new archive is near-empty, the watermark advances to
+    whatever is in it, and late-month games sit behind it permanently.
+
+    Built walking BACK from the current month so the current month is ALWAYS
+    the last entry — a watermark that has gone stale must not strand the sync
+    in old archives, which is what walking forward from it did. Depth is
+    bounded by FIRST_SYNC_MONTHS, which also bounds the request count.
+    """
+    since_month = None
+    if since_timestamp:
+        since_dt = datetime.fromtimestamp(since_timestamp, timezone.utc)
+        since_month = (since_dt.year, since_dt.month)
+
+    months: List[tuple] = []
+    cursor = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    for _ in range(FIRST_SYNC_MONTHS + 1):
+        month = (cursor.year, cursor.month)
+        months.append(month)
+        if since_month is not None and month <= since_month:
+            break
+        cursor = (cursor - timedelta(days=1)).replace(day=1)
+    months.reverse()
+    return months
+
+
 async def fetch_recent_chesscom_games(username: str, since_timestamp: int = None) -> List[Dict]:
     """Fetch recent games from Chess.com API"""
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            # Get current month's games
             now = datetime.now(timezone.utc)
-            url = f"https://api.chess.com/pub/player/{username}/games/{now.year}/{now.month:02d}"
-            
-            response = await client.get(url, headers={"User-Agent": "ChessCoachAI/1.0"})
-            
-            if response.status_code != 200:
-                logger.warning(f"Chess.com API returned {response.status_code} for {username}")
-                return []
-            
-            data = response.json()
-            games = data.get("games", [])
-            
+
+            months = chesscom_archive_months(since_timestamp, now)
+
+            games: List[Dict] = []
+            for year, month in months:
+                url = f"https://api.chess.com/pub/player/{username}/games/{year}/{month:02d}"
+                response = await client.get(url, headers={"User-Agent": "ChessCoachAI/1.0"})
+
+                if response.status_code == 404:
+                    # No archive for a month the player did not play in.
+                    continue
+                if response.status_code != 200:
+                    logger.warning(
+                        f"Chess.com API returned {response.status_code} for {username} {year}/{month:02d}"
+                    )
+                    continue
+
+                games.extend((response.json() or {}).get("games", []))
+
             # Filter by timestamp if provided
             if since_timestamp:
                 games = [g for g in games if g.get("end_time", 0) > since_timestamp]
-            
+
             return games
-            
+
     except Exception as e:
         logger.error(f"Error fetching Chess.com games for {username}: {e}")
         return []
@@ -163,7 +202,16 @@ async def fetch_recent_lichess_games(username: str, since_timestamp: int = None)
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             params = {
-                "max": 20,
+                # OLDEST-FIRST, and the page size is a backlog drain rate, not
+                # a cap on what exists. `since` is a lower bound, so with the
+                # default newest-first order a truncated page returns the
+                # NEWEST games in the window and hides the oldest ones just
+                # above `since` — and the watermark then advances past them.
+                # Ascending order makes the page contiguous with the watermark:
+                # the newest game returned is the correct next watermark, and
+                # whatever was truncated is still above it for the next sync.
+                "sort": "dateAsc",
+                "max": 50,
                 "pgnInJson": "true",
                 # Clocks are the ONLY source of per-move think time. With this
                 # off, every lichess game imported since launch lost its timing
@@ -278,6 +326,84 @@ def _extract_lichess_termination(game_data: Dict) -> str:
     return mapping.get(status, "unknown")
 
 
+def extract_platform_game_id(game_data: Dict, platform: str) -> Optional[str]:
+    """
+    The platform's OWN id for a game — lichess's game id, chess.com's numeric
+    live/daily id. Stored as `platform_game_id`.
+
+    Dedup used to key on our `url` string plus a byte-equal `pgn`. Both are
+    derived, and both failed. Two syncs for one user each ran the existence
+    check before either insert landed, and both wrote the game: 13 of one
+    user's 127 lichess games were stored twice (measured 2026-10-18, 11 of the
+    13 pairs sharing an `imported_at` to the second). The two copies of
+    Jl8C0lUw held PGNs of 880 and 2675 bytes — one fetched without clocks — so
+    the `pgn` clause could not have matched them either, and both copies were
+    analysed, so Stockfish ran twice on one game.
+
+    A platform id plus a unique partial index makes the second write fail
+    instead of duplicate, which is the only thing that closes a race.
+    """
+    if platform == "lichess":
+        gid = str(game_data.get("id") or "").strip()
+        return gid or None
+
+    # chess.com's JSON carries no id field; it is the last path segment of the
+    # game url (https://www.chess.com/game/live/123456789).
+    url = game_data.get("url") or ""
+    match = re.search(r"/game/(?:live|daily)/(\d+)", url)
+    if not match:
+        match = re.search(r"/(\d+)/?$", url)
+    return match.group(1) if match else None
+
+
+def newest_fetch_marker(games: List[Dict], platform: str) -> Optional[int]:
+    """
+    The timestamp this sync may safely advance its watermark to, in epoch
+    SECONDS, taken from the games the API actually returned — never from the
+    wall clock.
+
+    `last_game_sync` used to be set to `now()`. Lichess's `since` filters on
+    when a game STARTED, and the API does not return a game that is still
+    being played, so a game in progress during a sync fell permanently behind
+    the watermark. Measured 2026-10-19 on a real account: the user's last game
+    started 08:10:15 and ended 08:21:34; the sync ran at 08:14:28 while it was
+    still live and stamped 08:14:28. A request with since=08:14:28 now returns
+    nothing, while since=08:00:00 still returns that game. It can never be
+    fetched again.
+
+    The marker reads the same field the platform's own filter reads, so the
+    two can't disagree: lichess `since` compares createdAt, and
+    fetch_recent_chesscom_games compares end_time.
+
+    Returns None when nothing came back, and the caller then leaves the
+    watermark where it is rather than guessing.
+    """
+    marks: List[int] = []
+    for game in games:
+        if platform == "lichess":
+            value = game.get("createdAt")
+            if isinstance(value, (int, float)) and value > 0:
+                marks.append(int(value // 1000))
+        else:
+            value = game.get("end_time")
+            if isinstance(value, (int, float)) and value > 0:
+                marks.append(int(value))
+    return max(marks) if marks else None
+
+
+def _fetch_sort_key(item: Dict) -> int:
+    """
+    When a game finished, in epoch seconds, for ordering the import list
+    newest-first across both platforms. lichess reports milliseconds.
+    """
+    game = item.get("game") or {}
+    if item.get("platform") == "lichess":
+        value = game.get("lastMoveAt") or game.get("createdAt") or 0
+        return int(value // 1000) if isinstance(value, (int, float)) else 0
+    value = game.get("end_time") or 0
+    return int(value) if isinstance(value, (int, float)) else 0
+
+
 def should_analyze_game(game: Dict, platform: str) -> bool:
     """
     Determine if a game should be auto-analyzed.
@@ -325,9 +451,17 @@ def should_analyze_game(game: Dict, platform: str) -> bool:
     return False
 
 
-def select_games_for_analysis(games: List[Dict], platform: str, max_games: int = MAX_GAMES_PER_DAY) -> List[Dict]:
+def select_games_for_analysis(
+    games: List[Dict], platform: str, max_games: Optional[int] = MAX_GAMES_PER_DAY
+) -> List[Dict]:
     """
     Select the best games to analyze from a list.
+
+    `max_games=None` returns every eligible game uncapped. The sync uses that
+    to decide what to IMPORT, because the per-sync cap used to decide both and
+    the two are not the same question: at 3 games a day, a player who plays
+    ten has seven dropped on the floor, and the watermark then advances past
+    them. Capping analysis is a cost decision; capping import is data loss.
     
     Priority:
     1. Rapid/Classical games
@@ -346,7 +480,7 @@ def select_games_for_analysis(games: List[Dict], platform: str, max_games: int =
     elif platform == "lichess":
         eligible.sort(key=lambda g: g.get("lastMoveAt", 0), reverse=True)
     
-    return eligible[:max_games]
+    return eligible if max_games is None else eligible[:max_games]
 
 
 # ==================== JOURNEY DASHBOARD DATA ====================
@@ -997,37 +1131,67 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
         # First sync - import last 3 months of games
         since_timestamp = int((datetime.now(timezone.utc) - timedelta(days=INITIAL_IMPORT_MONTHS * 30)).timestamp())
         logger.info(f"First sync for {user_id} - importing last {INITIAL_IMPORT_MONTHS} months of games")
-    
+
+    # Per-platform watermarks. One shared `last_game_sync` cannot be correct
+    # for both: lichess `since` compares a game's START time and chess.com is
+    # filtered here on its END time, so a single number is too advanced for
+    # one of them. These hold the marker taken from the newest game each API
+    # actually returned (see newest_fetch_marker). Absent on existing users,
+    # who fall back to the shared value, so nothing re-imports on first run.
+    # On a first sync the per-platform markers are ignored outright. Both
+    # routes/journey.py:297 and routes/settings.py:371 trigger a re-import by
+    # setting ONLY `last_game_sync` to None, so a stale per-platform value
+    # would otherwise override the 3-month first-sync window and the reconnect
+    # would import nothing.
+    platform_since = {
+        "chess.com": since_timestamp if is_first_sync
+        else (user_doc.get("last_game_sync_chesscom") or since_timestamp),
+        "lichess": since_timestamp if is_first_sync
+        else (user_doc.get("last_game_sync_lichess") or since_timestamp),
+    }
+
     games_to_analyze = []
     
     # Determine how many games to analyze
     # First sync: analyze up to 15 games to build player profile
     # Regular sync: analyze up to 3 games per day
     max_games = INITIAL_GAMES_TO_ANALYZE if is_first_sync else MAX_GAMES_PER_DAY
-    games_per_platform = max_games // 2 + 1 if (chesscom_username and lichess_username) else max_games
-    
+
     if is_first_sync:
         logger.info(f"First sync for {user_id} - will analyze up to {max_games} games to build player profile")
     
-    # Fetch from Chess.com
+    # Markers to advance each platform's watermark to once the loop is done.
+    next_marker: Dict[str, int] = {}
+
+    # Every ELIGIBLE game is imported, uncapped. `max_games` now limits only
+    # how many get queued for engine analysis below — see
+    # select_games_for_analysis for why conflating the two lost games.
     if chesscom_username:
-        chesscom_games = await fetch_recent_chesscom_games(chesscom_username, since_timestamp)
-        selected = select_games_for_analysis(chesscom_games, "chess.com", games_per_platform)
-        for g in selected:
+        chesscom_games = await fetch_recent_chesscom_games(chesscom_username, platform_since["chess.com"])
+        marker = newest_fetch_marker(chesscom_games, "chess.com")
+        if marker is not None:
+            next_marker["chess.com"] = marker
+        eligible = select_games_for_analysis(chesscom_games, "chess.com", max_games=None)
+        for g in eligible:
             games_to_analyze.append({"game": g, "platform": "chess.com", "username": chesscom_username})
-        logger.info(f"Found {len(chesscom_games)} Chess.com games, selected {len(selected)} for analysis")
-    
-    # Fetch from Lichess
+        logger.info(f"Found {len(chesscom_games)} Chess.com games, {len(eligible)} eligible to import")
+
     if lichess_username:
-        lichess_games = await fetch_recent_lichess_games(lichess_username, since_timestamp)
-        selected = select_games_for_analysis(lichess_games, "lichess", games_per_platform)
-        for g in selected:
+        lichess_games = await fetch_recent_lichess_games(lichess_username, platform_since["lichess"])
+        marker = newest_fetch_marker(lichess_games, "lichess")
+        if marker is not None:
+            next_marker["lichess"] = marker
+        eligible = select_games_for_analysis(lichess_games, "lichess", max_games=None)
+        for g in eligible:
             games_to_analyze.append({"game": g, "platform": "lichess", "username": lichess_username})
-        logger.info(f"Found {len(lichess_games)} Lichess games, selected {len(selected)} for analysis")
-    
-    # Limit total games per sync
-    games_to_analyze = games_to_analyze[:max_games]
-    
+        logger.info(f"Found {len(lichess_games)} Lichess games, {len(eligible)} eligible to import")
+
+    # Newest first across both platforms, so the analysis budget below spends
+    # itself on the games the player just finished rather than the oldest ones
+    # in the window.
+    games_to_analyze.sort(key=lambda item: _fetch_sort_key(item), reverse=True)
+    analysis_budget = max_games
+
     analyzed_count = 0
     imported_count = 0
     
@@ -1050,16 +1214,32 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                 logger.warning(f"No PGN found for game from {platform}")
                 continue
             
-            # Check if already imported by URL or PGN
-            existing = await db.games.find_one({
-                "$or": [
-                    {"url": game_url, "user_id": user_id},
-                    {"pgn": pgn, "user_id": user_id}
-                ]
-            })
+            # Already imported? Ask the platform's own id first, then fall
+            # back to the derived url/pgn clauses so rows written before
+            # platform_game_id existed are still recognised.
+            platform_game_id = extract_platform_game_id(game_data, platform)
+            identity_clauses: List[Dict[str, Any]] = []
+            if platform_game_id:
+                identity_clauses.append({
+                    "user_id": user_id,
+                    "platform": platform,
+                    "platform_game_id": platform_game_id,
+                })
+            identity_clauses.append({"url": game_url, "user_id": user_id})
+            identity_clauses.append({"pgn": pgn, "user_id": user_id})
+
+            existing = await db.games.find_one({"$or": identity_clauses})
             if existing:
+                # Stamp the id onto a legacy row the first time we recognise
+                # it, so the collection converges on the platform identity
+                # without a migration having to reach every document.
+                if platform_game_id and not existing.get("platform_game_id"):
+                    await db.games.update_one(
+                        {"game_id": existing.get("game_id")},
+                        {"$set": {"platform_game_id": platform_game_id}},
+                    )
                 continue
-            
+
             # Determine user's color
             user_color = determine_user_color(game_data, platform, username)
             
@@ -1075,7 +1255,14 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                 "imported_at": datetime.now(timezone.utc).isoformat(),
                 "auto_synced": True  # Mark as auto-synced
             }
-            
+
+            # Only ever set when we actually have one. The unique index is
+            # partial on {"$exists": True}, and a null would count as a value,
+            # so writing null here would make the second id-less game collide
+            # with the first.
+            if platform_game_id:
+                game_doc["platform_game_id"] = platform_game_id
+
             # Extract player names
             if platform == "chess.com":
                 white_player = game_data.get("white", {}).get("username", "")
@@ -1189,10 +1376,29 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
             if opening_info.get("opening"):
                 logger.info(f"Extracted opening: {opening_info.get('opening')} (ECO: {opening_info.get('eco')})")
             
-            await db.games.insert_one(game_doc)
+            # The existence check above is check-then-act: two concurrent syncs
+            # both pass it before either insert lands. The unique index is what
+            # actually stops the duplicate, so a rejection here is the expected
+            # outcome of a race, not an error.
+            try:
+                await db.games.insert_one(game_doc)
+            except DuplicateKeyError:
+                logger.info(
+                    f"Skipped duplicate {platform} game {platform_game_id} for {user_id} "
+                    f"(already inserted by a concurrent sync)"
+                )
+                continue
+
             imported_count += 1
             logger.info(f"Auto-synced game {game_doc['game_id']} for user {user_id} from {platform}")
-            
+
+            # Analysis is capped; importing is not. Games past the budget are
+            # stored and stay unanalysed, which a later sync or a manual
+            # request can pick up — they are no longer dropped unseen.
+            if analysis_budget <= 0:
+                continue
+            analysis_budget -= 1
+
             # Queue the game for analysis by the worker
             try:
                 existing_queue = await db.analysis_queue.find_one({"game_id": game_doc['game_id']})
@@ -1248,14 +1454,29 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
         except Exception as e:
             logger.error(f"Error auto-syncing game for {user_id}: {e}")
     
-    # Only update last sync timestamp if we actually found and imported games
-    # This prevents the timestamp from advancing past games we haven't yet seen
-    if imported_count > 0:
-        await db.users.update_one(
-            {"user_id": user_id},
-            {"$set": {"last_game_sync": datetime.now(timezone.utc).isoformat()}}
+    # Advance each watermark to the newest game that platform actually
+    # returned — never to now(). The old guard here only skipped the update
+    # when nothing imported at all, which does not help the case that loses
+    # games: one game finishes and imports while a second is still being
+    # played, so the stamp jumps past the live game's start time and it can
+    # never be fetched again. A platform that returned nothing keeps its
+    # watermark, so an in-progress game stays inside the next window.
+    if next_marker:
+        watermark_update: Dict[str, Any] = {}
+        if "chess.com" in next_marker:
+            watermark_update["last_game_sync_chesscom"] = next_marker["chess.com"]
+        if "lichess" in next_marker:
+            watermark_update["last_game_sync_lichess"] = next_marker["lichess"]
+        # Keep the shared field for back-compat (it is also the first-sync
+        # sentinel), derived from the same data rather than the clock.
+        watermark_update["last_game_sync"] = datetime.fromtimestamp(
+            max(next_marker.values()), timezone.utc
+        ).isoformat()
+        await db.users.update_one({"user_id": user_id}, {"$set": watermark_update})
+        logger.info(
+            f"Advanced watermarks for {user_id} to {next_marker} "
+            f"after importing {imported_count} games"
         )
-        logger.info(f"Updated last_game_sync for {user_id} after importing {imported_count} games")
     
     # Send notifications if games were synced
     if analyzed_count > 0:
