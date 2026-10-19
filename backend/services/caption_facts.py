@@ -9997,6 +9997,104 @@ def _material_for(board: chess.Board, side: chess.Color) -> int:
     return total
 
 
+def _supported_knight_fork(board: chess.Board, move: chess.Move):
+    """The move BEFORE the fork: a knight hop we already cover, one ply ahead.
+
+    Returns (fork_san, victim_name, victim_square, supporter_name,
+    supporter_square, landing_square) or None.
+
+    Mohit 2026-10-19: "a very used idea controlling c7 or f7 square with
+    bishops for fork, so a good learning both sides is to learn it or avoid
+    it" -- and then, rightly, "i have already shipped fork and lot other
+    detectors right?"
+
+    He has. Fork detection works, and this does NOT duplicate it. Checked on
+    his position: after Nc7+ the shipped detector returns the whole shape --
+    knight c7, targets rook a8 and king e8, includes_forced_king True. After
+    Nb5 it correctly returns [], because no fork is on the board yet, and the
+    card was left with no why at all.
+
+    So the gap is not the fork. It is the move that SETS UP the fork, which
+    nothing was looking for. This asks the shipped detector the same question
+    one ply later: play our move, hand the turn back, and for each knight hop
+    that gives check, let named_fork_shapes decide whether it is a teachable
+    fork. Reusing it rather than re-deriving also inherits its king-defender
+    filter and its FORK_MIN_NAMED_TARGET_CP bar -- a hand-rolled copy of this
+    had neither.
+
+    One condition is added, and it is what separates a plan from a sacrifice:
+    the landing square must already be covered by another of our pieces. In
+    Mohit's position that is the bishop on f4, and it is the whole idea.
+    Without it the hop is a piece offer, so this stays silent.
+    """
+    try:
+        after = board.copy()
+        after.push(move)
+    except (ValueError, AssertionError):
+        return None
+    mover = board.turn
+    if after.king(not mover) is None:
+        return None
+    # Hand the turn back: the question is what we threaten if they do nothing.
+    probe = after.copy()
+    probe.turn = mover
+    probe.ep_square = None
+    if probe.is_check() or not probe.is_valid():
+        return None
+
+    best = None
+    for hop in probe.legal_moves:
+        piece = probe.piece_at(hop.from_square)
+        if not piece or piece.piece_type != chess.KNIGHT or piece.color != mover:
+            continue
+        # Cheap gate first: only a checking hop can be the shape we teach, and
+        # it keeps the shipped detector off every quiet knight move.
+        landed = probe.copy()
+        landed.push(hop)
+        if not landed.is_check():
+            continue
+        supporters = [
+            sq for sq in probe.attackers(mover, hop.to_square)
+            if sq != hop.from_square and probe.piece_at(sq)
+        ]
+        if not supporters:
+            continue
+        try:
+            san = probe.san(hop)
+            shapes = named_fork_shapes(
+                extract_facts(
+                    fen_before=probe.fen(),
+                    played_san=san,
+                    best_move_san=san,
+                    cp_loss=0,
+                ).get("multi_target_attack_evidence")
+            )
+        except Exception:
+            continue
+        for shape in shapes:
+            targets = [
+                t for t in (shape.get("attacked_targets") or [])
+                if str(t.get("piece_type")) != "king"
+            ]
+            if not targets:
+                continue
+            victim = max(targets, key=lambda t: t.get("value_cp") or 0)
+            value = victim.get("value_cp") or 0
+            if best is not None and value <= best[0]:
+                continue
+            sup_piece = probe.piece_at(supporters[0])
+            best = (
+                value,
+                san,
+                str(victim.get("piece_type") or "piece"),
+                str(victim.get("square") or ""),
+                PIECE_TYPE_NAMES.get(sup_piece.piece_type, "piece"),
+                chess.square_name(supporters[0]),
+                chess.square_name(hop.to_square),
+            )
+    return best[1:] if best else None
+
+
 def _outnumbered_target(
     after: chess.Board, from_square: int, mover: chess.Color, enemy: chess.Color
 ):
@@ -10391,6 +10489,48 @@ def _recommended_move_why(
         my_val = PIECE_VALUE_CP.get(moved.piece_type, 0)
         after = board.copy()
         after.push(move)
+
+        # 1b) FORK SQUARE — the move brings a knight within reach of a square
+        #     one of our OTHER pieces already covers, from which a knight check
+        #     also hits a rook or queen.
+        #
+        #     Mohit 2026-10-19, on a card reading only "Play Nb5": "it's a
+        #     learning, and a very used idea controlling c7 or f7 square with
+        #     bishops for fork, so a good learning both sides is to learn it or
+        #     avoid it". On
+        #     r1bqkb1r/pp2pppp/2n2n2/3p4/3P1B2/2N5/PPP2PPP/R2QKBNR w the bishop
+        #     on f4 already covers c7; Nb5 makes it two attackers against one
+        #     defender, and if Black plays on, Nc7+ Kd7 Nxa8 is +272 at depth
+        #     20 -- the fork even shows up at the end of the line Black
+        #     defends with (6...e5 7.Bxe5 Nxe5 8.dxe5 Ng4 9.Qxd5 Qxd5 10.Nc7+).
+        #
+        #     It sits above THREAT because Nb5 attacks nothing undefended and
+        #     fell through every branch below to no why at all. Measured over
+        #     500 games: the family appears 114 times, roughly one game in
+        #     four or five, and players split from 0% to 100% on taking it --
+        #     so it is worth teaching and worth tracking.
+        #
+        #     The support is what makes it a plan rather than a sacrifice, so
+        #     an unsupported hop is NOT this pattern and says nothing here.
+        _fork = _supported_knight_fork(board, move)
+        if _fork is not None:
+            _fmove_san, _victim_name, _victim_sq, _sup_name, _sup_sq, _land = _fork
+            # "already covers" is only true when the supporter was sitting
+            # there BEFORE this move. When the moved piece is its own
+            # supporter -- Qa4 covering d4, Bf5 covering c2 -- "already" states
+            # the causality backwards: the move is what put it there. Mohit's
+            # case is the first kind, a bishop on f4 the knight comes to join,
+            # and that difference is the whole idea.
+            if _sup_sq == chess.square_name(move.to_square):
+                return (
+                    f"covers {_land}, so {_fmove_san} is on, hitting the king "
+                    f"and the {_victim_name} on {_victim_sq} at once"
+                )
+            return (
+                f"sets up {_fmove_san}, hitting the king and the "
+                f"{_victim_name} on {_victim_sq} at once, because "
+                f"{_own} {_sup_name} on {_sup_sq} already covers {_land}"
+            )
 
         # 2) THREAT — the moved piece now attacks an enemy piece that is UNDEFENDED
         #    or worth MORE than the moving piece (a real threat, not a defended equal).
