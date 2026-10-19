@@ -972,6 +972,7 @@ def compute_severity_for_move(
     user_color: str,
     # For canonical mate-sentinel escape hatch (always user POV, signed)
     mate_sentinel_eval_cp: Optional[int],
+    mate_sentinel_eval_before_cp: Optional[int] = None,
     # For practical severity. classify_severity_practical sign-flips
     # internally based on mover_is_white, so these MUST be white-POV
     # (the raw eval_data values). For user moves V5 service reads
@@ -1009,6 +1010,11 @@ def compute_severity_for_move(
                                      (signed). Used only for canonical
                                      classifier's mate-walked-into
                                      escape hatch.
+      mate_sentinel_eval_before_cp : engine eval BEFORE move, USER POV
+                                     (signed). Lets that hatch tell a move
+                                     that walked into a mate from one made
+                                     while already being mated, which the
+                                     post-move eval alone cannot.
       user_eval_before_white_pov   : white-POV engine eval BEFORE this
                                      move (used for practical-severity
                                      when is_user=True).
@@ -1031,6 +1037,7 @@ def compute_severity_for_move(
         cp_loss if is_user else opp_cp_loss,
         mover_is_user=bool(is_user),
         user_post_eval_cp=mate_sentinel_eval_cp,
+        user_pre_eval_cp=mate_sentinel_eval_before_cp,
     )
     severity = _sev_classification.user_facing_tier
     severity_canonical = _sev_classification.tier

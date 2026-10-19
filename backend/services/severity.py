@@ -99,6 +99,7 @@ def classify_severity(
     *,
     mover_is_user: bool,
     user_post_eval_cp: Optional[int] = None,
+    user_pre_eval_cp: Optional[int] = None,
 ) -> SeverityClassification:
     """Map cp_loss → canonical severity tier.
 
@@ -112,6 +113,12 @@ def classify_severity(
                          <= -MATE_SENTINEL_CP means the user just walked
                          into a mate, regardless of cp_loss. (V5 had this
                          escape hatch inline; preserving it here.)
+      user_pre_eval_cp : optional user-POV eval BEFORE the move. The hatch
+                         needs it to tell "walked into a mate" from "was
+                         already being mated", which looks identical when
+                         only the post-move eval is read. Omit it and the
+                         hatch behaves as it did before this argument
+                         existed.
 
     Returns:
       A SeverityClassification with tier + user_facing_tier + flags.
@@ -122,11 +129,30 @@ def classify_severity(
       - Mate-walked-into: tier = "blunder" regardless of nominal cp_loss.
         This matches the existing V5 service behaviour for the "stored
         cp_loss is small but eval is mate" case (fb_a9ac9f02affa).
+      - Already being mated: NOT a blunder on that account. Every move
+        loses to mate once mate is unavoidable, so the move is judged on
+        its centipawn loss like any other.
     """
     cp_loss = max(int(cp_loss or 0), 0)
+    # "Walked into" names a transition, and until 2026-10-19 this tested
+    # only the position AFTER the move. A player who is already being mated
+    # is below the sentinel after every legal move, so every move they made
+    # was forced to "blunder" however little it cost -- 568 of 973 such
+    # cards in a 1,200-game sample, about half of them at eight pieces or
+    # more. You cannot walk into a mate you are already in.
+    #
+    # The hatch still does its original job (fb_a9ac9f02affa: small stored
+    # cp_loss while the eval is a mate, because the player really did step
+    # into the net). When the pre-move eval is unknown we keep the old
+    # behaviour, so existing callers are unaffected.
+    already_being_mated = (
+        user_pre_eval_cp is not None
+        and user_pre_eval_cp <= -MATE_SENTINEL_CP
+    )
     walked_into_mate = (
         user_post_eval_cp is not None
         and user_post_eval_cp <= -MATE_SENTINEL_CP
+        and not already_being_mated
     )
 
     if walked_into_mate:
