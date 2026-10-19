@@ -118,9 +118,9 @@ You played Rc1; Ra1 was the stronger move here.
 ```
 ♟ Ne4                                          [ Your move ]
 
-Your knight and your pawn share a line. Their queen can come to f3 and hit
-the knight. When the knight moves, the pawn goes too. Nbd7 keeps them off
-that line.
+Your knight and your pawn share a line. Their queen can come to f3 and
+skewer them: hit the knight, then win the pawn behind. Nbd7 keeps them
+off that line.
 
 When two of your pieces share a line, ask what happens if the front one
 must move.
@@ -132,18 +132,25 @@ Same sentence, one extra clause:**
 ```
 ♟ Rc1                                          [ Your move ]
 
-Your bishop and your pawn share a line. Their rook can come to a2 and hit
-the bishop. When the bishop moves, the pawn goes too. That pawn is the
+Your bishop and your pawn share a line. Their rook can come to a2 and
+skewer them: hit the bishop, then win the pawn behind. That pawn is the
 only one that can win this. Ra1 takes that square away.
 
 When two of your pieces share a line, ask what happens if the front one
 must move.
 ```
 
-Both inside the 60-word cap in `caption_config.json`. No numbers. The motif
-is described, not named — see Open Questions. The principle sentence is the
-universal takeaway, per
+Both inside the 60-word cap in `caption_config.json`. No numbers. The
+principle sentence is the universal takeaway, per
 [memory/feedback_caption_keep_explicit_principle_ending].
+
+**The word "skewer" is approved** (Mohit, 2026-10-19), overriding the default
+in [memory/feedback_caption_voice_avoid_chess_jargon] for this motif. The rule
+the mockups follow: **name it and define it in the same breath** — *"skewer
+them: hit the knight, then win the pawn behind"*. A 900 learns the word and
+the idea together instead of meeting a term they must look up. A named motif
+is also what a player can search for and remember later, which an unnamed
+description is not.
 
 ---
 
@@ -175,7 +182,9 @@ Plus:
 
 ## 4. Explicitly out of scope (V1)
 
-- **Naming the motif** ("skewer"). Open question.
+- **Any jargon beyond "skewer".** That one word is approved; this scope does
+  not open the door to naming other motifs, and "pin" in particular stays out
+  because the sibling shape is not in V1.
 - **Checks and mates** where the king is the front or rear unit. Measured as
   a distinct family; different lesson, different caption.
 - **Arrows.** The payoff can be several moves out, so a green arrow would
@@ -215,12 +224,6 @@ lock against rather than a blank.
 
 ## 6. Open questions
 
-- **Question:** May the caption say "skewer"?
-  **Why unresolved:** [memory/feedback_caption_voice_avoid_chess_jargon] says
-  avoid jargon for 600–1500, but a named motif is how a player searches for
-  and remembers a pattern.
-  **Unblocking step:** Mohit's call on the Section 2 mockups.
-
 - **Question:** Does the claim verifier accept this sentence shape?
   **Why unresolved:** this card already reads
   `R12_blunder→FINAL_VERIFY_SOFTENED`, so a `why` was produced and stripped.
@@ -243,6 +246,9 @@ lock against rather than a blank.
 *Resolved by 0b, previously open:* whether to require a passed pawn — **no**,
 it is 1.2x and would shrink the family to 5. Whether the rear unit may be an
 ordinary pawn or piece — **yes**, that is 95% of the family.
+
+*Resolved by Mohit 2026-10-19:* the caption may say **"skewer"**, defined
+inline. See Section 2.
 
 ---
 
