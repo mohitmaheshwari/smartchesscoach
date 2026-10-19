@@ -6478,6 +6478,46 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
     return "neither", detail
 
 
+def _named_move_arrow(
+    board: Optional[chess.Board], move_san: Optional[str]
+) -> List[Dict[str, str]]:
+    """The last-resort picture: the move the card just told them to play.
+
+    Mohit 2026-10-18, asked whether the recommended move should draw its own
+    blue arrow when nothing else is drawable: "yes, it should always draw it's
+    own blue arrow".
+
+    One arrow, blue, and no second claim. It is the weakest picture in the file
+    and the only one that cannot be wrong: every other builder asserts
+    something about the position -- this piece is winnable, that king is
+    mated, this line is forced -- and each of those assertions is a chance to
+    be false. This one restates the sentence. The move is parsed on the board
+    the card renders, so an arrow is drawn only once the move is confirmed
+    legal there, and `None` and unreadable SAN both come back empty rather
+    than guessing.
+
+    It is deliberately NOT folded into _reply_attack_arrows. Two fallbacks in
+    the selector are gated on `not _teach_arrows`, so a builder that always
+    returned something would shadow the five-move plan and the punishment
+    picture with a single arrow. This is called last instead, once every
+    richer builder has declined.
+    """
+    if board is None or not move_san:
+        return []
+    try:
+        move = board.parse_san(str(move_san))
+    except (ValueError, AssertionError, TypeError):
+        return []
+    if move is None or move not in board.legal_moves:
+        return []
+    return [{
+        "from": chess.square_name(move.from_square),
+        "to": chess.square_name(move.to_square),
+        "color": "blue",
+        "teach": True,
+    }]
+
+
 def _missed_move_arrow(board_before, board_after, facts, caption):
     """One arrow for the move they missed, when the board still shows it.
 
@@ -9403,6 +9443,13 @@ def build_move_teaching_decision(
         # They played the best move, so the line after it IS the best line.
         _engine_line = list(inputs.pv_after_played or ())
 
+    # Declared before the branch because the floor at the bottom reads them on
+    # every path. The file has already lost a whole caption block to a name
+    # that only existed on one arm and a NameError swallowed by a bare except.
+    _reply_san = None
+    _after_opp_board = None
+    _caption_is_about_reply = False
+
     if inputs.mover_is_user:
         _played_uci = played_move.uci() if played_move else ""
         # The move WE missed, drawn on our own cards too.
@@ -9594,6 +9641,33 @@ def build_move_teaching_decision(
             _teach_arrows.append(_a)
             if len(_teach_arrows) >= 4:
                 break
+    # THE FLOOR: a card that names a move always draws that move.
+    #
+    # Mohit 2026-10-18, asked whether the recommended move should draw its own
+    # blue arrow when nothing else is drawable: "yes, it should always draw
+    # it's own blue arrow".
+    #
+    # This was already the written intent on the `neither` branch above --
+    # "The recommended move is drawn, because the caption names it, and
+    # nothing more is claimed" -- and the code did not deliver it, because
+    # _reply_attack_arrows emits the blue move arrow only ALONGSIDE a target,
+    # a check or a winning capture. So a card reading "Play Qd3" with nothing
+    # concrete to threaten rendered over a bare board. v222 made that visible
+    # on 42 more cards by dropping the false payoff arrows that were carrying
+    # the blue one.
+    #
+    # It goes here, last, rather than inside _reply_attack_arrows: two
+    # fallbacks above are gated on `not _teach_arrows`, so a builder that
+    # always returns something would shadow the five-move plan and the
+    # punishment picture with a single arrow. Every richer builder has already
+    # declined by this line.
+    #
+    # The arrow cannot be false. It points at the move the sentence just told
+    # them to play, on the board that sentence is about, and it is drawn only
+    # after the move is confirmed legal there -- no claim about what it wins.
+    if not _teach_arrows and _caption_is_about_reply:
+        _teach_arrows = _named_move_arrow(_after_opp_board, _reply_san)
+
     if _teach_arrows:
         # On a collision the TAGGED copy wins. The old order kept the untagged
         # one, which the suppression filter below then stripped -- so a picture
