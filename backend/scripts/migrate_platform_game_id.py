@@ -11,7 +11,10 @@ analysed, so Stockfish ran twice on one game.
 
 Steps, in this order:
   1. backfill `platform_game_id` from `url`, falling back to the PGN [Site]
-  2. report duplicate groups, and with --apply delete all but the best row
+  2. report duplicate groups, and with --apply keep the best row and move the
+     rest (with their analyses) into `games_duplicates_archive` before
+     deleting them -- there is no off-box backup, so the archive is what makes
+     this reversible
   3. create the unique partial index, which is the only thing that closes
      the race for good
 
@@ -29,6 +32,7 @@ import os
 import re
 import sys
 from collections import defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +41,11 @@ sys.path.insert(0, str(BACKEND_ROOT))
 from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
 
 INDEX_NAME = "games_platform_game_id_unique"
+
+# Dropped rows are copied here before deletion. There is no off-box backup of
+# this database, so a delete with no archive is unrecoverable; with one, the
+# migration is a move rather than a destruction.
+ARCHIVE = "games_duplicates_archive"
 
 LICHESS_URL = re.compile(r"lichess\.org/(\w+)")
 CHESSCOM_URL = re.compile(r"/game/(?:live|daily)/(\d+)")
@@ -156,13 +165,34 @@ async def main() -> int:
                       f"drop {', '.join(r['game_id'][:8] for r in drop)}")
             for row in drop:
                 deleted += 1
-                if args.apply:
-                    await db.games.delete_one({"game_id": row["game_id"]})
-                    # The dropped row's own analysis/queue rows go with it so
-                    # nothing is left pointing at a game that no longer exists.
-                    await db.game_analyses.delete_many({"game_id": row["game_id"]})
-                    await db.analysis_queue.delete_many({"game_id": row["game_id"]})
-        print(f"   rows {'deleted' if args.apply else 'that would be deleted'}: {deleted:,}")
+                if not args.apply:
+                    continue
+
+                game_id = row["game_id"]
+                # Archive the whole row, and its analysis, BEFORE removing
+                # anything. Read the full document rather than the projection
+                # this loop carries, or the archive would be a summary.
+                full = await db.games.find_one({"game_id": game_id})
+                analyses = [a async for a in db.game_analyses.find({"game_id": game_id})]
+                await db[ARCHIVE].insert_one({
+                    "archived_at": datetime.now(timezone.utc).isoformat(),
+                    "reason": "duplicate_import",
+                    "kept_game_id": keeper["game_id"],
+                    "platform_game_id": gid,
+                    "game": full,
+                    "game_analyses": analyses,
+                })
+
+                await db.games.delete_one({"game_id": game_id})
+                # The dropped row's own analysis/queue rows go with it so
+                # nothing is left pointing at a game that no longer exists.
+                await db.game_analyses.delete_many({"game_id": game_id})
+                await db.analysis_queue.delete_many({"game_id": game_id})
+        if args.apply:
+            print(f"   rows archived to {ARCHIVE} and deleted: {deleted:,}")
+            print(f"   archive now holds: {await db[ARCHIVE].count_documents({}):,} rows")
+        else:
+            print(f"   rows that would be archived then deleted: {deleted:,}")
 
     # ---------------------------------------------------- 3. index
     print(f"\nstep 3 -- unique partial index {INDEX_NAME}")
