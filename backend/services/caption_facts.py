@@ -4950,6 +4950,228 @@ def _aligned_pieces_evidence(
     return out
 
 
+def _own_alignment_exposure(
+    board: chess.Board,
+    own_color: chess.Color,
+) -> List[Dict[str, Any]]:
+    """The MIRROR of `_aligned_pieces_evidence`: two of OUR units on one line
+    that an ENEMY slider can enter and exploit.
+
+    `_aligned_pieces_evidence` above walks our own sliders looking for two
+    enemy pieces — the motif we CREATE. It is read by six other services
+    (caption_rules, board_geometry_service, motif_profile_service,
+    aligned_tactic_puzzle_proof, …), so this is a separate key rather than a
+    widening of that one: the offensive output must not move.
+
+    Deliberately NOT a new module. Same file, same `_ray_squares`, same
+    `PIECE_VALUE_CP`, same `front_value_vs_rear` vocabulary — per
+    memory/feedback_single_source_of_truth.
+
+    This returns GEOMETRY ONLY, and geometry alone is noise: measured over
+    500 games it sits on 52% of user mistakes and 41% of good moves, a lift
+    of 1.3x. Nothing may caption off this list directly. The engine gate that
+    makes it mean something is applied in extract_facts and lands in
+    `own_alignment_confirmed`.
+
+    No slider-survival test on purpose (locked 2026-10-19,
+    docs/own_side_alignment_scope.md §0c): precision was 98% with the check
+    and 98% without, while the check cost 58% of coverage. The engine gate
+    already requires Stockfish's own best reply to land on the entry square,
+    and the engine does not play a move that hangs the piece.
+    """
+    enemy = not own_color
+    out: List[Dict[str, Any]] = []
+    seen: set = set()
+
+    DIAGONAL_DIRS = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+    ORTHO_DIRS = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+
+    probe = board.copy(stack=False)
+    probe.turn = enemy
+    for move in probe.pseudo_legal_moves:
+        slider = probe.piece_at(move.from_square)
+        if slider is None or slider.color != enemy:
+            continue
+        if slider.piece_type == chess.BISHOP:
+            dirs = DIAGONAL_DIRS
+        elif slider.piece_type == chess.ROOK:
+            dirs = ORTHO_DIRS
+        elif slider.piece_type == chess.QUEEN:
+            dirs = DIAGONAL_DIRS + ORTHO_DIRS
+        else:
+            continue
+
+        after = probe.copy(stack=False)
+        after.push(move)
+        entry = move.to_square
+
+        for direction in dirs:
+            front = rear = None
+            for sq in _ray_squares(entry, direction):
+                piece = after.piece_at(sq)
+                if piece is None:
+                    continue
+                if front is None:
+                    front = (sq, piece)
+                else:
+                    rear = (sq, piece)
+                    break
+            if front is None or rear is None:
+                continue
+            front_sq, front_piece = front
+            rear_sq, rear_piece = rear
+            if front_piece.color != own_color or rear_piece.color != own_color:
+                continue
+
+            rear_value = PIECE_VALUE_CP.get(rear_piece.piece_type, 0)
+            # Rear worth at least a pawn (locked §0c): raising this to 300 or
+            # 500 bought no precision — 97-100% at every level — and cost
+            # 70-85% of the family, including the gold case.
+            if rear_value < 100:
+                continue
+
+            front_value = PIECE_VALUE_CP.get(front_piece.piece_type, 0)
+            front_undefended = not after.attackers(own_color, front_sq)
+            # The front unit has to be one we'd actually move: either nothing
+            # defends it, or it is worth more than what stands behind it.
+            if not (front_undefended or front_value > rear_value):
+                continue
+
+            key = (chess.square_name(entry), chess.square_name(front_sq),
+                   chess.square_name(rear_sq))
+            if key in seen:
+                continue
+            seen.add(key)
+
+            out.append({
+                "attacker_square": chess.square_name(move.from_square),
+                "attacker_piece": chess.piece_name(slider.piece_type),
+                "entry_square": chess.square_name(entry),
+                "front_piece": chess.piece_name(front_piece.piece_type),
+                "front_piece_square": chess.square_name(front_sq),
+                "front_piece_value_cp": front_value,
+                "front_undefended": front_undefended,
+                "rear_piece": chess.piece_name(rear_piece.piece_type),
+                "rear_piece_square": chess.square_name(rear_sq),
+                "rear_piece_value_cp": rear_value,
+                # Same vocabulary the offensive shape emits, so a renderer
+                # reads one taxonomy, not two.
+                "front_value_vs_rear": (
+                    "higher" if front_value > rear_value
+                    else "lower" if front_value < rear_value else "equal"
+                ),
+                "rear_is_passed_pawn": (
+                    rear_piece.piece_type == chess.PAWN
+                    and rear_sq in _own_passed_pawns(board, own_color)
+                ),
+            })
+    return out
+
+
+def _confirm_own_alignment(
+    board_before: chess.Board,
+    own_color: chess.Color,
+    played_san: str,
+    best_move_san: Optional[str],
+    pv_after_played: Optional[List[str]],
+) -> Optional[Dict[str, Any]]:
+    """Promote ONE geometric shape to a claim, using the engine as the gate.
+
+    Measured over 500 games (2,285 user mistakes vs 9,815 good moves,
+    docs/own_side_alignment_scope.md §0b/§0c):
+
+        geometry alone                         52.3% bad / 40.8% good   1.3x
+        + engine's best move addresses it      46.5% / 35.8%            1.3x
+        + opponent's real reply enters         6.1%  / 0.1%             85x
+        + that reply ATTACKS the front unit    4.4%  / 0.04%           107x
+        + no king in the pair, reply not mate  5.5%  / 0.03%           180x
+
+    The first two rows are why nothing captions off geometry. The last three
+    are the gate. The king and mate exclusions were found by READING cases,
+    not by the statistics: at 107x it was still catching `Qd2#` and `Re2+`,
+    where the two aligned units are incidental to a check or a mate. Those
+    are a different lesson and belong to a different rule.
+
+    Engine gates, board explains — memory/feedback_engine_gates_board_
+    explains_caption_silent. This never decides THAT a move was bad.
+    """
+    if not best_move_san or not pv_after_played:
+        return None
+
+    shapes = _own_alignment_exposure(board_before, own_color)
+    if not shapes:
+        return None
+
+    # 1. Does the engine's preferred move actually deal with the shape?
+    try:
+        best_move = board_before.parse_san(best_move_san)
+    except Exception:
+        return None
+    after_best = board_before.copy(stack=False)
+    after_best.push(best_move)
+    surviving = {
+        (s["entry_square"], s["front_piece_square"], s["rear_piece_square"])
+        for s in _own_alignment_exposure(after_best, own_color)
+    }
+
+    # 2. Where does the opponent actually go after the move that was played?
+    after_played = board_before.copy(stack=False)
+    try:
+        after_played.push_san(played_san)
+        reply = after_played.parse_san(pv_after_played[0])
+    except Exception:
+        return None
+    after_reply = after_played.copy(stack=False)
+    after_reply.push(reply)
+    # A mate is its own lesson and has its own rule; the alignment under it
+    # is coincidence.
+    if after_reply.is_checkmate():
+        return None
+    entry_played = chess.square_name(reply.to_square)
+
+    for shape in shapes:
+        if shape["entry_square"] != entry_played:
+            continue
+        front_sq = chess.parse_square(shape["front_piece_square"])
+        rear_sq = chess.parse_square(shape["rear_piece_square"])
+        # A check is not a skewer. Excluding the king on either end is what
+        # took the family from 107x to 180x and removed the Qd2#/Re2+ cases.
+        if board_before.piece_type_at(front_sq) == chess.KING:
+            continue
+        if board_before.piece_type_at(rear_sq) == chess.KING:
+            continue
+        # The entering move must hit the front unit, not merely share a line
+        # with it.
+        if reply.to_square == front_sq:
+            continue
+        if front_sq not in after_reply.attacks(reply.to_square):
+            continue
+        key = (shape["entry_square"], shape["front_piece_square"],
+               shape["rear_piece_square"])
+        entry_sq = chess.parse_square(shape["entry_square"])
+        # The engine's move answers the shape either by removing it or by
+        # taking the entry square away. Widening this to also accept
+        # "defends the front unit" / "moves either unit" was tried and
+        # rejected: it took the corpus from 125 to 144 fires and precision
+        # from 98% to 97%, because almost any developing move incidentally
+        # defends something.
+        addressed = (
+            key not in surviving
+            or bool(after_best.attackers(own_color, entry_sq))
+        )
+        if not addressed:
+            continue
+        return dict(
+            shape,
+            opponent_reply_san=pv_after_played[0],
+            best_move_san=best_move_san,
+            best_move_guards_entry=bool(
+                after_best.attackers(own_color, chess.parse_square(shape["entry_square"]))
+            ),
+        )
+    return None
+
+
 def _discovered_attack_evidence(
     board_before: chess.Board,
     board_after: chess.Board,
@@ -11464,6 +11686,14 @@ def extract_facts(
         and (s["front_piece_square"], s["rear_piece_square"]) not in _before_target_pairs
         and not _from_on_same_ray(s)
     ]
+
+    # The mirror shape: two of OUR units on one line for an enemy slider to
+    # enter. Computed on board_BEFORE because the claim is "this weakness was
+    # already there and your move did not deal with it" — which is also what
+    # the §0b measurement used, so the numbers in the scope describe this code.
+    own_alignment_confirmed = _confirm_own_alignment(
+        board_before, own_color, played_san, best_move_san, pv_after_played
+    )
     discovered_attack_evidence = _discovered_attack_evidence(
         board_before, board_after, played_move
     )
@@ -11909,6 +12139,10 @@ def extract_facts(
         # same move. Derived solely by is_named_fork().
         "named_fork_evidence": named_fork_shapes(multi_target_attack_evidence),
         "aligned_pieces_evidence": aligned_pieces_evidence,
+        # Engine-gated, so a caption may read it. The ungated geometry is NOT
+        # exposed as a fact: it sits on 41% of good moves and would attach a
+        # confident explanation to correct play.
+        "own_alignment_confirmed": own_alignment_confirmed,
         "discovered_attack_evidence": discovered_attack_evidence,
 
         # QUEEN SORTIE EVIDENCE (commit #3) — DICT or None, not bool.

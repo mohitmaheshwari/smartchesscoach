@@ -125,10 +125,23 @@ the piece, so the survival test re-decides something the engine already
 decided. Rejected `proxy` (−58% coverage, no precision gain) and `see` (−41%
 coverage, −1 point of precision).
 
-**Locked baseline: 126 fires on 2,285 user mistakes (5.5%), 3 on 9,815 good
-moves (0.03%), 98% precision proxy, 180x lift, gold case passes.**
+**Locked baseline: 125 fires on 2,285 user mistakes (5.5%), 3 on 9,815 good
+moves (0.03%), 98% precision proxy, ~180x lift, gold case passes.**
 This supersedes the 72/2 figure in 0b, which was measured with the prototype's
 unnecessary survival check.
+
+**Corrected from 126 to 125 when the port was verified.** The bake-off ran on
+a throwaway value table that priced a bishop at 320; the repo's canonical
+`PIECE_VALUE_CP` prices it at **300, equal to a knight**, so one bishop-vs-
+knight pair no longer counts as "front worth more". The port uses the repo's
+table — [memory/feedback_single_source_of_truth] — so the measurement was
+corrected to match the code rather than the code bent to hit the number.
+
+Also tried and rejected while porting: widening "the best move addresses it"
+to accept *defends the front unit* or *moves either unit*. That took the
+corpus from 125 to **144 fires and precision from 98% to 97%**, because
+almost any developing move incidentally defends something. The gate stays
+*shape removed* or *entry square guarded*.
 
 ---
 
@@ -303,7 +316,7 @@ inline. See Section 2.
 4. **A corpus fingerprint is captured** over existing offensive-polarity cards
    so the no-regression criterion is a per-row diff, not a vibe.
 5. **The prototype gate is ported, not rewritten,** with the 0c locks applied
-   (rear_min 100, no survival check). The port must reproduce **126 / 3** on
+   (rear_min 100, no survival check). The port must reproduce **125 / 3** on
    the same 500 games before anything else is believed.
 6. **`/audit-pre-code` has run** and passed.
 
