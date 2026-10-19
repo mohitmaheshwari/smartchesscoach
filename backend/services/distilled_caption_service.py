@@ -442,6 +442,35 @@ def _good_caption(inp):
         b = chess.Board(fb); mv = b.parse_san(san)
     except Exception:
         return None, None
+    # ── Checkmate ends the move; these templates assume it does not. ──
+    #
+    # fb_6fc0dcba448f (Mohit, 2026-10-19, "this is a mate, what's showing here
+    # is wrong"). On 8/6p1/8/3R4/P2Pn2p/6kP/4r1P1/2B3K1 b, Re1# delivered mate
+    # and the card read:
+    #
+    #   "Your opponent has checked your king with Re1#. You have to answer it
+    #    right now - move the king, block the line, or take the piece that is
+    #    checking. Nothing else is allowed. Look at all three before you pick."
+    #
+    # The position has ZERO legal moves. The card asked a mated player to pick
+    # between three options that do not exist.
+    #
+    # The check branch below tests `b.gives_check(mv)`, which is also true of
+    # mate, and the capture branches above it never test for check at all — so
+    # a mating capture would have said "take back to keep the material even".
+    # The guard therefore sits here, before any branch, rather than inside one.
+    #
+    # Abstaining is the whole fix: this layer SWAPS caption text over whatever
+    # the pipeline produced, and the pipeline already had the right words —
+    # R01_mate, "Re1#. Checkmate. When the king is exposed, calculate every
+    # check to the end." Returning None restores it. No new template is needed
+    # and none should be written, or there would be two mate sentences to keep
+    # true. See memory/project_distilled_layer_overwrites_rules.
+    _after = b.copy(stack=False)
+    _after.push(mv)
+    if _after.is_checkmate() or _after.is_stalemate():
+        return None, None
+
     is_user = bool(getattr(inp, "mover_is_user", True))
     # The previous card told them to play this move. A generic lesson that
     # then hedges ("that can be okay, but first ...") contradicts our own
