@@ -10317,6 +10317,93 @@ def _supported_knight_fork(board: chess.Board, move: chess.Move):
     return best[1:] if best else None
 
 
+
+def _removes_the_only_guard(board: chess.Board, move: chess.Move):
+    """The move takes the ONE piece holding an enemy piece, which then falls.
+
+    Returns (guard_name, target_name, collector_name) or None.
+
+    Mohit 2026-10-19, on a card reading "Rxe4 was better -- it sacrifices your
+    rook to open up a strong attack": "this is a clear concept of attacking
+    the defenders". On that board the knight on e4 was the only thing holding
+    the rook on f2, and the KING collects after Rxe4 dxe4 Kxf2.
+
+    No engine is consulted. Every clause is decided on the board:
+
+      1. the move captures an enemy piece,
+      2. that piece is the ONLY defender of some other enemy piece worth a
+         knight or more,
+      3. we already attack that piece -- otherwise taking its guard wins
+         nothing and this is just a capture,
+      4. after the capture, taking the target really wins material, judged by
+         the king-AWARE evaluator because the collector is often the king and
+         static_exchange_eval skips kings by convention.
+
+    The word "only" in the sentence is clause 2 and nothing else. Drafting by
+    hand I wrote "the only thing guarding" about a square with two guards;
+    gating the claim on the count is what makes that impossible here.
+
+    Returns None rather than a vaguer sentence when any clause fails. The
+    two-guard family is real -- 43% of verified cases -- but it needs a
+    different sentence, not this one loosened.
+    """
+    if not board.is_capture(move) or board.is_en_passant(move):
+        return None
+    us = board.turn
+    them = not us
+    guard_sq = move.to_square
+    guard = board.piece_at(guard_sq)
+    if guard is None or guard.color != them:
+        return None
+
+    after = board.copy()
+    after.push(move)
+
+    best = None
+    for target_sq in chess.SQUARES:
+        if target_sq == guard_sq:
+            continue
+        target = board.piece_at(target_sq)
+        if target is None or target.color != them:
+            continue
+        if target.piece_type == chess.KING:
+            continue
+        if PIECE_VALUE_CP.get(target.piece_type, 0) < PIECE_VALUE_CP[chess.KNIGHT]:
+            continue
+        guards = [s for s in board.attackers(them, target_sq)
+                  if board.piece_at(s)]
+        if len(guards) != 1 or guards[0] != guard_sq:
+            continue
+        if not board.attackers(us, target_sq):
+            continue
+        probe = after.copy()
+        probe.turn = us
+        probe.ep_square = None
+        if probe.is_check() or not probe.is_valid():
+            continue
+        takers = [m for m in probe.legal_moves if m.to_square == target_sq
+                  and probe.is_capture(m)]
+        if not takers:
+            continue
+        try:
+            gain = legal_exchange_gain(probe, target_sq, us) or 0
+        except (ValueError, TypeError, AssertionError):
+            continue
+        if gain < PIECE_VALUE_CP[chess.KNIGHT]:
+            continue
+        collector = probe.piece_at(takers[0].from_square)
+        value = PIECE_VALUE_CP.get(target.piece_type, 0)
+        if best is None or value > best[0]:
+            best = (
+                value,
+                PIECE_TYPE_NAMES.get(guard.piece_type, "piece"),
+                PIECE_TYPE_NAMES.get(target.piece_type, "piece"),
+                PIECE_TYPE_NAMES.get(collector.piece_type, "piece")
+                if collector else None,
+            )
+    return best[1:] if best else None
+
+
 def _outnumbered_target(
     after: chess.Board, from_square: int, mover: chess.Color, enemy: chess.Color
 ):
@@ -10627,6 +10714,27 @@ def _recommended_move_why(
     try:
         pr = _classify_move_principle(board, move)
         mover = board.turn
+        # 1a) REMOVE THE ONLY GUARD -- the piece holding another piece.
+        #
+        #     Mohit 2026-10-19/20. Above the fork branch because it explains a
+        #     CAPTURE, and above THREAT because "it trades their bishop" is
+        #     what the m15 card said about a move that wins a piece.
+        #
+        #     Gated on a count, never on phrasing: the sentence says "only"
+        #     exactly when the target has one guard. Two- and three-guard
+        #     cases are 43% of the family and get nothing here; they need
+        #     their own sentence, which is not written yet.
+        _only_guard = _removes_the_only_guard(board, move)
+        if _only_guard is not None:
+            _gname, _tname, _cname = _only_guard
+            # Short on purpose. The first draft ran 17 words -- "takes the
+            # one piece guarding their knight, so the knight falls next, and
+            # your queen takes it" -- which is long for a why-phrase and, on
+            # one card of 14,533, pushed the composed caption past a gate and
+            # lost the reason entirely. Eleven words says the same thing.
+            _by = f", and {_own} {_cname} wins it" if _cname else ""
+            return f"takes the only piece guarding {_opp} {_tname}{_by}"
+
         # 1) CAPTURE — concrete material (SEE-gated, never overclaims).
         if board.is_capture(move):
             if board.is_en_passant(move):
