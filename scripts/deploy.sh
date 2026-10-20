@@ -37,13 +37,22 @@ die()   { printf '    FAIL %s\n' "$1" >&2; exit 1; }
 
 # --- 0. one deploy at a time ------------------------------------------------
 #
-# There was no guard here until 2026-10-20, and three deploys from different
-# sessions overlapped inside twenty minutes. Concurrent runs do not merely
+# There was no guard here until 2026-10-20. Concurrent runs do not merely
 # duplicate work, they interleave: both pull, both `docker compose build` to
 # the SAME image tag, both restart. So session A can build B's newer commit
 # while reporting A's, and A's strict verification can pass against B's code.
 # The assertion in step 2 that HEAD equals origin cannot catch it, because
 # both runs pass it independently.
+#
+# Correcting my own first version of this comment, which claimed three
+# sessions had overlapped that morning: they had not. I was guarding by hand
+# with `pgrep -f "deploy.sh"` from an ssh command whose own command line
+# contains that string, so the check matched ITSELF every time -- three
+# "another deploy is running" aborts and a fifteen-minute wait for a process
+# that was the waiter. `docker compose build` was never running. The lock is
+# still worth having, because the absence of a guard is real, but the urgency
+# I attached to it was an artifact of a broken check. Match on something the
+# checker cannot contain, or hold a lock like this one and stop guessing.
 #
 # It fails rather than queues. A second deploy usually wants a commit the
 # first one already pulled, so waiting would rebuild for nothing, and a
