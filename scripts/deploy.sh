@@ -35,6 +35,38 @@ step()  { printf '\n=== %s\n' "$1"; }
 ok()    { printf '    OK   %s\n' "$1"; }
 die()   { printf '    FAIL %s\n' "$1" >&2; exit 1; }
 
+# --- 0. one deploy at a time ------------------------------------------------
+#
+# There was no guard here until 2026-10-20, and three deploys from different
+# sessions overlapped inside twenty minutes. Concurrent runs do not merely
+# duplicate work, they interleave: both pull, both `docker compose build` to
+# the SAME image tag, both restart. So session A can build B's newer commit
+# while reporting A's, and A's strict verification can pass against B's code.
+# The assertion in step 2 that HEAD equals origin cannot catch it, because
+# both runs pass it independently.
+#
+# It fails rather than queues. A second deploy usually wants a commit the
+# first one already pulled, so waiting would rebuild for nothing, and a
+# command that silently blocks for ten minutes is worse than one that says no.
+# And it exits NON-ZERO: an abort that exits 0 reads exactly like a successful
+# deploy to anything checking the status, which is the failure mode that let a
+# version bump look deployed while the regen supervisor was dead.
+DEPLOY_LOCK="${DEPLOY_LOCK:-/var/lock/chessguru-deploy.lock}"
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$DEPLOY_LOCK" || die "cannot open deploy lock $DEPLOY_LOCK"
+  if ! flock -n 9; then
+    printf '    FAIL another deploy holds %s\n' "$DEPLOY_LOCK" >&2
+    printf '         holder: %s\n' "$(cat "$DEPLOY_LOCK" 2>/dev/null || echo unknown)" >&2
+    printf '         NOTHING was deployed. Wait for it to finish, then re-run.\n' >&2
+    exit 1
+  fi
+  printf 'pid %s started %s by %s\n' "$$" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+    "${SUDO_USER:-${USER:-unknown}}" >&9
+  ok "deploy lock held ($DEPLOY_LOCK)"
+else
+  printf '    note  flock unavailable; deploys are NOT serialised here\n'
+fi
+
 # --- 1. working tree must be clean, or a pull will silently not apply -------
 step "pre-flight"
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
