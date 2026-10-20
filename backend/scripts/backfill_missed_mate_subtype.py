@@ -55,6 +55,13 @@ async def main() -> int:
          "stockfish_analysis.move_evaluations.best_move": 1,
          "stockfish_analysis.move_evaluations.best_move_uci": 1,
          "stockfish_analysis.move_evaluations.cp_loss": 1,
+         # mate_info is required, not optional. The classifier gained a
+         # mate-in-N branch on 2026-10-20 that reads it; without it in the
+         # projection the branch simply never fires and this script measures
+         # only the old mate-in-ONE behaviour -- a dry run that reported 4,555
+         # mate moves and zero to relabel, which looked like "nothing to do"
+         # rather than "the classifier was starved".
+         "stockfish_analysis.move_evaluations.mate_info": 1,
          "stockfish_analysis.move_evaluations.is_opponent_move": 1},
     )
     if args.limit:
