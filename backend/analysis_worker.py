@@ -322,6 +322,16 @@ def cleanup_stuck_jobs(db):
     stuck_count = 0
     for job in stuck_jobs:
         game_id = job.get("game_id")
+        # Write back by _id, NOT by game_id. `analysis_queue` is not unique on
+        # game_id, and when a game has two rows this loop read the stuck one
+        # and then updated whichever matched first -- usually the other one.
+        # Measured 2026-10-20 on game 56b6c294: one row pending with
+        # retry_count 7623, beside the row actually stuck since 02:45 with no
+        # retry_count at all. The reaper had been "resetting" the wrong row
+        # once per worker start for long enough to count past seven thousand,
+        # the real row was never touched, and deploy check 6 therefore failed
+        # on a stale heartbeat that no restart could clear.
+        job_selector = {"_id": job["_id"]}
         started_at = job.get("started_at")
         retry_count = job.get("retry_count", 0)
         worker_id = job.get("worker_id", "unknown")
@@ -331,7 +341,7 @@ def cleanup_stuck_jobs(db):
         if retry_count >= MAX_RETRIES:
             # Mark as permanently failed
             db.analysis_queue.update_one(
-                {"game_id": game_id},
+                job_selector,
                 {
                     "$set": {
                         "status": "failed",
@@ -355,7 +365,7 @@ def cleanup_stuck_jobs(db):
         else:
             # Reset to pending for retry
             db.analysis_queue.update_one(
-                {"game_id": game_id},
+                job_selector,
                 {
                     "$set": {
                         "status": "pending",
