@@ -370,6 +370,11 @@ def _pin_is_provable(board, best) -> bool:
         return False
 
 
+# Above this, a named motif is the better lesson -- see the precedence note in
+# classify_missed_tactic.
+SHORT_MATE_PLIES = 2
+
+
 def _lost_forced_mate_plies(mv, mover_is_white: bool) -> Optional[int]:
     """Distance of a forced mate the mover HAD and the played move gave up.
 
@@ -452,7 +457,23 @@ def classify_missed_tactic(mv, opponent_previous, opp_next) -> Tuple[Optional[st
     # nothing. Depth framing belongs to the caption layer, where it can
     # actually act: "there was a forced mate here" is honest about a mate in
     # nine without demanding a 600-1500 player find it.
-    if _lost_forced_mate_plies(mv, board.turn) is not None:
+    # PRECEDENCE, and it is a coaching judgement rather than a fact.
+    #
+    # A SHORT mate outranks a named motif, which is Mohit's instruction: his
+    # case was Rc8#, a mate in one filed as a skewer. A DEEP mate does not.
+    # Measured over 596 relabels this would produce, 134 overwrite a
+    # prover-gated motif and 60% of those are mate in five or more -- so
+    # without this rule a player loses "you missed a fork", which is concrete
+    # and findable, in favour of "you missed a mate in nine", which for a
+    # 600-1500 player is neither. Both labels are true; this picks the one
+    # worth remembering.
+    #
+    # The two is open to review. The distribution is flat, so it comes from
+    # what is reasonable to ask of a player rather than from a break in the
+    # data: a mate in one or two is unmissable once pointed out, from three on
+    # a motif is the more transferable lesson.
+    _mate_plies = _lost_forced_mate_plies(mv, board.turn)
+    if _mate_plies is not None and _mate_plies <= SHORT_MATE_PLIES:
         return ("missed_mate", _promote_severity("critical", mv))
 
     if tactic == "fork":
@@ -483,6 +504,12 @@ def classify_missed_tactic(mv, opponent_previous, opp_next) -> Tuple[Optional[st
         return ("missed_skewer", _promote_severity("critical", mv))
     if tactic == "discovered_attack":
         return ("missed_discovered_attack", _promote_severity("critical", mv))
+    # A deep mate still beats "generic tactic" -- it is specific, true, and
+    # strictly more use than a label that names nothing. It only yields to a
+    # motif, never to the generic bucket.
+    if _mate_plies is not None:
+        return ("missed_mate", _promote_severity("critical", mv))
+
     # Generic tactic — engine best gives ≥200cp advantage but doesn't fit
     if (mv.get("cp_loss") or 0) >= 200:
         return ("missed_generic_tactic", _promote_severity("moderate", mv))

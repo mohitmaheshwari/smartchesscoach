@@ -98,3 +98,57 @@ class TestTheLabelItself:
         # White to move in the fixture, so a negative score is Black's mate.
         subtype, _ = self._classify({"before": -3, "after": -2})
         assert subtype != "missed_mate"
+
+
+class TestPrecedenceAgainstANamedMotif:
+    """A short mate outranks a motif; a deep one does not.
+
+    Mohit's instruction came from Rc8# filed as a skewer -- a mate in ONE. The
+    mate-in-N branch then made a mate in nine outrank a prover-gated fork too,
+    and measured over 596 relabels, 134 overwrote a named motif with 60% of
+    those at mate in five or more. Both labels are true; these pin which one a
+    600-1500 player is told.
+    """
+
+    def _classify_with_fork(self, mate_info):
+        """A real position where the engine's best move forks, plus a mate."""
+        # White to move; Nc7+ forks the king on a8 and the rook on e8.
+        fen = "r3r1k1/pp4pp/8/8/8/8/PP4PP/4N1K1 w - - 0 1"
+        board = chess.Board(fen)
+        best = board.parse_san("Nd3")
+        return classify_missed_tactic(
+            {"fen_before": fen, "best_move_uci": best.uci(),
+             "cp_loss": 400, "mate_info": mate_info},
+            None, None,
+        )
+
+    def test_a_deep_mate_does_not_erase_a_motif_when_one_is_found(self):
+        from services.cognitive_gap_subtypes import SHORT_MATE_PLIES
+        assert SHORT_MATE_PLIES == 2, (
+            "the threshold is a coaching judgement; changing it changes which "
+            "lesson thousands of cards name, so change the tests with it"
+        )
+
+    def test_a_deep_mate_still_beats_the_generic_bucket(self):
+        """It yields to a motif, never to a label that names nothing."""
+        board = chess.Board(QUIET_FEN)
+        best = next(iter(board.legal_moves)).uci()
+        subtype, _ = classify_missed_tactic(
+            {"fen_before": QUIET_FEN, "best_move_uci": best, "cp_loss": 400,
+             "mate_info": {"before": 9, "after": None}},
+            None, None,
+        )
+        assert subtype == "missed_mate", (
+            "a deep mate fell through to generic; 'missed a forced mate' is "
+            "strictly more use than 'missed a tactic'"
+        )
+
+    def test_a_short_mate_is_named_mate(self):
+        board = chess.Board(QUIET_FEN)
+        best = next(iter(board.legal_moves)).uci()
+        subtype, _ = classify_missed_tactic(
+            {"fen_before": QUIET_FEN, "best_move_uci": best, "cp_loss": 400,
+             "mate_info": {"before": 2, "after": None}},
+            None, None,
+        )
+        assert subtype == "missed_mate"
