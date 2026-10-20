@@ -419,8 +419,16 @@ def cleanup_stuck_jobs(db):
         err_l = (str(g.get("analysis_error") or "") + " " + str(job.get("error") or job.get("failure_reason") or "")).lower()
         if any(m in err_l for m in PERMANENT_FAILURE_MARKERS):
             continue  # permanent failure — retrying is pointless
+        # By _id, for the same reason as the stuck-job reaper above: this read
+        # a FAILED row from a cursor, and a game_id selector can land the
+        # write on a different row of the same game. When it does, the failed
+        # row keeps its low retry_count, so it is re-found on every pass and
+        # the increment piles onto whichever row matched first. Production
+        # carried one at retry_count 960,608 beside two failed rows untouched
+        # since July -- a retry loop that never retried anything and never
+        # stopped counting.
         db.analysis_queue.update_one(
-            {"game_id": game_id},
+            {"_id": job["_id"]},
             {"$set": {"status": "pending", "started_at": None, "last_heartbeat": None,
                       "worker_id": None, "retrying": True, "last_retry_at": datetime.now(timezone.utc),
                       "reset_reason": f"auto-retry transient failure (attempt {job.get('retry_count', 0) + 1}/{MAX_RETRIES})"},
@@ -451,8 +459,17 @@ def update_job_heartbeat(db, game_id):
     current_time = time.time()
     
     if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
+        # Scoped to THIS worker's row. claim_next_job filters on
+        # status="pending" only, with no uniqueness on game_id, so two rows
+        # for one game can both be claimed and both sit in "processing". A
+        # selector of game_id alone then refreshes whichever matched first --
+        # possibly another worker's row -- leaving this worker's row to go
+        # stale while it is still working, which the reaper then resets
+        # underneath it. A worker holds at most one processing row at a time,
+        # so worker_id makes this unambiguous.
         db.analysis_queue.update_one(
-            {"game_id": game_id, "status": "processing"},
+            {"game_id": game_id, "status": "processing",
+             "worker_id": WORKER_ID},
             {"$set": {
                 "last_heartbeat": datetime.now(timezone.utc),
                 "updated_at": datetime.now(timezone.utc)
@@ -1831,9 +1848,14 @@ def process_job(db, job):
             }}
         )
         
-        # Mark job as completed
-        db.analysis_queue.update_one(
-            {"game_id": game_id},
+        # Mark job as completed. Same scoping as the heartbeat, and this one
+        # is how orphans were MADE: with two rows processing for one game, a
+        # game_id-only selector marks one completed and leaves the sibling in
+        # "processing" forever. That is the shape of the row stuck since
+        # 02:45 that no restart could clear.
+        _completed = db.analysis_queue.update_one(
+            {"game_id": game_id, "status": "processing",
+             "worker_id": WORKER_ID},
             {"$set": {
                 "status": "completed",
                 "completed_at": datetime.now(timezone.utc),
@@ -1844,6 +1866,25 @@ def process_job(db, job):
                 "last_error_at": None
             }}
         )
+        if not _completed.matched_count:
+            # Belt and braces: the scoped selector is the correct one, but a
+            # row claimed before this change, or by a differently-named
+            # worker, would not match it -- and a completed analysis left in
+            # "processing" is worse than an imprecise write. Fall back to the
+            # old selector and say so, because a silent fallback would hide
+            # whether the scoping ever misses.
+            logger.warning(
+                "[QUEUE] completion did not match worker-scoped row for %s; "
+                "falling back to game_id selector", game_id,
+            )
+            db.analysis_queue.update_one(
+                {"game_id": game_id, "status": "processing"},
+                {"$set": {"status": "completed",
+                          "completed_at": datetime.now(timezone.utc),
+                          "duration_seconds": elapsed,
+                          "updated_at": datetime.now(timezone.utc),
+                          "retrying": False}},
+            )
         
         # =========================================================================
         # TERMINATION-BASED WEAKNESS DETECTION
