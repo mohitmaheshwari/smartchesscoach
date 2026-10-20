@@ -65,6 +65,15 @@ from services.severity import (
 from services.caption_facts import (
     PIECE_VALUE_CP,
     LegalMaterialLossCause,
+    # VerifiedLineCause was used at the isinstance check below but never
+    # imported, so every card reaching that branch died with
+    #   NameError: name 'VerifiedLineCause' is not defined
+    # The exception is caught upstream and logged at INFO, so the card simply
+    # fell through to a generic floor with no reason and no arrows. Mohit
+    # 2026-10-20 on two such cards in his own game, one of them a 952cp
+    # blunder: "a calm move on a mistake, what the hell?" and "why it didn't
+    # build the arrow?". Both questions had the same one-word answer.
+    VerifiedLineCause,
     legal_exchange_gain,
     ReviewTeachingCause,
     build_legal_material_loss_cause,
