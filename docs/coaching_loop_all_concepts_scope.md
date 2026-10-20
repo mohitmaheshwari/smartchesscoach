@@ -389,3 +389,85 @@ lesson is the more useful one to name, not a technical detail.
 **Revised breadth estimate:** 3 tactic concepts today → roughly 10–13 with the
 provers that already exist, bounded by sentence verification rather than by
 detection.
+
+---
+
+## 12. MEASURED: the motif-naming route is far thinner than §11 estimated
+
+§11 estimated 10–13 tactic concepts from the provers that already exist. That
+estimate was wrong, and the two measurements that killed it are below. I did
+not wire anything.
+
+### 12.1 Prover reach on the generic bucket, strictly verified
+
+Each prover returns a bundle plus a `verifier.verified` flag from an
+independent board check. The two are different detectors and only the strict
+one is defensible. Run over 1,500 real `missed_generic_tactic` observations:
+
+| prover | bundle returned | **strictly verified** |
+|---|---|---|
+| clearance | 163 | **121** |
+| deflection | 39 | **39** |
+| attraction | 22 | **22** |
+| xray_attack | 19 | 16 |
+| interference | 16 | 15 |
+| remove_defender | **150** | **5** |
+| trapped_piece | 1 | 1 |
+| free_piece, back_rank_mate | 0 | 0 |
+| **any prover** | 366 (24.4%) | **200 (13.3%)** |
+
+So about 959 of the 7,195 generic observations are nameable — before precision
+is checked. Note `remove_defender`: 150 loose against 5 strict. My earlier
+"8% of the generic bucket" figure was the loose signal and overstated it
+thirtyfold.
+
+### 12.2 Precision against Lichess themes, with hard negatives
+
+`lichess_puzzles` carries 4,110,434 positions and 74 theme tags. The control
+arm is deliberately *other tactical themes* rather than random positions,
+because a random position is trivial to reject and would flatter the number;
+a false positive among real tactics is the mistake that actually reaches a
+player.
+
+| motif | recall | precision | false positives | strict fires |
+|---|---|---|---|---|
+| **attraction** | 95.7% | **100.0%** | 0 | 22 |
+| deflection | 93.4% | 94.2% | 52 | 39 |
+| **clearance** | 77.1% | **75.3%** | 228 | **121** |
+| **remove_defender** | 63.8% | **100.0%** | 0 | 5 |
+
+The highest-reach prover is the least precise. `clearance` supplies 121 of the
+200 strict fires and must not be named at 75.3%, which is nowhere near the
+lock's 95% bar. `deflection` sits at 94.2% — one tightening short, not a
+failure.
+
+**So the precise, shippable subset is attraction plus remove_defender: 27 of
+1,500, about 130 of 7,195 — 1.8%, not the 13.3% the reach table suggested and
+nothing like 10–13 new concepts.**
+
+### 12.3 Recommendation: do not wire this now
+
+Naming 130 observations costs a classifier change, an authorization entry, an
+authored sentence, per-FEN verification, an admission-table entry and a
+re-derivation of stored observations. That is the full ceremony for a 1.8%
+dent, and the ceremony is right — it is what keeps precision at 100% — so the
+answer is not to skip it but to spend it on something with reach.
+
+The more useful finding is the one underneath: **the 7,195 are mostly not
+single-motif tactics.** Three quarters of them no prover recognises at all,
+and the quarter that is recognised is dominated by the one prover that cannot
+be trusted. Mohit's instinct that "there is a lot" is right about chess and
+wrong about this bucket — the volume here is not in nameable motifs. The next
+honest question is what those positions actually are, which is cheap to
+characterise and would decide whether a new detector family is warranted at
+all.
+
+`deflection` at 94.2% is the one candidate worth a second look: it has real
+reach relative to the precise set and needs tightening rather than inventing.
+
+### 12.4 What was built
+
+`backend/scripts/validate_motif_prover_against_lichess.py` — parameterised
+over six motif/theme pairs, hard-negative control, reports both the loose and
+strict signals. Whenever a motif's reach justifies the ceremony, its precision
+gate is now one command.
