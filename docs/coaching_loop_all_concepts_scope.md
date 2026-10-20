@@ -208,3 +208,78 @@ document survived only until the negative control ran.
 4. **Unmappable ids under WS0** — 261 mastery ids against 70 authorizations. Report and
    retire the remainder, or keep two tiers of concept?
 5. **`time_management` teaching form** — pacing drills are a new surface. In or out?
+
+---
+
+## 10. CORRECTION — Failure A is a filter, not an authoring gap
+
+Mohit asked why `missed_tactic` and `king_safety` cannot be taught. They can. §3.1 was
+wrong, and it was wrong in the way I keep being wrong today: I read "no lessons were
+taken" and concluded "no content exists".
+
+### What actually exists for both concepts
+
+| loop requirement | missed_tactic | king_safety |
+|---|---|---|
+| detector | **4 PLAN grade** (fork, pin, skewer, mate) | **1 PLAN** + 1 shadow |
+| reaches the plan surface | 11 focus rows, **9 active** | 37 rows, **8 active** |
+| puzzle positions | **3,726** | 151 |
+| question + grading spec | **yes** — `lesson_question_spec.py` covers `missed_tactic`, `pin`, `skewer` | **yes** — covers `king_safety` |
+| explanation content | `tactical_patterns.json` — 17 entries incl. `knight_fork`, `pin_to_king`, `skewer`, `discovered_attack` | `positional_rules.json` — 20 entries incl. `weakens_king`, `allows_back_rank`, `allows_checkmate` |
+
+Nothing on that list needs authoring. Detectors at the lock's highest grade, positions,
+questions, graders and explanation text all exist.
+
+### The actual blocker: one hardcoded allowlist
+
+`services/review_learning_adapter.py`, in `application_results_from_observations`:
+
+```python
+if not (simple_hang or exact_destination):
+    continue
+```
+
+- `simple_hang` → `missed_pattern == "piece_safety" and subtype == "simple_hang"`
+- `exact_destination` → the `destination_safety_exact` fact
+
+Two observation shapes, both `piece_safety`. Every other observation is dropped before it
+can become a `LessonResult` — which is exactly why lesson evidence exists for precisely
+two `gap:` ids, and why both are piece_safety. It is not that other concepts are untaught;
+it is that their evidence is discarded at this line.
+
+### The same function explains the 0-applied mystery
+
+§2 flagged that `gap:piece_safety:simple_hang` has 607 missed and zero applied, and called
+it unfit to carry progress. The cause is three lines below the filter:
+
+```python
+application_outcome = (
+    ApplicationOutcome.APPLIED
+    if exact_destination and exact_outcome == "handled"
+    else ApplicationOutcome.MISSED
+)
+```
+
+`APPLIED` requires `exact_destination`. `simple_hang` can never satisfy it, so a
+`simple_hang` observation is **structurally incapable of recording a success**. That is a
+property of this expression, not of the detector, and not evidence that players never
+avoid hanging a piece.
+
+### What this does to the scope
+
+Failure A drops from "author content for three concept families" to **widen one filter and
+give each admitted shape an applied branch**. Far cheaper, and it moves the critical path
+off authoring and back onto engineering — so item 3 in §6 is no longer blocked on a
+content decision.
+
+Two things it does *not* change:
+
+- **Failure B** (authored endgame and opening lessons with no stage-5 observer) stands.
+  Those concepts have content and no detector; this is the mirror case.
+- **Failure C** (`calculation_depth`, 47,319 puzzles, no concept) stands unchanged.
+
+And the widening is not free of judgement: each newly admitted observation shape needs a
+defensible `applied` definition. For `destination_safety_exact` that is `outcome ==
+"handled"`. For a missed fork, "applied" means the player *took* an available fork, which
+is a different observation than "did not miss one" — and conflating them would manufacture
+successes. That definition, per shape, is the real work.
