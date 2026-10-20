@@ -370,6 +370,32 @@ def _pin_is_provable(board, best) -> bool:
         return False
 
 
+def _lost_forced_mate_plies(mv, mover_is_white: bool) -> Optional[int]:
+    """Distance of a forced mate the mover HAD and the played move gave up.
+
+    `mate_info` is `{"before": n, "after": n}` on the move's own row, signed
+    and white-relative: positive means White mates, negative Black, zero means
+    the mate was delivered. Returns None unless the mate belonged to the mover
+    before the move and no longer does after it -- so a player who was being
+    mated, or who kept the mate, is not reported as having missed one.
+    """
+    info = mv.get("mate_info")
+    if not isinstance(info, dict):
+        return None
+
+    def mates_for_mover(value) -> bool:
+        return (
+            isinstance(value, int)
+            and value != 0
+            and (value > 0) == bool(mover_is_white)
+        )
+
+    before = info.get("before")
+    if not mates_for_mover(before) or mates_for_mover(info.get("after")):
+        return None
+    return abs(int(before))
+
+
 def classify_missed_tactic(mv, opponent_previous, opp_next) -> Tuple[Optional[str], Optional[str]]:
     fen = mv.get("fen_before")
     best = _best_move_uci(mv)
@@ -401,6 +427,33 @@ def classify_missed_tactic(mv, opponent_previous, opp_next) -> Tuple[Optional[st
             return ("missed_mate", _promote_severity("critical", mv))
     except (ValueError, AssertionError, TypeError):
         pass
+
+    # The check above only catches mate in ONE, because it asks whether the
+    # engine's own move ends the game. A forced mate in two or more was
+    # therefore filed as "generic tactic" -- measured over 2,000 of those
+    # observations, 41.5% had a forced mate for the mover that the played move
+    # threw away, which scales to roughly 2,990 of the 7,195 in that bucket and
+    # is about seven times the whole current missed_mate population.
+    #
+    # Mohit's instruction when a mate was filed as a skewer was that mate
+    # outranks every other name. A mate in three is no less a mate for taking
+    # an extra move to land.
+    #
+    # `mate_info` is the engine's own mate score, stored per move and
+    # white-relative and signed, so this reads it rather than replaying a
+    # principal variation: mate at the end of a PV is one line and does not by
+    # itself establish that the mate was forced.
+    # Severity is deliberately the same as mate in one, not scaled by depth.
+    # I built a depth split first -- critical within four, moderate beyond --
+    # and then measured it: all 831 lost mates in the sample are already
+    # promoted by `_promote_severity`, because a lost mate always carries a
+    # cp_loss at or above 400. The split would have changed the outcome on
+    # 0.0% of them, so it was a knob that implied depth mattered while doing
+    # nothing. Depth framing belongs to the caption layer, where it can
+    # actually act: "there was a forced mate here" is honest about a mate in
+    # nine without demanding a 600-1500 player find it.
+    if _lost_forced_mate_plies(mv, board.turn) is not None:
+        return ("missed_mate", _promote_severity("critical", mv))
 
     if tactic == "fork":
         return ("missed_fork", _promote_severity("critical", mv))

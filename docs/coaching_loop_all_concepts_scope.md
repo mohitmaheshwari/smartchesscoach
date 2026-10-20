@@ -471,3 +471,76 @@ reach relative to the precise set and needs tightening rather than inventing.
 over six motif/theme pairs, hard-negative control, reports both the loose and
 strict signals. Whenever a motif's reach justifies the ceremony, its precision
 gate is now one command.
+
+---
+
+## 13. The residue was mostly lost mates, and that one is nearly free
+
+§12 recommended characterising the generic bucket instead of guessing another
+motif. Doing so found the win that two motif guesses had missed.
+
+### 13.1 What the 7,195 actually are
+
+Walking the engine's own best line over 1,500 of them:
+
+| the best line | share |
+|---|---|
+| wins material within 4 plies | 50.9% |
+| **no material gain at all: positional** | **30.5%** |
+| wins material only later | 11.1% |
+| mate in the best line | 7.5% |
+
+The best move is a capture 51% of the time, a check 29%, quiet 20%. By phase,
+the endgame slice is 47% positional — so an endgame "missed tactic" usually
+is not one. And 17.5% of the played moves lose material outright, which is a
+different error from missing something.
+
+The 30.5% matter on their own: `missed_generic_tactic` is assigned on a
+200-centipawn loss with no motif match, so a third of the bucket is a
+**positional** loss wearing a tactical name. No authorization exists for the
+generic subtype, so it cannot reach a player as a focus today — the mislabel
+is internal, which is why this is recorded rather than treated as urgent.
+
+### 13.2 The finding: 41.5% had a forced mate and lost it
+
+`mate_info` is stored per move, signed and white-relative. Reading it over
+2,000 generic observations: **41.5% had a forced mate for the mover that the
+played move threw away.** Distances are flat — mate in two 79, three 69, four
+68, five 58, six 40, seven 46, eight 41, nine 46.
+
+The cause is one line. The classifier's mate check pushes the engine's move and
+asks `is_checkmate()`, which only ever catches **mate in one**. Everything
+longer fell through to generic.
+
+This is the cheap, high-reach fix the last two attempts were looking for, and
+it needs none of the ceremony a new motif needs: `missed_mate` already exists,
+`gap:missed_tactic:missed_mate` is already **PLAN** grade, the sentence is
+already authored, and the renderer already dispatches it.
+
+### 13.3 Measured effect
+
+Re-classifying 1,500 stored generic observations through the real classifier:
+**642 (42.8%) move out of the bucket into `missed_mate`** — about 3,079 of
+7,195, roughly seven times that concept's current 442 observations.
+
+For comparison, the two motif routes I recommended before measuring would have
+named about 130 (§12) and about 24 (remove_defender alone).
+
+### 13.4 One knob built, measured, and removed
+
+I first scaled severity by mate distance — critical within four, moderate
+beyond — on the reasoning that telling a 1200 player they missed a mate in
+nine is discouraging. Then I measured it: **all 831 lost mates are already
+promoted by `_promote_severity`**, because a lost mate always carries a
+cp_loss at or above 400. The split would have changed the outcome on **0.0%**
+of them.
+
+So it was removed. Depth framing belongs to the caption layer, where it can
+actually act — and renaming the label by depth would have been deleting a true
+detection to fix a framing problem.
+
+### 13.5 Caveat
+
+Observations are derived once at analysis time, so this changes newly analysed
+games only. The 7,195 stored rows keep their generic label until re-derived,
+exactly as the `missed_pin` authorization already warns for its own gate.
