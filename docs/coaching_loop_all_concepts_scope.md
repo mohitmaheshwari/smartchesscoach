@@ -283,3 +283,109 @@ defensible `applied` definition. For `destination_safety_exact` that is `outcome
 "handled"`. For a missed fork, "applied" means the player *took* an available fork, which
 is a different observation than "did not miss one" — and conflating them would manufacture
 successes. That definition, per shape, is the real work.
+
+---
+
+## 11. Why only three tactics — and why the rest are nearly free
+
+Mohit, on the three admitted motifs: *"what about attacking the defender, what
+about deflection, what about there is a lot?"* He is right, and the reason is
+one level below the admission table.
+
+### The ceiling is the subtype classifier, not the adapter
+
+`services/cognitive_gap_subtypes.py` cascades a missed tactic through exactly
+four motif names — fork, pin, skewer, discovered_attack — plus a
+prover-gated `missed_mate`, and everything else falls to a generic bucket:
+
+```python
+if (mv.get("cp_loss") or 0) >= 200:
+    return ("missed_generic_tactic", ...)
+```
+
+Measured over every `missed_pattern == "missed_tactic"` observation:
+
+| subtype | observations |
+|---|---|
+| **`missed_generic_tactic`** | **7,195** |
+| `missed_pin` | 1,513 |
+| `missed_skewer` | 1,021 |
+| `missed_fork` | 902 |
+| `missed_discovered_attack` | 480 |
+| `missed_mate` | 442 |
+
+**62% of missed tactics are unlabelled.** A generic row carries no motif hint
+at all — no shape id, no pattern field — so deflection and
+removing-the-defender misses are in there, unrecoverable without re-deriving.
+
+`detector_quality` already records why this matters: naming motifs
+individually was chosen over the generic bucket because a focus called
+"generic tactic" is *"the repetition problem wearing a different hat."*
+
+### The expensive part is already built
+
+`backend/data/theory/tactical_patterns.json` authors **17** motifs, including
+`removing_the_defender`, `deflection`, `decoy`, `overloaded_piece`,
+`interference`, `zwischenzug`, `trapped_piece`, `back_rank_weakness`,
+`discovered_check`, `pin_to_king`, `pin_to_queen`, `undefended_piece`,
+`double_attack`.
+
+And **eighteen provers exist**, each versioned with a `build_*_proof()` entry
+point:
+
+| prover | version |
+|---|---|
+| `removal_defender_puzzle_proof` | **v3** |
+| `deflection_puzzle_proof` | v1 |
+| `interference_puzzle_proof` | v1 |
+| `trapped_piece_puzzle_proof` | v1 |
+| `xray_attack_puzzle_proof` | v1 |
+| `back_rank_mate_puzzle_proof` | v1 |
+| plus | clearance, attraction, free_piece, advanced_pawn, defensive_move, forced_mate, fork, discovered_attack, aligned_tactic, destination_safety, piece_safety |
+
+So for roughly ten motifs the prover is written and the content is authored,
+and the classifier simply does not call it. The gap is a wire, not chess work
+— the same shape as the adapter filter, one layer down.
+
+### The part that makes this better than what I just shipped
+
+A prover takes a position and a move. Run it on the **engine's best move** and
+a true result means the motif was there and missed. Run it on the **played
+move** and a true result means the player executed it.
+
+That is a denominator-matched pair by construction, from one piece of code.
+
+It is strictly better than the admitted-shape table in §10, where `missed_fork`
+pairs a subtype against a separate `tactical_pattern_executed` vocabulary that
+happens to align, and where `ignored_king_attack` had to be withdrawn precisely
+because its two sides counted different populations. With a prover, that
+failure mode cannot arise.
+
+### The per-motif recipe, already proven once
+
+`missed_pin` is the worked example and it is the template:
+
+1. call the prover inside the subtype cascade; name `missed_<motif>` only when
+   it returns true, so the label is true by construction rather than measured
+2. register `gap:missed_tactic:missed_<motif>` at SHADOW
+3. verify the player-facing sentence per FEN
+4. promote to PLAN on that evidence
+5. add to the §10 admission table, applied side = the same prover on the played
+   move
+
+Step 1 is what `missed_pin` did when it was gated on
+`verify_created_alignment`: precision became 100% by construction and the three
+disagreeing precision estimates stopped mattering.
+
+### Cost, honestly
+
+Not free. Each motif needs the wiring, the per-FEN sentence check, and a
+re-derivation of stored observations — the 7,195 generic rows keep their label
+until re-derived, exactly as the `missed_pin` authorization already warns. And
+the subtype cascade is ordered, so inserting motifs changes which name a
+position gets when two apply; that ordering is a coaching judgement about which
+lesson is the more useful one to name, not a technical detail.
+
+**Revised breadth estimate:** 3 tactic concepts today → roughly 10–13 with the
+provers that already exist, bounded by sentence verification rather than by
+detection.
