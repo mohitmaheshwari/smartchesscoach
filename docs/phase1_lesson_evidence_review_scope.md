@@ -147,3 +147,85 @@ survived only until I ran the negative one.
 3. **Does a `false` ruling do anything beyond being a bug report?** It could strip a
    `mastered_at` already awarded. I would not: stripping on review feels punitive and the
    existing `mastery_stripped_*` fields already have their own semantics.
+
+---
+
+## 7. REVISION, same day — WS2 as written is impossible, and the surface is bigger than I said
+
+Measuring before building changed three things in this scope. Recording all of it,
+including the two places I read the wrong field and reported a misleadingly small number.
+
+### 7.1 The evidence surface is substantial, not scarce
+
+My first count said "365 graded attempts, 2 users, 5 pairs". That read `event['attempt']`,
+but `lesson_result` events nest theirs at `event['lesson_result']['attempt']`. The real
+figures:
+
+| | |
+|---|---|
+| `lesson_result` events | **6,124** |
+| distinct users | **38** |
+| distinct (user, concept) pairs | **42** — 30 of them with 10+ events |
+| `application.outcome` | **3,590 applied / 2,141 missed** / 393 not_measured |
+| `application.source_type` | **5,709 `organic_game`** / 370 lesson / 23 mixed_drill / 22 coached |
+
+The important line is the last one. 93% of this evidence is **game-derived**: the system
+already observes whether a player applies a concept in a *later real game*, which is
+precisely the vision's "demonstrated learning", with an honest 63/37 split. It is computed
+and then discarded.
+
+Caveat, and it is a real one: **5,759 of 6,124 events are one lesson**
+(`piece_safety.simple_hang`); the rest are `piece_safety` 350, `rook_endgames/lucena` 13,
+`king_and_pawn/key_squares` 1, `rook_endgames/active_rook` 1. The loop has been exercised
+on effectively one skill. So Phase 1's payoff is real but concentrated, and breadth is a
+separate problem from admission.
+
+### 7.2 WS2 cannot be built yet — the vocabularies do not meet
+
+| vocabulary | distinct ids | example |
+|---|---|---|
+| curriculum skills (lessons) | 5 in use | `piece_safety.simple_hang` |
+| mastery (`user_concept_understanding`) | 261 | `DEF_MOST_ATTACKED`, `END_OPPOSITION` |
+| observed (`move_observations`) | 63 | `destination_safety_exact` |
+| focus (`user_active_focus`) | 7 | `piece_safety` |
+| `pattern_catalog.json` | 35 | `missed_mate` |
+| detector registry | 48 | `endgame_opposition` |
+
+Lesson ids ∩ mastery ids = **zero**. All **995** mastered (user, concept) pairs sit on ids
+that have no lesson. So "a concept may reach `mastered_at` only with an approved
+demonstration" would strip all 995 — not because the evidence failed, but because the two
+sides cannot be joined at all. That is a vocabulary defect, not a standards decision, and
+shipping it would have looked like a tightening while actually deleting the feature.
+
+`pattern_catalog.json` is not the bridge: its 35 ids cover neither side (0 lesson ids,
+0 `DEF_`/`END_` ids). It is a sixth island.
+
+### 7.3 WS0 — one concept identity, derived not invented
+
+New keystone, ahead of everything else. Do **not** author a seventh mapping file.
+
+`detector_quality_id` already spans two layers: it is the authorization key in
+`detector_quality` (`gap:piece_safety:simple_hang`, `concept:endgame_opposition`) **and**
+it is already carried on lesson evidence at `lesson_result.application.detector_quality_id`.
+It is the only identity in the system that both an authority and an evidence record agree
+on. Adopt it as canonical and make the other stores carry it — `user_concept_understanding`
+and `move_observations` first, since those are the two WS2 needs.
+
+That is deriving from an existing key, which is what the single-source-of-truth rule asks
+for, rather than reconciling six vocabularies with a new table that would become a seventh.
+
+### 7.4 WS1 correction — stratify the queue, do not use corpus order
+
+§3 said corpus order, copying the detector-review house pattern. That is wrong here. The
+largest pair holds **1,405** events, so corpus order would hand a coach the same user and
+concept indefinitely. Serve one event per (user, concept) pair round-robin instead. The
+anti-self-selection property still has to hold — ordering must not favour `correct` —
+but it has to hold *within* a pair, not across the corpus.
+
+### 7.5 Revised dependency order
+
+**WS0** concept identity (unblocks everything) → **WS1** stratified review queue →
+**WS2** mastery reads reviewed evidence → **WS3** `concept_id` on cards.
+
+WS1 can proceed in parallel with WS0, because reviewing evidence does not require the
+join; only awarding mastery from it does.
