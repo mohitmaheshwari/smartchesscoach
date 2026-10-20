@@ -4223,8 +4223,42 @@ async def generate_game_decryption_v5(
                         f"[caption_v5] move {full_move_number} {move_san} "
                         f"extract/render failed: {_caption_exc}"
                     )
+                    # An EMPTY caption here hands the card to a floor that
+                    # does not know what the move cost, and that floor reads
+                    # cp as 0 and reaches for its friendliest line. Mohit
+                    # 2026-10-20, on his own game, move 7, badged Mistake:
+                    #
+                    #     "a calm move on a mistake, what the hell?"
+                    #
+                    # The card said "A calm move that keeps their position
+                    # solid." about a 100cp mistake, and on move 16 of the
+                    # same game about a move that threw away 952cp. The
+                    # fallback tier IS gated -- `if cp < _GOOD_CP` -- but the
+                    # gate is useless when extraction crashed, because the
+                    # facts it reads are gone and cp defaults to zero.
+                    #
+                    # Measured over 3,000 games: 984 calm captions, 3 of them
+                    # on moves losing 100cp or more. Rare, and the two worst
+                    # are 952cp and 337cp -- praise on a game-losing move.
+                    #
+                    # cp_loss is still in hand here, so say something true
+                    # instead of nothing. We do not know WHY the move was
+                    # bad -- that is what crashed -- so the sentence claims
+                    # nothing about the board, only what the engine already
+                    # settled.
+                    _crash_cp = int(_cpl or 0)
+                    if _crash_cp >= 300:
+                        _crash_text = ("This move gave a lot away. "
+                                       "Compare it with the engine's line "
+                                       "below.")
+                    elif _crash_cp >= 100:
+                        _crash_text = ("This move cost you something. "
+                                       "Compare it with the engine's line "
+                                       "below.")
+                    else:
+                        _crash_text = ""
                     caption_payload = {
-                        "caption": "",
+                        "caption": _crash_text,
                         "rule_name": "R_FALLBACK_extractor_crashed",
                         "highlight_squares": [],
                         "arrows": [],
