@@ -53,15 +53,21 @@ die()   { printf '    FAIL %s\n' "$1" >&2; exit 1; }
 # version bump look deployed while the regen supervisor was dead.
 DEPLOY_LOCK="${DEPLOY_LOCK:-/var/lock/chessguru-deploy.lock}"
 if command -v flock >/dev/null 2>&1; then
-  exec 9>"$DEPLOY_LOCK" || die "cannot open deploy lock $DEPLOY_LOCK"
+  # APPEND, not truncate. `9>` empties the file on open, so the refusing
+  # process wiped the holder line before reading it and the diagnostic was
+  # always blank -- a message that looks informative and never is. fd 9 only
+  # ever carries the lock; the holder line is written through a separate
+  # redirect once the lock is actually held.
+  exec 9>>"$DEPLOY_LOCK" || die "cannot open deploy lock $DEPLOY_LOCK"
   if ! flock -n 9; then
     printf '    FAIL another deploy holds %s\n' "$DEPLOY_LOCK" >&2
-    printf '         holder: %s\n' "$(cat "$DEPLOY_LOCK" 2>/dev/null || echo unknown)" >&2
+    printf '         holder: %s\n' \
+      "$(head -1 "$DEPLOY_LOCK" 2>/dev/null)" >&2
     printf '         NOTHING was deployed. Wait for it to finish, then re-run.\n' >&2
     exit 1
   fi
   printf 'pid %s started %s by %s\n' "$$" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-    "${SUDO_USER:-${USER:-unknown}}" >&9
+    "${SUDO_USER:-${USER:-unknown}}" > "$DEPLOY_LOCK"
   ok "deploy lock held ($DEPLOY_LOCK)"
 else
   printf '    note  flock unavailable; deploys are NOT serialised here\n'
