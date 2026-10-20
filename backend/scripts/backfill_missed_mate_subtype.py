@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import collections
+from datetime import datetime, timezone
 import os
 import sys
 
@@ -96,8 +97,14 @@ async def main() -> int:
             if args.apply:
                 await db.move_observations.update_one(
                     {"_id": observation["_id"]},
+                    # The stamp was a hardcoded "2026-10-06", so a row
+                    # relabelled by any later run would claim to have been
+                    # written on the day this script was first used. It is the
+                    # only record of when a stored label stopped being the
+                    # analyser's own output, so it has to be the real date.
                     {"$set": {"subtype": "missed_mate",
-                              "subtype_backfilled_at": "2026-10-06",
+                              "subtype_backfilled_at": datetime.now(
+                                  timezone.utc).date().isoformat(),
                               "subtype_backfill_was": was}},
                 )
                 counts["  WRITTEN"] += 1
