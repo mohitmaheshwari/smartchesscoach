@@ -1976,6 +1976,76 @@ def process_job(db, job):
             )
 
         # =========================================================================
+        # GAME STORY (2026-10-21) — what this game left the player
+        #
+        # Mohit: "each game leaves something ... trapped your queen, or miss
+        # mate in 1 ... but also inactive pieces for long time ... good and bad
+        # parts of a game, can we build it while the game gets analysed?"
+        #
+        # Built HERE because this is the one place that holds both halves at
+        # once: obs_list above is the sharp moments, and analysis_doc carries
+        # the move_evaluations the span trends are computed from. Deriving it
+        # at read time instead would depend on decryption_v5_data, which is
+        # generated lazily on first review -- so a game nobody opened would
+        # have no story.
+        #
+        # Non-fatal like its neighbours. A story is a nice-to-have on top of
+        # an analysis; it must never be the reason a game fails to analyse.
+        # =========================================================================
+        try:
+            from services.detector_quality import (
+                QualitySurface,
+                is_authorized,
+            )
+            from services.game_story import build_game_story
+
+            def _story_showable(quality_id):
+                # One authority decides what may be named to a player, and it
+                # is not this module. A Shadow moment is still STORED, so the
+                # story stays auditable before anything is published.
+                if not quality_id:
+                    return True
+                try:
+                    return is_authorized(quality_id, QualitySurface.CAPTION)
+                except Exception:
+                    return False
+
+            _recurring = [
+                str(row.get("topic_key"))
+                for row in db.user_active_focus.find(
+                    {"user_id": user_id, "status": "active"},
+                    {"_id": 0, "topic_key": 1},
+                )
+                if row.get("topic_key")
+            ]
+            _story = build_game_story(
+                observations=obs_list or [],
+                move_evaluations=(
+                    (analysis_doc.get("stockfish_analysis") or {})
+                    .get("move_evaluations") or []
+                ),
+                user_color=game.get("user_color") or "white",
+                recurring_ids=_recurring,
+                is_showable=_story_showable,
+            )
+            db.game_analyses.update_one(
+                {"game_id": game_id},
+                {"$set": {"game_story": _story}},
+            )
+            logger.info(
+                "[GAME-STORY] %s: headline=%s moments=%d spans=%d empty=%s",
+                game_id,
+                (_story.get("headline") or {}).get("id"),
+                len(_story.get("moments") or []),
+                len(_story.get("spans") or []),
+                _story.get("is_empty"),
+            )
+        except Exception as story_err:
+            logger.warning(
+                "[GAME-STORY] build failed (non-fatal): %s", story_err,
+            )
+
+        # =========================================================================
         # PHASE 3.3b: UPDATE STRENGTH PROFILE
         # Tracks what user is GOOD at (tactics, calculation, positional, etc.)
         # =========================================================================
