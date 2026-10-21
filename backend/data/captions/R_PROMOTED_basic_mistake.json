@@ -15,7 +15,13 @@
     "blocked_pawn_square": "Target square the blocked pawn would have advanced to.",
     "blocked_pawn_would_support": "Central pawn square the blocked pawn would have supported diagonally.",
     "blocked_pawn_would_prepare": "Central square the blocked pawn push would have PREPARED — a user pawn on the file behind it can advance there next. Parth fb_6e38c6a6f53e: the d4-break-prep case, e.g. c3 prepares d4 when the d-pawn sits on d3.",
-    "board_state_clause": "Pre-rendered string from board_state_describer (1-3 facts joined)."
+    "board_state_clause": "Pre-rendered string from board_state_describer (1-3 facts joined).",
+    "abandoned_guard_shape": "NO_GUARD / SHORT_QUIET / SHORT_CHECK — the mover walked away from guarding one of their own men and the engine's stored line collects it. Ranked above with_board_state and the position-flavour variants because a verified material cause outranks a board description, and because with_losing_position renders \"doesn't change much here\" on cards where a pawn is verifiably lost.",
+    "abandoned_guard_piece": "The piece that walked away from the job.",
+    "abandoned_guard_verb": "\"pushed\" for a pawn that did not capture, \"moved\" otherwise.",
+    "abandoned_lost_piece": "The man it had been guarding.",
+    "abandoned_lost_square": "The square that man stands on.",
+    "abandoned_taken_san": "SAN of the move that collects it in the stored line."
   },
   "severity_tiers": [
     {"when": {"severity_practical": "blunder"}, "tier": "blunder"},
@@ -38,6 +44,7 @@
     {"when": {"blocked_pawn_would_support": "present"}, "variant": "with_blocked_pawn_supports"},
     {"when": {"blocked_pawn_would_prepare": "present"}, "variant": "with_blocked_pawn_prepares"},
     {"when": {"blocked_pawn_file": "present"}, "variant": "with_blocked_pawn"},
+    {"when": {"abandoned_guard_shape": "present", "abandoned_guard_verb": "present", "abandoned_guard_piece": "present", "abandoned_lost_piece": "present", "abandoned_lost_square": "present", "abandoned_taken_san": "present"}, "variant": "with_abandoned_guard"},
     {"when": {"board_state_clause": "present"}, "variant": "with_board_state"},
     {"when": {"user_is_winning": true, "cp_loss": {"lt": 250}}, "variant": "with_winning_position"},
     {"when": {"user_is_losing": true, "cp_loss": {"lt": 250}}, "variant": "with_losing_position"},
@@ -47,6 +54,7 @@
   "variants": {
     "default": "{move_san} {severity_phrase}. {best_move} was better.",
     "silent_positional_preference": "",
+    "with_abandoned_guard": "{move_san} {severity_phrase} — you {abandoned_guard_verb} the {abandoned_guard_piece} that was guarding your {abandoned_lost_piece} on {abandoned_lost_square}, and {abandoned_taken_san} wins it. {best_move} was better.",
     "with_board_state": "{move_san} {severity_phrase}. {best_move} was better. {board_state_clause}",
     "with_blocked_pawn_supports": "{move_san} {severity_phrase} — it blocks your {blocked_pawn_file}-pawn. {best_move} would have supported your {blocked_pawn_would_support} pawn.",
     "with_blocked_pawn_prepares": "{move_san} {severity_phrase}. {best_move} (the pawn push) was preparing your {blocked_pawn_would_prepare} break — the central pawn break in this structure. With {move_san}, the {blocked_pawn_file}-pawn is locked in and you can no longer push to {blocked_pawn_would_prepare}.",

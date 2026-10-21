@@ -11043,6 +11043,63 @@ def shared_attack_squares(
     return sorted(found)
 
 
+def _abandoned_own_guard_facts(
+    board_before: chess.Board,
+    played_san: str,
+    pv_after_played: Sequence[str],
+    mover_cp_loss: int,
+) -> Dict[str, Any]:
+    """Facts for "you walked away from your own guard".
+
+    The mirror of `_removes_the_only_guard`, which explains taking THEIR
+    guard. This one explains leaving OURS, and it is the shape behind the card
+    Mohit sent back on 2026-10-21 -- e5 pushing the pawn that was holding d5,
+    captioned "This move cost you something".
+
+    The clauses live in `services/contrastive_reasoner.q_abandoned_own_defender`
+    because the same question also answers for the reasoner bank, and a second
+    copy here is how a concept ends up with three services that disagree. This
+    function only adapts its answer into facts the caption rules can read.
+
+    Returns an empty dict when the question stays quiet, so every key is
+    simply absent rather than present-and-None.
+    """
+    from services.contrastive_reasoner import q_abandoned_own_defender
+
+    after = board_before.copy()
+    try:
+        after.push(board_before.parse_san(str(played_san)))
+    except (ValueError, AssertionError, TypeError):
+        return {}
+    answer = q_abandoned_own_defender({
+        "before": board_before,
+        "after": after,
+        "played_san": str(played_san),
+        "best_san": "",
+        "pv_best": [],
+        "pv_played": list(pv_after_played or []),
+        "cp_loss": mover_cp_loss,
+    })
+    if not answer:
+        return {}
+
+    # Shape, verb and check come from the question. Nothing here recomputes
+    # them: the full three-sentence card in `self_removal_caption.py` renders
+    # the same answer, and a concept whose shape is decided twice is a concept
+    # that will eventually tell a player two different things.
+    return {
+        "abandoned_guard_shape": answer["shape"],
+        "abandoned_guard_piece": answer["guard"],
+        "abandoned_guard_square": answer["guard_from"],
+        "abandoned_guard_verb": answer["guard_verb"],
+        "abandoned_lost_piece": answer["lost"],
+        "abandoned_lost_square": answer["square"],
+        "abandoned_taker_piece": answer["taken_by"],
+        "abandoned_taken_san": answer["taken_san"],
+        "abandoned_guard_gives_check": answer["gives_check"],
+    }
+
+
 def extract_facts(
     *,
     fen_before: str,
@@ -12065,8 +12122,17 @@ def extract_facts(
     except Exception:
         pass
 
+    # Did this move walk away from one of our own guards? The gate inside
+    # needs the loss as the MOVER saw it: cp_loss is the user's and reads 0 on
+    # an opponent card, which would hand the question a free pass on exactly
+    # the cards Mohit asked to see explained for both sides.
+    _abandoned_guard = _abandoned_own_guard_facts(
+        board_before, played_san, pv_after_played or [],
+        abs(int((cp_loss if mover_is_user is not False else opp_cp_loss) or 0)))
+
     # ── Build the facts dict ───────────────────────────────────────────
     facts: Dict[str, Any] = {
+        **_abandoned_guard,
         # ENGINE TRUTH (pass-through)
         "cp_loss": cp_loss,
         "developed_eyes_piece": developed_eyes_piece,
@@ -12351,6 +12417,18 @@ def extract_facts(
                     f"you moved your {moved_piece} away from defending {hanging_sq}"
                 )
             break
+
+    # A second lead clause for the abandoned-guard shape was built here and
+    # removed on 2026-10-21, measured rather than argued. It extended the clause
+    # above into the family TAC_HANGING_PIECE cannot see -- the piece still had
+    # a guard and fell anyway -- and over 500 games it reached a player on
+    # ZERO cards. R12's `failure_abandoned_own_guard` and
+    # R_PROMOTED_basic_mistake's `with_abandoned_guard` take every one of them
+    # first, and they say the cause AND the payoff in one clause instead of a
+    # lead that another template then has to make room for.
+    #
+    # Left as a note because the facts are still here and the next person to
+    # want a lead for this shape should know it was tried and shadowed.
 
     # ── You moved a piece because it was attacked, and you did not have to ──
     #

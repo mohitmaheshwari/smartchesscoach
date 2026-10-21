@@ -4349,6 +4349,25 @@ def apply_promotion_ladder_dispatch(
 
             "board_state_clause": caption_facts.get("board_state_clause"),
 
+            # "You walked away from your own guard" -- R_PROMOTED_basic_mistake
+            # has a `with_abandoned_guard` variant and this dict is a whitelist,
+            # so without these six keys its predicate can never be true and the
+            # variant is unreachable. That is exactly how Mohit's own e5 card
+            # stayed generic: the facts were present and verified on the board,
+            # R12 had a clause for them, and his card does not render through
+            # R12 at all -- with its real move history it goes
+            # R_TIER2_center -> R_PROMOTED_basic_mistake and read "e5 is a
+            # mistake. a6 was better. Opening moves earn their keep by
+            # controlling the center..." A true sentence about nothing in that
+            # position.
+            "abandoned_guard_shape": caption_facts.get("abandoned_guard_shape"),
+            "abandoned_guard_piece": caption_facts.get("abandoned_guard_piece"),
+            "abandoned_guard_square": caption_facts.get("abandoned_guard_square"),
+            "abandoned_guard_verb": caption_facts.get("abandoned_guard_verb"),
+            "abandoned_lost_piece": caption_facts.get("abandoned_lost_piece"),
+            "abandoned_lost_square": caption_facts.get("abandoned_lost_square"),
+            "abandoned_taken_san": caption_facts.get("abandoned_taken_san"),
+
             "blocked_pawn_file": caption_facts.get("blocked_pawn_file"),
             "blocked_pawn_square": caption_facts.get("blocked_pawn_square"),
             "blocked_pawn_would_support": caption_facts.get("blocked_pawn_would_support"),

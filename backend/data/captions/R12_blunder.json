@@ -143,7 +143,16 @@
     "own_alignment_rear_square": "square of that rear unit",
     "own_alignment_entry_square": "the square the enemy slider steps to",
     "own_alignment_attacker_piece": "the enemy sliding piece doing the skewering",
-    "own_alignment_best_guards_entry": "true when the engine's best move covers the square the enemy slider wanted"
+    "own_alignment_best_guards_entry": "true when the engine's best move covers the square the enemy slider wanted",
+    "abandoned_guard_shape": "NO_GUARD / SHORT_QUIET / SHORT_CHECK - the mover walked away from guarding one of their own men and the engine's stored line collects it",
+    "abandoned_guard_piece": "the piece that walked away from the job",
+    "abandoned_guard_square": "the square it walked away from",
+    "abandoned_guard_verb": "pushed for a pawn that did not capture, else moved",
+    "abandoned_lost_piece": "the man it had been guarding",
+    "abandoned_lost_square": "the square that man stands on",
+    "abandoned_taker_piece": "the piece that collects it in the stored line",
+    "abandoned_taken_san": "the SAN of the move that collects it",
+    "abandoned_guard_gives_check": "true when that capture arrives with check"
   },
   "requires": [
     "played_san"
@@ -566,6 +575,17 @@
     },
     {
       "when": {
+        "abandoned_guard_shape": "present",
+        "abandoned_guard_verb": "present",
+        "abandoned_guard_piece": "present",
+        "abandoned_lost_piece": "present",
+        "abandoned_lost_square": "present",
+        "abandoned_taken_san": "present"
+      },
+      "variant": "failure_abandoned_own_guard"
+    },
+    {
+      "when": {
         "opp_reply_san": "present",
         "opp_reply_captures_piece_type": "present",
         "opp_reply_captures_square": "present",
@@ -733,7 +753,8 @@
     "opp_failure_wrong_piece_square": "Before you move, ask which of your pieces wants that square most",
     "back_rank_no_escape": "A king behind three of its own pawns needs an escape square made early, not found in a hurry",
     "failure_saved_instead_of_counter_attack": "When something of yours is attacked, look for your own attack before you move it",
-    "failure_skewers_our_line": "When two of your pieces share a line, ask what happens if the front one must move"
+    "failure_skewers_our_line": "When two of your pieces share a line, ask what happens if the front one must move",
+    "failure_abandoned_own_guard": "Before you move a piece, check what it is holding"
   },
   "_failure_mode_promotion_note": "v100 (2026-06-02): the 'why played wrong' two-clause system. failure_mode_clauses_user is parallel to why_clauses_user — it produces a failure-mode clause (e.g. 'walks into Nb7 attacking the bishop') that the wrapper variants render BEFORE the alternative-promotion clause. When no concrete alternative-promotion fact fires but a failure clause did, teaching_principles supplies a universal teaching line instead of a naked '{best} was better.' See docs/why_played_wrong_spec.md for the design. Triggered by Mohit's 2026-06-01 feedback batch (fb_3efccdbbf15e / fb_3d530eea5dd9 / fb_1cd7562468d1 / fb_79c33cd39b67) where 'h4 was better — it attacks Bg3' was the WRONG caption because the played move Bb2 walked into Nb7. Earlier 2026-06-01 predicate reorder (commit 72f21dfe, reverted in b0694980) proved that reordering alone produces non-sequitur wrappings and doesn't cover failure modes whose victim differs from the played piece — hence the two-clause architecture.",
   "_user_engine_meta_dropped_note": "v94 (2026-05-25): why_user_missed_material ('it wins material in the resulting line') + why_user_reply ('Opponent's strongest reply: X') removed entirely. Mohit 2026-05-25 on Tier B Q2: 'stop pretending every move deserves a concrete caption. silence is NOT always worse. silence is better than fake explanation. V5's biggest strength is supposed to be: only speak when grounded. Don't betray that principle because you fear empty UI.' These two why-clauses were the last engine-speak fallbacks — they fired when no concrete detector had a reason to give, and surfaced engine moves without explaining WHY. Now: when no concrete why-clause fires on a user mistake, the why_clause stays empty and the variant selector falls to user_with_best ('X is a mistake. Y was better.') without engine-meta apologies. Result: ~30-40% more user-side mistake-tier moves render without a why-clause, but the ones that DO render are grounded.",
@@ -1228,7 +1249,8 @@
     "failure_saved_instead_of_counter_attack": "moved your {saved_piece} out of the attack from {saved_piece_attacker_square}, but you didn't have to — {best_move_san} attacks their {counter_attack_piece} on {counter_attack_square} instead, and then both are attacked",
     "failure_skewers_our_line": "allows {opp_reply_san}, skewering your {own_alignment_front_piece} on {own_alignment_front_square} — when it moves, your {own_alignment_rear_piece} on {own_alignment_rear_square} goes too",
     "user_with_skewer_guard_and_principle": "{played_san} {failure_clause}. {best_move_san} covers {own_alignment_entry_square}. {teaching_principle}.",
-    "user_with_skewer_and_principle": "{played_san} {failure_clause}. {best_move_san} was better. {teaching_principle}."
+    "user_with_skewer_and_principle": "{played_san} {failure_clause}. {best_move_san} was better. {teaching_principle}.",
+    "failure_abandoned_own_guard": "{abandoned_guard_verb} the {abandoned_guard_piece} that was guarding your {abandoned_lost_piece} on {abandoned_lost_square}, and {abandoned_taken_san} wins it"
   },
   "_failure_mode_clauses_user_story_note": "2026-10-07 - the five clauses that ASSERT we lose material now require move_story == 'punishment'. Mohit: \"worry about the foundation, the logic, the core that keeps it working perfectly.\" move_story is the one verdict the arrows already answer to; it walks BOTH stored engine lines and says whether material moved and in which direction. These clauses were gated on single-move board geometry, which is true and not the same thing: on move 10 of 043d6b9c our knight captured a knight on d2 and was recaptured, an even trade, and 'leaves your knight on d2 undefended' plus 'you simply lose it for nothing' both fired because the knight standing on d2 has no defender. Geometry describes the square; the verdict describes the exchange."
 }
