@@ -298,6 +298,72 @@
       "family": "Forks",
       "example_fen": null,
       "canonical_concept_id": "TAC_FORK_PATTERN"
+    },
+    "simple_hang": {
+      "human_name": "Left a piece undefended",
+      "short_description": "A piece was left where it could be taken for free.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "destination_safety_exact": {
+      "human_name": "Moved a piece somewhere unsafe",
+      "short_description": "The piece landed on a square the opponent could take it on.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "tactical_seq_loss": {
+      "human_name": "A trade that went wrong",
+      "short_description": "A sequence of captures ended up losing material.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "small_slip": {
+      "human_name": "A small slip",
+      "short_description": "A move that gave a little away without changing the game.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "ignored_king_attack": {
+      "human_name": "Missed a threat to your king",
+      "short_description": "The opponent was building against the king and the move looked elsewhere.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "missed_pin": {
+      "human_name": "A pin you could have played",
+      "short_description": "A piece could have been frozen in front of something it must protect.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "missed_skewer": {
+      "human_name": "A skewer you could have played",
+      "short_description": "Two pieces stood in a line, so winning the back one was possible.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "missed_generic_tactic": {
+      "human_name": "A chance that went by",
+      "short_description": "There was something better here than the move played.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "found_best_in_critical": {
+      "human_name": "Found the best move when it mattered",
+      "short_description": "The position was sharp and the strongest move was the one played.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "punished_opponent_blunder": {
+      "human_name": "Took what was offered",
+      "short_description": "The opponent gave something away and it was collected.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "responded_to_threat": {
+      "human_name": "Answered a threat",
+      "short_description": "The opponent threatened something and the reply dealt with it.",
+      "family": "Game story",
+      "example_fen": null
     }
   }
 }
