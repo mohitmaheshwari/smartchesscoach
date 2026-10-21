@@ -56,6 +56,7 @@ from services.contrastive_reasoner import (
     SYMPTOM,
     q_abandoned_own_defender,
     q_blocked_a_plan,
+    q_pushed_past_the_support,
     q_engine_undoes_it,
     q_returns_home,
 )
@@ -85,6 +86,16 @@ class MoveUnderStudy:
     pv_best: Sequence[str] = ()
     cp_loss: Optional[int] = None
     mover_is_user: bool = True
+    # Other good moves, best first, each with its own continuation:
+    # [{move_san, eval_cp, line_san}] as stockfish_service.get_candidate_lines
+    # returns them. Empty when nobody paid for an engine.
+    #
+    # The questions read `pv_best` -- the single best line -- and that is all
+    # they could ever see. On Mohit's move-5 position the lesson sat in the
+    # engine's THIRD choice: Nc6 (+30) against the best Nf6 (+58). A plan the
+    # player gave up does not stop mattering because the engine marginally
+    # preferred a different one.
+    candidates: Sequence[Dict[str, Any]] = ()
 
     def board_before(self) -> chess.Board:
         return chess.Board(self.fen_before)
@@ -204,6 +215,12 @@ PIECE_CP = {"pawn": 100, "knight": 300, "bishop": 300,
 # mated while the card explained that their piece came back.
 POSITIONAL_MAX_CP = 900
 
+# How far below the best a candidate may be and still count as "a plan the
+# player could have had". why_on_demand uses 50 for the same judgement and
+# says why: it will not recommend a move materially worse than the engine's
+# best just because it made a tidier story. Same number, same reason.
+CANDIDATE_CLOSENESS_CP = 50
+
 # How far a material claim may sit ABOVE the engine's own number before it is
 # describing a different event.
 #
@@ -293,6 +310,12 @@ REGISTRY: Tuple[Question, ...] = (
              subject=("san",), inherent=True),
     Question("abandoned_own_defender", CAUSE, q_abandoned_own_defender,
              subject=("square",), claim_cp=_lost_man_cp),
+    # Its claim is about a square that can never be reached again, which is a
+    # fact about THIS move: after the better move the pawn is still on its
+    # start square and the support is still available. So it is inherent in
+    # the same sense blocked_a_plan is.
+    Question("pushed_past_the_support", CAUSE, q_pushed_past_the_support,
+             subject=("weak_pawn",)),
     Question("engine_undoes_it", EVIDENCE, q_engine_undoes_it, subject=(),
              challenge=_retreat_was_voluntary),
     Question("returns_home", SYMPTOM, q_returns_home, subject=(),
@@ -345,6 +368,53 @@ def _ctx(move: MoveUnderStudy, played_san: str, pv_played: Sequence[str],
         "pv_played": list(pv_played or ()),
         "cp_loss": move.cp_loss,
     }
+
+
+def _ask_against_candidates(question: Question, move: MoveUnderStudy
+                            ) -> Optional[Dict[str, Any]]:
+    """Re-ask using each strong alternative as the better move.
+
+    The engine's top choice is one opinion about a position that may have
+    several good plans. On Mohit's move-5 card the lesson was in the engine's
+    THIRD line and the question, reading only the best one, said nothing.
+
+    Only moves close to the best are used, so this widens the search for a
+    lesson without inventing a better move the engine does not endorse. The
+    answer is still checked by the differential and the size rule exactly as
+    the primary one is -- this changes which lines are READ, never what counts
+    as proof.
+    """
+    if not move.candidates:
+        return None
+    best_cp = None
+    for cand in move.candidates:
+        cp = cand.get("eval_cp")
+        if cp is None:
+            continue
+        if best_cp is None:
+            best_cp = int(cp)
+        if int(cp) < best_cp - CANDIDATE_CLOSENESS_CP:
+            break
+        san = str(cand.get("move_san") or "")
+        if not san or san == move.played_san or san == move.best_san:
+            continue
+        line = [str(x) for x in (cand.get("line_san") or [])]
+        # get_candidate_lines leads with the candidate itself; the questions
+        # expect the continuation AFTER it, the way pv_after_best is stored.
+        if line and line[0] == san:
+            line = line[1:]
+        ctx = _ctx(move, move.played_san, move.pv_played, san, line)
+        if ctx is None:
+            continue
+        try:
+            answer = question.ask(ctx)
+        except Exception:
+            logger.exception("candidate ask: %s raised", question.concept)
+            continue
+        if answer:
+            answer["from_candidate"] = san
+            return answer
+    return None
 
 
 def _subject_of(answer: Dict[str, Any], fields: Tuple[str, ...]):
@@ -458,6 +528,8 @@ def reason_about(move: MoveUnderStudy, probe: Optional[Probe] = None
         except Exception:
             logger.exception("question %s raised", question.concept)
             continue
+        if not answer:
+            answer = _ask_against_candidates(question, move)
         if not answer:
             continue
         differential = _run_differential(question, answer, move)

@@ -425,3 +425,135 @@ def reason(board_before: chess.Board, played_san: str, best_san: str,
         if r:
             found.append(r)
     return sorted(found, key=lambda r: -r["tier"])
+
+
+# ── Q5 (CAUSE) ── did a pawn push go one square too far? ──
+def q_pushed_past_the_support(ctx) -> Optional[Dict[str, Any]]:
+    """The pawn that could have held your weak pawn ran past the square.
+
+    Mohit's move-5 position, 2026-10-21:
+
+        rnbqk1nr/ppp1bppp/8/3p4/8/2N2N2/PPPPQPPP/R1B1KB1R b KQkq - 3 5
+        played c5, best Nf6, cp_loss 48
+
+    Every layer was silent on it and every layer was right to be: no move of
+    the better line became illegal, and nothing was guarding anything yet, so
+    neither shipped question could see it. The lesson is a square:
+
+        c6  +35   d5 defended by c6 and d8
+        c5   +0   d5 defended by d8 alone
+
+    The same pawn, one square further, for 35 centipawns. Black's e-pawn had
+    already become the d5 pawn via exd5, so c7-c6 was the ONLY pawn support
+    d5 could ever have, and c5 goes past it. After that no black pawn can
+    reach c6 or e6 at all -- d5 is a piece's job forever.
+
+    And it is NOT about development: d4 is a pawn move at +57, level with Nf6
+    at +58, while h6 at +40 beats Nc6 at +29. A "bring your pieces out" lesson
+    would be the wrong lesson on this card.
+
+    Five board clauses:
+
+      1 the move is a pawn's DOUBLE push, so there is a square it skipped
+      2 a pawn standing on that skipped square would defend one of our pawns
+      3 that pawn is attacked and has no pawn defending it
+      4 no friendly pawn can ever reach a square that supports it, now
+      5 and this move is why -- before it, one could
+
+    Clause 4 is what makes it permanent rather than a tempo. A pawn cannot go
+    back, so a support square skipped is a support square gone.
+    """
+    b, after = ctx["before"], ctx["after"]
+    us = b.turn
+    try:
+        played = b.parse_san(str(ctx["played_san"]))
+    except Exception:
+        return None
+    mover = b.piece_at(played.from_square)
+    if mover is None or mover.piece_type != chess.PAWN:
+        return None
+    # 1) a double push: there is a square it stepped over
+    f_rank = chess.square_rank(played.from_square)
+    t_rank = chess.square_rank(played.to_square)
+    if abs(t_rank - f_rank) != 2:
+        return None
+    if chess.square_file(played.from_square) != chess.square_file(played.to_square):
+        return None                      # a capture cannot be a double push
+    skipped = chess.square(chess.square_file(played.from_square),
+                           (f_rank + t_rank) // 2)
+
+    # 2) what would our pawn have defended from there?
+    probe = chess.Board()
+    probe.clear()
+    probe.set_piece_at(skipped, chess.Piece(chess.PAWN, us))
+    for target in sorted(probe.attacks(skipped)):
+        held = b.piece_at(target)
+        if held is None or held.color != us or held.piece_type != chess.PAWN:
+            continue
+        # 3) is that pawn actually under pressure, and unsupported by a pawn?
+        if not b.attackers(not us, target):
+            continue
+        if _pawn_defenders(b, target, us):
+            continue
+        # 5) a pawn COULD have supported it before the move...
+        if not _a_pawn_can_still_support(b, target, us):
+            continue
+        # 4) ...and cannot now
+        if _a_pawn_can_still_support(after, target, us):
+            continue
+        return {"tier": CAUSE, "id": "pushed_past_the_support",
+                "played_san": str(ctx["played_san"]),
+                "pawn_from": chess.square_name(played.from_square),
+                "pawn_to": chess.square_name(played.to_square),
+                "skipped": chess.square_name(skipped),
+                "short_push": _san_of_single_push(b, played.from_square, skipped),
+                "weak_pawn": chess.square_name(target),
+                "file": chess.FILE_NAMES[chess.square_file(played.from_square)]}
+    return None
+
+
+def _support_squares(target: int, us: bool):
+    """The two squares a friendly PAWN would defend `target` from."""
+    back = -1 if us == chess.WHITE else 1
+    rank = chess.square_rank(target) + back
+    if not 0 <= rank <= 7:
+        return []
+    out = []
+    for df in (-1, 1):
+        f = chess.square_file(target) + df
+        if 0 <= f <= 7:
+            out.append(chess.square(f, rank))
+    return out
+
+
+def _pawn_defenders(board, target: int, us: bool):
+    return [s for s in board.attackers(us, target)
+            if (p := board.piece_at(s)) and p.piece_type == chess.PAWN]
+
+
+def _a_pawn_can_still_support(board, target: int, us: bool) -> bool:
+    """Is there a friendly pawn that could ever reach a support square?
+
+    Pawns do not go backwards, so "behind the square, on its file" is the
+    whole test. It is deliberately generous -- it does not ask whether the
+    path is clear -- because the claim we want to make is the STRONG one:
+    nobody can ever get there.
+    """
+    for sq in _support_squares(target, us):
+        if (p := board.piece_at(sq)) and p.color == us and p.piece_type == chess.PAWN:
+            return True
+        file_ = chess.square_file(sq)
+        rank_ = chess.square_rank(sq)
+        ranks = range(rank_ - 1, -1, -1) if us == chess.WHITE else range(rank_ + 1, 8)
+        for r in ranks:
+            p = board.piece_at(chess.square(file_, r))
+            if p and p.color == us and p.piece_type == chess.PAWN:
+                return True
+    return False
+
+
+def _san_of_single_push(board, frm: int, to: int) -> str:
+    try:
+        return board.san(chess.Move(frm, to))
+    except Exception:
+        return ""
