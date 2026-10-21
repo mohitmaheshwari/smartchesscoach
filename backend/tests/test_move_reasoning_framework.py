@@ -292,12 +292,21 @@ class TestTheRegistryIsCoherent:
             if not q.inherent:
                 assert isinstance(q.subject, tuple), q.concept
 
-    def test_only_the_genuinely_comparing_question_is_exempt(self):
-        """blocked_a_plan earns its exemption: its claim is ABOUT the better
-        line, so it cannot be true of the better move. Nothing else should be
-        quietly exempted again."""
+    def test_only_the_genuinely_comparing_questions_are_exempt(self):
+        """An exemption has to be earned by the question's own shape, and the
+        point of pinning the set is that it cannot be granted QUIETLY.
+
+        blocked_a_plan: its claim is ABOUT the better line -- "the better line
+        plays this and your move made it illegal" -- so it cannot be true of
+        the better move.
+
+        left_it_loose: its third clause IS the comparison. It only answers
+        when the better move cures what the played move leaves loose, so a
+        finding that survived after the better move is not reachable.
+
+        Anything else added here needs the same argument written down."""
         exempt = {q.concept for q in REGISTRY if q.inherent}
-        assert exempt == {"blocked_a_plan"}, exempt
+        assert exempt == {"blocked_a_plan", "left_it_loose"}, exempt
 
     def test_concepts_are_unique(self):
         names = [q.concept for q in REGISTRY]

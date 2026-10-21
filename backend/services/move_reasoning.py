@@ -56,6 +56,7 @@ from services.contrastive_reasoner import (
     SYMPTOM,
     q_abandoned_own_defender,
     q_blocked_a_plan,
+    q_left_it_loose,
     q_pushed_past_the_support,
     q_engine_undoes_it,
     q_returns_home,
@@ -316,6 +317,12 @@ REGISTRY: Tuple[Question, ...] = (
     # the same sense blocked_a_plan is.
     Question("pushed_past_the_support", CAUSE, q_pushed_past_the_support,
              subject=("weak_pawn",)),
+    # Inherent: its third clause IS the comparison -- it only answers when the
+    # better move cures what the played move leaves. It cannot be true of the
+    # better move by construction.
+    Question("left_it_loose", CAUSE, q_left_it_loose,
+             subject=("square",), inherent=True,
+             claim_cp=lambda a: PIECE_CP.get(str(a.get("loose") or ""))),
     Question("engine_undoes_it", EVIDENCE, q_engine_undoes_it, subject=(),
              challenge=_retreat_was_voluntary),
     Question("returns_home", SYMPTOM, q_returns_home, subject=(),

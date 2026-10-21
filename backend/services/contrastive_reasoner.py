@@ -557,3 +557,83 @@ def _san_of_single_push(board, frm: int, to: int) -> str:
         return board.san(chess.Move(frm, to))
     except Exception:
         return ""
+
+
+# ── Q6 (CAUSE) ── it was already loose and you did not hold it ──
+def q_left_it_loose(ctx) -> Optional[Dict[str, Any]]:
+    """Something of ours was ALREADY hanging. The better move held it.
+
+    Found by reasoning over a stratified sample of cards the framework could
+    not explain, 2026-10-21. Two of eleven were the same story and nothing
+    could see it:
+
+        Rae1 (best Rfd1, 188cp)   d4 was loose before the move and after it;
+                                  Rfd1 defends d4
+        Rf1  (best Rc1,  313cp)   c3 was loose before the move and after it;
+                                  Rc1 defends c3
+
+    Measured over 500 games: 1,874 cards carry a loose man, on 520 of them the
+    better move holds what the played move leaves, and 493 of those are
+    currently silent -- more than the whole framework explains today.
+
+    Five clauses, four on the board and one on the engine's stored line:
+
+      1 one of ours is attacked with NO defender before we move
+      2 our move does not fix it -- it neither defends it nor moves it away
+      3 the better move DOES fix it, which is the differential built in: this
+        cannot be a fact about the position if the other move cures it
+      4 and in their line they take it
+      5 and we do not win it back on that square
+
+    Clause 4 is the one that keeps this honest, and it costs reach: 267 of the
+    493. A man that is loose and never taken is a risk, not a cost, and this
+    repo has been wrong often enough when it called the first the second.
+    """
+    b, after = ctx["before"], ctx["after"]
+    us = b.turn
+    best_san = str(ctx.get("best_san") or "")
+    if not best_san:
+        return None
+    try:
+        played = b.parse_san(str(ctx["played_san"]))
+    except Exception:
+        return None
+    after_best = b.copy()
+    try:
+        after_best.push(b.parse_san(best_san))
+    except Exception:
+        return None
+
+    line = list(ctx.get("pv_played") or [])
+    if not line:
+        return None
+
+    def loose(board):
+        return {s for s, p in board.piece_map().items()
+                if p.color == us and p.piece_type != chess.KING
+                and board.attackers(not us, s) and not board.attackers(us, s)}
+
+    before_loose = loose(b)
+    if not before_loose:
+        return None
+    still_loose = before_loose & loose(after)
+    fixed_by_best = still_loose - loose(after_best)
+    if not fixed_by_best:
+        return None
+
+    for square in sorted(fixed_by_best, key=lambda s: -_VALUE[b.piece_at(s).piece_type]):
+        man = b.piece_at(square)
+        if man is None:
+            continue
+        taken = _taken_and_kept(after, line, square, us)
+        if not taken:
+            continue
+        return {"tier": CAUSE, "id": "left_it_loose",
+                "played_san": str(ctx["played_san"]),
+                "loose": chess.piece_name(man.piece_type),
+                "square": chess.square_name(square),
+                "best_san": best_san,
+                "taken_by": taken["by"],
+                "taken_san": taken["san"],
+                "gives_check": taken["gives_check"]}
+    return None
