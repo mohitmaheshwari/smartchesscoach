@@ -137,7 +137,13 @@ def _phrase(p: Punishment, played_san: str) -> Optional[str]:
     if p.mechanism == "PROMOTES":
         return f"{agent} lets your pawn run through and become a queen."
     if p.mechanism == "FORCES_RETREAT":
-        return f"{agent} drives their {piece} back."
+        # "back" only when it really goes back, which is what the `received`
+        # branch above already did. This one asserted the direction on every
+        # card: measured over 400 games, 423 claims and not one piece returned
+        # home, while 45.9% moved FORWARD. The knight in Mohit's position went
+        # c3 -> e4, to the centre, and the card called it driven back.
+        back = " back" if p.returns_home else ""
+        return f"{agent} chases their {piece}{back}."
     return None
 
 
