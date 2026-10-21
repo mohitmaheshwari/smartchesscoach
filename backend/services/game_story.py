@@ -260,26 +260,36 @@ def build_game_story(
     ]
     spans.sort(key=lambda s: _rank_key(s, recurring), reverse=True)
 
-    chosen = moments[:MAX_MOMENTS]
+    # Select from what may actually be SHOWN, not from everything ranked.
+    # The slice used to run before the showable filter, so an unnameable
+    # moment ate a display slot: one of Mohit's games spent slot 1 on
+    # missed_generic_tactic (Shadow, cannot be named) and showed two moments
+    # where three were available. The full ranked list is still stored, so
+    # nothing is lost from the record -- only the display picks from the
+    # subset it is allowed to speak about.
+    showable_ranked = [m for m in moments if showable(m.get("detector_quality_id"))]
+    chosen = showable_ranked[:MAX_MOMENTS]
     # The guarantee. A plain top-N is all-negative in most games because
     # negatives are both more numerous and more severe, so if the player did
     # something right this story says so -- swapping the weakest chosen
     # negative rather than growing the list.
     if not any(m["polarity"] == "positive" for m in chosen):
         positive = next(
-            (m for m in moments if m["polarity"] == "positive"), None)
+            (m for m in showable_ranked if m["polarity"] == "positive"), None)
         if positive is not None:
             chosen = (chosen[:MAX_MOMENTS - 1] + [positive]) if chosen \
                 else [positive]
 
-    shown = [m for m in chosen if showable(m.get("detector_quality_id"))]
+    shown = chosen
     headline = shown[0] if shown else (spans[0] if spans else None)
 
     return {
         "schema_version": SCHEMA_VERSION,
         "user_move_count": summary.get("user_move_count", 0),
         "headline": headline,
-        "moments": chosen,
+        # Everything ranked, for the record and any later audit.
+        "moments": moments[:MAX_MOMENTS * 2],
+        # What may be said out loud.
         "moments_showable": shown,
         "spans": spans[:MAX_SPANS],
         # An empty story is a fact about the game, not missing coverage, and
