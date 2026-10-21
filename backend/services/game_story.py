@@ -54,7 +54,12 @@ from services.severity import classify_severity_practical
 # no longer leads with a compliment, a hidden deciding mistake is located by
 # its move instead of vanishing, and `home_lines` is the cut the home card
 # shows. Scope: docs/game_story_on_screen_scope.md.
-SCHEMA_VERSION = "game_story.v3"
+#
+# v4, 2026-10-22: unnamed catch-all labels are no longer merged into one
+# moment, and 395 stored "missed pin" labels were relabelled after the pin
+# prover stopped accepting pins the front piece can take. Stories stored as
+# v3 can hold either, so they are rebuilt on read.
+SCHEMA_VERSION = "game_story.v4"
 
 MAX_MOMENTS = 3          # the headline plus two
 MAX_SPANS = 2
@@ -347,10 +352,19 @@ def build_game_story(
     # highest-ranked example of each id survives and the rest are dropped.
     # Repetition is the SPAN layer's job: it already says how many moves a
     # pattern lasted.
+    #
+    # Only a NAMED kind is merged. A label the player cannot be shown is a
+    # catch-all, not a kind: on 2026-10-22, after the false-pin relabel, game
+    # 56b6c294 had 13...Nxg5 and 16...Ng5 both stored as
+    # missed_generic_tactic, the merge kept Nxg5, and Ng5 -- the move that let
+    # Rh1 trap the queen -- vanished from the story.
     _seen_ids = set()
     deduped = []
     for moment in moments:
-        key = (moment.get("polarity"), str(moment.get("id")))
+        named = showable(moment.get("detector_quality_id")) and bool(
+            moment.get("display_name"))
+        key = (moment.get("polarity"), str(moment.get("id"))) if named \
+            else (moment.get("polarity"), str(moment.get("id")), moment.get("ply"))
         if key in _seen_ids:
             continue
         _seen_ids.add(key)

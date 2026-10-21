@@ -124,6 +124,30 @@ class TestAnsweredAThreatNeverLeads:
                    for m in result["moments_showable"])
 
 
+class TestOnlyNamedKindsAreMerged:
+    def test_two_unnamed_mistakes_both_stay(self):
+        """Game 56b6c294 after the false-pin relabel: Nxg5 and Ng5 both
+        became missed_generic_tactic and the merge dropped Ng5, the move that
+        let Rh1 trap the queen."""
+        nxg5 = decisive_mistake(move_number=13, ply=26, move_san="Nxg5",
+                                severity="moderate", cp_loss=188)
+        ng5 = decisive_mistake(move_number=16, ply=32, move_san="Ng5",
+                               severity="critical", cp_loss=952)
+        result = story([nxg5, ng5], outcome="win")
+        kept = {m["move_san"] for m in result["moments"]}
+        assert kept == {"Nxg5", "Ng5"}
+        # The worse of the two is the one located for the player.
+        assert result["headline"]["move_san"] == "Ng5"
+
+    def test_a_named_kind_is_still_merged(self):
+        a = decisive_mistake("simple_hang", "piece_safety", move_number=13,
+                             ply=26, move_san="Nxg5")
+        b = decisive_mistake("simple_hang", "piece_safety", move_number=16,
+                             ply=32, move_san="Ng5")
+        result = story([a, b], outcome="win")
+        assert [m["id"] for m in result["moments"]].count("simple_hang") == 1
+
+
 class TestHomeLines:
     def test_at_most_three(self):
         many = [decisive_mistake("simple_hang", "piece_safety"),

@@ -44,6 +44,14 @@ _PROJECTION = {
     "stockfish_analysis.move_evaluations.best_move_uci": 1,
     "stockfish_analysis.move_evaluations.cp_loss": 1,
     "stockfish_analysis.move_evaluations.eval_before": 1,
+    # `_promote_severity` reads the stored grade. The first --apply run on
+    # 2026-10-22 left it out and wrote every relabelled row's severity
+    # unpromoted -- Ng5 in game 56b6c294, which threw away a won game, went
+    # from critical to moderate. --repair-severity puts them back.
+    "stockfish_analysis.move_evaluations.evaluation": 1,
+    "stockfish_analysis.move_evaluations.pv_best_uci": 1,
+    "stockfish_analysis.move_evaluations.pv": 1,
+    "stockfish_analysis.move_evaluations.best_line": 1,
     "stockfish_analysis.move_evaluations.eval_after": 1,
     # The classifier's mate branch reads mate_info; leaving it out silently
     # changes its answer (see backfill_missed_mate_subtype).
@@ -56,10 +64,16 @@ _PROJECTION = {
 async def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--apply", action="store_true")
+    ap.add_argument(
+        "--repair-severity", action="store_true",
+        help="recompute severity on rows this script already relabelled")
     args = ap.parse_args()
 
     from motor.motor_asyncio import AsyncIOMotorClient
     db = AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
+
+    if args.repair_severity:
+        return await repair_severity(db, apply=args.apply)
 
     counts: collections.Counter = collections.Counter()
     samples = []
@@ -100,6 +114,9 @@ async def main() -> int:
                     "subtype_backfill_was": "missed_pin",
                     "subtype_backfill_reason": "front_piece_can_break_alignment",
                 }
+                stored_row = await db.move_observations.find_one(
+                    {"_id": row["_id"]}, {"severity": 1})
+                update["severity_backfill_was"] = (stored_row or {}).get("severity")
                 if severity:
                     update["severity"] = severity
                 await db.move_observations.update_one(
@@ -114,6 +131,63 @@ async def main() -> int:
     for sample in samples:
         print(f"    {sample[0]} m{sample[1]:<4} {str(sample[2]):<7} best={str(sample[3]):<7} -> {sample[4]}")
     print(f"\n  games touched: {len({g for g in by_game})} with a stored pin")
+    return 0
+
+
+async def repair_severity(db, *, apply: bool) -> int:
+    """Recompute severity on the rows the first run relabelled.
+
+    The subtype those rows got was right: the stored grade only changes
+    severity, never which subtype the classifier returns. Every row is
+    re-asked with the full projection, and a row whose subtype would now come
+    out differently is reported and left alone.
+    """
+    counts: collections.Counter = collections.Counter()
+    samples = []
+    rows = await db.move_observations.find(
+        {"subtype_backfill_reason": "front_piece_can_break_alignment"},
+        {"_id": 1, "game_id": 1, "move_number": 1, "move_san": 1,
+         "subtype": 1, "severity": 1},
+    ).to_list(length=None)
+    counts["relabelled rows"] = len(rows)
+    by_game = collections.defaultdict(list)
+    for row in rows:
+        by_game[row["game_id"]].append(row)
+    for game_id, game_rows in by_game.items():
+        analysis = await db.game_analyses.find_one({"game_id": game_id}, _PROJECTION)
+        evaluations = ((analysis or {}).get("stockfish_analysis") or {}).get(
+            "move_evaluations") or []
+        index = {(e.get("move_number"), e.get("move")): e for e in evaluations
+                 if not e.get("is_opponent_move")}
+        for row in game_rows:
+            mv = index.get((row.get("move_number"), row.get("move_san")))
+            if mv is None:
+                counts["  no matching stored evaluation"] += 1
+                continue
+            subtype, severity = classify_missed_tactic(mv, None, None)
+            if (subtype or "missed_generic_tactic") != row.get("subtype"):
+                counts["  subtype would differ, left alone"] += 1
+                continue
+            if not severity or severity == row.get("severity"):
+                counts["  severity already right"] += 1
+                continue
+            counts[f"  {row.get('severity')} -> {severity}"] += 1
+            if len(samples) < 8:
+                samples.append((str(game_id)[:8], row.get("move_number"),
+                                row.get("move_san"), row.get("severity"), severity))
+            if apply:
+                await db.move_observations.update_one(
+                    {"_id": row["_id"]},
+                    {"$set": {"severity": severity,
+                              "severity_repaired_at": datetime.now(
+                                  timezone.utc).date().isoformat()}})
+                counts["  WRITTEN"] += 1
+    mode = "APPLIED" if apply else "DRY RUN (nothing written)"
+    print(f"=== severity repair, {mode} ===")
+    for key, value in counts.most_common():
+        print(f"  {key:<46} {value}")
+    for sample in samples:
+        print(f"    {sample[0]} m{sample[1]:<4} {str(sample[2]):<7} {sample[3]} -> {sample[4]}")
     return 0
 
 
