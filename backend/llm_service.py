@@ -70,6 +70,7 @@ async def _call_claude(
     model: str = CLAUDE_DEFAULT_MODEL,
     max_tokens: int = 1024,
     cache_system: bool = False,
+    reasoning_effort: str = "",
 ) -> str:
     """
     Anthropic Claude API call.
@@ -130,17 +131,43 @@ def _get_openai_client():
     return _openai_client
 
 
-async def _call_openai(system_message: str, user_message: str, model: str = "gpt-4o-mini") -> str:
+# Models that think before they answer. They reject `max_tokens` (it must be
+# `max_completion_tokens`), they accept `reasoning_effort`, and they bill the
+# thinking as output: measured 2026-10-21, gpt-6-luna spent 2,262 of 2,413
+# completion tokens on reasoning for a 151-token answer. Left at default
+# effort a small budget is consumed entirely by thinking and the answer comes
+# back EMPTY, which is how this first looked like a JSON parse error.
+_REASONING_MODELS = ("gpt-6-", "gpt-5.6-", "o1", "o3", "o4")
+
+
+def _is_reasoning_model(model: str) -> bool:
+    return any(model.startswith(p) for p in _REASONING_MODELS)
+
+
+async def _call_openai(system_message: str, user_message: str,
+                       model: str = "gpt-4o-mini", *,
+                       max_tokens: int = 0,
+                       reasoning_effort: str = "") -> str:
     """Direct OpenAI API call (legacy callers passing gpt-* model ids)."""
     client = _get_openai_client()
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
+    kwargs = {
+        "model": model,
+        "messages": [
             {"role": "system", "content": system_message},
             {"role": "user", "content": user_message},
         ],
-        temperature=0.7,
-    )
+    }
+    if _is_reasoning_model(model):
+        # No temperature: these models reject it. The budget must leave room
+        # for an answer AFTER the thinking, so it is deliberately generous.
+        kwargs["max_completion_tokens"] = max_tokens or 2000
+        if reasoning_effort:
+            kwargs["reasoning_effort"] = reasoning_effort
+    else:
+        kwargs["temperature"] = 0.7
+        if max_tokens:
+            kwargs["max_tokens"] = max_tokens
+    response = await client.chat.completions.create(**kwargs)
     return response.choices[0].message.content
 
 
@@ -163,6 +190,7 @@ async def call_llm(
     *,
     max_tokens: int = 1024,
     cache_system: bool = False,
+    reasoning_effort: str = "",
 ) -> str:
     """
     Call LLM with provider selection by model prefix.
@@ -176,7 +204,10 @@ async def call_llm(
             system_message, user_message, model,
             max_tokens=max_tokens, cache_system=cache_system,
         )
-    return await _call_openai(system_message, user_message, model)
+    return await _call_openai(
+        system_message, user_message, model,
+        max_tokens=max_tokens, reasoning_effort=reasoning_effort,
+    )
 
 
 async def call_tts(text: str, voice: str = "onyx", model: str = "tts-1") -> bytes:
