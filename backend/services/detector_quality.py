@@ -185,8 +185,16 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
     "gap:missed_tactic:missed_pin": Authorization(
         # PROMOTED 2026-09-29, after the detector was GATED rather than argued
         # with. It now emits missed_pin only where
-        # verify_created_alignment(kind="pin") backs it, so precision is 100%
-        # by construction and no measurement has to be trusted.
+        # verify_created_alignment(kind="pin") backs it.
+        #
+        # CORRECTED 2026-10-22: "100% by construction" was only as true as the
+        # prover, and the prover accepted pins the front piece could simply
+        # take. Game 56b6c294: "bishop on c3 pins b2 to a1", answered by bxc3.
+        # 388 of 1,457 stored fires rested on it. The prover now refuses a
+        # line the front piece can break by capturing and winning material
+        # (front_can_break_alignment), and
+        # scripts/backfill_false_pin_subtype.py relabels the stored rows.
+        # A gate is exactly as precise as the thing it gates on.
         #
         # Gating rather than measuring was the right move because the numbers
         # disagreed and could not be reconciled. Over all 1,471 stored fires:

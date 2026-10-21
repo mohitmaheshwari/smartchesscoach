@@ -107,7 +107,13 @@ def test_a_move_matching_two_shapes_gets_one_deterministic_name():
     The name only chooses the exercise. The rate does not depend on it."""
     first = observe(MISSED_FEN, MISSED_BEST, MISSED_PLAYED)["pattern"]
     again = observe(MISSED_FEN, MISSED_BEST, MISSED_PLAYED)["pattern"]
-    assert first == again == "pin"
+    assert first == again
+    # Not "pin": 2026-10-22, the "pin" here was the f1 rook against the king,
+    # and that rook simply takes the queen on d1. A piece is not pinned by
+    # something it can capture and win material doing so
+    # (front_can_break_alignment). Whether "fork" is fair is a question for
+    # the fork prover; the queen is recaptured at once.
+    assert first != "pin"
 
 
 def test_another_sound_move_still_counts_as_missing_THIS_chance():

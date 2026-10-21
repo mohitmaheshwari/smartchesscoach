@@ -83,12 +83,78 @@ def _ray_alignments(
     return found
 
 
+def front_can_break_alignment(
+    board: chess.Board,
+    attacker_square: int,
+    front_square: int,
+) -> bool:
+    """Can the front piece simply take the attacker without losing on the swap?
+
+    A piece is not pinned by something it can capture. Game 56b6c294,
+    2026-10-21: after 13...Bxc3 the prover reported "bishop on c3 pins the b2
+    pawn to the a1 rook", and the story told the player "A pin you could have
+    played". White's reply was bxc3. The real idea was Bxc3 bxc3 Nxc3, a fork.
+    388 of 1,457 stored missed_pin labels rested on this.
+
+    The capture breaks the line only when it WINS material: the attacker is
+    worth more than the front piece, or nothing recaptures it. Two cases stay:
+
+      - an even trade, rook for rook or bishop for bishop. Three hand-verified
+        pins in the aligned-payoff evidence packet are exactly this, and in
+        each the engine's own line has the defender decline the trade because
+        it loses to something else. An even trade does not make a pin false.
+      - a capture that loses material: a queen in front of a defended bishop
+        that skewers her CAN take it and loses herself doing so.
+
+    And a capture that wins material still keeps the line real when it walks
+    into mate in one. Packet case 3b610887: the f6 bishop can take the g5
+    bishop for free, and Re8 is then mate, so the pin holds. Deeper refutations
+    are not searched -- this prover stays engine-free.
+    """
+    front = board.piece_at(front_square)
+    attacker = board.piece_at(attacker_square)
+    if front is None or attacker is None or front.color == attacker.color:
+        return False
+    probe = board.copy(stack=False)
+    if probe.turn != front.color:
+        probe.turn = front.color
+        probe.ep_square = None
+    capture = next(
+        (m for m in probe.legal_moves
+         if m.from_square == front_square and m.to_square == attacker_square),
+        None,
+    )
+    if capture is None:
+        return False
+    wins_material_outright = _value(attacker) > _value(front)
+    probe.push(capture)
+    if not wins_material_outright and probe.is_attacked_by(
+            attacker.color, attacker_square):
+        return False
+    return not _mate_in_one(probe)
+
+
+def _mate_in_one(board: chess.Board) -> bool:
+    """Does the side to move have a mating move right now?"""
+    for move in board.legal_moves:
+        board.push(move)
+        mate = board.is_checkmate()
+        board.pop()
+        if mate:
+            return True
+    return False
+
+
 def verify_created_alignment(
     board_before: chess.Board,
     move: Any,
     kind: str,
 ) -> Optional[dict]:
-    """Independently prove that a legal move creates a new pin or skewer."""
+    """Independently prove that a legal move creates a new pin or skewer.
+
+    A line the front piece can break by taking the attacker is not a pin or
+    skewer at all; see `front_can_break_alignment`.
+    """
     wanted = str(kind or "").strip().lower()
     if wanted not in {"pin", "skewer"}:
         return None
@@ -106,6 +172,8 @@ def verify_created_alignment(
         if key not in before
         and value.get("kind") == wanted
         and value.get("attacker_square") == played.to_square
+        and not front_can_break_alignment(
+            after_board, value["attacker_square"], value["front_square"])
     ]
     if not created:
         return None
@@ -579,6 +647,15 @@ def build_aligned_tactic_proof(
     pre_existing = bool(candidate.get("alignment_pre_existing"))
     if (key in before_independent and not pre_existing) or (
         independent_alignment and independent_alignment["kind"] != kind
+    ):
+        independent_alignment = None
+    # The same rule the classifier gate uses: a line the front piece can break
+    # by taking the attacker is not a pin or skewer, whatever the stored line
+    # later wins.
+    if independent_alignment is not None and front_can_break_alignment(
+        after,
+        independent_alignment["attacker_square"],
+        independent_alignment["front_square"],
     ):
         independent_alignment = None
     if independent_alignment is not None and pre_existing:

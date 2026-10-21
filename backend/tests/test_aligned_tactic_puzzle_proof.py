@@ -12,7 +12,10 @@ from services.verified_puzzle_builder import build_position_verdict
 
 PIN_FEN = "7k/3q3p/2r5/8/2B5/8/8/7K w - - 0 1"
 PIN_LINE = ("Bb5", "h6", "Bxc6", "Qxc6")
-SKEWER_FEN = "7k/3r3p/2q5/8/2B5/8/8/K7 w - - 0 1"
+# The a4 pawn defends b5. Without it the queen simply takes the bishop, and a
+# "skewer" the front piece can take for free is not one
+# (front_can_break_alignment, 2026-10-22).
+SKEWER_FEN = "7k/3r3p/2q5/8/P1B5/8/8/K7 w - - 0 1"
 SKEWER_LINE = ("Bb5", "Qc8", "Bxd7", "Qxd7")
 
 
