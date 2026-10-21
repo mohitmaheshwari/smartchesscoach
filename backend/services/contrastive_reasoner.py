@@ -65,9 +65,52 @@ def q_blocked_a_plan(ctx) -> Optional[Dict[str, Any]]:
                for m in probe.legal_moves):
             continue
         piece = b.piece_at(mv.from_square)
+        # Did OUR move do the blocking, or did it merely become illegal for
+        # some other reason? Only the first is a cause we can put in a card.
+        # "Nc3 blocks your own c-pawn" is a lesson; "c4 is no longer legal"
+        # with the knight somewhere else entirely is a coincidence.
+        played = None
+        try:
+            played = b.parse_san(str(ctx["played_san"]))
+        except Exception:
+            pass
+        # A move cannot block itself. The better line often plays the SAME
+        # move a few plies later, and having already played it we can no
+        # longer play it again -- which is legally true and says nothing.
+        # Measured over 1,273 cards before this guard: most of the pawn-push
+        # fires were exactly this, producing "Your pawn on h5 blocks your own
+        # h-pawn. The better line plays h5." The Nc3 card never showed it
+        # because there the blocked move is a different move entirely, which
+        # is what comes of validating a question on one position.
+        # The same guard covers a second shape found the same way: the blocked
+        # move is made by the piece we just MOVED. "Your pawn on d6 blocks
+        # your own d-pawn. The better line plays d5" is the d-pawn talking
+        # about itself -- it went d7-d6, so d7-d5 is gone. Same origin square
+        # means same man, and a man cannot stand in his own way.
+        if played is not None and (
+                mv.from_square == played.from_square
+                or str(san) == str(ctx["played_san"])):
+            continue
+        in_the_way = False
+        if played is not None:
+            path = chess.SquareSet.between(mv.from_square, mv.to_square)
+            path.add(mv.to_square)
+            in_the_way = played.to_square in path
+        mover = b.piece_at(played.from_square) if played is not None else None
         return {"tier": CAUSE, "id": "blocked_a_plan", "san": san,
                 "piece": chess.piece_name(piece.piece_type) if piece else "piece",
-                "square": chess.square_name(mv.to_square)}
+                "square": chess.square_name(mv.to_square),
+                "from_square": chess.square_name(mv.from_square),
+                "is_pawn_push": bool(
+                    piece and piece.piece_type == chess.PAWN
+                    and not b.is_capture(mv)),
+                "file": chess.FILE_NAMES[chess.square_file(mv.from_square)],
+                "in_the_way": in_the_way,
+                "played_piece": (chess.piece_name(mover.piece_type)
+                                 if mover else "piece"),
+                "played_to": (chess.square_name(played.to_square)
+                              if played is not None else ""),
+                }
     return None
 
 

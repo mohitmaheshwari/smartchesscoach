@@ -6782,6 +6782,53 @@ def _say_the_move_is_undone(undone, mover_is_user, chasers=None):
             f"The move loses time.")
 
 
+def _say_the_plan_is_blocked(blocked, mover_is_user):
+    """One plain sentence for a move that stands in its own side's way.
+
+    Mohit 2026-10-21, on move 6 Nc3 of his own game, which the card described
+    as "Their knight comes straight back to b1. The move loses time.":
+
+        "I think the NC3 blocks your own c pawn gives a better study, of chess
+         you know, the other caption is more to just to dhwatever wihtout any
+         learning, that's more of cramming part... we are teaching them the
+         concepts"
+
+    He is right twice over. The knight is never attacked on c3 -- the engine
+    walks it back to b1 to regroup via d2 -- so "loses time" reads the
+    manoeuvre backwards. And the reason the move is an inaccuracy is sitting
+    one square away: the knight stands in front of its own c-pawn, c4 is legal
+    before it and illegal after, and the engine's own line plays c4 next.
+
+    Which is the whole point of the tier order. The reasoner returns all three
+    answers on that card -- blocked_a_plan (CAUSE), engine_undoes_it
+    (EVIDENCE), returns_home (SYMPTOM) -- and the shipped caption spoke the
+    symptom because nothing told it that causes outrank consequences.
+
+    Returns "" unless OUR move is the thing in the way. A move of the better
+    line that became illegal for some unrelated reason is a coincidence, not
+    a lesson, and this sentence would be a confident wrong claim about it.
+    """
+    if not blocked or not blocked.get("in_the_way"):
+        return ""
+    whose = "Your" if mover_is_user else "Their"
+    their = "your" if mover_is_user else "their"
+    played_piece = blocked.get("played_piece") or "piece"
+    where = blocked.get("played_to") or ""
+    san = blocked.get("san") or ""
+    if not where or not san:
+        return ""
+    if not blocked.get("is_pawn_push"):
+        # The "took the square your own piece wanted" branch is real -- a queen
+        # landing on d7 where the knight belonged is a lesson -- but reading
+        # the corpus it produced lines like "Your bishop on b2 takes the square
+        # your own bishop wanted for Bb2", and the claim is weaker anyway
+        # because the piece usually has another square. It stays quiet until it
+        # has been read through on its own terms.
+        return ""
+    return (f"{whose} {played_piece} on {where} blocks {their} own "
+            f"{blocked.get('file')}-pawn. The better line plays {san}.")
+
+
 # 6 -> 8 to match the arrow budget. The card joins steps to arrows by
 # from/to and prints only the ones that pair, so a step list shorter than
 # the arrows leaves the payoff arrow -- the dark-red one, the whole point
@@ -9275,11 +9322,40 @@ def build_move_teaching_decision(
         # the reason, and it is on the board. 17x against its own base rate;
         # the positional detector rejected the day before ran at 1.2x.
         if _story == "neither" and not _mate_on_the_board:
+            # CAUSE before SYMPTOM. "The knight comes straight back to b1" is
+            # what you watch happen; "the knight blocks its own c-pawn" is why
+            # it happens, and only the second one transfers to the next game.
+            # Both are true of Mohit's move 6 Nc3 and the card spoke the
+            # weaker one. When the cause answers, it leads and the undone
+            # narration is dropped rather than appended -- two explanations of
+            # one move read as a card that cannot make its mind up.
+            _blocked_line = ""
+            try:
+                from services.contrastive_reasoner import q_blocked_a_plan
+                _b_before = chess.Board(inputs.fen_before)
+                _b_after = _b_before.copy()
+                _b_after.push(_b_before.parse_san(inputs.played_san))
+                _blocked_line = _say_the_plan_is_blocked(
+                    q_blocked_a_plan({
+                        "before": _b_before,
+                        "after": _b_after,
+                        "played_san": inputs.played_san,
+                        "best_san": inputs.best_move_san or "",
+                        "pv_best": list(inputs.pv_after_best or ()),
+                        "pv_played": list(inputs.pv_after_played or ()),
+                    }),
+                    bool(inputs.mover_is_user),
+                )
+            except Exception as _blk_exc:
+                logger.warning(
+                    f"[blocked_plan] m{inputs.full_move_number}: {_blk_exc!r}")
+                _blocked_line = ""
+
             _undone = move_is_undone(
                 inputs.fen_before, inputs.played_san,
                 list(inputs.pv_after_played or ()),
             )
-            _undone_line = _say_the_move_is_undone(
+            _undone_line = _blocked_line or _say_the_move_is_undone(
                 _undone,
                 bool(inputs.mover_is_user),
                 cheaper_chasers(inputs.fen_before, inputs.played_san)
@@ -9298,7 +9374,8 @@ def build_move_teaching_decision(
                     f"{_undone_line} {_tail}" if _tail else _undone_line
                 )
                 caption_payload["rule_name"] = (
-                    (caption_payload.get("rule_name") or "") + "→MOVE_UNDONE"
+                    (caption_payload.get("rule_name") or "")
+                    + ("→PLAN_BLOCKED" if _blocked_line else "→MOVE_UNDONE")
                 )
                 _board_explanation = caption_payload["caption"]
 
