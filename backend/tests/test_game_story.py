@@ -166,3 +166,29 @@ class TestShowableGate:
                        move_evaluations=rows,
                        is_showable=lambda _qid: False)
         assert result["headline"] is None or result["headline"]["kind"] == "span"
+
+
+class TestNoRepetition:
+    def test_the_same_mistake_takes_one_slot(self):
+        """The first real story spent two of three slots on one subtype.
+
+        It fired at moves 21 and 22, true both times. A player takes away
+        "you keep ignoring attacks on your king", not two instances of it --
+        and how often it happened is the span layer's job, which already
+        counts moves.
+        """
+        repeated = [negative("ignored_king_attack", move_number=n)
+                    for n in (21, 22, 23)]
+        result = story(repeated + [negative("simple_hang", move_number=30)])
+        ids = [m["id"] for m in result["moments"]]
+        assert len(ids) == len(set(ids)), f"story repeated itself: {ids}"
+        assert "simple_hang" in ids, (
+            "dropping duplicates should free a slot for a different mistake"
+        )
+
+    def test_a_positive_and_a_negative_sharing_a_name_both_survive(self):
+        # Polarity is part of the key, so "responded_to_threat" as a success
+        # is not deduped against a negative of the same name.
+        result = story([negative("responded_to_threat"),
+                        positive(responded_to_threat=True)])
+        assert len({(m["polarity"], m["id"]) for m in result["moments"]}) == 2

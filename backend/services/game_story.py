@@ -189,6 +189,22 @@ def build_game_story(
 
     moments = [m for m in (_moment_from(o) for o in observations or []) if m]
     moments.sort(key=lambda m: _rank_key(m, recurring), reverse=True)
+    # One slot per kind of mistake. The first real story this produced spent
+    # two of its three slots on ignored_king_attack at moves 21 and 22 -- true
+    # both times, and a waste of the story. A player takes away "you keep
+    # ignoring attacks on your king", not two instances of it, so the
+    # highest-ranked example of each id survives and the rest are dropped.
+    # Repetition is the SPAN layer's job: it already says how many moves a
+    # pattern lasted.
+    _seen_ids = set()
+    deduped = []
+    for moment in moments:
+        key = (moment.get("polarity"), str(moment.get("id")))
+        if key in _seen_ids:
+            continue
+        _seen_ids.add(key)
+        deduped.append(moment)
+    moments = deduped
 
     summary = compute_game_summary(
         decryption_v5_data=_user_moves_for_summary(move_evaluations, user_color),
