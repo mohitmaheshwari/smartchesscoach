@@ -85,7 +85,22 @@ def _better_suffix(facts: Dict[str, Any]) -> str:
 
 
 def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tuple[str, str]:
-    cp = int(facts.get("cp_loss") or 0)
+    # The MOVER's own loss, for the same reason _better_suffix above says:
+    # facts["cp_loss"] is 0 on an opponent card. Reading it here meant every
+    # opponent card arrived at the never-silence floor looking like a quiet
+    # move, sailed under `cp < _GOOD_CP`, and got praised. Measured over 300
+    # games at cp_loss >= 100: 88 of 312 opponent cards (28.2%) were praised,
+    # against 26 of 1,519 user cards. It is the bug Mohit reported on v226 --
+    # "a calm move on a mistake, what the hell?" -- surviving on the half the
+    # v226 fix did not cover.
+    cp = int(facts.get("mover_cp_loss") or facts.get("cp_loss") or 0)
+    # May this card COMMEND the move? Only when the engine did not fault it.
+    # The tier-3 floor already carried this gate -- "gated so we don't praise
+    # a real slip" -- but the tier-2 branches above it did not, so they went
+    # on calling a 118cp mistake "a strong central square the opponent can't
+    # easily challenge". Describing is still allowed on a flagged move; the
+    # honest R_TIER3_quiet_slip branch at the bottom does exactly that.
+    _may_commend = cp < _GOOD_CP
 
     # Flagged mistake whose WHY we couldn't derive (e.g. narrator HELD): name the
     # stronger move ONLY for a REAL mistake. A marginal engine preference (e.g. 1...d5
@@ -214,7 +229,7 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
             tail = "." + _suf
         return (base + tail, "R_TIER2_capture")
 
-    if facts.get("is_castling"):
+    if _may_commend and facts.get("is_castling"):
         return (f"{sub} castle{'' if sub=='You' else 's'} — the king tucks away safely "
                 f"and the rook becomes active.", "R_TIER2_castle")
 
@@ -229,13 +244,13 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
     _tsq = facts.get("target_square") or ""
     _central = _tsq in _CENTER
 
-    if facts.get("played_move_principle") == "outpost":
+    if _may_commend and facts.get("played_move_principle") == "outpost":
         # "outpost" is on the banned-jargon list (600-1500 audience) — describe
         # the idea in plain terms instead. 2026-06-23.
         return (f"{sub} post{'' if sub=='You' else 's'} the knight on a strong central "
                 f"square the opponent can't easily challenge." + _suf, "R_TIER2_outpost")
 
-    if _develops(facts):
+    if _may_commend and _develops(facts):
         _vb = "develop" if sub == "You" else "develops"
         # Eyes an enemy piece? Name it (board-verified). The eyed piece belongs to the
         # side NOT moving, so its possessive is the opposite of the mover's.
@@ -251,7 +266,7 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
         return (f"{sub} {_vb} the {piece}, bringing a new piece into the game." + _suf,
                 "R_TIER2_develop")
 
-    if facts.get("is_pawn_move"):
+    if _may_commend and facts.get("is_pawn_move"):
         file_ = _tsq[0] if _tsq else ""
         fclause = f"the {file_}-pawn" if file_ else "a pawn"
         if _central:
@@ -260,11 +275,11 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
         return (f"{sub} push{'' if sub=='You' else 'es'} {fclause}, claiming a little space."
                 + _suf, "R_TIER2_pawn")
 
-    if facts.get("played_move_principle") == "rook_open_file":
+    if _may_commend and facts.get("played_move_principle") == "rook_open_file":
         return (f"{sub} put{'' if sub=='You' else 's'} the {piece} on the open file — "
                 f"rooks belong on open files." + _suf, "R_TIER2_rook_file")
 
-    if facts.get("threats_created"):
+    if _may_commend and facts.get("threats_created"):
         if _central:
             return (f"{sub} post{'' if sub=='You' else 's'} the {piece} on a strong central "
                     f"square." + _suf, "R_TIER2_activate_center")
