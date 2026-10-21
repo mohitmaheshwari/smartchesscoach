@@ -1998,6 +1998,7 @@ def process_job(db, job):
                 is_authorized,
             )
             from services.game_story import build_game_story
+            from services.game_outcome import user_outcome as _story_outcome
 
             def _story_showable(quality_id):
                 # One authority decides what may be named to a player, and it
@@ -2027,6 +2028,9 @@ def process_job(db, job):
                 user_color=game.get("user_color") or "white",
                 recurring_ids=_recurring,
                 is_showable=_story_showable,
+                # Who won decides what may lead: a lost game never leads
+                # with a compliment. Same helper the read path uses.
+                outcome=_story_outcome(game),
             )
             db.game_analyses.update_one(
                 {"game_id": game_id},

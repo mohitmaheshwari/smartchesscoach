@@ -8,7 +8,8 @@ import { createRoot } from "react-dom/client";
 
 import LastGameCard from "./LastGameCard";
 
-jest.mock("react-router-dom", () => ({ useNavigate: () => jest.fn() }), { virtual: true });
+const mockNavigate = jest.fn();
+jest.mock("react-router-dom", () => ({ useNavigate: () => mockNavigate }), { virtual: true });
 jest.mock("@/App", () => ({ API: "https://api.test" }), { virtual: true });
 jest.mock("lucide-react", () => ({
   ChevronRight: () => <span />, Clock3: () => <span data-testid="clock-icon" />,
@@ -153,5 +154,77 @@ describe("LastGameCard", () => {
     // outline, which is what "UX sucks" was about.
     expect(container.querySelector("[data-testid='board']")).toBeTruthy();
     expect(container.textContent).not.toContain("♚");
+  });
+
+  // ─── The game story on the card (docs/game_story_on_screen_scope.md) ───
+
+  const STORY_CARD = {
+    ...CARD,
+    state: "outplayed",
+    headline: "They held together better than you did.",
+    detail: "They gave you less to work with than you gave them.",
+    chosen_by: "last_game",
+    review_url: "/game/g1",
+    board: {
+      source: "story",
+      fen_before: "8/p4p2/1p2p3/2p1k1p1/8/2P2KP1/PP3P1P/8 w - - 4 32",
+      san: "Kg3",
+      from: "f2",
+      to: "g3",
+      board_orientation: "white",
+    },
+    story_lines: [
+      { kind: "moment", polarity: "negative", san: "Kg3", text: "This is where the game got away." },
+      { kind: "moment", polarity: "positive", san: "b4", text: "Found the best move when it mattered" },
+      { kind: "stretch", polarity: "negative", san: null, text: "Their rooks worked together and yours did not." },
+    ],
+  };
+
+  test("it shows the story lines, each located by its move", async () => {
+    mock(200, STORY_CARD);
+    await render();
+    const lines = [...container.querySelectorAll("[data-testid='last-game-story-line']")];
+    expect(lines.map((l) => l.textContent)).toEqual([
+      "Kg3This is where the game got away.",
+      "b4Found the best move when it mattered",
+      "Their rooks worked together and yours did not.",
+    ]);
+  });
+
+  test("the board and the first line point at the same move", async () => {
+    mock(200, STORY_CARD);
+    await render();
+    expect(boardProps[0].position).toBe(STORY_CARD.board.fen_before);
+    expect(boardProps[0].customArrows).toEqual([["f2", "g3", "#b45309"]]);
+    // Not "It is where the game turned": that sentence belongs to the
+    // both-sides turning point, which is not what the board shows here.
+    expect(container.textContent).toContain("You played Kg3 here.");
+    expect(container.textContent).not.toContain("It is where the game turned");
+  });
+
+  test("no number reaches the player except inside a move", async () => {
+    mock(200, STORY_CARD);
+    await render();
+    const story = container.querySelector("[data-testid='last-game-story']").textContent;
+    const withoutMoves = story.replace(/Kg3|b4/g, "");
+    expect(withoutMoves).not.toMatch(/\d/);
+  });
+
+  test("a game the coach picked says so, and opens the pick's review", async () => {
+    mockNavigate.mockClear();
+    mock(200, { ...STORY_CARD, chosen_by: "coach_pick",
+      review_url: "/game/g1?prescription=grp_1&resume=-1" });
+    await render();
+    expect(container.textContent).toContain("A game worth reviewing");
+    expect(container.textContent).not.toContain("Your last game");
+    await act(async () => container.querySelector("button").click());
+    expect(mockNavigate).toHaveBeenCalledWith("/game/g1?prescription=grp_1&resume=-1");
+  });
+
+  test("a card without a story renders as it always did", async () => {
+    mock(200, CARD);
+    await render();
+    expect(container.querySelector("[data-testid='last-game-story']")).toBeNull();
+    expect(container.textContent).toContain("Your last game");
   });
 });

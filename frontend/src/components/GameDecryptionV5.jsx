@@ -64,6 +64,7 @@ import PersonalizedReviewCoach, {
 } from "@/components/review/PersonalizedReviewCoach";
 import ReviewValidationPanel from "@/components/review/ReviewValidationPanel";
 import CandidateComparisonCard from "@/components/review/CandidateComparisonCard";
+import GameStoryPanel from "@/components/review/GameStoryPanel";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -1496,6 +1497,20 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             opponentName={opponentName}
             moveScoreboard={moveScoreboard}
             onBegin={goForward}
+            gameId={gameId}
+            onOpenStoryMove={(moment) => {
+              // A story line names the player's own move. Match it on move
+              // number AND the move itself AND whose move it was, so a
+              // capture both sides played on the same move number (Bxa6,
+              // ...Bxa6) opens the right one.
+              const i = (decryptionData || []).findIndex(
+                (d) =>
+                  d.is_user_move &&
+                  d.move_number === moment.move_number &&
+                  d.move_san === moment.move_san
+              );
+              if (i >= 0) goToMove(i);
+            }}
           />
         ) : (
           <MoveCoachingCardV5
@@ -1891,7 +1906,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
 // ─── GAME START CARD ────────────────────────────────────────────────
 
-const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlindspot, coachSummary, coreLesson, gameResult, opponentName, moveScoreboard, onBegin }) => {
+const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlindspot, coachSummary, coreLesson, gameResult, opponentName, moveScoreboard, onBegin, gameId, onOpenStoryMove }) => {
   if (!decryptionData?.length) return null;
 
   // Calculate stats
@@ -1908,6 +1923,11 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlinds
   
   return (
     <div className="space-y-4" data-testid="game-start-card">
+      {/* What this game left you (2026-10-21,
+          docs/game_story_on_screen_scope.md). First, because it is the
+          whole game in three lines; each row opens its move below. */}
+      <GameStoryPanel gameId={gameId} onOpenMove={onOpenStoryMove} />
+
       {/* Story hook — the narrative intro */}
       {(storyHook || lessonLabel) && (
         <div className="rounded-lg border border-border bg-muted/30 p-5">

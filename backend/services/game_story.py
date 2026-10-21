@@ -49,10 +49,32 @@ from services.severity import classify_severity_practical
 # line that cannot be named is no longer shown. Rows written as v1 hold raw
 # ids, pre-dedupe moments and span labels that counted positions out loud, so
 # the read path recomputes them rather than serving them.
-SCHEMA_VERSION = "game_story.v2"
+#
+# v3, 2026-10-21: the story knows the result and the move played. A lost game
+# no longer leads with a compliment, a hidden deciding mistake is located by
+# its move instead of vanishing, and `home_lines` is the cut the home card
+# shows. Scope: docs/game_story_on_screen_scope.md.
+SCHEMA_VERSION = "game_story.v3"
 
 MAX_MOMENTS = 3          # the headline plus two
 MAX_SPANS = 2
+MAX_HOME_LINES = 3       # two moments and one stretch, as signed off
+
+# Measured over the last three games of the 60 most active players (168
+# games): "Answered a threat" headlined 12 of them, once on the second move
+# of the game. Answering a threat is real, and it is not what a game was
+# about, so it may appear lower in the review and never leads or reaches home.
+_NEVER_LEADS = frozenset({"responded_to_threat"})
+
+# When the move that decided the game cannot be NAMED -- its detector is not
+# approved -- it is still located. Of 79 lost games in that sample, 41 had
+# their deciding mistake hidden, and 15 led with a compliment instead. These
+# sentences claim only what the engine alone already decides: that this move
+# changed the game. They say nothing about why, which is exactly the part
+# that needs an approved detector.
+_LOCATED_IN_A_LOSS = "This is where the game got away."
+_LOCATED_OTHERWISE = "This move gave a lot away."
+LOCATED_ID = "located_turn"
 
 _SEVERITY_RANK = {"critical": 3, "serious": 3, "moderate": 2,
                   "blunder": 3, "mistake": 2, "inaccuracy": 1,
@@ -257,6 +279,12 @@ def _moment_from(observation: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
         "display_detail": _display_detail(label_id),
         "move_number": observation.get("move_number"),
         "ply": observation.get("ply"),
+        # The move itself is how a line is located on screen. A player reads
+        # no move numbers (the no-numbers rule), so "Kg3" is the address.
+        "move_san": observation.get("move_san"),
+        "move_uci": observation.get("move_uci"),
+        "fen_before": observation.get("fen_before"),
+        "color": observation.get("color"),
         "detector_quality_id": quality_id,
         # The family, because recurrence arrives as a TOPIC and a moment is a
         # SUBTYPE. `user_active_focus.topic_key` holds "missed_tactic" while
@@ -291,6 +319,7 @@ def build_game_story(
     user_color: str,
     recurring_ids: Iterable[str] = (),
     is_showable: Optional[Callable[[Optional[str]], bool]] = None,
+    outcome: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Assemble one game's story. Pure: no DB, no LLM, no engine.
 
@@ -301,6 +330,10 @@ def build_game_story(
     `is_showable` decides which moments may be NAMED to a player; the default
     allows all. Passing the detector-quality gate keeps a shadow detector's
     claim stored and auditable while never shown, exactly as captions do.
+
+    `outcome` is `game_outcome.user_outcome`'s answer: "win", "loss", "draw"
+    or "unknown". It only changes what LEADS and how a located line is
+    worded; nothing is ranked or hidden by it.
     """
     recurring = set(recurring_ids or ())
     showable = is_showable or (lambda _quality_id: True)
@@ -359,6 +392,12 @@ def build_game_story(
         m for m in moments
         if showable(m.get("detector_quality_id")) and m.get("display_name")
     ]
+
+    lost = str(outcome or "").lower() == "loss"
+    located = _located_line(moments, showable_ranked, lost=lost)
+    if located is not None:
+        showable_ranked = [located] + showable_ranked
+
     chosen = showable_ranked[:MAX_MOMENTS]
     # The guarantee. A plain top-N is all-negative in most games because
     # negatives are both more numerous and more severe, so if the player did
@@ -371,19 +410,154 @@ def build_game_story(
             chosen = (chosen[:MAX_MOMENTS - 1] + [positive]) if chosen \
                 else [positive]
 
-    shown = chosen
-    headline = shown[0] if shown else (spans[0] if spans else None)
+    # What leads. Ranking already puts a deciding move first; these two rules
+    # only stop the wrong thing from leading when ranking would let it.
+    lead = next((m for m in chosen if _may_lead(m, lost=lost)), None)
+    if lead is not None:
+        chosen = [lead] + [m for m in chosen if m is not lead]
+    spans_shown = spans[:MAX_SPANS]
+    headline = lead or (spans_shown[0] if spans_shown else None)
 
     return {
         "schema_version": SCHEMA_VERSION,
+        "outcome": outcome,
         "user_move_count": summary.get("user_move_count", 0),
         "headline": headline,
         # Everything ranked, for the record and any later audit.
         "moments": moments[:MAX_MOMENTS * 2],
-        # What may be said out loud.
-        "moments_showable": shown,
-        "spans": spans[:MAX_SPANS],
+        # What may be said out loud, in the order it is said.
+        "moments_showable": chosen,
+        "spans": spans_shown,
+        "home_lines": _home_lines(chosen, spans_shown, headline),
         # An empty story is a fact about the game, not missing coverage, and
         # saying so stops a caller inventing filler to fill the space.
         "is_empty": not chosen and not spans,
     }
+
+
+def _may_lead(moment: Mapping[str, Any], *, lost: bool) -> bool:
+    """A lost game never leads with a compliment; some lines never lead."""
+    if moment.get("id") in _NEVER_LEADS:
+        return False
+    if lost and moment.get("polarity") == "positive":
+        return False
+    return True
+
+
+def _located_line(
+    moments: Sequence[Mapping[str, Any]],
+    showable_ranked: Sequence[Mapping[str, Any]],
+    *,
+    lost: bool,
+) -> Optional[Dict[str, Any]]:
+    """The deciding mistake, located by its move, when it cannot be named.
+
+    Only when NO deciding mistake can be named: if one can, it leads on its
+    own and a second, vaguer line about a different move would compete with
+    it. The hidden moment stays in `moments` under its real id, so an audit
+    can still see what the detector claimed.
+    """
+    if any(m.get("polarity") == "negative" and m.get("decisive")
+           for m in showable_ranked):
+        return None
+    hidden = next(
+        (m for m in moments
+         if m.get("polarity") == "negative" and m.get("decisive")
+         and m.get("move_san")),
+        None,
+    )
+    if hidden is None:
+        return None
+    return {
+        **hidden,
+        "id": LOCATED_ID,
+        "display_name": _LOCATED_IN_A_LOSS if lost else _LOCATED_OTHERWISE,
+        "display_detail": None,
+        # Nothing is named, so no detector is being quoted. The claim the
+        # line does make -- this move changed the game -- is the engine's.
+        "detector_quality_id": None,
+        "located_from": hidden.get("detector_quality_id"),
+    }
+
+
+def _home_lines(
+    chosen: Sequence[Mapping[str, Any]],
+    spans: Sequence[Mapping[str, Any]],
+    headline: Optional[Mapping[str, Any]],
+) -> List[Dict[str, Any]]:
+    """The cut the home card shows: two moments and one stretch, at most.
+
+    The headline comes first whatever it is. "Answered a threat" is left out
+    entirely -- on home there is room for three lines, and it is never one of
+    the three that matter.
+    """
+    moments = [m for m in chosen if m.get("id") not in _NEVER_LEADS]
+    if headline is not None and headline.get("kind") == "span":
+        ordered = [headline] + moments[:1] + [s for s in spans if s is not headline]
+    else:
+        ordered = moments[:2] + list(spans[:1]) + moments[2:] + list(spans[1:])
+    return [dict(item) for item in ordered[:MAX_HOME_LINES]]
+
+
+async def story_for_game(db, game: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
+    """The story for one game, read from storage or rebuilt. The one loader.
+
+    `game` needs `game_id`, `user_id`, `user_color` and `result`. Returns None
+    when the game has not been analysed. The story endpoint and the home card
+    both come through here, so a story cannot read one way on the review page
+    and another way on home.
+
+    A story stored under an older schema is rebuilt, not served: v1 rows hold
+    raw detector ids, v2 rows do not know who won.
+    """
+    from services.detector_quality import QualitySurface, is_authorized
+    from services.game_outcome import user_outcome
+
+    game_id = game.get("game_id")
+    if not game_id:
+        return None
+    stored_doc = await db.game_analyses.find_one(
+        {"game_id": game_id}, {"_id": 0, "game_story": 1})
+    # `is None`, not falsiness: an analysis with no stored story projects to
+    # {}, which is falsy, and that read every game analysed before the worker
+    # wrote stories as "not analysed" -- found on game 8f40005b.
+    if stored_doc is None:
+        return None
+    stored = stored_doc.get("game_story")
+    if stored and stored.get("schema_version") == SCHEMA_VERSION:
+        return {**stored, "source": "stored"}
+
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "stockfish_analysis.move_evaluations": 1})
+    observations = await db.move_observations.find(
+        {"game_id": game_id}, {"_id": 0}).to_list(length=None)
+    recurring = [
+        str(row.get("topic_key"))
+        async for row in db.user_active_focus.find(
+            {"user_id": game.get("user_id"), "status": "active"},
+            {"_id": 0, "topic_key": 1},
+        )
+        if row.get("topic_key")
+    ]
+
+    def _showable(quality_id):
+        if not quality_id:
+            return True
+        try:
+            return is_authorized(quality_id, QualitySurface.CAPTION)
+        except Exception:
+            return False
+
+    story = build_game_story(
+        observations=observations,
+        move_evaluations=(
+            ((analysis or {}).get("stockfish_analysis") or {})
+            .get("move_evaluations") or []
+        ),
+        user_color=game.get("user_color") or "white",
+        recurring_ids=recurring,
+        is_showable=_showable,
+        outcome=user_outcome(game),
+    )
+    return {**story, "source": "recomputed"}

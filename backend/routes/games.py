@@ -1161,57 +1161,17 @@ async def game_story(game_id: str, user: User = Depends(get_current_user)):
     """
     game = await db.games.find_one(
         {"game_id": game_id, **user_scope_filter(user)},
-        {"_id": 0, "user_color": 1, "user_id": 1},
+        {"_id": 0, "game_id": 1, "user_color": 1, "user_id": 1, "result": 1},
     )
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
-    analysis = await db.game_analyses.find_one(
-        {"game_id": game_id},
-        {"_id": 0, "game_story": 1,
-         "stockfish_analysis.move_evaluations": 1},
-    )
-    if not analysis:
+    # One loader for the review page and the home card, so the same game
+    # cannot tell two stories. It serves a stored story only when it was
+    # written under the current schema and rebuilds anything older.
+    from services.game_story import story_for_game
+
+    story = await story_for_game(db, game)
+    if story is None:
         raise HTTPException(status_code=404, detail="Game not analyzed yet")
-
-    from services.detector_quality import QualitySurface, is_authorized
-    from services.game_story import SCHEMA_VERSION, build_game_story
-
-    # A story stored under an older schema is rebuilt, not served. v1 rows
-    # hold raw detector ids where the English should be, which is the exact
-    # thing the rewrite fixed, so trusting the stored row would show the old
-    # output on every game analysed before today.
-    stored = analysis.get("game_story")
-    if stored and stored.get("schema_version") == SCHEMA_VERSION:
-        return {**stored, "source": "stored"}
-
-    def _showable(quality_id):
-        if not quality_id:
-            return True
-        try:
-            return is_authorized(quality_id, QualitySurface.CAPTION)
-        except Exception:
-            return False
-
-    observations = await db.move_observations.find(
-        {"game_id": game_id}, {"_id": 0}
-    ).to_list(length=None)
-    recurring = [
-        str(row.get("topic_key"))
-        async for row in db.user_active_focus.find(
-            {"user_id": game.get("user_id"), "status": "active"},
-            {"_id": 0, "topic_key": 1},
-        )
-        if row.get("topic_key")
-    ]
-    story = build_game_story(
-        observations=observations,
-        move_evaluations=(
-            (analysis.get("stockfish_analysis") or {}).get("move_evaluations")
-            or []
-        ),
-        user_color=game.get("user_color") or "white",
-        recurring_ids=recurring,
-        is_showable=_showable,
-    )
-    return {**story, "source": "recomputed"}
+    return story

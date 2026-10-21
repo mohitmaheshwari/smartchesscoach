@@ -187,6 +187,7 @@ export const ANALYTICS_EVENTS = Object.freeze({
   GAME_REVIEW_PRESCRIPTION_COMPLETED: "game_review_prescription_completed",
   GAME_REVIEW_NO_ELIGIBLE_GAME: "game_review_no_eligible_game",
   GAME_REVIEW_FALLBACK_OFFERED: "game_review_fallback_offered",
+  GAME_STORY_LINE_OPENED: "game_story_line_opened",
   GAME_REVIEW_NEXT_PRESCRIPTION_SERVED: "game_review_next_prescription_served",
   REVIEW_VALIDATION_MODE_CHANGED: "review_validation_mode_changed",
   REVIEW_VALIDATION_SUBMITTED: "review_validation_submitted",

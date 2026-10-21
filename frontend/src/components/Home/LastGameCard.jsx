@@ -24,6 +24,13 @@
  * The review costs several seconds the first time a game is seen, so this
  * fetches on its own and renders nothing until it has an answer. It must
  * never hold up the rest of Home.
+ *
+ * 2026-10-21, docs/game_story_on_screen_scope.md: the card also carries the
+ * game's story -- up to three lines, each located by the move itself, never
+ * a move number. When the coach has picked a game to review, the card is
+ * about that game instead of the last one. The board follows the story's
+ * first move, so the picture and the first line always point at the same
+ * move; `board.source` says which one it is.
  */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -53,7 +60,11 @@ export default function LastGameCard() {
   }, []);
 
   if (!card) return null;
-  const turning = card.turning_point || {};
+  // Older responses carry only `turning_point`; the shape is the same.
+  const turning = card.board || { source: "turning_point", ...(card.turning_point || {}) };
+  const fromStory = turning.source === "story";
+  const lines = Array.isArray(card.story_lines) ? card.story_lines : [];
+  const reviewUrl = card.review_url || (card.game_id ? `/game/${card.game_id}` : null);
 
   return (
     <section
@@ -92,16 +103,18 @@ export default function LastGameCard() {
             </div>
             {turning.san && (
               <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
-                {card.turning_point_is_theirs ? "They played " : "You played "}
+                {fromStory ? "You played " : card.turning_point_is_theirs ? "They played " : "You played "}
                 <span className="font-mono text-foreground">{turning.san}</span>
-                {" here. It is where the game turned."}
+                {fromStory ? " here." : " here. It is where the game turned."}
               </p>
             )}
           </div>
         )}
 
         <div className="min-w-0 flex-1">
-          <p className="cg-eyebrow !text-[10px]">Your last game</p>
+          <p className="cg-eyebrow !text-[10px]">
+            {card.chosen_by === "coach_pick" ? "A game worth reviewing" : "Your last game"}
+          </p>
 
           <h2 className="mt-3 font-heading text-[22px] leading-[1.2] tracking-[-0.025em] text-foreground md:text-[26px]">
             {card.headline}
@@ -109,6 +122,40 @@ export default function LastGameCard() {
           <p className="mt-3 max-w-[560px] text-[15px] leading-relaxed text-muted-foreground">
             {card.detail}
           </p>
+
+          {lines.length > 0 && (
+            <div className="mt-6" data-testid="last-game-story">
+              <p className="cg-eyebrow !text-[10px]">What this game left you</p>
+              <ul className="mt-3 space-y-2.5">
+                {lines.map((line, i) => (
+                  <li
+                    key={`${line.kind}-${line.san || ""}-${i}`}
+                    className="flex items-start gap-3 text-[14px] leading-relaxed"
+                    data-testid="last-game-story-line"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`mt-[7px] h-2 w-2 shrink-0 rounded-full ${
+                        line.polarity === "positive"
+                          ? "bg-emerald-500"
+                          : line.kind === "theirs"
+                          ? "bg-muted-foreground/50"
+                          : line.kind === "stretch"
+                          ? "bg-amber-500"
+                          : "bg-red-500"
+                      }`}
+                    />
+                    <span className="min-w-0 text-foreground/90">
+                      {line.san && (
+                        <span className="mr-2 font-mono text-foreground">{line.san}</span>
+                      )}
+                      {line.text}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {card.decided_by === "clock" && card.state === "clock" && (
             <span className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
@@ -120,7 +167,7 @@ export default function LastGameCard() {
           <div>
             <button
               type="button"
-              onClick={() => card.game_id && navigate(`/game/${card.game_id}`)}
+              onClick={() => reviewUrl && navigate(reviewUrl)}
               className="cg-secondary-action mt-6"
             >
               See the moment

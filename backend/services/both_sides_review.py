@@ -319,29 +319,157 @@ def turning_point_squares(turning: Optional[Mapping[str, Any]]) -> Dict[str, Any
     }
 
 
-async def last_game_card(db, user_id: str) -> Optional[Dict[str, Any]]:
-    """The card for his most recent finished game, computing it once."""
+# The games the home card may be about: finished, with a PGN to read both
+# sides from, and not a Play with Coach game.
+_HOME_GAME_FILTER = {
+    "played_at_utc": {"$ne": None},
+    "platform": {"$ne": "coach"},
+    "pgn": {"$nin": [None, ""]},
+}
+_HOME_GAME_PROJECTION = {
+    "_id": 0,
+    "game_id": 1,
+    "user_id": 1,
+    "pgn": 1,
+    "user_color": 1,
+    "result": 1,
+    "termination": 1,
+    "platform": 1,
+    "played_at_utc": 1,
+    "opponent_name": 1,
+    "url": 1,
+}
+
+# Said under the lead line when the opponent's biggest error came after the
+# player's deciding one. Checked by hand on game 8f40005b: Black threw a won
+# game away with Rxf3+, White handed it back with Ne6+, and the card said
+# only "the game was still yours" while the story said only "Rxf3+". Both
+# true, so the card tells both, in order.
+_THEY_WENT_WRONG_TOO = "They went wrong here too."
+
+
+async def _home_game(db, user_id: str):
+    """The game the home card is about, and why it was chosen.
+
+    The coach's review pick when the player has one -- the same pick the Lab
+    shows, read through the same service, so the two pages cannot disagree
+    about which game is worth reviewing. Otherwise the last game.
+
+    Returns (game, chosen_by, review_url). A failing pick never costs the
+    card: it falls back to the last game.
+    """
+    try:
+        from services.coach_selected_review_service import get_recommendation
+
+        recommendation = await get_recommendation(db, user_id)
+        prescription = (recommendation or {}).get("prescription") or {}
+        picked_id = (prescription.get("game") or {}).get("game_id")
+        if picked_id:
+            picked = await db.games.find_one(
+                {"user_id": user_id, "game_id": picked_id, **_HOME_GAME_FILTER},
+                _HOME_GAME_PROJECTION,
+            )
+            if picked:
+                return picked, "coach_pick", prescription.get("review_url")
+    except Exception:
+        logger.warning("home card could not read the review pick", exc_info=True)
+
     game = await db.games.find_one(
-        {
-            "user_id": user_id,
-            "played_at_utc": {"$ne": None},
-            "platform": {"$ne": "coach"},
-            "pgn": {"$nin": [None, ""]},
-        },
-        {
-            "_id": 0,
-            "game_id": 1,
-            "pgn": 1,
-            "user_color": 1,
-            "result": 1,
-            "termination": 1,
-            "platform": 1,
-            "played_at_utc": 1,
-            "opponent_name": 1,
-            "url": 1,
-        },
+        {"user_id": user_id, **_HOME_GAME_FILTER},
+        _HOME_GAME_PROJECTION,
         sort=[("played_at_utc", -1)],
     )
+    return game, "last_game", None
+
+
+def _ply_order(move_number: Any, white_moved: bool) -> tuple:
+    try:
+        number = int(move_number)
+    except (TypeError, ValueError):
+        number = 0
+    return (number, 0 if white_moved else 1)
+
+
+def story_card_fields(
+    story: Optional[Mapping[str, Any]],
+    review: Mapping[str, Any],
+    *,
+    user_colour: str,
+) -> Dict[str, Any]:
+    """What the home card shows from the game story, and what its board shows.
+
+    The board follows the story's lead move, so the picture and the first
+    line can never point at different moves. Only when the story has no move
+    to show does the board fall back to the both-sides turning point, which
+    is the biggest single swing by either player.
+    """
+    user_is_white = str(user_colour) == "white"
+    lines = []
+    lead_move = None
+    for item in (story or {}).get("home_lines") or []:
+        text = str(item.get("display_name") or "").strip()
+        if not text:
+            continue
+        is_move = item.get("kind") == "moment" and bool(item.get("move_san"))
+        line = {
+            "kind": "moment" if is_move else "stretch",
+            "polarity": item.get("polarity"),
+            "san": item.get("move_san") if is_move else None,
+            "text": text,
+        }
+        lines.append(line)
+        if (
+            lead_move is None
+            and is_move
+            and item.get("fen_before")
+            and len(str(item.get("move_uci") or "")) >= 4
+        ):
+            lead_move = item
+
+    turning = review.get("turning_point") or {}
+    orientation = "white" if user_is_white else "black"
+    if lead_move is not None:
+        uci = str(lead_move["move_uci"])
+        board = {
+            "source": "story",
+            "fen_before": lead_move["fen_before"],
+            "san": lead_move["move_san"],
+            "from": uci[:2],
+            "to": uci[2:4],
+            "board_orientation": orientation,
+        }
+    else:
+        board = {
+            "source": "turning_point",
+            **turning,
+            **turning_point_squares(turning),
+        }
+
+    # Both halves, in order: his deciding mistake, then their bigger one.
+    if (
+        lead_move is not None
+        and lines
+        and lines[0]["san"] == lead_move.get("move_san")
+        and lead_move.get("polarity") == "negative"
+        and lead_move.get("decisive")
+        and turning.get("whose") == "theirs"
+        and turning.get("san")
+        and _ply_order(turning.get("move_number"), not user_is_white)
+        > _ply_order(lead_move.get("move_number"), user_is_white)
+    ):
+        lines.insert(1, {
+            "kind": "theirs",
+            "polarity": "neutral",
+            "san": turning.get("san"),
+            "text": _THEY_WENT_WRONG_TOO,
+        })
+
+    return {"story_lines": lines[:3], "board": board}
+
+
+async def last_game_card(db, user_id: str) -> Optional[Dict[str, Any]]:
+    """The home card: the coach's review pick, or his last finished game."""
+    game, chosen_by, review_url = await _home_game(db, user_id)
     if not game:
         return None
 
@@ -414,6 +542,19 @@ async def last_game_card(db, user_id: str) -> Optional[Dict[str, Any]]:
                 "his_turns": review.get("his_turns"),
                 "counted_by": "both sides of the PGN, evaluated here",
             },
+            "chosen_by": chosen_by,
+            "review_url": review_url or f"/game/{game.get('game_id')}",
         }
     )
+
+    # The story is extra. If it cannot be built, the card still says who was
+    # the better player, exactly as it did before the story existed.
+    story = None
+    try:
+        from services.game_story import story_for_game
+
+        story = await story_for_game(db, game)
+    except Exception:
+        logger.warning("home card could not load the game story", exc_info=True)
+    card.update(story_card_fields(story, review, user_colour=colour))
     return card
