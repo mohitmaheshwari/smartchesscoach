@@ -72,7 +72,7 @@ describe("GameStoryPanel", () => {
     const onOpenMove = jest.fn();
     await render({ onOpenMove });
     await act(async () => container.querySelectorAll("[data-testid='game-story-moment']")[1].click());
-    expect(onOpenMove).toHaveBeenCalledWith(STORY.moments_showable[1]);
+    expect(onOpenMove).toHaveBeenCalledWith({ move_number: 39, move_san: "b4", side: "you" });
     expect(mockTrack).toHaveBeenCalledWith("game_story_line_opened", expect.objectContaining({
       source: "review", content_id: "found_best_in_critical", position_index: 1,
     }));
@@ -108,5 +108,85 @@ describe("GameStoryPanel", () => {
     mock(200, STORY);
     await render();
     expect(container.textContent.replace(/Kg3|b4/g, "")).not.toMatch(/\d/);
+  });
+
+  // ─── The ledger story (docs/game_story_by_phase_scope.md v2) ───
+
+  const PLAN_STORY = {
+    ...STORY,
+    plan: {
+      type: { id: "narrow_escapes", title: "A win with narrow escapes" },
+      chapters: [
+        { id: "start", title: "The start", lines: [
+          { kind: "opening", side: "you", san: null, polarity: "neutral",
+            text: "You came out of the Queen's Pawn Opening with the better position." },
+        ] },
+        { id: "middle", title: "The middle", lines: [
+          { kind: "your_mistake", side: "you", san: "Ng5", move_number: 16, polarity: "negative",
+            text: "Ng5 nearly cost you your queen. After Rh1, she would have had no safe square. They played f4 instead." },
+          { kind: "their_mistake", side: "them", san: "f4", move_number: 17, polarity: "positive",
+            text: "They went wrong with f4, and you found a good answer: Bxc3." },
+        ] },
+        { id: "finish", title: "The finish", lines: [
+          { kind: "finish", side: null, san: null, polarity: "neutral",
+            text: "From there you stayed well ahead, and they resigned." },
+        ] },
+      ],
+      lesson: { id: "let_off", text: "Your opponent let you off more than once." },
+      coach_notes: [
+        { kind: "your_mistake", side: "you", san: "Ng5", move_number: 16, polarity: "negative",
+          text: "Best was Bxc3. After Rh1, every square your queen could reach was covered. They played f4." },
+      ],
+    },
+  };
+
+  test("the plan is told as a title and three chapters", async () => {
+    mock(200, PLAN_STORY);
+    await render();
+    expect(container.querySelector("[data-testid='game-story-title']").textContent).toBe("A win with narrow escapes");
+    const text = container.textContent;
+    expect(text).toContain("The start");
+    expect(text).toContain("The middle");
+    expect(text).toContain("The finish");
+    expect(text).toContain("Ng5 nearly cost you your queen.");
+    expect(container.querySelector("[data-testid='game-story-lesson']").textContent)
+      .toContain("Your opponent let you off more than once.");
+    // The earlier moment list is not shown beside the plan.
+    expect(container.querySelectorAll("[data-testid='game-story-moment']")).toHaveLength(0);
+  });
+
+  test("a line about their move opens THEIR move", async () => {
+    mock(200, PLAN_STORY);
+    const onOpenMove = jest.fn();
+    await render({ onOpenMove });
+    const buttons = [...container.querySelectorAll("button[data-testid='game-story-line']")];
+    const theirLine = buttons.find((b) => b.textContent.includes("They went wrong with f4"));
+    await act(async () => theirLine.click());
+    expect(onOpenMove).toHaveBeenCalledWith({ move_number: 17, move_san: "f4", side: "them" });
+  });
+
+  test("a line with no move is text, not a button", async () => {
+    mock(200, PLAN_STORY);
+    await render();
+    const plain = [...container.querySelectorAll("div[data-testid='game-story-line']")];
+    expect(plain.map((d) => d.textContent)).toEqual(expect.arrayContaining([
+      expect.stringContaining("You came out of the Queen's Pawn Opening"),
+    ]));
+  });
+
+  test("coach notes are the same moments as study notes", async () => {
+    mock(200, PLAN_STORY);
+    await render();
+    await act(async () => container.querySelector("[data-testid='game-story-mode-coach']").click());
+    const notes = container.querySelectorAll("[data-testid='game-story-coach-note']");
+    expect(notes).toHaveLength(1);
+    expect(notes[0].textContent).toContain("Best was Bxc3.");
+  });
+
+  test("the plan has no number outside a move", async () => {
+    mock(200, PLAN_STORY);
+    await render();
+    const stripped = container.textContent.replace(/\b(?:[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8][+#]?)/g, "");
+    expect(stripped).not.toMatch(/\d/);
   });
 });

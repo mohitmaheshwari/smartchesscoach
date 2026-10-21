@@ -59,7 +59,11 @@ from services.severity import classify_severity_practical
 # moment, and 395 stored "missed pin" labels were relabelled after the pin
 # prover stopped accepting pins the front piece can take. Stories stored as
 # v3 can hold either, so they are rebuilt on read.
-SCHEMA_VERSION = "game_story.v4"
+#
+# v5, 2026-10-22: every story carries the ledger and the plan (title,
+# chapters, lesson, coach notes), from services.game_ledger and
+# services.game_story_plan.
+SCHEMA_VERSION = "game_story.v5"
 
 MAX_MOMENTS = 3          # the headline plus two
 MAX_SPANS = 2
@@ -513,6 +517,53 @@ def _home_lines(
     return [dict(item) for item in ordered[:MAX_HOME_LINES]]
 
 
+def attach_plan(
+    story: Dict[str, Any],
+    *,
+    move_evaluations: Sequence[Mapping[str, Any]],
+    observations: Sequence[Mapping[str, Any]],
+    game: Mapping[str, Any],
+    opening_deviation: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Add the timeline-and-ledger story to a moment story, in place.
+
+    docs/game_story_by_phase_scope.md v2. The moment layer above still owns
+    which detector names may be SHOWN; the plan borrows exactly those names,
+    so a gated name cannot reach the player through the new path either. A
+    failure here costs the plan, never the story it is attached to.
+    """
+    try:
+        from services.game_ledger import build_ledger, opening_phase_exit_move
+        from services.game_outcome import user_outcome
+        from services.game_story_plan import plan_story
+        from services.opening_normalizer import normalize_opening
+
+        names = {
+            (m.get("move_number"), m.get("move_san")): m.get("display_name")
+            for m in story.get("moments_showable") or []
+            if m.get("display_name") and m.get("id") != LOCATED_ID
+        }
+        raw_name = game.get("opening") or game.get("opening_name")
+        family = normalize_opening(raw_name) if raw_name else None
+        ledger = build_ledger(
+            move_evaluations=move_evaluations,
+            observations=observations,
+            user_color=game.get("user_color") or "white",
+            outcome=user_outcome(game),
+            termination=game.get("termination"),
+            opening_name=family if family and family != "Other" else None,
+            opening_deviation=opening_deviation,
+            phase_exit_move=opening_phase_exit_move(game.get("pgn")),
+        )
+        story["ledger"] = ledger
+        story["plan"] = plan_story(ledger, names=names)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning("game story plan failed", exc_info=True)
+        story["plan"] = None
+    return story
+
+
 async def story_for_game(db, game: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
     """The story for one game, read from storage or rebuilt. The one loader.
 
@@ -543,7 +594,14 @@ async def story_for_game(db, game: Mapping[str, Any]) -> Optional[Dict[str, Any]
 
     analysis = await db.game_analyses.find_one(
         {"game_id": game_id},
-        {"_id": 0, "stockfish_analysis.move_evaluations": 1})
+        {"_id": 0, "stockfish_analysis.move_evaluations": 1, "opening_deviation": 1})
+    # The plan needs the PGN, the opening name and how the game ended, which
+    # callers do not always pass.
+    needed = ("pgn", "opening", "opening_name", "termination", "result", "user_color", "user_id")
+    if any(key not in game for key in needed):
+        extra = await db.games.find_one(
+            {"game_id": game_id}, {"_id": 0, **{key: 1 for key in needed}}) or {}
+        game = {**extra, **{k: v for k, v in game.items() if v is not None}}
     observations = await db.move_observations.find(
         {"game_id": game_id}, {"_id": 0}).to_list(length=None)
     recurring = [
@@ -563,15 +621,17 @@ async def story_for_game(db, game: Mapping[str, Any]) -> Optional[Dict[str, Any]
         except Exception:
             return False
 
+    move_evaluations = (
+        ((analysis or {}).get("stockfish_analysis") or {}).get("move_evaluations") or []
+    )
     story = build_game_story(
         observations=observations,
-        move_evaluations=(
-            ((analysis or {}).get("stockfish_analysis") or {})
-            .get("move_evaluations") or []
-        ),
+        move_evaluations=move_evaluations,
         user_color=game.get("user_color") or "white",
         recurring_ids=recurring,
         is_showable=_showable,
         outcome=user_outcome(game),
     )
+    attach_plan(story, move_evaluations=move_evaluations, observations=observations,
+                game=game, opening_deviation=(analysis or {}).get("opening_deviation"))
     return {**story, "source": "recomputed"}

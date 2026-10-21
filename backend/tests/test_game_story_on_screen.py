@@ -267,6 +267,9 @@ class _Db:
         self.game_analyses = _Collection(analyses)
         self.move_observations = _Collection(list(observations))
         self.user_active_focus = _Collection([])
+        # The loader fetches the PGN, opening and ending for the plan.
+        self.games = _Collection([{**GAME, "pgn": None, "opening": None,
+                                   "termination": "resignation"}])
 
 
 GAME = {"game_id": "g1", "user_id": "u1", "user_color": "white", "result": "0-1"}
@@ -293,6 +296,9 @@ class TestTheLoader:
         assert result is not None
         assert result["source"] == "recomputed"
         assert result["outcome"] == "loss"
+        # The ledger story rides along with every rebuilt story.
+        assert result["plan"] is not None
+        assert result["plan"]["chapters"][-1]["id"] == "finish"
 
     def test_no_analysis_at_all_is_none(self):
         assert self._run(_Db([])) is None
@@ -301,3 +307,29 @@ class TestTheLoader:
         db = _Db([{"game_id": "g1", "game_story": {"schema_version": "game_story.v2"},
                    "stockfish_analysis": {"move_evaluations": []}}])
         assert self._run(db)["source"] == "recomputed"
+
+
+class TestTheHomeCardReadsThePlan:
+    PLAN = {
+        "type": {"id": "narrow_escapes", "title": "A win with narrow escapes"},
+        "home_lines": [
+            {"kind": "opening", "san": None, "polarity": "neutral",
+             "text": "You came out of the Queen's Pawn Opening with the better position."},
+            {"kind": "your_mistake", "san": "Ng5", "polarity": "negative",
+             "text": "Ng5 nearly cost you your queen. After Rh1, she would have had no safe square. They played f4 instead.",
+             "fen_before": "r4rk1/ppp2ppp/6b1/3pb3/4P1Bq/P1N4n/1PP2PK1/R1BQ1R2 b - - 1 16", "uci": "h3g5"},
+        ],
+        "board_move": {"san": "Ng5", "side": "you",
+                       "fen_before": "r4rk1/ppp2ppp/6b1/3pb3/4P1Bq/P1N4n/1PP2PK1/R1BQ1R2 b - - 1 16",
+                       "uci": "h3g5"},
+    }
+
+    def test_the_card_uses_the_plan_title_lines_and_board(self):
+        fields = story_card_fields({"plan": self.PLAN}, review(THEIRS_LATER), user_colour="black")
+        assert fields["story_title"] == "A win with narrow escapes"
+        assert [l["text"][:12] for l in fields["story_lines"]] == ["You came out", "Ng5 nearly c"]
+        # The sentence already names the move, so it is not shown twice.
+        assert all(l["san"] is None for l in fields["story_lines"])
+        assert fields["board"]["source"] == "story"
+        assert (fields["board"]["from"], fields["board"]["to"]) == ("h3", "g5")
+        assert fields["board"]["board_orientation"] == "black"

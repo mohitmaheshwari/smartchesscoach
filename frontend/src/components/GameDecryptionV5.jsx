@@ -1499,13 +1499,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             onBegin={goForward}
             gameId={gameId}
             onOpenStoryMove={(moment) => {
-              // A story line names the player's own move. Match it on move
+              // A story line names a move by either player. Match it on move
               // number AND the move itself AND whose move it was, so a
               // capture both sides played on the same move number (Bxa6,
               // ...Bxa6) opens the right one.
+              const theirs = moment.side === "them";
               const i = (decryptionData || []).findIndex(
                 (d) =>
-                  d.is_user_move &&
+                  Boolean(d.is_user_move) === !theirs &&
                   d.move_number === moment.move_number &&
                   d.move_san === moment.move_san
               );

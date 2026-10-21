@@ -55,6 +55,34 @@ _PIECE_VALUE = {chess.PAWN: 100, chess.KNIGHT: 320, chess.BISHOP: 330,
                 chess.ROOK: 500, chess.QUEEN: 900, chess.KING: 0}
 
 
+def opening_phase_exit_move(pgn: Optional[str]) -> Optional[int]:
+    """The move where the material phase first leaves "opening", or None.
+
+    Uses the product's own phase measure (services.game_phase_service), so
+    the story's start ends where the rest of the product's opening does.
+    """
+    if not pgn:
+        return None
+    try:
+        import io
+
+        import chess.pgn
+
+        from services.game_phase_service import get_game_phase
+
+        game = chess.pgn.read_game(io.StringIO(str(pgn)))
+        if game is None:
+            return None
+        board = game.board()
+        for move in game.mainline_moves():
+            board.push(move)
+            if get_game_phase(board)["phase_label"] != "opening":
+                return board.fullmove_number
+    except Exception:
+        return None
+    return None
+
+
 # ─── Timeline ──────────────────────────────────────────────────────────
 
 
@@ -353,7 +381,10 @@ def build_ledger(
             events.append({**base, "kind": "their_mistake", "happened": True,
                            "taken": taken,
                            "your_answer": (nxt or {}).get("san"),
-                           "evidence": {"their_best": point.get("best_san")}})
+                           "evidence": {"their_best": point.get("best_san"),
+                                        # What would have punished it: the
+                                        # engine's move on the player's turn.
+                                        "your_best": ((nxt or {}).get("row") or {}).get("best_move")}})
 
     return {
         "version": LEDGER_VERSION,

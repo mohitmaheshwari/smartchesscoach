@@ -221,6 +221,14 @@ describe("LastGameCard", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/game/g1?prescription=grp_1&resume=-1");
   });
 
+  test("the ledger story's title heads the lines when there is one", async () => {
+    mock(200, { ...STORY_CARD, story_title: "A win with narrow escapes" });
+    await render();
+    const story = container.querySelector("[data-testid='last-game-story']");
+    expect(story.textContent).toContain("A win with narrow escapes");
+    expect(story.textContent).not.toContain("What this game left you");
+  });
+
   test("a card without a story renders as it always did", async () => {
     mock(200, CARD);
     await render();

@@ -125,7 +125,9 @@ export default function LastGameCard() {
 
           {lines.length > 0 && (
             <div className="mt-6" data-testid="last-game-story">
-              <p className="cg-eyebrow !text-[10px]">What this game left you</p>
+              {/* The game's story type when the ledger story chose one
+                  ("A win with narrow escapes"), else the plain heading. */}
+              <p className="cg-eyebrow !text-[10px]">{card.story_title || "What this game left you"}</p>
               <ul className="mt-3 space-y-2.5">
                 {lines.map((line, i) => (
                   <li
@@ -138,7 +140,7 @@ export default function LastGameCard() {
                       className={`mt-[7px] h-2 w-2 shrink-0 rounded-full ${
                         line.polarity === "positive"
                           ? "bg-emerald-500"
-                          : line.kind === "theirs"
+                          : line.kind === "theirs" || line.polarity === "neutral"
                           ? "bg-muted-foreground/50"
                           : line.kind === "stretch"
                           ? "bg-amber-500"

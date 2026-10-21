@@ -404,6 +404,9 @@ def story_card_fields(
     is the biggest single swing by either player.
     """
     user_is_white = str(user_colour) == "white"
+    plan = (story or {}).get("plan") or {}
+    if plan.get("home_lines"):
+        return _plan_card_fields(plan, review, user_is_white)
     lines = []
     lead_move = None
     for item in (story or {}).get("home_lines") or []:
@@ -471,6 +474,43 @@ def story_card_fields(
         })
 
     return {"story_lines": lines[:3], "board": board}
+
+
+def _plan_card_fields(plan, review, user_is_white: bool) -> Dict[str, Any]:
+    """The home cut of the ledger story: its title, the opening line, and the
+    two moments that matter most. Each line is a full sentence that already
+    names its move, so no move is shown beside it a second time. The board
+    shows the most important move the player made."""
+    lines = []
+    for item in plan.get("home_lines") or []:
+        text = str(item.get("text") or "").strip()
+        if not text:
+            continue
+        lines.append({
+            "kind": "moment" if item.get("san") else "stretch",
+            "polarity": item.get("polarity"),
+            "san": None,
+            "text": text,
+        })
+    move = plan.get("board_move") or {}
+    uci = str(move.get("uci") or "")
+    if move.get("fen_before") and len(uci) >= 4:
+        board = {
+            "source": "story",
+            "fen_before": move["fen_before"],
+            "san": move.get("san"),
+            "from": uci[:2],
+            "to": uci[2:4],
+            "board_orientation": "white" if user_is_white else "black",
+        }
+    else:
+        turning = review.get("turning_point") or {}
+        board = {"source": "turning_point", **turning, **turning_point_squares(turning)}
+    return {
+        "story_lines": lines[:3],
+        "story_title": (plan.get("type") or {}).get("title"),
+        "board": board,
+    }
 
 
 async def last_game_card(db, user_id: str) -> Optional[Dict[str, Any]]:

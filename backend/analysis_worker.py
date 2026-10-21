@@ -2032,6 +2032,19 @@ def process_job(db, job):
                 # with a compliment. Same helper the read path uses.
                 outcome=_story_outcome(game),
             )
+            # The timeline, ledger and plan: the same helper the read path
+            # uses, so a stored story and a rebuilt one cannot differ.
+            from services.game_story import attach_plan
+            attach_plan(
+                _story,
+                move_evaluations=(
+                    (analysis_doc.get("stockfish_analysis") or {})
+                    .get("move_evaluations") or []
+                ),
+                observations=obs_list or [],
+                game=game,
+                opening_deviation=analysis_doc.get("opening_deviation"),
+            )
             db.game_analyses.update_one(
                 {"game_id": game_id},
                 {"$set": {"game_story": _story}},
