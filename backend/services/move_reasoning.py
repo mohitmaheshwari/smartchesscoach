@@ -106,12 +106,25 @@ class Finding:
     facts: Dict[str, Any]
     differential: str = NOT_TESTED
     confidence: str = LOW
+    # Why this finding is not usable, or why its premise is weak. Empty when
+    # it passed. Kept as text because it is read by a developer, never a
+    # player -- the card gets slots, not sentences.
+    size_problem: str = ""
+    challenged: str = ""
     lines: List[Dict[str, Any]] = field(default_factory=list)
 
     @property
     def usable(self) -> bool:
-        """May the caption layer speak this? Only if it is about the choice."""
-        return self.differential in (DISTINGUISHES, INHERENT)
+        """May the caption layer speak this?
+
+        Three conditions, which are steps 2, 6 and 7 of the hand procedure:
+        it must be about the CHOICE and not the position, its size must match
+        the engine's complaint, and its own premise must survive a look at the
+        board.
+        """
+        return (self.differential in (DISTINGUISHES, INHERENT)
+                and not self.size_problem
+                and not self.challenged)
 
 
 @dataclass
@@ -173,6 +186,42 @@ class Probe:
 # better line plays this and your move made it illegal", which cannot be true
 # of the better move itself.
 
+PIECE_CP = {"pawn": 100, "knight": 300, "bishop": 300,
+            "rook": 500, "queen": 900, "king": 0}
+
+# A positional or tempo lesson may not explain a catastrophe. Measured over
+# 500 games, the cp_loss these findings sit on:
+#
+#   abandoned_own_defender  p75  400   max  1178    1.1% at 900cp or more
+#   blocked_a_plan          p75  276   max 10315    4.5%
+#   engine_undoes_it        p75  456   max 19950   16.7%
+#   returns_home            p75  326   max 19950   13.3%
+#
+# The well-behaved body tops out around 1,200 and the rest is a separate
+# population of mate scores at 8,500 and up. So the bar goes in that gap, and
+# the same 900 falls out of the excess distribution measured independently in
+# `contrastive_reasoner._beyond_this_man`. Twenty-four players were being
+# mated while the card explained that their piece came back.
+POSITIONAL_MAX_CP = 900
+
+# How far a material claim may sit ABOVE the engine's own number before it is
+# describing a different event.
+#
+# Unlike the positional bar there is no clean gap here, and that is worth
+# saying rather than hiding. Measured over 500 games on 92 material findings,
+# claim_cp minus cp_loss:
+#
+#   p25 -185   p50 -48   p75 +21   p90 +167   p95 +202   p99 +399
+#   71.7% claim at or below the engine's number
+#
+# The tail is smooth, so this is a judgement at the 95th percentile, not a
+# natural break. Some gap is legitimate: a claim measures material in the
+# line while cp_loss prices the whole position, so a piece that falls with
+# compensation reads high by design. 200 keeps 95% and cuts the six cards
+# that claim a rook or a queen on a move the engine priced near a pawn.
+CLAIM_SLACK_CP = 200
+
+
 @dataclass(frozen=True)
 class Question:
     concept: str
@@ -180,6 +229,15 @@ class Question:
     ask: Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
     subject: Tuple[str, ...] = ()
     inherent: bool = False
+    # How much material this answer accounts for, or None when the lesson is
+    # positional. Step 7 of the hand-written procedure -- "does my answer match
+    # the engine's number?" -- which until now lived inside ONE question, so
+    # every new question had to remember it and would eventually not.
+    claim_cp: Optional[Callable[[Dict[str, Any]], Optional[int]]] = None
+    # Step 6 -- attack the story already on the card. Returns a reason the
+    # claim's own premise is weak, or None when it holds.
+    challenge: Optional[Callable[[Dict[str, Any], "MoveUnderStudy"],
+                                 Optional[str]]] = None
 
 
 # An EMPTY subject means "compare on existence": any answer at all after the
@@ -189,14 +247,86 @@ class Question:
 # position does and not what this move cost. Marking them `inherent` was my
 # first instinct and it was wrong: they assert a property, they just assert it
 # about whichever piece moved.
+def _lost_man_cp(answer: Dict[str, Any]) -> Optional[int]:
+    return PIECE_CP.get(str(answer.get("lost") or ""))
+
+
+def _retreat_was_voluntary(answer: Dict[str, Any],
+                           move: "MoveUnderStudy") -> Optional[str]:
+    """Step 6, on the one claim we actually make: "the move loses time".
+
+    Mohit, on the Nc3 card: "why would nC3 comes back to b1, there is no
+    attack on nc3 in coming future, it's safe there". He was right, and the
+    board agrees -- nothing ever attacks c3, so the knight is regrouping via
+    d2, not being chased. "Loses time" reads a deliberate manoeuvre backwards.
+
+    So: walk the played line and ask whether the piece is ever attacked where
+    it stands. If it never is, the retreat is a choice and the premise of the
+    claim does not hold.
+    """
+    board = move.board_before()
+    try:
+        played = board.parse_san(str(move.played_san))
+    except (ValueError, AssertionError, TypeError):
+        return None
+    walk = board.copy()
+    walk.push(played)
+    here = played.to_square
+    us = board.turn
+    for san in list(move.pv_played or ())[:8]:
+        if walk.attackers(not us, here):
+            return None                      # it really was chased
+        try:
+            mv = walk.parse_san(str(san))
+        except (ValueError, AssertionError):
+            return None
+        if mv.from_square == here:
+            here = mv.to_square
+        walk.push(mv)
+    if walk.attackers(not us, here):
+        return None
+    return "nothing ever attacks the piece, so the retreat is a choice"
+
+
 REGISTRY: Tuple[Question, ...] = (
     Question("blocked_a_plan", CAUSE, q_blocked_a_plan,
              subject=("san",), inherent=True),
     Question("abandoned_own_defender", CAUSE, q_abandoned_own_defender,
-             subject=("square",)),
-    Question("engine_undoes_it", EVIDENCE, q_engine_undoes_it, subject=()),
-    Question("returns_home", SYMPTOM, q_returns_home, subject=()),
+             subject=("square",), claim_cp=_lost_man_cp),
+    Question("engine_undoes_it", EVIDENCE, q_engine_undoes_it, subject=(),
+             challenge=_retreat_was_voluntary),
+    Question("returns_home", SYMPTOM, q_returns_home, subject=(),
+             challenge=_retreat_was_voluntary),
 )
+
+
+def _size_is_consistent(question: Question, answer: Dict[str, Any],
+                        cp_loss: Optional[int]) -> Optional[str]:
+    """Steps 1 and 7, as a framework rule rather than a habit.
+
+    The size of the explanation has to match the size of the engine's
+    complaint. Returns the reason it does not, or None when it does.
+
+    This is the check that caught "dxe5 wins your knight" on a move the engine
+    priced at one pawn. It lived inside a single question, so it protected one
+    concept and nothing else.
+    """
+    if cp_loss is None:
+        return None
+    cp = abs(int(cp_loss))
+    claim = question.claim_cp(answer) if question.claim_cp else None
+    if claim is None:
+        # A positional or tempo lesson. It may be right about the board and
+        # still be the wrong thing to say to someone losing a queen.
+        if cp >= POSITIONAL_MAX_CP:
+            return (f"a positional lesson cannot explain {cp}cp; "
+                    "something categorical happened")
+        return None
+    if claim > cp + CLAIM_SLACK_CP:
+        return f"claims {claim}cp where the engine priced it at {cp}cp"
+    if cp > claim + POSITIONAL_MAX_CP:
+        return f"explains {claim}cp of a {cp}cp loss; the rest is unaccounted"
+    return None
 
 
 def _ctx(move: MoveUnderStudy, played_san: str, pv_played: Sequence[str],
@@ -331,6 +461,13 @@ def reason_about(move: MoveUnderStudy, probe: Optional[Probe] = None
         if not answer:
             continue
         differential = _run_differential(question, answer, move)
+        size_problem = _size_is_consistent(question, answer, move.cp_loss) or ""
+        challenged = ""
+        if question.challenge is not None:
+            try:
+                challenged = question.challenge(answer, move) or ""
+            except Exception:
+                logger.exception("challenge: %s raised", question.concept)
         finding = Finding(
             concept=question.concept,
             tier=question.tier,
@@ -338,6 +475,8 @@ def reason_about(move: MoveUnderStudy, probe: Optional[Probe] = None
                    if k not in ("tier", "id")},
             differential=differential,
             confidence=_confidence(question.tier, differential, stability),
+            size_problem=size_problem,
+            challenged=challenged,
         )
         (kept if finding.usable else rejected).append(finding)
 

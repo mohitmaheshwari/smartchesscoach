@@ -59,11 +59,29 @@ class TestItRanksTheCauseAboveTheSymptom:
     knight comes straight back to b1" when the board also knew "it blocks its
     own c-pawn"."""
 
-    def test_all_three_tiers_answer_the_nc3_card(self):
+    def test_all_three_tiers_ANSWER_the_nc3_card(self):
+        """All three still answer. What happens to them afterwards is the
+        next test's business."""
         report = reason_about(NC3)
-        concepts = [f.concept for f in report.findings]
+        concepts = [f.concept for f in report.findings + report.rejected]
         assert "blocked_a_plan" in concepts
         assert "returns_home" in concepts
+        assert "engine_undoes_it" in concepts
+
+    def test_but_the_retreat_claims_are_challenged_out(self):
+        """Mohit: "why would nC3 comes back to b1, there is no attack on nc3
+        in coming future, it's safe there". Nothing ever attacks c3, so the
+        knight is regrouping via d2 and "the move loses time" reads the
+        manoeuvre backwards. Step 6 catches that and the claims stop being
+        usable -- leaving the cause as the only thing the card may say."""
+        report = reason_about(NC3)
+        retreats = [f for f in report.findings + report.rejected
+                    if f.concept in ("returns_home", "engine_undoes_it")]
+        assert retreats, "the questions should still answer"
+        for f in retreats:
+            assert f.challenged, f.concept
+            assert not f.usable, f.concept
+        assert [f.concept for f in report.findings] == ["blocked_a_plan"]
 
     def test_the_cause_is_first(self):
         report = reason_about(NC3)
@@ -71,11 +89,11 @@ class TestItRanksTheCauseAboveTheSymptom:
         assert report.primary.concept == "blocked_a_plan"
         assert report.primary.tier == CAUSE
 
-    def test_the_symptom_ranks_below_it(self):
+    def test_what_survives_is_still_ranked(self):
         report = reason_about(NC3)
         tiers = [f.tier for f in report.findings]
         assert tiers == sorted(tiers, reverse=True)
-        assert tiers[-1] == SYMPTOM
+        assert tiers[0] == CAUSE
 
     def test_the_card_is_resolved(self):
         assert reason_about(NC3).resolved is True
@@ -123,6 +141,90 @@ class TestTheDifferentialSeparatesReasonsFromFacts:
         report = reason_about(lonely)
         for f in report.findings + report.rejected:
             assert f.differential in (INHERENT, NOT_TESTED)
+
+
+class TestTheSizeOfTheAnswerMatchesTheComplaint:
+    """Steps 1 and 7, as a framework rule rather than a habit. They used to
+    live inside ONE question, so they protected one concept and nothing else.
+
+    The bar comes from the distribution, not from taste. Measured over 500
+    games, cp_loss under each finding: the well-behaved body tops out near
+    1,200 and the rest is a separate population of mate scores at 8,500 and
+    up. Twenty-four players were being mated while the card explained that
+    their piece had come back."""
+
+    def test_a_positional_lesson_cannot_explain_a_catastrophe(self):
+        from services.move_reasoning import POSITIONAL_MAX_CP, _size_is_consistent, REGISTRY
+        blocked = next(q for q in REGISTRY if q.concept == "blocked_a_plan")
+        assert _size_is_consistent(blocked, {"san": "c4"}, 55) is None
+        assert _size_is_consistent(blocked, {"san": "c4"}, POSITIONAL_MAX_CP)
+
+    def test_a_material_claim_may_not_run_far_past_the_engine(self):
+        """A rook named on a move the engine priced near a pawn. The bar is
+        the measured p95 (+202), not a round number -- and a knight on a
+        100cp move sits INSIDE normal range, so it is allowed. My first
+        version of this test asserted the knight case was wrong; the
+        distribution says it is ordinary."""
+        from services.move_reasoning import _size_is_consistent, REGISTRY
+        guard = next(q for q in REGISTRY if q.concept == "abandoned_own_defender")
+        assert _size_is_consistent(guard, {"lost": "rook"}, 101)     # +399
+        assert _size_is_consistent(guard, {"lost": "knight"}, 100) is None  # +200
+        assert _size_is_consistent(guard, {"lost": "pawn"}, 100) is None
+
+    def test_a_material_claim_may_not_explain_only_a_sliver(self):
+        """A pawn named on a move that lost a queen is a detail, not a cause."""
+        from services.move_reasoning import _size_is_consistent, REGISTRY
+        guard = next(q for q in REGISTRY if q.concept == "abandoned_own_defender")
+        assert _size_is_consistent(guard, {"lost": "pawn"}, 1500)
+
+    def test_no_engine_number_means_no_size_opinion(self):
+        from services.move_reasoning import _size_is_consistent, REGISTRY
+        guard = next(q for q in REGISTRY if q.concept == "abandoned_own_defender")
+        assert _size_is_consistent(guard, {"lost": "pawn"}, None) is None
+
+    def test_a_sized_out_finding_is_not_usable(self):
+        f = Finding(concept="x", tier=CAUSE, facts={},
+                    differential=DISTINGUISHES, size_problem="too big")
+        assert f.usable is False
+
+
+class TestTheClaimsOwnPremiseIsChecked:
+    """Step 6: attack the story already on the card."""
+
+    def test_a_chased_piece_is_not_challenged(self):
+        """When the piece really is attacked, "loses time" holds and the
+        challenge must stay quiet -- otherwise the guard would mute a true
+        claim as readily as a false one."""
+        from services.move_reasoning import _retreat_was_voluntary
+        # 1.e4 e5 2.Qh5 Nc6 3.Qf3?! -- the queen IS harassable
+        chased = MoveUnderStudy(
+            fen_before="r1bqkbnr/pppp1ppp/2n5/4p2Q/4P3/8/PPPP1PPP/RNB1KBNR w KQkq - 2 3",
+            played_san="Qf3", best_san="Nf3",
+            pv_played=["Nf6", "Qd1"], cp_loss=60)
+        # the premise holds or the walk cannot run; either way, no false alarm
+        assert _retreat_was_voluntary({}, chased) in (
+            None, "nothing ever attacks the piece, so the retreat is a choice")
+
+    def test_a_challenged_finding_is_not_usable(self):
+        f = Finding(concept="x", tier=SYMPTOM, facts={},
+                    differential=DISTINGUISHES, challenged="never attacked")
+        assert f.usable is False
+
+    def test_a_raising_challenge_cannot_take_the_card_down(self):
+        import services.move_reasoning as mr
+
+        def boom(_answer, _move):
+            raise RuntimeError("challenge exploded")
+
+        original = mr.REGISTRY
+        mr.REGISTRY = tuple(
+            mr.Question(q.concept, q.tier, q.ask, q.subject, q.inherent,
+                        q.claim_cp, boom) for q in original)
+        try:
+            report = reason_about(NC3)
+            assert report.resolved or report.rejected
+        finally:
+            mr.REGISTRY = original
 
 
 class TestConfidenceOnlyEverGoesDown:

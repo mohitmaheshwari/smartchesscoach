@@ -113,6 +113,63 @@ shuffling is what the position does, not what the move cost. A test pins the
 exempt set to exactly `{blocked_a_plan}` so nothing gets quietly exempted
 again.
 
+## The eight steps, and where each one lives
+
+Mohit asked for the framework to be built through the procedure I used by hand
+on his Nc3 card. Mapped honestly:
+
+| step | where |
+|---|---|
+| 1. the engine says THAT, not WHY — size expectation | `_size_is_consistent` |
+| 2. two futures; the reason is in the difference | `MoveUnderStudy` + the differential |
+| 3. what WE get to do in the better line | `q_blocked_a_plan` |
+| 4. legal before, illegal after | same question |
+| 5. is my move physically in the way | `in_the_way` |
+| 6. attack the story already on the card | `Question.challenge` |
+| 7. does my answer match the engine's number | `_size_is_consistent` |
+| 8. one sentence a 1200 would use | deliberately the caption layer |
+
+Steps 1, 6 and 7 were added on 2026-10-21. Before that, step 7 lived inside a
+single question — so it protected one concept and every future question would
+have had to remember it — and step 6 did not exist at all.
+
+### What they remove, measured over 500 games
+
+| | |
+|---|---|
+| findings | 488 |
+| usable after all rules | 347 (71.1%) |
+| cut by SIZE (steps 1+7) | **51 (10.5%)** |
+| cut by CHALLENGE (step 6) | **102 (20.9%)** |
+| cards resolved | 304 (8.6%), from 377 |
+
+The challenge cut is the striking one: **102 of 264 retreat findings (39%)**
+fail their own premise. Mohit on the Nc3 card — *"why would nC3 comes back to
+b1, there is no attack on nc3 in coming future, it's safe there"* — turns out
+to describe four cards in ten, not one. "The move loses time" was reading a
+deliberate regrouping backwards at scale.
+
+The size rule catches the other shape: a positional lesson offered on a
+19,950cp position, which is to say to somebody being mated.
+
+Coverage falls from 377 resolved cards to 304. Those 73 cards now say nothing
+rather than saying something that does not hold, which is the one trade this
+repo's rules make in that direction: silence beats a confident wrong answer,
+even though a mediocre answer beats silence.
+
+### Thresholds, and one that is a judgement
+
+`POSITIONAL_MAX_CP = 900` comes from a real gap. The cp_loss under each
+finding tops out near 1,200 for the well-behaved body and the rest is a
+separate population of mate scores at 8,500 and up.
+
+`CLAIM_SLACK_CP = 200` does **not** come from a gap, and that is recorded
+rather than hidden. Over 92 material findings, claim minus cp_loss runs
+p50 −48, p75 +21, p90 +167, p95 +202, p99 +399, with 71.7% at or below the
+engine's number. The tail is smooth, so the bar is a judgement at the 95th
+percentile. Some gap is legitimate by construction: a claim measures material
+in the line while cp_loss prices the whole position.
+
 ## Next
 
 1. **Wire it behind the Why button.** `why_on_demand.explain()` currently asks
