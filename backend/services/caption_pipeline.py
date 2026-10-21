@@ -5420,6 +5420,31 @@ def _line_sequence_arrows(
     #
     # Half a plan whose payoff cannot be shown is worse than the single honest
     # arrow it displaces, so hand it back.
+    #
+    # Unless an EARLIER payoff fits. Mohit 2026-10-21 on move 21 Kd1 of
+    # 8c491e16: "i clearly remember it was drawn before but our code changes,
+    # somehow removed it". He was right, and a worktree at 8dc27745^ proved
+    # it -- that card used to draw three arrows, a3->a1, d1->e2 and a darkred
+    # a1->d4, which is exactly the fork: Qa1+ hits the king on d1 and the
+    # knight on d4, and Qxd4 collects it.
+    #
+    # What changed is not the chooser's taste but its reach. Re-analysis at 12
+    # plies made the line long enough that `find_line_payoff` could see a
+    # BIGGER prize further out -- Nxh1 at index 10, winning a rook, net +600
+    # against the fork's +300 -- and it ranks by net, so it chose index 10.
+    # That sits past the 8-arrow budget, this guard fired, and a card that had
+    # a perfectly drawable fork at index 2 drew nothing at all.
+    #
+    # So: when the best payoff in the whole line is out of reach, ask the same
+    # chooser what the best payoff INSIDE the budget is, and draw that. The
+    # ranking from 8dc27745 is untouched -- mate > recapture > material > forcing,
+    # and net-after-the-reply still stops a trade reading as a win -- it just
+    # no longer throws the picture away when the winner it liked best is off
+    # the end of it. Silence is the one answer that teaches nothing.
+    if payoff is not None and payoff >= max_arrows:
+        _in_budget = find_line_payoff(board_after_opp, _steps[:max_arrows], max_arrows)
+        payoff = _in_budget[0] if _in_budget else None
+
     if payoff is None or payoff < 2 or payoff >= max_arrows:
         return []
 
