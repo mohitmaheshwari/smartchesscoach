@@ -410,6 +410,12 @@ def story_card_fields(
         text = str(item.get("display_name") or "").strip()
         if not text:
             continue
+        # Each line on the card is read as a sentence. The names come from
+        # three owners and only some end in a full stop, so the card read
+        # "This is where the game got away." beside "Found the best move
+        # when it mattered" -- seen on production cards 2026-10-21.
+        if text[-1] not in ".!?":
+            text += "."
         is_move = item.get("kind") == "moment" and bool(item.get("move_san"))
         line = {
             "kind": "moment" if is_move else "stretch",

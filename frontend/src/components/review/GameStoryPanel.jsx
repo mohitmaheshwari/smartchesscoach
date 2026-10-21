@@ -84,7 +84,11 @@ export default function GameStoryPanel({ gameId, onOpenMove }) {
                     </span>
                     <span className="font-mono text-sm w-14 shrink-0 text-foreground">{m.move_san}</span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm text-foreground leading-snug">{m.display_name}</span>
+                      {/* A row is a title, so no full stop. The names come
+                          from three owners and only some carry one. */}
+                      <span className="block text-sm text-foreground leading-snug">
+                        {String(m.display_name).replace(/[.]+$/, "")}
+                      </span>
                       {m.display_detail && (
                         <span className="block text-xs text-muted-foreground leading-relaxed mt-0.5">
                           {m.display_detail}

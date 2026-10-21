@@ -63,7 +63,7 @@ describe("GameStoryPanel", () => {
     const rows = container.querySelectorAll("[data-testid='game-story-moment']");
     expect(rows).toHaveLength(2);
     expect(rows[0].textContent).toContain("Kg3");
-    expect(rows[0].textContent).toContain("This is where the game got away.");
+    expect(rows[0].textContent).toContain("This is where the game got away");
     expect(container.textContent).toContain("Their rooks worked together and yours did not.");
   });
 
@@ -94,6 +94,14 @@ describe("GameStoryPanel", () => {
     global.fetch = jest.fn(() => Promise.reject(new Error("offline")));
     await render();
     expect(container.textContent).toBe("");
+  });
+
+  test("rows are titles, so none ends in a full stop", async () => {
+    mock(200, STORY);
+    await render();
+    const rows = [...container.querySelectorAll("[data-testid='game-story-moment']")];
+    expect(rows[0].textContent).toContain("This is where the game got away");
+    expect(rows[0].textContent).not.toContain("got away.");
   });
 
   test("no number reaches the player except inside a move", async () => {

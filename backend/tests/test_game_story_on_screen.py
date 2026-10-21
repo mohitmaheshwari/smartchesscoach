@@ -172,6 +172,12 @@ class TestTheBoardAndTheFirstLineAgree:
         assert fields["story_lines"][1]["text"] == "They went wrong here too."
         assert len(fields["story_lines"]) <= 3
 
+    def test_every_line_reads_as_a_sentence(self):
+        result = story([decisive_mistake(), found_best()], outcome="loss")
+        fields = story_card_fields(result, review(THEIRS_LATER), user_colour="white")
+        assert fields["story_lines"]
+        assert all(l["text"].endswith(".") for l in fields["story_lines"])
+
     def test_their_earlier_error_is_not_called_a_second_one(self):
         result = story([decisive_mistake(), found_best()], outcome="loss")
         fields = story_card_fields(result, review(THEIRS_EARLIER), user_colour="white")
