@@ -782,7 +782,13 @@ def _r12_render(f):
     if f.get("mover_is_user") is False:
         facts["captured_piece_type"] = f.get("user_best_reply_captures_piece_type")
 
-    cap = render_rule("R12_blunder", facts)
+    # R12 renders most mistake cards, so if any rule has to report what it
+    # explained, it is this one. `render_rule` copies its facts on purpose, so
+    # the answer comes back through `out` rather than by mutation.
+    _prov: Dict[str, Any] = {}
+    cap = render_rule("R12_blunder", facts, out=_prov)
+    if _prov.get("explains_played_clause"):
+        f["explains_played_clause"] = _prov["explains_played_clause"]
     if cap is None:
         return None
     return CaptionOutput(

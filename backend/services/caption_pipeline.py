@@ -502,6 +502,19 @@ class TeachingMeta:
     # None when the caption isn't an R12-severity caption (clean move,
     # R15 good-move, opening intro, silent).
     caption_severity_word: Optional[str] = None
+    # WHAT this card explained about the move the player actually made, or
+    # None when it only named a better move. The name of the clause, so the
+    # answer is countable rather than guessable.
+    #
+    # Added 2026-10-21 because nobody could measure it. `failure_clause` is
+    # set on a LOCAL dict inside caption_templates.render and never reaches
+    # the card, so the only way to ask "does this explain the played move?"
+    # was to keyword-match the prose -- which I did twice, in two different
+    # ways, and got wrong both times: a keyword pass scored
+    # "Bxf7+ leaves your bishop undefended" and "Qd2 loses to Qxf2+" as cards
+    # that explain nothing. Caption quality that cannot be counted can only be
+    # found by Mohit reading cards, which is how it has been found so far.
+    explains_played: Optional[str] = None
     has_teaching_content: bool = False
     principle_id_used: Optional[str] = None
     principle_cue: str = ""
@@ -7068,6 +7081,56 @@ def _drop_the_better_move_clause(caption: str, best_san: str) -> str:
     return out if len(out.split()) >= 4 else ""
 
 
+def _what_explains_the_played_move(caption_facts, rule_name, caption):
+    """Which clause, if any, told the player what THEIR move did.
+
+    Returns the clause name, or None when the card only named a better move.
+
+    This asks `select_first_match` on the same facts the renderer used, rather
+    than re-implementing the predicates or matching the prose. The rule
+    renderers (`_r01_render`, `_r12_render`) each build their OWN facts dict,
+    so `failure_clause` lands somewhere the card never sees -- which is why
+    this could not be read off the decision before.
+
+    Prose matching is not an option. I tried it twice today, two different
+    ways, and both scored "Bxf7+ leaves your bishop undefended" and "Qd2 loses
+    to Qxf2+" as cards explaining nothing.
+    """
+    rule = (rule_name or "")
+    # Splices and whole rules that speak about the played move by construction.
+    for mark, name in (("PLAN_BLOCKED", "plan_blocked"),
+                       ("MOVE_UNDONE", "move_undone"),
+                       ("BACK_RANK", "back_rank"),
+                       ("R01_mate", "mate")):
+        if mark in rule:
+            return name
+    # What the renderer itself recorded, which beats anything inferred.
+    recorded = str(caption_facts.get("explains_played_clause") or "").strip()
+    if recorded:
+        return recorded
+    if caption_facts.get("allows_forced_mate"):
+        return "allows_forced_mate"
+    if str(caption_facts.get("lost_defender_lead_clause") or "").strip():
+        return "lost_defender"
+    if caption_facts.get("abandoned_guard_shape"):
+        return "abandoned_guard"
+    if caption_facts.get("played_drops_material") and "drops the" in (caption or ""):
+        return "drops_material"
+    # And the JSON failure clauses, asked the way the renderer asks them.
+    try:
+        from services.caption_templates import _load_all, select_first_match
+        cfg = (_load_all() or {}).get("R12_blunder") or {}
+        key = ("failure_mode_clauses_opp"
+               if caption_facts.get("mover_is_user") is False
+               else "failure_mode_clauses_user")
+        match = select_first_match(cfg.get(key) or [], caption_facts)
+        if match and match.get("variant"):
+            return str(match["variant"])
+    except Exception:
+        logger.exception("[explains_played] clause lookup failed")
+    return None
+
+
 def build_move_teaching_decision(
     inputs: MoveInputs,
     state: CrossMoveState,
@@ -9992,6 +10055,13 @@ def build_move_teaching_decision(
         severity_practical=practical.practical_tier,
         caption_tier=tier,
         caption_severity_word=_caption_severity_word,
+        # Built last, from the final rule chain and the final caption, because
+        # the splices that speak about the played move run after the renderer.
+        explains_played=_what_explains_the_played_move(
+            caption_facts,
+            caption_payload.get("rule_name"),
+            caption_payload.get("caption"),
+        ),
         has_teaching_content=(tier == "HIGH"),
         principle_id_used=caption_facts.get("principle_id_used"),
         principle_cue=caption_facts.get("principle_cue") or "",

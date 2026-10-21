@@ -349,7 +349,8 @@ def is_suppressed(rule_name: str, facts: Dict[str, Any]) -> bool:
 # Generic rule renderer + promotion dispatcher
 # ────────────────────────────────────────────────────────────────────
 
-def render_rule(rule_name: str, facts: Dict[str, Any]) -> Optional[str]:
+def render_rule(rule_name: str, facts: Dict[str, Any],
+                out: Optional[Dict[str, Any]] = None) -> Optional[str]:
     """Render any rule with the full JSON-driven pipeline:
 
       1. Pre-compute severity_phrase if the rule has `severity_tiers`
@@ -361,6 +362,14 @@ def render_rule(rule_name: str, facts: Dict[str, Any]) -> Optional[str]:
       5. Render the variant template.
 
     Returns the caption text, or None when the rule has nothing to say.
+
+    `out`, when given, receives provenance about what was rendered -- at
+    present `explains_played_clause`, the name of the clause that told the
+    player what THEIR move did. It exists because this function deliberately
+    copies `facts` and so nothing it derives can reach the caller; before it,
+    no card carried any record of whether it explained the played move, and
+    the only way to ask was to match prose. That was measured twice, two
+    different ways, and was wrong both times.
     """
     cfg = _load_all().get(rule_name) or {}
     if not cfg:
@@ -390,6 +399,13 @@ def render_rule(rule_name: str, facts: Dict[str, Any]) -> Optional[str]:
                 rendered = render_template(rule_name, fm_variant, facts)
                 if rendered:
                     facts["failure_clause"] = rendered
+                    # Provenance: WHICH clause told the player what their own
+                    # move did. The rule renderers each build a private facts
+                    # dict, so without this the card carries no record of it
+                    # and the only way to ask is to match prose, which is
+                    # unreliable. See TeachingMeta.explains_played.
+                    if out is not None:
+                        out["explains_played_clause"] = fm_variant
                     principle = (cfg.get("teaching_principles") or {}).get(fm_variant)
                     if principle:
                         facts["teaching_principle"] = principle
@@ -410,6 +426,8 @@ def render_rule(rule_name: str, facts: Dict[str, Any]) -> Optional[str]:
                     try:
                         rendered = principle.format(**facts)
                         facts["opp_failure_clause"] = rendered
+                        if out is not None:
+                            out["explains_played_clause"] = ofm_variant
                     except (KeyError, IndexError, ValueError) as exc:
                         logger.warning(f"[caption_templates] {rule_name}: failed to render {ofm_variant}: {exc}")
 
