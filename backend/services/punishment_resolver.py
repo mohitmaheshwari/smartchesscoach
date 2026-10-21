@@ -102,6 +102,71 @@ def _material(board: chess.Board, colour: bool) -> int:
                for p in board.piece_map().values() if p.color == colour)
 
 
+def _is_quiet(board: chess.Board, landed: Optional[int]) -> bool:
+    """Nothing hanging from the move that just landed on `landed`."""
+    if board.is_check():
+        return False
+    if landed is None:
+        return True
+    return not any(m.to_square == landed for m in board.legal_moves)
+
+
+def _walk_to_quiet(start: chess.Board, line: Sequence[str],
+                   max_ply: int,
+                   landed_on: Optional[int] = None) -> Optional[chess.Board]:
+    """Replay `line`, then stop at the last position where nothing is hanging
+    from the move that just happened.
+
+    Counting material at a fixed ply counts it mid-exchange. Mohit's move 7
+    e5, 2026-10-21: the "Why was this bad?" button said "After e5, dxe5 wins
+    your knight" with a payoff of 400, while the engine's own verdict for the
+    move was cp_loss 100. The quoted line is
+
+        dxe5  Nxe5  Nxd5  Nxf3+  Bxf3  c6  Nxf6+
+
+    and `_LINE_PLY` is 6, which lands exactly on `Nxf6+` -- a capture, with
+    check, and the recapture still to come. Black plays gxf6 next and the
+    balance is one pawn, which is what cp_loss said all along.
+
+    Quiet here means two board facts, both cheap: the side to move is not in
+    check, and it has no capture onto the square the previous move landed on.
+    That is the same bar the arrows already answer to -- a payoff has to
+    survive the recapture -- applied to the number the sentence quotes.
+
+    Walking BACK rather than extending the line is deliberate: the engine gave
+    us these moves and inventing a recapture it did not play would be a
+    different line, judged by us instead of by it.
+
+    `landed_on` is the square the move that produced `start` arrived on, so
+    the starting position is judged by the same rule as every later one. Without
+    it a one-move line ending in an un-recaptured capture banks the piece --
+    "Qxd5 wins a queen" with Kxd5 waiting.
+
+    Returns `(quiet, final)` -- the last settled position, or None when there
+    is none in range, alongside the end of the walk.
+
+    Callers take whichever reading claims LESS. That rule is not a detail.
+    Measured over 3,521 cards, backing off to the quiet position on its own
+    changed 5.5% of them but ADDED 53 material claims and raised 60 payoffs,
+    and sent more readings further from the engine's own cp_loss (54) than
+    closer to it (44). Of course it did: stopping earlier can stop before the
+    compensation arrives, which is the same error as stopping mid-exchange,
+    pointing the other way. A guard against overclaiming may never manufacture
+    a claim, so it is allowed to lower a number and never to raise one.
+    """
+    board = start.copy(stack=False)
+    quiet = board.copy(stack=False) if _is_quiet(board, landed_on) else None
+    for san in list(line)[:max_ply]:
+        try:
+            move = board.parse_san(str(san or "").strip())
+        except (ValueError, AssertionError, KeyError):
+            break
+        board.push(move)
+        if _is_quiet(board, move.to_square):
+            quiet = board.copy(stack=False)
+    return quiet, board
+
+
 def _must_move(board: chess.Board, square: int, owner: bool) -> bool:
     """Is the piece on `square` obliged to move?
 
@@ -309,14 +374,23 @@ def _consequences(
     # Net over the whole line, so an exchange the victim recaptures does NOT
     # read as material won. A single-ply diff counts every even trade, which
     # measured 42% of mistakes instead of the true 29.8%.
-    line_board = post.copy(stack=False)
-    for san in line[:_LINE_PLY]:
-        try:
-            line_board.push(line_board.parse_san(str(san or "").strip()))
-        except (ValueError, AssertionError, KeyError):
-            break
-    net = ((_material(line_board, victim) - _material(line_board, aggressor))
-           - (_material(pre, victim) - _material(pre, aggressor)))
+    quiet_board, final_board = _walk_to_quiet(
+        post, line, _LINE_PLY, landed_on=agent_move.to_square)
+    baseline_mat = _material(pre, victim) - _material(pre, aggressor)
+
+    def _net(board):
+        return ((_material(board, victim) - _material(board, aggressor))
+                - baseline_mat)
+
+    # No quiet point in range means the material is still in flight, so there
+    # is no claim to make; otherwise take whichever reading claims less. `net`
+    # is the VICTIM's swing, so the smaller claim is the LARGER net.
+    if quiet_board is None:
+        net, net_board = 0, final_board
+    elif _net(quiet_board) >= _net(final_board):
+        net, net_board = _net(quiet_board), quiet_board
+    else:
+        net, net_board = _net(final_board), final_board
     # `material_baseline_cp` is what the move actually played already wins.
     # Without it the "missed" direction credits the engine's move with
     # material the played move collects too: 13...dxe5 and 13...Nxe5 both take
@@ -326,7 +400,7 @@ def _consequences(
     gain = -net - material_baseline_cp
     if gain > 0:
         offer("WINS_MATERIAL", gain,
-              victim_piece=_net_victim_loss(pre, line_board, victim, aggressor))
+              victim_piece=_net_victim_loss(pre, net_board, victim, aggressor))  # the SAME board the number came from
 
     # --- FORK ------------------------------------------------------------
     # A fork has to survive the victim's reply. This branch tested the board
@@ -492,13 +566,20 @@ def _line_material_gain(fen_before: str, move_san: str,
         return 0
     us = piece.color
     before = _material(board, us) - _material(board, not us)
-    board.push(mv)
-    for san in _normalize_pv_starting_with(move_san, list(line))[1:][:_LINE_PLY]:
-        try:
-            board.push(board.parse_san(str(san or "").strip()))
-        except (ValueError, AssertionError, KeyError):
-            break
-    return (_material(board, us) - _material(board, not us)) - before
+    # Same rule as the WINS_MATERIAL branch, and for the same reason: a count
+    # taken mid-exchange banks a piece that is about to be taken back. Both
+    # read through one helper so the two can never disagree about where it is
+    # safe to count. The move itself is walked here rather than pushed first,
+    # so its OWN recapture is judged like any other.
+    settled, final = _walk_to_quiet(
+        board, _normalize_pv_starting_with(move_san, list(line)),
+        _LINE_PLY + 1)
+    if settled is None:
+        return 0            # nothing settled in range: no claim to make
+    # The smaller claim of the two, for the reason in _walk_to_quiet: this
+    # guard may lower a number, never raise one.
+    return min((_material(settled, us) - _material(settled, not us)) - before,
+               (_material(final, us) - _material(final, not us)) - before)
 
 
 def resolve_missed(
