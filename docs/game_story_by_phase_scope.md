@@ -163,6 +163,62 @@ Changed:
   away", "Up and down", "A clean win", "A great escape" and "A win with narrow
   escapes".
 
+## Good chess the engine's move labels miss
+
+Added after a second design Mohit pasted on 2026-10-21. A game's best
+teaching moments are often not marked by the engine at all: trapping a rook,
+keeping a knight out of the game, holding an outpost, or defending well. The
+ledger records these as achievements, under one rule that is not negotiable:
+
+**Never praise a player because something good is on the board. Say what
+the player did to create it, keep it, or use it.**
+
+Four kinds, by how long they take:
+
+| Kind | Examples | How it is proved |
+|---|---|---|
+| One move or a short line | fork, trapped piece, mating net, deflection | the board and a short engine line |
+| A condition that lasts | a boxed-in piece, an outpost, an open file held | tracked position by position, the way the "all game long" lines already are |
+| An episode over several moves | a long squeeze, a blockade, a regrouping | linked by the positions themselves, never by a writer |
+| Good defence | an only move, a threat stopped, an escape | the engine says the other moves lose |
+
+Measured on 300 recent games, an opponent's piece was boxed in, with at most
+one safe move for several turns in a row after it had moved, 344 times:
+
+| Who boxed it in | Episodes |
+|---|---|
+| The opponent's own move | 216 |
+| The player's move | 128 |
+
+While the piece stayed boxed in, the player's evaluation rose only about
+half the time. So two checks decide whether a lasting condition becomes an
+achievement:
+
+1. **Who caused it.** The piece must have been free after the opponent's own
+   move and boxed in after the player's. Otherwise it is the opponent's
+   concession, and the story says that instead: "They shut their own bishop
+   in."
+2. **Did it matter?** The engine has to show the player gaining while it
+   lasted, or the boxed-in piece being lost. Otherwise the condition may be
+   described, but never praised.
+
+The part of the product that already tracks conditions over time, the board
+state tracker behind the "all game long" lines, mostly follows the player's
+own pieces. It gains the same view of the opponent's pieces with these two
+checks. It is extended, not rebuilt.
+
+A bad or boxed-in bishop belongs to the bishop work Mohit deferred on
+2026-10-20. Knights, rooks and queens are not deferred. Bishops join when he
+says so.
+
+Every achievement passes the same approval as every other detector before a
+player sees it. There are 48 concept checks and 11 are approved today. The
+rest stay hidden.
+
+The story chooses its three to six events by importance, evidence, who
+caused them, and what they teach. A real achievement can outrank a small
+inaccuracy even when the engine scores the inaccuracy as a bigger change.
+
 ## In scope for the first version
 
 1. **Fix first: the pin checker.** It counts a piece as pinned even when that
@@ -182,6 +238,9 @@ Changed:
    - missed mates, and allowed mates the opponent missed
    - the opponent's own big mistakes, and whether the player took them
    - good moves from the approved concept checks and executed tactics
+   - an opponent's knight, rook or queen boxed in by the player, only when
+     the player caused it and it mattered
+   - good defence: an only move found when the other moves lose
    - the opening: its name, how it went, and the costliest opening move
    - the finish: how it ended, and whether a winning position was kept
 4. **The story plan:** the story type, three to six events, and one lesson
@@ -220,6 +279,9 @@ Changed:
 2. **The lesson rule.** I propose a lesson only when at least two events in
    the game share it, and otherwise no lesson rather than a generic one.
    Agree?
+3. **Bishops.** You deferred the bishop work on 2026-10-20. Boxed-in bishops
+   are 157 of the 344 episodes, the largest group. Keep them deferred, or
+   bring them in with the two checks above?
 
 ## Order of work
 
