@@ -14,6 +14,9 @@ families first (e.g. "London" matched before "Queens Pawn" so that
 """
 
 from __future__ import annotations
+
+import re
+import unicodedata
 from typing import Optional
 
 # Ordered list of (keyword, canonical_name). First keyword found in the
@@ -32,7 +35,12 @@ _PRIORITY_MATCHES = [
     # London System — matches before Queens Pawn
     ("London System", "London System"),
     ("London", "London System"),
-    # Caro-Kann
+    # 1.c4 c6 is "English Opening Caro Kann Defensive System" -- an English,
+    # so it must match before the Caro-Kann below.
+    ("English Opening Caro Kann", "English Opening"),
+    # Caro-Kann. chess.com writes "Caro Kann Defense" with no hyphen; that one
+    # spelling was about 2,000 games filed as "Other" (measured 2026-10-22).
+    # Matching now ignores hyphens, so "Caro-Kann" covers both.
     ("Caro-Kann", "Caro-Kann"),
     ("CaroKann", "Caro-Kann"),
     # French
@@ -45,11 +53,17 @@ _PRIORITY_MATCHES = [
     ("Queen's Gambit", "Queen's Gambit"),
     ("QGD", "Queen's Gambit"),
     ("QGA", "Queen's Gambit"),
-    # Slav
+    # Slav. A whole word: "Kings Indian Attack Yugoslav Variation" used to
+    # match here and come out as the Slav.
     ("Slav", "Slav Defense"),
-    # Indian defenses
+    # The King's Indian ATTACK is a White system, not the defence; it has to
+    # match before both "Kings Indian" and "Reti", which also appear in its
+    # names ("Reti Opening Kings Indian Attack ...").
+    ("Kings Indian Attack", "King's Indian Attack"),
+    # Indian defenses. No bare "Nimzo": it matched "Nimzowitsch Defense",
+    # a different opening, and would match "Nimzo Larsen Attack".
     ("Nimzo-Indian", "Nimzo-Indian"),
-    ("Nimzo", "Nimzo-Indian"),
+    ("Nimzo Larsen", "Nimzo-Larsen Attack"),
     ("Kings Indian", "King's Indian Defense"),
     ("King's Indian", "King's Indian Defense"),
     ("Queens Indian", "Queen's Indian Defense"),
@@ -62,7 +76,10 @@ _PRIORITY_MATCHES = [
     ("Catalan", "Catalan Opening"),
     ("Benoni", "Benoni Defense"),
     # 1.e4 ... defenses
+    # Possessive spellings need their own entry now that matching is on
+    # whole words: "Alekhines Defense", "Birds Opening".
     ("Alekhine", "Alekhine Defense"),
+    ("Alekhines", "Alekhine Defense"),
     ("Pirc", "Pirc Defense"),
     ("Modern Defense", "Modern Defense"),
     ("Nimzowitsch Defense", "Nimzowitsch Defense"),
@@ -73,11 +90,13 @@ _PRIORITY_MATCHES = [
     ("Réti", "Réti Opening"),
     ("Catalan", "Catalan Opening"),
     ("Bird", "Bird's Opening"),
+    ("Birds", "Bird's Opening"),
     # Miscellaneous
     ("Dutch", "Dutch Defense"),
     ("Vienna", "Vienna Game"),
     ("Petroff", "Petrov Defense"),
     ("Petrov", "Petrov Defense"),
+    ("Petrovs", "Petrov Defense"),
     ("Philidor", "Philidor Defense"),
     ("Bishops Opening", "Bishop's Opening"),
     ("Bishop's Opening", "Bishop's Opening"),
@@ -92,7 +111,12 @@ _PRIORITY_MATCHES = [
     ("King's Gambit", "King's Gambit"),
     ("Trompowsky", "Trompowsky Attack"),
     ("Van't Kruys", "Van't Kruys Opening"),
+    ("Kruijs", "Van't Kruys Opening"),
+    ("Kruys", "Van't Kruys Opening"),
     ("Colle", "Colle System"),
+    ("Center Game", "Center Game"),
+    ("Owens Defense", "Owen's Defense"),
+    ("Kings Fianchetto", "King's Fianchetto Opening"),
     # Generic first-move classifications (fall-through)
     ("Queens Pawn", "Queen's Pawn Opening"),
     ("Queen's Pawn", "Queen's Pawn Opening"),
@@ -101,15 +125,35 @@ _PRIORITY_MATCHES = [
 ]
 
 
+def _words(text: str) -> str:
+    """Lowercase, accents and apostrophes dropped, every other mark a space.
+
+    "King's Indian" and "Kings Indian" read the same, so do "Caro-Kann" and
+    "Caro Kann", and "Réti" and "Reti". Padded with spaces so a keyword can
+    only match whole words.
+    """
+    plain = unicodedata.normalize("NFKD", text)
+    plain = "".join(ch for ch in plain if not unicodedata.combining(ch))
+    plain = plain.lower().replace("'", "").replace("’", "")
+    return " " + " ".join(re.sub(r"[^a-z0-9]+", " ", plain).split()) + " "
+
+
+_PRIORITY_WORDS = [(_words(keyword), canonical) for keyword, canonical in _PRIORITY_MATCHES]
+
+
 def normalize_opening(name: Optional[str]) -> str:
     """Return the canonical opening family name for a free-text opening
     string. Returns "Other" when no keyword matches or input is empty.
+
+    Keywords match WHOLE words, 2026-10-22. Plain substring matching filed
+    "Kings Indian Attack Yugoslav Variation" as the Slav (from "Yugoslav")
+    and the Nimzowitsch Defense as the Nimzo-Indian (from "Nimzo").
     """
     if not name:
         return "Other"
-    lower = name.lower()
-    for keyword, canonical in _PRIORITY_MATCHES:
-        if keyword.lower() in lower:
+    words = _words(name)
+    for keyword, canonical in _PRIORITY_WORDS:
+        if keyword in words:
             return canonical
     return "Other"
 
