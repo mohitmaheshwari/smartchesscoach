@@ -325,14 +325,14 @@
     "opp_already_lost_p1": "{played_san} cannot stop your mate next move. Calculate every check to the end.",
     "opp_already_lost_pN": "{played_san} cannot stop your mate in {ply}. Calculate every check to the end.",
     "opp_already_lost": "{played_san} cannot stop your forced win. Calculate every check to the end.",
-    "user_allows_back_rank": "Your own pawns sealed the first rank and left your king nowhere to go -- that is a back-rank mate. Push one early to make air, long before a rook gets there.",
-    "user_allows_in_check": "You were in check and a way out existed. The first move that stops a check is not always the one that survives -- play each one out.",
-    "user_allows_opponent_plan": "Those pieces did not arrive by accident -- every move your opponent makes is part of a plan. Find theirs before you follow your own.",
-    "user_allows_mate_threatened": "Mate was already on the board before you moved, and you played elsewhere. Before your own plan, ask what they can do to your king right now.",
-    "user_allows_win_a_piece": "When you are about to win a piece, check your own king first.",
-    "user_allows_free_pawn": "A free pawn is never worth a turn spent away from your king.",
-    "user_allows_castle": "Castle before they get two pieces pointing at your king.",
-    "user_allows_give_air": "Give your king a square to run to before it needs one.",
-    "user_allows_scan": "Look at what is already aimed at your king before you move."
+    "user_allows_back_rank": "{played_san} {allows_mate_phrase}. Your own pawns sealed the first rank and left your king nowhere to go -- that is a back-rank mate. Push one early to make air, long before a rook gets there.",
+    "user_allows_in_check": "{played_san} {allows_mate_phrase}. You were in check and a way out existed. The first move that stops a check is not always the one that survives -- play each one out.",
+    "user_allows_opponent_plan": "{played_san} {allows_mate_phrase}. Those pieces did not arrive by accident -- every move your opponent makes is part of a plan. Find theirs before you follow your own.",
+    "user_allows_mate_threatened": "{played_san} {allows_mate_phrase}. Mate was already on the board before you moved, and you played elsewhere. Before your own plan, ask what they can do to your king right now.",
+    "user_allows_win_a_piece": "{played_san} {allows_mate_phrase}. When you are about to win a piece, check your own king first.",
+    "user_allows_free_pawn": "{played_san} {allows_mate_phrase}. A free pawn is never worth a turn spent away from your king.",
+    "user_allows_castle": "{played_san} {allows_mate_phrase}. Castle before they get two pieces pointing at your king.",
+    "user_allows_give_air": "{played_san} {allows_mate_phrase}. Give your king a square to run to before it needs one.",
+    "user_allows_scan": "{played_san} {allows_mate_phrase}. Look at what is already aimed at your king before you move."
   }
 }

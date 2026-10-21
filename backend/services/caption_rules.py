@@ -84,6 +84,28 @@ def _r01_trigger(f):
     return bool(f.get("mate_threat_evidence"))
 
 
+def _allows_mate_phrase(ply):
+    """How to tell a player a mate is coming, counted when we know the count.
+
+    The nine `mate_lesson` variants in R01_mate.json are good lessons that
+    contained no facts at all, and they are selected AHEAD of the variants
+    that say "allows mate next move". So a player who hung mate in one read
+    "Those pieces did not arrive by accident" and was never told. Measured
+    over 400 games: 41 of 56 such cards (73.2%) never said the word.
+
+    No ply is a reason to be vaguer, never a reason to be silent.
+    """
+    try:
+        n = int(ply)
+    except (TypeError, ValueError):
+        return "allows a forced mate"
+    if n == 1:
+        return "allows mate next move"
+    if n > 1:
+        return f"allows mate in {n}"
+    return "allows a forced mate"
+
+
 def _r01_render(f):
     # Extract chess facts. Variant selection logic lives in R01_mate.json
     # under `select_variant` — Python doesn't decide which branch fires.
@@ -101,6 +123,9 @@ def _r01_render(f):
         "mover_is_user": f.get("mover_is_user"),
         "mate_already_on_board": ev.get("transition") == "already_lost",
         "pawn_swing": max(1, min(9, round(cpl / 100))) if cpl > 0 else 0,
+        # So the lesson variants can lead with the fact instead of replacing
+        # it. See _allows_mate_phrase.
+        "allows_mate_phrase": _allows_mate_phrase(ev.get("ply_to_mate")),
     }
     # Punishment move for the lost-position "allows" variant: the opponent's
     # refuting reply (pv_after_played[0]). Lets the floor NAME the threat
