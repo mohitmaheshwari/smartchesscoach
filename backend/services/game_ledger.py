@@ -32,7 +32,7 @@ import chess
 
 from services.severity import classify_severity_practical
 
-LEDGER_VERSION = "game_ledger.v1"
+LEDGER_VERSION = "game_ledger.v2"  # v2: boxed-in opponent pieces
 
 CLAMP = 1000  # mate scores and runaway evals flatten here, both sides
 
@@ -276,6 +276,161 @@ def _danger(point: Mapping[str, Any], player_is_white: bool) -> Optional[Dict[st
     return {"kind": "chance", "reply": line[0]}
 
 
+# ─── Boxed-in opponent pieces ──────────────────────────────────────────
+#
+# Measured on 300 games, 2026-10-21: an opponent's piece was boxed in -- at
+# most one safe move for several of their turns in a row, after it had moved
+# -- 344 times. 216 of those it had boxed ITSELF in with the opponent's own
+# move, and while it stayed stuck the player's evaluation rose only about half
+# the time. So an episode becomes an achievement only when:
+#
+#   1. the player caused it: the piece was free right after the opponent's
+#      own move and boxed in right after the player's; and
+#   2. it mattered: the player won the piece, or ended the stretch clearly
+#      better than before the move that caused it.
+#
+# Bishops are left out: the bishop work is deferred (Mohit, 2026-10-20).
+
+BOXED_TYPES = (chess.KNIGHT, chess.ROOK, chess.QUEEN)
+BOXED_MAX_SAFE = 1
+BOXED_MIN_TURNS = 4
+BOXED_MATTERED_CP = 150
+
+
+def _safe_moves(board: chess.Board, square: int, owner: chess.Color) -> int:
+    probe = board
+    if board.turn != owner:
+        probe = board.copy(stack=False)
+        probe.turn = owner
+        probe.ep_square = None
+    count = 0
+    for move in probe.legal_moves:
+        if move.from_square == square and not probe.attackers(not owner, move.to_square):
+            count += 1
+    return count
+
+
+def boxed_in_episodes(timeline: Sequence[Mapping[str, Any]], player_is_white: bool) -> List[Dict[str, Any]]:
+    """Opponent knights, rooks and queens the player shut in, and that mattered."""
+    if not timeline:
+        return []
+    owner = chess.BLACK if player_is_white else chess.WHITE
+    try:
+        board = chess.Board(timeline[0]["fen_before"])
+    except (ValueError, KeyError, TypeError):
+        return []
+    pieces = {sq: f"{sq}" for sq in chess.SQUARES
+              if board.piece_at(sq) and board.piece_at(sq).color == owner
+              and board.piece_at(sq).piece_type in BOXED_TYPES}
+    moved: set = set()
+    free_after_own_move: set = set(pieces.values())
+    runs: Dict[str, Dict[str, Any]] = {}
+    found: List[Dict[str, Any]] = []
+
+    def close(pid, *, captured_by=None):
+        run = runs.pop(pid, None)
+        if not run or run["turns"] < BOXED_MIN_TURNS or run["cause"] is None:
+            return
+        cause = run["cause"]
+        before = cause.get("eval_before")
+        end = run.get("last_eval")
+        gained = before is not None and end is not None and end - before >= BOXED_MATTERED_CP
+        # Required even when the piece was captured: a capture that was simply
+        # traded back is not "you won it".
+        if not gained:
+            return
+        found.append({
+            "kind": "you_boxed_in",
+            "side": "you",
+            "san": cause["san"],
+            "move_number": cause["move_number"],
+            "fen_before": cause["fen_before"],
+            "uci": cause["uci"],
+            "eval_before": before,
+            "eval_after": cause.get("eval_after"),
+            "tier": "good",
+            "decisive": False,
+            "happened": True,
+            "piece": run["piece"],
+            "square": run["square"],
+            "won_it": captured_by,
+            "evidence": {"turns_boxed_in": run["turns"]},
+        })
+
+    for point in timeline:
+        try:
+            move = chess.Move.from_uci(point["uci"])
+        except (ValueError, KeyError, TypeError):
+            return found
+        captured_pid = pieces.pop(move.to_square, None)
+        moved_pid = pieces.pop(move.from_square, None) if board.turn == owner else None
+        castling_rook = None
+        if board.turn == owner and board.is_castling(move):
+            # The rook moves too; follow it rather than leave a stale square.
+            kingside = board.is_kingside_castling(move)
+            rank = chess.square_rank(move.from_square)
+            rook_from = chess.square(7 if kingside else 0, rank)
+            rook_to = chess.square(5 if kingside else 3, rank)
+            castling_rook = (pieces.pop(rook_from, None), rook_to)
+        board.push(move)
+        if moved_pid is not None:
+            pieces[move.to_square] = moved_pid
+            moved.add(moved_pid)
+        if castling_rook and castling_rook[0] is not None:
+            pieces[castling_rook[1]] = castling_rook[0]
+            moved.add(castling_rook[0])
+        # Never trust a square that no longer holds the piece it names.
+        for sq in [s for s, _ in pieces.items()
+                   if not board.piece_at(s) or board.piece_at(s).color != owner
+                   or board.piece_at(s).piece_type not in BOXED_TYPES]:
+            pieces.pop(sq, None)
+        if captured_pid is not None:
+            # The capture's own evaluation counts towards "it mattered".
+            if captured_pid in runs:
+                runs[captured_pid]["last_eval"] = point.get("eval_after")
+            close(captured_pid, captured_by=point["san"] if point["side"] == "you" else None)
+        if board.is_game_over():
+            break
+        if point["side"] == "them":
+            # Right after their own move: which pieces were still free.
+            free_after_own_move = {
+                pid for sq, pid in pieces.items()
+                if _safe_moves(board, sq, owner) > BOXED_MAX_SAFE
+            }
+            continue
+        # Right after the player's move, the opponent to play.
+        #
+        # A turn in check says nothing: no piece may move except to answer
+        # the check, so every piece looks boxed in. Game 8874941e had a rook
+        # on d1 "boxed in" through four checks in a row, free each time the
+        # check ended. Such a turn neither extends nor ends a run.
+        if board.is_check():
+            continue
+        boxed_now = set()
+        for sq, pid in list(pieces.items()):
+            if pid not in moved:
+                continue
+            if _safe_moves(board, sq, owner) > BOXED_MAX_SAFE:
+                continue
+            boxed_now.add(pid)
+            run = runs.get(pid)
+            if run is None:
+                runs[pid] = run = {
+                    "turns": 0,
+                    "piece": chess.piece_name(board.piece_at(sq).piece_type),
+                    "square": chess.square_name(sq),
+                    # Caused by the player only if it was free a move ago.
+                    "cause": point if pid in free_after_own_move else None,
+                }
+            run["turns"] += 1
+            run["last_eval"] = point.get("eval_after")
+        for pid in [p for p in runs if p not in boxed_now]:
+            close(pid)
+    for pid in list(runs):
+        close(pid)
+    return found
+
+
 # ─── Ledger ────────────────────────────────────────────────────────────
 
 
@@ -385,6 +540,10 @@ def build_ledger(
                                         # What would have punished it: the
                                         # engine's move on the player's turn.
                                         "your_best": ((nxt or {}).get("row") or {}).get("best_move")}})
+
+    events.extend(boxed_in_episodes(timeline, player_is_white))
+    order = {(p.get("move_number"), p.get("side"), p.get("san")): i for i, p in enumerate(timeline)}
+    events.sort(key=lambda e: order.get((e.get("move_number"), e.get("side"), e.get("san")), 10 ** 6))
 
     return {
         "version": LEDGER_VERSION,

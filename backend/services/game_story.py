@@ -63,7 +63,10 @@ from services.severity import classify_severity_practical
 # v5, 2026-10-22: every story carries the ledger and the plan (title,
 # chapters, lesson, coach notes), from services.game_ledger and
 # services.game_story_plan.
-SCHEMA_VERSION = "game_story.v5"
+#
+# v6, 2026-10-22: the ledger records opponent knights, rooks and queens the
+# player shut in, credited only when the player caused it and it mattered.
+SCHEMA_VERSION = "game_story.v6"
 
 MAX_MOMENTS = 3          # the headline plus two
 MAX_SPANS = 2

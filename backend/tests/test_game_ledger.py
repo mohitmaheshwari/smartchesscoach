@@ -139,3 +139,46 @@ class TestAllowedMate:
         ledger = build_ledger(move_evaluations=rows, observations=[], user_color="black",
                               outcome="win")
         assert _event(ledger, "you", "Ng5")["danger"]["kind"] == "mate_allowed"
+
+
+class TestBoxedIn:
+    def _timeline(self, fen, moves, player_is_white):
+        """A timeline from a start position and a list of SAN moves, with a
+        steadily rising player evaluation."""
+        board = chess.Board(fen)
+        points, value = [], 0
+        for san in moves:
+            mover_is_player = (board.turn == chess.WHITE) == player_is_white
+            move = board.parse_san(san)
+            before = value
+            value += 60 if mover_is_player else 0
+            points.append({"side": "you" if mover_is_player else "them",
+                           "move_number": board.fullmove_number, "san": san,
+                           "uci": move.uci(), "fen_before": board.fen(),
+                           "eval_before": before, "eval_after": value})
+            board.push(move)
+        return points
+
+    FEN = "6k1/8/8/8/8/6K1/r7/R7 w - - 0 1"
+    # White's rook moves first, so it counts as developed; then Black checks
+    # five times in a row while the player's evaluation keeps rising -- enough
+    # to be credited as "you shut it in" if the checks were counted.
+    MOVES = ["Rd1", "Ra3+", "Kf4", "Ra4+", "Kf5", "Ra5+", "Kf6", "Ra6+", "Kf5", "Ra5+"]
+
+    def test_the_scenario_really_leaves_the_rook_no_safe_square(self):
+        """So the next test exercises the rule rather than passing vacuously."""
+        board = chess.Board(self.FEN)
+        for san in self.MOVES:
+            board.push_san(san)
+            if board.turn == chess.WHITE:
+                rook = next(iter(board.pieces(chess.ROOK, chess.WHITE)))
+                assert board.is_check()
+                assert not [m for m in board.legal_moves if m.from_square == rook
+                            and not board.attackers(chess.BLACK, m.to_square)]
+
+    def test_checks_do_not_make_a_piece_look_boxed_in(self):
+        """Game 8874941e: a rook on d1 looked boxed in through four checks,
+        free each time the check ended."""
+        from services.game_ledger import boxed_in_episodes
+        timeline = self._timeline(self.FEN, self.MOVES, player_is_white=False)
+        assert boxed_in_episodes(timeline, player_is_white=False) == []

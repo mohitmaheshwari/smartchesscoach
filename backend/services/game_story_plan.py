@@ -94,6 +94,8 @@ def _score(event: Mapping[str, Any]) -> int:
         return 3 if event.get("decisive") else 1
     if kind == "your_good_move":
         return {"found_best_in_critical": 3}.get(event.get("label"), 2)
+    if kind == "you_boxed_in":
+        return 4 if event.get("won_it") else 3
     return 0
 
 
@@ -123,7 +125,7 @@ def choose_events(ledger: Mapping[str, Any], *, fold: bool = True) -> List[Dict[
         chosen = ranked[:MIN_EVENTS]
 
     def good(e):
-        return e.get("kind") == "your_good_move" or (
+        return e.get("kind") in ("your_good_move", "you_boxed_in") or (
             e.get("kind") == "their_mistake" and e.get("taken"))
 
     if not any(good(e) for e in chosen):
@@ -237,12 +239,24 @@ def event_text(e: Mapping[str, Any], names: Mapping[Tuple[Any, Any], str]) -> st
         if e.get("label") == "found_best_in_critical":
             return f"{san} was the best move in a sharp moment."
         return f"{san} was a strong move."
+    if kind == "you_boxed_in":
+        # Only ledger-proved claims: your move shut it in, it had almost no
+        # safe square for a long stretch, and either you won it or your
+        # position clearly improved while it was stuck.
+        piece, square = e.get("piece"), e.get("square")
+        if e.get("won_it"):
+            # No square here: a boxed-in piece can still step to its one safe
+            # square, so where it was shut in is not where it was taken.
+            return (f"{san} shut their {piece} in. It found no way out, "
+                    f"and you won it with {e['won_it']}.")
+        return (f"{san} shut their {piece} on {square} in. It had almost nowhere to go "
+                f"for a long time, and your position got better.")
     return str(san or "")
 
 
 def _polarity(e: Mapping[str, Any]) -> str:
     kind = e.get("kind")
-    if kind == "your_good_move" or (kind == "their_mistake" and e.get("taken")):
+    if kind in ("your_good_move", "you_boxed_in") or (kind == "their_mistake" and e.get("taken")):
         return "positive"
     if kind == "their_mistake":
         return "neutral"
@@ -439,6 +453,11 @@ def coach_note(e: Mapping[str, Any], names) -> Dict[str, Any]:
             parts.append(f"Your best answer was {ev['your_best']}.")
         if e.get("your_answer"):
             parts.append(f"You played {e['your_answer']}.")
+    elif kind == "you_boxed_in":
+        parts.append(f"After {e.get('san')}, their {e.get('piece')} on {e.get('square')} "
+                     f"had almost no safe square for several moves.")
+        if e.get("won_it"):
+            parts.append(f"You won it with {e['won_it']}.")
     elif kind == "your_good_move":
         name = _named(e, names)
         parts.append(f"{name.rstrip('.')}." if name else "The engine's choice in a sharp moment."
