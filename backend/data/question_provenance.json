@@ -1,0 +1,234 @@
+{
+  "_README": [
+    "Where each reasoning question came from. Read by GET /api/admin/reasoning-provenance",
+    "and rendered on /admin/reasoning-trace tab 2.",
+    "",
+    "This is DATA, not prose in a page, and a test asserts every question in",
+    "move_reasoning.REGISTRY has an entry here -- so a new question cannot ship",
+    "without recording where it came from.",
+    "",
+    "discovery_samples are the positions that PRODUCED the question. defect_samples",
+    "are positions where it was later found wrong. They are kept apart on purpose:",
+    "presenting a defect as a discovery would rewrite history in the engine's favour.",
+    "",
+    "Every number here was measured. The scan that produced it is named so it can be",
+    "re-run and disagreed with."
+  ],
+
+  "blocked_a_plan": {
+    "title": "Your own move stepped on the plan you wanted",
+    "shipped": "2026-10-21",
+    "found_by": [
+      "Mohit read move 6 Nc3 of game 56b6c294 and said the card spoke the",
+      "consequence instead of the cause. Two questions answered that position --",
+      "blocked_a_plan and returns_home -- and the card shipped the symptom because",
+      "nothing in the engine said causes outrank consequences. The tiers exist",
+      "because of this card."
+    ],
+    "discovery_samples": [
+      {
+        "fen": "r2qkb1r/ppp2ppp/2n1pn2/3p1b2/3P4/P3PN2/1PP1BPPP/RNBQK2R w KQkq - 0 6",
+        "played": "Nc3",
+        "best": "O-O",
+        "cp_loss": 100,
+        "note": "Nc3 blocks our own c-pawn. True after Nc3, false after O-O -- a reason, where 'the knight comes back' was only a consequence."
+      }
+    ],
+    "reach": [
+      {"label": "cards the splice changed, 150 games / 1,273 cards", "n": "108"},
+      {"label": "firing cards re-verified on the board, 300 games", "n": "26 of 26"},
+      {"label": "usable at full corpus scale", "n": "6,707 of 7,061 (95%)"}
+    ],
+    "defect_samples": [],
+    "defect": null,
+    "notes": [
+      "The only question exempt from the differential test, because its third",
+      "clause IS the comparison: it asks what the better line gives us that ours",
+      "does not. A test pins the exempt set so nothing else is quietly excused."
+    ]
+  },
+
+  "abandoned_own_defender": {
+    "title": "You moved away the piece that was guarding something",
+    "shipped": "2026-10-21",
+    "found_by": [
+      "Mohit flagged move 7 of his own game. The card read like a crash fallback",
+      "because that is what it was -- a sentence added at v226 to cover a gap.",
+      "The real story was that the moved piece had been holding something."
+    ],
+    "discovery_samples": [
+      {
+        "fen": "r2qk2r/ppp2ppp/2nbpn2/3p1b2/3P4/P1N1PN2/1PP1BPPP/R1BQ1RK1 b kq - 3 7",
+        "played": "e5",
+        "best": "a6",
+        "cp_loss": 100,
+        "note": "The move abandons a defender. The shipped caption said nothing about it."
+      }
+    ],
+    "reach": [
+      {"label": "fires on flagged user cards, 3,471 measured", "n": "110 (3.17%)"},
+      {"label": "claims re-verified on the board, 10 random cards", "n": "10 of 10"},
+      {"label": "usable at full corpus scale", "n": "4,132 of 4,360 (95%)"}
+    ],
+    "defect_samples": [
+      {
+        "fen": "rn1r2k1/pp3Npp/1bpq1n2/8/1PB1p1b1/P7/2PP1PQP/RNB1KR2 b Q - 0 13",
+        "played": "Re8",
+        "best": "Qd4",
+        "cp_loss": 754,
+        "note": "Names the queen on d6, but Nxd6+ Kf8 Nxe8 takes the queen AND the rook. The card understated it by a rook."
+      },
+      {
+        "fen": "rnbqkb1r/p2p2p1/2p2pnp/1p2p3/2B1P3/1PNP1N2/P1P2PPP/R1BQ1RK1 w kq - 0 8",
+        "played": "d4",
+        "best": "Nxb5",
+        "cp_loss": 133,
+        "note": "A 330cp bishop named on a 133cp loss -- ratio 0.4x. No ratio bar could ever have caught this one."
+      }
+    ],
+    "defect": {
+      "what": "275 of its claims (10.8%) named a man when more material falls in the line.",
+      "how_found": "The ratio metric that found the same defect elsewhere scored this question at 0%, so it looked clean. That metric had just been shown to catch only 385 of 1,550 real defects -- a zero from a blind instrument is not evidence of absence. Re-measured by walking the line, 275 were wrong.",
+      "fix": "The framework rule 'the man you name has to be the man who falls' now applies to every question that declares claim_cp, so this one was fixed without a line of its own."
+    },
+    "notes": [
+      "Its own scope doc recorded, before any of this, that over 218 firing cards",
+      "16.1% came out even or ahead on material. That is the still-open question",
+      "about material claims generally, written down early and not yet answered."
+    ]
+  },
+
+  "pushed_past_the_support": {
+    "title": "You pushed a pawn past the square that would have held it",
+    "shipped": "2026-10-21",
+    "found_by": [
+      "Mined from the cards the engine could not explain, in the same pass that",
+      "produced left_it_loose."
+    ],
+    "discovery_samples": [],
+    "reach": [
+      {"label": "findings at full corpus scale", "n": "424"},
+      {"label": "usable", "n": "406 (96%) -- the cleanest question in the engine"}
+    ],
+    "defect_samples": [],
+    "defect": null,
+    "notes": [
+      "Reported from a 500-game sample as the SHAKIEST question, at 12% unusable",
+      "on 8 findings. That was noise: at 424 findings it is the cleanest. A rate",
+      "on n=8 characterises nothing.",
+      "",
+      "It is also the control for how the material rule is keyed. It names a WEAK",
+      "pawn, never a lost one -- its distribution peaks at -1 rather than 0 -- so",
+      "it declares no claim_cp and the material rule correctly leaves it alone."
+    ]
+  },
+
+  "left_it_loose": {
+    "title": "Something of yours was already hanging and you did not hold it",
+    "shipped": "2026-10-21",
+    "found_by": [
+      "Mohit's idea: stop guessing at mechanisms and work the cards the engine",
+      "could not explain the way the Nc3 and c5 positions were worked -- read the",
+      "board, say why the move is worse than the alternative, and only then look",
+      "for the mechanism.",
+      "",
+      "Eleven cards were sampled and reasoned through by hand. Two of the eleven",
+      "were the same story, and nothing in the system could see it."
+    ],
+    "discovery_samples": [
+      {
+        "fen": "r2qk2r/5ppp/p1p1pb2/3p4/3P4/2N2Q1P/PPP2PP1/R4RK1 w kq - 0 13",
+        "played": "Rae1",
+        "best": "Rfd1",
+        "cp_loss": 188,
+        "note": "d4 is attacked and undefended before the move and after it. Rfd1 defends it; Rae1 does not. Then Bxd4."
+      },
+      {
+        "fen": null,
+        "played": "Rf1",
+        "best": "Rc1",
+        "cp_loss": 313,
+        "note": "The same shape on c3. Recorded from the mining run; the position was not kept, which is why there is no board here."
+      }
+    ],
+    "reach": [
+      {"label": "cards carrying a man of ours attacked and undefended", "n": "1,874"},
+      {"label": "of those, the better move holds him and ours does not", "n": "520"},
+      {"label": "of those, said nothing at all before this existed", "n": "493"},
+      {"label": "kept after insisting they ACTUALLY take him", "n": "226 -- the clause costs 267 cards"}
+    ],
+    "defect_samples": [],
+    "defect": {
+      "what": "962 of its claims (12% of usable) named a man worth less than a third of the loss. It was the only question in the engine that did this.",
+      "how_found": "Running the engine over all 18,920 analysed games instead of 500. The 500-game sample had called it the cleanest question in the registry, which was true and incomplete.",
+      "fix": "The man you name has to be the man who falls -- walk the line and count. 58.4% of the suspect claims turned out SOUND, the big number being the consequence of losing the man rather than more material, so the obvious ratio fix would have deleted about 560 good cards to repair about 400 bad ones."
+    },
+    "notes": [
+      "The threshold is a real break in the data, not a percentile: 63.3% of",
+      "findings have exactly zero material falling beyond the man named, and 7.4%",
+      "have one pawn more. An 8.5x cliff. The same cliff appears at the same place",
+      "in abandoned_own_defender, which is why it belongs to the claim rather than",
+      "to this question."
+    ]
+  },
+
+  "engine_undoes_it": {
+    "title": "The engine's own line puts the piece back",
+    "shipped": "2026-10-21",
+    "found_by": [
+      "Built alongside returns_home as evidence that a move cost time."
+    ],
+    "discovery_samples": [],
+    "reach": [
+      {"label": "findings at full corpus scale", "n": "4,650"},
+      {"label": "usable", "n": "1,411 (30%) -- the weakest question in the engine"},
+      {"label": "challenged because nothing ever attacks the piece", "n": "2,490"}
+    ],
+    "defect_samples": [],
+    "defect": {
+      "what": "Seven findings in ten fail their own premise.",
+      "how_found": "The full-corpus scan. A 500-game sample put it at 71% unusable; the corpus confirms 70%.",
+      "fix": "Not fixed. It reaches no caption surface and, on this evidence, should stay that way until its premise is sound."
+    },
+    "notes": []
+  },
+
+  "returns_home": {
+    "title": "The piece goes back where it came from",
+    "shipped": "2026-10-21",
+    "found_by": [
+      "Mohit, on the Nc3 card: 'why would nC3 comes back to b1, there is no",
+      "attack on nc3 in coming future, it's safe there'.",
+      "",
+      "He was right and the board agreed. Nothing ever attacked c3, so the knight",
+      "was regrouping, not being chased, and 'the move loses time' was reading a",
+      "deliberate manoeuvre backwards. That single complaint produced step 6 of",
+      "the procedure -- attack the story before you ship it -- which now applies",
+      "to every question."
+    ],
+    "discovery_samples": [
+      {
+        "fen": "r2qkb1r/ppp2ppp/2n1pn2/3p1b2/3P4/P3PN2/1PP1BPPP/RNBQK2R w KQkq - 0 6",
+        "played": "Nc3",
+        "best": "O-O",
+        "cp_loss": 100,
+        "note": "The card said the knight comes back. Nothing ever attacks it there."
+      }
+    ],
+    "reach": [
+      {"label": "findings at full corpus scale", "n": "10,503"},
+      {"label": "usable", "n": "6,523 (62%)"},
+      {"label": "challenged because the retreat is a choice", "n": "2,449"}
+    ],
+    "defect_samples": [],
+    "defect": {
+      "what": "Claimed a direction the board never checked. Over 400 games, 423 claims said a piece was driven back: NOT ONE returned home, and 45.9% moved forward. Some were not retreats at all -- the 'chased' piece answered by capturing something.",
+      "how_found": "Mohit's complaint, then measured over 400 games.",
+      "fix": "The resolver refuses the claim when the move is a capture, and the sentence says 'chases', adding 'back' only when the piece really returns. False retreat claims fell from 423 to 307 with no direction asserted."
+    },
+    "notes": [
+      "A SYMPTOM-tier question, deliberately. It describes what happened after the",
+      "mistake, not the mistake, so a CAUSE-tier answer always outranks it."
+    ]
+  }
+}

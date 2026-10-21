@@ -706,6 +706,13 @@ app.include_router(admin_positional_reason_routes.router, prefix="/api")
 from routes import admin_detector_review as admin_detector_review_routes  # noqa: E402
 admin_detector_review_routes.set_db(db)
 app.include_router(admin_detector_review_routes.router, prefix="/api")
+# Read the reasoning engine's own account of its work -- the eight steps, every
+# question it asked, and what became of each answer. Read-only; the steps come
+# from the engine so the page cannot drift from it. See
+# docs/reasoning_trace_admin_scope.md.
+from routes import admin_reasoning_trace as admin_reasoning_trace_routes  # noqa: E402
+admin_reasoning_trace_routes.set_db(db)
+app.include_router(admin_reasoning_trace_routes.router, prefix="/api")
 caption_authoring_routes.set_db(db)
 app.include_router(caption_authoring_routes.router, prefix="/api")
 app.include_router(thinking_routes.router, prefix="/api")

@@ -271,40 +271,64 @@ def _lost_man_cp(answer: Dict[str, Any]) -> Optional[int]:
 
 
 # How much material the line may cost us BEYOND the man we name, before the
-# man is no longer the story. One pawn, and for once this is a real break in
-# the data rather than a percentile. Measured over 3,077 left_it_loose
-# findings on the whole corpus, `extra` = what the line costs us beyond the
-# named man, in pawns:
+# man is no longer the story. One pawn, and for once the threshold is a break
+# in the data rather than a percentile -- measured on the whole corpus, in
+# pawns, for both questions that name a man:
 #
-#   <=-3  241  7.8%      -1  294  9.6%      +0 1947 63.3%      +1  229  7.4%
-#     +2   65  2.1%      +3   89  2.9%      +5   85  2.8%     >=7   12  0.4%
+#   left_it_loose  n=5447   <=-3 9.9%  -1 8.9%  +0 62.0%  +1 7.5%  +3 2.9%
+#   abandoned      n=2543   <=-3 1.3%  -1 3.7%  +0 82.9%  +1 6.6%  +2 4.2%
 #
-# 63.3% at exactly zero against 7.4% at +1 is an 8.5x cliff: the claim either
-# accounts for precisely the material that falls or it does not. The median
-# loss/claim ratio also climbs monotonically with extra (1.4x at 0, 1.6x at
-# +1, 2.0x at +2, 3.0x at +5), which is why the ratio looked like the problem
-# at first -- it is a noisy proxy for this.
-LOOSE_EXTRA_MAX_PAWNS = 1
+# A spike at exactly zero against a tenth of it at +1 -- 8.3x and 12.6x --
+# in two questions derived independently. The claim either accounts for
+# precisely the material that falls or it does not, and the cliff sitting in
+# the same place twice is why this is a property of the claim rather than of
+# the question it came from.
+#
+# The median loss/claim ratio also climbs monotonically with extra (1.4x at
+# 0, 1.6x at +1, 2.0x at +2, 3.0x at +5), which is why the RATIO looked like
+# the problem at first. It is a noisy proxy for this, and a dangerous one: it
+# scored abandoned_own_defender at 0% while 275 of its findings were wrong.
+NAMED_MAN_EXTRA_MAX_PAWNS = 1
 
 
-def _more_falls_than_the_man_we_name(answer: Dict[str, Any],
-                                     move: "MoveUnderStudy") -> Optional[str]:
-    """Step 6 on left_it_loose: is this man actually the story?
+def _the_named_man_is_the_story(question: "Question", answer: Dict[str, Any],
+                               move: "MoveUnderStudy") -> Optional[str]:
+    """A question that says WHICH man you lost must name the man who falls.
 
-    The scale run found 962 of its claims (12% of usable) offered as the
-    explanation of a loss three times the man named -- the only question in
-    the registry that scored above zero on that. The first instinct was a
-    ratio guard, and the measurement killed it: of 515 such claims, 301
-    (58.4%) were sound, the big number being the CONSEQUENCE of losing the
-    man rather than more material. A ratio would have deleted roughly 560
-    good cards to fix 400 bad ones -- the same trade why_on_demand already
-    refuses in MATERIAL_MECHANISMS.
+    A framework rule, not a question's own clause, and the second time this
+    file has had to learn the difference. _size_is_consistent below says it
+    plainly: that check "lived inside a single question, so it protected one
+    concept and nothing else". This one shipped the same way -- as
+    left_it_loose's `challenge` -- and the measurement said why that was
+    wrong within the hour.
 
-    What separates them is not the size of the loss but what the line does:
-    walk it and count. If more falls than the man we are naming, naming him
-    tells a player who lost a pawn and a knight that they lost a pawn.
+    The ratio metric that FOUND the defect scored every other question at
+    0%, so they looked clean. They were not: the same metric saw only 385 of
+    left_it_loose's own 1,550 defects. Re-measured by walking the line, with
+    `extra` = material falling beyond the man named, in pawns:
+
+        left_it_loose           n=5447   +0 62.0%   +1  7.5%   extra>=1 16.7%
+        abandoned_own_defender  n=2543   +0 82.9%   +1  6.6%   extra>=1 10.8%
+
+    275 defects in abandoned_own_defender, from a question the ratio called
+    spotless. The cliff also lands in the SAME place in both -- 8.3x and
+    12.6x at +1 -- so one pawn is a property of the claim, not of the one
+    question it was derived from.
+
+    Keyed on claim_cp rather than a fact name: claim_cp already means "this
+    answer accounts for this much material", and it returns the value, so
+    the rule never needs to know which key holds the man. Any future
+    material question inherits it with nothing to remember.
+    pushed_past_the_support is the control for that choice -- it names a WEAK
+    pawn, not a lost one, its mode sits at -1 rather than 0, and having no
+    claim_cp it is correctly left alone.
     """
-    named = PIECE_CP.get(str(answer.get("loose") or ""))
+    if question.claim_cp is None:
+        return None
+    try:
+        named = question.claim_cp(answer)
+    except Exception:
+        return None
     if not named:
         return None
     board = move.board_before()
@@ -317,7 +341,7 @@ def _more_falls_than_the_man_we_name(answer: Dict[str, Any],
     if swing is None:
         return None                      # line will not replay; say nothing
     extra = -swing - (named // 100)
-    if extra >= LOOSE_EXTRA_MAX_PAWNS:
+    if extra >= NAMED_MAN_EXTRA_MAX_PAWNS:
         return (f"{extra} more pawns of material fall in this line, so this "
                 f"man is not the story")
     return None
@@ -376,8 +400,7 @@ REGISTRY: Tuple[Question, ...] = (
     # better move by construction.
     Question("left_it_loose", CAUSE, q_left_it_loose,
              subject=("square",), inherent=True,
-             claim_cp=lambda a: PIECE_CP.get(str(a.get("loose") or "")),
-             challenge=_more_falls_than_the_man_we_name),
+             claim_cp=lambda a: PIECE_CP.get(str(a.get("loose") or ""))),
     Question("engine_undoes_it", EVIDENCE, q_engine_undoes_it, subject=(),
              challenge=_retreat_was_voluntary),
     Question("returns_home", SYMPTOM, q_returns_home, subject=(),
@@ -546,6 +569,41 @@ def check_stability(move: MoveUnderStudy, probe: Probe) -> Optional[str]:
     return "stable" if deeper == move.best_san else "unstable"
 
 
+# The eight steps, in the order they are taken, with the name of the thing
+# that performs each one. The admin page reads THIS rather than holding its
+# own copy, so a step cannot appear on a screen without something running it.
+# Where a step has no mechanism of its own yet, `by` is empty and the trace
+# says so instead of implying work that does not happen.
+THE_EIGHT_STEPS: Tuple[Tuple[int, str, str], ...] = (
+    (1, "expect a size", "_size_is_consistent"),
+    (2, "two futures, and the reason is the difference", "_run_differential"),
+    (3, "what we get to do in the better line", "q_blocked_a_plan"),
+    (4, "legal before, illegal after", "q_blocked_a_plan"),
+    (5, "is my own move in the way", "in_the_way"),
+    (6, "attack the story before shipping it", "challenge"),
+    (7, "does the answer match the engine's number", "_size_is_consistent"),
+    (8, "one sentence a 1200 would use", ""),
+)
+
+
+@dataclass(frozen=True)
+class AskedQuestion:
+    """What became of one question, for the admin trace.
+
+    Every question the engine asks, including the ones with nothing to say and
+    the ones whose answers were thrown out. A card shows the sentence that
+    won; this shows the six that did not and why, which is the part no surface
+    in this repo has ever displayed.
+    """
+    concept: str
+    tier: int
+    answered: bool
+    verdict: str                      # kept | dropped | no answer
+    subject: str = ""                 # the square or man it spoke about
+    reason: str = ""                  # why it was dropped, in the rule's words
+    facts: Dict[str, Any] = field(default_factory=dict)
+
+
 @dataclass(frozen=True)
 class Report:
     """What the caption layer consumes. Evidence, never prose."""
@@ -556,6 +614,10 @@ class Report:
     rejected: List[Finding]
     stability: Optional[str]
     probes_spent: int
+    # The engine's own account of its work. Carried on the report rather than
+    # recomputed by a reader, because a second implementation of "what did it
+    # do" is a second answer waiting to disagree with the first.
+    asked: List[AskedQuestion] = field(default_factory=list)
 
     @property
     def primary(self) -> Optional[Finding]:
@@ -564,6 +626,48 @@ class Report:
     @property
     def resolved(self) -> bool:
         return bool(self.findings)
+
+    def steps(self) -> List[Dict[str, Any]]:
+        """The eight steps with what actually happened at each, derived from
+        this report alone -- never from a list the page keeps."""
+        prim = self.primary
+        all_f = self.findings + self.rejected
+        size = [f for f in all_f if f.size_problem]
+        chal = [f for f in all_f if f.challenged]
+        plan = [f for f in all_f if f.concept == "blocked_a_plan"]
+        out: List[Dict[str, Any]] = []
+        for num, name, by in THE_EIGHT_STEPS:
+            note, ran = "", False
+            if num == 1:
+                ran = True
+                note = (f"refused {len(size)} answer(s) as the wrong size"
+                        if size else "no answer was the wrong size")
+            elif num == 2:
+                ran = bool(all_f)
+                note = (f"compared {len(all_f)} answer(s) after {self.played_san}"
+                        f" against after {self.best_san or '(no better move)'}")
+            elif num in (3, 4):
+                ran = bool(plan)
+                note = ("a plan question answered" if plan
+                        else "no plan question answered")
+            elif num == 5:
+                ran = any(f.facts.get("in_the_way") for f in all_f)
+                note = "our own move blocked the square" if ran else "not reached"
+            elif num == 6:
+                ran = True
+                note = (f"broke {len(chal)} answer(s) on their own premise"
+                        if chal else "every premise held")
+            elif num == 7:
+                ran = any(f.facts for f in all_f)
+                note = (f"{len(size)} claim(s) did not match the number"
+                        if size else "claims matched the engine's number")
+            elif num == 8:
+                ran = bool(prim)
+                note = ("handed to the caption layer" if prim
+                        else "nothing survived to say")
+            out.append({"step": num, "name": name, "by": by,
+                        "ran": ran, "note": note})
+        return out
 
 
 def reason_about(move: MoveUnderStudy, probe: Optional[Probe] = None
@@ -580,24 +684,38 @@ def reason_about(move: MoveUnderStudy, probe: Optional[Probe] = None
 
     kept: List[Finding] = []
     rejected: List[Finding] = []
+    asked: List[AskedQuestion] = []
+
+    def _note_silence(q: Question) -> None:
+        asked.append(AskedQuestion(concept=q.concept, tier=q.tier,
+                                   answered=False, verdict="no answer"))
+
     for question in REGISTRY:
         ctx = _ctx(move, move.played_san, move.pv_played,
                    move.best_san, move.pv_best)
         if ctx is None:
+            _note_silence(question)
             continue
         try:
             answer = question.ask(ctx)
         except Exception:
             logger.exception("question %s raised", question.concept)
+            asked.append(AskedQuestion(
+                concept=question.concept, tier=question.tier, answered=False,
+                verdict="dropped", reason="the question raised an error"))
             continue
         if not answer:
             answer = _ask_against_candidates(question, move)
         if not answer:
+            _note_silence(question)
             continue
         differential = _run_differential(question, answer, move)
         size_problem = _size_is_consistent(question, answer, move.cp_loss) or ""
-        challenged = ""
-        if question.challenge is not None:
+        # The framework's own challenge first -- it applies to every question
+        # that names material, so no author has to remember it -- then the
+        # question's, which knows things only it can know.
+        challenged = _the_named_man_is_the_story(question, answer, move) or ""
+        if not challenged and question.challenge is not None:
             try:
                 challenged = question.challenge(answer, move) or ""
             except Exception:
@@ -613,6 +731,19 @@ def reason_about(move: MoveUnderStudy, probe: Optional[Probe] = None
             challenged=challenged,
         )
         (kept if finding.usable else rejected).append(finding)
+        # The reason a reader most wants is the reason it was THROWN OUT, in
+        # the rule's own words rather than a category name.
+        asked.append(AskedQuestion(
+            concept=question.concept, tier=question.tier, answered=True,
+            verdict="kept" if finding.usable else "dropped",
+            subject=str(next((finding.facts.get(k) for k in question.subject
+                              if finding.facts.get(k)), "") or ""),
+            reason=(finding.challenged or finding.size_problem
+                    or ("" if finding.usable
+                        else f"true after {move.best_san or 'the better move'}"
+                             f" as well, so it is a fact about the position")),
+            facts=dict(finding.facts),
+        ))
 
     order = {HIGH: 2, MEDIUM: 1, LOW: 0}
     kept.sort(key=lambda f: (-f.tier, -order[f.confidence]))
@@ -624,4 +755,5 @@ def reason_about(move: MoveUnderStudy, probe: Optional[Probe] = None
         rejected=rejected,
         stability=stability,
         probes_spent=probe.budget.spent,
+        asked=asked,
     )

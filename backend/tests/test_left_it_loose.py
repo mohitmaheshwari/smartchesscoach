@@ -135,6 +135,14 @@ class TestTheManMustBeTheStory:
     63.3% at exactly zero against 7.4% at +1 is an 8.5x cliff, so one pawn is
     a break in the data and not a percentile.
     """
+    def _rule(self, facts, pv):
+        """Call it the way the framework does: through the QUESTION, so the
+        test exercises the claim_cp keying and not a hand-passed value."""
+        from services.move_reasoning import (REGISTRY,
+                                             _the_named_man_is_the_story)
+        q = next(q for q in REGISTRY if q.concept == "left_it_loose")
+        return _the_named_man_is_the_story(q, facts, self._study(pv))
+
     def _study(self, pv):
         from services.move_reasoning import MoveUnderStudy
         return MoveUnderStudy(
@@ -142,27 +150,21 @@ class TestTheManMustBeTheStory:
             pv_played=list(pv), pv_best=[], cp_loss=188, mover_is_user=True)
 
     def test_the_claim_stands_when_only_that_man_falls(self):
-        from services.move_reasoning import _more_falls_than_the_man_we_name
-        assert _more_falls_than_the_man_we_name(
-            {"loose": "pawn", "square": "d4"},
-            self._study(["Bxd4", "Qe3", "Bf6"])) is None
+        assert self._rule({"loose": "pawn", "square": "d4"},
+                          ["Bxd4", "Qe3", "Bf6"]) is None
 
     def test_the_claim_is_challenged_when_a_knight_goes_too(self):
         """Bxd4 then Bxc3 with no recapture: a pawn and a knight, so naming
         the pawn tells a player who lost four pawns that they lost one."""
-        from services.move_reasoning import _more_falls_than_the_man_we_name
-        out = _more_falls_than_the_man_we_name(
-            {"loose": "pawn", "square": "d4"},
-            self._study(["Bxd4", "Kh1", "Bxc3"]))
+        out = self._rule({"loose": "pawn", "square": "d4"},
+                         ["Bxd4", "Kh1", "Bxc3"])
         assert out and "not the story" in out
 
     def test_an_unreplayable_line_is_not_a_challenge(self):
         """Silence on a broken line, never a challenge -- a guard may lower a
         claim, never invent one."""
-        from services.move_reasoning import _more_falls_than_the_man_we_name
-        assert _more_falls_than_the_man_we_name(
-            {"loose": "pawn", "square": "d4"},
-            self._study(["Qxz9", "Nope"])) is None
+        assert self._rule({"loose": "pawn", "square": "d4"},
+                          ["Qxz9", "Nope"]) is None
 
     def test_the_framework_drops_the_finding_when_challenged(self):
         """End to end: the challenge has to reach usable, not just return a

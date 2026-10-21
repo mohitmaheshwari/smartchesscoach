@@ -60,6 +60,7 @@ import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
 import CalculationTest from "@/pages/CalculationTest";
 import MotifFindDrill from "@/pages/MotifFindDrill";
 import AdminDetectorReview from "@/pages/AdminDetectorReview";
+import AdminReasoningTrace from "@/pages/AdminReasoningTrace";
 import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
 import VerifiedEndgameLesson from "@/pages/VerifiedEndgameLesson";
@@ -575,6 +576,15 @@ function AppRouter() {
       <Route path="/admin/detector-review" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminDetectorReview user={user} />}
+        </ProtectedRoute>
+      } />
+      {/* The reasoning engine's own account of its work: the eight steps, and
+          every question it asked including the ones it threw out. Read-only;
+          the steps come from the engine, so the page cannot drift from it.
+          See docs/reasoning_trace_admin_scope.md. */}
+      <Route path="/admin/reasoning-trace" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminReasoningTrace user={user} />}
         </ProtectedRoute>
       } />
       <Route path="/admin/captions/drafts" element={

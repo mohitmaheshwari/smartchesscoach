@@ -328,3 +328,76 @@ class TestTheRegistryIsCoherent:
             assert "explodes" not in [f.concept for f in report.findings]
         finally:
             mr.REGISTRY = original
+
+
+class TestEveryMaterialQuestionInheritsTheRule:
+    """The named man must be the man who falls -- for ALL of them.
+
+    This check first shipped as left_it_loose's own `challenge`, which is the
+    mistake _size_is_consistent's docstring already warns about: it "lived
+    inside a single question, so it protected one concept and nothing else".
+
+    What made it undeniable is that the metric which FOUND the defect cleared
+    every other question at 0%, and that clearance was empty -- the same
+    metric saw only 385 of left_it_loose's own 1,550 defects. Re-measured by
+    walking the line, abandoned_own_defender had 275 (10.8%), and the cliff
+    landed in the same place in both distributions (8.3x and 12.6x at +1).
+
+    So the rule is keyed on claim_cp -- "this answer accounts for this much
+    material" -- which every material question already declares.
+    """
+
+    def test_abandoned_own_defender_is_challenged_without_its_own_clause(self):
+        """Real card: Re8 loses the QUEEN on d6 and then the ROOK on e8.
+        Naming the queen alone understates it by a rook."""
+        from services.move_reasoning import MoveUnderStudy, reason_about, REGISTRY
+        q = next(q for q in REGISTRY if q.concept == "abandoned_own_defender")
+        assert q.challenge is None, (
+            "this test proves the FRAMEWORK applies the rule; if the question "
+            "grows its own challenge, prove it another way")
+        rep = reason_about(MoveUnderStudy(
+            fen_before="rn1r2k1/pp3Npp/1bpq1n2/8/1PB1p1b1/P7/2PP1PQP/RNB1KR2 b Q - 0 13",
+            played_san="Re8", best_san="Qd4",
+            pv_played=["Nxd6+", "Kf8", "Nxe8", "Kxe8"], pv_best=[],
+            cp_loss=754, mover_is_user=True))
+        ab = [f for f in rep.findings + rep.rejected
+              if f.concept == "abandoned_own_defender"]
+        assert ab, "the question should still fire"
+        assert not ab[0].usable
+        assert "not the story" in ab[0].challenged
+
+    def test_it_catches_what_the_ratio_metric_could_never_see(self):
+        """Real card, cp_loss 133, a bishop named: ratio 0.4x. The metric that
+        found this entire class of defect was blind to this case."""
+        from services.move_reasoning import MoveUnderStudy, reason_about
+        rep = reason_about(MoveUnderStudy(
+            fen_before="rnbqkb1r/p2p2p1/2p2pnp/1p2p3/2B1P3/1PNP1N2/P1P2PPP/R1BQ1RK1 w kq - 0 8",
+            played_san="d4", best_san="Nxb5",
+            pv_played=["bxc4", "Nxe5", "fxe5", "Qh5"], pv_best=[],
+            cp_loss=133, mover_is_user=True))
+        ab = [f for f in rep.findings + rep.rejected
+              if f.concept == "abandoned_own_defender"]
+        assert ab and not ab[0].usable, (
+            "a 133cp loss naming a 330cp bishop is 0.4x -- far below any "
+            "ratio bar, and still wrong")
+
+    def test_a_question_that_names_no_material_is_left_alone(self):
+        """pushed_past_the_support is the control for keying on claim_cp. It
+        names a WEAK pawn, never a lost one -- its distribution peaks at -1,
+        not 0 -- so the rule must not touch it."""
+        from services.move_reasoning import REGISTRY
+        q = next(q for q in REGISTRY
+                 if q.concept == "pushed_past_the_support")
+        assert q.claim_cp is None, (
+            "if this question ever declares claim_cp it will inherit the "
+            "material rule, which would be wrong: it claims weakness, not loss")
+
+    def test_the_rule_is_silent_when_it_cannot_replay_the_line(self):
+        from services.move_reasoning import (MoveUnderStudy, REGISTRY,
+                                             _the_named_man_is_the_story)
+        q = next(q for q in REGISTRY if q.concept == "left_it_loose")
+        assert _the_named_man_is_the_story(
+            q, {"loose": "rook"},
+            MoveUnderStudy(fen_before=chess.STARTING_FEN, played_san="e4",
+                           best_san="d4", pv_played=["!!bad"], pv_best=[],
+                           cp_loss=300, mover_is_user=True)) is None
