@@ -160,9 +160,13 @@ active players, 168 games in all.
 2. **The steadier-player contradiction.** On game 8f40005b the home card says
    "You were the steadier player. The game was still yours when your flag
    fell." The story's top line for the same game is a rook given away on
-   Rxf3+. Both may be true if the opponent gave it back. I will check that
-   game by hand before building, and the card must not say both without
-   joining them.
+   Rxf3+. Checked by hand with the engine on 2026-10-21, and both are true.
+   Black was winning clearly. Rxf3+ and then Bg4 handed White a winning
+   position. White gave it back at once with Ne6+, and Black's clock ran out
+   while Black was better again. So the card must join the two halves, for
+   example: "You let a winning game slip with Rxf3+. They gave it back with
+   Ne6+, and then the clock ended it." Rule: when the story's top mistake
+   comes before the both-sides turning point, the card tells them in order.
 3. **The review page now has two story sources.** The summary tab runs on the
    older coach review service. Do you want the new story to replace that tab's
    opening paragraph, or to sit only in the start card for now? I recommend
@@ -172,6 +176,7 @@ active players, 168 games in all.
 ## Before code starts
 
 - Mohit signs off on the mockups and answers open question 3.
-- The naming fix from earlier today is committed and deployed, since every
-  line here depends on it.
-- Game 8f40005b is checked by hand.
+- The naming fix from earlier today is deployed, since every line here
+  depends on it. It is committed and pushed as bdd2e692, and it ships with
+  this work.
+- Game 8f40005b is checked by hand. Done, see open question 2.
