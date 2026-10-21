@@ -4488,6 +4488,18 @@ def inject_curriculum_deviation_facts(
         return
     if not full_move_number or full_move_number > 20:
         return
+    # An empty history past move 1 is not an opening, it is a caller that did
+    # not pass one. Every curriculum tree is in book at the root, so without
+    # the moves this matches the FIRST tree of the right colour and lectures
+    # the player about an opening they are not playing.
+    #
+    # Found 2026-10-21 on a move-5 position with no e-pawns left on the board,
+    # which drew "e5 meets White head on. c5, c6 and e6 are all good and
+    # popular replies, but they are the Sicilian, the Caro-Kann and the
+    # French." -- from the Italian tree's root node. It was my own harness
+    # passing [], and the lecture is the longest thing on that card.
+    if full_move_number > 1 and not move_history_san_excl_current:
+        return
     try:
         from services.opening_curriculum_engine import (
             get_opening_guidance,
