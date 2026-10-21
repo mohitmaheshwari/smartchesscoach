@@ -192,3 +192,56 @@ class TestNoRepetition:
         result = story([negative("responded_to_threat"),
                         positive(responded_to_threat=True)])
         assert len({(m["polarity"], m["id"]) for m in result["moments"]}) == 2
+
+
+class TestPositivesAreRankedByWhatTheySignify:
+    """Negatives carry a severity; positives did not, so they all tied at zero.
+
+    The first real story on one of Mohit's own won games headlined
+    "responded_to_threat" at move 6 while "found_best_in_critical" at move 32
+    sat below it on nothing but observation order.
+    """
+
+    def test_a_critical_find_outranks_answering_a_threat(self):
+        routine = observation(responded_to_threat=True, move_number=6)
+        critical = observation(found_best_in_critical=True, move_number=32)
+        # Routine first in the list, so order alone would pick it.
+        result = story([routine, critical])
+        assert result["headline"]["id"] == "found_best_in_critical"
+
+    def test_the_strongest_signal_on_one_move_is_the_one_named(self):
+        both = observation(responded_to_threat=True,
+                           punished_opponent_blunder=True)
+        assert story([both])["moments"][0]["id"] == "punished_opponent_blunder"
+
+    def test_a_real_mistake_still_outranks_any_success(self):
+        # Ordering positives must not let a good move bury a decisive error.
+        decisive = negative("simple_hang", severity="critical",
+                            eval_before=400, eval_after=-250, cp_loss=650)
+        good = observation(found_best_in_critical=True)
+        assert story([good, decisive])["headline"]["id"] == "simple_hang"
+
+
+class TestRecurrenceMatchesTheTopicNotJustTheSubtype:
+    def test_a_focus_topic_matches_a_moment_of_that_family(self):
+        """The mismatch that made recurrence inert with real input.
+
+        `user_active_focus.topic_key` holds "missed_tactic"; the moment is
+        "missed_generic_tactic". Comparing ids alone never matched once, so
+        the second-ranked criterion did nothing on every real game.
+        """
+        tactic = observation(missed_pattern="missed_tactic",
+                             subtype="missed_generic_tactic", move_number=7)
+        other = observation(missed_pattern="piece_safety",
+                            subtype="simple_hang", move_number=20)
+        result = story([other, tactic], recurring_ids={"missed_tactic"})
+        assert result["headline"]["id"] == "missed_generic_tactic"
+
+    def test_an_unrelated_topic_does_not_match(self):
+        tactic = observation(missed_pattern="missed_tactic",
+                             subtype="missed_generic_tactic",
+                             severity="minor")
+        other = observation(missed_pattern="piece_safety",
+                            subtype="simple_hang", severity="critical")
+        result = story([tactic, other], recurring_ids={"king_safety"})
+        assert result["headline"]["id"] == "simple_hang"

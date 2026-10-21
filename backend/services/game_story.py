@@ -64,6 +64,25 @@ _POSITIVE_FLAGS = (
 )
 _POSITIVE_VALUE_FIELD = "tactical_pattern_executed"
 
+# How much a success SIGNIFIES. Negatives arrive with a severity; positives do
+# not, so without this every success tied at zero and the order fell to
+# whichever observation happened to come first.
+#
+# The first real story built on one of Mohit's own won games headlined
+# "responded_to_threat" at move 6 -- answering a threat on move six is not the
+# story of a game -- while "found_best_in_critical" at move 32, the best move
+# at a critical moment, sat below it on nothing but list order.
+#
+# Finding the only move that holds a critical position says more about a player
+# than answering a threat any opponent hands you, so they are ranked by that
+# and not by convenience.
+_POSITIVE_STRENGTH = {
+    "found_best_in_critical": 3,
+    "punished_opponent_blunder": 2,
+    "responded_to_threat": 1,
+}
+_EXECUTED_MOTIF_STRENGTH = 2
+
 
 def _user_moves_for_summary(
     move_evaluations: Sequence[Mapping[str, Any]],
@@ -132,13 +151,20 @@ def _moment_from(observation: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
     executed = observation.get(_POSITIVE_VALUE_FIELD)
     flags = [name for name in _POSITIVE_FLAGS if observation.get(name) is True]
 
+    family = str(pattern) if pattern else None
     if subtype and pattern:
         label_id, polarity = str(subtype), "negative"
         quality_id = f"gap:{pattern}:{subtype}"
+        strength = _SEVERITY_RANK.get(
+            str(observation.get("severity") or "").lower(), 0)
     elif executed:
         label_id, polarity, quality_id = str(executed), "positive", None
+        strength = _EXECUTED_MOTIF_STRENGTH
     elif flags:
-        label_id, polarity, quality_id = flags[0], "positive", None
+        # Strongest signal the move carried, not the first one listed.
+        best_flag = max(flags, key=lambda f: _POSITIVE_STRENGTH.get(f, 0))
+        label_id, polarity, quality_id = best_flag, "positive", None
+        strength = _POSITIVE_STRENGTH.get(best_flag, 0)
     else:
         return None
 
@@ -149,18 +175,27 @@ def _moment_from(observation: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
         "move_number": observation.get("move_number"),
         "ply": observation.get("ply"),
         "detector_quality_id": quality_id,
+        # The family, because recurrence arrives as a TOPIC and a moment is a
+        # SUBTYPE. `user_active_focus.topic_key` holds "missed_tactic" while
+        # the moment is "missed_generic_tactic", so comparing ids alone meant
+        # recurrence never once matched -- the same vocabulary mismatch that
+        # separates lessons from observations elsewhere in this product,
+        # reproduced inside one function.
+        "family": family,
         "decisive": _decisive(observation) if polarity == "negative" else False,
         "severity": observation.get("severity"),
-        "severity_rank": _SEVERITY_RANK.get(
-            str(observation.get("severity") or "").lower(), 0),
+        "severity_rank": strength,
     }
 
 
 def _rank_key(item: Mapping[str, Any], recurring: Iterable[str]):
     recurring = set(recurring or ())
+    names = {str(item.get("id"))}
+    if item.get("family"):
+        names.add(str(item.get("family")))
     return (
         1 if item.get("decisive") else 0,
-        1 if str(item.get("id")) in recurring else 0,
+        1 if names & recurring else 0,
         item.get("severity_rank", 0),
         item.get("occurrence_count", 0),
     )
