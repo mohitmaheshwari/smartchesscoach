@@ -54,6 +54,7 @@ from services.contrastive_reasoner import (
     CAUSE,
     EVIDENCE,
     SYMPTOM,
+    _material_swing,
     q_abandoned_own_defender,
     q_blocked_a_plan,
     q_left_it_loose,
@@ -269,6 +270,59 @@ def _lost_man_cp(answer: Dict[str, Any]) -> Optional[int]:
     return PIECE_CP.get(str(answer.get("lost") or ""))
 
 
+# How much material the line may cost us BEYOND the man we name, before the
+# man is no longer the story. One pawn, and for once this is a real break in
+# the data rather than a percentile. Measured over 3,077 left_it_loose
+# findings on the whole corpus, `extra` = what the line costs us beyond the
+# named man, in pawns:
+#
+#   <=-3  241  7.8%      -1  294  9.6%      +0 1947 63.3%      +1  229  7.4%
+#     +2   65  2.1%      +3   89  2.9%      +5   85  2.8%     >=7   12  0.4%
+#
+# 63.3% at exactly zero against 7.4% at +1 is an 8.5x cliff: the claim either
+# accounts for precisely the material that falls or it does not. The median
+# loss/claim ratio also climbs monotonically with extra (1.4x at 0, 1.6x at
+# +1, 2.0x at +2, 3.0x at +5), which is why the ratio looked like the problem
+# at first -- it is a noisy proxy for this.
+LOOSE_EXTRA_MAX_PAWNS = 1
+
+
+def _more_falls_than_the_man_we_name(answer: Dict[str, Any],
+                                     move: "MoveUnderStudy") -> Optional[str]:
+    """Step 6 on left_it_loose: is this man actually the story?
+
+    The scale run found 962 of its claims (12% of usable) offered as the
+    explanation of a loss three times the man named -- the only question in
+    the registry that scored above zero on that. The first instinct was a
+    ratio guard, and the measurement killed it: of 515 such claims, 301
+    (58.4%) were sound, the big number being the CONSEQUENCE of losing the
+    man rather than more material. A ratio would have deleted roughly 560
+    good cards to fix 400 bad ones -- the same trade why_on_demand already
+    refuses in MATERIAL_MECHANISMS.
+
+    What separates them is not the size of the loss but what the line does:
+    walk it and count. If more falls than the man we are naming, naming him
+    tells a player who lost a pawn and a knight that they lost a pawn.
+    """
+    named = PIECE_CP.get(str(answer.get("loose") or ""))
+    if not named:
+        return None
+    board = move.board_before()
+    try:
+        after = board.copy()
+        after.push(board.parse_san(str(move.played_san)))
+    except (ValueError, AssertionError, TypeError):
+        return None
+    swing = _material_swing(after, list(move.pv_played or ()), board.turn)
+    if swing is None:
+        return None                      # line will not replay; say nothing
+    extra = -swing - (named // 100)
+    if extra >= LOOSE_EXTRA_MAX_PAWNS:
+        return (f"{extra} more pawns of material fall in this line, so this "
+                f"man is not the story")
+    return None
+
+
 def _retreat_was_voluntary(answer: Dict[str, Any],
                            move: "MoveUnderStudy") -> Optional[str]:
     """Step 6, on the one claim we actually make: "the move loses time".
@@ -322,7 +376,8 @@ REGISTRY: Tuple[Question, ...] = (
     # better move by construction.
     Question("left_it_loose", CAUSE, q_left_it_loose,
              subject=("square",), inherent=True,
-             claim_cp=lambda a: PIECE_CP.get(str(a.get("loose") or ""))),
+             claim_cp=lambda a: PIECE_CP.get(str(a.get("loose") or "")),
+             challenge=_more_falls_than_the_man_we_name),
     Question("engine_undoes_it", EVIDENCE, q_engine_undoes_it, subject=(),
              challenge=_retreat_was_voluntary),
     Question("returns_home", SYMPTOM, q_returns_home, subject=(),

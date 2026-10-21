@@ -116,3 +116,67 @@ class TestItStaysSilentWithoutTheWholeStory:
     def test_nothing_loose_means_nothing_to_say(self):
         assert q_left_it_loose(
             ctx(chess.STARTING_FEN, "e4", "d4", ["e5", "Nf3"])) is None
+
+
+class TestTheManMustBeTheStory:
+    """The scale run's one real finding, and the measurement that chose the fix.
+
+    962 left_it_loose claims (12% of usable, the only question above zero)
+    were offered as the explanation of a loss 3x+ the man they named. The
+    ratio looked like the defect and was not: of 515 such claims, 301 (58.4%)
+    were sound -- the big number is the CONSEQUENCE of losing the man. A ratio
+    guard would have deleted ~560 good cards to fix ~400 bad ones.
+
+    What separates them is what the LINE does. Over 3,077 findings, the
+    material falling beyond the named man:
+
+        <=-3  7.8%     -1  9.6%     +0  63.3%     +1  7.4%     +3  2.9%
+
+    63.3% at exactly zero against 7.4% at +1 is an 8.5x cliff, so one pawn is
+    a break in the data and not a percentile.
+    """
+    def _study(self, pv):
+        from services.move_reasoning import MoveUnderStudy
+        return MoveUnderStudy(
+            fen_before=RAE1, played_san="Rae1", best_san="Rfd1",
+            pv_played=list(pv), pv_best=[], cp_loss=188, mover_is_user=True)
+
+    def test_the_claim_stands_when_only_that_man_falls(self):
+        from services.move_reasoning import _more_falls_than_the_man_we_name
+        assert _more_falls_than_the_man_we_name(
+            {"loose": "pawn", "square": "d4"},
+            self._study(["Bxd4", "Qe3", "Bf6"])) is None
+
+    def test_the_claim_is_challenged_when_a_knight_goes_too(self):
+        """Bxd4 then Bxc3 with no recapture: a pawn and a knight, so naming
+        the pawn tells a player who lost four pawns that they lost one."""
+        from services.move_reasoning import _more_falls_than_the_man_we_name
+        out = _more_falls_than_the_man_we_name(
+            {"loose": "pawn", "square": "d4"},
+            self._study(["Bxd4", "Kh1", "Bxc3"]))
+        assert out and "not the story" in out
+
+    def test_an_unreplayable_line_is_not_a_challenge(self):
+        """Silence on a broken line, never a challenge -- a guard may lower a
+        claim, never invent one."""
+        from services.move_reasoning import _more_falls_than_the_man_we_name
+        assert _more_falls_than_the_man_we_name(
+            {"loose": "pawn", "square": "d4"},
+            self._study(["Qxz9", "Nope"])) is None
+
+    def test_the_framework_drops_the_finding_when_challenged(self):
+        """End to end: the challenge has to reach usable, not just return a
+        string nobody reads."""
+        from services.move_reasoning import reason_about
+        rep = reason_about(self._study(["Bxd4", "Kh1", "Bxc3"]))
+        loose = [f for f in rep.findings + rep.rejected
+                 if f.concept == "left_it_loose"]
+        assert loose, "the question should still have fired"
+        assert not loose[0].usable
+        assert loose[0].challenged
+
+    def test_and_keeps_it_when_the_man_is_the_whole_story(self):
+        from services.move_reasoning import reason_about
+        rep = reason_about(self._study(["Bxd4", "Qe3", "Bf6"]))
+        loose = [f for f in rep.findings if f.concept == "left_it_loose"]
+        assert loose and loose[0].usable
