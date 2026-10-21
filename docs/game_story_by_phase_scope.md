@@ -1,153 +1,232 @@
-# The game story, told in three parts: opening, middlegame, finish
+# The game story engine: a timeline, an event ledger, then the story
 
-Status: draft for Mohit's sign-off, 2026-10-21. No code yet.
-Builds on `docs/game_story_on_screen_scope.md`, which is live.
+Status: draft v2 for Mohit's sign-off, 2026-10-21. No code yet.
+v1 of this file proposed opening / middlegame / finish headings. v2 takes in
+the design Mohit pasted the same day (timeline, event ledger, narrative
+planner, two reading modes), keeps what fits this product, and changes what
+does not. Builds on `docs/game_story_on_screen_scope.md`, which is live.
 
 ## What it is
 
-Today the story is a short list of moves that mattered. A coach tells a game
-differently: how the opening went, what happened in the middle, and how it
-ended. That includes the moments the player got away with, because a weak
-opponent missing a chance does not make the move good.
+A coach does not hand a player a list of mistakes. They tell the game: how it
+started, where it turned, who missed what, and how it ended. Then they give
+one lesson that the game actually proves.
 
-This changes the story into three short parts, written for the player:
+The engine does this in four steps. Each step is checked before the next one
+uses it.
 
-1. **Opening.** Which opening it was and how it went: played well, about
-   level, or gone wrong, and the move that cost the most.
-2. **Middlegame.** The sharp moments, good and bad. A tactic found, a piece
-   trapped, a strong square taken, a mistake made. When the opponent did not
-   punish a mistake, the line says so.
-3. **The finish.** How the game ended, and whether it was finished cleanly.
+1. **Timeline.** Who was better at every position, from the stored engine
+   evaluations.
+2. **Event ledger.** The moments that changed the game, for both players. Each
+   moment carries its evidence, and records what happened on the board
+   separately from what could have happened.
+3. **Story plan.** Which events to tell, in what order, under what kind of
+   story, and the one lesson the game supports.
+4. **Writing.** Short, plain English from the plan, in two modes from the
+   same ledger: a story to read, and coach notes to study.
 
 ## What the player sees
 
 Mohit's game 56b6c294, played as Black, won by resignation. Every chess claim
-below was checked on the board with the engine on 2026-10-21.
+was checked on the board with the engine on 2026-10-21.
+
+### Story mode
 
 ```
-THE STORY OF THIS GAME                                        You won
+A WIN WITH TWO NARROW ESCAPES                               You won
+Queen's Pawn Opening  ·  They resigned
 
-OPENING  ·  Queen's Pawn Opening
-  You came out of the opening about level.
-  ✗  e5     This left your d5 pawn short of defenders. Nxd5 would
-            have won it. Your opponent missed it.
+THE START
+The opening was about level.
+Then e5 left your d5 pawn weak. They could have won it with Nxd5.
+They did not.
 
-MIDDLEGAME
-  ✗  Nxg5   Bxc3 was stronger. Take their knight, and after bxc3
-            your knight forks their queen and bishop from c3.
-  ✓  Nh3+   They left something loose, and you took it.
-  ✗  Ng5    This let Rh1 trap your queen. Your opponent missed it.
+THE MIDDLE
+Nxg5 let a chance go by. Bxc3 first, and after bxc3 your knight
+forks their queen and bishop from c3.
+Then they went wrong with e4, and you found the best answer, Nh3+.
+Ng5 nearly cost you your queen. After Rh1 she would have had no
+safe square. They played f4 instead.
 
 THE FINISH
-  You stayed well ahead, and they resigned.
+From there you stayed well ahead, and they resigned.
+
+WHAT TO TAKE FROM THIS GAME
+In this game you moved pieces that were guarding something.
+Before a piece moves, ask what it was protecting.
 ```
 
-What each line rests on:
+### Coach mode, the same ledger
 
-- **e5.** After 8.dxe5 Nxe5, d5 is attacked by the c3 knight and the queen,
-  and defended only by the f6 knight. White's best was 9.Nxd5. White played
-  9.Nxe5 and Black was better again.
-- **Nxg5.** The stored label today says "A pin you could have played". There
-  is no pin. Bxc3 bxc3 Nxc3 hits the queen on d1 and the bishop on e2.
-- **Ng5.** The h3 knight was blocking the h-file in front of the queen on h4.
-  After Ng5 Rh1, every one of the queen's eight squares is covered.
-  White played f4 instead.
+```
+✗  e5     The e6 pawn guarded d5. After e5, d5 had one defender
+          and two attackers. Best for them: Nxd5. Played: Nxe5.
+✗  Nxg5   Missed: Bxc3 bxc3 Nxc3, hitting the queen on d1 and the
+          bishop on e2.
+✓  Nh3+   Their e4 was a big mistake, and this was the best way
+          to punish it.
+✗  Ng5    The h3 knight was blocking the h-file. After Rh1 every
+          queen square is covered. Played: f4.
+```
 
-On home, the same story is cut to the opening line and the two moments that
-matter most.
+Each coach line opens that move on the review board.
 
-## What each part needs, and what already exists
+This mockup itself had a false line in its first draft: it said Nh3+ "took"
+a loose piece, and Nh3+ is a check, not a capture. The writing step must
+check every verb against the move, which is exactly what the quality check
+in step 6 is for.
 
-| Part | Already there | Missing |
-|---|---|---|
-| Opening name | chess.com stores a name on every game | Shortening "Queens Pawn Opening Zukertort Chigorin Variation 3.e3" to "Queen's Pawn Opening". Lichess stores none, so the name comes from the moves instead, through the opening book that already names openings for captions. |
-| Opening verdict | The player's evaluation after the opening, and every opening move's cost | The rule that turns those into a sentence |
-| Left the book | Stored on every analysis: the move played and the book move | Only said when the book move is also the engine's best, as the existing left-book detector already requires |
-| Middlegame mistakes | The current story moments | The "your opponent missed it" beat, and naming the real danger |
-| Middlegame good moves | Eleven approved concept checks, including castling, a knight outpost, a rook on an open file or the seventh rank, and a central pawn break. Executed tactics such as a fork or a trapped piece. | Reading the concept results into the story. Today they are worked out only inside the review captions. |
-| Stopped them castling | Nothing | A new check, proved on real games before it is trusted |
-| The finish | How the game ended, and the evaluation at the end | The rule that turns those into a sentence |
+The lesson is earned, not generic. Two of the three mistakes share it: e5
+moved the e6 pawn that guarded d5, and Ng5 moved the knight that shielded the
+queen.
 
-## Measured on real games
+## What the measurements say
 
-The opening is measured on 1,000 recent games, and the missed chances on
-3,000.
+Measured on production, 2026-10-21.
 
-| Measured | Games |
+| Measured | Result |
 |---|---|
+| Positions with a stored evaluation, 2,920 games | 197,000 of 197,000 |
+| Opponent moves where their best reply is stored | 31,613 of 95,580 |
+| Big chances the player gave that the opponent missed, 3,000 games | in 1,124 games |
+| Forced mates the player missed | in 809 games |
+| Forced mates allowed that the opponent missed | in 374 games |
 | Opening named, chess.com | 939 of 939 |
-| Opening named, lichess | 0 of 61 |
-| Book exit stored | 1,000 of 1,000 |
-| Clearly better after move ten | 223 |
-| Clearly worse after move ten | 262 |
-| At least one costly move in the first ten | 564 |
-| A big chance given away that the opponent missed | 1,124 of 3,000 |
-| A forced mate the player missed | 809 of 3,000 |
-| A forced mate allowed that the opponent missed | 374 of 3,000 |
+| Opening named, lichess | 0 of 61, but the stored book record names it from the moves |
+| Stored "a pin you could have played" labels resting on a false pin | 388 of 1,457 |
 
-So "you played the opening well" will be honestly true in a minority of
-games. The line must say what actually happened, not flatter.
+The timeline needs no new engine work. The opponent's best reply is stored
+for about a third of their moves, mostly where the player erred, which is
+where it matters. The rest is found with a short engine run on only the
+positions the ledger selects.
 
-## Fixes that come first
+How 2,920 games sort by the shape of the curve, first-cut rules:
 
-Both are wrong today on the live story and on review cards.
+| Shape | Games |
+|---|---|
+| Up and down, lead changed hands twice or more | 527 |
+| Clean win, never in trouble | 489 |
+| Came back from clearly worse | 461 |
+| Was clearly winning and did not win | 378 |
+| Outplayed throughout | 265 |
+| Level start, then slipped | 263 |
+| Decided in the ending | 145 |
+| Saved a draw from a bad position | 72 |
+| None of these | 320 |
 
-1. **The pin checker accepts pins that are not pins.** It treats a piece as
-   pinned even when that piece can simply take the attacker, as with b2 and
-   a bishop on c3. Of 1,457 stored "a pin you could have played" labels, 388
-   rest on this mistake. The checker will refuse such pins. The 388 are
-   relabelled with the idea the board proves, such as the fork above, or
-   fall back to "a chance that went by". The affected captions are rebuilt.
-2. **A mistake is named by the move it missed, not by the danger it walked
-   into.** Ng5 is called a missed pin. Its real lesson is the trapped queen.
-   When the punishing reply wins the queen or allows a forced mate, and the
-   board proves it, that danger is the line.
+Mohit's game lands in "none of these" on the curve alone, because each danger
+lasted one move before the opponent gave it back. Its real story, a win with
+two narrow escapes, only appears once the events are added. So the story type
+is chosen from the curve and the ledger together.
 
-## In scope
+## What I kept from the pasted design, and what I changed
 
-- The two fixes above.
-- The opening line: a short name, a verdict, and the costliest move when
-  there was one.
-- The middlegame line: current moments plus "your opponent missed it",
-  missed mates, allowed mates the opponent missed, and approved good moves.
-- The finish line.
-- The review page shows all three parts. Home shows the opening line and the
-  top two moments.
-- A test for every rule, and a measured run over real games before shipping.
+Kept, because it fits and the data supports it:
 
-## Out of scope
+- Timeline first, then a ledger of verified events, then the plan, and only
+  then the writing.
+- Both players' events. What the opponent missed is part of the story.
+- "What happened" and "what could have happened" are separate. A missed
+  queen trap is never described as a trap that happened.
+- One story type per game, chosen only when the game earns it. Most games are
+  not dramatic, and the story must not invent drama.
+- Three to six moments in a game, not every mistake.
+- Two reading modes from one ledger.
+- The lesson must be proved by this game, and repeated patterns across games
+  become training priorities.
 
-- The "stopped them castling" check. It is built and proved separately, then
-  added as a good-move line once it holds up on real games.
-- New opening teaching content.
+Changed:
+
+- **Plans and intentions are left out of the first version.** Saying what a
+  player was trying to do is guessing at a mind. This product has repeatedly
+  learned that a board fact is not a cause. A plan appears only where moves
+  show it mechanically, such as several pawn moves in a row towards a king.
+- **Pressure and initiative are counted, not judged.** "For several moves you
+  were the one making threats" is said only from the moves themselves:
+  checks, captures, and threats the opponent had to answer.
+- **The English is much simpler than the pasted sample.** Words like
+  "capitalize", "materially" and "vulnerable", and long sentences, do not
+  work for a 600 to 1500 player who may be reading in a second language.
+  There are no numbers, as everywhere else.
+- **The words are written by rules first, not by a language model.** A model
+  may later smooth the English, but only inside a check that rejects any
+  sentence claiming something the ledger does not hold. That is how captions
+  already work.
+- **One story source, not a fifth.** The product already has four services
+  that tell a game's story in some form: the coach review story, the coach
+  summary, the key-moments service, and the both-sides card on home. They
+  disagree with each other today, sometimes about where the game turned. The
+  ledger becomes the one source. Each existing surface either reads from it
+  or is retired, one at a time, with a check that nothing a player sees gets
+  worse.
+- **Story types get plain names.** For example: "You came back", "It slipped
+  away", "Up and down", "A clean win", "A great escape" and "A win with narrow
+  escapes".
+
+## In scope for the first version
+
+1. **Fix first: the pin checker.** It counts a piece as pinned even when that
+   piece can take the attacker. Fix the check, relabel the 388 stored labels
+   with the idea the board proves or "a chance that went by", and rebuild
+   those captions. This is wrong on the live site today, whatever the story
+   design.
+2. **The timeline,** built at analysis time from stored evaluations, with
+   the existing phase measure deciding where the opening and the ending
+   begin.
+3. **The ledger.** These events, each with evidence and a verification
+   status:
+   - turning points, from the timeline
+   - a player's mistake, and whether the opponent punished it
+   - a mistake's real danger when the board proves it: queen lost or
+     trapped, or a forced mate allowed
+   - missed mates, and allowed mates the opponent missed
+   - the opponent's own big mistakes, and whether the player took them
+   - good moves from the approved concept checks and executed tactics
+   - the opening: its name, how it went, and the costliest opening move
+   - the finish: how it ended, and whether a winning position was kept
+4. **The story plan:** the story type, three to six events, and one lesson
+   that at least two events in the game support, or no lesson.
+5. **Writing in both modes,** on the review page. Home keeps a short cut:
+   the title, the opening line, and the two most important moments.
+6. **Verification before shipping.** Every rule has a test. A run over
+   thousands of real games checks the type distribution and that no claim
+   lacks evidence. A sample of stories is read by hand against the board.
+
+## Out of scope for the first version
+
+- Plans and intentions, beyond what moves show mechanically.
+- A "stopped them castling" check. It is built and proved separately, then
+  joins the ledger.
+- A language model writing or polishing the story.
+- Retiring the four older story services. That comes after, one surface at
+  a time.
 - Play with Coach games.
 
 ## Success criteria
 
-- Every claim in a story line is backed by the board or the engine. A sample
-  of stories is checked by hand before shipping.
-- No line names a pin that the board says does not exist.
-- A lost game never leads with a compliment, as today.
-- Every lichess game gets an opening name from its moves.
+- Every story sentence traces to a ledger event with evidence. A hand-read
+  sample finds no claim the board does not support.
+- No story calls a game dramatic when its curve and events are quiet.
+- The story type distribution over real games matches what the curve and
+  ledger show, and is reviewed before any threshold is locked.
+- Players open the coach notes from the story, measured by taps.
 
-## Open questions
+## Open questions for Mohit
 
-1. **How warm can the opening line be?** You wrote "a perfect Scandinavian".
-   "Perfect" will be true very rarely. I suggest "You played the Scandinavian
-   well" when no opening move cost anything noticeable for the player's
-   rating and the position is level or better. Otherwise: "Your London went
-   wrong early with h3." Do you want "perfect" kept for the rare game where
-   every opening move was the engine's choice?
-2. **Where the opening ends.** A fixed ten moves is simple and wrong for short
-   or very sharp games. The product already has a phase measure built from
-   the material left on the board. I recommend using it so the opening,
-   middlegame and finish split the same way everywhere.
+1. **How warm can a line be?** You wrote "a perfect Scandinavian". I suggest
+   "You played the Scandinavian well" when no opening move cost anything
+   noticeable for the player's rating. "Perfect" would be kept for the rare
+   game where every opening move matched the engine. Agree?
+2. **The lesson rule.** I propose a lesson only when at least two events in
+   the game share it, and otherwise no lesson rather than a generic one.
+   Agree?
 
 ## Order of work
 
-1. The pin checker fix and relabel, with the captions rebuilt.
-2. Naming the real danger, and "your opponent missed it".
-3. The opening line, including lichess names.
-4. Good middlegame moves from the approved concept checks.
-5. The finish line.
-6. Separately: prove a "stopped them castling" check.
+1. The pin checker fix, relabel, and caption rebuild.
+2. The timeline and the ledger, stored at analysis time and measured over
+   real games, before any writing.
+3. The story plan and story types, with thresholds set from the measured
+   distribution.
+4. Writing in both modes on the review page, then the home cut.
+5. Moving the older story surfaces onto the ledger, one at a time.
