@@ -45,7 +45,11 @@ import chess
 from services.board_state_game_summary import compute_game_summary
 from services.severity import classify_severity_practical
 
-SCHEMA_VERSION = "game_story.v1"
+# v2, 2026-10-21: every shown line carries the English it renders as, and a
+# line that cannot be named is no longer shown. Rows written as v1 hold raw
+# ids, pre-dedupe moments and span labels that counted positions out loud, so
+# the read path recomputes them rather than serving them.
+SCHEMA_VERSION = "game_story.v2"
 
 MAX_MOMENTS = 3          # the headline plus two
 MAX_SPANS = 2
@@ -82,6 +86,80 @@ _POSITIVE_STRENGTH = {
     "responded_to_threat": 1,
 }
 _EXECUTED_MOTIF_STRENGTH = 2
+
+
+# ─── Naming ──────────────────────────────────────────────────────────────
+#
+# Mohit, 2026-10-20, looking at a real story: "the story connects tags not the
+# pieces and doesn't use english much, can't really show like that on app for
+# users". He was right, and measuring it showed how right:
+#
+#     negative subtypes   74.0% of volume had an English name
+#     executed motifs      2.8% of volume had one
+#
+# The story GUARANTEES a positive and ranks executed motifs above the three
+# flags, so the positive line of nearly every story rendered as a raw id --
+# `double_attack_line`, `pawn_hole_fianchetto`. The guarantee made it worst
+# exactly where he noticed it.
+#
+# Each namespace already has an owner and this module adds no words of its
+# own. A sixth concept vocabulary is the last thing this product needs:
+#
+#     negative subtype / positive flag  pattern_catalog.json
+#     executed motif                    services.shape_patterns
+#
+# `shape_patterns` carries language signed off 2026-05-12 (class 6-8 English,
+# keep the terms Indian coaches teach) and covers all 21 motifs the corpus
+# produces, so naming them took no authoring at all -- only this lookup.
+#
+# An id with no entry is NOT shown. That is a narrow gate, not a silencing
+# one: `test_every_story_id_has_an_english_name` walks every id the corpus
+# can produce and fails if one is unnamed, so the gate is what makes the
+# authoring obligation enforceable rather than what hides a gap.
+
+
+def _display_name(label_id: str, polarity: str) -> Optional[str]:
+    """The English this moment is shown as, or None when it may not be shown."""
+    if polarity == "positive":
+        try:
+            from services.shape_patterns import PATTERNS_BY_ID
+            shape = PATTERNS_BY_ID.get(label_id)
+        except Exception:
+            shape = None
+        if shape and shape.get("name"):
+            return str(shape["name"])
+    try:
+        from services.pattern_catalog import get_pattern
+        entry = get_pattern(label_id) or {}
+    except Exception:
+        entry = {}
+    name = entry.get("human_name")
+    return str(name) if name else None
+
+
+def _display_detail(label_id: str) -> Optional[str]:
+    """One plain sentence under the name, or nothing.
+
+    Only `pattern_catalog` is read here, and an executed motif therefore
+    shows its name alone. That is a register decision, measured rather than
+    assumed: of the 21 motifs the corpus produces, 8 descriptions are
+    instructions for a live position ("Just take it", "do not trade
+    lightly", "Attack it once more") and 3 are authored silence, so 11 of 21
+    would read as advice about a game that is already over, or as a blank.
+
+    The motif NAME survives the change of register in all 21 cases, which is
+    why it is used and the sentence is not. Writing a second, past-tense
+    description for the same id is the obvious alternative and the wrong one
+    while it would live in a different file from the first -- if these want
+    report-register sentences, they belong in `shape_patterns` beside the
+    language they would join.
+    """
+    try:
+        from services.pattern_catalog import get_pattern
+        text = (get_pattern(label_id) or {}).get("short_description")
+    except Exception:
+        return None
+    return str(text).strip() if text and str(text).strip() else None
 
 
 def _user_moves_for_summary(
@@ -172,6 +250,11 @@ def _moment_from(observation: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
         "kind": "moment",
         "polarity": polarity,
         "id": label_id,
+        # The id stays -- it is stable, and an audit has to be able to tie a
+        # shown line back to the detector that claimed it. The English rides
+        # alongside rather than replacing it.
+        "display_name": _display_name(label_id, polarity),
+        "display_detail": _display_detail(label_id),
         "move_number": observation.get("move_number"),
         "ply": observation.get("ply"),
         "detector_quality_id": quality_id,
@@ -253,6 +336,11 @@ def build_game_story(
             "occurrence_count": trend.get("occurrence_count"),
             "move_numbers": trend.get("move_numbers"),
             "label": trend.get("label"),
+            # Spans were already written in English -- the span half of the
+            # complaint was fixed by rewriting these templates. Carrying the
+            # same key as a moment means a caller renders one list, not two.
+            "display_name": trend.get("label"),
+            "display_detail": None,
             "severity_rank": 0,
             "decisive": False,
         }
@@ -267,7 +355,10 @@ def build_game_story(
     # where three were available. The full ranked list is still stored, so
     # nothing is lost from the record -- only the display picks from the
     # subset it is allowed to speak about.
-    showable_ranked = [m for m in moments if showable(m.get("detector_quality_id"))]
+    showable_ranked = [
+        m for m in moments
+        if showable(m.get("detector_quality_id")) and m.get("display_name")
+    ]
     chosen = showable_ranked[:MAX_MOMENTS]
     # The guarantee. A plain top-N is all-negative in most games because
     # negatives are both more numerous and more severe, so if the player did

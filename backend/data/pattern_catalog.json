@@ -364,6 +364,186 @@
       "short_description": "The opponent threatened something and the reply dealt with it.",
       "family": "Game story",
       "example_fen": null
+    },
+    "unverified_hint": {
+      "human_name": "Something slipped here",
+      "short_description": "The move gave something away, but nothing clear enough to name.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "generic_endgame_slip": {
+      "human_name": "An endgame slip",
+      "short_description": "Something went wrong in the endgame, with no one clear cause.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "weakened_shelter": {
+      "human_name": "Moved a pawn in front of your king",
+      "short_description": "The pawns around the king are its cover, and one of them left while the opponent was aiming there.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "generic_oversight": {
+      "human_name": "Missed something tactical",
+      "short_description": "There was a tactic in the position and the move went past it.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "threat_ignored": {
+      "human_name": "Played on past a threat",
+      "short_description": "The opponent's last move made a threat and this move did not deal with it.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "passed_pawn_ignored": {
+      "human_name": "Let a passed pawn run",
+      "short_description": "The opponent had a pawn with nothing in its way, and this move left it alone.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "quiet_blunder": {
+      "human_name": "A quiet move that cost a lot",
+      "short_description": "Nothing was taken, but the move still handed the position over.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "missed_discovered_attack": {
+      "human_name": "A discovered attack you could have played",
+      "short_description": "Moving one piece would have opened a line for another one behind it.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "king_in_center": {
+      "human_name": "Left the king in the middle",
+      "short_description": "The king stayed in the centre while the position opened up around it.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "retreated_a_developed_piece": {
+      "human_name": "Sent a piece back home",
+      "short_description": "A piece that was already out went backwards, with nothing chasing it.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "early_flank_pawn_move": {
+      "human_name": "An early pawn move on the side",
+      "short_description": "A side pawn moved early, when getting pieces out was worth more.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "overlooked_immediate_reply": {
+      "human_name": "Missed the reply that came next",
+      "short_description": "The opponent's very next move was a check or a capture that this move allowed.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "passive_king_in_endgame": {
+      "human_name": "Kept the king out of play",
+      "short_description": "In the endgame the king is a strong piece, and it stayed far from the action.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "ignored_forcing_threat": {
+      "human_name": "Played past a forcing threat",
+      "short_description": "The opponent had a check or a capture waiting and this move did not answer it.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "tempo_wasted_by_repeat": {
+      "human_name": "Sent a piece back home",
+      "short_description": "A piece that was already out went backwards, with nothing chasing it.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "left_book_for_a_worse_move": {
+      "human_name": "Left the opening line for a worse move",
+      "short_description": "Leaving a known line is fine; this time the move chosen was the weaker one.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "king_walked_into_attack": {
+      "human_name": "Walked the king into trouble",
+      "short_description": "The king moved to a square the opponent was already covering.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "queen_out_early": {
+      "human_name": "Brought the queen out early",
+      "short_description": "The queen came out before the other pieces, where it can be chased around.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "piece_parked_on_start": {
+      "human_name": "Left pieces at home",
+      "short_description": "Knights and bishops were still on their first squares when they were needed.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "shallow_horizon_2ply": {
+      "human_name": "Looked one move ahead, not two",
+      "short_description": "The move works against the first reply and falls apart against the second.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "broken_forcing_sequence": {
+      "human_name": "Broke off a forcing line",
+      "short_description": "A line of checks and captures was going somewhere, and this move stepped out of it.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "generic_calc_gap": {
+      "human_name": "A calculation that fell short",
+      "short_description": "The line was worked out, just not far enough.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "isolated_pawn_created": {
+      "human_name": "Left a pawn on its own",
+      "short_description": "A pawn ended up with no friendly pawn beside it, so only pieces can defend it.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "doubled_pawn_created": {
+      "human_name": "Doubled your own pawns",
+      "short_description": "Two pawns ended up on the same file, where they cannot cover each other.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "backward_pawn_created": {
+      "human_name": "Left a pawn behind",
+      "short_description": "A pawn fell behind the ones next to it and cannot catch up.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "generic_structure_slip": {
+      "human_name": "A pawn-structure slip",
+      "short_description": "The pawns came out worse after this move, with no one clear cause.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "quiet_when_best_was_quiet": {
+      "human_name": "A quiet move, but the wrong one",
+      "short_description": "A calm move was right here; this was not the calm move to make.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "forcing_when_best_was_forcing": {
+      "human_name": "A forcing move, but the wrong one",
+      "short_description": "A check or a capture was right here; this was not the one to play.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "allowed_mate_exact": {
+      "human_name": "Allowed a forced mate",
+      "short_description": "After this move the opponent had a mating sequence, and nothing stopped it.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "trapped_piece_exact": {
+      "human_name": "Trapped your own piece",
+      "short_description": "The piece ended up with no safe square to go to.",
+      "family": "Game story",
+      "example_fen": null
     }
   }
 }

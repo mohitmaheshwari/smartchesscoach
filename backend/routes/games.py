@@ -1174,12 +1174,16 @@ async def game_story(game_id: str, user: User = Depends(get_current_user)):
     if not analysis:
         raise HTTPException(status_code=404, detail="Game not analyzed yet")
 
-    stored = analysis.get("game_story")
-    if stored:
-        return {**stored, "source": "stored"}
-
     from services.detector_quality import QualitySurface, is_authorized
-    from services.game_story import build_game_story
+    from services.game_story import SCHEMA_VERSION, build_game_story
+
+    # A story stored under an older schema is rebuilt, not served. v1 rows
+    # hold raw detector ids where the English should be, which is the exact
+    # thing the rewrite fixed, so trusting the stored row would show the old
+    # output on every game analysed before today.
+    stored = analysis.get("game_story")
+    if stored and stored.get("schema_version") == SCHEMA_VERSION:
+        return {**stored, "source": "stored"}
 
     def _showable(quality_id):
         if not quality_id:
