@@ -69,7 +69,10 @@ from services.severity import classify_severity_practical
 #
 # v7, 2026-10-22: rook traps in the ledger, and game tags
 # (services.game_tags), stored as game_analyses.game_tags for search.
-SCHEMA_VERSION = "game_story.v7"
+#
+# v8, 2026-10-22: absolute game facts (services.game_facts) and the
+# detector-named mistakes the gate allows join the game tags.
+SCHEMA_VERSION = "game_story.v8"
 
 MAX_MOMENTS = 3          # the headline plus two
 MAX_SPANS = 2
@@ -565,7 +568,7 @@ def attach_plan(
 
         story["ledger"] = ledger
         story["plan"] = plan_story(ledger, names=names)
-        story["tags"] = derive_game_tags(ledger, story["plan"])
+        story["tags"] = derive_game_tags(ledger, story["plan"], game=game, observations=observations)
     except Exception:
         import logging
         logging.getLogger(__name__).warning("game story plan failed", exc_info=True)
@@ -619,7 +622,8 @@ async def story_for_game(db, game: Mapping[str, Any], *, persist: bool = True) -
         {"_id": 0, "stockfish_analysis.move_evaluations": 1, "opening_deviation": 1})
     # The plan needs the PGN, the opening name and how the game ended, which
     # callers do not always pass.
-    needed = ("pgn", "opening", "opening_name", "termination", "result", "user_color", "user_id")
+    needed = ("pgn", "opening", "opening_name", "termination", "result", "user_color", "user_id",
+              "user_rating", "opponent_rating", "time_control")
     if any(key not in game for key in needed):
         extra = await db.games.find_one(
             {"game_id": game_id}, {"_id": 0, **{key: 1 for key in needed}}) or {}

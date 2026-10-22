@@ -26,7 +26,21 @@ import re
 from collections import defaultdict
 from typing import Any, Dict, List, Mapping, Optional
 
-GAME_TAGS_VERSION = "game_tags.v1"
+GAME_TAGS_VERSION = "game_tags.v2"  # v2: absolute facts and named mistakes
+
+# Detector-named mistakes, tagged only when the quality gate already lets a
+# player be shown the name (QualitySurface.CAPTION). Readable ids for the
+# common ones; any other authorised subtype is tagged as user_<subtype>.
+_NAMED_MISTAKES = {
+    "simple_hang": "user_hung_piece",
+    "destination_safety_exact": "user_moved_piece_to_unsafe_square",
+    "tactical_seq_loss": "user_lost_material_to_tactic",
+    "ignored_king_attack": "user_ignored_king_attack",
+    "missed_fork": "user_missed_fork",
+    "missed_pin": "user_missed_pin",
+    "missed_skewer": "user_missed_skewer",
+    "missed_mate": "user_missed_mate",
+}
 
 # Tactical successes that make a game "tactically active": blunders punished,
 # critical moves found, pieces shut in. Over 2,000 games half had two or more
@@ -48,6 +62,16 @@ async def ensure_game_tag_indexes(db) -> None:
     await db.game_analyses.create_index([("user_id", 1), ("game_tags", 1)])
 
 
+def _named_mistake_allowed(quality_id: str) -> bool:
+    """The one authority on whether a detector's name may be shown."""
+    try:
+        from services.detector_quality import QualitySurface, is_authorized
+
+        return is_authorized(quality_id, QualitySurface.CAPTION)
+    except Exception:
+        return False
+
+
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower().replace("'", "")).strip("_")
 
@@ -55,8 +79,16 @@ def _slug(text: str) -> str:
 def derive_game_tags(
     ledger: Mapping[str, Any],
     plan: Optional[Mapping[str, Any]] = None,
+    *,
+    game: Optional[Mapping[str, Any]] = None,
+    observations: Optional[List[Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    """{"version", "ids": [sorted tag ids], "moves": {tag: [move refs]}}."""
+    """{"version", "ids": [sorted tag ids], "moves": {tag: [move refs]}}.
+
+    `game` adds the absolute facts read off the PGN and headers
+    (services.game_facts); `observations` adds the detector-named mistakes
+    the quality gate allows a player to see.
+    """
     moves: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     tactical = 0
 
@@ -113,6 +145,24 @@ def derive_game_tags(
 
     if plan and (plan.get("type") or {}).get("id"):
         add(f"story_{plan['type']['id']}")
+
+    if game is not None:
+        from services.game_facts import game_facts
+
+        for tag, refs in game_facts(game, outcome).items():
+            moves[tag]
+            for ref in refs:
+                if ref not in moves[tag]:
+                    moves[tag].append(ref)
+
+    for observation in observations or []:
+        subtype = observation.get("subtype")
+        pattern = observation.get("missed_pattern")
+        if not subtype or not pattern or not _named_mistake_allowed(f"gap:{pattern}:{subtype}"):
+            continue
+        tag = _NAMED_MISTAKES.get(str(subtype), f"user_{_slug(str(subtype))}")
+        add(tag, {"move_number": observation.get("move_number"),
+                  "san": observation.get("move_san"), "side": "you"})
 
     return {
         "version": GAME_TAGS_VERSION,

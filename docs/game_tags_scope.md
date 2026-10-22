@@ -35,6 +35,21 @@ W  Mohit   Queen's Pawn Opening                     EddieDawg1971
 - Search and counts on the reviewer endpoints, and the Review Queue picker.
 - The ledger proves trapped rooks the same way as trapped queens.
 
+## Added 2026-10-22: absolute facts (Mohit: "find out more tags", then "go")
+
+`services/game_facts.py` reads facts off the moves and PGN headers, with no
+engine and no judgement: how the game ended (`ended_<result>_by_<how>`), the
+mate pattern on the final board (back rank, smothered, double check, or the
+mating piece, delivered or suffered), a miniature, castling side or never,
+opposite-side castling, promotions and underpromotion, en passant, queens
+traded by move 20, the endgame reached (rook, pawn, minor piece, queen,
+opposite bishops), a long game, the time control from the TimeControl header
+(the stored category field is empty on every game), a time scramble from the
+clock, a rating upset, and a stalemate thrown away or saved. The
+detector-named mistakes the quality gate already allows also become tags
+(`user_missed_fork`, `user_hung_piece`, ...). The Review Queue groups the
+picker by kind.
+
 ## Out of scope
 
 - Executed tactics such as a fork. They are recorded only once a game's

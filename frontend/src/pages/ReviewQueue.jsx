@@ -43,6 +43,33 @@ const tagLabel = (id) => String(id || "")
   .replace(/_opponent_(missed|punished)$/, ", opponent $1")
   .replace(/_/g, " ");
 
+// The picker's groups, in the order they are shown. Over 150 tags read as
+// a wall without them. First match wins.
+const TAG_GROUPS = [
+  ["Got away with it, or punished", (t) => /_opponent_(missed|punished)$|^user_let_off$|^user_lost_winning_position$/.test(t)],
+  ["Checkmates", (t) => /_mate$|_miniature$/.test(t)],
+  ["Named mistakes", (t) => /^user_(missed_|hung_piece|moved_piece_to_unsafe_square|lost_material_to_tactic|ignored_king_attack)/.test(t)],
+  ["Good play", (t) => /^user_(punished_blunder|found_critical_move|trapped_opponent_|won_trapped_|tactically_active|beat_higher_rated)/.test(t)],
+  ["How it ended", (t) => /^(ended_|result_)|^user_(stalemated_while_ahead|saved_by_stalemate|lost_to_lower_rated)$/.test(t)],
+  ["Endgames reached", (t) => /^reached_/.test(t)],
+  ["How it was played", (t) => /castl|promoted|underpromoted|en_passant|queens_traded_early|long_game/.test(t)],
+  ["Clock", (t) => /^time_control_|time_scramble/.test(t)],
+  ["Story", (t) => /^story_/.test(t)],
+  ["Openings", (t) => /^opening_/.test(t)],
+];
+
+const groupTags = (tags) => {
+  const groups = TAG_GROUPS.map(([name]) => ({ name, tags: [] }));
+  const other = { name: "Other", tags: [] };
+  for (const t of tags) {
+    const i = TAG_GROUPS.findIndex(([, match]) => match(t.id));
+    (i >= 0 ? groups[i] : other).tags.push(t);
+  }
+  return [...groups, other]
+    .filter((g) => g.tags.length)
+    .map((g) => ({ ...g, tags: [...g.tags].sort((a, b) => a.games - b.games) }));
+};
+
 const ReviewQueue = ({ user }) => {
   const navigate = useNavigate();
 
@@ -244,11 +271,16 @@ const ReviewQueue = ({ user }) => {
               data-testid="tag-filter-select"
             >
               <option value="">Add a tag ({tagCounts.length})</option>
-              {/* Rarest first: the rare tags are the ones worth searching for. */}
-              {[...tagCounts].sort((a, b) => a.games - b.games).map((t) => (
-                <option key={t.id} value={t.id} disabled={tagFilter.includes(t.id)}>
-                  {tagLabel(t.id)} ({t.games})
-                </option>
+              {/* Grouped by kind; rarest first within a group, because the
+                  rare tags are the ones worth searching for. */}
+              {groupTags(tagCounts).map((group) => (
+                <optgroup key={group.name} label={group.name}>
+                  {group.tags.map((t) => (
+                    <option key={t.id} value={t.id} disabled={tagFilter.includes(t.id)}>
+                      {tagLabel(t.id)} ({t.games})
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
             {tagFilter.length > 0 && (

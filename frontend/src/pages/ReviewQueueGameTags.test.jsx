@@ -27,7 +27,8 @@ beforeEach(() => {
   global.fetch = jest.fn((url) => {
     let body = {};
     if (url.includes("/reviewer/game-tags")) {
-      body = { tags: [{ id: "user_let_off", games: 872 }, { id: "user_queen_trapped_opponent_missed", games: 14 }], tagged_games: 2000 };
+      body = { tags: [{ id: "user_let_off", games: 872 }, { id: "user_queen_trapped_opponent_missed", games: 14 },
+        { id: "user_delivered_back_rank_mate", games: 29 }], tagged_games: 2000 };
     } else if (url.includes("/reviewer/owners")) {
       body = { owners: [] };
     } else if (url.includes("/reviewer/games")) {
@@ -48,11 +49,14 @@ async function render() {
 
 const gameCalls = () => global.fetch.mock.calls.map(([u]) => u).filter((u) => u.includes("/reviewer/games"));
 
-test("tags are offered rarest first, with their counts", async () => {
+test("tags are grouped by kind, rarest first, with their counts", async () => {
   await render();
-  const options = [...container.querySelectorAll("[data-testid='tag-filter-select'] option")].map((o) => o.textContent);
-  expect(options[1]).toBe("queen trapped, opponent missed (14)");
-  expect(options[2]).toBe("let off (872)");
+  const groups = [...container.querySelectorAll("[data-testid='tag-filter-select'] optgroup")];
+  expect(groups.map((g) => g.label)).toEqual(["Got away with it, or punished", "Checkmates"]);
+  expect([...groups[0].querySelectorAll("option")].map((o) => o.textContent)).toEqual([
+    "queen trapped, opponent missed (14)", "let off (872)",
+  ]);
+  expect(groups[1].querySelector("option").textContent).toBe("delivered back rank mate (29)");
 });
 
 test("choosing a tag searches every analysed game for it", async () => {
