@@ -154,6 +154,10 @@ const MoveTab = () => {
   const [raw, setRaw] = useState(false);
   const [form, setForm] = useState({ fen: "", played: "", best: "" });
 
+  // Read the body as text first, then parse. A gateway timeout or an error
+  // page arrives as HTML, and calling .json() on it reports
+  // "Unexpected token '<'" -- which tells the reader nothing about what
+  // actually happened. It is the server that failed, not the JSON.
   const load = useCallback(async (params = "") => {
     setLoading(true);
     setError("");
@@ -161,7 +165,18 @@ const MoveTab = () => {
       const res = await fetch(`${API}/admin/reasoning-trace${params}`, {
         credentials: "include",
       });
-      const body = await res.json();
+      const raw = await res.text();
+      let body = null;
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          res.status === 504 || /timed out|gateway/i.test(raw)
+            ? `The server took too long (HTTP ${res.status}). ` +
+              `The request was too big or too slow, not malformed.`
+            : `The server answered HTTP ${res.status} with a page, not data.`
+        );
+      }
       if (!res.ok) throw new Error(body?.detail || `HTTP ${res.status}`);
       setData(body);
     } catch (e) {
@@ -406,7 +421,15 @@ const ProvenanceTab = () => {
         const res = await fetch(`${API}/admin/reasoning-provenance`, {
           credentials: "include",
         });
-        const body = await res.json();
+        const raw = await res.text();
+        let body = null;
+        try {
+          body = JSON.parse(raw);
+        } catch {
+          throw new Error(
+            `The server answered HTTP ${res.status} with a page, not data.`
+          );
+        }
         if (!res.ok) throw new Error(body?.detail || `HTTP ${res.status}`);
         setData(body);
       } catch (e) {

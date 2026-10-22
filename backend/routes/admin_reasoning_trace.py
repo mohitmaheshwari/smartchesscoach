@@ -57,10 +57,18 @@ PROVENANCE_PATH = Path(__file__).resolve().parents[1] / "data" / \
 # read here is comparable with a number measured there.
 MIN_CP_LOSS = 100
 
-# How many analysed games to reach into for a random pick. The corpus is ~19k
-# documents and pulling all of them to choose one is a connection closed
-# halfway, which is how the first full-corpus scan died.
-RANDOM_WINDOW = 400
+# How many analysed games to sample for a random pick.
+#
+# This was a 400-document skip/limit window and it broke the page the moment
+# decryption_v5_data joined the projection: 400 docs went from 9.4 MB to
+# 87 MB and the request took 34 seconds, so nginx timed out and handed the
+# browser an HTML error page, which arrived as
+# "Unexpected token '<', "<html> <h"... is not valid JSON".
+#
+# $sample picks randomly inside the server and ships only what it picks. A
+# handful rather than one because a sampled game need not contain a move the
+# engine faulted, and asking again is cheaper than widening the net.
+RANDOM_SAMPLE = 8
 
 
 def set_db(database) -> None:
@@ -326,17 +334,20 @@ async def reasoning_trace(
             if ply is not None else cards[0]
         docs_game_id = doc.get("game_id")
     else:
-        # Random: skip into the corpus rather than reading it all.
-        total = await db.game_analyses.count_documents({})
-        if not total:
-            raise HTTPException(status_code=404, detail="no analysed games")
-        start = random.randrange(max(1, total - RANDOM_WINDOW + 1))
-        batch = await db.game_analyses.find({}, projection) \
-                        .skip(start).limit(RANDOM_WINDOW).to_list(RANDOM_WINDOW)
-        pool = [(d, c) for d in batch for c in _faulted_moves(d)]
+        # Random: let the server pick, and ship only what it picked.
+        pool: List[Any] = []
+        for _ in range(3):           # a sampled game may carry no faulted move
+            batch = await db.game_analyses.aggregate([
+                {"$sample": {"size": RANDOM_SAMPLE}},
+                {"$project": projection},
+            ]).to_list(RANDOM_SAMPLE)
+            pool = [(d, c) for d in batch for c in _faulted_moves(d)]
+            if pool:
+                break
         if not pool:
-            raise HTTPException(status_code=404,
-                                detail="no faulted move in that window")
+            raise HTTPException(
+                status_code=404,
+                detail="sampled games held no move the engine faulted")
         doc, card = random.choice(pool)
         docs_game_id = doc.get("game_id")
 
