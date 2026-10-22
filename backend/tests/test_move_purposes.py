@@ -205,6 +205,73 @@ class TestAThreatHasToThreatenSomething:
         assert "answers_threat" not in got
 
 
+class TestAnOfferTheEngineDeclines:
+    """Mohit's Rousseau card. Black plays f5, exf5 takes it with nothing
+    defending, and the engine answers d4. The authored caption's conclusion
+    -- "exf5 is usually a mistake" -- is derivable from the stored line, so
+    it belongs in a caption; the REASON (after exf5, e4 hits the knight on
+    f3) needs a search of a line the engine never returns, so it belongs
+    behind the Why button.
+
+    Tightened before shipping: the loose shape fires on 16.3% of faulted
+    cards, every pawn trade ever offered. Requiring the capture to win
+    material statically gives 2.2%.
+    """
+
+    F5 = "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3"
+
+    def test_the_board_really_does_offer_the_pawn_for_free(self):
+        b = chess.Board(self.F5)
+        b.push_san("f5")
+        assert b.parse_san("exf5") in b.legal_moves
+        # nothing of Black's defends f5
+        assert not b.attackers(chess.BLACK, chess.F5)
+
+    def test_it_fires_when_the_engine_answers_elsewhere(self):
+        got = kinds(self.F5, "f5", "Nf6", ["d4", "exd4"], [])
+        assert "offered_and_not_taken" in got, got
+
+    def test_it_names_the_capture_and_the_answer(self):
+        for p in purposes_for(self.F5, "f5", "Nf6", ["d4", "exd4"], []):
+            if p["kind"] == "offered_and_not_taken":
+                assert "exf5" in p["proof"]
+                assert "d4" in p["proof"]
+                return
+        raise AssertionError("the purpose did not fire")
+
+    def test_it_stands_down_when_the_engine_does_take(self):
+        got = kinds(self.F5, "f5", "Nf6", ["exf5", "e4"], [])
+        assert "offered_and_not_taken" not in got
+
+    def test_it_claims_no_reason_it_has_not_proven(self):
+        """The WHY is the button's job. The proof may not assert that the
+        centre is deflected or that a knight gets hit -- neither is shown
+        by the stored line."""
+        for p in purposes_for(self.F5, "f5", "Nf6", ["d4", "exd4"], []):
+            if p["kind"] == "offered_and_not_taken":
+                low = p["proof"].lower()
+                for word in ("centre", "center", "tempo", "gambit",
+                             "deflect", "knight"):
+                    assert word not in low, f"proof asserts '{word}'"
+
+    def test_an_even_trade_offer_is_not_this_lesson(self):
+        """A defended man taken by an equal man is a trade. If this fired
+        there it would describe every pawn trade in the corpus -- the 16.3%
+        the tightening removed."""
+        fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
+        b = chess.Board(fen)
+        b.push_san("d5")
+        # d5 is attacked by exd5 and defended by Qxd5
+        assert b.attackers(chess.WHITE, chess.D5)
+        assert b.attackers(chess.BLACK, chess.D5)
+        got = kinds(fen, "d5", "Nc6", ["Nc3", "Nf6"], [])
+        assert "offered_and_not_taken" not in got
+
+    def test_it_needs_the_engines_answer_and_will_not_guess(self):
+        assert "offered_and_not_taken" not in kinds(self.F5, "f5", "Nf6",
+                                                    [], [])
+
+
 class TestACheckThatAchievedNothing:
     """131 cards in the residue, and one of the few lessons in this file a
     900 can apply the same evening. "Achieved nothing" is proven by playing

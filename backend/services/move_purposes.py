@@ -142,6 +142,9 @@ LESSON = {
         "purpose or not at all",
     "played_check_loses_the_checker":
         "before you check, look at what can take the checking piece",
+    "offered_and_not_taken":
+        "a man you can take is not always a man you should take; look for "
+        "the stronger move first",
     "missed_forced_mate":
         "when you have a forced mate, check every check before anything else",
     "allowed_forced_mate":
@@ -784,6 +787,63 @@ def _wins_the_exchange(b, best_mv, after_best, us) -> Optional[Purpose]:
     return None
 
 
+def _offered_and_not_taken(b, best_mv, after_best, us,
+                           played_san, pv_played) -> Optional[Purpose]:
+    """The man just played can be taken for free, and the engine declines.
+
+    Mohit's Rousseau card: Black plays f5, exf5 takes the pawn with nothing
+    defending it, and the engine's answer is d4 instead. The authored
+    caption for that position reads "because of this idea, exf5 is usually
+    a mistake" -- and that conclusion is derivable from the line already
+    stored, which is why it belongs in a caption rather than behind the
+    button.
+
+    What is NOT claimed here is WHY taking is wrong. On that card the
+    reason is that after exf5 e4 hits the knight on f3, and seeing it needs
+    a search of a line the engine never returns, because the engine does
+    not play exf5. So the reason goes to the Why button, which already pays
+    for an engine, and this states only what the board and the stored line
+    prove.
+
+    Tightened before shipping. "A man that can be captured where the engine
+    prefers another move" fires on 16.3% of faulted cards -- every pawn
+    trade ever offered. Requiring the capture to WIN material statically,
+    which is what makes declining a lesson rather than a shrug, brings it
+    to 2.2% (263 cards).
+    """
+    if not pv_played:
+        return None
+    played = _mv(b, played_san)
+    after_played = _after(b, played_san)
+    if played is None or after_played is None:
+        return None
+    reply = _mv(after_played, str(pv_played[0]))
+    if reply is None:
+        return None
+    target = played.to_square
+    takers = [m for m in after_played.legal_moves
+              if m.to_square == target and after_played.is_capture(m)]
+    if not takers or reply.to_square == target:
+        return None              # nothing to take, or the engine takes it
+    victim = after_played.piece_at(target)
+    if victim is None:
+        return None
+    cheapest = min(VALUE[after_played.piece_at(m.from_square).piece_type]
+                   for m in takers)
+    defended = bool(after_played.attackers(victim.color, target))
+    if defended and cheapest >= VALUE[victim.piece_type]:
+        return None              # taking is a trade, not a free man
+    taker = after_played.san(takers[0])
+    return Purpose(
+        "offered_and_not_taken", POSITIONAL,
+        {"man": NAME[victim.piece_type],
+         "square": chess.square_name(target),
+         "capture": taker, "answered_with": str(pv_played[0])},
+        f"the {NAME[victim.piece_type]} on {chess.square_name(target)} can "
+        f"be taken by {taker} with nothing to win it back, and the waiting "
+        f"side's best answer is {pv_played[0]} instead")
+
+
 def _played_check_achieved_nothing(b, best_mv, after_best, us,
                                    played_san,
                                    pv_played) -> Optional[Purpose]:
@@ -1129,7 +1189,8 @@ def purposes_for(
         # purposes described what the BETTER move achieves, while the reader
         # is asking why THEIRS was bad.
         for fn3 in (_played_allows_fork, _played_leaves_king_exposed,
-                    _played_check_achieved_nothing):
+                    _played_check_achieved_nothing,
+                    _offered_and_not_taken):
             try:
                 p = fn3(b, best_mv, after_best, us, played_san,
                         list(pv_played or []))
