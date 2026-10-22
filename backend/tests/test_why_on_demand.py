@@ -537,3 +537,78 @@ def test_counted_loss_reads_as_a_person_would_say_it():
     text = _phrase(p, "Nxe5")
     assert text == "dxe5 wins two of their pawns."
     assert "their two pawns" not in text
+
+
+class TestAPieceChasedBackToWhereItStarted:
+    """Mohit's design: the authored captions' ideas should come from the
+    engine, and the expensive ones belong behind the Why button.
+
+    This one turned out to be nearly built already. punishment_resolver has
+    answered "g4 chases your knight" as FORCES_RETREAT since before today,
+    and it even has a `returns_home` clause -- but that means the square the
+    piece left on THIS move (`victim_origin` is `played.from_square`), a
+    wasted there-and-back. A developed knight chased to g1 is a different
+    and more teachable cost: it is undeveloped.
+
+    So this is an enrichment of the sentence that already fires, not a
+    second mechanism. The first version WAS a second mechanism and could
+    never fire, because step 1 answers these first -- correctly.
+    """
+
+    # 1.e4 e5 2.Nf3 Nc6 3.Bc4 f5, White to move. The engine's line after c3
+    # is fxe4 Ng1 -- the caption's own claim.
+    AFTER_F5 = "r1bqkbnr/pppp2pp/2n5/4pp2/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4"
+    # A tempo-only case: no capture anywhere in the line.
+    TEMPO = "rnbqkbnr/pppppp1p/8/6p1/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 3"
+
+    def test_both_fixture_lines_replay(self):
+        """A line that will not replay is this repo's standard fixture
+        failure, so it is checked before anything depends on it."""
+        for fen, line in ((self.AFTER_F5, ("c3", "fxe4", "Ng1")),
+                          (self.TEMPO, ("a3", "g4", "Ng1"))):
+            b = chess.Board(fen)
+            for san in line:
+                b.push(b.parse_san(san))
+            assert b.piece_at(chess.G1) == chess.Piece(chess.KNIGHT,
+                                                       chess.WHITE)
+
+    def test_the_tempo_case_changes_no_material(self):
+        b = chess.Board(self.TEMPO)
+        before = len(b.piece_map())
+        for san in ("a3", "g4", "Ng1"):
+            b.push(b.parse_san(san))
+        assert len(b.piece_map()) == before
+
+    def test_the_helper_finds_the_knight_driven_to_its_start(self):
+        from services.move_purposes import piece_driven_home
+        b = chess.Board(self.AFTER_F5)
+        us = b.turn
+        b.push(b.parse_san("c3"))
+        got = piece_driven_home(b, ["fxe4", "Ng1", "d5", "Bb3"], us)
+        assert got and got["to"] == "g1" and got["piece"] == "knight"
+
+    def test_a_piece_that_goes_home_unharassed_is_not_driven(self):
+        """The negative control: nothing attacks f3, so retreating is
+        regrouping, not being chased."""
+        from services.move_purposes import piece_driven_home
+        b = chess.Board(
+            "rnbqkb1r/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 2")
+        assert piece_driven_home(b, ["Ng1"], chess.WHITE) is None
+
+    def test_the_button_names_what_the_retreat_cost(self):
+        from services.why_on_demand import explain
+        got = explain(self.TEMPO, "a3", ["g4", "Ng1"], candidates=[],
+                      cp_loss=120)
+        assert got and got["found"], got
+        assert got["mechanism"] == "FORCES_RETREAT"
+        assert "chases your knight" in got["text"]
+        assert "g1 where it started" in got["text"], got["text"]
+
+    def test_material_still_answers_first(self):
+        """On the Rousseau line fxe4 TAKES the e4 pawn, so the material
+        answer is the right one and this enrichment must not replace it.
+        That is why the first version of this feature was wrong."""
+        from services.why_on_demand import explain
+        got = explain(self.AFTER_F5, "c3", ["fxe4", "Ng1", "d5", "Bb3"],
+                      candidates=[], cp_loss=400)
+        assert got and got["mechanism"] == "WINS_MATERIAL", got

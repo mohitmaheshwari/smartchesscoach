@@ -216,6 +216,18 @@ def explain(
         got = None          # names a scrap on a catastrophe; say nothing
     if got is not None:
         text = _phrase(got, played_san)
+        if text and got.mechanism == "FORCES_RETREAT" and \
+                not got.returns_home:
+            # Name what the retreat COSTS, not just that it happened. A
+            # knight chased to g1 is undeveloped, which is the lesson; the
+            # bare sentence says only that it was chased. Skipped when
+            # `returns_home` already added its own clause, so the two
+            # flavours never stack.
+            _back = _undeveloped_by_the_retreat(
+                fen_before, played_san, list(pv_after_played or []))
+            if _back:
+                text = (text.rstrip(".") +
+                        f", back to {_back['to']} where it started.")
         if text:
             return {
                 "found": True,
@@ -288,3 +300,34 @@ def explain(
 
     # 3. Nothing we can stand behind.
     return None
+
+
+def _undeveloped_by_the_retreat(fen_before: str, played_san: str,
+                                line: Sequence[str]) -> Optional[Dict]:
+    """A piece chased back to the square it began the GAME on.
+
+    Not the same thing as `Punishment.returns_home`, which this module
+    already ships: that one means the piece went back to the square it left
+    on THIS move -- `victim_origin` is literally `played.from_square` -- a
+    wasted there-and-back. This is a developed piece being undeveloped,
+    which is the shape the authored Rousseau caption teaches: "the knight
+    often has very few good squares and may even have to retreat to g1".
+    The engine's line after c3 is `fxe4 Ng1 d5 Bb3`, so the idea was in the
+    PV all along.
+
+    An enrichment of the sentence FORCES_RETREAT already produces, never a
+    second mechanism competing with it. The first version of this WAS a
+    second mechanism and it could never fire, because punishment_resolver
+    answers these at step 1 -- which is the right place for them.
+    """
+    try:
+        import chess as _chess
+
+        from services.move_purposes import piece_driven_home
+
+        b = _chess.Board(fen_before)
+        us = b.turn
+        b.push(b.parse_san(str(played_san)))
+        return piece_driven_home(b, list(line or []), us)
+    except Exception:
+        return None

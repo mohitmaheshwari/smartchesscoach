@@ -787,6 +787,62 @@ def _wins_the_exchange(b, best_mv, after_best, us) -> Optional[Purpose]:
     return None
 
 
+HOME_SQUARES = {
+    (chess.KNIGHT, chess.WHITE): (chess.B1, chess.G1),
+    (chess.KNIGHT, chess.BLACK): (chess.B8, chess.G8),
+    (chess.BISHOP, chess.WHITE): (chess.C1, chess.F1),
+    (chess.BISHOP, chess.BLACK): (chess.C8, chess.F8),
+    (chess.ROOK, chess.WHITE): (chess.A1, chess.H1),
+    (chess.ROOK, chess.BLACK): (chess.A8, chess.H8),
+    (chess.QUEEN, chess.WHITE): (chess.D1,),
+    (chess.QUEEN, chess.BLACK): (chess.D8,),
+}
+
+
+def piece_driven_home(board: chess.Board, line: Sequence[str],
+                      owner: chess.Color) -> Optional[Dict[str, Any]]:
+    """The first move in `line` that sends one of `owner`'s pieces back to
+    a square it started the game on, while something attacks it there.
+
+    This is the shape behind the sentence Mohit praised in the authored
+    Rousseau caption -- "the knight often has very few good squares and may
+    even have to retreat to g1" -- and the engine already produces it: the
+    line after c3 is `fxe4 Ng1 d5 Bb3`. The idea was in the PV the whole
+    time; nothing was reading it.
+
+    Pawns and kings are excluded. A pawn cannot return home, and a king on
+    e1 is usually castling or safe rather than driven.
+
+    Returns the piece, the square it left, and the square it went back to,
+    or None. Pure: no engine, no DB, so the caption layer can use it on a
+    stored line and the Why button on a fresh one.
+    """
+    w = board.copy()
+    for san in list(line or []):
+        try:
+            mv = w.parse_san(str(san))
+        except Exception:
+            return None
+        p = w.piece_at(mv.from_square)
+        if p is not None and p.color == owner and \
+                mv.to_square in HOME_SQUARES.get((p.piece_type, p.color), ()):
+            # Driven, not merely regrouping: it must have been under attack
+            # on the square it LEFT. The first version of this asked whether
+            # it was attacked where it LANDED and found nothing on the one
+            # case it was written for -- a driven piece retreats INTO safety,
+            # which is the whole point. On the Rousseau line `fxe4 Ng1`, the
+            # e4 pawn hits the knight on f3 and g1 is quiet.
+            if w.attackers(not owner, mv.from_square):
+                return {
+                    "san": str(san),
+                    "piece": NAME[p.piece_type],
+                    "from": chess.square_name(mv.from_square),
+                    "to": chess.square_name(mv.to_square),
+                }
+        w.push(mv)
+    return None
+
+
 def _offered_and_not_taken(b, best_mv, after_best, us,
                            played_san, pv_played) -> Optional[Purpose]:
     """The man just played can be taken for free, and the engine declines.
