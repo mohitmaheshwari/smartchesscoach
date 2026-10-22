@@ -31,6 +31,7 @@ import chess
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.move_purposes import purposes_for, threat_check  # noqa: E402
+from services.move_purposes import _colour_of as mp_colour  # noqa: E402
 
 # Mohit's card: 25.Bd6+ played, Qxg8 winning.
 BD6 = "rk1q2r1/pp3Q2/2b2p2/4p3/1BPb4/7B/P1P2P1P/R3K2R w KQ - 1 25"
@@ -477,3 +478,95 @@ class TestTheFloorLineIsTheInputForSmallLosses:
         got = kinds(self.FORK, "Nxc2", "Ng2", self.LINE, [],
                     eval_line=["Ng2", "Kf6"])
         assert "played_allows_fork" in got
+
+
+class TestTradingAwayAColourComplex:
+    """Mohit's Bg4 card, and his question: the bishop takes the knight and
+    leaves the board, so why is that bad for them?
+
+    The board answers it. That bishop was Black's only light-squared piece,
+    White keeps Bc4, and e6/b5/d5 end up attacked more than defended.
+    Measured on this card: keeping the bishop is +155, giving it for the
+    knight is +274 -- 119 of the move's 142cp is the trade, not the tempo,
+    which corrects the "the cost is entirely in time" reading.
+
+    Stockfish gates it and the board explains it: the engine says the move
+    is a fault and its line is what shows the bishop coming off. This walks
+    that stored line. No extra search.
+
+    Both negative cases below are failures the loose version actually had.
+    """
+
+    # 8...Bg4 played, g6 better. Engine line: h3 Bxf3 Qxf3 a6 Nc3.
+    BG4 = "r1bqkb1r/pp2nppp/3p1n2/2pP4/2B5/5N2/PPP2PPP/RNBQR1K1 b kq - 3 8"
+    LINE = ["h3", "Bxf3", "Qxf3", "a6", "Nc3"]
+
+    def test_the_line_replays_and_the_bishop_really_leaves(self):
+        b = chess.Board(self.BG4)
+        before = [s for s, p in b.piece_map().items()
+                  if p.color == chess.BLACK and p.piece_type == chess.BISHOP]
+        assert len(before) == 2
+        b.push(b.parse_san("Bg4"))
+        for san in self.LINE:
+            b.push(b.parse_san(san))
+        after = [s for s, p in b.piece_map().items()
+                 if p.color == chess.BLACK and p.piece_type == chess.BISHOP]
+        assert len(after) == 1
+        # the survivor is the DARK-squared one on f8
+        assert chess.square_name(after[0]) == "f8"
+        # and White still holds a light-squared bishop
+        assert b.piece_at(chess.C4) == chess.Piece(chess.BISHOP, chess.WHITE)
+
+    def test_it_fires_on_the_card_that_prompted_the_question(self):
+        got = kinds(self.BG4, "Bg4", "g6", self.LINE, [])
+        assert "played_lost_the_colour_squares" in got, got
+
+    def test_it_names_the_colour_the_bishop_and_a_lost_square(self):
+        for p in purposes_for(self.BG4, "Bg4", "g6", self.LINE, []):
+            if p["kind"] == "played_lost_the_colour_squares":
+                assert p["facts"]["colour"] == "light"
+                assert p["facts"]["their_bishop"] == "c4"
+                assert "e6" in p["facts"]["weak_squares"], p["facts"]
+                assert "c4" in p["proof"]
+                return
+        raise AssertionError("the purpose did not fire")
+
+    def test_an_outnumbered_square_counts_not_only_an_undefended_one(self):
+        """The first version asked for a square they attack and we do NOT
+        defend at all, and so missed this very card: e6 is White 2 /
+        Black 1 -- contested and lost, which is the point."""
+        b = chess.Board(self.BG4)
+        b.push(b.parse_san("Bg4"))
+        for san in self.LINE:
+            b.push(b.parse_san(san))
+        assert len(b.attackers(chess.WHITE, chess.E6)) > 0
+        assert len(b.attackers(chess.BLACK, chess.E6)) > 0        # defended
+        assert len(b.attackers(chess.WHITE, chess.E6)) > \
+            len(b.attackers(chess.BLACK, chess.E6))                # but lost
+        got = kinds(self.BG4, "Bg4", "g6", self.LINE, [])
+        assert "played_lost_the_colour_squares" in got
+
+    def test_their_bishop_must_be_on_the_colour_that_was_lost(self):
+        """The second failure: written as "any bishop" it fired where the
+        DARK squares went and the only enemy bishop was light-squared -- a
+        true sentence about a weakness nobody could work."""
+        import services.move_purposes as mp
+        with open(mp.__file__, encoding="utf-8") as fh:
+            body = fh.read()
+        i = body.index("def _played_lost_the_colour_squares")
+        block = body[i:i + 3000]
+        assert "_bishops_on_colour(w, not us, lost)" in block
+
+    def test_a_line_where_no_bishop_comes_off_says_nothing(self):
+        got = kinds(self.BG4, "Bg4", "g6", ["h3", "Bh5", "Nc3", "a6"], [])
+        assert "played_lost_the_colour_squares" not in got
+
+    def test_it_needs_a_line_and_will_not_guess_one(self):
+        assert "played_lost_the_colour_squares" not in \
+            kinds(self.BG4, "Bg4", "g6", [], [])
+
+    def test_the_colour_helper_agrees_with_the_board(self):
+        assert mp_colour(chess.A1) == 0          # a1 is dark
+        assert mp_colour(chess.H1) == 1          # h1 is light
+        assert mp_colour(chess.E6) == 1          # e6 is light
+        assert mp_colour(chess.C4) == 1          # so is c4

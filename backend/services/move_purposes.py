@@ -145,6 +145,9 @@ LESSON = {
     "offered_and_not_taken":
         "a man you can take is not always a man you should take; look for "
         "the stronger move first",
+    "played_lost_the_colour_squares":
+        "one bishop is the only piece that guards its colour; trade it off "
+        "and those squares belong to them for the rest of the game",
     "missed_forced_mate":
         "when you have a forced mate, check every check before anything else",
     "allowed_forced_mate":
@@ -843,6 +846,102 @@ def piece_driven_home(board: chess.Board, line: Sequence[str],
     return None
 
 
+def _colour_of(sq: int) -> int:
+    """0 for a dark square, 1 for a light one."""
+    return (chess.square_file(sq) + chess.square_rank(sq)) % 2
+
+
+def _bishops_on_colour(board: chess.Board, colour: chess.Color,
+                       comp: int) -> list:
+    return [s for s, p in board.piece_map().items()
+            if p.color == colour and p.piece_type == chess.BISHOP
+            and _colour_of(s) == comp]
+
+
+def _played_lost_the_colour_squares(b, best_mv, after_best, us, played_san,
+                                    pv_played) -> Optional[Purpose]:
+    """The line trades off the mover's last bishop of one colour, and the
+    waiting side keeps the bishop that works those squares.
+
+    Mohit's Bg4 card, and the question that produced this: Bg4 pins the f3
+    knight against the QUEEN, White plays h3, and every square the bishop
+    can reach is worse than the one it left -- so it takes the knight. The
+    trade is materially even and the move still costs 142cp. Asked why,
+    the board answers: that bishop was Black's only light-squared piece,
+    White keeps Bc4, and e6, b5 and d5 are all attacked more than they are
+    defended. Measured on the same card: keeping the bishop is +155, giving
+    it for the knight is +274. **119 of the 142 is the trade, not the
+    tempo.**
+
+    Stockfish gates this and the board only explains it. The engine says the
+    move is a fault and its line is what shows the bishop coming off; this
+    walks that line and counts. No extra search.
+
+    Three clauses, and two of them exist because the loose version failed a
+    control:
+
+      the square must be OUTNUMBERED, not undefended. Written as "they
+      attack it and we do not defend it at all", this missed the card it was
+      built from: e6 is White 2 / Black 1, contested and lost, which is the
+      whole point.
+
+      their surviving bishop must be ON the colour we lost. Written as "any
+      bishop", it fired where the dark squares went and the only enemy
+      bishop was light-squared -- a true sentence about a weakness nobody
+      could exploit.
+
+    4.7% of faulted cards that carry a line, which makes it the second
+    largest purpose in this file.
+    """
+    if not pv_played:
+        return None
+    try:
+        w = b.copy()
+        w.push(w.parse_san(str(played_san)))
+        for san in list(pv_played)[:10]:
+            w.push(w.parse_san(str(san)))
+    except Exception:
+        return None
+
+    lost = None
+    for comp in (0, 1):
+        if _bishops_on_colour(b, us, comp) and \
+                not _bishops_on_colour(w, us, comp):
+            lost = comp
+            break
+    if lost is None:
+        return None
+
+    theirs = _bishops_on_colour(w, not us, lost)
+    if not theirs:
+        return None
+
+    weak = []
+    for sq in chess.SQUARES:
+        if _colour_of(sq) != lost:
+            continue
+        # Only squares on the mover's own side are worth naming.
+        rank = chess.square_rank(sq)
+        if (rank > 3) if us == chess.WHITE else (rank < 4):
+            continue
+        att = len(w.attackers(not us, sq))
+        if att and att > len(w.attackers(us, sq)):
+            weak.append(chess.square_name(sq))
+    if not weak:
+        return None
+
+    shade = "dark" if lost == 0 else "light"
+    squares = sorted(weak)[:3]
+    return Purpose(
+        "played_lost_the_colour_squares", POSITIONAL,
+        {"colour": shade, "weak_squares": squares,
+         "their_bishop": chess.square_name(theirs[0])},
+        f"this line trades off the mover's last bishop on the {shade} "
+        f"squares while the waiting side keeps the bishop on "
+        f"{chess.square_name(theirs[0])}, and "
+        f"{', '.join(squares)} are attacked more than they are defended")
+
+
 def _offered_and_not_taken(b, best_mv, after_best, us,
                            played_san, pv_played) -> Optional[Purpose]:
     """The man just played can be taken for free, and the engine declines.
@@ -1246,7 +1345,8 @@ def purposes_for(
         # is asking why THEIRS was bad.
         for fn3 in (_played_allows_fork, _played_leaves_king_exposed,
                     _played_check_achieved_nothing,
-                    _offered_and_not_taken):
+                    _offered_and_not_taken,
+                    _played_lost_the_colour_squares):
             try:
                 p = fn3(b, best_mv, after_best, us, played_san,
                         list(pv_played or []))
