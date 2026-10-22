@@ -142,7 +142,7 @@ def _shipped_card(analysis: Optional[Dict[str, Any]],
     whole story was a free pawn on g7, and he reasonably concluded the product
     was broken. It is not. The shipped caption for that exact card says:
 
-        "Opponent's Qg3 is a mistake -- they had Qxg7, grabbing your pawn on
+        "Opponent's Qg3 is a mistake -- they had Qxg7, grabbing your pawn on  # allow-noncentral-caption
          g7 for free. Play O-O -- it tucks your king away from the middle."
 
     The page was showing a parallel engine that reaches no player, next to a
