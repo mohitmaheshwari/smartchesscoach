@@ -1089,6 +1089,15 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                             mate_in_after=current_mate,
                             pv_after_played=opp_pv_after_played,
                             pv_after_best=opp_pv_after_best,
+                            # The floor line, which the user side has had
+                            # since this morning and this side had not: 0 of
+                            # 84 opponent moves across five re-analysed games
+                            # carried one, against 185 of 187 user moves. It
+                            # is the same `current_eval` search that already
+                            # ran for this move, so it costs nothing, and
+                            # without it purposes_for has no line at all on
+                            # the 2,075 opponent cards in the corpus.
+                            eval_line_played=eval_line_played,
                             threat_after_played=None,
                             fen_after=opp_fen_after,
                             is_turning_point=False,

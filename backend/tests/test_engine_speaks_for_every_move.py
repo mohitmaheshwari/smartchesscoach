@@ -105,6 +105,23 @@ class TestNothingIsDroppedOnTheWayToTheDatabase:
         assert '"eval_line_played": m.eval_line_played' in \
             self._serializer_source()
 
+    def test_both_sides_get_the_floor_line_not_just_the_user(self):
+        """Serialising the field is not the same as SETTING it. The user
+        path set it this morning and the opponent path did not, so across
+        five re-analysed games 185 of 187 user moves carried a floor line
+        and 0 of 84 opponent moves did -- while the serializer test above
+        passed the whole time.
+
+        2,075 of 11,959 faulted cards are opponent moves, and purposes_for
+        has no line at all on them without this.
+        """
+        src = (Path(__file__).resolve().parents[1] / "stockfish_service.py")
+        text = src.read_text(encoding="utf-8")
+        n = text.count("eval_line_played=eval_line_played")
+        assert n >= 2, (
+            f"only {n} MoveEvaluation construction(s) pass the floor line; "
+            f"both the user and the opponent path must")
+
     def test_the_punishment_line_still_maps_to_its_own_key(self):
         """The arrows read this. If the floor line were ever merged into it,
         every good-move card would gain arrows it never had and every
