@@ -1497,14 +1497,39 @@ async def get_move_why(
 
         from stockfish_service import StockfishEngine
 
+        from stockfish_service import PUNISHMENT_PV_PLIES
+
         with StockfishEngine(threads=1) as engine:
             board = chess.Board(fen_before)
             candidates = engine.get_candidate_lines(
                 board, num=CANDIDATE_COUNT, depth=CANDIDATE_DEPTH)
+
+            # A FRESH line after the played move, not the stored one.
+            # Measured 2026-10-05 on 3,692 stored mistakes: 91.9% carry
+            # exactly 4 plies and 0.5% reach the 12 the config asks for.
+            # So the "what their reply collects" half of this feature was
+            # reading four plies while the "what you missed" half got a
+            # fresh twelve -- and the shape distribution I measured was
+            # largely that asymmetry, not chess. The button already pays
+            # for an engine; one more analyse on the post-move board is
+            # marginal next to the eight candidates above it.
+            played_line: list = []
+            try:
+                after = chess.Board(fen_before)
+                after.push_san(played_san)
+                played_line = engine.get_principal_variation(
+                    after, depth=CANDIDATE_DEPTH,
+                    pv_length=PUNISHMENT_PV_PLIES)
+            except Exception:
+                logger.exception(
+                    "fresh post-move line failed for %s move %s; "
+                    "falling back to the stored PV", game_id, move_number)
+                played_line = []
+
         return explain(
             fen_before,
             played_san,
-            target.get("pv_after_played") or [],
+            played_line or (target.get("pv_after_played") or []),
             candidates,
             cp_loss=target.get("cp_loss"),
         )

@@ -289,7 +289,7 @@ def _attacks_loose_pawn(b, best_mv, after_best, us) -> Optional[Purpose]:
     But excluding pawns entirely made whole cards unexplainable.
 
     Mohit, 2026-10-22, on an opponent card reading only "Opponent's c3 is an
-    inaccuracy. Play c6.": "engine didn't tell why this is an inaccuracy
+    inaccuracy. Play c6.": "engine didn't tell why this is an inaccuracy  # allow-noncentral-caption
     here?" The answer was that Nf3 attacks the e5 pawn, which black has
     nothing defending -- the board says so plainly -- and no purpose in this
     file could see it, because the only one that looks for an undefended
