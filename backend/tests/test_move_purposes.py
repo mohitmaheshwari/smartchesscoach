@@ -205,6 +205,57 @@ class TestAThreatHasToThreatenSomething:
         assert "answers_threat" not in got
 
 
+class TestCastlingIsItsOwnLesson:
+    """Mohit's move-6 card: Ng4 played, O-O better, 127cp. It fired no
+    purpose, so the model wrote from the stored line -- "it let your
+    opponent play d4 and then Bb4+" -- reading the effect off the PV while
+    the cause sat on the board, the king still on e8.
+
+    100 cards in the residue are this shape. Everything the purpose claims
+    is true of every castling move, so none of it needs the line.
+    """
+
+    # 6...Ng4 played, O-O better. The king has not moved.
+    NG4 = "rnbqk2r/1pp2ppp/3p1n2/p1b1p3/P1B1P3/2PP1N2/1P3PPP/RNBQK2R b KQkq - 1 6"
+
+    def test_the_king_really_is_still_at_home_and_may_castle(self):
+        b = chess.Board(self.NG4)
+        assert b.piece_at(chess.E8) == chess.Piece(chess.KING, chess.BLACK)
+        assert b.parse_san("O-O") in b.legal_moves
+
+    def test_it_fires_on_the_card_that_got_an_invented_caption(self):
+        got = kinds(self.NG4, "Ng4", "O-O", ["d4", "exd4"], [])
+        assert "castles_the_king_away" in got, got
+
+    def test_it_says_the_king_leaves_e8_and_the_rook_comes_in(self):
+        for p in purposes_for(self.NG4, "Ng4", "O-O", ["d4"], []):
+            if p["kind"] == "castles_the_king_away":
+                assert "e8" in p["proof"]
+                assert "rook" in p["proof"]
+                return
+        raise AssertionError("the purpose did not fire")
+
+    def test_the_e_file_still_has_a_pawn_so_it_claims_no_open_file(self):
+        """e7 is empty here but e5 is a black pawn, so the file is not bare
+        and the proof must not say it is."""
+        b = chess.Board(self.NG4)
+        assert b.piece_at(chess.E5) == chess.Piece(chess.PAWN, chess.BLACK)
+        for p in purposes_for(self.NG4, "Ng4", "O-O", ["d4"], []):
+            if p["kind"] == "castles_the_king_away":
+                assert "no pawn is left" not in p["proof"]
+                assert p["facts"]["file_is_open"] is False
+
+    def test_a_plain_king_step_is_not_castling(self):
+        fen = "6k1/5ppp/8/8/8/8/5PPP/4K3 w - - 0 30"
+        assert "castles_the_king_away" not in kinds(fen, "f3", "Kd2", [], [])
+
+    def test_moving_the_king_instead_is_a_different_lesson(self):
+        """When the played move was also a king move, the reader's mistake
+        was not leaving the king at home."""
+        got = kinds(self.NG4, "Ke7", "O-O", ["d4"], [])
+        assert "castles_the_king_away" not in got
+
+
 class TestTheFloorLineIsTheInputForSmallLosses:
     """Measured over 6,371 faulted cards: 27.7% of the 40-99cp band has no
     punishment line at all, against 2.5% at 300cp+. The small band was never

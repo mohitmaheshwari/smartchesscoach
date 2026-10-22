@@ -135,6 +135,8 @@ LESSON = {
         "put the rook behind a passed pawn, yours or theirs",
     "answers_threat":
         "deal with their threat before you start your own",
+    "castles_the_king_away":
+        "castle early; a king left in the middle is what they play against",
     "missed_forced_mate":
         "when you have a forced mate, check every check before anything else",
     "allowed_forced_mate":
@@ -676,6 +678,51 @@ def _develops_a_piece(b, best_mv, after_best, us) -> Optional[Purpose]:
         f"square to {chess.square_name(best_mv.to_square)}")
 
 
+def _castles_the_king_away(b, best_mv, after_best, us,
+                           played_san) -> Optional[Purpose]:
+    """The better move castles and the played one did not.
+
+    100 cards in the residue, and one of them is the card Mohit opened:
+    6...Ng4 with the king still on e8, after which d4 opens the centre and
+    Bb4+ comes with tempo. The caption that card got instead was written
+    from the stored line with no purpose behind it -- "it let your opponent
+    play d4 and then Bb4+" -- which reads the effect off the PV. The cause
+    was on the board the whole time: the king had not left the centre.
+
+    Everything claimed here is a board fact, which is the point. Castling
+    moves the king off its file and brings a rook towards the middle; both
+    are true of every castling move, so neither needs the engine's line to
+    prove. Whether the centre is OPEN on that file is also on the board, so
+    it is said only when it is.
+    """
+    king = b.piece_at(best_mv.from_square)
+    if king is None or king.piece_type != chess.KING:
+        return None
+    if abs(chess.square_file(best_mv.from_square)
+           - chess.square_file(best_mv.to_square)) < 2:
+        return None              # a king step, not castling
+    played = _mv(b, played_san)
+    if played is None:
+        return None
+    moved = b.piece_at(played.from_square)
+    if moved is not None and moved.piece_type == chess.KING:
+        return None              # they moved the king too; different lesson
+    kfile = chess.square_file(best_mv.from_square)
+    blocked = any(
+        b.piece_at(sq) is not None
+        and b.piece_at(sq).piece_type == chess.PAWN
+        for sq in chess.SQUARES if chess.square_file(sq) == kfile)
+    where = chess.square_name(best_mv.from_square)
+    tail = ("" if blocked else
+            f", and no pawn is left on the {chess.FILE_NAMES[kfile]}-file "
+            f"to shield it")
+    return Purpose(
+        "castles_the_king_away", SAFETY,
+        {"from": where, "file_is_open": not blocked},
+        f"the better move castles, taking the mover's king off {where} "
+        f"and bringing a rook towards the middle{tail}")
+
+
 def _played_develops_nothing(b, best_mv, after_best, us,
                              played_san) -> Optional[Purpose]:
     """Behind in development, king still home, and the move played did not
@@ -992,6 +1039,7 @@ def purposes_for(
             if p:
                 out.append(p)
         for fn2 in (_avoids_attacked_square, _played_develops_nothing,
+                    _castles_the_king_away,
                     _promotion_race, _king_activity, _advances_passer,
                     _rook_behind_passer):
             try:
