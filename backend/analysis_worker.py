@@ -1254,7 +1254,8 @@ def process_job(db, job):
                                 str(mv.get("best_move") or ""),
                                 list(mv.get("pv_after_played") or []),
                                 list(mv.get("pv_after_best") or []),
-                                mv.get("threat"), mv.get("mate_info"))
+                                mv.get("threat"), mv.get("mate_info"),
+                                eval_line=mv.get("eval_line_played"))
                             facts = build_facts(
                                 str(mv.get("move") or ""),
                                 str(mv.get("best_move") or ""), ps,

@@ -865,6 +865,7 @@ def purposes_for(
     pv_best: Optional[Sequence[str]] = None,
     threat: Optional[str] = None,
     mate_info: Optional[Dict[str, Any]] = None,
+    eval_line: Optional[Sequence[str]] = None,
 ) -> List[Dict[str, Any]]:
     """Everything true about what the better move achieves, ranked.
 
@@ -881,6 +882,23 @@ def purposes_for(
         b = chess.Board(fen_before)
     except Exception:
         return []
+
+    # The punishment line is only computed for moves the analysis classified
+    # as inaccuracy-or-worse, so small mistakes often have none. Measured
+    # over 6,371 faulted cards:
+    #
+    #     40-99cp    72.3% have a line, 59.1% a threat
+    #     100-299    94.0%              73.9%
+    #     300+       97.5%              82.0%
+    #
+    # That starved band is the weakest cell in the whole engine and most of
+    # what a review page shows -- not because the vocabulary is thin but
+    # because the INPUT is missing. `eval_line_played` now gives every move a
+    # line from the evaluation search that already ran, so use it when the
+    # punishment line is absent. Without this wire the floor work reaches
+    # nothing.
+    if not pv_played and eval_line:
+        pv_played = list(eval_line)
 
     m = _mate_transition(mate_info)
     if m:

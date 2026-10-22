@@ -137,3 +137,42 @@ class TestItRefusesToOverreach:
         """answers_threat must prove the threat is GONE, never assume it."""
         got = kinds(BD6, "Bd6+", "Qxg8", [], [], threat="Qxg5")
         assert "answers_threat" not in got
+
+
+class TestTheFloorLineIsTheInputForSmallLosses:
+    """Measured over 6,371 faulted cards: 27.7% of the 40-99cp band has no
+    punishment line at all, against 2.5% at 300cp+. The small band was never
+    short of vocabulary -- the old analysis only searched a line for moves it
+    had already called an inaccuracy or worse, so the cards a player reads
+    most arrived with nothing to read. `eval_line_played` comes free from the
+    evaluation search every move already gets, and these two cases are the
+    difference it makes.
+    """
+
+    # 29...Nxc2 hangs the knight to Qc3+ picking it up two moves later. The
+    # fork purpose can only be seen by walking the line.
+    FORK = "8/5pk1/6p1/8/4P3/4n1Q1/PKPN3P/R7 b - - 0 29"
+    LINE = ["Qc3+", "Kf8", "Qxc2", "Ke7"]
+
+    def test_the_line_really_does_collect_the_knight(self):
+        b = chess.Board(self.FORK)
+        b.push(b.parse_san("Nxc2"))
+        for san in self.LINE:
+            b.push(b.parse_san(san))
+        assert not b.pieces(chess.KNIGHT, chess.BLACK)
+        assert b.piece_at(chess.C2) == chess.Piece(chess.QUEEN, chess.WHITE)
+
+    def test_without_any_line_the_engine_has_nothing_to_say(self):
+        assert kinds(self.FORK, "Nxc2", "Ng2", [], []) == []
+
+    def test_the_floor_line_recovers_the_same_purpose(self):
+        assert kinds(self.FORK, "Nxc2", "Ng2", [], [],
+                     eval_line=self.LINE) == \
+            kinds(self.FORK, "Nxc2", "Ng2", self.LINE, [])
+
+    def test_a_real_punishment_line_is_never_overwritten_by_the_floor(self):
+        """The floor is a fallback, not a replacement: the deeper search
+        stays authoritative wherever it ran."""
+        got = kinds(self.FORK, "Nxc2", "Ng2", self.LINE, [],
+                    eval_line=["Ng2", "Kf6"])
+        assert "played_allows_fork" in got
