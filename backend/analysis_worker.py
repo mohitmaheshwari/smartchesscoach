@@ -2715,6 +2715,58 @@ def process_job(db, job):
             # Non-fatal - log but don't fail the analysis
             logger.warning(f"[COACHING_ENGINE] Failed to process coaching (non-fatal): {coaching_err}")
 
+        # Did the analysis actually LAND? Reaching this line only proves the
+        # pipeline ran to the end, not that its writes survived.
+        #
+        # 2026-10-22: two of five games re-analysed together came back with
+        # stale move_evaluations and a decryption_v5_version from an earlier
+        # era -- 172 and 228 against the others' 230 -- no LLM captions, and
+        # no engine cards, while both queue rows read status=completed and
+        # last_error=None. Re-running either one on the same code succeeded,
+        # so the writes were lost rather than the code being wrong. Every
+        # phase here has its own try/except and several log a swallowed
+        # warning on a Mongo failure (the streak update conflict is one), so
+        # a lost write reports success and the review page keeps serving the
+        # old analysis with nothing to say so.
+        #
+        # This does not change retry behaviour -- a loud marker beats a retry
+        # loop on a genuinely odd game. It makes a silent failure visible,
+        # which is the actual defect.
+        try:
+            from services.game_decryption_v5_service import (
+                V5_COACHING_VERSION as _want_v5)
+            _check = db.game_analyses.find_one(
+                {"game_id": game_id},
+                {"decryption_v5_version": 1,
+                 "stockfish_analysis.move_evaluations.eval_line_played": 1,
+                 "_id": 0}) or {}
+            _mv = ((_check.get("stockfish_analysis") or {})
+                   .get("move_evaluations") or [])
+            _stored_v5 = _check.get("decryption_v5_version")
+            _no_floor = _mv and not any(
+                m.get("eval_line_played") for m in _mv)
+            if _stored_v5 != _want_v5 or _no_floor:
+                logger.error(
+                    "[ANALYSIS NOT VERIFIED] %s finished but its writes did "
+                    "not land: stored v5=%s wanted %s, %d move(s), floor "
+                    "lines present=%s. The page is serving the PREVIOUS "
+                    "analysis.",
+                    game_id, _stored_v5, _want_v5, len(_mv), not _no_floor)
+                db.analysis_queue.update_one(
+                    {"game_id": game_id},
+                    {"$set": {"analysis_verified": False,
+                              "analysis_verify_note":
+                                  f"stored v5={_stored_v5} wanted {_want_v5}"
+                                  f"; floor_lines={not _no_floor}"}})
+            else:
+                db.analysis_queue.update_one(
+                    {"game_id": game_id},
+                    {"$set": {"analysis_verified": True},
+                     "$unset": {"analysis_verify_note": ""}})
+        except Exception as _verify_err:
+            logger.warning("[ANALYSIS NOT VERIFIED] check itself failed for "
+                           "%s: %r", game_id, _verify_err)
+
         logger.info(f"[SUCCESS] Analyzed game {game_id} (accuracy: {accuracy}%, duration: {elapsed:.1f}s)")
         return True
         

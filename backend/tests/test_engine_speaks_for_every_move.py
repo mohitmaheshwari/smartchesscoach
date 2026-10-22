@@ -148,3 +148,51 @@ class TestTheFloorSearchKeepsWhatItAlreadyFound:
         # one analyse call, not two: the whole point is that it is free
         assert src.count("self.engine.analyse(") == 1, (
             "a second search would make the floor cost real engine time")
+
+
+class TestAFinishedJobProvesItsWritesLanded:
+    """2026-10-22: two of five games re-analysed together came back with
+    stale move_evaluations and a decryption_v5_version from an earlier era
+    -- 172 and 228 against the others' 230 -- no captions and no engine
+    cards, while both queue rows read status=completed, last_error=None.
+    Re-running either on the same code succeeded, so the writes were lost
+    rather than the code being wrong.
+
+    Every phase in process_job has its own try/except and several log a
+    swallowed warning on a Mongo failure, so a lost write reports success
+    and the review page keeps serving the previous analysis with nothing to
+    say so. Reaching the end of the pipeline is not evidence that the
+    pipeline's writes survived.
+    """
+
+    def _worker_source(self):
+        src = Path(__file__).resolve().parents[1] / "analysis_worker.py"
+        return src.read_text(encoding="utf-8")
+
+    def test_it_rereads_the_document_before_declaring_success(self):
+        body = self._worker_source()
+        i = body.index("[SUCCESS] Analyzed game")
+        # the verification has to come BEFORE the success line, not after
+        head = body[:i]
+        assert "[ANALYSIS NOT VERIFIED]" in head, (
+            "a job may not report success without checking its writes "
+            "landed")
+
+    def test_it_checks_both_the_version_and_the_floor_line(self):
+        """Either alone would have missed one of the two real cases: one
+        game kept v228 and the other v172, and both lacked floor lines."""
+        body = self._worker_source()
+        i = body.index("[ANALYSIS NOT VERIFIED]")
+        block = body[max(0, i - 2000):i + 2000]
+        assert "decryption_v5_version" in block
+        assert "eval_line_played" in block
+
+    def test_it_marks_the_queue_row_rather_than_retrying(self):
+        """A loud marker beats a retry loop on a genuinely odd game."""
+        body = self._worker_source()
+        assert "analysis_verified" in body
+
+    def test_the_check_cannot_itself_fail_the_job(self):
+        body = self._worker_source()
+        i = body.index("[ANALYSIS NOT VERIFIED] check itself failed")
+        assert "logger.warning" in body[max(0, i - 200):i + 200]
