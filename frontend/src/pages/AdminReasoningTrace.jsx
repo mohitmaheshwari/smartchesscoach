@@ -292,6 +292,15 @@ const MoveTab = () => {
                   reasoning engine, not the product.</span>{" "}
                   {data.framework?.why}
                 </p>
+                {data.framework?.declined ? (
+                  <p className="mt-2 border-t border-amber-500/20 pt-2 text-xs leading-relaxed text-emerald-200/90">
+                    <span className="font-semibold">
+                      On this card it stood down.
+                    </span>{" "}
+                    {data.framework.declined} Standing down is the right
+                    answer here, not a missing one.
+                  </p>
+                ) : null}
               </div>
 
               <Panel title="The eight steps">

@@ -291,6 +291,69 @@ def _lost_man_cp(answer: Dict[str, Any]) -> Optional[int]:
 NAMED_MAN_EXTRA_MAX_PAWNS = 1
 
 
+def _a_detector_already_owns_this(move: "MoveUnderStudy") -> Optional[str]:
+    """Decline the card when a hard, verified material fact explains it.
+
+    Mohit, 2026-10-22, after opening one card on the admin page:
+
+        "framework should only be called when detectors don't work... if user
+         asked even for this move which is shown on caption, why explain
+         button the framework which is our backbone here might just tell
+         something fucking stupid and complete product goes down in eyes of
+         the user"
+
+    The card was white playing Qg3 with Qxg7 taking a free pawn. The shipped
+    caption said exactly that. The framework said `returns_home` -- a symptom
+    about a piece going back -- because nothing better survived and nothing
+    told it to stay out of the way.
+
+    Measured over 177,198 flagged cards: on 11,633 the better move takes an
+    UNDEFENDED enemy man we did not take. The framework is rightly silent on
+    10,358 of them, and on 1,275 it answers anyway:
+
+        left_it_loose 433 · blocked_a_plan 380 · returns_home 218
+        abandoned_own_defender 157 · engine_undoes_it 71
+
+    What was left on the board in that bucket: 7,177 pawns, 1,518 bishops,
+    1,469 knights, 970 rooks and 499 queens. left_it_loose is the worst of
+    them, because it says OUR man was loose when the story is THEIR man was
+    free -- mirror images, and confusing them is worse than silence.
+
+    So this is a precedence rule, and the repo already has the order: engine-
+    hard facts outrank positional ones. The framework's questions are
+    positional and behavioural almost without exception, so where a hard
+    material fact answers the card, the framework declines rather than ranks.
+    Declines, not "scores lower": it cannot see what the detector said, so it
+    is in no position to compare.
+
+    Returns the reason to stand down, or None to proceed.
+    """
+    best = str(move.best_san or "")
+    if not best:
+        return None
+    board = move.board_before()
+    try:
+        mv = board.parse_san(best)
+    except (ValueError, AssertionError, TypeError, KeyError):
+        return None
+    if not board.is_capture(mv) or board.is_en_passant(mv):
+        return None
+    victim = board.piece_at(mv.to_square)
+    if victim is None or victim.color == board.turn:
+        return None
+    if board.attackers(not board.turn, mv.to_square):
+        return None               # defended: a trade or a tactic, not "free"
+    try:
+        played = board.parse_san(str(move.played_san))
+    except (ValueError, AssertionError, TypeError, KeyError):
+        return None
+    if played.to_square == mv.to_square:
+        return None               # we did take it, just differently
+    return (f"{best} takes an undefended {chess.piece_name(victim.piece_type)}"
+            f" on {chess.square_name(mv.to_square)}. A free capture is a hard"
+            f" material fact and the detectors own it.")
+
+
 def _the_named_man_is_the_story(question: "Question", answer: Dict[str, Any],
                                move: "MoveUnderStudy") -> Optional[str]:
     """A question that says WHICH man you lost must name the man who falls.
@@ -618,6 +681,10 @@ class Report:
     # recomputed by a reader, because a second implementation of "what did it
     # do" is a second answer waiting to disagree with the first.
     asked: List[AskedQuestion] = field(default_factory=list)
+    # Why the framework stood down, when it did. Empty means it ran. This is
+    # NOT the same as having nothing to say: "a detector owns this" and "I
+    # looked and found nothing" are different facts and a reader needs both.
+    declined: str = ""
 
     @property
     def primary(self) -> Optional[Finding]:
@@ -632,6 +699,10 @@ class Report:
         this report alone -- never from a list the page keeps."""
         prim = self.primary
         all_f = self.findings + self.rejected
+        if self.declined:
+            return [{"step": num, "name": name, "by": by, "ran": False,
+                     "note": "stood down: " + self.declined}
+                    for num, name, by in THE_EIGHT_STEPS]
         size = [f for f in all_f if f.size_problem]
         chal = [f for f in all_f if f.challenged]
         plan = [f for f in all_f if f.concept == "blocked_a_plan"]
@@ -680,6 +751,16 @@ def reason_about(move: MoveUnderStudy, probe: Optional[Probe] = None
     because nothing told it that causes outrank consequences.
     """
     probe = probe or Probe()
+
+    # Precedence before anything else: where a hard material fact explains the
+    # card, the detectors own it and this framework keeps out of the way.
+    stand_down = _a_detector_already_owns_this(move)
+    if stand_down:
+        return Report(
+            schema_version=SCHEMA_VERSION, played_san=move.played_san,
+            best_san=move.best_san, findings=[], rejected=[], stability=None,
+            probes_spent=probe.budget.spent, asked=[], declined=stand_down)
+
     stability = check_stability(move, probe)
 
     kept: List[Finding] = []

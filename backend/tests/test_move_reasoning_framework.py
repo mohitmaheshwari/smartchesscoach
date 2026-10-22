@@ -401,3 +401,101 @@ class TestEveryMaterialQuestionInheritsTheRule:
             MoveUnderStudy(fen_before=chess.STARTING_FEN, played_san="e4",
                            best_san="d4", pv_played=["!!bad"], pv_best=[],
                            cp_loss=300, mover_is_user=True)) is None
+
+
+class TestTheFrameworkStandsDownForTheDetectors:
+    """It must not talk over a hard material fact.
+
+    Mohit, 2026-10-22, on the one card he opened:
+
+        "framework should only be called when detectors don't work... why
+         explain button the framework which is our backbone here might just
+         tell something fucking stupid and complete product goes down in eyes
+         of the user"
+
+    The card: white played Qg3 when Qxg7 took a free pawn. The SHIPPED caption
+    said so precisely. The framework said `returns_home` -- a symptom about a
+    piece going back -- because nothing told it to keep out of the way.
+
+    Measured over 177,198 flagged cards: on 11,633 the better move takes an
+    undefended enemy man we did not take. The framework was silent on 10,358
+    and answered anyway on 1,275, leaving 970 rooks and 499 queens on the
+    board while it talked about something else.
+    """
+    # The exact position Mohit opened. g7 is a black pawn, attacked by the
+    # queen on g4, defended by nothing.
+    QG3 = "r2qk2r/5ppp/p1p1pn2/3p4/5BQ1/2P1P3/P1P2PPP/R4RK1 w kq - 1 13"
+
+    def test_the_board_facts_are_what_i_claim(self):
+        b = chess.Board(self.QG3)
+        assert b.turn == chess.WHITE
+        p = b.piece_at(chess.G7)
+        assert p and p.piece_type == chess.PAWN and p.color == chess.BLACK
+        assert chess.G4 in b.attackers(chess.WHITE, chess.G7)
+        assert not b.attackers(chess.BLACK, chess.G7), "g7 must be undefended"
+
+    def test_it_declines_mohit_s_card(self):
+        from services.move_reasoning import MoveUnderStudy, reason_about
+        rep = reason_about(MoveUnderStudy(
+            fen_before=self.QG3, played_san="Qg3", best_san="Qxg7",
+            pv_played=["Nh5", "Qg4", "Nxf4", "exf4"],
+            pv_best=["Rg8", "Qh6", "Rg6", "Qh4"],
+            cp_loss=171, mover_is_user=False))
+        assert rep.declined, "it must stand down on a free capture"
+        assert "undefended pawn on g7" in rep.declined
+        assert rep.findings == [] and rep.asked == []
+
+    def test_returns_home_no_longer_speaks_there(self):
+        """The specific wrong answer he was shown."""
+        from services.move_reasoning import MoveUnderStudy, reason_about
+        rep = reason_about(MoveUnderStudy(
+            fen_before=self.QG3, played_san="Qg3", best_san="Qxg7",
+            pv_played=["Nh5", "Qg4", "Nxf4", "exf4"], pv_best=[],
+            cp_loss=171, mover_is_user=False))
+        assert rep.primary is None
+
+    def test_declining_is_not_the_same_as_having_nothing_to_say(self):
+        """A reader needs to tell "a detector owns this" from "I looked and
+        found nothing" -- the trace says which."""
+        from services.move_reasoning import MoveUnderStudy, reason_about
+        rep = reason_about(MoveUnderStudy(
+            fen_before=self.QG3, played_san="Qg3", best_san="Qxg7",
+            pv_played=["Nh5"], pv_best=[], cp_loss=171, mover_is_user=False))
+        assert all(s["ran"] is False for s in rep.steps())
+        assert all("stood down" in s["note"] for s in rep.steps())
+
+    def test_a_DEFENDED_capture_is_not_a_free_one(self):
+        """Taking a defended man is a trade or a tactic, and the framework may
+        still have the better lesson. Only "it was just sitting there" defers."""
+        from services.move_reasoning import _a_detector_already_owns_this
+        from services.move_reasoning import MoveUnderStudy
+        # b5 is defended by the c6 pawn, so Nxb5 is not a free capture.
+        fen = "rnbqkb1r/p2p2p1/2p2pnp/1p2p3/2B1P3/1PNP1N2/P1P2PPP/R1BQ1RK1 w kq - 0 8"
+        assert chess.C6 in chess.Board(fen).attackers(chess.BLACK, chess.B5)
+        assert _a_detector_already_owns_this(MoveUnderStudy(
+            fen_before=fen, played_san="d4", best_san="Nxb5",
+            pv_played=["bxc4"], pv_best=[], cp_loss=133,
+            mover_is_user=True)) is None
+
+    def test_taking_it_ourselves_is_not_a_missed_free_capture(self):
+        from services.move_reasoning import (MoveUnderStudy,
+                                             _a_detector_already_owns_this)
+        assert _a_detector_already_owns_this(MoveUnderStudy(
+            fen_before=self.QG3, played_san="Qxg7", best_san="Qxg7",
+            pv_played=["Rg8"], pv_best=[], cp_loss=0,
+            mover_is_user=False)) is None
+
+    def test_a_quiet_better_move_does_not_trigger_it(self):
+        """The positive control for the gate: it must NOT swallow the cards
+        the framework exists for. Rfd1 is not a capture."""
+        from services.move_reasoning import (MoveUnderStudy, reason_about,
+                                             _a_detector_already_owns_this)
+        m = MoveUnderStudy(
+            fen_before="r2qk2r/5ppp/p1p1pb2/3p4/3P4/2N2Q1P/PPP2PP1/R4RK1 w kq - 0 13",
+            played_san="Rae1", best_san="Rfd1",
+            pv_played=["Bxd4", "Qe3", "Bf6"], pv_best=[], cp_loss=188,
+            mover_is_user=True)
+        assert _a_detector_already_owns_this(m) is None
+        rep = reason_about(m)
+        assert not rep.declined
+        assert rep.primary and rep.primary.concept == "left_it_loose"

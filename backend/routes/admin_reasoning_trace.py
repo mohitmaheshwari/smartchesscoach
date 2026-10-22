@@ -237,6 +237,10 @@ def _trace_payload(fen: str, played: str, best: Optional[str],
         # one for the other.
         "framework": {
             "reaches_a_player": False,
+            # Standing down is a RESULT, not an absence of one. A reader must
+            # be able to tell "a detector owns this card" from "I looked and
+            # found nothing".
+            "declined": report.declined,
             "why": ("The reasoning framework feeds no caption surface. "
                     "Everything in the trace below is an experiment running "
                     "beside the shipped card above, not instead of it."),
