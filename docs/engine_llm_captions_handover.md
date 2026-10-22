@@ -159,3 +159,99 @@ you want it.
 arrow suites. New files: `test_move_purposes.py`,
 `test_llm_caption_may_not_invent.py`, `test_llm_caption_reaches_the_card.py`,
 `test_engine_speaks_for_every_move.py`.
+
+---
+
+# 2026-10-22: what three cards from the five review games showed
+
+Mohit opened the five games and read captions like these:
+
+> "your d6 didn't stop their knight from moving to f3"
+> "castling was an inaccuracy because it let your opponent play Bg5"
+> "Ng4 was a mistake because it let your opponent play d4 and then Bb4+"
+
+Nf3 and Bg5 are not threats; d6 cannot stop a knight going to f3. The
+English is right every time. The chess was invented, and the reason is
+upstream of the model: **two of those three cards fired no purpose at all**,
+so the fact bundle was a move list plus `they_were_threatening`, and the
+model did the only thing left and read causality off the line.
+
+## Four findings, each measured on 11,959 faulted cards
+
+**1. 79.6% of stored threats threaten nothing.** `get_threat` returns the
+opponent's best reply and nothing more — its own docstring says so — and
+every position has a best reply. 68.6% of faulted cards carry one, filed
+under a key that asserts it is a threat. `threat_check` now proves it (mate,
+or a capture of a man that is undefended or taken by something cheaper) and
+names what it wins, or the key is withheld.
+
+**2. The purposes layer was reading the threat on a board that never
+occurred.** `_answers_threat` probed `fen_before` with the turn flipped,
+while the engine computes the threat on `fen_before` plus the played move.
+The two boards disagree on 18.5% of cards, the flipped one calls 1,060 legal
+threats illegal, and it confirmed 9.0% where the truth is 20.4%.
+
+**3. A line of moves is not a licence to explain.** `write_caption` accepted
+`they_were_threatening` or `what_happens_after_your_move` on their own. It
+now requires a proven purpose. Refusing is not silence — the deterministic
+caption stands and says less rather than something false.
+
+**4. The small-loss band was starved of input, not vocabulary.**
+
+| band | has a line | has a threat |
+|------|-----------|--------------|
+| 40-99cp | 72.3% | 59.1% |
+| 100-299 | 94.0% | 73.9% |
+| 300+ | 97.5% | 82.0% |
+
+The old analysis only searched a line for moves it had already called an
+inaccuracy or worse, so the cards a player reads most arrived with nothing
+behind them. `eval_line_played` is free from the evaluation search every
+move already gets; `purposes_for` now falls back to it.
+
+## Correction to the section above
+
+That section says making existing games show LLM captions "does **not** need
+re-analysis — the facts come from stored data". That is now only half true.
+The caption still re-renders from stored data, but **`eval_line_played` is
+written during a full Stockfish pass and no existing document has it**, so
+the floor-line fix reaches old games only after re-analysis.
+`reanalyze_recent_games.py` is the tool; it already documents the same
+distinction for opponent PVs.
+
+## Coverage, honestly
+
+| | at least one purpose |
+|---|---|
+| before | 76.2% |
+| after the threat fix | **74.0%** |
+| with `castles_the_king_away` | **74.8%** |
+
+Coverage **fell** 2.2 points because those points were the false threat
+fires. That is the fix working.
+
+## The residue is a long tail, not one missing idea
+
+Of the 3,106 cards no purpose explains:
+
+| family | share |
+|---|---|
+| a different piece entirely | 69.2% |
+| same piece, wrong square | 16.7% |
+| the better move takes | 15.7% |
+| no family at all | 11.3% |
+| a check that achieved nothing | 4.2% |
+| the better move castles | 3.2% |
+| same square, wrong unit | 2.6% |
+
+The top line is not a family — it is the default, and it is the answer to
+"what is the engine still missing": no single detector closes this. The
+small clean ones are worth building because every claim in them is a board
+fact. `castles_the_king_away` was built first because one of its 100 cards
+is the card Mohit opened.
+
+**Not built, deliberately.** "The better move prepares a central break"
+holds on 4.8% of the residue, and the control case works — but in several
+examples the break arrives four plies into the best line, so the claim would
+be causality read off the PV, which is the same mistake the captions above
+were making.
