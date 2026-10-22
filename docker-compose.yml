@@ -89,6 +89,14 @@ services:
       # as the dev user (and grants Pro) — local dev opts in via .env only.
       - DEV_MODE=${DEV_MODE:-false}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # LLM captions: written ONCE at analysis time from the
+      # engine's own facts (services/move_purposes ->
+      # services/llm_caption), then stored. Never called when a
+      # page renders. Set to 0 to fall straight back to the
+      # deterministic captions -- nothing else changes, and
+      # arrows are not involved either way.
+      - LLM_CAPTIONS_ENABLED=${LLM_CAPTIONS_ENABLED:-0}
+      - LLM_CAPTION_MODEL=${LLM_CAPTION_MODEL:-gpt-6-luna}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-780116053739-2eh0431pndqofkbga1m0o7j35p3bklvt.apps.googleusercontent.com}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://chessguru.ai/api/auth/google/callback}
@@ -325,6 +333,14 @@ services:
       - MONGO_URL=${MONGO_URL:?set MONGO_URL in .env}
       - DB_NAME=chess_coach
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # LLM captions: written ONCE at analysis time from the
+      # engine's own facts (services/move_purposes ->
+      # services/llm_caption), then stored. Never called when a
+      # page renders. Set to 0 to fall straight back to the
+      # deterministic captions -- nothing else changes, and
+      # arrows are not involved either way.
+      - LLM_CAPTIONS_ENABLED=${LLM_CAPTIONS_ENABLED:-0}
+      - LLM_CAPTION_MODEL=${LLM_CAPTION_MODEL:-gpt-6-luna}
       - EXACT_ENDGAME_ENGINE_ENABLED=${EXACT_ENDGAME_ENGINE_ENABLED:-false}
       - HUMAN_POLICY_EVIDENCE_ENABLED=${HUMAN_POLICY_EVIDENCE_ENABLED:-false}
       - PUZZLE_HUMAN_DIFFICULTY_SHADOW_ENABLED=${PUZZLE_HUMAN_DIFFICULTY_SHADOW_ENABLED:-false}
