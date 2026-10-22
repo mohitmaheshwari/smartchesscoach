@@ -4029,9 +4029,40 @@ async def generate_game_decryption_v5(
 
                     # Unpack into V5 locals (move_output / P2 / polish read these).
                     caption_facts = _decision.debug_facts
+                    # The LLM caption, if the analysis wrote one for this move.
+                    #
+                    # Mohit 2026-10-22: "the answer for caption is LLM based,
+                    # now". It is written ONCE at analysis time from the
+                    # engine's own facts (services/move_purposes ->
+                    # services/llm_caption) and stored on the move, so nothing
+                    # calls a model here.
+                    #
+                    # It may only REPLACE the text. The rule cascade still
+                    # runs, and everything else the decision carries --
+                    # arrows, highlights, best_move_arrows, the facts -- is
+                    # untouched. Arrows are drawn from pv_after_played and
+                    # Mohit asked for them to stay exactly as they are.
+                    #
+                    # When the analysis refused the LLM caption (it invented a
+                    # fact, came back empty, or had nothing to write from) the
+                    # deterministic caption stands. A refusal is never
+                    # silence.
+                    _llm_cap = None
+                    try:
+                        # eval_lookup is keyed by the first FOUR fen fields,
+                        # not the whole string. Looking it up with the full
+                        # FEN finds nothing and fails silently, which is the
+                        # exact shape of the last three wiring bugs here.
+                        _k = " ".join((_inputs.fen_before or "").split()[:4])
+                        _ev = (eval_lookup or {}).get(_k) or {}
+                        _llm_cap = (_ev.get("llm_caption") or "").strip() or None
+                    except Exception:
+                        _llm_cap = None
                     caption_payload = {
-                        "caption": _decision.text.caption,
-                        "rule_name": _decision.text.rule_name,
+                        "caption": _llm_cap or _decision.text.caption,
+                        "rule_name": (
+                            (_decision.text.rule_name or "") + "→LLM_CAPTION"
+                            if _llm_cap else _decision.text.rule_name),
                         "highlight_squares": _decision.visual.highlight_squares,
                         "arrows": _decision.visual.arrows,
                         # Belongs to board_before + the best move, NOT to the
