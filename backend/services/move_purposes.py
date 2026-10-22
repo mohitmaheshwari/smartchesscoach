@@ -140,6 +140,8 @@ LESSON = {
     "played_check_achieved_nothing":
         "a check they can simply answer hands them a move; check with a "
         "purpose or not at all",
+    "played_check_loses_the_checker":
+        "before you check, look at what can take the checking piece",
     "missed_forced_mate":
         "when you have a forced mate, check every check before anything else",
     "allowed_forced_mate":
@@ -808,24 +810,46 @@ def _played_check_achieved_nothing(b, best_mv, after_best, us,
     reply = _mv(after_played, str(pv_played[0]))
     if reply is None:
         return None
-    nb = after_played.copy()
-    nb.push(reply)
-    # contrastive_reasoner owns the material count and is already reused
-    # by caption_facts. A second one here would be a second answer to the
-    # same question.
-    from services.contrastive_reasoner import _material_swing
-    swing = _material_swing(b, [str(played_san), str(pv_played[0])], us)
-    if swing is None or swing > 0:
-        return None              # the check won something; not this lesson
     piece = b.piece_at(played.from_square)
     if piece is None or piece.piece_type == chess.KING:
         return None
+    # contrastive_reasoner owns both the material count and the
+    # taken-and-kept walk, and caption_facts already reuses the first. A
+    # second answer to either question here would be a second answer.
+    from services.contrastive_reasoner import _material_swing, _taken_and_kept
+    line = [str(s) for s in pv_played]
+    # The WHOLE line, not two plies. Ne7+ Bxe7 reads as a lost knight until
+    # Rxe7 takes the bishop back on the very next ply, and the first version
+    # of this purpose called six such cards "wins nothing" -- a sentence
+    # that understates giving a piece away and overstates an even trade in
+    # the same breath.
+    swing = _material_swing(b, [str(played_san)] + line, us)
+    if swing is None or swing > 0:
+        return None              # the check won something; not this lesson
+    where = chess.square_name(played.to_square)
+    lost = _taken_and_kept(after_played, line, played.to_square, us)
+    if lost is not None:
+        # They simply took the piece that checked, and kept it. A bigger
+        # lesson than a wasted move, so it ranks with the material ones.
+        return Purpose(
+            "played_check_loses_the_checker", MATERIAL,
+            {"reply": lost["san"], "piece": NAME[piece.piece_type],
+             "square": where, "taken_by": lost["by"]},
+            f"the checking {NAME[piece.piece_type]} on {where} is taken by "
+            f"the {lost['by']} with {lost['san']}, and it does not come "
+            f"back")
+    if swing < 0:
+        # The line costs material for some other reason. Whatever that is,
+        # it is not "the check achieved nothing", and saying so here would
+        # describe a lost piece as a wasted tempo.
+        return None
+    nb = after_played.copy()
+    nb.push(reply)
     chased = bool(nb.attackers(not us, played.to_square)) and \
         nb.piece_at(played.to_square) is not None and \
         nb.piece_at(played.to_square).color == us
-    tail = (f", and the {NAME[piece.piece_type]} on "
-            f"{chess.square_name(played.to_square)} is attacked there and "
-            f"has to move again" if chased else "")
+    tail = (f", and the {NAME[piece.piece_type]} on {where} is attacked "
+            f"there and has to move again" if chased else "")
     return Purpose(
         "played_check_achieved_nothing", POSITIONAL,
         {"reply": str(pv_played[0]), "chased": chased},

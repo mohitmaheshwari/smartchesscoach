@@ -219,32 +219,79 @@ class TestACheckThatAchievedNothing:
         b = chess.Board(self.RD8)
         assert b.gives_check(b.parse_san("Rd8+"))
 
+    def test_the_continuation_used_below_is_legal(self):
+        """Guards against the fixture error that made this suite fail
+        twice: a line copied from pv_after_BEST will not replay after the
+        PLAYED move, and _material_swing correctly refuses it."""
+        b = chess.Board(self.RD8)
+        for san in ("Rd8+", "Kg7", "Kg1"):
+            b.push(b.parse_san(san))
+
     def test_it_fires_and_names_the_answer(self):
-        for p in purposes_for(self.RD8, "Rd8+", "Kg3", ["Kg7", "Kg4"], []):
+        for p in purposes_for(self.RD8, "Rd8+", "Kg3", ["Kg7", "Kg1"], []):
             if p["kind"] == "played_check_achieved_nothing":
                 assert "Kg7" in p["proof"]
                 return
         raise AssertionError("the purpose did not fire")
 
     def test_a_quiet_move_is_not_a_pointless_check(self):
-        got = kinds(self.RD8, "Rd7", "Kg3", ["Kf8"], [])
+        got = kinds(self.RD8, "R8d7", "Kg3", ["Kf8"], [])
         assert "played_check_achieved_nothing" not in got
 
-    def test_a_check_that_wins_a_man_is_left_to_the_material_purposes(self):
-        """1.f3 e5 2.g4 Qh4# wins nothing material, so use a check that
-        does: here the checking capture takes a pawn and keeps it."""
+    def test_it_fires_on_a_second_position_where_nothing_changes_hands(self):
+        """Bb5+ is blocked by Nc6 and no material moves, so the whole
+        content of the move was the check."""
         fen = "rnbqk2r/ppp2ppp/3b4/3p4/3P4/2N5/PPP1BPPP/R1BQK2R w KQkq - 0 8"
         b = chess.Board(fen)
-        mv = b.parse_san("Bb5+")
-        assert b.gives_check(mv) and not b.is_capture(mv)
-        # Bb5+ wins nothing, so the purpose SHOULD fire -- the control is
-        # that it is the material comparison deciding, not the check.
-        got = kinds(fen, "Bb5+", "O-O", ["Nc6", "Nf3"], [])
+        for san in ("Bb5+", "Nc6", "Bg5"):
+            b.push(b.parse_san(san))      # the line must replay
+        got = kinds(fen, "Bb5+", "O-O", ["Nc6", "Bg5"], [])
         assert "played_check_achieved_nothing" in got, got
 
     def test_it_needs_their_answer_and_will_not_guess_one(self):
         assert "played_check_achieved_nothing" not in \
             kinds(self.RD8, "Rd8+", "Kg3", [], [])
+
+    # The first version of this purpose called all three of these "wins
+    # nothing", which understates giving a piece away and overstates an
+    # even trade in the same breath. It measured two plies.
+    TRADE = "2r3k1/p5p1/1p3nNp/1P6/3q4/b1NP1Q2/2PK1P1P/4R3 w - - 4 23"
+    DROP = "2kr3r/1pp2pR1/p1nq4/3p4/3p3p/4PB2/PPP2P1P/R2Q3K w - - 0 20"
+
+    def test_the_bishop_really_does_come_back_on_the_next_ply(self):
+        """23.Ne7+ Bxe7 Rxe7: the knight is taken and the bishop is taken
+        straight back, so nothing was given away on that square."""
+        b = chess.Board(self.TRADE)
+        for san in ("Ne7+", "Bxe7", "Rxe7"):
+            b.push(b.parse_san(san))
+        assert b.piece_at(chess.E7) == chess.Piece(chess.ROOK, chess.WHITE)
+
+    def test_a_recaptured_checker_is_not_called_a_loss(self):
+        got = kinds(self.TRADE, "Ne7+", "Nd1",
+                    ["Bxe7", "Rxe7", "Qxc3+", "Ke2"], [])
+        assert "played_check_loses_the_checker" not in got, got
+
+    def test_nor_is_it_called_wins_nothing_when_the_line_costs_material(self):
+        """That same line drops the c3 knight to Qxc3+ later. Whatever that
+        is, it is not a wasted tempo, so this purpose stands down."""
+        got = kinds(self.TRADE, "Ne7+", "Nd1",
+                    ["Bxe7", "Rxe7", "Qxc3+", "Ke2"], [])
+        assert "played_check_achieved_nothing" not in got, got
+
+    def test_a_checker_that_is_simply_taken_says_so(self):
+        """20.Bg4+ is answered by Kb8 here, but if they take the bishop and
+        keep it, the sentence has to name that."""
+        fen = "r1b2rk1/p4ppp/1pN1pn2/3p4/1b1P4/2N5/PPPB1PPP/R2QK2R w KQ - 1 11"
+        b = chess.Board(fen)
+        b.push(b.parse_san("Ne7+"))
+        assert b.is_legal(b.parse_san("Bxe7"))
+        for p in purposes_for(fen, "Ne7+", "Nxb4", ["Bxe7", "Qf3"], []):
+            if p["kind"] == "played_check_loses_the_checker":
+                assert "knight on e7" in p["proof"]
+                assert "does not come back" in p["proof"]
+                assert p["tier"] == 3
+                return
+        raise AssertionError("the purpose did not fire")
 
 
 class TestCastlingIsItsOwnLesson:
