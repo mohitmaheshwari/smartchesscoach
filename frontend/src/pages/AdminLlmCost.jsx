@@ -198,10 +198,23 @@ export default function AdminLlmCost() {
             <div className="rounded-lg border border-black/10 dark:border-white/15 p-4 mb-4">
               <div className="text-3xl font-semibold tabular-nums">
                 {money(data.total_cost_usd)}
+                {data.total_cost_inr !== null &&
+                  data.total_cost_inr !== undefined && (
+                    <span className="ml-3 text-xl opacity-70">
+                      ₹{Number(data.total_cost_inr).toFixed(2)}
+                    </span>
+                  )}
               </div>
               <div className="text-sm opacity-70">
                 {data.total_calls} calls in the last {data.window_days} days
               </div>
+              {data.inr_incomplete && (
+                <p className="mt-2 text-sm text-amber-700 dark:text-amber-400">
+                  No rupee total: a day with spend has no exchange rate yet.
+                  The per-day rows below show which. A part-total shown as
+                  the total would be worse than none.
+                </p>
+              )}
               {data.cost_excludes_unpriced_models && (
                 <p className="mt-3 flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
                   <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -223,7 +236,83 @@ export default function AdminLlmCost() {
               </p>
             </div>
 
-            <Table title="By day" rows={data.by_day} label="Day" />
+            <section className="mb-8">
+              <h2 className="text-sm font-semibold uppercase tracking-wide mb-2">
+                By day
+              </h2>
+              {!data.by_day?.length ? (
+                <p className="text-sm opacity-60">
+                  Nothing recorded in this window.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="text-left opacity-60">
+                      <tr>
+                        <th className="py-1 pr-4">Day</th>
+                        <th className="py-1 pr-4 text-right">Calls</th>
+                        <th className="py-1 pr-4 text-right">In</th>
+                        <th className="py-1 pr-4 text-right">Out</th>
+                        <th className="py-1 pr-4 text-right">USD</th>
+                        <th className="py-1 pr-4 text-right">Rate</th>
+                        <th className="py-1 text-right">INR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.by_day.map((r) => (
+                        <tr
+                          key={r.key}
+                          className="border-t border-black/5 dark:border-white/10"
+                        >
+                          <td className="py-1 pr-4">{r.key}</td>
+                          <td className="py-1 pr-4 text-right tabular-nums">
+                            {r.calls}
+                          </td>
+                          <td className="py-1 pr-4 text-right tabular-nums">
+                            {tokens(r.input_tokens)}
+                          </td>
+                          <td className="py-1 pr-4 text-right tabular-nums">
+                            {tokens(r.output_tokens)}
+                          </td>
+                          <td className="py-1 pr-4 text-right">
+                            <Cost row={r} />
+                          </td>
+                          <td
+                            className="py-1 pr-4 text-right tabular-nums opacity-60"
+                            title={
+                              r.usd_inr_date && r.usd_inr_date !== r.key
+                                ? `No rate published on ${r.key} (weekend or holiday); using ${r.usd_inr_date}`
+                                : undefined
+                            }
+                          >
+                            {r.usd_inr
+                              ? `${Number(r.usd_inr).toFixed(2)}${
+                                  r.usd_inr_date && r.usd_inr_date !== r.key
+                                    ? "*"
+                                    : ""
+                                }`
+                              : "—"}
+                          </td>
+                          <td className="py-1 text-right tabular-nums">
+                            {r.cost_inr === null || r.cost_inr === undefined
+                              ? "—"
+                              : `₹${Number(r.cost_inr).toFixed(2)}`}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="mt-2 text-xs opacity-60">
+                    Each day is converted at that day&apos;s published rate,
+                    so the rupee total is the sum of the days and not the
+                    dollar total times one number. An asterisk means no rate
+                    was published that day — a weekend or holiday — so the
+                    last published rate before it was used. Source:{" "}
+                    {data.fx_source}.
+                  </p>
+                </div>
+              )}
+            </section>
             <Table title="By surface" rows={data.by_surface} label="Surface" />
             <Table title="By model" rows={data.by_model} label="Model" />
             <Table

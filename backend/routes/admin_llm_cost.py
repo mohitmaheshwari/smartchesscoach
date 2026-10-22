@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, Query
 
 from routes.admin import require_admin
 from routes.auth import User
-from services import llm_usage
+from services import fx_rates, llm_usage
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Admin"])
@@ -37,6 +37,7 @@ def set_db(db) -> None:
     global _db
     _db = db
     llm_usage.set_db(db)
+    fx_rates.set_db(db)
 
 
 def _priced(model: str, inp: int, out: int, cached: int) -> Dict[str, Any]:
@@ -146,6 +147,33 @@ async def llm_cost_summary(
         elif model not in slot["unpriced_models"]:
             slot["unpriced_models"].append(model)
 
+    by_day = sorted(days_map.values(), key=lambda r: r["key"])
+
+    # Rupees at the rate in force on the day the spend happened, never the
+    # window converted at one rate. Over the three weeks to 2026-10-22 the
+    # pair moved 96.78 -> 94.47, about 2.4%, so one rate across a month is
+    # wrong by more than an account should carry. One request covers the
+    # whole range; ECB publishes on business days, so a weekend resolves to
+    # the last published rate and the page is told which date that was.
+    fx: Dict[str, float] = {}
+    if by_day:
+        fx = await fx_rates.rates_for_range(by_day[0]["key"],
+                                            by_day[-1]["key"])
+    inr_total = 0.0
+    inr_complete = True
+    for row in by_day:
+        got = fx_rates.resolve(fx, row["key"])
+        if got and row.get("cost_usd") is not None:
+            row["usd_inr"] = got["rate"]
+            row["usd_inr_date"] = got["rate_date"]
+            row["cost_inr"] = round(row["cost_usd"] * got["rate"], 2)
+            inr_total += row["cost_inr"]
+        else:
+            row["usd_inr"] = None
+            row["cost_inr"] = None
+            if row.get("cost_usd"):
+                inr_complete = False
+
     by_model = await _group("model", since)
     by_surface = await _group("surface", since)
     top_users = await _group("user_id", since, limit=25)
@@ -160,9 +188,17 @@ async def llm_cost_summary(
         "covers_history": bool(first),
         "total_calls": total_calls,
         "total_cost_usd": round(priced_total, 4),
+        # The sum of each day converted at ITS rate, not the dollar total
+        # times one number. None when no rate could be had for a day that
+        # has spend -- a partial rupee figure presented as the total would
+        # be worse than no rupee figure.
+        "total_cost_inr": (round(inr_total, 2) if inr_complete and by_day
+                           else None),
+        "inr_incomplete": not inr_complete,
+        "fx_source": "frankfurter-ecb (daily, business days)",
         "models_without_a_price": unpriced,
         "cost_excludes_unpriced_models": bool(unpriced),
-        "by_day": sorted(days_map.values(), key=lambda r: r["key"]),
+        "by_day": by_day,
         "by_model": by_model,
         "by_surface": by_surface,
         "top_users": top_users,

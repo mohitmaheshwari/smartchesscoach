@@ -17,15 +17,22 @@
   ],
   "models": {
     "gpt-6-luna": {
-      "input_per_mtok": null,
-      "output_per_mtok": null,
-      "cached_input_per_mtok": null,
-      "_note": "LLM_CAPTION_MODEL default; the caption path's model. Rate not known to me -- fill in from the provider's pricing page."
+      "input_per_mtok": 0.10,
+      "output_per_mtok": 0.50,
+      "cached_input_per_mtok": 0.01,
+      "_note": "LLM_CAPTION_MODEL default. Standard short-context tier, looked up 2026-10-22; several trackers agree. NOT covered here: cache WRITES bill at 0.125/Mtok, and a request over 272K input tokens reprices the WHOLE request at long-context rates (0.20 in / 0.75 out), so a very long prompt is under-counted. Caption prompts are a few thousand tokens, so neither applies today. Batch and Flex tiers are half of these."
     },
     "gpt-4o-mini": {
       "input_per_mtok": null,
       "output_per_mtok": null,
-      "_note": "Named in CLAUDE.md as the historical caption model. Fill in if it is still called anywhere."
+      "_note": "Named in CLAUDE.md as the historical caption model. Left unset deliberately: if it turns out to still be called, the page will SAY the total excludes it rather than quietly pricing it at a rate I did not verify."
     }
-  }
+  },
+  "_fx": [
+    "USD->INR is NOT configured here on purpose. A single rate would convert",
+    "a whole window at one number, and the pair moved 96.78 -> 94.47 over the",
+    "three weeks to 2026-10-22. Each day's spend is converted at that day's",
+    "published rate instead, fetched per date by services/fx_rates.py from",
+    "the ECB via Frankfurter and cached in the fx_rates collection."
+  ]
 }

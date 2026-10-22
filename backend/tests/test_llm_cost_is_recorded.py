@@ -92,6 +92,27 @@ class TestAnUnpricedModelIsNeverFree:
         assert llm_usage.cost_usd("x", 10, 10) is not 0.0  # noqa: F632
         assert llm_usage.cost_usd("x", 10, 10) is None
 
+    def test_an_entry_that_exists_with_null_rates_is_not_free(self):
+        """The hole the first version had. An EMPTY table was tested and
+        passed; the config actually ships `gpt-4o-mini` LISTED with nulls,
+        and `float(None or 0.0)` made it $0.00 -- a model totalled as free
+        on a cost page. The test has to use the shape that ships."""
+        monkey = {"models": {"gpt-4o-mini": {"input_per_mtok": None,
+                                             "output_per_mtok": None}}}
+        import services.llm_usage as m
+        old = m._prices_cache
+        try:
+            m._prices_cache = monkey
+            assert m.cost_usd("gpt-4o-mini", 1_000_000, 1_000_000) is None
+        finally:
+            m._prices_cache = old
+
+    def test_the_real_shipped_config_prices_luna_and_not_the_other(self):
+        """Against the actual file, not a fixture."""
+        llm_usage.load_prices(refresh=True)
+        assert llm_usage.cost_usd("gpt-6-luna", 1_000_000, 0) == 0.1
+        assert llm_usage.cost_usd("gpt-4o-mini", 1_000_000, 0) is None
+
     def test_the_shipped_table_has_no_invented_rates(self):
         """Nobody should discover later that a plausible-looking number was
         a guess. Every entry ships null until a real rate is filled in."""

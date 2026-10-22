@@ -102,9 +102,17 @@ def cost_usd(model: str, input_tokens: int, output_tokens: int,
     p = price_for(model)
     if not p:
         return None
+    # An entry that EXISTS with null rates is not a price. The first version
+    # read `float(p.get("input_per_mtok") or 0.0)`, so `gpt-4o-mini` -- which
+    # ships listed with nulls on purpose -- came back as $0.00 and would have
+    # been totalled as free. The unit test missed it because it used an
+    # EMPTY table rather than the null-valued entry the config actually
+    # contains, which is the shape that matters.
+    if p.get("input_per_mtok") is None or p.get("output_per_mtok") is None:
+        return None
     try:
-        inp = float(p.get("input_per_mtok") or 0.0)
-        out = float(p.get("output_per_mtok") or 0.0)
+        inp = float(p.get("input_per_mtok"))
+        out = float(p.get("output_per_mtok"))
         cached = p.get("cached_input_per_mtok")
         cached = float(cached) if cached is not None else inp
         billed_fresh = max(0, int(input_tokens) - int(cached_input_tokens))
