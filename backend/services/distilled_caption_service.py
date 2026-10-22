@@ -70,6 +70,66 @@ def _missed_free(fb, played, best):
         return False
 
 
+def _missed_sacrifice(fb, played, best):
+    """The better move GIVES material and is still best. What does it buy?
+
+    Mohit's card, 2026-10-22: 25.Qxg8 offers the queen for a rook, and the
+    whole point is that 25...Qxg8?? is 26.Bd6#. The shipped caption said "it
+    sacrifices your queen to open up a strong attack" -- true, and teaching
+    nothing -- because `best_move_is_sacrifice` was the only fact available
+    and no situation here covered sacrifices at all. 9,111 cards in the
+    corpus (5.05%) have a sacrifice as the better move and none of them had
+    a template.
+
+    `_missed_free` is the mirror of this and must not catch it: that one
+    requires the square be UNDEFENDED. A sacrifice is defined the way the
+    repo already defines it in R12's `best_move_is_sacrifice` -- the attacker
+    is worth more than the target AND the square is defended after the
+    capture, so the attacker is lost to recapture.
+
+    Returns the facts the template needs, including the refutation, or None.
+    """
+    if not best or "x" not in best or played == best:
+        return None
+    try:
+        b = chess.Board(fb)
+        mv = b.parse_san(best)
+    except Exception:
+        return None
+    target = b.piece_at(mv.to_square)
+    attacker = b.piece_at(mv.from_square)
+    if not target or not attacker:
+        return None
+    if VAL.get(attacker.piece_type, 0) <= VAL.get(target.piece_type, 0):
+        return None
+    after = b.copy()
+    after.push(mv)
+    if not after.attackers(after.turn, mv.to_square):
+        return None                      # undefended: that is _missed_free
+    facts = {
+        "sac_piece": chess.piece_name(attacker.piece_type),
+        "sac_square": chess.square_name(mv.to_square),
+        "sac_takes": chess.piece_name(target.piece_type),
+        "sac_san": best,
+    }
+    # What happens if they ACCEPT? This is the fact nobody computed, and on
+    # Mohit's card it is the entire lesson. Measured over the corpus: 171 of
+    # the 9,111 end in mate when accepted -- a small slice, and the sharpest
+    # sentence available anywhere in the set, so it is worth saying exactly.
+    for take in [m for m in after.legal_moves if m.to_square == mv.to_square]:
+        probe = after.copy()
+        take_san = after.san(take)
+        probe.push(take)
+        for ours in probe.legal_moves:
+            end = probe.copy()
+            end.push(ours)
+            if end.is_checkmate():
+                facts["accept_san"] = take_san
+                facts["mate_san"] = probe.san(ours)
+                return facts
+    return facts
+
+
 def _classify_mistake(inp):
     uc = inp.user_color
     ueb = _upov(inp.eval_before_cp, uc); uea = _upov(inp.eval_after_cp, uc)
@@ -82,6 +142,8 @@ def _classify_mistake(inp):
         return pm
     if _missed_free(inp.fen_before, inp.played_san, inp.best_move_san):
         return "missed_free_material"
+    if _missed_sacrifice(inp.fen_before, inp.played_san, inp.best_move_san):
+        return "missed_sacrifice"
     san = inp.played_san or ""
     if san.startswith("Q") and (inp.full_move_number or 99) <= 6 and "x" not in san:
         return "opening_knowledge"

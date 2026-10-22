@@ -10211,6 +10211,21 @@ def _attack_outcome(
     return ("nothing", None)
 
 
+def _material_swing_pawns(board_after, line_san, us) -> Optional[int]:
+    """What the whole engine line costs US, in pawns. None if it will not replay.
+
+    Deliberately the SAME walker the reasoning framework uses rather than a
+    second material counter -- a quantity computed in two places eventually
+    gives two answers, and this one decides whether a card calls a move a
+    drop or a trade.
+    """
+    from services.contrastive_reasoner import _material_swing
+    try:
+        return _material_swing(board_after, list(line_san or ()), us)
+    except Exception:
+        return None
+
+
 def _material_for(board: chess.Board, side: chess.Color) -> int:
     total = 0
     for _square, piece in board.piece_map().items():
@@ -11665,7 +11680,30 @@ def extract_facts(
                     # hanging" story. (A played CAPTURE that also drops material is
                     # a murkier net-trade; skip it to avoid confusing framing.)
                     _drop_see = static_exchange_eval(board_after, opp_mv.to_square, board_after.turn)
-                    if (_drop_see or 0) >= 100 and not board_before.is_capture(played_move):
+                    # ...and the rest of the line must not hand it back.
+                    #
+                    # Mohit, 2026-10-22, on move 25 of game 73b06bdd: the card
+                    # read "Bd6+ is a major blunder — it drops the bishop after
+                    # Qxd6." White does lose the bishop on d6, and wins the rook
+                    # on g8 two plies later: 25.Bd6+ Qxd6 26.Qxg8+ ends +2 pawns
+                    # for White. The move IS bad — +513 to +69 — but not for
+                    # the reason the card gives, and a player reading it learns
+                    # "do not drop bishops" when the lesson is "do not trade
+                    # your attack away".
+                    #
+                    # SEE answers one square at one ply. The engine's own line
+                    # answers the question actually being asked, so walk it: if
+                    # we come out level or ahead, this is a trade and not a
+                    # drop. Same guard as move_reasoning._the_named_man_is_the_
+                    # story, for the same reason -- a claim about material has
+                    # to survive the material.
+                    _drop_ok = (_drop_see or 0) >= 100 and not board_before.is_capture(played_move)
+                    if _drop_ok:
+                        _after_line = _material_swing_pawns(
+                            board_after, pv_after_played, board_before.turn)
+                        if _after_line is not None and _after_line >= 0:
+                            _drop_ok = False
+                    if _drop_ok:
                         played_drops_material = True
                         played_drops_piece = opp_reply_captures_piece_type
                         played_drops_to_san = raw
