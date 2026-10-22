@@ -450,7 +450,18 @@ def get_database():
         raise ValueError("MONGO_URL environment variable not set")
     
     client = MongoClient(mongo_url)
-    return client[db_name]
+    db = client[db_name]
+    # The worker is a separate process, so server.py's wiring does not
+    # reach it -- and it is the biggest LLM spender in the product, one
+    # caption call per faulted move. Without this its calls record nowhere
+    # and the cost page shows a fraction of the bill.
+    try:
+        from services import llm_usage
+        llm_usage.set_db(db)
+    except Exception as exc:
+        logger.warning("[llm_usage] worker not wired for cost "
+                       "recording: %r", exc)
+    return db
 
 
 def update_job_heartbeat(db, game_id):
@@ -1276,7 +1287,15 @@ def process_job(db, job):
                     await _aio.gather(*[_one(m) for m in _flagged],
                                       return_exceptions=True)
 
-                _aio.run(_write_all())
+                # Label every caption call with whose game it is. This is
+                # the product's biggest LLM spender -- one call per faulted
+                # move -- and until now nothing recorded what any call cost,
+                # so per-user spend had no answer. The context propagates
+                # into the tasks _write_all fans out with gather.
+                from llm_service import usage_context as _usage_ctx
+                with _usage_ctx(surface="game_review_caption",
+                                user_id=user_id, game_id=game_id):
+                    _aio.run(_write_all())
                 _ok = sum(1 for m, _ in _flagged if m.get("llm_caption"))
                 logger.info(
                     "[LLM_CAPTION] %s: wrote %d of %d faulted moves",

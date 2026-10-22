@@ -1,0 +1,31 @@
+{
+  "_README": [
+    "Prices in US dollars per MILLION tokens. Edit this file to correct the",
+    "bill; the admin page multiplies at read time, so a correction here fixes",
+    "every past row rather than only new ones.",
+    "",
+    "A model with no entry is NOT free. It reports its tokens and shows",
+    "'price not set', because a zero would understate the invoice and the",
+    "page would look like it was working.",
+    "",
+    "'cached_input_per_mtok' is optional. Left out, cached input is billed at",
+    "the full input rate, which overstates rather than understates.",
+    "",
+    "Matching: exact model id first, then the longest prefix here. So a",
+    "'gpt-6-luna' entry covers 'gpt-6-luna-2026-01-15' without a row per",
+    "dated snapshot."
+  ],
+  "models": {
+    "gpt-6-luna": {
+      "input_per_mtok": null,
+      "output_per_mtok": null,
+      "cached_input_per_mtok": null,
+      "_note": "LLM_CAPTION_MODEL default; the caption path's model. Rate not known to me -- fill in from the provider's pricing page."
+    },
+    "gpt-4o-mini": {
+      "input_per_mtok": null,
+      "output_per_mtok": null,
+      "_note": "Named in CLAUDE.md as the historical caption model. Fill in if it is still called anywhere."
+    }
+  }
+}

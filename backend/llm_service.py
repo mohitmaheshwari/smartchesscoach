@@ -14,10 +14,41 @@ through call_llm() directly. get_provider_mode() is preserved so routes/auth.py
 keeps its 404 gate on the Emergent-OAuth-only `/api/auth/session` endpoint.
 """
 
+import contextlib
+import contextvars
 import os
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Who to bill a call to. A contextvar rather than an argument on call_llm:
+# there are 16 live call sites, and a kwarg threaded through all of them is
+# how most rows end up unlabelled. The caller that KNOWS the user -- the
+# analysis worker knows the game and its owner -- opens a context, and
+# every call underneath is labelled without touching the ones in between.
+_USAGE_CONTEXT: "contextvars.ContextVar[dict]" = contextvars.ContextVar(
+    "llm_usage_context", default=None)
+
+
+@contextlib.contextmanager
+def usage_context(**fields):
+    """Label every LLM call made inside this block.
+
+        with usage_context(surface="game_review_caption",
+                           user_id=uid, game_id=gid):
+            ...
+
+    Fields: `surface`, `user_id`, `game_id`. Nesting replaces rather than
+    merges, so an inner block is the whole label for what it contains.
+    Propagates into tasks created inside the block, which is what the
+    caption path needs -- it fans out with asyncio.gather.
+    """
+    token = _USAGE_CONTEXT.set({k: v for k, v in fields.items()
+                                if v is not None})
+    try:
+        yield
+    finally:
+        _USAGE_CONTEXT.reset(token)
 
 
 def _detect_provider_mode():
@@ -107,11 +138,40 @@ async def _call_claude(
         messages=[{"role": "user", "content": user_message}],
     )
 
+    _record_usage(resolved_model, getattr(response, "usage", None))
+
     parts = []
     for block in response.content:
         if getattr(block, "type", None) == "text":
             parts.append(block.text)
     return "".join(parts)
+
+
+def _record_usage(model: str, usage) -> None:
+    """Book what the call cost. Never raises, never blocks the answer.
+
+    Both providers hand back a usage object and both of these functions
+    used to drop it, so "what are we spending" had no answer anywhere in
+    the product. The caption path falls back to a deterministic caption
+    when an LLM call fails; a bookkeeping error is not a reason to trigger
+    that, which is why everything here is swallowed.
+
+    The surface and the user come from a contextvar rather than a new
+    argument, because there are 16 live call sites and threading a kwarg
+    through all of them to label a row is how half of them end up
+    unlabelled. An unlabelled call still records, as "unattributed", so the
+    total is right even where the label is not.
+    """
+    try:
+        from services import llm_usage
+        ctx = _USAGE_CONTEXT.get() or {}
+        llm_usage.record(
+            model, usage,
+            surface=ctx.get("surface") or llm_usage.env_default_surface(),
+            user_id=ctx.get("user_id"),
+            game_id=ctx.get("game_id"))
+    except Exception:
+        pass
 
 
 # ==================== OPENAI IMPLEMENTATION ====================
@@ -168,6 +228,7 @@ async def _call_openai(system_message: str, user_message: str,
         if max_tokens:
             kwargs["max_tokens"] = max_tokens
     response = await client.chat.completions.create(**kwargs)
+    _record_usage(model, getattr(response, "usage", None))
     return response.choices[0].message.content
 
 

@@ -57,6 +57,7 @@ import AdminCaptionAuthoring from "@/pages/AdminCaptionAuthoring";
 import AdminPositionalReasons from "@/pages/AdminPositionalReasons";
 import AdminReasonJudge from "@/pages/AdminReasonJudge";
 import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
+import AdminLlmCost from "@/pages/AdminLlmCost";
 import CalculationTest from "@/pages/CalculationTest";
 import MotifFindDrill from "@/pages/MotifFindDrill";
 import AdminDetectorReview from "@/pages/AdminDetectorReview";
@@ -569,6 +570,15 @@ function AppRouter() {
       <Route path="/admin/geometry-gaps" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminGeometryGaps user={user} />}
+        </ProtectedRoute>
+      } />
+      {/* What the LLM is costing, by day, surface and user. Nothing was
+          recorded before services/llm_usage.py: both provider calls got a
+          usage object and dropped it, so this reports only from the day the
+          recorder shipped and says so on the page. */}
+      <Route path="/admin/llm-cost" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminLlmCost user={user} />}
         </ProtectedRoute>
       } />
       {/* Read what a shadow detector would say, and rule on it. Pre-launch,

@@ -719,6 +719,14 @@ app.include_router(admin_detector_review_routes.router, prefix="/api")
 from routes import admin_reasoning_trace as admin_reasoning_trace_routes  # noqa: E402
 admin_reasoning_trace_routes.set_db(db)
 app.include_router(admin_reasoning_trace_routes.router, prefix="/api")
+# What the LLM is costing, by day, surface and user. Nothing was recorded
+# before services/llm_usage.py: both provider calls received a `usage`
+# object and dropped it, so the page reports only from the day the recorder
+# shipped and says so. Prices live in data/llm_prices.json and are applied
+# at read time, so a correction fixes history too.
+from routes import admin_llm_cost as admin_llm_cost_routes  # noqa: E402
+admin_llm_cost_routes.set_db(db)
+app.include_router(admin_llm_cost_routes.router, prefix="/api")
 caption_authoring_routes.set_db(db)
 app.include_router(caption_authoring_routes.router, prefix="/api")
 app.include_router(thinking_routes.router, prefix="/api")
