@@ -137,6 +137,9 @@ LESSON = {
         "deal with their threat before you start your own",
     "castles_the_king_away":
         "castle early; a king left in the middle is what they play against",
+    "played_check_achieved_nothing":
+        "a check they can simply answer hands them a move; check with a "
+        "purpose or not at all",
     "missed_forced_mate":
         "when you have a forced mate, check every check before anything else",
     "allowed_forced_mate":
@@ -779,6 +782,56 @@ def _wins_the_exchange(b, best_mv, after_best, us) -> Optional[Purpose]:
     return None
 
 
+def _played_check_achieved_nothing(b, best_mv, after_best, us,
+                                   played_san,
+                                   pv_played) -> Optional[Purpose]:
+    """The played move checks, they answer it, and nothing was won.
+
+    131 cards in the residue and one of the few lessons in this file a 900
+    can apply the same evening: a check they simply answer hands them a
+    move. Mohit's own phrasing of it is that checking for the sake of
+    checking is a habit, not a plan.
+
+    "Achieved nothing" is proven, not assumed. Push the check, push their
+    answer, and compare material: if the check won a man, this is not the
+    lesson and one of the material purposes already has it. The second half
+    -- the checking piece has to move again -- is what makes it a lost
+    tempo rather than merely a quiet move, so it is claimed only when the
+    board shows the piece attacked afterwards.
+    """
+    after_played = _after(b, played_san)
+    played = _mv(b, played_san)
+    if after_played is None or played is None or not pv_played:
+        return None
+    if not b.gives_check(played):
+        return None
+    reply = _mv(after_played, str(pv_played[0]))
+    if reply is None:
+        return None
+    nb = after_played.copy()
+    nb.push(reply)
+    # contrastive_reasoner owns the material count and is already reused
+    # by caption_facts. A second one here would be a second answer to the
+    # same question.
+    from services.contrastive_reasoner import _material_swing
+    swing = _material_swing(b, [str(played_san), str(pv_played[0])], us)
+    if swing is None or swing > 0:
+        return None              # the check won something; not this lesson
+    piece = b.piece_at(played.from_square)
+    if piece is None or piece.piece_type == chess.KING:
+        return None
+    chased = bool(nb.attackers(not us, played.to_square)) and \
+        nb.piece_at(played.to_square) is not None and \
+        nb.piece_at(played.to_square).color == us
+    tail = (f", and the {NAME[piece.piece_type]} on "
+            f"{chess.square_name(played.to_square)} is attacked there and "
+            f"has to move again" if chased else "")
+    return Purpose(
+        "played_check_achieved_nothing", POSITIONAL,
+        {"reply": str(pv_played[0]), "chased": chased},
+        f"the check is answered by {pv_played[0]} and wins nothing{tail}")
+
+
 def _played_allows_fork(b, best_mv, after_best, us,
                         played_san, pv_played) -> Optional[Purpose]:
     """Their reply to the played move hits two of ours at once.
@@ -1051,7 +1104,8 @@ def purposes_for(
         # What the PLAYED move allows. The vocabulary was one-sided: 13 of 14
         # purposes described what the BETTER move achieves, while the reader
         # is asking why THEIRS was bad.
-        for fn3 in (_played_allows_fork, _played_leaves_king_exposed):
+        for fn3 in (_played_allows_fork, _played_leaves_king_exposed,
+                    _played_check_achieved_nothing):
             try:
                 p = fn3(b, best_mv, after_best, us, played_san,
                         list(pv_played or []))

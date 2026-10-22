@@ -205,6 +205,48 @@ class TestAThreatHasToThreatenSomething:
         assert "answers_threat" not in got
 
 
+class TestACheckThatAchievedNothing:
+    """131 cards in the residue, and one of the few lessons in this file a
+    900 can apply the same evening. "Achieved nothing" is proven by playing
+    the check and their answer and comparing material, so a check that wins
+    a man is left to the material purposes that already own it."""
+
+    # 32.Rd8+ played, Kg3 better: a rook-and-pawn ending where the check is
+    # answered by Kg7 and the rook has to come back.
+    RD8 = "6k1/5p1p/3R2p1/p2P4/P2R4/5P1P/r1r3PK/8 w - - 1 32"
+
+    def test_the_played_move_really_is_a_check(self):
+        b = chess.Board(self.RD8)
+        assert b.gives_check(b.parse_san("Rd8+"))
+
+    def test_it_fires_and_names_the_answer(self):
+        for p in purposes_for(self.RD8, "Rd8+", "Kg3", ["Kg7", "Kg4"], []):
+            if p["kind"] == "played_check_achieved_nothing":
+                assert "Kg7" in p["proof"]
+                return
+        raise AssertionError("the purpose did not fire")
+
+    def test_a_quiet_move_is_not_a_pointless_check(self):
+        got = kinds(self.RD8, "Rd7", "Kg3", ["Kf8"], [])
+        assert "played_check_achieved_nothing" not in got
+
+    def test_a_check_that_wins_a_man_is_left_to_the_material_purposes(self):
+        """1.f3 e5 2.g4 Qh4# wins nothing material, so use a check that
+        does: here the checking capture takes a pawn and keeps it."""
+        fen = "rnbqk2r/ppp2ppp/3b4/3p4/3P4/2N5/PPP1BPPP/R1BQK2R w KQkq - 0 8"
+        b = chess.Board(fen)
+        mv = b.parse_san("Bb5+")
+        assert b.gives_check(mv) and not b.is_capture(mv)
+        # Bb5+ wins nothing, so the purpose SHOULD fire -- the control is
+        # that it is the material comparison deciding, not the check.
+        got = kinds(fen, "Bb5+", "O-O", ["Nc6", "Nf3"], [])
+        assert "played_check_achieved_nothing" in got, got
+
+    def test_it_needs_their_answer_and_will_not_guess_one(self):
+        assert "played_check_achieved_nothing" not in \
+            kinds(self.RD8, "Rd8+", "Kg3", [], [])
+
+
 class TestCastlingIsItsOwnLesson:
     """Mohit's move-6 card: Ng4 played, O-O better, 127cp. It fired no
     purpose, so the model wrote from the stored line -- "it let your
