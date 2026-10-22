@@ -376,6 +376,24 @@ def boxed_in_episodes(timeline: Sequence[Mapping[str, Any]], player_is_white: bo
             move = chess.Move.from_uci(point["uci"])
         except (ValueError, KeyError, TypeError):
             return found
+        # The timeline leaves out an opponent move it could not reconstruct,
+        # so the board here can fall behind the game. Four of 19,006 games did
+        # on 2026-10-22, and the next move was illegal on the stale board.
+        # Resync to the stored position and start the piece tracking afresh;
+        # an open run cannot be trusted across a gap, so it is dropped.
+        if _placement(board.fen()) != _placement(point.get("fen_before") or ""):
+            try:
+                board = chess.Board(point["fen_before"])
+            except (ValueError, KeyError, TypeError):
+                return found
+            pieces = {sq: f"{sq}@{point.get('move_number')}" for sq in chess.SQUARES
+                      if board.piece_at(sq) and board.piece_at(sq).color == owner
+                      and board.piece_at(sq).piece_type in BOXED_TYPES}
+            moved = set(pieces.values())
+            free_after_own_move = set(pieces.values())
+            runs.clear()
+        if move not in board.legal_moves:
+            return found
         captured_pid = pieces.pop(move.to_square, None)
         moved_pid = pieces.pop(move.from_square, None) if board.turn == owner else None
         castling_rook = None

@@ -182,3 +182,31 @@ class TestBoxedIn:
         from services.game_ledger import boxed_in_episodes
         timeline = self._timeline(self.FEN, self.MOVES, player_is_white=False)
         assert boxed_in_episodes(timeline, player_is_white=False) == []
+
+
+class TestATimelineWithAGap:
+    def test_a_missing_opponent_move_does_not_break_the_ledger(self):
+        """Four production games had an opponent move the timeline could not
+        rebuild; the boxed-in tracker then pushed an illegal move and the
+        whole plan failed."""
+        from services.game_ledger import boxed_in_episodes
+        board = chess.Board()
+        board.push_san("e4")
+        after_e4 = board.fen()
+        board.push_san("e5")
+        board.push_san("Nf3")
+        board.push_san("Nc6")       # the gap: this move is missing below
+        gap_fen = board.fen()
+        timeline = [
+            {"side": "you", "move_number": 1, "san": "e4", "uci": "e2e4",
+             "fen_before": chess.STARTING_FEN, "eval_before": 0, "eval_after": 20},
+            {"side": "them", "move_number": 1, "san": "e5", "uci": "e7e5",
+             "fen_before": after_e4, "eval_before": 20, "eval_after": 20},
+            # Nf3 and ...Nc6 were never reconstructed; the next point is
+            # White's third move from the real position.
+            # Nxe5 needs the knight that went to f3 in the missing moves, so
+            # on a stale board it is not even pseudo-legal -- the crash.
+            {"side": "you", "move_number": 3, "san": "Nxe5", "uci": "f3e5",
+             "fen_before": gap_fen, "eval_before": 20, "eval_after": 30},
+        ]
+        assert boxed_in_episodes(timeline, player_is_white=True) == []
