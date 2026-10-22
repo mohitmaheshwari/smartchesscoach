@@ -5279,7 +5279,22 @@ def find_line_payoff(
     for idx, (ours, _mv, cap, _chk, _m) in enumerate(steps):
         if not ours or cap is None:
             continue
-        if PIECE_VALUE_CP.get(cap, 0) < 320:
+        # "a knight or more", which is what the docstring above has always
+        # claimed this measures -- but PIECE_VALUE_CP prices a knight AND a
+        # bishop at 300, so a literal 320 excluded both of the pieces the
+        # sentence names. Only a rook or a queen could ever be a payoff.
+        #
+        # Mohit 2026-10-21, on the restored Kd1 card: "the payoff here was
+        # only at the knight itself, why did it add extra arrows and moves?"
+        # Exactly that. Qa1+ forks the king and the knight, Qxd4 collects it
+        # at index 2 -- and because a knight could not qualify, the chooser
+        # had to reach to index 6 to find a queen, drawing seven arrows
+        # through a queen trade when the lesson was three arrows long.
+        #
+        # The net test below is what actually stops a trade reading as a win,
+        # and it is unchanged: a knight grabbed and recaptured nets 0 and
+        # still fails. This only lets the piece the docstring names in.
+        if PIECE_VALUE_CP.get(cap, 0) < PIECE_VALUE_CP[chess.KNIGHT]:
             continue
         net = 0
         # include the opponent's answer to this capture, when the line has one
@@ -8375,7 +8390,14 @@ def build_move_teaching_decision(
     # material and the caption carries no why-bad yet, splice the concrete reason
     # into the severity sentence. feedback_mistake_must_explain_why. 2026-06-23.
     try:
-        if (inputs.mover_is_user and caption_facts.get("played_drops_material")
+        # Every card whose reply wins material on one square gets a sentence --
+        # the NET decides which sentence, never whether there is one. Mohit,
+        # 2026-10-22, on the first version of this guard, which suppressed the
+        # 3,267 cards where the material comes back: "why the hell silenced,
+        # why don't you fix things right way? it should tell what it really
+        # is... we are not live, so we have to fix things, not silence them."
+        if (inputs.mover_is_user
+                and caption_facts.get("played_material_story")
                 and caption_facts.get("played_drops_piece")
                 and caption_facts.get("played_drops_to_san")):
             _cap_wb2 = caption_payload.get("caption") or ""
@@ -8389,9 +8411,23 @@ def build_move_teaching_decision(
                 + r" is an? (?:mistake|major blunder|serious mistake|inaccuracy)",
                 _cap_wb2)
             if not _has_whybad and _sev_m:
-                _drop = (f"{_sev_m.group(0)} — it drops the "
-                         f"{caption_facts['played_drops_piece']} after "
-                         f"{caption_facts['played_drops_to_san']}")
+                _story = caption_facts.get("played_material_story")
+                _pc = caption_facts["played_drops_piece"]
+                _to = caption_facts["played_drops_to_san"]
+                _net = caption_facts.get("played_material_net_pawns")
+                if _story == "drops":
+                    _why = f"it drops the {_pc} after {_to}"
+                elif _story == "trades":
+                    _why = (f"it gives up the {_pc} after {_to}, and the "
+                            f"material comes back even")
+                else:
+                    # We come out AHEAD on material and the move is still a
+                    # mistake, so material is not the story. Say that plainly
+                    # rather than claim a loss the line refutes.
+                    _why = (f"it gives up the {_pc} after {_to} — you win that "
+                            f"material back, so the problem here is the "
+                            f"position, not the count")
+                _drop = f"{_sev_m.group(0)} — {_why}"
                 caption_payload["caption"] = (
                     _cap_wb2[:_sev_m.start()] + _drop + _cap_wb2[_sev_m.end():])
     except Exception as _wbad_exc:

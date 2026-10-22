@@ -11554,6 +11554,8 @@ def extract_facts(
     # that hangs material (e.g. Bc5 -> Nxc5) get a concrete why-bad instead of a
     # bare "is a mistake" + generic principle. Filled in the capture branch below.
     played_drops_material: bool = False
+    played_material_story: str = ""      # drops | trades | wins
+    played_material_net_pawns: Optional[int] = None
     played_drops_piece: Optional[str] = None
     played_drops_to_san: Optional[str] = None
     # Mohit 2026-06-06 (fb_22528b6266b1, Parth): when the played move is
@@ -11680,33 +11682,51 @@ def extract_facts(
                     # hanging" story. (A played CAPTURE that also drops material is
                     # a murkier net-trade; skip it to avoid confusing framing.)
                     _drop_see = static_exchange_eval(board_after, opp_mv.to_square, board_after.turn)
-                    # ...and the rest of the line must not hand it back.
+                    # ...and then SAY WHICH IT IS. Not whether to speak -- what
+                    # the truth is.
                     #
-                    # Mohit, 2026-10-22, on move 25 of game 73b06bdd: the card
-                    # read "Bd6+ is a major blunder — it drops the bishop after
-                    # Qxd6." White does lose the bishop on d6, and wins the rook
-                    # on g8 two plies later: 25.Bd6+ Qxd6 26.Qxg8+ ends +2 pawns
-                    # for White. The move IS bad — +513 to +69 — but not for
-                    # the reason the card gives, and a player reading it learns
-                    # "do not drop bishops" when the lesson is "do not trade
-                    # your attack away".
+                    # Mohit, 2026-10-22, on move 25 of game 73b06bdd, where the
+                    # card read "Bd6+ is a major blunder - it drops the bishop
+                    # after Qxd6". White loses the bishop on d6 and wins the rook
+                    # on g8 two plies later, ending +2 pawns. Measured over the
+                    # corpus: the claim fires on 19,036 user cards and 3,267 of
+                    # them (17.2%) end level or AHEAD. Two of them tell a player
+                    # they dropped a piece while the line leaves them SEVEN and
+                    # EIGHT pawns up.
                     #
-                    # SEE answers one square at one ply. The engine's own line
-                    # answers the question actually being asked, so walk it: if
-                    # we come out level or ahead, this is a trade and not a
-                    # drop. Same guard as move_reasoning._the_named_man_is_the_
-                    # story, for the same reason -- a claim about material has
-                    # to survive the material.
-                    _drop_ok = (_drop_see or 0) >= 100 and not board_before.is_capture(played_move)
-                    if _drop_ok:
-                        _after_line = _material_swing_pawns(
-                            board_after, pv_after_played, board_before.turn)
-                        if _after_line is not None and _after_line >= 0:
-                            _drop_ok = False
-                    if _drop_ok:
-                        played_drops_material = True
+                    # The first fix suppressed those 3,267, and Mohit was right
+                    # to reject it: "why the hell silenced, why don't you fix
+                    # things right way? it should tell what it really is... we
+                    # are not live, so we have to fix things, not silence them."
+                    # Silencing was also against a rule already on the books --
+                    # coverage is first-class, a mediocre caption beats silence,
+                    # and the truth bar is met by saying something TRUE, not by
+                    # saying nothing.
+                    #
+                    # So the net decides the WORD, and every one of these cards
+                    # still gets a sentence:
+                    #     net < 0   you lose material      -> "drops"
+                    #     net == 0  it is an even trade    -> "trades off"
+                    #     net > 0   you come out ahead     -> "wins material"
+                    # and in the last two the move is still a mistake, so the
+                    # card must look elsewhere for the reason -- which is the
+                    # honest outcome, not a missing one.
+                    _drop_see = static_exchange_eval(board_after, opp_mv.to_square, board_after.turn)
+                    if (_drop_see or 0) >= 100 and not board_before.is_capture(played_move):
                         played_drops_piece = opp_reply_captures_piece_type
                         played_drops_to_san = raw
+                        _net = _material_swing_pawns(
+                            board_after, pv_after_played, board_before.turn)
+                        played_material_net_pawns = _net
+                        if _net is None or _net < 0:
+                            # None = the line will not replay, so we cannot
+                            # refute the one-ply reading; keep it.
+                            played_drops_material = True
+                            played_material_story = "drops"
+                        elif _net == 0:
+                            played_material_story = "trades"
+                        else:
+                            played_material_story = "wins"
                 sim = board_after.copy()
                 sim.push(opp_mv)
 
@@ -12288,6 +12308,8 @@ def extract_facts(
         "played_to_square": played_to_square,
         # WHY-BAD enrichment (2026-06-23) — played move drops material to the reply.
         "played_drops_material": played_drops_material,
+        "played_material_story": played_material_story,
+        "played_material_net_pawns": played_material_net_pawns,
         "played_drops_piece": played_drops_piece,
         "played_drops_to_san": played_drops_to_san,
         # OPPONENT FAILURE-MODE (2026-06-06) — opp had a better move and

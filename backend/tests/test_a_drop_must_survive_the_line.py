@@ -16,10 +16,26 @@ Bd6#.
 
 `played_drops_material` was a ONE-PLY judgement: the opponent's first reply
 captures with SEE >= 100 and our move was not itself a capture. SEE answers
-one square at one ply; nothing looked at what we win back. So the fact now
-walks the engine's stored line and stands down when we come out level or
-ahead, using the same walker the reasoning framework uses rather than a
-second material counter.
+one square at one ply; nothing looked at what we win back.
+
+Measured over the corpus: the claim fires on 19,036 user cards, and on 3,267
+of them (17.2%) we end LEVEL OR AHEAD. Two say "drops the knight" and "drops
+the pawn" on lines that leave the player seven and eight pawns up.
+
+The first fix SUPPRESSED those 3,267, and Mohit rejected it:
+
+    "why the hell silenced, why don't you fix things right way?? it should
+     tell what it really is, are you getting me, we are not live, so we have
+     to fix things, not silence them, ever make it a global rule please"
+
+He was right, and it was already a rule on the books -- coverage is
+first-class and a mediocre caption beats silence. So the net now decides the
+WORD, never whether there is one:
+
+    net <  0   you lose material        -> "drops the X"
+    net == 0   an even trade            -> "gives up the X ... comes back even"
+    net >  0   you come out ahead       -> "you win that material back, so the
+                                           problem here is the position"
 """
 import sys
 from pathlib import Path
@@ -61,7 +77,7 @@ class TestTheBoardSaysWhatIClaim:
         assert _material_swing_pawns(a, LINE, b.turn) == 2
 
 
-class TestTheFactStandsDown:
+class TestItSaysWhichOfTheThreeItIs:
     def test_a_real_drop_is_still_called_a_drop(self):
         """The positive control, and the thing that matters most: this guard
         must not silence the honest cases.
@@ -112,3 +128,49 @@ class TestTheCardNoLongerSaysIt:
         ), CrossMoveState())
         caption = (getattr(d.text, "caption", "") or "").lower()
         assert "drops the bishop" not in caption, caption
+
+
+class TestEveryCardStillGetsASentence:
+    """Never silence. The net picks the word, not whether to speak.
+
+    This is the rule Mohit restated on 2026-10-22 and asked to be made
+    global: "we are not live, so we have to fix things, not silence them".
+    The first version of this guard removed the claim entirely on 3,267
+    cards, which trades a false sentence for no sentence -- and a learning
+    product loses either way.
+    """
+
+    def _facts_story(self, fen, played, line):
+        b = chess.Board(fen)
+        a = b.copy()
+        a.push(b.parse_san(played))
+        net = _material_swing_pawns(a, line, b.turn)
+        if net is None or net < 0:
+            return "drops", net
+        return ("trades" if net == 0 else "wins"), net
+
+    def test_a_real_loss_is_called_a_drop(self):
+        story, net = self._facts_story(
+            "rnbqkb1r/pppp1ppp/8/4n3/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+            "a6", ["dxe5", "a5", "Nf3"])
+        assert story == "drops" and net == -3
+
+    def test_coming_out_ahead_is_called_winning_it_back(self):
+        story, net = self._facts_story(BD6, "Bd6+", LINE)
+        assert story == "wins" and net == 2
+
+    def test_no_case_produces_an_empty_story(self):
+        """Whatever the net, there is always a word for it."""
+        for fen, played, line in (
+            (BD6, "Bd6+", LINE),
+            ("rnbqkb1r/pppp1ppp/8/4n3/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1",
+             "a6", ["dxe5", "a5", "Nf3"]),
+            (BD6, "Bd6+", ["not-a-move"]),
+        ):
+            story, _ = self._facts_story(fen, played, line)
+            assert story in ("drops", "trades", "wins"), (fen, played)
+
+    def test_an_unreplayable_line_keeps_the_original_claim(self):
+        """We cannot refute it, so we do not soften it either."""
+        story, net = self._facts_story(BD6, "Bd6+", ["not-a-move"])
+        assert net is None and story == "drops"
