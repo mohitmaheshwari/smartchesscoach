@@ -641,11 +641,11 @@ THE_EIGHT_STEPS: Tuple[Tuple[int, str, str], ...] = (
     (1, "expect a size", "_size_is_consistent"),
     (2, "two futures, and the reason is the difference", "_run_differential"),
     (3, "what we get to do in the better line", "q_blocked_a_plan"),
-    (4, "legal before, illegal after", "q_blocked_a_plan"),
-    (5, "is my own move in the way", "in_the_way"),
+    (4, "legal before, illegal after", "q_blocked_a_plan (same question)"),
+    (5, "is my own move in the way", "q_blocked_a_plan (its in_the_way fact)"),
     (6, "attack the story before shipping it", "challenge"),
     (7, "does the answer match the engine's number", "_size_is_consistent"),
-    (8, "one sentence a 1200 would use", ""),
+    (8, "one sentence a 1200 would use", "the caption layer"),
 )
 
 
@@ -696,48 +696,87 @@ class Report:
 
     def steps(self) -> List[Dict[str, Any]]:
         """The eight steps with what actually happened at each, derived from
-        this report alone -- never from a list the page keeps."""
+        this report alone -- never from a list the page keeps.
+
+        Three states, not two, because the first version had only two and it
+        misled the first person to read it. Mohit asked "why step 3, 4 and 5
+        are not working?" -- and they were working. They are PERFORMED on
+        every card and they FIND something on 3.5% of them, and a display
+        that renders both as "not reached" is the same error as the rejection
+        counter that printed three different reasons under one label.
+
+            step 3/4 question asked      20,172  100% of cards it ran on
+            step 3/4 question answered      761    3.5%
+            step 5 fact computed            761    3.5%   <- identical
+            step 5 fact true                736    3.4%
+
+        That identical 761 is a real finding and worth keeping visible:
+        `in_the_way` is only ever computed inside q_blocked_a_plan's answer,
+        so steps 3, 4 and 5 are ONE question wearing three labels. The
+        eight-step framing implies eight independent checks; there are about
+        five. `by` says so now rather than leaving it to be rediscovered.
+        """
         prim = self.primary
         all_f = self.findings + self.rejected
         if self.declined:
-            return [{"step": num, "name": name, "by": by, "ran": False,
+            return [{"step": num, "name": name, "by": by,
+                     "performed": False, "found": False, "ran": False,
                      "note": "stood down: " + self.declined}
                     for num, name, by in THE_EIGHT_STEPS]
         size = [f for f in all_f if f.size_problem]
         chal = [f for f in all_f if f.challenged]
         plan = [f for f in all_f if f.concept == "blocked_a_plan"]
+        claims = [f for f in all_f if f.facts]
         out: List[Dict[str, Any]] = []
         for num, name, by in THE_EIGHT_STEPS:
-            note, ran = "", False
+            # performed: the check was carried out at all.
+            # found    : it produced something.
+            performed, found, note = True, False, ""
             if num == 1:
-                ran = True
+                found = bool(size)
                 note = (f"refused {len(size)} answer(s) as the wrong size"
-                        if size else "no answer was the wrong size")
+                        if size else "every answer was a plausible size")
             elif num == 2:
-                ran = bool(all_f)
-                note = (f"compared {len(all_f)} answer(s) after {self.played_san}"
-                        f" against after {self.best_san or '(no better move)'}")
+                performed = bool(all_f)
+                found = bool(all_f)
+                note = (f"compared {len(all_f)} answer(s) after "
+                        f"{self.played_san} against after "
+                        f"{self.best_san or '(no better move)'}"
+                        if all_f else
+                        "no question answered, so there was nothing to compare")
             elif num in (3, 4):
-                ran = bool(plan)
-                note = ("a plan question answered" if plan
-                        else "no plan question answered")
+                found = bool(plan)
+                note = ("the plan question answered" if plan else
+                        "asked on this card and found nothing")
             elif num == 5:
-                ran = any(f.facts.get("in_the_way") for f in all_f)
-                note = "our own move blocked the square" if ran else "not reached"
+                # Only computed when the plan question answers: it is that
+                # question's own fact, not a separate check.
+                performed = any("in_the_way" in f.facts for f in all_f)
+                found = any(f.facts.get("in_the_way") for f in all_f)
+                note = ("our own move stood on the square" if found else
+                        "our move was not in the way" if performed else
+                        "only computed when the plan question answers")
             elif num == 6:
-                ran = True
+                found = bool(chal)
                 note = (f"broke {len(chal)} answer(s) on their own premise"
                         if chal else "every premise held")
             elif num == 7:
-                ran = any(f.facts for f in all_f)
+                performed = bool(claims)
+                found = bool(size)
                 note = (f"{len(size)} claim(s) did not match the number"
-                        if size else "claims matched the engine's number")
+                        if size else
+                        f"{len(claims)} claim(s) matched the engine's number"
+                        if claims else "no claim to size up")
+                note = note if claims or size else "no claim to size up"
             elif num == 8:
-                ran = bool(prim)
+                performed = True
+                found = bool(prim)
                 note = ("handed to the caption layer" if prim
-                        else "nothing survived to say")
+                        else "nothing survived, so the engine says nothing")
             out.append({"step": num, "name": name, "by": by,
-                        "ran": ran, "note": note})
+                        "performed": performed, "found": found,
+                        # kept so an older reader does not silently see False
+                        "ran": performed, "note": note})
         return out
 
 

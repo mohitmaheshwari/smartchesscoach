@@ -64,33 +64,56 @@ const Panel = ({ title, children, right = null }) => (
   </section>
 );
 
-/** The eight steps, exactly as the engine reported them. */
+/** The eight steps, exactly as the engine reported them.
+ *
+ * Three states, not two. Mohit asked "why step 3, 4 and 5 are not working?"
+ * and they were working: performed on every card, finding something on 3.5%.
+ * The first version rendered both as "not reached", which is the same error
+ * as a counter printing three different reasons under one label.
+ *
+ *   found         the check ran and produced something
+ *   looked        the check ran and found nothing  (NOT a failure)
+ *   not performed it could not run here, and the note says why
+ */
 const Steps = ({ steps }) => (
   <ol className="space-y-1">
-    {steps.map((s) => (
-      <li
-        key={s.step}
-        className="grid grid-cols-[1.4rem_minmax(0,1fr)_auto] items-start gap-3 rounded px-2 py-1.5 text-sm odd:bg-slate-900/40"
-      >
-        <span className="pt-0.5 font-mono text-xs text-slate-500">{s.step}</span>
-        <span className="min-w-0">
-          <span className={s.ran ? "text-slate-200" : "text-slate-500"}>
-            {s.name}
+    {steps.map((s) => {
+      const performed = s.performed ?? s.ran;
+      return (
+        <li
+          key={s.step}
+          className="grid grid-cols-[1.4rem_minmax(0,1fr)_auto] items-start gap-3 rounded px-2 py-1.5 text-sm odd:bg-slate-900/40"
+        >
+          <span className="pt-0.5 font-mono text-xs text-slate-500">{s.step}</span>
+          <span className="min-w-0">
+            <span className={performed ? "text-slate-200" : "text-slate-500"}>
+              {s.name}
+            </span>
+            <span className="block text-xs text-slate-500">
+              {s.note}
+              {s.by ? (
+                <span className="ml-2 font-mono text-slate-600">{s.by}</span>
+              ) : null}
+            </span>
           </span>
-          <span className="block text-xs text-slate-500">
-            {s.note}
-            {s.by ? <span className="ml-2 font-mono text-slate-600">{s.by}</span> : null}
+          <span className="whitespace-nowrap pt-0.5 text-[11px]">
+            {s.found ? (
+              <span className="flex items-center gap-1 text-emerald-400">
+                <Check className="h-4 w-4" /> found
+              </span>
+            ) : performed ? (
+              <span className="flex items-center gap-1 text-slate-400">
+                <Minus className="h-4 w-4" /> looked
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-slate-600">
+                <Minus className="h-4 w-4" /> n/a
+              </span>
+            )}
           </span>
-        </span>
-        <span className="pt-0.5">
-          {s.ran ? (
-            <Check className="h-4 w-4 text-emerald-400" aria-label="ran" />
-          ) : (
-            <Minus className="h-4 w-4 text-slate-600" aria-label="not reached" />
-          )}
-        </span>
-      </li>
-    ))}
+        </li>
+      );
+    })}
   </ol>
 );
 

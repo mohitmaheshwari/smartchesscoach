@@ -77,14 +77,15 @@ class TestTheStepsComeFromTheEngine:
         rep = reason_about(study())
         assert [s["step"] for s in rep.steps()] == [1, 2, 3, 4, 5, 6, 7, 8]
 
-    def test_a_step_nothing_runs_is_reported_as_not_run(self):
-        """Steps 3-5 are the plan questions. On this card no plan question
-        answers, and the page must say so rather than imply it ran. If these
-        ever read `ran` on every sample, the engine has fewer working steps
-        than the documentation claims."""
+    def test_a_step_that_finds_nothing_is_reported_as_finding_nothing(self):
+        """Rewritten deliberately. It used to assert step 3 reported `ran:
+        False` on this card, which is what made me tell Mohit the engine had
+        fewer working steps than the docs claim. Step 3 IS performed on every
+        card -- it just finds nothing here, and those are different facts."""
         steps = {s["step"]: s for s in reason_about(study()).steps()}
-        assert steps[3]["ran"] is False
-        assert "no plan question answered" in steps[3]["note"]
+        assert steps[3]["performed"] is True
+        assert steps[3]["found"] is False
+        assert "found nothing" in steps[3]["note"]
 
     def test_step_eight_is_honest_about_having_nothing_to_say(self):
         """A move the engine cannot explain must not report a sentence."""
@@ -94,7 +95,7 @@ class TestTheStepsComeFromTheEngine:
             mover_is_user=True))
         step8 = next(s for s in rep.steps() if s["step"] == 8)
         assert rep.resolved is False
-        assert step8["ran"] is False
+        assert step8["found"] is False
         assert "nothing survived" in step8["note"]
 
     def test_the_step_names_live_with_the_engine(self):
@@ -224,3 +225,55 @@ class TestTheShippedCardLeads:
             "8/8/8/8/8/8/8/K6k w - - 0 1", "Ka2")
         assert got["found"] is False
         assert "no card" in got["why"]
+
+
+class TestAStepThatLooksAndFindsNothingSaysSo:
+    """Mohit: "why step 3, 4 and 5 are not working?"
+
+    They were working. Measured over 21,746 cards:
+
+        framework ran                   20,172
+        step 3/4 question ASKED         20,172   every card it ran on
+        step 3/4 question ANSWERED         761    3.5%
+        step 5 fact COMPUTED               761    3.5%   <- identical
+        step 5 fact TRUE                   736    3.4%
+
+    The display rendered "asked and found nothing" and "never performed" as
+    the same "not reached", so a reader could only conclude the steps were
+    dead. The page even contradicted itself: the questions table showed
+    blocked_a_plan as ASKED while the steps table said step 3 was not
+    reached.
+
+    The identical 761 is the real finding and is kept visible: `in_the_way`
+    is only computed inside q_blocked_a_plan's answer, so steps 3, 4 and 5
+    are ONE question wearing three labels.
+    """
+
+    def test_a_step_that_was_asked_reports_performed(self):
+        rep = reason_about(study())
+        s3 = next(s for s in rep.steps() if s["step"] == 3)
+        assert s3["performed"] is True, "it IS asked on every card"
+        assert s3["found"] is False, "and it finds nothing on this one"
+        assert "found nothing" in s3["note"]
+
+    def test_the_steps_table_agrees_with_the_questions_table(self):
+        """The contradiction that made this visible: if the question is listed
+        as asked, the step must not claim it never ran."""
+        rep = reason_about(study())
+        asked = {a.concept for a in rep.asked}
+        s3 = next(s for s in rep.steps() if s["step"] == 3)
+        assert ("blocked_a_plan" in asked) == s3["performed"]
+
+    def test_step_five_is_honest_that_it_rides_on_step_three(self):
+        rep = reason_about(study())
+        s5 = next(s for s in rep.steps() if s["step"] == 5)
+        assert s5["performed"] is False
+        assert "only computed when the plan question answers" in s5["note"]
+        assert "blocked_a_plan" in s5["by"], (
+            "the attribution must say the three share one question")
+
+    def test_found_implies_performed_for_every_step(self):
+        for pv in (("Bxd4", "Qe3", "Bf6"), ("Bxd4", "Kh1", "Bxc3")):
+            for s in reason_about(study(pv=pv)).steps():
+                if s["found"]:
+                    assert s["performed"], s
