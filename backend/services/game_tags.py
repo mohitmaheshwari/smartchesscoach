@@ -75,10 +75,22 @@ async def ensure_game_tag_indexes(db) -> None:
     await index.create_index("tags")
     await index.create_index([("user_id", 1), ("tags", 1)])
     # "Regenerated only" in the Review Queue scans for this field. Without an
-    # index it read every 301 KB analysis (60 s, at the gateway's limit);
-    # with game_id in the index the query never touches a document.
+    # index it read every 301 KB analysis (60 s, at the gateway's limit).
+    #
+    # PARTIAL, not sparse: a sparse compound index holds every document that
+    # has ANY of its fields, and every analysis has a game_id, so the first
+    # (sparse) version indexed all 19,032 and the query still opened each one
+    # (28 s). The partial index holds only analyses that were regenerated,
+    # so the query is answered from the index alone.
+    info = await db.game_analyses.index_information()
+    if "decryption_v5_regen_at_1_game_id_1" in info and info[
+            "decryption_v5_regen_at_1_game_id_1"].get("sparse"):
+        await db.game_analyses.drop_index("decryption_v5_regen_at_1_game_id_1")
     await db.game_analyses.create_index(
-        [("decryption_v5_regen_at", 1), ("game_id", 1)], sparse=True)
+        [("decryption_v5_regen_at", 1), ("game_id", 1)],
+        name="regen_at_game_id_partial",
+        partialFilterExpression={"decryption_v5_regen_at": {"$exists": True}},
+    )
 
 
 def tag_index_doc(game_id: str, user_id: Optional[str], tags: Optional[Mapping[str, Any]]) -> Dict[str, Any]:

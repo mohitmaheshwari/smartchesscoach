@@ -17,6 +17,7 @@ via routes.auth.User. See scripts/grant_reviewer_to_parth.py.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 import re
 from typing import Optional
 
@@ -34,6 +35,14 @@ db = None
 def set_db(database):
     global db
     db = database
+
+
+# "Regenerated" as a date range, not {"$exists": True}: an index cannot prove
+# a field exists, so $exists opened every matching 301 KB analysis, while a
+# range on the partial (decryption_v5_regen_at, game_id) index is answered
+# from the index alone -- 0 documents read, 0.09 s for 5,249 games, measured
+# 2026-10-22. Every stored value is a date.
+_REGENERATED = {"decryption_v5_regen_at": {"$gte": datetime(1970, 1, 1)}}
 
 
 def _require_reviewer(user: User) -> None:
@@ -116,7 +125,7 @@ async def list_review_games(
     if regenerated_only:
         regen_ids = []
         async for a in db.game_analyses.find(
-            {"decryption_v5_regen_at": {"$exists": True}},
+            _REGENERATED,
             {"_id": 0, "game_id": 1, "decryption_v5_regen_at": 1},
         ):
             gid = a.get("game_id")
@@ -346,7 +355,7 @@ async def list_review_owners(
     if regenerated_only:
         regen_game_ids = set()
         async for a in db.game_analyses.find(
-            {"decryption_v5_regen_at": {"$exists": True}},
+            _REGENERATED,
             {"_id": 0, "game_id": 1},
         ):
             gid = a.get("game_id")
