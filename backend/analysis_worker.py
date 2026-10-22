@@ -2045,9 +2045,12 @@ def process_job(db, job):
                 game=game,
                 opening_deviation=analysis_doc.get("opening_deviation"),
             )
+            from services.game_story import story_storage_fields
+            # The story and its tag ids, the latter top-level so games can be
+            # searched by tag (services.game_tags).
             db.game_analyses.update_one(
                 {"game_id": game_id},
-                {"$set": {"game_story": _story}},
+                {"$set": story_storage_fields(_story)},
             )
             logger.info(
                 "[GAME-STORY] %s: headline=%s moments=%d spans=%d empty=%s",

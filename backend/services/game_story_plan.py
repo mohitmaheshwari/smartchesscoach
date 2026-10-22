@@ -83,7 +83,8 @@ def _score(event: Mapping[str, Any]) -> int:
     kind = event.get("kind")
     if kind == "your_mistake":
         score = 5 if event.get("decisive") else {"blunder": 3, "serious": 3}.get(event.get("tier"), 2)
-        if (event.get("danger") or {}).get("kind") in ("queen_trapped", "queen_lost", "mate_allowed"):
+        if (event.get("danger") or {}).get("kind") in (
+                "queen_trapped", "queen_lost", "mate_allowed", "rook_trapped"):
             score += 1
         if event.get("punished") is False:
             score += 1
@@ -183,6 +184,13 @@ def _mistake_text(e: Mapping[str, Any], name: Optional[str]) -> str:
         if found_it:
             return f"{san} let them win your queen with {reply}."
         return f"{san} was a big mistake. {reply} would have won your queen."
+    if kind == "rook_trapped":
+        if let_off:
+            return (f"{san} nearly cost you a rook. After {reply}, it would have had "
+                    f"no safe square. They played {their} instead.")
+        if found_it:
+            return f"{san} let {reply} trap your rook, and they found it."
+        return f"{san} was a big mistake. {reply} would have trapped your rook."
     if kind == "mate_allowed":
         if let_off:
             return f"{san} allowed a forced mate. They missed it and played {their}."
@@ -280,6 +288,23 @@ def _the(name: str) -> str:
     return name if name.lower().startswith("the ") else f"the {name}"
 
 
+def opening_verdict(opening: Mapping[str, Any]) -> str:
+    """perfect / well / better / worse / level. The one rule the story line
+    and the game tags both read, so they cannot disagree."""
+    costliest = opening.get("costliest") or {}
+    cost = int(costliest.get("cp_loss") or 0)
+    end = opening.get("eval_at_end")
+    if opening.get("every_move_engine_best") and opening.get("name"):
+        return "perfect"
+    if cost < _OPENING_SMALL and end is not None and end >= -_OPENING_SMALL:
+        return "well"
+    if end is not None and end >= 100:
+        return "better"
+    if end is not None and end <= -100:
+        return "worse"
+    return "level"
+
+
 def opening_lines(opening: Mapping[str, Any]) -> List[Dict[str, Any]]:
     name = opening.get("name")
     if not name or name == "Other":
@@ -288,18 +313,14 @@ def opening_lines(opening: Mapping[str, Any]) -> List[Dict[str, Any]]:
         label = _the(name)
     costliest = opening.get("costliest") or {}
     cost = int(costliest.get("cp_loss") or 0)
-    end = opening.get("eval_at_end")
-    lines = []
-    if opening.get("every_move_engine_best") and name:
-        lines.append(f"You played {label} perfectly. Every move was the engine's choice.")
-    elif cost < _OPENING_SMALL and end is not None and end >= -_OPENING_SMALL:
-        lines.append(f"You played {label} well.")
-    elif end is not None and end >= 100:
-        lines.append(f"You came out of {label} with the better position.")
-    elif end is not None and end <= -100:
-        lines.append(f"You came out of {label} worse.")
-    else:
-        lines.append(f"{label[0].upper()}{label[1:]} gave a level position.")
+    verdict = opening_verdict(opening)
+    lines = [{
+        "perfect": f"You played {label} perfectly. Every move was the engine's choice.",
+        "well": f"You played {label} well.",
+        "better": f"You came out of {label} with the better position.",
+        "worse": f"You came out of {label} worse.",
+        "level": f"{label[0].upper()}{label[1:]} gave a level position.",
+    }[verdict]]
     if cost >= _OPENING_COSTLY and costliest.get("san") and costliest.get("best") \
             and costliest.get("best") != costliest.get("san"):
         lines.append(f"{costliest['san']} was the costly move. {costliest['best']} was better.")
@@ -437,6 +458,7 @@ def coach_note(e: Mapping[str, Any], names) -> Dict[str, Any]:
         if danger.get("reply"):
             proof = {
                 "queen_trapped": f"After {danger['reply']}, every square your queen could reach was covered.",
+                "rook_trapped": f"After {danger['reply']}, every square your rook could reach was covered.",
                 "queen_lost": f"{danger['reply']} wins your queen in the engine's line.",
                 "mate_allowed": f"{danger['reply']} starts a forced mate.",
             }.get(danger.get("kind"), f"Their strongest reply was {danger['reply']}.")

@@ -57,6 +57,11 @@ async def list_review_games(
                     "the latest V5 code (decryption_v5_regen_at is set). Default "
                     "True so reviewers don't waste cycles flagging stale captions."
     ),
+    tags: Optional[str] = Query(
+        None,
+        description="Comma-separated game tags (services/game_tags.py); a game "
+                    "must carry all of them, e.g. user_queen_trapped_opponent_missed",
+    ),
 ):
     """
     Paginated list of games for review. Reviewer-only. Designed to be
@@ -131,6 +136,23 @@ async def list_review_games(
             }
         flt["game_id"] = {"$in": regen_ids}
 
+    # Game tags (2026-10-22): the games carrying every requested tag, from
+    # the indexed game_analyses.game_tags, intersected with the rest.
+    tag_list = [t.strip() for t in (tags or "").split(",") if t.strip()]
+    if tag_list:
+        tag_query = {"game_tags": {"$all": tag_list}}
+        if user_id:
+            tag_query["user_id"] = user_id
+        tagged = {
+            a["game_id"]
+            async for a in db.game_analyses.find(tag_query, {"_id": 0, "game_id": 1})
+            if a.get("game_id")
+        }
+        if "game_id" in flt:
+            flt["game_id"] = {"$in": [g for g in flt["game_id"]["$in"] if g in tagged]}
+        else:
+            flt["game_id"] = {"$in": list(tagged)}
+
     skip = (page - 1) * page_size
 
     total = await db.games.count_documents(flt)
@@ -174,6 +196,8 @@ async def list_review_games(
             "stockfish_analysis.blunders": 1,
             "stockfish_analysis.mistakes": 1,
             "stockfish_analysis.accuracy": 1,
+            "game_tags": 1,
+            "game_story.tags.moves": 1,
         }
     ):
         sf = a.get("stockfish_analysis") or {}
@@ -181,6 +205,8 @@ async def list_review_games(
             "blunders": sf.get("blunders", 0),
             "mistakes": sf.get("mistakes", 0),
             "accuracy": sf.get("accuracy", 0),
+            "game_tags": a.get("game_tags") or [],
+            "game_tag_moves": ((a.get("game_story") or {}).get("tags") or {}).get("moves") or {},
         }
 
     # Flag counts from move_feedback collection. context.game_id is the
@@ -241,6 +267,8 @@ async def list_review_games(
             "accuracy": round(stats.get("accuracy", 0) or 0, 1),
             "flag_count": flag_count_by_game.get(g.get("game_id"), 0),
             "regenerated_at": regen_at_val,
+            "game_tags": stats.get("game_tags", []),
+            "game_tag_moves": stats.get("game_tag_moves", {}),
         })
 
     return {
@@ -251,6 +279,33 @@ async def list_review_games(
         "has_more": (skip + len(enriched)) < total,
         "regenerated_only": regenerated_only,
         "regenerated_total": len(regen_at_by_game) if regenerated_only else None,
+    }
+
+
+@router.get("/reviewer/game-tags")
+async def list_game_tags(
+    user: User = Depends(get_current_user),
+    user_id: Optional[str] = Query(None, description="Count one player's games only"),
+):
+    """Every game tag and how many games carry it, for the filter chips.
+
+    Read from the indexed game_analyses.game_tags written with each game's
+    story (services/game_tags.py). Reviewer-only, like the game list.
+    """
+    _require_reviewer(user)
+    match = {"game_tags": {"$exists": True, "$ne": []}}
+    if user_id:
+        match["user_id"] = user_id
+    counts = await db.game_analyses.aggregate([
+        {"$match": match},
+        {"$unwind": "$game_tags"},
+        {"$group": {"_id": "$game_tags", "games": {"$sum": 1}}},
+        {"$sort": {"games": -1, "_id": 1}},
+    ]).to_list(length=None)
+    tagged_games = await db.game_analyses.count_documents(match)
+    return {
+        "tags": [{"id": c["_id"], "games": c["games"]} for c in counts],
+        "tagged_games": tagged_games,
     }
 
 

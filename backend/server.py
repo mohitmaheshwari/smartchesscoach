@@ -421,6 +421,12 @@ async def lifespan(app: FastAPI):
         logger.error(f"Error initializing Game Review prescription indexes: {e}")
 
     try:
+        from services.game_tags import ensure_game_tag_indexes
+        await ensure_game_tag_indexes(db)
+    except Exception as e:
+        logger.error(f"Error initializing game tag indexes: {e}")
+
+    try:
         from services.coach_today_position import ensure_answer_indexes
         await ensure_answer_indexes(db)
     except Exception as e:

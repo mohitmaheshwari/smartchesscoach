@@ -261,6 +261,12 @@ class _Collection:
         return _Cursor(r for r in self.rows
                        if all(r.get(k) == v for k, v in query.items()))
 
+    async def update_one(self, query, update):
+        for row in self.rows:
+            if all(row.get(k) == v for k, v in query.items()):
+                row.update(update.get("$set") or {})
+                return
+
 
 class _Db:
     def __init__(self, analyses, observations=()):
@@ -299,6 +305,10 @@ class TestTheLoader:
         # The ledger story rides along with every rebuilt story.
         assert result["plan"] is not None
         assert result["plan"]["chapters"][-1]["id"] == "finish"
+        # And it is written back with its tags, so the game becomes searchable.
+        stored = db.game_analyses.rows[0]
+        assert stored["game_story"]["schema_version"] == result["schema_version"]
+        assert "result_loss" in stored["game_tags"]
 
     def test_no_analysis_at_all_is_none(self):
         assert self._run(_Db([])) is None

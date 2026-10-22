@@ -66,7 +66,10 @@ from services.severity import classify_severity_practical
 #
 # v6, 2026-10-22: the ledger records opponent knights, rooks and queens the
 # player shut in, credited only when the player caused it and it mattered.
-SCHEMA_VERSION = "game_story.v6"
+#
+# v7, 2026-10-22: rook traps in the ledger, and game tags
+# (services.game_tags), stored as game_analyses.game_tags for search.
+SCHEMA_VERSION = "game_story.v7"
 
 MAX_MOMENTS = 3          # the headline plus two
 MAX_SPANS = 2
@@ -558,16 +561,32 @@ def attach_plan(
             opening_deviation=opening_deviation,
             phase_exit_move=opening_phase_exit_move(game.get("pgn")),
         )
+        from services.game_tags import derive_game_tags
+
         story["ledger"] = ledger
         story["plan"] = plan_story(ledger, names=names)
+        story["tags"] = derive_game_tags(ledger, story["plan"])
     except Exception:
         import logging
         logging.getLogger(__name__).warning("game story plan failed", exc_info=True)
         story["plan"] = None
+        story["tags"] = None
     return story
 
 
-async def story_for_game(db, game: Mapping[str, Any]) -> Optional[Dict[str, Any]]:
+def story_storage_fields(story: Mapping[str, Any]) -> Dict[str, Any]:
+    """What is written to game_analyses for a story: the story itself, and
+    its tag ids as a top-level field so they can be indexed and searched."""
+    tags = story.get("tags") or {}
+    clean = {k: v for k, v in story.items() if k != "source"}
+    return {
+        "game_story": clean,
+        "game_tags": list(tags.get("ids") or []),
+        "game_tags_version": tags.get("version"),
+    }
+
+
+async def story_for_game(db, game: Mapping[str, Any], *, persist: bool = True) -> Optional[Dict[str, Any]]:
     """The story for one game, read from storage or rebuilt. The one loader.
 
     `game` needs `game_id`, `user_id`, `user_color` and `result`. Returns None
@@ -637,4 +656,14 @@ async def story_for_game(db, game: Mapping[str, Any]) -> Optional[Dict[str, Any]
     )
     attach_plan(story, move_evaluations=move_evaluations, observations=observations,
                 game=game, opening_deviation=(analysis or {}).get("opening_deviation"))
+    # Write the rebuilt story back, so the next read is a plain read and the
+    # game becomes searchable by its tags. Derived data only; a failed write
+    # costs nothing but the next rebuild.
+    if persist:
+        try:
+            await db.game_analyses.update_one(
+                {"game_id": game_id}, {"$set": story_storage_fields(story)})
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning("could not store rebuilt game story", exc_info=True)
     return {**story, "source": "recomputed"}

@@ -7,6 +7,11 @@
  * dashboard not suited for browsing thousands of games.
  *
  * Access: server returns 403 unless user.is_reviewer === true.
+ *
+ * Game tags (2026-10-22, services/game_tags.py): pick tags to find games by
+ * what happened in them -- "user_queen_trapped_opponent_missed",
+ * "user_trapped_opponent_knight", "opening_caro_kann" -- for one player or the
+ * whole community. A tag chip on a row opens the game at the move behind it.
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -32,6 +37,12 @@ const resultLabel = (r) => {
   return { text: s || "—", className: "text-muted-foreground" };
 };
 
+// "user_queen_trapped_opponent_missed" -> "queen trapped, opponent missed".
+const tagLabel = (id) => String(id || "")
+  .replace(/^user_/, "")
+  .replace(/_opponent_(missed|punished)$/, ", opponent $1")
+  .replace(/_/g, " ");
+
 const ReviewQueue = ({ user }) => {
   const navigate = useNavigate();
 
@@ -48,6 +59,8 @@ const ReviewQueue = ({ user }) => {
   const [hasBugsFilter, setHasBugsFilter] = useState("all"); // all | yes | no
   const [openingDraft, setOpeningDraft] = useState("");
   const [regeneratedOnly, setRegeneratedOnly] = useState(true);
+  const [tagFilter, setTagFilter] = useState([]);
+  const [tagCounts, setTagCounts] = useState([]);
 
   const fetchGames = useCallback(async () => {
     setLoading(true);
@@ -55,9 +68,12 @@ const ReviewQueue = ({ user }) => {
       const params = new URLSearchParams({
         page: String(page),
         page_size: String(PAGE_SIZE),
-        regenerated_only: String(regeneratedOnly),
+        // Tags are about what happened in a game, not caption freshness, so
+        // a tag search looks at every analysed game.
+        regenerated_only: String(tagFilter.length ? false : regeneratedOnly),
       });
       if (ownerFilter) params.set("user_id", ownerFilter);
+      if (tagFilter.length) params.set("tags", tagFilter.join(","));
       if (openingFilter) params.set("opening", openingFilter);
       if (hasBugsFilter !== "all") params.set("has_bugs", hasBugsFilter);
 
@@ -77,7 +93,7 @@ const ReviewQueue = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, ownerFilter, openingFilter, hasBugsFilter, regeneratedOnly]);
+  }, [page, ownerFilter, openingFilter, hasBugsFilter, regeneratedOnly, tagFilter]);
 
   useEffect(() => {
     (async () => {
@@ -99,6 +115,21 @@ const ReviewQueue = ({ user }) => {
   useEffect(() => {
     fetchGames();
   }, [fetchGames]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const q = ownerFilter ? `?user_id=${encodeURIComponent(ownerFilter)}` : "";
+        const res = await fetch(`${API}/reviewer/game-tags${q}`, { credentials: "include" });
+        if (res.ok) {
+          const j = await res.json();
+          setTagCounts(j.tags || []);
+        }
+      } catch (e) {
+        console.error("game tags fetch failed", e);
+      }
+    })();
+  }, [ownerFilter]);
 
   if (accessError) {
     return (
@@ -201,7 +232,43 @@ const ReviewQueue = ({ user }) => {
             </label>
           </div>
 
-          {(ownerFilter || openingFilter || hasBugsFilter !== "all" || !regeneratedOnly) && (
+          <div data-testid="tag-filter">
+            <label className="block text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Game tags</label>
+            <select
+              className="bg-background border border-border/60 rounded-md text-sm px-2 py-1 min-w-[260px]"
+              value=""
+              onChange={(e) => {
+                const id = e.target.value;
+                if (id && !tagFilter.includes(id)) { setTagFilter([...tagFilter, id]); setPage(1); }
+              }}
+              data-testid="tag-filter-select"
+            >
+              <option value="">Add a tag ({tagCounts.length})</option>
+              {/* Rarest first: the rare tags are the ones worth searching for. */}
+              {[...tagCounts].sort((a, b) => a.games - b.games).map((t) => (
+                <option key={t.id} value={t.id} disabled={tagFilter.includes(t.id)}>
+                  {tagLabel(t.id)} ({t.games})
+                </option>
+              ))}
+            </select>
+            {tagFilter.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5 max-w-[420px]">
+                {tagFilter.map((id) => (
+                  <button
+                    key={id}
+                    onClick={() => { setTagFilter(tagFilter.filter((t) => t !== id)); setPage(1); }}
+                    className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] hover:bg-primary/20"
+                    title="Remove this tag"
+                    data-testid="tag-filter-chip"
+                  >
+                    {tagLabel(id)} ×
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {(ownerFilter || openingFilter || hasBugsFilter !== "all" || !regeneratedOnly || tagFilter.length > 0) && (
             <button
               onClick={() => {
                 setOwnerFilter("");
@@ -209,6 +276,7 @@ const ReviewQueue = ({ user }) => {
                 setOpeningDraft("");
                 setHasBugsFilter("all");
                 setRegeneratedOnly(true);
+                setTagFilter([]);
                 setPage(1);
               }}
               className="ml-auto text-xs text-muted-foreground hover:text-foreground underline self-end"
@@ -255,8 +323,34 @@ const ReviewQueue = ({ user }) => {
                     {g.user_color} · {fmtDate(g.imported_at)}
                   </div>
                 </div>
-                <div className="truncate text-foreground/80">
-                  {g.opening || <span className="text-muted-foreground/40">—</span>}
+                <div className="min-w-0 text-foreground/80">
+                  <div className="truncate">
+                    {g.opening || <span className="text-muted-foreground/40">—</span>}
+                  </div>
+                  {(g.game_tags || []).filter((t) => t.startsWith("user_")).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-0.5" data-testid="game-tag-chips">
+                      {(g.game_tags || []).filter((t) => t.startsWith("user_"))
+                        .sort((a, b) => Number(tagFilter.includes(b)) - Number(tagFilter.includes(a)))
+                        .slice(0, 4).map((t) => {
+                        const ref = (g.game_tag_moves || {})[t]?.[0];
+                        return (
+                          <button
+                            key={t}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/lab/game/${g.game_id}${ref ? `?move=${ref.move_number}` : ""}`);
+                            }}
+                            className={`px-1.5 rounded text-[10px] ${
+                              tagFilter.includes(t) ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                            } hover:text-foreground`}
+                            title={ref ? `Open at ${ref.san}` : tagLabel(t)}
+                          >
+                            {tagLabel(t)}{ref ? ` · ${ref.san}` : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 <div className="truncate text-muted-foreground">
                   {g.opponent}
