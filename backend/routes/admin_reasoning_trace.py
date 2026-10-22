@@ -133,10 +133,61 @@ def _ask_the_engine(fen: str, played: str) -> Dict[str, Any]:
     return out
 
 
+def _shipped_card(analysis: Optional[Dict[str, Any]],
+                  fen: str, played: str) -> Dict[str, Any]:
+    """The card the PLAYER actually sees, read from the stored V5 render.
+
+    This exists because of the first card Mohit opened on this page. It read
+    `returns_home` -- a SYMPTOM about a piece going back -- on a move whose
+    whole story was a free pawn on g7, and he reasonably concluded the product
+    was broken. It is not. The shipped caption for that exact card says:
+
+        "Opponent's Qg3 is a mistake -- they had Qxg7, grabbing your pawn on
+         g7 for free. Play O-O -- it tucks your king away from the middle."
+
+    The page was showing a parallel engine that reaches no player, next to a
+    note saying it reaches no player, and that note was nowhere near enough.
+    So the shipped caption leads now and the framework trace is explicitly
+    secondary. The scope doc asked this exact question and V1 answered it
+    wrongly; one real card settled it in minutes.
+
+    Matched on fen_before, which identifies a ply uniquely, with move_san as
+    the tie-break.
+    """
+    out: Dict[str, Any] = {"found": False, "why": "", "caption": None}
+    cards = (analysis or {}).get("decryption_v5_data") or []
+    if not isinstance(cards, list) or not cards:
+        out["why"] = ("This game has no stored V5 render, so there is no "
+                      "shipped card to compare against.")
+        return out
+    hit = next((c for c in cards if c.get("fen_before") == fen), None) \
+        or next((c for c in cards if str(c.get("move_san") or "") == played),
+                None)
+    if hit is None:
+        out["why"] = ("The game is rendered but this ply has no card -- the "
+                      "V5 pass does not card every move.")
+        return out
+    expl = hit.get("caption_explanation") or {}
+    ver = hit.get("caption_verification") or {}
+    out.update({
+        "found": True,
+        "caption": hit.get("caption"),
+        "tier": hit.get("caption_tier"),
+        "provenance": list(expl.get("provenance") or []),
+        "confidence": expl.get("confidence"),
+        "verified": ver.get("verdict"),
+        "rollout_mode": expl.get("rollout_mode"),
+        "primary_reason": hit.get("caption_facts_primary_reason"),
+        "concept_sentence": hit.get("concept_sentence"),
+    })
+    return out
+
+
 def _trace_payload(fen: str, played: str, best: Optional[str],
                    pv_played: List[str], pv_best: List[str],
                    cp_loss: int, mover_is_user: bool,
-                   where: Dict[str, Any]) -> Dict[str, Any]:
+                   where: Dict[str, Any],
+                   analysis: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Everything the page needs for one move, from one reason_about call."""
     move = MoveUnderStudy(
         fen_before=fen, played_san=played, best_san=best or None,
@@ -178,15 +229,17 @@ def _trace_payload(fen: str, played: str, best: Optional[str],
             "stability": report.stability,
             "schema_version": report.schema_version,
         },
-        # Said plainly rather than hidden: the framework feeds no caption
-        # surface yet, so there is no player-facing sentence to show. Printing
-        # a mock one here would be the exact failure this page exists to
-        # expose.
-        "caption": {
-            "available": False,
-            "why": ("The reasoning framework is not wired to a caption "
-                    "surface yet, so no player sees a sentence from it. The "
-                    "finding below is what a caption would be built from."),
+        # What the player actually sees. FIRST, because the alternative misled
+        # the first person to open this page.
+        "shipped": _shipped_card(analysis, fen, played),
+        # And what the experimental framework would build from, kept clearly
+        # apart. It reaches no player; a reader must never be able to mistake
+        # one for the other.
+        "framework": {
+            "reaches_a_player": False,
+            "why": ("The reasoning framework feeds no caption surface. "
+                    "Everything in the trace below is an experiment running "
+                    "beside the shipped card above, not instead of it."),
             "slots": dict(primary.facts) if primary else {},
         },
     }
@@ -250,7 +303,10 @@ async def reasoning_trace(
 
     _require_db()
     query: Dict[str, Any] = {"game_id": game_id} if game_id else {}
-    projection = {"stockfish_analysis": 1, "game_id": 1, "_id": 0}
+    # decryption_v5_data carries the SHIPPED caption, which is the thing this
+    # page must lead with.
+    projection = {"stockfish_analysis": 1, "game_id": 1, "_id": 0,
+                  "decryption_v5_data": 1}
 
     if game_id:
         doc = await db.game_analyses.find_one(query, projection)
@@ -292,6 +348,7 @@ async def reasoning_trace(
         where={"source": "corpus", "game_id": docs_game_id,
                "array": card["array"], "ply": card["idx"],
                "side": "the player" if card["is_user"] else "the opponent"},
+        analysis=doc,
     )
 
 

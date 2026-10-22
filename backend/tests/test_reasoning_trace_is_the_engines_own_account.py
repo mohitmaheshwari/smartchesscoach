@@ -153,3 +153,74 @@ class TestTheArrowShapeMatchesTheBoard:
     def test_an_illegal_move_draws_no_arrow(self):
         assert _arrow(RAE1, "Qxz9", "red") is None
         assert _arrow(RAE1, "", "green") is None
+
+
+class TestTheShippedCardLeads:
+    """The first card Mohit opened on this page misled him, and this is why.
+
+    Game 6f467b1f, ply 2: white played Qg3 when Qxg7 took a free pawn. The
+    page showed the framework's answer -- `returns_home`, a SYMPTOM about a
+    piece going back -- and he read it as what the system thinks:
+
+        "this clearly takes up the undefended piece there at g7, so not sure
+         what are you trying to tell me there?"
+        "this was the easiest, one move thing and our detectors are pretty
+         capable of seeing, why this was even asked??"
+
+    He was right twice over. g7 was a free pawn, and the product had already
+    said so. The SHIPPED caption for that card reads:
+
+        "Opponent's Qg3 is a mistake -- they had Qxg7, grabbing your pawn on
+         g7 for free. Play O-O -- it tucks your king away from the middle."
+
+    So nothing was broken except this page, which led with a parallel engine
+    that reaches no player. A note saying "not wired" sat right beside it and
+    was nowhere near enough.
+
+    The scope doc asked this exact question -- "does the caption on tab 1 come
+    from the real caption layer? It must, or the page shows a sentence no
+    player would see" -- and V1 answered it wrongly. One real card settled it.
+    """
+
+    def test_a_stored_render_is_read_as_the_shipped_card(self):
+        from routes.admin_reasoning_trace import _shipped_card
+        fen = "r2qk2r/5ppp/p1p1pn2/3p4/5BQ1/2P1P3/P1P2PPP/R4RK1 w kq - 1 13"
+        analysis = {"decryption_v5_data": [
+            {"fen_before": fen, "move_san": "Qg3", "caption_tier": "MID",
+             "caption": "Opponent's Qg3 is a mistake - they had Qxg7, "
+                        "grabbing your pawn on g7 for free.",
+             "caption_explanation": {"provenance": ["R12_blunder"],
+                                     "confidence": "verified"},
+             "caption_verification": {"verdict": "pass"}},
+        ]}
+        got = _shipped_card(analysis, fen, "Qg3")
+        assert got["found"] is True
+        assert "for free" in got["caption"]
+        assert got["verified"] == "pass"
+        assert got["provenance"] == ["R12_blunder"]
+
+    def test_it_matches_on_the_position_not_only_the_move_name(self):
+        """A move name repeats across a game; fen_before identifies one ply."""
+        from routes.admin_reasoning_trace import _shipped_card
+        a = "8/8/8/8/8/8/8/K6k w - - 0 1"
+        b = "8/8/8/8/8/8/7K/7k w - - 0 2"
+        analysis = {"decryption_v5_data": [
+            {"fen_before": a, "move_san": "Qg3", "caption": "the first one"},
+            {"fen_before": b, "move_san": "Qg3", "caption": "the second one"},
+        ]}
+        assert _shipped_card(analysis, b, "Qg3")["caption"] == "the second one"
+
+    def test_a_game_with_no_render_says_so_rather_than_guessing(self):
+        from routes.admin_reasoning_trace import _shipped_card
+        got = _shipped_card({}, "8/8/8/8/8/8/8/K6k w - - 0 1", "Ka2")
+        assert got["found"] is False
+        assert got["caption"] is None
+        assert "no stored V5 render" in got["why"]
+
+    def test_a_rendered_game_with_no_card_for_this_ply_says_that_instead(self):
+        from routes.admin_reasoning_trace import _shipped_card
+        got = _shipped_card(
+            {"decryption_v5_data": [{"fen_before": "x", "move_san": "e4"}]},
+            "8/8/8/8/8/8/8/K6k w - - 0 1", "Ka2")
+        assert got["found"] is False
+        assert "no card" in got["why"]

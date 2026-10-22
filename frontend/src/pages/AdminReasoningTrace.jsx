@@ -254,50 +254,45 @@ const MoveTab = () => {
 
             <div className="min-w-0 space-y-4">
               <Panel
-                title="What the player would read"
+                title="What the player actually sees"
                 right={
-                  out?.primary_concept ? (
+                  data.shipped?.found ? (
                     <span className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] text-slate-400">
-                        {out.primary_concept}
-                      </span>
-                      <Pill className={TIER_STYLE[out.primary_tier] || ""}>
-                        {TIER_NAME[out.primary_tier]}
-                      </Pill>
-                      <Pill className="border-slate-700 text-slate-400">
-                        {out.confidence}
-                      </Pill>
+                      {data.shipped.tier ? (
+                        <Pill className="border-slate-700 text-slate-400">
+                          {data.shipped.tier}
+                        </Pill>
+                      ) : null}
+                      {(data.shipped.provenance || []).map((p) => (
+                        <span key={p} className="font-mono text-[11px] text-slate-500">
+                          {p}
+                        </span>
+                      ))}
+                      {data.shipped.verified === "pass" ? (
+                        <Pill className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+                          verified
+                        </Pill>
+                      ) : null}
                     </span>
                   ) : null
                 }
               >
-                {data.caption?.available ? (
-                  <p className="text-slate-100">{data.caption.text}</p>
+                {data.shipped?.found ? (
+                  <p className="text-[15px] leading-relaxed text-slate-100">
+                    {data.shipped.caption}
+                  </p>
                 ) : (
-                  <div className="space-y-2">
-                    <p className="text-sm text-amber-200/90">
-                      {data.caption?.why}
-                    </p>
-                    {Object.keys(data.caption?.slots || {}).length ? (
-                      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-                        {Object.entries(data.caption.slots).map(([k, v]) => (
-                          <div key={k} className="contents">
-                            <dt className="font-mono text-slate-500">{k}</dt>
-                            <dd className="min-w-0 break-words text-slate-300">
-                              {typeof v === "object" ? JSON.stringify(v) : String(v)}
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                    ) : (
-                      <p className="text-xs text-slate-500">
-                        Nothing survived, so there is nothing to build a sentence
-                        from. That is the engine refusing rather than failing.
-                      </p>
-                    )}
-                  </div>
+                  <p className="text-sm text-slate-400">{data.shipped?.why}</p>
                 )}
               </Panel>
+
+              <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-3">
+                <p className="text-xs leading-relaxed text-amber-200/90">
+                  <span className="font-semibold">Below is the experimental
+                  reasoning engine, not the product.</span>{" "}
+                  {data.framework?.why}
+                </p>
+              </div>
 
               <Panel title="The eight steps">
                 <Steps steps={data.steps || []} />
