@@ -59,6 +59,12 @@ PUNISHMENT_DEPTH = 18
 # both computed by the engine and discarded before reaching the database.
 PUNISHMENT_PV_PLIES = 12
 
+# How far the best move must beat the second-best before it is "the only
+# move". A move that is 30cp better than the alternative is a preference,
+# not a necessity, and telling a 900 "this was the only move" when three
+# others also held is the kind of overclaim this repo keeps having to undo.
+ONLY_MOVE_CP = 150
+
 # Two replies within this are a tie. When that happens the single stored reply
 # is an arbitrary pick, and neither the caption nor an arrow should present it
 # as "what the opponent does".
@@ -120,6 +126,15 @@ class MoveEvaluation:
     # means adding this cannot alter a single existing card, and the arrows
     # drawn from pv_after_played stay exactly as they are.
     eval_line_played: List[str] = None
+    # What ELSE was playable. The engine reported one best move and never
+    # said whether it was the only one or one of four equally good ones --
+    # two different lessons, and the second is far more common at 600-1500.
+    # Computed on FAULTED moves only: MultiPV costs 3.05x per position
+    # (0.881s -> 2.682s measured on disjoint positions, depth 18), and
+    # faulted moves are ~19% of a game, so the whole-game cost stays near
+    # 1.4x instead of 3x.
+    candidates: List[Dict[str, Any]] = None   # [{move_san, eval_cp}], best first
+    best_is_only_move: Optional[bool] = None
     pv_after_played: List[str] = None    # What happens after the move you played
     pv_after_best: List[str] = None      # What would happen after the best move
     threat_after_played: str = None      # The immediate threat you face after your move
@@ -911,6 +926,8 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                     threat_after_played = None
                     opp_replies = []
                     opp_reply_is_clear = None
+                    candidates = []
+                    best_is_only_move = None
 
                     is_bad_move = classification in [MoveClassification.INACCURACY, MoveClassification.MISTAKE, MoveClassification.BLUNDER]
 
@@ -933,6 +950,27 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         # we are picking one". Captions and arrows both name the
                         # opponent's reply; neither should sound certain about a
                         # coin flip.
+                        # What else was playable, from the position BEFORE
+                        # the move. ONLY_MOVE_CP is the margin that makes the
+                        # best move genuinely the only one worth playing.
+                        try:
+                            _cands = engine.get_candidate_lines(
+                                board, num=3, depth=PUNISHMENT_DEPTH,
+                                pv_length=1)
+                            candidates = [
+                                {"move_san": c.get("move_san"),
+                                 "eval_cp": c.get("eval_cp")}
+                                for c in _cands][:3]
+                            if len(candidates) >= 2:
+                                _c0 = candidates[0].get("eval_cp")
+                                _c1 = candidates[1].get("eval_cp")
+                                if _c0 is not None and _c1 is not None:
+                                    best_is_only_move = (_c0 - _c1) >= ONLY_MOVE_CP
+                            elif len(candidates) == 1:
+                                best_is_only_move = True
+                        except Exception:
+                            candidates, best_is_only_move = [], None
+
                         opp_replies = engine.get_top_replies(
                             played_board, num=3, depth=PUNISHMENT_DEPTH)
                         if len(opp_replies) >= 2:
@@ -988,6 +1026,8 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         mate_in_after=current_mate,
                         pv_after_played=pv_after_played,
                         eval_line_played=eval_line_played,
+                        candidates=candidates,
+                        best_is_only_move=best_is_only_move,
                         opp_replies=opp_replies,
                         opp_reply_is_clear=opp_reply_is_clear,
                         pv_after_best=pv_after_best,
@@ -1132,6 +1172,12 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 # working; a separate key means adding this changes no
                 # existing card and moves no existing arrow.
                 "eval_line_played": m.eval_line_played,
+                # "was this the only move, or one of several?" -- a different
+                # lesson from "this was best", and one nothing could tell
+                # before. Mohit asked for it explicitly, at 3x on the faulted
+                # moves it is computed for.
+                "candidates": m.candidates,
+                "best_is_only_move": m.best_is_only_move,
                 # Brilliant move data
                 "is_sacrifice": m.is_sacrifice,
                 "is_brilliant": m.is_brilliant,

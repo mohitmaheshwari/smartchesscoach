@@ -1,0 +1,139 @@
+"""What the better move achieves: the vocabulary, and what it refuses to say.
+
+The vocabulary was not invented. It came from reading 23 mined positions one
+at a time and writing down, in words, what the better move did -- then
+measuring every candidate on 7,346 flagged cards:
+
+    attacks a piece that cannot escape  21.7%   avoids a square they attack 14.4%
+    moves the attacked piece to safety  14.1%   check that worsens the king  7.1%
+    defends the attacked piece           6.9%   a pawn attacks a piece       6.4%
+    activates the rook                   6.3%   trades off their piece       5.9%
+    denies their counterplay             4.3%   stops their passed pawn      3.5%
+
+    at least one purpose 61.7%    two or more 23.5%
+
+Two entries did not survive that measurement. `F` (supports our passed pawn)
+fired on 0.4% -- 28 cards, not a detector. And `D` was split: it was the
+biggest number and the loosest probe, merging "an enemy piece is hanging"
+with "every retreat lands on a square we attack". Different lessons, and the
+name overclaimed on the first. The trapped half now routes through
+game_ledger._piece_trapped_after, which is already proven and stricter than
+anything this file would have written.
+
+Every case below is a real position from the mining set or from a card Mohit
+flagged, and every assertion is checked against the board first.
+"""
+import sys
+from pathlib import Path
+
+import chess
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from services.move_purposes import purposes_for  # noqa: E402
+
+# Mohit's card: 25.Bd6+ played, Qxg8 winning.
+BD6 = "rk1q2r1/pp3Q2/2b2p2/4p3/1BPb4/7B/P1P2P1P/R3K2R w KQ - 1 25"
+# 4...Nc6 played with the f6 knight attacked by the e5 pawn; Ne4 saves it.
+NC6 = "rnbqkb1r/pppp1ppp/5n2/4P3/3p4/5N2/PPP2PPP/RNBQKB1R b KQkq - 0 4"
+# 11.O-O played; a3 hits the b4 bishop.
+A3 = "r1b1k2r/pp3ppp/4p3/q2p4/1bPPn3/1P3N2/P2NBPPP/R2QK2R w KQkq - 0 11"
+# 40.Rc1 steps into the d3 knight's reach; Rf1 does not.
+RC1 = "2b5/7p/2R5/3p1pk1/8/2pn4/3r2P1/3R2K1 w - - 0 40"
+
+
+def kinds(*args, **kw):
+    return [p["kind"] for p in purposes_for(*args, **kw)]
+
+
+class TestTheBoardSaysWhatTheseClaim:
+    def test_the_f6_knight_really_is_attacked_and_e4_is_not(self):
+        b = chess.Board(NC6)
+        assert b.piece_at(chess.F6).piece_type == chess.KNIGHT
+        assert chess.E5 in b.attackers(chess.WHITE, chess.F6)
+        a = b.copy()
+        a.push(a.parse_san("Ne4"))
+        assert not a.attackers(chess.WHITE, chess.E4) or \
+            a.attackers(chess.BLACK, chess.E4)
+
+    def test_c1_really_is_in_the_knights_reach_and_f1_is_not(self):
+        b = chess.Board(RC1)
+        assert chess.D3 in b.attackers(chess.BLACK, chess.C1)
+        assert chess.D3 not in b.attackers(chess.BLACK, chess.F1)
+
+
+class TestItFindsWhatIsThere:
+    def test_a_piece_in_danger_that_moves_away(self):
+        assert "moves_to_safety" in kinds(NC6, "Nc6", "Ne4", ["exf6"], [])
+
+    def test_a_pawn_that_attacks_a_piece(self):
+        assert "pawn_attacks_piece" in kinds(A3, "O-O", "a3", [], [])
+
+    def test_the_played_move_walking_onto_an_attacked_square(self):
+        assert "avoids_attacked_square" in kinds(RC1, "Rc1", "Rf1", ["Nxc1"], [])
+
+    def test_an_enemy_man_left_hanging_by_the_better_move(self):
+        assert "wins_hanging_piece" in kinds(BD6, "Bd6+", "Qxg8",
+                                             ["Qxd6", "Qxg8+"], [])
+
+
+class TestItReturnsSeveralThingsRankedNotOneWinner:
+    """23.5% of cards have more than one true purpose. The old code was an
+    if-chain returning the first match, so a capture that also forked and
+    defended reported only the capture."""
+
+    def test_more_than_one_purpose_can_come_back(self):
+        got = purposes_for(RC1, "Rc1", "Rf1", ["Nxc1"], [])
+        assert len(got) >= 2, [p["kind"] for p in got]
+
+    def test_they_are_ranked_strongest_first(self):
+        got = purposes_for(RC1, "Rc1", "Rf1", ["Nxc1"], [])
+        tiers = [p["tier"] for p in got]
+        assert tiers == sorted(tiers, reverse=True), tiers
+
+    def test_every_purpose_carries_its_own_proof(self):
+        for p in purposes_for(RC1, "Rc1", "Rf1", ["Nxc1"], []):
+            assert p["proof"], p
+            assert isinstance(p["facts"], dict)
+
+
+class TestTheMateTransitionBothWays:
+    """23% of the residue, and the highest-stakes cards in the corpus at
+    8,000-10,000cp. Both directions are already in `mate_info`."""
+
+    def test_a_mate_that_was_available_and_given_up(self):
+        got = purposes_for(BD6, "Bd6+", "Qxg8", [], [],
+                           mate_info={"before": -4, "after": None})
+        assert "missed_forced_mate" in [p["kind"] for p in got]
+
+    def test_a_mate_that_was_walked_into(self):
+        got = purposes_for(BD6, "Bd6+", "Qxg8", [], [],
+                           mate_info={"before": None, "after": -10})
+        assert "allowed_forced_mate" in [p["kind"] for p in got]
+
+    def test_mate_outranks_everything_else(self):
+        got = purposes_for(BD6, "Bd6+", "Qxg8", ["Qxd6", "Qxg8+"], [],
+                           mate_info={"before": None, "after": -3})
+        assert got[0]["kind"] == "allowed_forced_mate", [p["kind"] for p in got]
+
+    def test_mate_on_both_sides_is_not_a_transition(self):
+        """Already mated before and after is not a lesson about this move."""
+        got = purposes_for(BD6, "Bd6+", "Qxg8", [], [],
+                           mate_info={"before": -3, "after": -2})
+        assert not [p for p in got if "mate" in p["kind"]]
+
+
+class TestItRefusesToOverreach:
+    def test_an_illegal_best_move_yields_nothing_rather_than_guessing(self):
+        assert purposes_for(BD6, "Bd6+", "Qxz9", [], []) == []
+
+    def test_a_broken_position_returns_empty_not_an_exception(self):
+        assert purposes_for("not-a-fen", "e4", "d4", [], []) == []
+
+    def test_no_best_move_means_no_purposes_about_one(self):
+        assert purposes_for(BD6, "Bd6+", None, [], []) == []
+
+    def test_a_threat_that_survives_the_better_move_is_not_answered(self):
+        """answers_threat must prove the threat is GONE, never assume it."""
+        got = kinds(BD6, "Bd6+", "Qxg8", [], [], threat="Qxg5")
+        assert "answers_threat" not in got

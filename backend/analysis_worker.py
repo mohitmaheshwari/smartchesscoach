@@ -1185,7 +1185,79 @@ def process_job(db, job):
             logger.info(f"[CLASSIFICATION] Added 15-category move types for {game_id}")
         except Exception as class_error:
             logger.warning(f"[CLASSIFICATION] Failed (non-fatal): {class_error}")
-        
+
+        # =========================================================================
+        # LLM CAPTIONS — written once, here, from the engine's own facts.
+        #
+        # Mohit 2026-10-22: "the answer for caption is LLM based, now", and
+        # earlier: "the LLM would be only responsible for text generation,
+        # every detail would come from our engine... no new call per position
+        # for a template".
+        #
+        # So the call happens ONCE per faulted move at analysis time and the
+        # text is stored. Nothing calls a model when a page renders.
+        #
+        # Facts come from services.move_purposes, which is pure and takes the
+        # stored position and lines. Every square, piece and move in the output
+        # must appear in those facts or llm_caption.validate refuses it.
+        #
+        # A refusal is NOT silence: `llm_caption` stays None and the
+        # deterministic caption the V5 layer already produces is untouched.
+        # Coverage is first-class and a mediocre true sentence beats nothing.
+        #
+        # Arrows are not involved: they are drawn from pv_after_played by the
+        # caption layer and nothing here writes to it.
+        # =========================================================================
+        if os.environ.get("LLM_CAPTIONS_ENABLED", "0") not in (
+                "0", "false", "False", ""):
+            try:
+                import asyncio as _aio
+                from services.llm_caption import build_facts, write_caption
+                from services.move_purposes import purposes_for
+
+                _flagged = [m for m in move_evaluations
+                            if int(m.get("cp_loss") or 0) >= 100
+                            and m.get("fen_before") and m.get("best_move")]
+
+                async def _write_all():
+                    # Bounded: a long game has ~20 faulted moves and an
+                    # unbounded fan-out would open twenty sockets at once.
+                    sem = _aio.Semaphore(4)
+
+                    async def _one(mv):
+                        async with sem:
+                            ps = purposes_for(
+                                mv["fen_before"], str(mv.get("move") or ""),
+                                str(mv.get("best_move") or ""),
+                                list(mv.get("pv_after_played") or []),
+                                list(mv.get("pv_after_best") or []),
+                                mv.get("threat"), mv.get("mate_info"))
+                            facts = build_facts(
+                                str(mv.get("move") or ""),
+                                str(mv.get("best_move") or ""), ps,
+                                severity=mv.get("evaluation"),
+                                threat=mv.get("threat"),
+                                punishment_line=list(
+                                    mv.get("pv_after_played") or []),
+                                opp_reply_is_clear=mv.get("opp_reply_is_clear"),
+                                best_is_only_move=mv.get("best_is_only_move"))
+                            res = await write_caption(facts, rating=user_rating)
+                            mv["llm_caption"] = res.get("caption")
+                            mv["llm_caption_refused"] = res.get("refused")
+                            mv["llm_caption_facts"] = ps
+                    await _aio.gather(*[_one(m) for m in _flagged],
+                                      return_exceptions=True)
+
+                _aio.run(_write_all())
+                _ok = sum(1 for m in _flagged if m.get("llm_caption"))
+                logger.info(
+                    "[LLM_CAPTION] %s: wrote %d of %d faulted moves",
+                    game_id, _ok, len(_flagged))
+            except Exception as _llm_exc:
+                logger.warning(
+                    "[LLM_CAPTION] %s failed (non-fatal): %r",
+                    game_id, _llm_exc)
+
         # Update heartbeat after interpretation
         update_job_heartbeat(db, game_id)
         
