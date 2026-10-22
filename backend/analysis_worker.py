@@ -1215,16 +1215,39 @@ def process_job(db, job):
                 from services.llm_caption import build_facts, write_caption
                 from services.move_purposes import purposes_for
 
-                _flagged = [m for m in move_evaluations
-                            if int(m.get("cp_loss") or 0) >= 100
-                            and m.get("fen_before") and m.get("best_move")]
+                # 40, not 100. Mohit opened a card reading only "Opponent's
+                # c3 is an inaccuracy. Play c6." and asked why the engine did
+                # not say why. It had never been asked: that card is 42cp and
+                # this filter was 100, so every small-loss card -- and the
+                # review page shows plenty -- kept its bare deterministic
+                # text. The renderer cards moves well below 100; the caption
+                # writer has to reach the same ones.
+                _LLM_MIN_CP = 40
+                # Both sides. An opponent card is taught from the READER's
+                # side -- what the weak move failed to do and what it means
+                # for them -- which is a different prompt, so each move
+                # carries whose it is. Mohit, on a card that advised him what
+                # the OPPONENT should have played: "it should tell why c3 is
+                # an inaccuracy from them... that is the real teaching".
+                _opp_evals = ((stockfish_result.get("opponent_moves") or [])
+                              if isinstance(stockfish_result, dict) else [])
+                _flagged = [
+                    (m, True) for m in move_evaluations
+                    if int(m.get("cp_loss") or 0) >= _LLM_MIN_CP
+                    and m.get("fen_before") and m.get("best_move")
+                ] + [
+                    (m, False) for m in _opp_evals
+                    if int(m.get("cp_loss") or 0) >= _LLM_MIN_CP
+                    and m.get("fen_before") and m.get("best_move")
+                ]
 
                 async def _write_all():
                     # Bounded: a long game has ~20 faulted moves and an
                     # unbounded fan-out would open twenty sockets at once.
                     sem = _aio.Semaphore(4)
 
-                    async def _one(mv):
+                    async def _one(pair):
+                        mv, is_user = pair
                         async with sem:
                             ps = purposes_for(
                                 mv["fen_before"], str(mv.get("move") or ""),
@@ -1235,6 +1258,7 @@ def process_job(db, job):
                             facts = build_facts(
                                 str(mv.get("move") or ""),
                                 str(mv.get("best_move") or ""), ps,
+                                mover_is_user=is_user,
                                 severity=mv.get("evaluation"),
                                 threat=mv.get("threat"),
                                 punishment_line=list(
@@ -1249,7 +1273,7 @@ def process_job(db, job):
                                       return_exceptions=True)
 
                 _aio.run(_write_all())
-                _ok = sum(1 for m in _flagged if m.get("llm_caption"))
+                _ok = sum(1 for m, _ in _flagged if m.get("llm_caption"))
                 logger.info(
                     "[LLM_CAPTION] %s: wrote %d of %d faulted moves",
                     game_id, _ok, len(_flagged))

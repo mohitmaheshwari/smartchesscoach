@@ -73,6 +73,75 @@ SAFETY = 2      # a man was in danger, or walked into it
 POSITIONAL = 1  # activity, tempo, structure
 
 
+# The transferable lesson for each kind, authored here, once.
+#
+# Mohit, 2026-10-22: "LLM should never infer the chess, it should only
+# generate english". The prompt used to say "say what to learn, not just what
+# happened", which asked the model to DERIVE a lesson from the facts -- chess
+# inference, and exactly what the rule forbids. The lesson is a fact like any
+# other, so it comes from here and the model only phrases it.
+#
+# Short, transferable, and in the words a 600-1500 player uses. These are the
+# same shape as R12's authored teaching_principles, which is the one part of
+# that file worth keeping.
+LESSON = {
+    "wins_hanging_piece":
+        "before you move, look for an enemy piece that nothing defends",
+    "traps_piece":
+        "a piece with no safe square is as good as won; take its squares away",
+    "attacks_loose_pawn":
+        "loose pawns are free targets; put a piece on them before they are defended",
+    "moves_to_safety":
+        "when a piece is attacked, moving it to a safe square is usually the move",
+    "defends_man":
+        "a piece in danger can be saved by guarding it as well as by moving it",
+    "avoids_attacked_square":
+        "check whether a square is attacked before you move onto it",
+    "pawn_attacks_piece":
+        "a pawn that pokes a piece wins you time, because it must answer",
+    "check_worsens_king":
+        "a check that takes squares away from the king is worth more than a loud one",
+    "stops_passer":
+        "a passed pawn must be stopped early; blockade the square in front of it",
+    "activates_rook":
+        "rooks want open files and enemy pawns to attack",
+    "trades_off":
+        "trading off their most active piece is a way to take the sting out",
+    "denies_counterplay":
+        "when you are better, take away their checks before you push your own plan",
+    "develops_with_tempo":
+        "develop a piece and make a threat with the same move; you gain the "
+        "time instead of spending it",
+    "develops_a_piece":
+        "early on, every move should bring a new piece into the game",
+    "played_develops_nothing":
+        "when you are behind in development, a quiet pawn move is a move you "
+        "cannot afford",
+    "wins_the_exchange":
+        "attack a piece with a cheaper one; the trade wins material even if "
+        "they can take back",
+    "played_allows_fork":
+        "before you move, check what one enemy move could attack twice",
+    "played_leaves_king_exposed":
+        "get the king out of the centre before you go material hunting",
+    "promotion_race":
+        "in an endgame a pawn near the last rank is the whole game; count "
+        "the race before anything else",
+    "king_activity":
+        "in an endgame the king is a fighting piece; walk it toward the pawns",
+    "advances_passer":
+        "a passed pawn must be pushed; every square it gains costs them time",
+    "rook_behind_passer":
+        "put the rook behind a passed pawn, yours or theirs",
+    "answers_threat":
+        "deal with their threat before you start your own",
+    "missed_forced_mate":
+        "when you have a forced mate, check every check before anything else",
+    "allowed_forced_mate":
+        "before you move, ask what checks they get after it",
+}
+
+
 @dataclass(frozen=True)
 class Purpose:
     """One true thing about the better move, with what proves it."""
@@ -83,7 +152,8 @@ class Purpose:
 
     def as_dict(self) -> Dict[str, Any]:
         return {"kind": self.kind, "tier": self.tier,
-                "facts": dict(self.facts), "proof": self.proof}
+                "facts": dict(self.facts), "proof": self.proof,
+                "lesson": LESSON.get(self.kind, "")}
 
 
 # ── board helpers, deliberately small and checkable ───────────────────
@@ -163,6 +233,34 @@ def _checks_in(board: chess.Board, line: Sequence[str],
     return n
 
 
+
+# Where the minor pieces start. A piece off its home square is developed --
+# the crude definition, and the one a 900 would recognise.
+_HOME = {
+    chess.WHITE: {chess.KNIGHT: (chess.B1, chess.G1),
+                  chess.BISHOP: (chess.C1, chess.F1)},
+    chess.BLACK: {chess.KNIGHT: (chess.B8, chess.G8),
+                  chess.BISHOP: (chess.C8, chess.F8)},
+}
+
+
+def _developed_minors(board: chess.Board, col: chess.Color) -> int:
+    n = 0
+    for pt in (chess.KNIGHT, chess.BISHOP):
+        for sq in board.pieces(pt, col):
+            if sq not in _HOME[col][pt]:
+                n += 1
+    return n
+
+
+def _is_developing(board: chess.Board, mv: chess.Move) -> bool:
+    p = board.piece_at(mv.from_square)
+    if p is None or p.piece_type not in (chess.KNIGHT, chess.BISHOP):
+        return False
+    return (mv.from_square in _HOME[p.color][p.piece_type]
+            and mv.to_square not in _HOME[p.color][p.piece_type])
+
+
 # ── the purposes ──────────────────────────────────────────────────────
 
 def _wins_hanging_piece(b, best_mv, after_best, us) -> Optional[Purpose]:
@@ -178,8 +276,38 @@ def _wins_hanging_piece(b, best_mv, after_best, us) -> Optional[Purpose]:
                 "wins_hanging_piece", MATERIAL,
                 {"piece": NAME[p.piece_type], "square": chess.square_name(sq),
                  "value_cp": VALUE[p.piece_type]},
-                f"after the move, their {NAME[p.piece_type]} on "
+                f"after the move, the waiting side's {NAME[p.piece_type]} on "
                 f"{chess.square_name(sq)} is attacked and undefended")
+    return None
+
+
+def _attacks_loose_pawn(b, best_mv, after_best, us) -> Optional[Purpose]:
+    """The better move hits a pawn nothing defends.
+
+    Separate from _wins_hanging_piece, which skips pawns on purpose: winning
+    a pawn is not winning a piece and the two deserve different sentences.
+    But excluding pawns entirely made whole cards unexplainable.
+
+    Mohit, 2026-10-22, on an opponent card reading only "Opponent's c3 is an
+    inaccuracy. Play c6.": "engine didn't tell why this is an inaccuracy
+    here?" The answer was that Nf3 attacks the e5 pawn, which black has
+    nothing defending -- the board says so plainly -- and no purpose in this
+    file could see it, because the only one that looks for an undefended
+    enemy man steps over pawns.
+    """
+    for sq in after_best.attacks(best_mv.to_square):
+        t = after_best.piece_at(sq)
+        if not t or t.color == us or t.piece_type != chess.PAWN:
+            continue
+        if after_best.attackers(not us, sq):
+            continue
+        mover = b.piece_at(best_mv.from_square)
+        return Purpose(
+            "attacks_loose_pawn", POSITIONAL,
+            {"square": chess.square_name(sq),
+             "attacker": NAME[mover.piece_type] if mover else "piece"},
+            f"the move attacks the waiting side's pawn on "
+            f"{chess.square_name(sq)}, which nothing defends")
     return None
 
 
@@ -195,8 +323,8 @@ def _traps_piece(b, best_mv, after_best, us) -> Optional[Purpose]:
             if _piece_trapped_after(after_best, not us, pt):
                 return Purpose(
                     "traps_piece", MATERIAL, {"piece": NAME[pt]},
-                    f"their {NAME[pt]} is attacked and every square it can "
-                    f"reach is attacked too")
+                    f"the waiting side's {NAME[pt]} is attacked and every "
+                    f"square it can reach is attacked too")
         except Exception:
             continue
     return None
@@ -231,8 +359,8 @@ def _defends_man(b, best_mv, after_best, us) -> Optional[Purpose]:
             return Purpose(
                 "defends_man", SAFETY,
                 {"piece": NAME[p.piece_type], "square": chess.square_name(s)},
-                f"your {NAME[p.piece_type]} on {chess.square_name(s)} was in "
-                f"danger and the move now guards it")
+                f"the mover's {NAME[p.piece_type]} on {chess.square_name(s)} was "
+                f"in danger and the move now guards it")
     return None
 
 
@@ -268,8 +396,8 @@ def _pawn_attacks_piece(b, best_mv, after_best, us) -> Optional[Purpose]:
                 "pawn_attacks_piece", POSITIONAL,
                 {"piece": NAME[t.piece_type], "square": chess.square_name(sq),
                  "pawn_square": chess.square_name(best_mv.to_square)},
-                f"the pawn now attacks their {NAME[t.piece_type]} on "
-                f"{chess.square_name(sq)} and is itself safe")
+                f"the pawn now attacks the waiting side's {NAME[t.piece_type]} "
+                f"on {chess.square_name(sq)} and is itself safe")
     return None
 
 
@@ -286,7 +414,8 @@ def _check_worsens_king(b, best_mv, after_best, us) -> Optional[Purpose]:
     return Purpose(
         "check_worsens_king", SAFETY,
         {"king_squares_left": len(outs)},
-        f"the check leaves their king {len(outs)} square(s) to move to")
+        f"the check leaves the waiting king {len(outs)} square(s) to "
+        f"move to")
 
 
 def _stops_passer(b, best_mv, after_best, us) -> Optional[Purpose]:
@@ -311,8 +440,8 @@ def _stops_passer(b, best_mv, after_best, us) -> Optional[Purpose]:
                     "stops_passer", POSITIONAL,
                     {"pawn_square": chess.square_name(sq),
                      "blocked_square": chess.square_name(path)},
-                    f"their passed pawn on {chess.square_name(sq)} now meets "
-                    f"a covered square on {chess.square_name(path)}")
+                    f"the waiting side's passed pawn on {chess.square_name(sq)} now "
+                    f"meets a covered square on {chess.square_name(path)}")
     return None
 
 
@@ -336,8 +465,8 @@ def _activates_rook(b, best_mv, after_best, us) -> Optional[Purpose]:
         return Purpose(
             "activates_rook", POSITIONAL,
             {"pawns_attacked": len(gained)},
-            f"the rook now attacks {len(gained)} of their pawns, up from "
-            f"{len(had)}")
+            f"the rook now attacks {len(gained)} of the waiting side's "
+            f"pawns, up from {len(had)}")
     return None
 
 
@@ -353,8 +482,8 @@ def _trades_off(b, best_mv, after_best, us) -> Optional[Purpose]:
                     "trades_off", POSITIONAL,
                     {"piece": NAME[t.piece_type],
                      "square": chess.square_name(sq)},
-                    f"it offers to trade your {NAME[ours.piece_type]} for "
-                    f"theirs on {chess.square_name(sq)}")
+                    f"it offers to trade the mover's {NAME[ours.piece_type]} for "
+                    f"the waiting side's on {chess.square_name(sq)}")
     return None
 
 
@@ -372,8 +501,8 @@ def _denies_counterplay(b, us, played_san, best_san,
     return Purpose(
         "denies_counterplay", POSITIONAL,
         {"checks_allowed": cp_},
-        f"their line after your move has {cp_} checks; after the better move "
-        f"it has none")
+        f"the waiting side gets {cp_} checks after the played move and "
+        f"none after the better move")
 
 
 def _answers_threat(b, best_mv, after_best, us, threat) -> Optional[Purpose]:
@@ -407,7 +536,8 @@ def _answers_threat(b, best_mv, after_best, us, threat) -> Optional[Purpose]:
     return Purpose(
         "answers_threat", SAFETY,
         {"threat_san": threat},
-        f"they were threatening {threat}; the better move takes it away")
+        f"the waiting side was threatening {threat}; the better move "
+        f"takes it away")
 
 
 def _mate_transition(mate_info) -> Optional[Purpose]:
@@ -425,6 +555,305 @@ def _mate_transition(mate_info) -> Optional[Purpose]:
         return Purpose(
             "allowed_forced_mate", MATE, {"mate_in": abs(int(after))},
             f"the move allows a forced mate in {abs(int(after))}")
+    return None
+
+
+
+def _develops_with_tempo(b, best_mv, after_best, us) -> Optional[Purpose]:
+    """The better move brings a piece out AND makes them answer.
+
+    The one Mohit found by hand on move 4 of a real game, where the engine
+    could only talk about the alternative. Nf3 develops the last kingside
+    minor, hits an undefended e5 pawn so Black must respond, and clears the
+    way to castle -- three things in one move -- while the played c3
+    developed nothing.
+
+    It is a COMBINATION, which is the whole reason this file returns a ranked
+    list instead of one winner: neither half alone is the lesson.
+    """
+    if not _is_developing(b, best_mv):
+        return None
+    hits = []
+    for sq in after_best.attacks(best_mv.to_square):
+        t = after_best.piece_at(sq)
+        if t and t.color != us and not after_best.attackers(not us, sq):
+            hits.append((NAME[t.piece_type], chess.square_name(sq)))
+    if not hits:
+        return None
+    piece, square = hits[0]
+    mover = b.piece_at(best_mv.from_square)
+    return Purpose(
+        "develops_with_tempo", SAFETY,
+        {"piece": NAME[mover.piece_type],
+         "to": chess.square_name(best_mv.to_square),
+         "hits": piece, "hits_square": square},
+        f"the move brings the {NAME[mover.piece_type]} out AND attacks the "
+        f"waiting side's {piece} on {square}, which nothing defends, so they "
+        f"must answer")
+
+
+def _develops_a_piece(b, best_mv, after_best, us) -> Optional[Purpose]:
+    """Plain development, when it does not also create a threat."""
+    if not _is_developing(b, best_mv):
+        return None
+    mover = b.piece_at(best_mv.from_square)
+    return Purpose(
+        "develops_a_piece", POSITIONAL,
+        {"piece": NAME[mover.piece_type],
+         "to": chess.square_name(best_mv.to_square)},
+        f"the move brings the {NAME[mover.piece_type]} off its starting "
+        f"square to {chess.square_name(best_mv.to_square)}")
+
+
+def _played_develops_nothing(b, best_mv, after_best, us,
+                             played_san) -> Optional[Purpose]:
+    """Behind in development, king still home, and the move played did not
+    help either. This one describes the PLAYED move, which the rest of the
+    vocabulary does not -- and which is what a reader is actually asking
+    about."""
+    played = _mv(b, played_san)
+    if played is None or _is_developing(b, played):
+        return None
+    ours, theirs = _developed_minors(b, us), _developed_minors(b, not us)
+    if ours >= theirs:
+        return None
+    home = chess.E1 if us == chess.WHITE else chess.E8
+    if b.king(us) != home:
+        return None
+    return Purpose(
+        "played_develops_nothing", POSITIONAL,
+        {"ours": ours, "theirs": theirs},
+        f"the mover has {ours} minor piece(s) out against {theirs}, the king "
+        f"is still on its starting square, and the move played brought "
+        f"nothing new out")
+
+
+
+def _wins_the_exchange(b, best_mv, after_best, us) -> Optional[Purpose]:
+    """The better move attacks a piece with something CHEAPER.
+
+    _wins_hanging_piece needs the target undefended, so it misses the plain
+    "knight attacks rook" idea -- the most common way material changes hands
+    below 1500. Found in the uncovered set on Re8+/Ne3, where Ne3 hits a rook
+    on g2 that its neighbour on f2 defends: defended, and still losing a rook
+    for a knight.
+    """
+    attacker = b.piece_at(best_mv.from_square)
+    if attacker is None or attacker.piece_type == chess.KING:
+        return None
+    for sq in after_best.attacks(best_mv.to_square):
+        t = after_best.piece_at(sq)
+        if not t or t.color == us:
+            continue
+        if VALUE[t.piece_type] <= VALUE[attacker.piece_type]:
+            continue
+        # and the attacker is not simply lost for free where it stands
+        if _in_danger(after_best, best_mv.to_square, us):
+            continue
+        return Purpose(
+            "wins_the_exchange", MATERIAL,
+            {"their_piece": NAME[t.piece_type],
+             "square": chess.square_name(sq),
+             "our_piece": NAME[attacker.piece_type]},
+            f"the {NAME[attacker.piece_type]} attacks the waiting side's "
+            f"{NAME[t.piece_type]} on {chess.square_name(sq)}, which is worth "
+            f"more, so the trade wins material even if it is defended")
+    return None
+
+
+def _played_allows_fork(b, best_mv, after_best, us,
+                        played_san, pv_played) -> Optional[Purpose]:
+    """Their reply to the played move hits two of ours at once.
+
+    The uncovered set is full of this and nothing described it: Nxc2 grabs a
+    pawn and runs into Qc3+, which takes the king and the knight. Proven by
+    pushing their actual reply and counting what it attacks -- never inferred
+    from the shape.
+    """
+    after_played = _after(b, played_san)
+    if after_played is None or not pv_played:
+        return None
+    reply = _mv(after_played, str(pv_played[0]))
+    if reply is None:
+        return None
+    nb = after_played.copy()
+    nb.push(reply)
+    hit = []
+    for sq in nb.attacks(reply.to_square):
+        t = nb.piece_at(sq)
+        if t and t.color == us and (t.piece_type == chess.KING
+                                    or not nb.attackers(us, sq)):
+            hit.append((NAME[t.piece_type], chess.square_name(sq)))
+    if len(hit) < 2:
+        return None
+    a, c = hit[0], hit[1]
+    return Purpose(
+        "played_allows_fork", MATERIAL,
+        {"reply": str(pv_played[0]),
+         "targets": [f"{p}{q}" for p, q in hit[:3]]},
+        f"after the played move they answer {pv_played[0]}, which attacks "
+        f"the mover's {a[0]} on {a[1]} and {c[0]} on {c[1]} at once")
+
+
+def _played_leaves_king_exposed(b, best_mv, after_best, us,
+                                played_san, pv_played) -> Optional[Purpose]:
+    """The king is still home, and the played move lets the checks start.
+
+    Found on Qxc5/O-O: a pawn grabbed with the king on e1 while their queen
+    was active, and Qe4+ followed. The better move castled first.
+    """
+    home = chess.E1 if us == chess.WHITE else chess.E8
+    if b.king(us) != home:
+        return None
+    after_played = _after(b, played_san)
+    if after_played is None or not pv_played:
+        return None
+    checks = _checks_in(after_played, pv_played, not us)
+    if not checks:
+        return None
+    best_is_castle = str(best_mv and b.san(best_mv) or "").startswith("O-O")
+    return Purpose(
+        "played_leaves_king_exposed", SAFETY,
+        {"checks_allowed": checks, "better_castles": best_is_castle},
+        f"the mover's king is still on its starting square and the played "
+        f"move lets {checks} check(s) begin")
+
+
+
+def _promotion_race(b, best_mv, after_best, us, played_san) -> Optional[Purpose]:
+    """A pawn is one or two squares from queening. In an endgame nothing on
+    the board outranks that.
+
+    Found by reasoning over endgame cards, 2026-10-22. On one of them Black's
+    king stood on d5 with a WHITE PAWN ON c7 -- one square from queening with
+    check -- and the only purpose that fired was `attacks_loose_pawn`, about
+    a b4 pawn on the far side of the board. The lesson was the promotion and
+    the engine talked about something else.
+
+    That is what a borrowed middlegame purpose does in an endgame, and it is
+    why this is MATERIAL tier: a queen appearing beats a pawn being attacked.
+    """
+    if len(b.piece_map()) > 12:
+        return None
+    them = not us
+    out = []
+    for sq, p in b.piece_map().items():
+        if p.piece_type != chess.PAWN:
+            continue
+        rank = chess.square_rank(sq)
+        to_go = (7 - rank) if p.color == chess.WHITE else rank
+        if to_go > 2:
+            continue
+        if not _passed(b, sq, p.color):
+            continue
+        out.append((p.color, chess.square_name(sq), to_go))
+    if not out:
+        return None
+    # theirs first: a pawn about to queen AGAINST us is the more urgent fact
+    out.sort(key=lambda r: (r[0] == us, r[2]))
+    owner, square, to_go = out[0]
+    whose = "the mover's" if owner == us else "the waiting side's"
+    return Purpose(
+        "promotion_race", MATERIAL,
+        {"square": square, "squares_to_go": to_go,
+         "owner": "mover" if owner == us else "waiting"},
+        f"{whose} passed pawn on {square} is {to_go} square(s) from queening")
+
+
+
+def _pawn_squares(board) -> list:
+    return [sq for sq, p in board.piece_map().items()
+            if p.piece_type == chess.PAWN]
+
+
+def _king_activity(b, best_mv, after_best, us, played_san) -> Optional[Purpose]:
+    """The king walks toward the fight, and the played move did not.
+
+    The first thing anyone teaches about endgames below 1500, and the engine
+    had no concept of it: three of the sampled endgame cards turned on where
+    the king went and nothing fired.
+
+    "Toward the fight" is measured, not guessed: the distance from the king
+    to the nearest pawn on the board. It drops after the better move and does
+    not after the played one.
+    """
+    if len(b.piece_map()) > 12:
+        return None
+    if b.piece_at(best_mv.from_square).piece_type != chess.KING:
+        return None
+    pawns = _pawn_squares(b)
+    if not pawns:
+        return None
+
+    def nearest(frm):
+        return min(chess.square_distance(frm, s) for s in pawns)
+
+    before = nearest(best_mv.from_square)
+    after = nearest(best_mv.to_square)
+    if after >= before:
+        return None
+    played = _mv(b, played_san)
+    if played is not None and played.from_square == best_mv.from_square:
+        if nearest(played.to_square) <= after:
+            return None          # the played move was just as active
+    return Purpose(
+        "king_activity", POSITIONAL,
+        {"to": chess.square_name(best_mv.to_square),
+         "closer_by": before - after},
+        f"the king steps toward the pawns, {before - after} square(s) "
+        f"closer than where it stood")
+
+
+def _advances_passer(b, best_mv, after_best, us,
+                     played_san) -> Optional[Purpose]:
+    """Run your own passed pawn. `stops_passer` covers theirs; nothing
+    covered ours, and in the sampled endgames the better move was often
+    simply the push."""
+    mover = b.piece_at(best_mv.from_square)
+    if mover is None or mover.piece_type != chess.PAWN:
+        return None
+    if not _passed(b, best_mv.from_square, us):
+        return None
+    rank = chess.square_rank(best_mv.to_square)
+    to_go = (7 - rank) if us == chess.WHITE else rank
+    return Purpose(
+        "advances_passer", POSITIONAL,
+        {"from": chess.square_name(best_mv.from_square),
+         "to": chess.square_name(best_mv.to_square),
+         "squares_to_go": to_go},
+        f"it pushes the mover's passed pawn to "
+        f"{chess.square_name(best_mv.to_square)}, {to_go} square(s) from "
+        f"queening")
+
+
+def _rook_behind_passer(b, best_mv, after_best, us,
+                        played_san) -> Optional[Purpose]:
+    """A rook belongs behind a passed pawn -- either one.
+
+    `activates_rook` only counts open files and attacked pawns, so a rook
+    repositioning for exactly this reason was invisible.
+    """
+    mover = b.piece_at(best_mv.from_square)
+    if mover is None or mover.piece_type != chess.ROOK:
+        return None
+    tf, tr = chess.square_file(best_mv.to_square),         chess.square_rank(best_mv.to_square)
+    for sq, p in b.piece_map().items():
+        if p.piece_type != chess.PAWN or not _passed(b, sq, p.color):
+            continue
+        if chess.square_file(sq) != tf:
+            continue
+        pr = chess.square_rank(sq)
+        behind = (tr < pr) if p.color == chess.WHITE else (tr > pr)
+        if not behind:
+            continue
+        whose = "the mover's" if p.color == us else "the waiting side's"
+        return Purpose(
+            "rook_behind_passer", POSITIONAL,
+            {"rook_to": chess.square_name(best_mv.to_square),
+             "pawn": chess.square_name(sq),
+             "owner": "mover" if p.color == us else "waiting"},
+            f"the rook goes behind {whose} passed pawn on "
+            f"{chess.square_name(sq)}")
     return None
 
 
@@ -464,19 +893,35 @@ def purposes_for(
         us = b.turn
         for fn in (_wins_hanging_piece, _traps_piece, _moves_to_safety,
                    _defends_man, _pawn_attacks_piece, _check_worsens_king,
-                   _stops_passer, _activates_rook, _trades_off):
+                   _stops_passer, _activates_rook, _trades_off,
+                   _attacks_loose_pawn, _develops_with_tempo,
+                   _develops_a_piece, _wins_the_exchange):
             try:
                 p = fn(b, best_mv, after_best, us)
             except Exception:
                 p = None
             if p:
                 out.append(p)
-        try:
-            p = _avoids_attacked_square(b, best_mv, after_best, us, played_san)
-            if p:
-                out.append(p)
-        except Exception:
-            pass
+        for fn2 in (_avoids_attacked_square, _played_develops_nothing,
+                    _promotion_race, _king_activity, _advances_passer,
+                    _rook_behind_passer):
+            try:
+                p = fn2(b, best_mv, after_best, us, played_san)
+                if p:
+                    out.append(p)
+            except Exception:
+                pass
+        # What the PLAYED move allows. The vocabulary was one-sided: 13 of 14
+        # purposes described what the BETTER move achieves, while the reader
+        # is asking why THEIRS was bad.
+        for fn3 in (_played_allows_fork, _played_leaves_king_exposed):
+            try:
+                p = fn3(b, best_mv, after_best, us, played_san,
+                        list(pv_played or []))
+                if p:
+                    out.append(p)
+            except Exception:
+                pass
         try:
             p = _answers_threat(b, best_mv, after_best, us, threat)
             if p:
@@ -491,5 +936,22 @@ def purposes_for(
         except Exception:
             pass
 
-    out.sort(key=lambda p: -p.tier)
+    # Phase-aware ranking. Tier alone is not enough: in an endgame card
+    # sampled on 2026-10-22, Black's king stood beside a white pawn on c7 --
+    # one square from queening -- and the top purpose was `attacks_loose_pawn`
+    # about a b4 pawn on the far side of the board. A middlegame purpose had
+    # outranked the whole game.
+    #
+    # So in an endgame the endgame ideas come first within their tier. This
+    # does not silence anything -- the other purposes stay in the list, they
+    # just stop leading.
+    endgame = len(b.piece_map()) <= 12
+    ENDGAME_FIRST = ("promotion_race", "advances_passer", "stops_passer",
+                     "king_activity", "rook_behind_passer")
+
+    def rank(p: Purpose):
+        phase_bonus = 1 if (endgame and p.kind in ENDGAME_FIRST) else 0
+        return (-p.tier, -phase_bonus)
+
+    out.sort(key=rank)
     return [p.as_dict() for p in out]

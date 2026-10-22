@@ -63,22 +63,50 @@ _SAN = re.compile(
     r"|O-O(?:-O)?[+#]?)\b")
 _PIECE = re.compile(r"\b(pawn|knight|bishop|rook|queen|king)s?\b", re.I)
 
-SYSTEM = (
-    "You write one or two short sentences for a chess player rated 600 to "
-    "1500, explaining why the move they played was worse than the engine's "
-    "choice.\n"
+_COMMON = (
     "RULES:\n"
-    "- Use ONLY the facts given. Never state a chess fact that is not in "
-    "them. Do not invent squares, pieces or moves.\n"
-    "- Lead with the most important thing. The facts are ranked; tier 4 is "
-    "mate, 3 is material, 2 is safety, 1 is positional.\n"
-    "- Short sentences, one idea each, common words. No jargon a 900 would "
-    "not know.\n"
-    "- Say what to learn, not just what happened.\n"
+    "- You do NOT analyse chess. Every chess fact, every relationship "
+    "between them and their order comes from the engine. You turn them "
+    "into English and nothing else.\n"
+    "- Use ONLY the facts given. Never state a chess fact that is not "
+    "in them, and never work one out. Do not invent squares, pieces or "
+    "moves.\n"
+    "- The facts are ALREADY in order. Lead with the first one. Do not "
+    "decide for yourself which matters most -- that is chess, and the "
+    "engine has done it.\n"
+    "- Short sentences, one idea each, common words. No jargon a 900 "
+    "would not know.\n"
+    "- `lesson` is the thing to teach. Say it in your own plain words. "
+    "Never invent a different lesson, and never work one out from the "
+    "other facts.\n"
     "- Never mention centipawns, evaluations or numbers.\n"
     "- At most 2 sentences."
 )
 
+# ONE prompt. An earlier version had two -- a separate one for opponent
+# cards -- because the engine was handing over facts written from the
+# MOVER's side ("attacks their pawn on e5"), which reads backwards when
+# the reader did not make the move.
+#
+# Mohit, 2026-10-22: "why reshaping captions, it's an engine problem,
+# what engine gave us is what LLM should write, why are you captioning
+# again?" He is right. The fix belonged in move_purposes, whose proofs
+# now name the OWNER as a fact -- "the waiting side's pawn on e5" -- and
+# leave the pronouns to this layer, which is the only thing it is for.
+SYSTEM = (
+    "You write one or two short sentences for a chess player rated 600 "
+    "to 1500, about one move in their game.\n"
+    "- `mover` says WHOSE move it is. When it is the reader's, explain "
+    "why their move was worse than the better one. When it is their "
+    "opponent's, explain what makes the opponent's move weak and what "
+    "it means for the reader -- a threat that did not come, a piece "
+    "left loose, a free move gained -- and never tell the reader what "
+    "they should have played instead of a move they did not make.\n"
+    "- The facts say \"the mover's\" and \"the waiting side's\" rather "
+    "than you and them. Turn those into the right pronouns for the "
+    "reader.\n"
+    + _COMMON
+)
 
 # A SAN already names its own piece: Bd6+ is a bishop move, Qxg8 a queen
 # move, e4 a pawn move. The first version of the validator rejected the word
@@ -127,6 +155,7 @@ def build_facts(
     best_san: Optional[str],
     purposes: List[Dict[str, Any]],
     *,
+    mover_is_user: bool = True,
     severity: Optional[str] = None,
     threat: Optional[str] = None,
     punishment_line: Optional[List[str]] = None,
@@ -139,11 +168,15 @@ def build_facts(
     turns them into "you lost 4.4 pawns", which this repo has a commit hook
     against.
     """
+    who = "you_played" if mover_is_user else "your_opponent_played"
     facts: Dict[str, Any] = {
-        "you_played": played_san,
+        who: played_san,
+        "mover": "you" if mover_is_user else "your opponent",
         "better_move": best_san,
-        "what_the_better_move_achieves": [
-            {"kind": p["kind"], "importance": p["tier"], "detail": p["proof"]}
+        ("what_the_better_move_achieves" if mover_is_user
+         else "what_your_opponent_could_have_done_instead"): [
+            {"kind": p["kind"], "importance": p["tier"],
+             "detail": p["proof"], "lesson": p.get("lesson", "")}
             for p in (purposes or [])
         ],
     }
@@ -217,6 +250,7 @@ async def write_caption(
         out["refused"] = "disabled"
         return out
     if not (facts.get("what_the_better_move_achieves")
+            or facts.get("what_your_opponent_could_have_done_instead")
             or facts.get("they_were_threatening")
             or facts.get("what_happens_after_your_move")):
         # Nothing to write FROM. The deterministic caption stands.
