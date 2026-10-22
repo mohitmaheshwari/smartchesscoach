@@ -1230,5 +1230,25 @@ def purposes_for(
         phase_bonus = 1 if (endgame and p.kind in ENDGAME_FIRST) else 0
         return (-p.tier, -phase_bonus)
 
+    # One pair of purposes CONTRADICTS rather than merely competing, so
+    # ranking cannot settle it and one of them has to go.
+    #
+    # Mohit's Rousseau card: Black plays f5, and the list came back with
+    # "f5 is attacked and f6 is not" second and "the pawn on f5 can be
+    # taken and the engine answers d4 instead" last. Both read the same
+    # board. But if the engine declines the free man, the square being
+    # attacked is the POINT of the move, not a reason against it -- and
+    # `avoids_attacked_square` says the mover should have gone somewhere
+    # safe, which on an offer is false teaching.
+    #
+    # The offer is the proven one: it rests on the engine's own answer.
+    # So when both describe the same square, the offer survives.
+    _offer_squares = {p.facts.get("square") for p in out
+                      if p.kind == "offered_and_not_taken"}
+    if _offer_squares:
+        out = [p for p in out
+               if not (p.kind == "avoids_attacked_square"
+                       and p.facts.get("played_square") in _offer_squares)]
+
     out.sort(key=rank)
     return [p.as_dict() for p in out]

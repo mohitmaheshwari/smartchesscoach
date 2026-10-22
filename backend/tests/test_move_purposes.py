@@ -271,6 +271,34 @@ class TestAnOfferTheEngineDeclines:
         assert "offered_and_not_taken" not in kinds(self.F5, "f5", "Nf6",
                                                     [], [])
 
+    def test_the_contradicting_framing_is_dropped_not_outranked(self):
+        """On this card the list came back with "f5 is attacked and f6 is
+        not" SECOND and the offer last. Ranking cannot settle that: if the
+        engine declines the free man, the square being attacked is the
+        point of the move, and telling the mover to go somewhere safe is
+        false teaching. So the offer survives and the other goes."""
+        got = kinds(self.F5, "f5", "Nf6", ["d4", "exd4"], ["Nf6", "d3"])
+        assert "offered_and_not_taken" in got
+        assert "avoids_attacked_square" not in got, got
+
+    def test_it_only_drops_it_for_the_same_square(self):
+        """A pawn offered on f5 says nothing about a piece that stepped
+        onto an attacked square somewhere else, so the suppression is
+        keyed to the square and not to the kind."""
+        import services.move_purposes as mp
+        src = mp.__file__
+        with open(src, encoding="utf-8") as fh:
+            body = fh.read()
+        assert 'p.facts.get("played_square") in _offer_squares' in body
+
+    def test_without_the_offer_the_attacked_square_fact_still_speaks(self):
+        """The negative control for the suppression: remove the engine's
+        answer so the offer cannot fire, and the other purpose must come
+        back -- otherwise this dropped it for everyone."""
+        got = kinds(self.F5, "f5", "Nf6", ["exf5", "e4"], ["Nf6", "d3"])
+        assert "offered_and_not_taken" not in got
+        assert "avoids_attacked_square" in got, got
+
 
 class TestACheckThatAchievedNothing:
     """131 cards in the residue, and one of the few lessons in this file a
