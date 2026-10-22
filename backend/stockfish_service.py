@@ -114,6 +114,12 @@ class MoveEvaluation:
     mate_in_before: Optional[int]  # Mate in X moves (before)
     mate_in_after: Optional[int]   # Mate in X moves (after)
     # Principal variations for understanding WHY moves are good/bad
+    # The line from the evaluation search, present on EVERY move including
+    # good ones. Separate from pv_after_played, which is the punishment line
+    # computed at PUNISHMENT_DEPTH for faulted moves only: keeping them apart
+    # means adding this cannot alter a single existing card, and the arrows
+    # drawn from pv_after_played stay exactly as they are.
+    eval_line_played: List[str] = None
     pv_after_played: List[str] = None    # What happens after the move you played
     pv_after_best: List[str] = None      # What would happen after the best move
     threat_after_played: str = None      # The immediate threat you face after your move
@@ -231,6 +237,48 @@ class StockfishEngine:
             return cp_value, mate_in
         else:
             return score.score(), None
+
+    def evaluate_position_with_line(
+        self, board: chess.Board, depth: int = DEFAULT_DEPTH,
+        pv_length: int = 12,
+    ) -> Tuple[int, Optional[int], List[str]]:
+        """evaluate_position, without throwing the line away.
+
+        `evaluate_position` calls analyse() and returns only the score; the
+        principal variation is in the SAME result dict and is discarded. That
+        is why the engine is silent on most of a game.
+
+        Measured 2026-10-22 over 8,831 stored moves: on good moves (cp_loss
+        under 50, which are 70% of all moves) 91.8% carry no line at all,
+        while eval_after is stored on 100% of them -- so the search ran on
+        every one and the line was thrown away each time.
+
+        Mohit: "engine should give us something for everything". This returns
+        what the same search already produced, so every move can carry a line
+        at no extra engine time.
+
+        Separate method rather than a changed signature: evaluate_position
+        has 21 callers and none of them should have to care.
+        """
+        if not self.engine:
+            raise RuntimeError("Engine not started")
+        info = self.engine.analyse(board, chess.engine.Limit(depth=depth))
+        score = info["score"].white()
+        pv_san: List[str] = []
+        tb = board.copy()
+        for mv in (info.get("pv") or [])[:pv_length]:
+            try:
+                pv_san.append(tb.san(mv))
+                tb.push(mv)
+            except Exception:
+                break
+        if score.is_mate():
+            mate_in = score.mate()
+            cp_value = 10000 - abs(mate_in) * 10
+            if mate_in < 0:
+                cp_value = -cp_value
+            return cp_value, mate_in, pv_san
+        return score.score(), None, pv_san
 
     def analyse_full(self, board: chess.Board, depth: int = DEFAULT_DEPTH, pv_length: int = 6):
         """ONE analyse → (white-POV centipawns, best_move|None, pv as SAN list).
@@ -768,8 +816,15 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 # Check if the game is over (checkmate, stalemate, etc.)
                 is_checkmate = board.is_checkmate()
                 
-                # Evaluate position after the move
-                current_eval, current_mate = engine.evaluate_position(board, depth)
+                # Evaluate position after the move.
+                #
+                # The same search produces the line; keeping it is what lets
+                # EVERY move carry one, not only the faulted ones. Stored
+                # under its own key (`eval_line_played`) so that nothing
+                # reading `pv_after_played` -- the arrow builder above all --
+                # sees any change on any existing card.
+                current_eval, current_mate, eval_line_played = (
+                    engine.evaluate_position_with_line(board, depth))
                 
                 # Centipawn loss, measured against the BEST move and with both
                 # evaluations clamped first. best_eval was previously computed
@@ -932,6 +987,7 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         mate_in_before=prev_mate,
                         mate_in_after=current_mate,
                         pv_after_played=pv_after_played,
+                        eval_line_played=eval_line_played,
                         opp_replies=opp_replies,
                         opp_reply_is_clear=opp_reply_is_clear,
                         pv_after_best=pv_after_best,
@@ -1048,6 +1104,34 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                 "pv_after_played": m.pv_after_played,   # Line showing the problem
                 "pv_after_best": m.pv_after_best,       # Line showing better continuation
                 "threat": m.threat_after_played,        # Immediate threat opponent has
+                # The opponent's best replies, with evals, and whether the top
+                # one is clearly best.
+                #
+                # These were COMPUTED and then dropped here: the dataclass
+                # declares them, analyze_game_with_stockfish fills them from
+                # get_top_replies, and this serialiser did not copy them out.
+                # Measured 2026-10-22 across every analysis era -- May, June,
+                # September, October -- `opp_replies` is present on 0.0% of
+                # stored moves. Paid for at depth 18 and thrown away.
+                #
+                # It is the only field that separates "they win your rook"
+                # from "they MIGHT win your rook": whether the punishment is
+                # forced, or one of several replies of roughly equal value.
+                # Without it every punishment claim is an overclaim by
+                # default. See docs/engine_output_spec.md section 3.2.
+                "opp_replies": m.opp_replies,
+                "opp_reply_is_clear": m.opp_reply_is_clear,
+                # The floor: a line on EVERY move, good ones included, taken
+                # from the evaluation search that already ran. Good moves are
+                # 70% of a game and 91.8% of them carried no line at all,
+                # which is why the engine had nothing to say about most of
+                # what a player did -- including what they did right.
+                #
+                # Deliberately NOT merged into pv_after_played. That field
+                # feeds the arrow builder and the caption layer, and both are
+                # working; a separate key means adding this changes no
+                # existing card and moves no existing arrow.
+                "eval_line_played": m.eval_line_played,
                 # Brilliant move data
                 "is_sacrifice": m.is_sacrifice,
                 "is_brilliant": m.is_brilliant,

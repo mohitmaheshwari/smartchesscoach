@@ -1,0 +1,133 @@
+"""The engine emits something for every move, and keeps what it computes.
+
+Mohit, 2026-10-22:
+
+    "when you say engine is ready, it should not throw in silent moves,
+     engine should give us something for everything, are you getting me?"
+
+and, in the same session:
+
+    "arrows and all were building excellent, so no code changes there
+     please, i was very happy with that please"
+
+Both constraints at once, which is what shapes these tests.
+
+WHAT WAS WRONG. Measured over 8,831 stored move evaluations:
+
+    good moves (cp_loss < 50)   6,160   91.8% carry NO line at all
+    small (50-99)               1,014   32.1%
+    flagged (100+)              1,657    7.1%
+
+Good moves are 70% of a game, so the engine was silent about most of what a
+player did -- including everything they got right. It was never a search
+cost: eval_after is stored on 100% of moves, so the search ran every time and
+`evaluate_position` threw the principal variation away.
+
+Separately, `opp_replies` and `opp_reply_is_clear` were computed by the
+analysis and dropped by `_serialize_move`. Present on 0.0% of stored moves in
+every era -- May, June, September and October.
+
+THE SHAPE OF THE FIX. The floor line is stored under its OWN key,
+`eval_line_played`, and never merged into `pv_after_played`. That field feeds
+the arrow builder and the caption layer, both of which are working and must
+not move. A new key means a new fact reaches the fact layer while every
+existing consumer sees exactly what it saw before.
+"""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import chess  # noqa: E402
+
+from stockfish_service import MoveEvaluation  # noqa: E402
+
+
+class TestTheFieldsExist:
+    def test_move_evaluation_carries_the_floor_line(self):
+        m = MoveEvaluation(
+            move_number=1, move_san="e4", move_uci="e2e4", player="white",
+            fen_before=chess.STARTING_FEN, eval_before=0, eval_after=0,
+            cp_loss=0, classification="best", best_move_san="e4",
+            best_move_uci="e2e4", is_mate_before=False, is_mate_after=False,
+            mate_in_before=None, mate_in_after=None)
+        assert hasattr(m, "eval_line_played")
+
+    def test_it_is_separate_from_the_punishment_line(self):
+        """They must not be the same field. pv_after_played is the
+        punishment line at PUNISHMENT_DEPTH for faulted moves and feeds the
+        arrows; eval_line_played is the floor from the evaluation search."""
+        m = MoveEvaluation(
+            move_number=1, move_san="e4", move_uci="e2e4", player="white",
+            fen_before=chess.STARTING_FEN, eval_before=0, eval_after=0,
+            cp_loss=0, classification="best", best_move_san="e4",
+            best_move_uci="e2e4", is_mate_before=False, is_mate_after=False,
+            mate_in_before=None, mate_in_after=None,
+            pv_after_played=["a", "b"], eval_line_played=["c", "d", "e"])
+        assert m.pv_after_played == ["a", "b"]
+        assert m.eval_line_played == ["c", "d", "e"]
+
+    def test_the_reply_fields_exist(self):
+        m = MoveEvaluation(
+            move_number=1, move_san="e4", move_uci="e2e4", player="white",
+            fen_before=chess.STARTING_FEN, eval_before=0, eval_after=0,
+            cp_loss=0, classification="best", best_move_san="e4",
+            best_move_uci="e2e4", is_mate_before=False, is_mate_after=False,
+            mate_in_before=None, mate_in_after=None)
+        assert hasattr(m, "opp_replies")
+        assert hasattr(m, "opp_reply_is_clear")
+
+
+class TestNothingIsDroppedOnTheWayToTheDatabase:
+    """`_serialize_move` is where the fields were lost. It is a closure inside
+    analyze_game_with_stockfish, so it is exercised through the source: the
+    test asserts the keys are written, which is the thing that regressed."""
+
+    def _serializer_source(self):
+        src = Path(__file__).resolve().parents[1] / "stockfish_service.py"
+        text = src.read_text(encoding="utf-8")
+        start = text.index("def _serialize_move(")
+        end = text.index("return {", start)
+        end = text.index("\n            }", end)
+        return text[start:end]
+
+    def test_opp_replies_is_serialised(self):
+        body = self._serializer_source()
+        assert '"opp_replies": m.opp_replies' in body, (
+            "computed by the analysis and dropped here -- 0.0% of stored "
+            "moves had it, in every era")
+
+    def test_opp_reply_is_clear_is_serialised(self):
+        assert '"opp_reply_is_clear": m.opp_reply_is_clear' in \
+            self._serializer_source()
+
+    def test_the_floor_line_is_serialised(self):
+        assert '"eval_line_played": m.eval_line_played' in \
+            self._serializer_source()
+
+    def test_the_punishment_line_still_maps_to_its_own_key(self):
+        """The arrows read this. If the floor line were ever merged into it,
+        every good-move card would gain arrows it never had and every
+        faulted card could draw a different line."""
+        body = self._serializer_source()
+        assert '"pv_after_played": m.pv_after_played' in body
+        assert '"pv_after_played": m.eval_line_played' not in body
+
+
+class TestTheFloorSearchKeepsWhatItAlreadyFound:
+    def test_evaluate_position_with_line_exists_and_is_additive(self):
+        """Added beside evaluate_position rather than changing it: that one
+        has 21 callers and none of them should have to care."""
+        from stockfish_service import StockfishEngine
+        assert hasattr(StockfishEngine, "evaluate_position_with_line")
+        assert hasattr(StockfishEngine, "evaluate_position")
+
+    def test_it_returns_three_things_not_two(self):
+        import inspect
+        from stockfish_service import StockfishEngine
+        sig = inspect.signature(StockfishEngine.evaluate_position_with_line)
+        assert "pv_length" in sig.parameters
+        src = inspect.getsource(StockfishEngine.evaluate_position_with_line)
+        # one analyse call, not two: the whole point is that it is free
+        assert src.count("self.engine.analyse(") == 1, (
+            "a second search would make the floor cost real engine time")
