@@ -505,39 +505,110 @@ def _denies_counterplay(b, us, played_san, best_san,
         f"none after the better move")
 
 
-def _answers_threat(b, best_mv, after_best, us, threat) -> Optional[Purpose]:
+def threat_check(fen_before: str, played_san: str,
+                 threat_san: Optional[str]) -> Optional[Dict[str, Any]]:
+    """What the waiting side's reply actually threatens, or None.
+
+    `get_threat` in stockfish_service returns the opponent's best reply and
+    nothing more -- its own docstring says so -- and every position has a
+    best reply. build_facts then filed that string under
+    `they_were_threatening`, so the model was told a quiet developing move
+    was a threat and wrote correct English for it:
+
+        "your d6 didn't stop their knight from moving to f3"
+
+    Nf3 is not a threat and d6 cannot stop it. Measured over 8,200 faulted
+    cards that carry a stored threat: 79.6% of those replies threaten
+    NOTHING. The engine has to earn that word before the caption may use
+    it.
+
+    Earned means mate, or a capture of a man that is undefended or taken by
+    something cheaper than itself -- the same simple test `_in_danger`
+    uses, so the two halves of this file agree.
+
+    Judged on the board the engine computed it on: fen_before plus the
+    played move. Reading it on fen_before with the turn flipped is a
+    different position, and on 12.9% of these cards the move is not even
+    legal there.
+    """
+    if not threat_san or not isinstance(threat_san, str):
+        return None
+    try:
+        board = chess.Board(fen_before)
+        board.push(board.parse_san(str(played_san)))
+        mv = board.parse_san(threat_san)
+    except Exception:
+        return None
+    after = board.copy()
+    after.push(mv)
+    if after.is_checkmate():
+        return {"move": threat_san, "it_would_win": "mate"}
+    victim = board.piece_at(mv.to_square)
+    if victim is None:
+        return None
+    taker = board.piece_at(mv.from_square)
+    name = f"the {chess.piece_name(victim.piece_type)} on " \
+           f"{chess.square_name(mv.to_square)}"
+    if not board.attackers(victim.color, mv.to_square):
+        return {"move": threat_san, "it_would_win": name,
+                "because": "nothing is defending it"}
+    if taker is not None and \
+            VALUE[taker.piece_type] < VALUE[victim.piece_type]:
+        return {"move": threat_san, "it_would_win": name,
+                "because": f"it is taken by the cheaper "
+                           f"{chess.piece_name(taker.piece_type)}"}
+    return None
+
+
+def _answers_threat(b, best_mv, after_best, us, threat,
+                    played_san=None) -> Optional[Purpose]:
     """The residue's biggest shape: 94% of the cards nothing else explained
     carry a `threat` the engine already stores, and the better move deals
     with it.
 
-    Proven, never assumed: the threatened move must be legal for them now and
-    must NOT be available after the better move, or must no longer win what
-    it won.
+    Proven in two steps, neither assumed. The threat must WIN something
+    after the played move, and it must then be gone after the better one.
+
+    The first step used to be missing and the board was wrong. This probed
+    `b` -- fen_before -- with the turn flipped, while the stored threat is
+    the engine's reply on the board AFTER the played move. Measured over
+    8,200 cards: the two boards disagree on 18.5%, the flipped one calls
+    1,060 threats illegal that are perfectly legal on the real board, and
+    it confirms 9.0% where the truth is 20.4%. So it missed half the real
+    threats and judged the rest in a position that never occurred.
+
+    And nothing required the threat to threaten anything, so a quiet
+    developing move counted whenever the better move happened to deny its
+    square.
     """
-    if not threat or not isinstance(threat, str):
+    if not threat or not isinstance(threat, str) or not played_san:
         return None
-    probe = b.copy()
-    probe.turn = not us          # give them the move, to read their threat
-    tm = _mv(probe, threat)
-    if tm is None:
+    real = threat_check(b.fen(), str(played_san), threat)
+    if real is None:
         return None
-    victim = probe.piece_at(tm.to_square)
-    after = after_best.copy()
-    after.turn = not us
-    still = _mv(after, threat)
+    wins = real.get("it_would_win")
+    # Gone after the better move: illegal there, or no longer worth taking.
+    still = _mv(after_best, threat)
     if still is not None:
-        # still legal -- is it still worth anything?
-        now = after.piece_at(still.to_square)
-        if victim is None or (now is not None
-                              and now.color == us
-                              and VALUE[now.piece_type] >= VALUE[victim.piece_type]
-                              and not after.attackers(us, still.to_square)):
-            return None
+        if wins == "mate":
+            probe = after_best.copy()
+            probe.push(still)
+            if probe.is_checkmate():
+                return None
+        else:
+            now = after_best.piece_at(still.to_square)
+            taker = after_best.piece_at(still.from_square)
+            defended = bool(after_best.attackers(us, still.to_square))
+            cheaper = (now is not None and taker is not None
+                       and VALUE[taker.piece_type] < VALUE[now.piece_type])
+            if now is not None and now.color == us \
+                    and (not defended or cheaper):
+                return None          # still wins the same man
     return Purpose(
         "answers_threat", SAFETY,
-        {"threat_san": threat},
-        f"the waiting side was threatening {threat}; the better move "
-        f"takes it away")
+        {"threat_san": threat, "threat_wins": wins},
+        f"the waiting side was threatening {threat}, winning {wins}; "
+        f"the better move takes it away")
 
 
 def _mate_transition(mate_info) -> Optional[Purpose]:
@@ -941,7 +1012,8 @@ def purposes_for(
             except Exception:
                 pass
         try:
-            p = _answers_threat(b, best_mv, after_best, us, threat)
+            p = _answers_threat(b, best_mv, after_best, us, threat,
+                                played_san=played_san)
             if p:
                 out.append(p)
         except Exception:

@@ -1213,7 +1213,7 @@ def process_job(db, job):
             try:
                 import asyncio as _aio
                 from services.llm_caption import build_facts, write_caption
-                from services.move_purposes import purposes_for
+                from services.move_purposes import purposes_for, threat_check
 
                 # 40, not 100. Mohit opened a card reading only "Opponent's
                 # c3 is an inaccuracy. Play c6." and asked why the engine did
@@ -1261,7 +1261,10 @@ def process_job(db, job):
                                 str(mv.get("best_move") or ""), ps,
                                 mover_is_user=is_user,
                                 severity=mv.get("evaluation"),
-                                threat=mv.get("threat"),
+                                threat=threat_check(
+                                    mv["fen_before"],
+                                    str(mv.get("move") or ""),
+                                    mv.get("threat")),
                                 punishment_line=list(
                                     mv.get("pv_after_played") or []),
                                 opp_reply_is_clear=mv.get("opp_reply_is_clear"),

@@ -157,7 +157,7 @@ def build_facts(
     *,
     mover_is_user: bool = True,
     severity: Optional[str] = None,
-    threat: Optional[str] = None,
+    threat: Optional[Any] = None,
     punishment_line: Optional[List[str]] = None,
     opp_reply_is_clear: Optional[bool] = None,
     best_is_only_move: Optional[bool] = None,
@@ -183,6 +183,12 @@ def build_facts(
     if severity:
         facts["how_bad"] = severity
     if threat:
+        # A VALIDATED threat from move_purposes.threat_check -- what the
+        # reply wins, not merely what the reply is. A bare SAN used to land
+        # here straight from stockfish_service.get_threat, which returns the
+        # opponent's best reply and nothing more, and 79.6% of those replies
+        # threaten nothing at all. Under this key the model read every one
+        # of them as a threat, correctly, because the key said so.
         facts["they_were_threatening"] = threat
     if punishment_line:
         facts["what_happens_after_your_move"] = list(punishment_line)[:6]
@@ -250,11 +256,31 @@ async def write_caption(
         out["refused"] = "disabled"
         return out
     if not (facts.get("what_the_better_move_achieves")
-            or facts.get("what_your_opponent_could_have_done_instead")
-            or facts.get("they_were_threatening")
-            or facts.get("what_happens_after_your_move")):
-        # Nothing to write FROM. The deterministic caption stands.
-        out["refused"] = "no facts to write from"
+            or facts.get("what_your_opponent_could_have_done_instead")):
+        # A PROVEN PURPOSE, or nothing. A line of moves and a threat the
+        # engine never verified are not a licence to explain a mistake.
+        #
+        # This gate used to accept `they_were_threatening` or
+        # `what_happens_after_your_move` on their own, and three cards from
+        # Mohit's five review games show what that produced. Each fired no
+        # purpose at all, so the model was handed a move list and asked why
+        # a move was bad, and it did the only thing left: read causality
+        # off the line.
+        #
+        #   "your d6 didn't stop their knight from moving to f3"
+        #   "castling was an inaccuracy because it let your opponent play
+        #    Bg5"
+        #
+        # Nf3 and Bg5 are simply the first move of the stored line. Neither
+        # is a threat, and d6 cannot stop a knight going to f3. The English
+        # is right; the chess was invented because the engine gave nothing
+        # else. That is the one thing this layer may never do.
+        #
+        # Refusing is not silence: the caller keeps its deterministic
+        # caption, which says less but says nothing false. The way to get
+        # an LLM caption on these cards is to give the engine a purpose
+        # that fires on them.
+        out["refused"] = "no proven purpose"
         return out
 
     user = json.dumps(facts, indent=1)

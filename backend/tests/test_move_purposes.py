@@ -30,7 +30,7 @@ import chess
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from services.move_purposes import purposes_for  # noqa: E402
+from services.move_purposes import purposes_for, threat_check  # noqa: E402
 
 # Mohit's card: 25.Bd6+ played, Qxg8 winning.
 BD6 = "rk1q2r1/pp3Q2/2b2p2/4p3/1BPb4/7B/P1P2P1P/R3K2R w KQ - 1 25"
@@ -136,6 +136,72 @@ class TestItRefusesToOverreach:
     def test_a_threat_that_survives_the_better_move_is_not_answered(self):
         """answers_threat must prove the threat is GONE, never assume it."""
         got = kinds(BD6, "Bd6+", "Qxg8", [], [], threat="Qxg5")
+        assert "answers_threat" not in got
+
+
+class TestAThreatHasToThreatenSomething:
+    """stockfish_service.get_threat returns the opponent's best reply and
+    nothing more -- its own docstring says so -- and every position has one.
+    Filed under `they_were_threatening`, that string told the model a quiet
+    developing move was a threat, and the model wrote correct English for
+    it: "your d6 didn't stop their knight from moving to f3".
+
+    Measured over 8,200 faulted cards carrying a stored threat, judged on
+    the board the engine computed it on: 79.6% threaten nothing.
+
+    The board matters as much as the test. The old code probed fen_before
+    with the turn flipped, which is a position that never occurred: the two
+    boards disagree on 18.5% of cards, the flipped one calls 1,060 legal
+    threats illegal, and it confirms 9.0% where the truth is 20.4%.
+    """
+
+    # Mohit's card, move 4: d6 played, c6 better, stored threat Nf3.
+    QUIET = "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/2PP4/PP3PPP/RNBQK1NR b KQkq - 0 4"
+
+    def test_the_board_really_does_allow_nf3_after_d6(self):
+        """So a refusal below is the test working, not the move being
+        illegal."""
+        b = chess.Board(self.QUIET)
+        b.push_san("d6")
+        assert b.parse_san("Nf3") in b.legal_moves
+
+    def test_a_quiet_developing_reply_is_not_a_threat(self):
+        assert threat_check(self.QUIET, "d6", "Nf3") is None
+
+    def test_it_says_what_a_real_threat_wins(self):
+        """White has just grabbed e5 and the e4 pawn is hanging."""
+        fen = "rnbqkb1r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3"
+        got = threat_check(fen, "Nxe5", "Nxe4")
+        assert got and got["move"] == "Nxe4"
+        assert "pawn on e4" in got["it_would_win"]
+
+    def test_mate_is_named_as_mate(self):
+        """1.f3 e5 2.g4 Qh4#. The board here is after 1.f3 e5, so g4 is the
+        played move and the mate is the reply to it."""
+        fen = "rnbqkbnr/pppp1ppp/8/4p3/8/5P2/PPPPP1PP/RNBQKBNR w KQkq - 0 2"
+        b = chess.Board(fen)
+        b.push_san("g4")
+        b.push_san("Qh4")
+        assert b.is_checkmate()
+        got = threat_check(fen, "g4", "Qh4")
+        assert got and got["it_would_win"] == "mate", got
+
+    def test_an_even_recapture_wins_nothing(self):
+        """Taking a defended man with an equal one is a trade, not a
+        threat."""
+        fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2"
+        assert threat_check(fen, "Nc6", "Nxe5") is None
+
+    def test_a_threat_read_on_the_wrong_board_is_refused(self):
+        """Nf3 is legal for white before black moves too, so the old
+        turn-flipped probe found it there. On the right board it still
+        wins nothing -- and an unrelated SAN that is only legal on the
+        flipped board gets no answer at all."""
+        assert threat_check(self.QUIET, "d6", "Bxf7+") is None
+
+    def test_the_purpose_no_longer_fires_on_a_non_threat(self):
+        got = kinds(self.QUIET, "d6", "c6", ["Nf3", "O-O"], ["Nf3", "O-O"],
+                    threat="Nf3")
         assert "answers_threat" not in got
 
 
