@@ -88,6 +88,7 @@ const ReviewQueue = ({ user }) => {
   const [regeneratedOnly, setRegeneratedOnly] = useState(true);
   const [tagFilter, setTagFilter] = useState([]);
   const [tagCounts, setTagCounts] = useState([]);
+  const [tagsUnavailable, setTagsUnavailable] = useState(false);
 
   const fetchGames = useCallback(async () => {
     setLoading(true);
@@ -143,19 +144,30 @@ const ReviewQueue = ({ user }) => {
     fetchGames();
   }, [fetchGames]);
 
+  // The tag list is fetched once per owner, so a single failed request used to
+  // leave the picker at "(0)" until the owner changed -- Mohit, 2026-10-22, on
+  // a tab opened during a server outage. It now retries, and says so when it
+  // cannot load rather than looking like there are no tags.
   useEffect(() => {
+    let alive = true;
     (async () => {
-      try {
-        const q = ownerFilter ? `?user_id=${encodeURIComponent(ownerFilter)}` : "";
-        const res = await fetch(`${API}/reviewer/game-tags${q}`, { credentials: "include" });
-        if (res.ok) {
-          const j = await res.json();
-          setTagCounts(j.tags || []);
+      const q = ownerFilter ? `?user_id=${encodeURIComponent(ownerFilter)}` : "";
+      for (let attempt = 0; attempt < 3 && alive; attempt += 1) {
+        try {
+          const res = await fetch(`${API}/reviewer/game-tags${q}`, { credentials: "include" });
+          if (res.ok) {
+            const j = await res.json();
+            if (alive) { setTagCounts(j.tags || []); setTagsUnavailable(false); }
+            return;
+          }
+        } catch (e) {
+          console.error("game tags fetch failed", e);
         }
-      } catch (e) {
-        console.error("game tags fetch failed", e);
+        await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
       }
+      if (alive) setTagsUnavailable(true);
     })();
+    return () => { alive = false; };
   }, [ownerFilter]);
 
   if (accessError) {
@@ -270,7 +282,9 @@ const ReviewQueue = ({ user }) => {
               }}
               data-testid="tag-filter-select"
             >
-              <option value="">Add a tag ({tagCounts.length})</option>
+              <option value="">
+                {tagsUnavailable && !tagCounts.length ? "Tags could not load - reload the page" : `Add a tag (${tagCounts.length})`}
+              </option>
               {/* Grouped by kind; rarest first within a group, because the
                   rare tags are the ones worth searching for. */}
               {groupTags(tagCounts).map((group) => (

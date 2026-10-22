@@ -74,6 +74,31 @@ test("choosing a tag searches every analysed game for it", async () => {
     .toContain("queen trapped, opponent missed");
 });
 
+test("a failed tag request is retried instead of leaving the picker empty", async () => {
+  // Mohit, 2026-10-22: a tab opened during a server outage showed "Add a
+  // tag (0)" for hours, because the tag list was fetched once and never again.
+  jest.useFakeTimers();
+  let tagCalls = 0;
+  const ok = global.fetch;
+  global.fetch = jest.fn((url) => {
+    if (url.includes("/reviewer/game-tags")) {
+      tagCalls += 1;
+      if (tagCalls === 1) return Promise.resolve({ ok: false, status: 504, json: async () => ({}) });
+    }
+    return ok(url);
+  });
+  try {
+    await render();
+    expect(container.querySelector("[data-testid='tag-filter-select'] option").textContent).toBe("Add a tag (0)");
+    await act(async () => { jest.advanceTimersByTime(2100); });
+    await act(async () => { for (let i = 0; i < 10; i += 1) await Promise.resolve(); });
+    expect(tagCalls).toBe(2);
+    expect(container.querySelector("[data-testid='tag-filter-select'] option").textContent).toBe("Add a tag (3)");
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
 test("a tag chip on a row opens the game at that move", async () => {
   await render();
   const chip = [...container.querySelectorAll("[data-testid='game-tag-chips'] button")]
