@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional  # noqa: F401
 
 GAME_TAGS_VERSION = "game_tags.v2"  # v2: absolute facts and named mistakes
 
@@ -56,10 +56,40 @@ _DANGER_TAGS = {
 }
 
 
+# One small document per game: its id, owner, tag ids and the moves behind
+# them. Counting and searching tags MUST read this, never game_analyses.
+#
+# 2026-10-22: the first version counted tags by aggregating game_analyses,
+# whose documents average 301 KB (5.9 GB in all). Every Review Queue load
+# made Mongo read all of it, took over 90 seconds, and returned a 504 -- on a
+# host already short of memory, where it added to the pressure. This
+# collection is a derived index of game_story.tags, rebuilt whenever a story
+# is written; game_story stays the source.
+TAG_INDEX_COLLECTION = "game_tag_index"
+
+
 async def ensure_game_tag_indexes(db) -> None:
     """Tags are searched per player and across the community."""
-    await db.game_analyses.create_index("game_tags")
-    await db.game_analyses.create_index([("user_id", 1), ("game_tags", 1)])
+    index = db[TAG_INDEX_COLLECTION]
+    await index.create_index("game_id", unique=True)
+    await index.create_index("tags")
+    await index.create_index([("user_id", 1), ("tags", 1)])
+    # "Regenerated only" in the Review Queue scans for this field. Without an
+    # index it read every 301 KB analysis (60 s, at the gateway's limit);
+    # with game_id in the index the query never touches a document.
+    await db.game_analyses.create_index(
+        [("decryption_v5_regen_at", 1), ("game_id", 1)], sparse=True)
+
+
+def tag_index_doc(game_id: str, user_id: Optional[str], tags: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
+    tags = tags or {}
+    return {
+        "game_id": game_id,
+        "user_id": user_id,
+        "tags": list(tags.get("ids") or []),
+        "moves": dict(tags.get("moves") or {}),
+        "version": tags.get("version"),
+    }
 
 
 def _named_mistake_allowed(quality_id: str) -> bool:

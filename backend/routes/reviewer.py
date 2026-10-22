@@ -140,12 +140,14 @@ async def list_review_games(
     # the indexed game_analyses.game_tags, intersected with the rest.
     tag_list = [t.strip() for t in (tags or "").split(",") if t.strip()]
     if tag_list:
-        tag_query = {"game_tags": {"$all": tag_list}}
+        # The slim tag records, never game_analyses (301 KB a document).
+        from services.game_tags import TAG_INDEX_COLLECTION
+        tag_query = {"tags": {"$all": tag_list}}
         if user_id:
             tag_query["user_id"] = user_id
         tagged = {
             a["game_id"]
-            async for a in db.game_analyses.find(tag_query, {"_id": 0, "game_id": 1})
+            async for a in db[TAG_INDEX_COLLECTION].find(tag_query, {"_id": 0, "game_id": 1})
             if a.get("game_id")
         }
         if "game_id" in flt:
@@ -196,8 +198,6 @@ async def list_review_games(
             "stockfish_analysis.blunders": 1,
             "stockfish_analysis.mistakes": 1,
             "stockfish_analysis.accuracy": 1,
-            "game_tags": 1,
-            "game_story.tags.moves": 1,
         }
     ):
         sf = a.get("stockfish_analysis") or {}
@@ -205,9 +205,15 @@ async def list_review_games(
             "blunders": sf.get("blunders", 0),
             "mistakes": sf.get("mistakes", 0),
             "accuracy": sf.get("accuracy", 0),
-            "game_tags": a.get("game_tags") or [],
-            "game_tag_moves": ((a.get("game_story") or {}).get("tags") or {}).get("moves") or {},
         }
+    from services.game_tags import TAG_INDEX_COLLECTION
+    async for t in db[TAG_INDEX_COLLECTION].find(
+        {"game_id": {"$in": game_ids}}, {"_id": 0, "game_id": 1, "tags": 1, "moves": 1}
+    ):
+        stats_by_game.setdefault(t["game_id"], {}).update({
+            "game_tags": t.get("tags") or [],
+            "game_tag_moves": t.get("moves") or {},
+        })
 
     # Flag counts from move_feedback collection. context.game_id is the
     # standard field where bug submissions record which game they're
@@ -293,16 +299,21 @@ async def list_game_tags(
     story (services/game_tags.py). Reviewer-only, like the game list.
     """
     _require_reviewer(user)
-    match = {"game_tags": {"$exists": True, "$ne": []}}
+    # The slim tag records (services/game_tags.py). The first version
+    # aggregated game_analyses -- 5.9 GB -- and timed out on every load.
+    from services.game_tags import TAG_INDEX_COLLECTION
+    index = db[TAG_INDEX_COLLECTION]
+    match = {"tags.0": {"$exists": True}}
     if user_id:
         match["user_id"] = user_id
-    counts = await db.game_analyses.aggregate([
+    counts = await index.aggregate([
         {"$match": match},
-        {"$unwind": "$game_tags"},
-        {"$group": {"_id": "$game_tags", "games": {"$sum": 1}}},
+        {"$project": {"_id": 0, "tags": 1}},
+        {"$unwind": "$tags"},
+        {"$group": {"_id": "$tags", "games": {"$sum": 1}}},
         {"$sort": {"games": -1, "_id": 1}},
     ]).to_list(length=None)
-    tagged_games = await db.game_analyses.count_documents(match)
+    tagged_games = await index.count_documents(match)
     return {
         "tags": [{"id": c["_id"], "games": c["games"]} for c in counts],
         "tagged_games": tagged_games,

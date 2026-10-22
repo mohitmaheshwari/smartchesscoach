@@ -667,6 +667,12 @@ async def story_for_game(db, game: Mapping[str, Any], *, persist: bool = True) -
         try:
             await db.game_analyses.update_one(
                 {"game_id": game_id}, {"$set": story_storage_fields(story)})
+            # The slim tag record searches and counts read (game_tags.py).
+            from services.game_tags import TAG_INDEX_COLLECTION, tag_index_doc
+            await db[TAG_INDEX_COLLECTION].update_one(
+                {"game_id": game_id},
+                {"$set": tag_index_doc(game_id, game.get("user_id"), story.get("tags"))},
+                upsert=True)
         except Exception:
             import logging
             logging.getLogger(__name__).warning("could not store rebuilt game story", exc_info=True)

@@ -2052,6 +2052,13 @@ def process_job(db, job):
                 {"game_id": game_id},
                 {"$set": story_storage_fields(_story)},
             )
+            # The slim tag record searches and counts read (game_tags.py).
+            from services.game_tags import TAG_INDEX_COLLECTION, tag_index_doc
+            db[TAG_INDEX_COLLECTION].update_one(
+                {"game_id": game_id},
+                {"$set": tag_index_doc(game_id, user_id, _story.get("tags"))},
+                upsert=True,
+            )
             logger.info(
                 "[GAME-STORY] %s: headline=%s moments=%d spans=%d empty=%s",
                 game_id,
