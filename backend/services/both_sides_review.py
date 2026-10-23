@@ -603,4 +603,20 @@ async def last_game_card(db, user_id: str) -> Optional[Dict[str, Any]]:
     except Exception:
         logger.warning("home card could not load the game story", exc_info=True)
     card.update(story_card_fields(story, review, user_colour=colour))
+
+    # The title and teaching line, from the game's verified story facts
+    # (services/game_headline.py). Mohit, 2026-10-23: "You were the steadier
+    # player" was true by average mistake size and wrong as a lesson -- the
+    # opponent had let him off twice. The both-sides sentence stays only as
+    # the fallback when a game has no story.
+    if story and story.get("plan"):
+        try:
+            from services.game_headline import headline_for_game
+
+            written = await headline_for_game(db, game, story)
+            card["headline"] = written.get("title") or card["headline"]
+            card["detail"] = written.get("teaching") or card["detail"]
+            card["headline_source"] = written.get("source")
+        except Exception:
+            logger.warning("home card headline failed", exc_info=True)
     return card
