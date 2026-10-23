@@ -5172,10 +5172,49 @@ async def generate_game_decryption_v5(
                 and db is not None
             ):
                 try:
+                    # ONCE PER GAME, not once per render.
+                    #
+                    # This was a bare $inc, and it runs in the RENDERER --
+                    # so every background re-analysis and every batch
+                    # re-render counted as another "showing", while the
+                    # user-facing review route passes
+                    # persist_learning_side_effects=False and counted
+                    # nothing. The two were exactly inverted: the number
+                    # measured how often a job had rendered the card, not
+                    # how often a human had been told the lesson.
+                    #
+                    # Measured 2026-10-23: 34.5% of 5,313 concept-user
+                    # pairs stood at 10 or more, and re-analysing five
+                    # games four times in one afternoon added four to every
+                    # acknowledgment-bearing card in them. Anything built
+                    # on this field -- acknowledgment, mastery, or picking
+                    # which lesson to teach next -- was reading that noise.
+                    #
+                    # Adding the game to the identity of a showing makes it
+                    # idempotent: re-rendering a game can never raise the
+                    # count again, while a NEW game carrying the same
+                    # concept still does. The filter does the work -- when
+                    # the game is already recorded nothing matches and
+                    # nothing changes -- so it needs no read first and no
+                    # transaction.
+                    #
+                    # The count now means "the number of your games this
+                    # lesson has appeared on", which is the coaching
+                    # question. True impressions -- did they open the page
+                    # and read it -- are a separate thing and still
+                    # unrecorded anywhere.
+                    # TWO operations, and the split is not cosmetic. One
+                    # upsert whose filter contained `shown_games: {$ne:
+                    # game_id}` would INSERT A DUPLICATE whenever the game
+                    # was already recorded: the existing document fails
+                    # that filter, nothing matches, and upsert creates a
+                    # second row for the same user and concept.
+                    #
+                    # So: ensure the row exists on identity alone, then
+                    # increment only when this game is new.
                     await db.user_concept_understanding.update_one(
                         {"user_id": user_id, "concept_id": plan.concept_id},
                         {
-                            "$inc": {"shown_count": 1},
                             "$set": {
                                 "concept_type": plan.concept_type,
                                 "concept_text": plan.transferable_learning,
@@ -5185,12 +5224,21 @@ async def generate_game_decryption_v5(
                                 "user_id": user_id,
                                 "concept_id": plan.concept_id,
                                 "acknowledged": False,
+                                "shown_count": 0,
                                 "source_position": fen_before,
                                 "created_at": datetime.now(timezone.utc).isoformat()
                             }
                         },
                         upsert=True
                     )
+                    if game_id:
+                        await db.user_concept_understanding.update_one(
+                            {"user_id": user_id,
+                             "concept_id": plan.concept_id,
+                             "shown_games": {"$ne": game_id}},
+                            {"$inc": {"shown_count": 1},
+                             "$addToSet": {"shown_games": game_id}},
+                        )
                 except Exception as e:
                     logger.warning(f"Could not update concept tracking: {e}")
         
