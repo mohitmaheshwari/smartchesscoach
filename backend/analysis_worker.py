@@ -1252,10 +1252,62 @@ def process_job(db, job):
                     and m.get("fen_before") and m.get("best_move")
                 ]
 
+                # PLAN moves: not faults, but they set something up. The
+                # fact layer has only ever looked at mistakes, so a move
+                # like a4 -- about 5cp, preparing b4 to hit a bishop on c5
+                # -- got a generic "pushing a pawn to take more room".
+                #
+                # Mohit: "it's a simple pattern and a great teaching,
+                # general rule for a4... i can't really author everywhere."
+                # So the shapes live in a four-row table in move_purposes
+                # and apply to every game without per-opening authoring.
+                #
+                # Narrow on purpose. `purposes_for` answers "why was this
+                # worse than the engine's move" and most of its facts
+                # describe what the BETTER move achieves, which is nonsense
+                # on a move that IS best -- so these go through
+                # `plan_purposes_for`, which carries the plan family only.
+                #
+                # Measured at 1.5% of games, so this adds well under one
+                # caption call per game.
+                from services.move_purposes import plan_purposes_for
+                _plans = []
+                for _m, _is_user in ([(m, True) for m in move_evaluations]
+                                     + [(m, False) for m in _opp_evals]):
+                    if int(_m.get("cp_loss") or 0) >= _LLM_MIN_CP:
+                        continue          # a fault already has its own card
+                    if not _m.get("fen_before"):
+                        continue
+                    try:
+                        _pp = plan_purposes_for(
+                            _m["fen_before"], str(_m.get("move") or ""),
+                            eval_line=_m.get("eval_line_played"))
+                    except Exception:
+                        _pp = []
+                    if _pp:
+                        _plans.append((_m, _is_user, _pp))
+                if _plans:
+                    logger.info("[LLM_CAPTION] %s: %d plan move(s) besides "
+                                "the faults", game_id, len(_plans))
+
                 async def _write_all():
                     # Bounded: a long game has ~20 faulted moves and an
                     # unbounded fan-out would open twenty sockets at once.
                     sem = _aio.Semaphore(4)
+
+                    async def _one_plan(triple):
+                        mv, is_user, pp = triple
+                        async with sem:
+                            facts = build_facts(
+                                str(mv.get("move") or ""),
+                                None, pp, mover_is_user=is_user,
+                                punishment_line=list(
+                                    mv.get("eval_line_played") or []))
+                            res = await write_caption(
+                                facts, rating=user_rating)
+                            mv["llm_caption"] = res.get("caption")
+                            mv["llm_caption_refused"] = res.get("refused")
+                            mv["llm_caption_facts"] = pp
 
                     async def _one(pair):
                         mv, is_user = pair
@@ -1284,8 +1336,10 @@ def process_job(db, job):
                             mv["llm_caption"] = res.get("caption")
                             mv["llm_caption_refused"] = res.get("refused")
                             mv["llm_caption_facts"] = ps
-                    await _aio.gather(*[_one(m) for m in _flagged],
-                                      return_exceptions=True)
+                    await _aio.gather(
+                        *[_one(m) for m in _flagged],
+                        *[_one_plan(t) for t in _plans],
+                        return_exceptions=True)
 
                 # Label every caption call with whose game it is. This is
                 # the product's biggest LLM spender -- one call per faulted

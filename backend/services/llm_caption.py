@@ -102,6 +102,10 @@ _COMMON = (
     "next game. If the honest lesson cannot be said plainly, say the "
     "simplest true part of it and stop. Saying less plainly beats saying "
     "all of it in a sentence they reread.\n"
+    "- `what_their_move_sets_up` or `what_your_move_sets_up` means the "
+    "move was FINE and it prepares something. Never call it a mistake, "
+    "never offer a better move, and say what is coming and what to do "
+    "about it.\n"
     "- `lesson` is the thing to teach. Say it in your own plain words. "
     "Never invent a different lesson, and never work one out from the "
     "other facts.\n"
@@ -195,17 +199,29 @@ def build_facts(
     against.
     """
     who = "you_played" if mover_is_user else "your_opponent_played"
+    # A PLAN card has no better move -- the move was fine, it set something
+    # up. Filing its facts under "what the better move achieves" would ask
+    # the model to write about an alternative that does not exist, so the
+    # key says what the facts actually are.
+    if best_san:
+        slot = ("what_the_better_move_achieves" if mover_is_user
+                else "what_your_opponent_could_have_done_instead")
+    else:
+        slot = ("what_your_move_sets_up" if mover_is_user
+                else "what_their_move_sets_up")
     facts: Dict[str, Any] = {
         who: played_san,
         "mover": "you" if mover_is_user else "your opponent",
-        "better_move": best_san,
-        ("what_the_better_move_achieves" if mover_is_user
-         else "what_your_opponent_could_have_done_instead"): [
+        slot: [
             {"kind": p["kind"], "importance": p["tier"],
              "detail": p["proof"], "lesson": p.get("lesson", "")}
             for p in (purposes or [])
         ],
     }
+    if best_san:
+        facts["better_move"] = best_san
+    else:
+        facts["this_move_was_fine"] = True
     if severity:
         facts["how_bad"] = severity
     if threat:
@@ -282,7 +298,9 @@ async def write_caption(
         out["refused"] = "disabled"
         return out
     if not (facts.get("what_the_better_move_achieves")
-            or facts.get("what_your_opponent_could_have_done_instead")):
+            or facts.get("what_your_opponent_could_have_done_instead")
+            or facts.get("what_your_move_sets_up")
+            or facts.get("what_their_move_sets_up")):
         # A PROVEN PURPOSE, or nothing. A line of moves and a threat the
         # engine never verified are not a licence to explain a mistake.
         #

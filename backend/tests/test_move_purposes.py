@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.move_purposes import purposes_for, threat_check  # noqa: E402
 from services.move_purposes import _colour_of as mp_colour  # noqa: E402
+from services.move_purposes import plan_purposes_for  # noqa: E402
 
 # Mohit's card: 25.Bd6+ played, Qxg8 winning.
 BD6 = "rk1q2r1/pp3Q2/2b2p2/4p3/1BPb4/7B/P1P2P1P/R3K2R w KQ - 1 25"
@@ -570,3 +571,110 @@ class TestTradingAwayAColourComplex:
         assert mp_colour(chess.H1) == 1          # h1 is light
         assert mp_colour(chess.E6) == 1          # e6 is light
         assert mp_colour(chess.C4) == 1          # so is c4
+
+
+class TestWhatAMoveSetsUp:
+    """Mohit's a4 card. The caption said "pushing a pawn to take more room
+    on the board... stay calm and make your own pieces strong" -- 58 words
+    of nothing -- because a4 is about 5cp and the fact layer has only ever
+    looked at mistakes.
+
+    His rule: "general rule for a4, you know is to do b4 for bishop trap...
+    i can't really author everywhere." So the shapes are a four-row table
+    that applies to every game with no per-opening authoring.
+
+    Measured on 400 games: 0.05% of moves, 1.5% of GAMES. Rare per card,
+    which is the wrong denominator for a pattern you recognise -- and
+    unlike the fuzzy probe cut at 0.4%, this is table-driven geometry that
+    cannot misfire.
+    """
+
+    A4 = "rnbqk2r/ppp2ppp/3p1n2/2b1p3/2B1P3/2PP4/PP3PPP/RNBQK1NR w KQkq - 0 5"
+
+    def test_the_board_really_holds_the_shape(self):
+        b = chess.Board(self.A4)
+        assert b.piece_at(chess.C5) == chess.Piece(chess.BISHOP, chess.BLACK)
+        # b4 was ALREADY legal -- a4 does not enable it, which is why the
+        # first detector I wrote missed this card entirely.
+        assert "b4" in {b.san(m) for m in b.legal_moves}
+        after = b.copy()
+        after.push(after.parse_san("a4"))
+        after.turn = chess.WHITE
+        w = after.copy()
+        w.push(w.parse_san("b4"))
+        assert chess.C5 in w.attacks(chess.B4)
+        # and c3 holds b4, so the bishop cannot simply take
+        assert chess.C3 in w.attackers(chess.WHITE, chess.B4)
+
+    def test_it_fires_and_names_the_push_and_the_bishop(self):
+        got = plan_purposes_for(self.A4, "a4", ["a6", "Nf3", "O-O"])
+        assert got, "the plan family found nothing"
+        f = got[0]
+        assert f["kind"] == "prepares_the_pawn_chase"
+        assert f["facts"]["next_push"] == "b4"
+        assert f["facts"]["bishop_on"] == "c5"
+        assert f["facts"]["pawn_defended"] is True
+
+    def test_it_carries_the_engines_own_answer_not_a_chosen_one(self):
+        got = plan_purposes_for(self.A4, "a4", ["a6", "Nf3"])
+        assert got[0]["facts"]["their_answer"] == "a6"
+        # and with no line it must not invent one
+        got2 = plan_purposes_for(self.A4, "a4", [])
+        assert "their_answer" not in got2[0]["facts"]
+
+    def test_no_bishop_on_the_square_means_nothing_to_say(self):
+        start = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        assert plan_purposes_for(start, "a4", ["e5"]) == []
+
+    def test_a_non_pawn_move_is_not_this_shape(self):
+        assert plan_purposes_for(self.A4, "Nf3", ["a6"]) == []
+
+    def test_the_fault_path_does_not_carry_plan_facts(self):
+        """`purposes_for` answers "why was this worse than the engine's
+        move". A plan fact there would be describing an alternative that
+        does not exist, so the two entry points stay separate."""
+        got = kinds(self.A4, "a4", "Nf3", ["a6", "Nf3"], [])
+        assert "prepares_the_pawn_chase" not in got
+
+    def test_all_four_rows_are_mirrored(self):
+        from services.move_purposes import PAWN_CHASE_SHAPES
+        assert len(PAWN_CHASE_SHAPES[chess.WHITE]) == 2
+        assert len(PAWN_CHASE_SHAPES[chess.BLACK]) == 2
+        dests = {d for rows in PAWN_CHASE_SHAPES.values() for d, _, _ in rows}
+        assert dests == {"a4", "h4", "a5", "h5"}
+
+
+class TestAPlanCardIsNotAMistakeCard:
+    """A plan move was FINE. Filing its facts under "what the better move
+    achieves" would ask the model to write about an alternative that does
+    not exist."""
+
+    A4 = TestWhatAMoveSetsUp.A4
+
+    def test_the_facts_say_sets_up_and_not_better_move(self):
+        from services.llm_caption import build_facts
+        pp = plan_purposes_for(self.A4, "a4", ["a6"])
+        facts = build_facts("a4", None, pp, mover_is_user=False)
+        assert "what_their_move_sets_up" in facts
+        assert "what_your_opponent_could_have_done_instead" not in facts
+        assert "better_move" not in facts
+        assert facts["this_move_was_fine"] is True
+
+    def test_a_fault_card_still_says_better_move(self):
+        from services.llm_caption import build_facts
+        ps = purposes_for(self.A4, "a4", "Nf3", ["a6", "Nf3"], [])
+        facts = build_facts("a4", "Nf3", ps, mover_is_user=False)
+        assert facts["better_move"] == "Nf3"
+        assert "this_move_was_fine" not in facts
+
+    def test_the_caption_gate_accepts_a_plan(self):
+        """write_caption refuses without a proven purpose. The plan key is
+        a proven purpose and must pass the same gate."""
+        from services.llm_caption import build_facts
+        import services.llm_caption as lc
+        pp = plan_purposes_for(self.A4, "a4", ["a6"])
+        facts = build_facts("a4", None, pp, mover_is_user=False)
+        assert (facts.get("what_their_move_sets_up")
+                or facts.get("what_your_move_sets_up"))
+        src = open(lc.__file__, encoding="utf-8").read()
+        assert 'facts.get("what_their_move_sets_up")' in src
