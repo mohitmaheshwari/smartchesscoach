@@ -83,7 +83,27 @@ logger = logging.getLogger('analysis_worker')
 # Configuration
 POLL_INTERVAL = 2  # Seconds between queue checks
 MAX_RETRIES = 3    # Max retries for failed analysis
-WORKER_ID = f"worker-{os.getpid()}"
+def _worker_id() -> str:
+    """Which worker, in a way that distinguishes two of them.
+
+    This was `worker-{os.getpid()}`, and inside a container the main
+    process is PID 1 -- so every replica reported `worker-1`. Five jobs
+    across two containers all claimed to be the same worker, and when one
+    game came back with no captions there was no way to tell which
+    container had run it. That cost hours on 2026-10-23.
+
+    The hostname is the container id under Docker, so the pair is unique
+    and `docker logs <that id>` is the next step instead of a guess.
+    """
+    import socket
+    try:
+        host = socket.gethostname() or "nohost"
+    except Exception:
+        host = "nohost"
+    return f"worker-{host}-{os.getpid()}"
+
+
+WORKER_ID = _worker_id()
 
 # Single source for the two identifiers stamped onto every analysis and
 # reported by /api/health. `engine_version` used to be a bare "P2.4"
@@ -1375,9 +1395,35 @@ def process_job(db, job):
                                 user_id=user_id, game_id=game_id):
                     _aio.run(_write_all())
                 _ok = sum(1 for m, _ in _flagged if m.get("llm_caption"))
+                _no = sum(1 for m, _ in _flagged
+                          if m.get("llm_caption_refused"))
+                _silent = len(_flagged) - _ok - _no
                 logger.info(
-                    "[LLM_CAPTION] %s: wrote %d of %d faulted moves",
-                    game_id, _ok, len(_flagged))
+                    "[LLM_CAPTION] %s: wrote %d of %d faulted moves "
+                    "(%d refused, %d neither)",
+                    game_id, _ok, len(_flagged), _no, _silent)
+                # On the queue row, so a game that comes back without
+                # captions says so without reading container logs. One of
+                # five games on 2026-10-23 had 47 faulted moves and no
+                # captions, and the row claimed plain success -- the counts
+                # were only recoverable by re-deriving them from the
+                # analysis document.
+                #
+                # `neither` is the number that matters: a move with no
+                # caption AND no refusal means the task raised and
+                # gather(return_exceptions=True) ate it.
+                try:
+                    db.analysis_queue.update_one(
+                        {"game_id": game_id},
+                        {"$set": {
+                            "captions_written": _ok,
+                            "captions_refused": _no,
+                            "captions_neither": _silent,
+                            "captions_faulted_moves": len(_flagged),
+                            "captions_plan_moves": len(_plans),
+                        }})
+                except Exception:
+                    pass
             except Exception as _llm_exc:
                 logger.warning(
                     "[LLM_CAPTION] %s failed (non-fatal): %r",

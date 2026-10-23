@@ -196,3 +196,50 @@ class TestAFinishedJobProvesItsWritesLanded:
         body = self._worker_source()
         i = body.index("[ANALYSIS NOT VERIFIED] check itself failed")
         assert "logger.warning" in body[max(0, i - 200):i + 200]
+
+
+class TestAJobSaysWhoRanItAndWhatItWrote:
+    """2026-10-23: one of five re-analysed games came back with 47 faulted
+    moves and NO captions, while its queue row read plain success. Finding
+    out which of two worker containers had run it was impossible, because
+    `WORKER_ID` was `worker-{os.getpid()}` and inside a container the main
+    process is PID 1 -- so every replica reported `worker-1`.
+
+    That cost hours. The row now carries a worker id that distinguishes
+    containers, and the caption outcome, so the same event answers itself.
+    """
+
+    def _src(self):
+        p = Path(__file__).resolve().parents[1] / "analysis_worker.py"
+        return p.read_text(encoding="utf-8")
+
+    def test_the_worker_id_is_not_just_the_pid(self):
+        src = self._src()
+        assert 'WORKER_ID = f"worker-{os.getpid()}"' not in src, (
+            "PID 1 in every container makes every worker look like the "
+            "same one")
+        assert "socket.gethostname()" in src
+
+    def test_the_worker_id_distinguishes_two_containers(self):
+        import importlib
+        import sys as _s
+        _s.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        w = importlib.import_module("analysis_worker")
+        wid = w._worker_id()
+        assert wid.startswith("worker-")
+        # host AND pid, so two replicas on one host still differ
+        assert wid.count("-") >= 2, wid
+
+    def test_the_caption_outcome_lands_on_the_queue_row(self):
+        src = self._src()
+        for field in ("captions_written", "captions_refused",
+                      "captions_neither", "captions_faulted_moves"):
+            assert field in src, field
+
+    def test_neither_is_counted_separately_from_refused(self):
+        """A move with no caption and no refusal means the task raised and
+        gather(return_exceptions=True) swallowed it -- a different fault
+        from an honest refusal, and the one that hid for hours."""
+        src = self._src()
+        i = src.index("captions_neither")
+        assert "_silent = len(_flagged) - _ok - _no" in src[:i]
