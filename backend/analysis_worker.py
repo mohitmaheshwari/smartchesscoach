@@ -1312,7 +1312,15 @@ def process_job(db, job):
                                    "unavailable: %r", _rc_err)
                     _reader = {}
 
-                from services.move_purposes import plan_purposes_for
+                # ONE face. The worker no longer chooses a detector set --
+                # it hands the move over and takes what comes back.
+                #
+                # Non-faulted moves used to reach only the named-shape
+                # table, so a good move got nothing. The same detectors
+                # aimed at the PLAYED move find facts on 62.4% of 5,879
+                # non-faulted moves, which is the difference between the
+                # framework writing 22% of a page and about 68%.
+                from services import framework as _fw
                 _plans = []
                 for _m, _is_user in ([(m, True) for m in move_evaluations]
                                      + [(m, False) for m in _opp_evals]):
@@ -1320,17 +1328,13 @@ def process_job(db, job):
                         continue          # a fault already has its own card
                     if not _m.get("fen_before"):
                         continue
-                    try:
-                        _pp = plan_purposes_for(
-                            _m["fen_before"], str(_m.get("move") or ""),
-                            eval_line=_m.get("eval_line_played"))
-                    except Exception:
-                        _pp = []
-                    if _pp:
-                        _plans.append((_m, _is_user, _pp))
+                    _f = _fw.facts_for_move(_m)
+                    if _f:
+                        _plans.append((_m, _is_user, _f.all))
                 if _plans:
-                    logger.info("[LLM_CAPTION] %s: %d plan move(s) besides "
-                                "the faults", game_id, len(_plans))
+                    logger.info("[LLM_CAPTION] %s: %d good/plan move(s) "
+                                "besides the faults", game_id,
+                                len(_plans))
 
                 async def _write_all():
                     # Bounded: a long game has ~20 faulted moves and an
@@ -1355,13 +1359,8 @@ def process_job(db, job):
                     async def _one(pair):
                         mv, is_user = pair
                         async with sem:
-                            ps = purposes_for(
-                                mv["fen_before"], str(mv.get("move") or ""),
-                                str(mv.get("best_move") or ""),
-                                list(mv.get("pv_after_played") or []),
-                                list(mv.get("pv_after_best") or []),
-                                mv.get("threat"), mv.get("mate_info"),
-                                eval_line=mv.get("eval_line_played"))
+                            # The same one face as the good moves above.
+                            ps = _fw.facts_for_move(mv).all
                             facts = build_facts(
                                 str(mv.get("move") or ""),
                                 str(mv.get("best_move") or ""), ps,
