@@ -57,6 +57,9 @@ logger = logging.getLogger(__name__)
 # engine had not said why. It had never been asked.
 FAULT_CP = 40
 
+# move_purposes' tiers: MATE 4, MATERIAL 3, SAFETY 2, POSITIONAL 1.
+MATERIAL_TIER = 3
+
 FAULT = "fault"
 GOOD = "good"
 PLAN = "plan"
@@ -75,6 +78,42 @@ class Facts:
     @property
     def all(self) -> List[Dict[str, Any]]:
         return list(self.purposes) + list(self.plan)
+
+    @property
+    def top_tier(self) -> int:
+        return max((int(p.get("tier") or 1) for p in self.purposes),
+                   default=0)
+
+    @property
+    def notable(self) -> bool:
+        """Is this worth a sentence at all?
+
+        A fault always is -- the reader is asking why their move was worse.
+        A plan is, because something is coming.
+
+        A GOOD move usually is not, and that is the point. A coach says
+        nothing about most good moves; he speaks when something real
+        happened. Praising a developing move on move three is the same
+        filler Mohit has been chasing all week, in a cheerful register.
+
+        Measured over 7,996 good moves, by the highest tier among their
+        facts:
+
+            MATE          0.7%  ->  0.1 captions a game
+            MATERIAL     23.2%  ->  4.8   <- this one
+            SAFETY       20.5%  ->  8.9
+            POSITIONAL   18.5%  -> 12.6
+
+        MATERIAL is the cut: about five a game, and the kinds that fire
+        there are won material, a trapped piece and a running passer --
+        exactly what a coach would mention. One tier lower doubles the
+        volume to say "you developed a piece".
+        """
+        if self.kind == FAULT:
+            return bool(self.purposes)
+        if self.plan:
+            return True
+        return self.top_tier >= MATERIAL_TIER
 
 
 def facts_for(
@@ -129,6 +168,17 @@ def facts_for(
     # WAS the best one, and shipping it would be the same class of error
     # as telling a player the better move when they played it.
     ps = [p for p in ps if not str(p.get("kind", "")).startswith("played_")]
+
+    # And drop the mate transitions, which are WRONG here rather than
+    # merely unhelpful. 51 of 7,996 non-faulted moves came back with
+    # `allowed_forced_mate`: a move that allows forced mate is not a good
+    # move, and the explanation is the mate sentinel -- once a player is
+    # lost, every move they make "allows mate" while cp_loss stays at 0
+    # because the position was already decided. Saying so on a quiet move
+    # would read as a blunder that never happened.
+    ps = [p for p in ps
+          if str(p.get("kind", "")) not in
+          ("allowed_forced_mate", "missed_forced_mate")]
 
     try:
         pl = plan_purposes_for(fen_before, played_san, eval_line=eval_line)

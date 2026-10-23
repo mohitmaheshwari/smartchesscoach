@@ -1329,7 +1329,12 @@ def process_job(db, job):
                     if not _m.get("fen_before"):
                         continue
                     _f = _fw.facts_for_move(_m)
-                    if _f:
+                    # NOTABLE, not merely non-empty. 63% of good moves have
+                    # facts and only 23% are worth a sentence; the rest say
+                    # "you developed a piece", which at 12.6 a game is the
+                    # filler this path exists to remove. The face decides,
+                    # not the worker.
+                    if _f.notable:
                         _plans.append((_m, _is_user, _f.all))
                 if _plans:
                     logger.info("[LLM_CAPTION] %s: %d good/plan move(s) "
