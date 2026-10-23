@@ -51,10 +51,13 @@ class TestMohitsCard:
         assert p["facts"]["piece"] == "bishop"
         assert "d4" in p["proof"]
 
-    def test_it_leads_the_list(self):
-        """The ranked list has to put the content first, or the caption
-        writer reads the filler."""
-        assert _kinds(self.ps)[0] == "develops_against_a_target"
+    def test_it_outranks_the_filler(self):
+        """It need not LEAD -- `bishop_to_the_square_the_pawn_left` is the
+        idea on this very card and leads it -- but it must come before
+        plain development, which is removed from the bundle entirely."""
+        ks = _kinds(self.ps)
+        assert "develops_against_a_target" in ks
+        assert "develops_a_piece" not in ks
 
     def test_the_filler_is_gone_from_the_bundle(self):
         """Not merely outranked -- removed. While it is in the bundle the
@@ -63,8 +66,10 @@ class TestMohitsCard:
         assert "develops_a_piece" not in _kinds(self.ps)
 
     def test_the_lesson_is_about_aiming_not_about_counting_pieces(self):
+        """Mohit on the first wording: "lessons are pathetic". It now says
+        what the piece DOES rather than exhorting the reader to aim."""
         p = _of(self.ps, "develops_against_a_target")
-        assert "aim it at something" in p["lesson"]
+        assert "already hits one of their men" in p["lesson"]
         assert "bring a new piece into the game" not in p["lesson"]
 
 

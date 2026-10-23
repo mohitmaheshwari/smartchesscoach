@@ -44,7 +44,8 @@ class TestMohitsCard:
         teaching, general rule... i can't really author everywhere." So the
         lesson must be about the pattern, not about this game."""
         p = _storm(AFTER_E6, "Nf3", "h4", PV_H4)
-        assert "rook" in p["lesson"] and "pawn" in p["lesson"]
+        # "edge pawn", not "rook pawn": the audience is 600-1500.
+        assert "edge pawn" in p["lesson"]
         for position_specific in ("g6", "h5", "h4", "d4"):
             assert position_specific not in p["lesson"]
 

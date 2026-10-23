@@ -115,12 +115,14 @@ LESSON = {
     "develops_a_piece":
         "early on, every move should bring a new piece into the game",
     "develops_against_a_target":
-        "when you bring a piece out, aim it at something; a piece that "
-        "points at one of their men is working from the moment it lands",
+        "bring a piece out where it already hits one of their men; it "
+        "starts working at once",
     "prepares_the_pawn_storm":
-        "when one of their pawns steps forward on a wing, march your rook "
-        "pawn at it; the push makes them choose, and every choice costs "
-        "them something",
+        "meet a pawn that steps out at the side with your own edge pawn; "
+        "then they must answer you",
+    "bishop_to_the_square_the_pawn_left":
+        "a pawn step in front of a bishop is half a plan; the bishop then "
+        "goes to the square that pawn just left",
     "played_develops_nothing":
         "when you are behind in development, a quiet pawn move is a move you "
         "cannot afford",
@@ -692,6 +694,76 @@ def _develops_with_tempo(b, best_mv, after_best, us) -> Optional[Purpose]:
         f"the move brings the {NAME[mover.piece_type]} out AND attacks the "
         f"waiting side's {piece} on {square}, which nothing defends, so they "
         f"must answer")
+
+
+def _bishop_to_the_square_the_pawn_left(
+        b, best_mv, after_best, us) -> Optional[Purpose]:
+    """The pawn stepped aside to let this bishop out, and it has not come.
+
+    Mohit, on the lessons the two facts above carried: "lessons are
+    pathetic. generally when you play g3, idea is to play bg7, right?"
+
+    Right -- as White g3 is played to get the bishop to g2, as Black g6 to
+    get it to g7 -- and it exposes that both earlier facts were secondary.
+    On his card (1.d4 g6 2.e4 e6) `Bg7` "bears on their pawn on d4" is a
+    true CONSEQUENCE of the move. The IDEA is that g6 was played in order
+    to put the bishop on g7, and e6 postponed the plan g6 had committed to.
+    Nothing in the framework knew that idea existed: "fianchetto" appears
+    only in jargon BAN lists (llm_caption.py:100, caption_principles.py:23),
+    never in a detector.
+
+    The geometry hands over the lesson without the banned word: in all four
+    cases the bishop's destination is exactly the square its own pawn
+    vacated. g6 -> Bg7, b6 -> Bb7, g3 -> Bg2, b3 -> Bb2.
+
+    Registered BEFORE the two facts above so it leads the ranked list --
+    `rank` is (-tier, -phase_bonus) and the sort is stable, so within a
+    tier the order is registration order and no ranking basis moves.
+    """
+    mover = b.piece_at(best_mv.from_square)
+    if mover is None or mover.piece_type != chess.BISHOP:
+        return None
+    if mover.color != us:
+        return None
+
+    home = _HOME[us][chess.BISHOP]
+    if best_mv.from_square not in home:
+        return None
+
+    dest = best_mv.to_square
+    spots = ((chess.G2, chess.B2) if us == chess.WHITE
+             else (chess.G7, chess.B7))
+    if dest not in spots:
+        return None
+
+    # Its own pawn must have stepped off that square -- that step is what
+    # opened the diagonal, and it is the half of the plan already played.
+    # If the pawn is still home the bishop has nowhere to go anyway, and
+    # if the pawn is gone entirely this is not the same idea.
+    f = chess.square_file(dest)
+    our_pawn = None
+    for sq in b.pieces(chess.PAWN, us):
+        if chess.square_file(sq) == f:
+            our_pawn = sq
+            break
+    if our_pawn is None or our_pawn == dest:
+        return None
+    ahead = (chess.square_rank(our_pawn) > chess.square_rank(dest)
+             if us == chess.WHITE
+             else chess.square_rank(our_pawn) < chess.square_rank(dest))
+    if not ahead:
+        return None
+
+    return Purpose(
+        "bishop_to_the_square_the_pawn_left", POSITIONAL,
+        {"piece": "bishop",
+         "to": chess.square_name(dest),
+         "pawn_on": chess.square_name(our_pawn),
+         "bishop_still_on": chess.square_name(best_mv.from_square)},
+        f"the pawn has already stepped to {chess.square_name(our_pawn)}, "
+        f"which is what opened {chess.square_name(dest)} for the bishop, "
+        f"and the bishop is still at home on "
+        f"{chess.square_name(best_mv.from_square)}")
 
 
 def _prepares_the_pawn_storm(b, best_mv, after_best, us) -> Optional[Purpose]:
@@ -1595,6 +1667,7 @@ def purposes_for(
                    _defends_man, _pawn_attacks_piece, _check_worsens_king,
                    _stops_passer, _activates_rook, _trades_off,
                    _attacks_loose_pawn, _develops_with_tempo,
+                   _bishop_to_the_square_the_pawn_left,
                    _develops_against_a_target, _prepares_the_pawn_storm,
                    _develops_a_piece, _wins_the_exchange):
             try:
@@ -1686,7 +1759,8 @@ def purposes_for(
     # bring a new piece into the game", is the exact sentence Mohit flagged
     # on his Bg7 card. Leaving it in the bundle leaves the model free to
     # reach for it.
-    if any(p.kind == "develops_against_a_target" for p in out):
+    if any(p.kind in ("develops_against_a_target",
+                     "bishop_to_the_square_the_pawn_left") for p in out):
         out = [p for p in out if p.kind != "develops_a_piece"]
 
     out.sort(key=rank)
