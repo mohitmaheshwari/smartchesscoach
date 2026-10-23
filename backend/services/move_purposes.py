@@ -114,6 +114,13 @@ LESSON = {
         "time instead of spending it",
     "develops_a_piece":
         "early on, every move should bring a new piece into the game",
+    "develops_against_a_target":
+        "when you bring a piece out, aim it at something; a piece that "
+        "points at one of their men is working from the moment it lands",
+    "prepares_the_pawn_storm":
+        "when one of their pawns steps forward on a wing, march your rook "
+        "pawn at it; the push makes them choose, and every choice costs "
+        "them something",
     "played_develops_nothing":
         "when you are behind in development, a quiet pawn move is a move you "
         "cannot afford",
@@ -258,6 +265,14 @@ _HOME = {
     chess.BLACK: {chess.KNIGHT: (chess.B8, chess.G8),
                   chess.BISHOP: (chess.C8, chess.F8)},
 }
+
+# Where a pawn is worth pressing. Pressure on one of these is a real idea
+# -- Bg7 pointing at d4 is the whole reason g6 was played -- while a bishop
+# glancing at a defended a7 or h6 pawn is a true fact about nothing.
+_CENTRE_SQUARES = frozenset((
+    chess.C4, chess.D4, chess.E4, chess.F4,
+    chess.C5, chess.D5, chess.E5, chess.F5,
+))
 
 
 def _developed_minors(board: chess.Board, col: chess.Color) -> int:
@@ -679,8 +694,144 @@ def _develops_with_tempo(b, best_mv, after_best, us) -> Optional[Purpose]:
         f"must answer")
 
 
+def _prepares_the_pawn_storm(b, best_mv, after_best, us) -> Optional[Purpose]:
+    """The rook pawn advances so its OWN next push hits their pawn chain.
+
+    The other half of Mohit's card. On 1.d4 g6 2.e4 e6 the engine's move
+    for White is h4 (+126 against +123), and the framework had nothing at
+    all to say about it, so the card read "Play h4" bare -- a command with
+    no reason, which is the thing he has objected to since the Bxe2 card.
+
+    Sibling of `_prepares_the_pawn_chase`, and deliberately a separate
+    function: the chase pushes the NEIGHBOURING pawn at a bishop (a4 then
+    b4 against c5), while the storm pushes the same rook pawn one square
+    further into their pawn (h4 then h5 against g6). Same family, different
+    geometry, so sharing the table would need a mode flag and read worse.
+
+    Rare and built anyway, on Mohit's own criterion for the chase: "it's a
+    simple pattern and a great teaching, general rule... i can't really
+    author everywhere." Measured over 3,308 fault cards, the better move
+    starts this storm on 21, and 13 of those have no fact today -- 0.4%.
+    An earlier count said 26 because the gate allowed any rook-pawn push
+    against any b- or g-file pawn, which matched "h3 against their pawn on
+    b6": opposite wings, unrelated.
+
+    What is claimed is only the geometry: the push comes next and it
+    attacks that pawn. Not that the h-file opens, not that their king comes
+    under fire -- nobody has castled on move three, and neither is provable
+    from the board here.
+    """
+    p = b.piece_at(best_mv.from_square)
+    if p is None or p.piece_type != chess.PAWN or p.color != us:
+        return None
+    file_idx = chess.square_file(best_mv.to_square)
+    if file_idx not in (0, 7):
+        return None
+
+    after = b.copy()
+    after.push(best_mv)
+    after.turn = us              # our move again, to read the plan
+
+    push = next((m for m in after.legal_moves
+                 if m.from_square == best_mv.to_square), None)
+    if push is None:
+        return None
+
+    w = after.copy()
+    push_san = after.san(push)
+    w.push(push)
+
+    neighbour = 1 if file_idx == 0 else 6
+    target = None
+    for sq in w.attacks(push.to_square):
+        t = w.piece_at(sq)
+        if (t is not None and t.color != us and t.piece_type == chess.PAWN
+                and chess.square_file(sq) == neighbour):
+            target = sq
+            break
+    if target is None:
+        return None
+
+    where = chess.square_name(target)
+    return Purpose(
+        "prepares_the_pawn_storm", POSITIONAL,
+        {"next_push": push_san, "pawn_on": where,
+         "rook_pawn_to": chess.square_name(best_mv.to_square)},
+        f"the move puts the rook pawn on "
+        f"{chess.square_name(best_mv.to_square)} so that {push_san} comes "
+        f"next, attacking the waiting side's pawn on {where}")
+
+
+def _develops_against_a_target(b, best_mv, after_best, us) -> Optional[Purpose]:
+    """Development that already presses something worth pressing.
+
+    Mohit opened a card on 1.d4 g6 2.e4 e6 that read "They missed Bg7 -- it
+    brings a new piece into the game." Every claim on it was engine-true
+    (e6 costs 54cp, Bg7 is the engine's move, h4 is White's), and the model
+    had exactly ONE fact to work from: `develops_a_piece`, whose proof says
+    "off its starting square" and whose lesson says "early on, every move
+    should bring a new piece into the game". It phrased that faithfully.
+    The engine under-supplied; the prompt was never the problem.
+
+    What the board actually said is that Bg7 points down the long diagonal
+    at d4 -- White's centre pawn, and the whole reason g6 was played. So the
+    fact names the target.
+
+    `develops_with_tempo` (SAFETY) already owns the case where the target is
+    UNDEFENDED, so this requires a defended one: pressure, not a win, and
+    the two never describe the same man.
+
+    Narrow on purpose, because a true fact can still be worthless. Measured
+    over the 107 cards where `develops_a_piece` was the only fact, 47 (44%)
+    had some target -- but several were a bishop glancing at a defended a7
+    or h6 pawn, which teaches nothing. So the target must be a CENTRE pawn
+    or an actual piece. Nf3 bearing on e5, Nf6 on e4, Be6 on a knight on d5
+    are the shape worth a sentence.
+    """
+    if not _is_developing(b, best_mv):
+        return None
+    mover = b.piece_at(best_mv.from_square)
+    if mover is None:
+        return None
+
+    worth = []
+    for sq in after_best.attacks(best_mv.to_square):
+        t = after_best.piece_at(sq)
+        if t is None or t.color == us or t.piece_type == chess.KING:
+            continue
+        if not after_best.attackers(not us, sq):
+            continue          # undefended -> develops_with_tempo owns it
+        is_centre_pawn = (t.piece_type == chess.PAWN
+                          and sq in _CENTRE_SQUARES)
+        if not is_centre_pawn and t.piece_type == chess.PAWN:
+            continue          # a flank pawn under a long diagonal is noise
+        worth.append((not is_centre_pawn, -t.piece_type,
+                      chess.square_name(sq), t))
+    if not worth:
+        return None
+
+    # Deterministic: the centre pawn first, then the most valuable man,
+    # then the square's own name. Never an arbitrary first hit.
+    worth.sort()
+    _, _, square, target = worth[0]
+    return Purpose(
+        "develops_against_a_target", POSITIONAL,
+        {"piece": NAME[mover.piece_type],
+         "to": chess.square_name(best_mv.to_square),
+         "hits": NAME[target.piece_type],
+         "hits_square": square},
+        f"the move brings the {NAME[mover.piece_type]} out and it bears on "
+        f"their {NAME[target.piece_type]} on {square}, which they defend")
+
+
 def _develops_a_piece(b, best_mv, after_best, us) -> Optional[Purpose]:
-    """Plain development, when it does not also create a threat."""
+    """Plain development, when it does not also create a threat.
+
+    Kept for the 56% of developing moves that genuinely point at nothing.
+    When the piece does press something, `_develops_against_a_target` says
+    so instead -- and that one is listed first, so the ranked list leads
+    with the target rather than with "off its starting square".
+    """
     if not _is_developing(b, best_mv):
         return None
     mover = b.piece_at(best_mv.from_square)
@@ -1444,6 +1595,7 @@ def purposes_for(
                    _defends_man, _pawn_attacks_piece, _check_worsens_king,
                    _stops_passer, _activates_rook, _trades_off,
                    _attacks_loose_pawn, _develops_with_tempo,
+                   _develops_against_a_target, _prepares_the_pawn_storm,
                    _develops_a_piece, _wins_the_exchange):
             try:
                 p = fn(b, best_mv, after_best, us)
@@ -1526,6 +1678,16 @@ def purposes_for(
         out = [p for p in out
                if not (p.kind == "avoids_attacked_square"
                        and p.facts.get("played_square") in _offer_squares)]
+
+    # The same move cannot be told twice, once with content and once as
+    # filler. When the developed piece is named with what it bears on,
+    # `develops_a_piece` describes the identical move and adds only "off
+    # its starting square" -- and its lesson, "early on, every move should
+    # bring a new piece into the game", is the exact sentence Mohit flagged
+    # on his Bg7 card. Leaving it in the bundle leaves the model free to
+    # reach for it.
+    if any(p.kind == "develops_against_a_target" for p in out):
+        out = [p for p in out if p.kind != "develops_a_piece"]
 
     out.sort(key=rank)
     return [p.as_dict() for p in out]
