@@ -22,6 +22,13 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+      # ─── Signup gate (docs/invite_only_signup_scope.md) ────────────
+      # Was never passed to this service, so the container defaulted it
+      # to false and prod sat invite-only. Read from the server .env so
+      # the gate can be closed again without a code change — the whole
+      # point of the flag (RequestInvite.jsx, Login.jsx, Landing.jsx and
+      # AdminWaitlist.jsx all read GET /signup-status and adapt).
+      - SIGNUPS_OPEN=${SIGNUPS_OPEN:-false}
       # ─── PWC feature flags ─────────────────────────────────────────
       # 2026-07-08 — Mohit spotted the coach hanging queens in real
       # sessions (session ceda181d: coach played Qxf6 walking into Bh4
@@ -105,10 +112,33 @@ services:
     volumes:
       - mongodb_data:/data/db
       - mongodb_backup:/backup
+    # The kernel must not pick the database when the box fills up.
+    #
+    # 2026-10-23: mongod was OOM-killed 5 times and restarted 20 times in
+    # one day. The box is shared with another product and runs at 13.7GB of
+    # 16GB with ~300MB free, so the kernel kills the largest single process
+    # -- which is the database. Each kill lost whatever an analysis was
+    # mid-way through writing, and because every phase swallows its Mongo
+    # errors the job still reported success: two games kept stale
+    # move_evaluations and a third finished with 47 faulted moves and no
+    # captions, all reading status=completed.
+    #
+    # -500 took mongod's oom_score from 744 -- the top target on the box --
+    # to 411, below the python workers at 690-735. A stateless worker dies
+    # and restarts instead; the database survives.
+    oom_score_adj: -500
     deploy:
       resources:
         limits:
-          memory: 1G
+          # 3G, not the 1G this said until today. mongod runs with
+          # --wiredTigerCacheSizeGB 1.5 and sits at 1.8-2.3GB RSS, so a 1G
+          # cap would have its own cgroup killing it continuously.
+          #
+          # It never bit because Compose applies limits at CREATION and
+          # this container has only ever been restarted -- `docker inspect`
+          # reports memlimit=0 against a file that says 1G. The next deploy
+          # that recreated mongodb would have capped a 2GB process at 1GB.
+          memory: 3G
 
   # Disable development services in production
   backend:
