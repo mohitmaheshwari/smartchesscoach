@@ -20,10 +20,23 @@ V5 = Path(__file__).resolve().parents[1] / "services" / \
     "game_decryption_v5_service.py"
 
 
+FRAMEWORK = Path(__file__).resolve().parents[1] / "services" / \
+    "framework.py"
+
+
 def _splice() -> str:
-    text = V5.read_text(encoding="utf-8")
-    start = text.index("# The LLM caption, if the analysis wrote one")
-    return text[start:start + 2600]
+    """The wire now lives in framework.decide, not in the renderer.
+
+    Mohit: "six writers, no man, no, clearly mentioned." The renderer used
+    to call the cascade, look the LLM caption up and choose between them;
+    all three moved inside the one face. These assertions follow the code
+    rather than the file it used to live in -- the wire is still the thing
+    being pinned, and it is still the thing that has silently failed three
+    times in this repo.
+    """
+    text = FRAMEWORK.read_text(encoding="utf-8")
+    start = text.index("def decide(")
+    return text[start:text.index("def facts_for_move(")]
 
 
 class TestTheWireIsRight:
@@ -39,9 +52,15 @@ class TestTheWireIsRight:
         assert '"llm_caption"' in _splice()
 
     def test_an_empty_or_missing_caption_falls_back(self):
+        """A refused LLM caption must leave the cascade's words standing.
+
+        Written as a guard now rather than an `or`: the face overwrites the
+        caption only when it HAS one, which is the same contract expressed
+        in the place the code moved to."""
         body = _splice()
-        assert "_llm_cap or _decision.text.caption" in body, (
-            "a refused LLM caption must leave the deterministic one standing")
+        assert "if llm:" in body
+        assert "decision.text.caption = llm" in body
+        assert "decision.text.caption = None" not in body
 
     def test_the_rule_name_records_that_the_llm_wrote_it(self):
         """A card whose text came from a model must say so, or nobody can
@@ -59,10 +78,19 @@ class TestItReplacesTextAndNothingElse:
             assert "_llm" not in value, (
                 f"{key} must come from the rule cascade, not the LLM")
 
-    def test_the_visual_fields_still_come_from_the_decision(self):
+    def test_the_face_never_assigns_a_visual_field(self):
+        """Stronger than the assertion it replaces. The renderer used to
+        copy the decision's arrows into a payload, so the old test checked
+        where they came FROM. The face returns the decision itself, so the
+        test is that it assigns nothing visual at all."""
         body = _splice()
-        assert '"arrows": _decision.visual.arrows' in body
-        assert '"best_move_arrows": _decision.visual.best_move_arrows' in body
+        for field in ("arrows", "highlight_squares", "best_move_arrows"):
+            assert f"visual.{field} =" not in body, field
+
+    def test_the_renderer_still_reads_the_visuals_from_the_decision(self):
+        text = V5.read_text(encoding="utf-8")
+        assert '"arrows": _decision.visual.arrows' in text
+        assert '"best_move_arrows": _decision.visual.best_move_arrows' in text
 
     def test_the_facts_still_come_from_the_decision(self):
         text = V5.read_text(encoding="utf-8")
