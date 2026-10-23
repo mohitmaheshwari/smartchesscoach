@@ -1054,7 +1054,31 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         MoveClassification.MISTAKE,
                         MoveClassification.BLUNDER,
                     )
-                    if _opp_is_error:
+                    # EVERY opponent move is stored, the same as the user's.
+                    #
+                    # This used to be `if _opp_is_error`, so only their
+                    # mistakes survived. Measured 2026-10-23 over 200 games:
+                    # 5,264 of the user's moves played and 5,719 stored,
+                    # against 5,261 of the opponent's played and **499
+                    # stored** -- 9.5%. 23.8 opponent moves a game were
+                    # thrown away before anything could look at them.
+                    #
+                    # Mohit, on the a4 card that prompted this: "we need to
+                    # keep every opponent moves too, like we keep user
+                    # moves, that's really really required." He is right,
+                    # and the card he was reading proves it: a4 prepares b4
+                    # against the bishop on c5, the shape detector finds it
+                    # on that exact position, and it could never fire in
+                    # production because a4 is a GOOD move and good
+                    # opponent moves did not exist in the data.
+                    #
+                    # The ENGINE cost does not change. The punishment lines
+                    # below are still computed only for errors, which is
+                    # where the two extra searches per move live. A quiet
+                    # opponent move stores what has already been computed
+                    # for it: the position, the move, the eval, the loss,
+                    # and the floor line.
+                    if True:
                         # board currently has the played move pushed (line ~535).
                         board.pop()  # undo to reach the pre-move (opp-to-move) position
                         opp_fen_before = board.fen()
@@ -1062,7 +1086,7 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                         # ~530-531) for THIS pre-move position — reuse them.
                         opp_pv_after_played: List[str] = []
                         opp_pv_after_best: List[str] = []
-                        if best_move != move:
+                        if _opp_is_error and best_move != move:
                             _bb = board.copy()
                             _bb.push(best_move)
                             opp_pv_after_best = engine.get_principal_variation(_bb, depth=12, pv_length=PUNISHMENT_PV_PLIES)

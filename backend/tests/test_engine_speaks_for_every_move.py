@@ -243,3 +243,55 @@ class TestAJobSaysWhoRanItAndWhatItWrote:
         src = self._src()
         i = src.index("captions_neither")
         assert "_silent = len(_flagged) - _ok - _no" in src[:i]
+
+
+class TestTheOpponentsGameIsKeptToo:
+    """We stored 9.5% of the opponent's moves and 100% of the user's.
+
+    Measured 2026-10-23 over 200 games: 5,264 user moves played and 5,719
+    stored, against 5,261 opponent moves played and 499 stored. 23.8
+    opponent moves a game were dropped before anything could look at them,
+    because the branch stored a move only when it was an ERROR.
+
+    Mohit found it through a card: his opponent played a4 preparing b4
+    against a bishop on c5, and the caption said "pushing a pawn to take
+    more room on the board". The shape detector finds that position
+    correctly -- it could never fire, because a4 is a GOOD move and good
+    opponent moves did not exist in the data. "we need to keep every
+    opponent moves too, like we keep user moves, that's really really
+    required."
+
+    Verified on that game: opponent records 14 -> 44, document 507KB ->
+    547KB, and the card now reads "Your opponent's a4 prepares b4, which
+    will hit your bishop on c5."
+    """
+
+    def _src(self):
+        p = Path(__file__).resolve().parents[1] / "stockfish_service.py"
+        return p.read_text(encoding="utf-8")
+
+    def test_storing_an_opponent_move_is_not_gated_on_it_being_an_error(self):
+        src = self._src()
+        i = src.index("_opp_is_error = classification in (")
+        block = src[i:i + 2200]
+        assert "if _opp_is_error:\n" not in block, (
+            "the store is gated on error again; 90% of their game "
+            "disappears")
+
+    def test_the_expensive_lines_are_still_error_only(self):
+        """The engine cost must NOT change: the two punishment searches
+        per move are what cost time, and a quiet opponent move needs
+        neither."""
+        src = self._src()
+        i = src.index("_opp_is_error = classification in (")
+        block = src[i:i + 6000]
+        assert "if _opp_is_error and best_move != move:" in block, (
+            "the punishment PVs are no longer gated -- this doubles the "
+            "engine time for every quiet opponent move")
+
+    def test_a_quiet_opponent_move_still_carries_its_floor_line(self):
+        """It is what the plan family reads, and it costs nothing: the
+        evaluation already ran for that move."""
+        src = self._src()
+        i = src.index("_opp_is_error = classification in (")
+        assert "eval_line_played=eval_line_played" in src[i:i + 6000]
