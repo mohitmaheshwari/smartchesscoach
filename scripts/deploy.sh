@@ -266,4 +266,34 @@ docker exec \
   || die "strict deployment verification failed; release is not live"
 ok "strict checks passed, including the non-admin coaching journey"
 
+# Keep the database the LAST thing the kernel kills, not the first.
+#
+# docker-compose.prod.yml carries `oom_score_adj: -500` for mongodb, and it
+# has never applied: this script brings up `backend` and `analysis-worker`
+# only, so the mongodb container is never recreated and keeps the HostConfig
+# it was created with. `restart: always` then restarts it under that same
+# config. On 2026-10-23 mongod was OOM-killed repeatedly on a box it shares
+# with another product, at oom_score 731 against the workers' 668 -- the
+# database was the most attractive target on the machine.
+#
+# Writing the kernel value directly needs no downtime and no recreate. It is
+# lost whenever the mongodb container itself restarts, so it is re-applied on
+# every deploy. The durable fix is one `docker compose up -d mongodb`, which
+# is safe (the data is on the named volume smartchesscoach_mongodb_data) but
+# interrupts the database for a few seconds, so it is not done from here.
+#
+# Never fails the deploy: the release is already verified by this point.
+if MONGO_PID="$(docker inspect chess-coach-mongodb \
+    --format '{{.State.Pid}}' 2>/dev/null)" \
+   && [ -n "$MONGO_PID" ] && [ "$MONGO_PID" != "0" ] \
+   && [ -w "/proc/$MONGO_PID/oom_score_adj" ]; then
+  if echo -500 > "/proc/$MONGO_PID/oom_score_adj" 2>/dev/null; then
+    ok "mongod protected from the OOM killer (score $(cat "/proc/$MONGO_PID/oom_score" 2>/dev/null))"
+  else
+    printf 'note: could not lower mongod oom_score_adj\n'
+  fi
+else
+  printf 'note: mongod pid not readable; oom_score_adj left as it is\n'
+fi
+
 printf '\nDeployed %s at %s\n' "$TARGET" "$(git log -1 --format='%h %s' | cut -c1-64)"

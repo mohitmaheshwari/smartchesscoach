@@ -132,6 +132,33 @@ def _queue_error_payload(message: str) -> dict:
     }
 
 
+def mover_is_user(move: dict, user_color, default: bool = True) -> bool:
+    """Whose move this is, read off the board rather than off a flag.
+
+    Not `is_opponent_move`: 130 of Mohit's games keep BOTH sides inside
+    move_evaluations with the opponent's entries unflagged -- the field is
+    missing entirely -- and every Play-with-Coach game has that shape.
+    Trusting the flag there addresses the reader wrongly, as if they had  # allow-noncentral-caption
+    played their opponent's move.
+
+    Latent rather than shipped: the caption writer has never run on a PWC
+    game (0 captions across 1,158 user moves in 120 of them, against 100 on
+    imported games), so no wrong attribution has reached a screen. Deriving
+    the mover means none will when it does.
+
+    Not move-number parity either. In the user-only storage shape a black
+    player's own moves are numbered 1, 2, 3..., so parity rejects half of
+    them. The side to move in `fen_before` is true in every shape.
+
+    `default` is used only when there is no readable FEN, and is the
+    caller's own expectation for the list it is walking.
+    """
+    parts = (move.get("fen_before") or "").split()
+    if len(parts) < 2 or parts[1] not in ("w", "b"):
+        return default
+    return (parts[1] == "w") == (str(user_color or "white").lower() == "white")
+
+
 def calculate_turning_point_sync(move_evals, user_color, user_rating):
     """
     Calculate the true turning point of the game.
@@ -1262,12 +1289,16 @@ def process_job(db, job):
                 # an inaccuracy from them... that is the real teaching".
                 _opp_evals = ((stockfish_result.get("opponent_moves") or [])
                               if isinstance(stockfish_result, dict) else [])
+
+                def _mover_is_user(_m, _default=True):
+                    return mover_is_user(_m, user_color, _default)
+
                 _flagged = [
-                    (m, True) for m in move_evaluations
+                    (m, _mover_is_user(m, True)) for m in move_evaluations
                     if int(m.get("cp_loss") or 0) >= _LLM_MIN_CP
                     and m.get("fen_before") and m.get("best_move")
                 ] + [
-                    (m, False) for m in _opp_evals
+                    (m, _mover_is_user(m, False)) for m in _opp_evals
                     if int(m.get("cp_loss") or 0) >= _LLM_MIN_CP
                     and m.get("fen_before") and m.get("best_move")
                 ]
@@ -1322,10 +1353,20 @@ def process_job(db, job):
                 # framework writing 22% of a page and about 68%.
                 from services import framework as _fw
                 _plans = []
-                for _m, _is_user in ([(m, True) for m in move_evaluations]
-                                     + [(m, False) for m in _opp_evals]):
-                    if int(_m.get("cp_loss") or 0) >= _LLM_MIN_CP:
+                for _m, _is_user in (
+                        [(m, _mover_is_user(m, True))
+                         for m in move_evaluations]
+                        + [(m, _mover_is_user(m, False))
+                           for m in _opp_evals]):
+                    if (int(_m.get("cp_loss") or 0) >= _LLM_MIN_CP
+                            and _m.get("best_move")):
                         continue          # a fault already has its own card
+                    # A fault with NO best_move has no card at all: the
+                    # flagged list above requires one. Derived opponent
+                    # records (scripts/derive_opponent_moves.py) are exactly
+                    # that shape, and the framework still reads what their
+                    # move DID off the board. Silence is the worse answer,
+                    # so they come through here instead of nowhere.
                     if not _m.get("fen_before"):
                         continue
                     _f = _fw.facts_for_move(_m)

@@ -54,6 +54,12 @@ LLM_CAPTION_MODEL = os.environ.get("LLM_CAPTION_MODEL", "gpt-6-luna")
 # for a 900 should be well under it anyway.
 MAX_WORDS = 55
 
+# The classification labels (stockfish_service.MoveClassification) that mean
+# the move was actually bad. Used to decide whether a card with no known
+# better move may be described as fine -- a derived opponent record has a
+# cp_loss but no best_move, and "fine" would be a false fact on a blunder.
+_BAD_MOVE = {"inaccuracy", "mistake", "blunder"}
+
 # Squares, piece letters with squares, SAN moves, piece names. Anything
 # matching these in the output must have been in the facts.
 _SAN = re.compile(
@@ -244,7 +250,13 @@ def build_facts(
     }
     if best_san:
         facts["better_move"] = best_san
-    else:
+    elif str(severity or "").lower() not in _BAD_MOVE:
+        # Not knowing a better move is NOT the same as the move being
+        # good. A derived opponent record carries a cp_loss but no
+        # best_move, and keying "fine" off the missing best move alone
+        # would hand the model a false fact about a move that dropped a
+        # rook -- the one thing the engine must never do. When the move
+        # IS bad we simply say nothing here; `how_bad` carries the truth.
         facts["this_move_was_fine"] = True
     if severity:
         facts["how_bad"] = severity

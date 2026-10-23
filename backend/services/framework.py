@@ -139,7 +139,17 @@ def facts_for(
     if not fen_before or not played_san:
         return Facts(kind=GOOD)
 
-    is_fault = int(cp_loss or 0) >= FAULT_CP
+    # A fault's facts are about the BETTER move, so a fault whose better
+    # move is unknown has nothing to say on that side. Derived opponent
+    # records -- scripts/derive_opponent_moves.py, which reconstructs the
+    # opponent's evals from the reader's own stored moves without an engine
+    # call -- carry a cp_loss but no best_move. Measured over 400 of them,
+    # the FAULT path returned facts on 0 of 400, while describing the move
+    # that was actually PLAYED returned facts on 229. Silence is the wrong
+    # answer to a move we can still read off the board, so describe the
+    # played move. The move's severity travels separately to the caption,
+    # so dropping out of the fault branch never calls a blunder fine.
+    is_fault = int(cp_loss or 0) >= FAULT_CP and bool(best_san)
 
     if is_fault:
         try:
