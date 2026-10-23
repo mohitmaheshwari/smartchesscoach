@@ -65,9 +65,9 @@ SYSTEM = (
     "language. Short sentences, common words.\n"
     "- No numbers at all, except moves exactly as written in the facts.\n"
     "- Title: three to ten words, in sentence case, saying WHAT HAPPENED in this game from "
-    "the student's side -- how it was decided and by whom. The title is not advice; the "
-    "advice goes in the teaching. Do not copy the game's story label; it is shown "
-    "separately.\n"
+    "the student's side. When a MAIN POINT fact is given, the title must say that point "
+    "in plain words. The title is not advice; the advice goes in the teaching. Do not copy "
+    "the game's story label; it is shown separately.\n"
     "- Teaching: one or two short sentences, at most thirty-five words, speaking to the "
     "student as 'you'.\n"
     'Reply with JSON only: {"title": "...", "teaching": "..."}'
@@ -76,6 +76,47 @@ SYSTEM = (
 
 def _count_words(n: int) -> str:
     return {0: "never", 1: "once", 2: "twice"}.get(n, "more than twice")
+
+
+def main_point(story: Mapping[str, Any]) -> Optional[str]:
+    """What the game was about, decided by rules from the ledger and plan.
+
+    The model chose its own emphasis at first, and on Mohit's game wrote "You
+    won when your opponent resigned" on one run and "You won after your
+    opponent missed chances" on another. The second is the point he asked
+    for. So the point is decided here and the model only puts it in words.
+    """
+    plan = story.get("plan") or {}
+    ledger = story.get("ledger") or {}
+    events = ledger.get("events") or []
+    outcome = ledger.get("outcome")
+    kind = (plan.get("type") or {}).get("id")
+    let_off = any(e.get("kind") == "your_mistake" and e.get("decisive") and e.get("punished") is False
+                  for e in events)
+    punished_against = any(e.get("kind") == "your_mistake" and e.get("decisive") and e.get("punished")
+                           for e in events)
+    made_them_pay = any(e.get("kind") == "their_mistake" and e.get("decisive") and e.get("taken")
+                        for e in events)
+    if outcome == "win" and let_off:
+        return ("the student won partly because the opponent missed the chances the student "
+                "gave them")
+    if outcome == "win" and kind == "came_back":
+        return "the student was worse and came back to win"
+    if outcome == "win" and made_them_pay:
+        return "the student won by making the opponent pay for their mistakes"
+    if outcome == "win" and kind == "clean_win":
+        return "the student kept control and won without real trouble"
+    if outcome == "loss" and kind == "slipped_away":
+        return "the student had a winning position and lost it"
+    if outcome == "loss" and punished_against:
+        return "the opponent punished the student's big mistakes"
+    if outcome == "loss" and kind == "hard_game":
+        return "the opponent was better for most of the game"
+    if outcome == "draw" and kind == "great_escape":
+        return "the student saved a bad position"
+    if outcome == "draw" and kind == "slipped_away":
+        return "the student had a winning position and it became a draw"
+    return None
 
 
 def headline_facts(story: Mapping[str, Any], game: Mapping[str, Any]) -> List[str]:
@@ -99,6 +140,9 @@ def headline_facts(story: Mapping[str, Any], game: Mapping[str, Any]) -> List[st
     elif outcome == "draw":
         facts.append(f"The game was a draw {how}.".replace("  ", " ").replace(" .", "."))
 
+    point = main_point(story)
+    if point:
+        facts.append(f"MAIN POINT: {point}.")
     if (plan.get("type") or {}).get("title"):
         facts.append(f"The game's story: {plan['type']['title']}.")
 
@@ -198,6 +242,22 @@ def fallback_headline(story: Mapping[str, Any]) -> Dict[str, str]:
     return {"title": title, "teaching": teaching}
 
 
+def sentence_case(title: str, facts: List[str]) -> str:
+    """The model mixes "They Punished Your Big Mistakes" with sentence case.
+    Keep the first word's capital, moves, and any word the facts themselves
+    capitalise mid-sentence (opening names); lower the rest."""
+    source = " ".join(facts)
+    words = title.split()
+    out = []
+    for i, word in enumerate(words):
+        core = word.strip(".,;:!?\"'’")
+        keep = (i == 0 or _TOKEN.fullmatch(core) is not None
+                or (core[:1].isupper() and re.search(rf"(?<![.:] )\b{re.escape(core)}\b", source)
+                    and not re.search(rf"(?:^|[.:] ){re.escape(core)}\b", source)))
+        out.append(word if keep else word.lower())
+    return " ".join(out)
+
+
 async def write_headline(facts: List[str], outcome: Optional[str]) -> Dict[str, Any]:
     """Ask the model; return its headline only if it passes `validate`."""
     out: Dict[str, Any] = {"ok": False, "reason": "", "model": MODEL}
@@ -225,7 +285,7 @@ async def write_headline(facts: List[str], outcome: Optional[str]) -> Dict[str, 
         logger.info("[game_headline] rejected (%s): %r / %r", problem, title[:60], teaching[:80])
         out["reason"] = problem
         return out
-    out.update(ok=True, title=title, teaching=teaching)
+    out.update(ok=True, title=sentence_case(title, facts), teaching=teaching)
     return out
 
 

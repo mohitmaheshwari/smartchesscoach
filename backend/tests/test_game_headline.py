@@ -163,3 +163,34 @@ class TestHeadlineForGame:
         db = _Db()
         _run(H.headline_for_game(db, GAME, STORY))
         assert db[H.COLLECTION].rows == []
+
+
+class TestMainPoint:
+    def test_a_win_the_opponent_let_happen_says_so(self):
+        """Mohit's game: the model had written "You won when your opponent
+        resigned" -- true, and not the point."""
+        assert H.main_point(STORY).startswith("the student won partly because the opponent missed")
+        assert any(f.startswith("MAIN POINT:") for f in H.headline_facts(STORY, GAME))
+
+    def test_a_lost_winning_position(self):
+        story = {"plan": {"type": {"id": "slipped_away"}},
+                 "ledger": {"outcome": "loss", "events": []}}
+        assert H.main_point(story) == "the student had a winning position and lost it"
+
+    def test_no_point_is_invented(self):
+        assert H.main_point({"plan": {"type": {"id": "game"}},
+                             "ledger": {"outcome": "draw", "events": []}}) is None
+
+
+class TestSentenceCase:
+    FACTS = ["The student lost by resignation.",
+             "You came out of the Scotch Game with the better position.",
+             "Ng5 nearly cost you your queen."]
+
+    def test_title_case_is_lowered(self):
+        assert H.sentence_case("They Punished Your Big Mistakes", self.FACTS) == \
+            "They punished your big mistakes"
+
+    def test_opening_names_and_moves_keep_their_capitals(self):
+        assert H.sentence_case("The Scotch Game Went Wrong After Ng5", self.FACTS) == \
+            "The Scotch Game went wrong after Ng5"
