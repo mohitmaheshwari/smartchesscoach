@@ -90,4 +90,10 @@ check("F2 patience not silently averaged in",
       "patience" not in res4["measured_habits"], str(res4["measured_habits"]))
 
 print("\n%s (%d failures)" % ("ALL PASS" if not FAILS else "FAILURES: " + ", ".join(FAILS), len(FAILS)))
-sys.exit(1 if FAILS else 0)
+# Guarded: a module-level sys.exit aborts pytest's COLLECTION, so this
+# one file made `pytest tests/` fail for the whole directory with an
+# INTERNALERROR -- every other suite in the repo became unrunnable in one
+# command. It is a standalone script that lives in tests/, which is fine,
+# as long as importing it does not exit the process.
+if __name__ == "__main__":
+    sys.exit(1 if FAILS else 0)
