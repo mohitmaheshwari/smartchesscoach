@@ -190,6 +190,66 @@ def facts_for(
                  purposes=ps, plan=pl)
 
 
+def decide(
+    inputs,
+    state,
+    *,
+    eval_lookup: Optional[Dict[str, Any]] = None,
+    **cascade_kwargs,
+):
+    """The finished card. The caller renders what comes back.
+
+    Mohit, when I reported that six writers still produced one page after
+    `facts_for` shipped: "six writers, no man, no, clearly mentioned."
+
+    He was right. `facts_for` consolidated what a move's FACTS are, and
+    left the precedence -- which writer's words actually reach the card --
+    in the renderer, where it had been arbitrating between three faces.
+    This is that half.
+
+    What it owns, in order:
+
+      1. the rule cascade and the distilled layer, by calling
+         `build_move_teaching_decision` itself
+      2. the framework's own text, which REPLACES the cascade's words when
+         the analysis wrote one from proven facts
+      3. nothing else. Arrows, highlights and best-move arrows come back
+         exactly as the decision produced them -- Mohit asked for the
+         arrows to be left alone, and the corpus fingerprint checks both
+         arrow columns per card to prove it.
+
+    The returned object is the decision, with `.text.caption` and
+    `.text.rule_name` already settled, so a caller cannot pick a different
+    winner by accident. That was the whole failure mode: three writers and
+    a renderer deciding between them.
+    """
+    from services.caption_pipeline import build_move_teaching_decision
+
+    decision = build_move_teaching_decision(
+        inputs, state, eval_lookup=eval_lookup, **cascade_kwargs)
+
+    # The framework's sentence, written once at analysis time from the
+    # engine's own facts and stored on the move. Nothing calls a model
+    # here.
+    #
+    # eval_lookup is keyed by the first FOUR fen fields, not the whole
+    # string. Looking it up with the full FEN finds nothing and fails
+    # silently, which was the shape of three wiring bugs in this path.
+    llm = None
+    try:
+        key = " ".join((inputs.fen_before or "").split()[:4])
+        row = (eval_lookup or {}).get(key) or {}
+        llm = (row.get("llm_caption") or "").strip() or None
+    except Exception:
+        llm = None
+
+    if llm:
+        decision.text.caption = llm
+        decision.text.rule_name = (
+            (decision.text.rule_name or "") + "→LLM_CAPTION")
+    return decision
+
+
 def facts_for_move(move: Dict[str, Any]) -> Facts:
     """`facts_for` straight from a stored move_evaluation.
 

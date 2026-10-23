@@ -4016,7 +4016,18 @@ async def generate_game_decryption_v5(
                         prev_user_eval_after=prev_user_eval_after,
                         conductor_threads_pulled=conductor_threads_pulled_this_game,
                     )
-                    _decision = _build_move_teaching_decision(
+                    # ONE FACE. The renderer asks the framework for the
+                    # finished card and renders it. It does not call the
+                    # rule cascade, does not look up the framework's own
+                    # sentence, and does not choose between them.
+                    #
+                    # Mohit, when I reported that six writers still
+                    # produced one page after the facts side shipped: "six
+                    # writers, no man, no, clearly mentioned." The
+                    # precedence was still here, which is what made this a
+                    # renderer that arbitrated between three faces.
+                    from services.framework import decide as _fw_decide
+                    _decision = _fw_decide(
                         _inputs, _state,
                         shapes_fired_this_game=shapes_fired_this_game,
                         bs_recent_window=_bs_recent_window,
@@ -4047,22 +4058,13 @@ async def generate_game_decryption_v5(
                     # fact, came back empty, or had nothing to write from) the
                     # deterministic caption stands. A refusal is never
                     # silence.
-                    _llm_cap = None
-                    try:
-                        # eval_lookup is keyed by the first FOUR fen fields,
-                        # not the whole string. Looking it up with the full
-                        # FEN finds nothing and fails silently, which is the
-                        # exact shape of the last three wiring bugs here.
-                        _k = " ".join((_inputs.fen_before or "").split()[:4])
-                        _ev = (eval_lookup or {}).get(_k) or {}
-                        _llm_cap = (_ev.get("llm_caption") or "").strip() or None
-                    except Exception:
-                        _llm_cap = None
+                    # Already settled by the face above, so there is no
+                    # second winner to pick here.
+                    _llm_cap = ("LLM_CAPTION" in
+                                (_decision.text.rule_name or "")) or None
                     caption_payload = {
-                        "caption": _llm_cap or _decision.text.caption,
-                        "rule_name": (
-                            (_decision.text.rule_name or "") + "→LLM_CAPTION"
-                            if _llm_cap else _decision.text.rule_name),
+                        "caption": _decision.text.caption,
+                        "rule_name": _decision.text.rule_name,
                         "highlight_squares": _decision.visual.highlight_squares,
                         "arrows": _decision.visual.arrows,
                         # Belongs to board_before + the best move, NOT to the
