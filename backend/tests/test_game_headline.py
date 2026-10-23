@@ -35,21 +35,32 @@ class TestValidator:
                        "You gave away a winning position twice. Look for their best reply "
                        "before you move.") is None
 
-    def test_a_move_not_in_the_facts_is_refused(self):
+    def test_no_move_may_be_named_even_one_in_the_facts(self):
+        """Mohit, 2026-10-23: a title "without naming the moves". The story
+        lines under the headline carry the moves."""
         assert self.ok("You won after your opponent missed chances",
-                       "After Qxd5 your opponent could have won. Check their best reply first.") \
-            .startswith("invented chess")
+                       "After Ng5 your queen had no safe square. Check their best reply first.") \
+            .startswith("named a move")
+        assert self.ok("You won after Qxd5 went unpunished",
+                       "You gave away a winning position twice. Look for their best reply.") \
+            .startswith("named a move")
 
-    def test_a_move_in_the_facts_may_be_used(self):
+    def test_a_square_is_a_move_too(self):
         assert self.ok("You won after your opponent missed chances",
-                       "After Ng5, Rh1 would have left your queen no safe square. Check their best reply first.") is None
+                       "Your queen on h4 had no safe square. Check their best reply first.") \
+            .startswith("named a move")
 
     def test_a_word_the_facts_only_imply_is_still_refused(self):
         # True by the ledger, but the facts given to the model say "no safe
         # square", not "trapped"; the check is about what it was told.
         assert self.ok("You won after your opponent missed chances",
-                       "After Ng5, Rh1 would have trapped your queen. Check their best reply first.") \
+                       "Your queen was nearly trapped. Check their best reply before you move.") \
             == "not in the facts: trapped"
+
+    def test_a_pattern_the_facts_never_name_is_refused(self):
+        assert self.ok("You won after your opponent missed chances",
+                       "You missed a fork twice. Check their best reply before you move.") \
+            == "not in the facts: fork"
 
     def test_numbers_are_refused(self):
         assert self.ok("You won after 2 narrow escapes",
@@ -105,6 +116,14 @@ class _Coll:
             if all(r.get(k) == v for k, v in query.items()):
                 return dict(r)
         return None
+
+    def find(self, query, projection=None):
+        rows = [r for r in self.rows if all(r.get(k) == v for k, v in query.items())]
+
+        class _Cursor:
+            async def to_list(self, length=None):
+                return rows
+        return _Cursor()
 
     async def update_one(self, query, update, upsert=False):
         for r in self.rows:
@@ -194,3 +213,24 @@ class TestSentenceCase:
     def test_opening_names_and_moves_keep_their_capitals(self):
         assert H.sentence_case("The Scotch Game Went Wrong After Ng5", self.FACTS) == \
             "The Scotch Game went wrong after Ng5"
+
+
+class TestObservationFacts:
+    def test_only_gate_allowed_names_and_no_moves(self):
+        observations = [
+            {"subtype": "missed_fork", "missed_pattern": "missed_tactic", "phase": "middlegame", "move_san": "Nf3"},
+            {"subtype": "missed_fork", "missed_pattern": "missed_tactic", "phase": "middlegame", "move_san": "Nc3"},
+            {"subtype": "missed_generic_tactic", "missed_pattern": "missed_tactic", "phase": "opening"},
+            {"found_best_in_critical": True, "move_san": "Bxc3"},
+        ]
+        facts = H.observation_facts(observations)
+        assert facts[0] == ("Pattern in the student's mistakes: Fork you could have played, "
+                            "twice, mostly in the middlegame.")
+        assert "Pattern in the student's good moves: Found the best move in a sharp moment, once." in facts
+        assert not any("generic" in f.lower() for f in facts)
+        assert not any(H._TOKEN.search(f) for f in facts)
+
+    def test_tags_read_as_phrases(self):
+        phrases = H.tag_phrases({"user_never_castled", "user_queen_trapped_opponent_missed",
+                                 "result_win", "story_clean_win", "user_let_off"})
+        assert phrases == ["never castled", "queen trapped, and the opponent missed it"]
