@@ -68,3 +68,61 @@ def test_ids_are_plain_snake_case():
                                                          "eval_at_end": 0, "costliest": {}}))
     for tag in tags["ids"]:
         assert re.fullmatch(r"[a-z0-9_]+", tag), tag
+
+
+class _Cur:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def __aiter__(self):
+        self._it = iter(self.rows)
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._it)
+        except StopIteration:
+            raise StopAsyncIteration
+
+    async def to_list(self, length=None):
+        return self.rows
+
+
+class _Col:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def find(self, query, projection=None):
+        ids = set(query["game_id"]["$in"])
+        return _Cur([r for r in self.rows if r["game_id"] in ids])
+
+    def aggregate(self, pipeline):
+        from collections import Counter
+        c = Counter(t for r in self.rows for t in r.get("tags", []))
+        return _Cur([{"_id": t, "n": n} for t, n in c.items()])
+
+
+def test_the_games_list_gets_titles_and_the_rarest_readable_tags():
+    import asyncio
+    import services.game_tags as T
+    T._counts_cache.update(at=0.0, counts={})
+    db = {
+        "game_headlines": _Col([{"game_id": "g1", "title": "You won after your opponent missed chances"}]),
+        "game_tag_index": _Col([
+            {"game_id": "g1", "tags": ["result_win", "user_let_off", "user_queen_trapped_opponent_missed",
+                                       "reached_rook_endgame", "user_punished_blunder", "time_control_rapid"]},
+            {"game_id": "g2", "tags": ["user_let_off", "user_punished_blunder"]},
+            {"game_id": "g3", "tags": ["user_punished_blunder", "reached_rook_endgame"]},
+        ]),
+    }
+    loop = asyncio.new_event_loop()
+    try:
+        out = loop.run_until_complete(T.list_fields_for_games(db, ["g1", "g2"]))
+    finally:
+        loop.close()
+    assert out["g1"]["story_title"] == "You won after your opponent missed chances"
+    labels = [t["label"] for t in out["g1"]["story_tags"]]
+    # Rarest first (ties alphabetical); result and time-control tags are
+    # never shown on the list.
+    assert labels == ["queen trapped, opponent missed", "reached rook endgame", "let off by the opponent"]
+    assert out["g2"]["story_title"] is None

@@ -233,6 +233,22 @@ const AllGames = ({ user }) => {
                   <span className="text-[10px] text-muted-foreground/40 ml-2">{g.opening}</span>
                 ) : null}
               </div>
+              {/* The game's title and its rarest tags (services/game_tags.py),
+                  read from what is saved -- the list never calls the model. */}
+              {g.story_title && (
+                <div className="text-[12.5px] text-foreground/80 truncate mt-0.5" data-testid="game-row-title">
+                  {g.story_title}
+                </div>
+              )}
+              {g.story_tags?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1" data-testid="game-row-tags">
+                  {g.story_tags.map((t) => (
+                    <span key={t.id} className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                      {t.label}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">

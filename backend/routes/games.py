@@ -1161,7 +1161,8 @@ async def game_story(game_id: str, user: User = Depends(get_current_user)):
     """
     game = await db.games.find_one(
         {"game_id": game_id, **user_scope_filter(user)},
-        {"_id": 0, "game_id": 1, "user_color": 1, "user_id": 1, "result": 1},
+        {"_id": 0, "game_id": 1, "user_color": 1, "user_id": 1, "result": 1,
+         "termination": 1, "user_rating": 1, "opponent_rating": 1},
     )
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
@@ -1174,4 +1175,19 @@ async def game_story(game_id: str, user: User = Depends(get_current_user)):
     story = await story_for_game(db, game)
     if story is None:
         raise HTTPException(status_code=404, detail="Game not analyzed yet")
+
+    # The game's title and teaching line, the same one the home card shows
+    # (services/game_headline.py). At most one model call per game, ever.
+    if story.get("plan"):
+        try:
+            from services.game_headline import headline_for_game
+
+            written = await headline_for_game(db, game, story)
+            story = {**story, "headline": {
+                "title": written.get("title"),
+                "teaching": written.get("teaching"),
+                "source": written.get("source"),
+            }}
+        except Exception:
+            logger.warning("story headline failed for %s", game_id, exc_info=True)
     return story

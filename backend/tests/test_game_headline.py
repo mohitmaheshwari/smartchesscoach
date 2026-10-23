@@ -234,3 +234,51 @@ class TestObservationFacts:
         phrases = H.tag_phrases({"user_never_castled", "user_queen_trapped_opponent_missed",
                                  "result_win", "story_clean_win", "user_let_off"})
         assert phrases == ["never castled", "queen trapped, and the opponent missed it"]
+
+
+class TestOneModelCallPerGame:
+    """Mohit, 2026-10-23: "once LLM is used, don't make another call,
+    llm_used = true, no LLM"."""
+
+    def test_a_used_game_is_never_asked_again_even_if_its_facts_change(self, monkeypatch):
+        calls = []
+
+        async def fake(facts, outcome):
+            calls.append(1)
+            return {"ok": True, "title": "You won after your opponent missed chances",
+                    "teaching": "Look for their best reply before you move.", "model": "m"}
+
+        monkeypatch.setattr(H, "write_headline", fake)
+        db = _Db()
+        first = _run(H.headline_for_game(db, GAME, STORY))
+        changed = {**STORY, "plan": {**STORY["plan"], "type": {"title": "Something else"}}}
+        again = _run(H.headline_for_game(db, GAME, changed))
+        assert len(calls) == 1
+        assert first["llm_used"] is True and again["title"] == first["title"]
+
+    def test_a_refused_answer_still_counts_as_used(self, monkeypatch):
+        calls = []
+
+        async def refused(facts, outcome):
+            calls.append(1)
+            return {"ok": False, "reason": "named a move: ['Ng5']", "model": "m"}
+
+        monkeypatch.setattr(H, "write_headline", refused)
+        db = _Db()
+        _run(H.headline_for_game(db, GAME, STORY))
+        _run(H.headline_for_game(db, GAME, STORY))
+        assert len(calls) == 1
+        assert db[H.COLLECTION].rows[0]["llm_used"] is True
+
+    def test_an_outage_does_not_count_as_used(self, monkeypatch):
+        calls = []
+
+        async def down(facts, outcome):
+            calls.append(1)
+            return {"ok": False, "reason": "llm_error", "model": "m"}
+
+        monkeypatch.setattr(H, "write_headline", down)
+        db = _Db()
+        _run(H.headline_for_game(db, GAME, STORY))
+        _run(H.headline_for_game(db, GAME, STORY))
+        assert len(calls) == 2

@@ -155,6 +155,20 @@ describe("GameStoryPanel", () => {
     expect(container.querySelectorAll("[data-testid='game-story-moment']")).toHaveLength(0);
   });
 
+  test("the written title leads, with the story type above it and the teaching below", async () => {
+    mock(200, { ...PLAN_STORY, headline: {
+      title: "They missed chances, you won",
+      teaching: "You won partly because they missed chances you gave them.",
+      source: "llm",
+    } });
+    await render();
+    expect(container.querySelector("[data-testid='game-story-title']").textContent)
+      .toBe("They missed chances, you won");
+    expect(container.querySelector("[data-testid='game-story-teaching']").textContent)
+      .toContain("missed chances you gave them");
+    expect(container.textContent).toContain("A win with narrow escapes");
+  });
+
   test("a line about their move opens THEIR move", async () => {
     mock(200, PLAN_STORY);
     const onOpenMove = jest.fn();

@@ -82,10 +82,25 @@ export default function GameStoryPanel({ gameId, onOpenMove }) {
     let lineIndex = -1;
     return (
       <div className="rounded-lg border border-border bg-background p-4" data-testid="game-story-panel">
-        <div className="flex items-baseline justify-between gap-3">
-          <h3 className="font-heading text-base font-semibold text-foreground" data-testid="game-story-title">
-            {plan.type?.title}
-          </h3>
+        <div className="flex items-start justify-between gap-3">
+          {/* The game's title and teaching (services/game_headline.py), the
+              same ones the home card shows; the story type becomes the small
+              label above. Without a written headline the type is the title. */}
+          <div className="min-w-0">
+            {story.headline?.title && plan.type?.title && (
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-0.5">
+                {plan.type.title}
+              </p>
+            )}
+            <h3 className="font-heading text-base font-semibold text-foreground" data-testid="game-story-title">
+              {story.headline?.title || plan.type?.title}
+            </h3>
+            {story.headline?.teaching && (
+              <p className="mt-1 text-sm text-muted-foreground leading-snug" data-testid="game-story-teaching">
+                {story.headline.teaching}
+              </p>
+            )}
+          </div>
           <div className="flex shrink-0 rounded-md border border-border p-0.5 text-[11px]">
             {["story", "coach"].map((m) => (
               <button

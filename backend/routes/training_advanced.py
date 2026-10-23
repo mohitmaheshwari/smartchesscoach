@@ -1053,6 +1053,10 @@ async def _build_lab_coaching(db, user_id, enriched_games, pattern_history, anal
             "platform": platform,
             "analyzed_at": g.get("analyzed_at") or a.get("created_at"),
             "created_at": g.get("created_at") or g.get("imported_at"),
+            # The game's title and readable tags, attached to `enriched`
+            # before this runs (see get_lab_coach_pick).
+            "story_title": g.get("story_title"),
+            "story_tags": g.get("story_tags") or [],
         }
 
     # Build TWO lists:
@@ -1702,6 +1706,17 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         insight = "Steady form. Room to sharpen."
 
     # ── COACHING SECTION — root problem, priority game, insight, rule, training lock ──
+    # Each game's title and a few readable tags (services/game_tags.py). Read
+    # from saved headlines and slim tag records only -- never the model.
+    try:
+        from services.game_tags import list_fields_for_games
+
+        fields = await list_fields_for_games(db, [g.get("game_id") for g in enriched])
+        for g in enriched:
+            g.update(fields.get(g.get("game_id")) or {"story_title": None, "story_tags": []})
+    except Exception as tag_err:
+        logger.warning(f"Lab game titles/tags failed: {tag_err}")
+
     coaching = None
     try:
         coaching = await _build_lab_coaching(db, user.user_id, enriched, pattern_history, analyses)

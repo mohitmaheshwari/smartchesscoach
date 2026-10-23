@@ -380,34 +380,48 @@ async def write_headline(facts: List[str], outcome: Optional[str]) -> Dict[str, 
     return out
 
 
+async def stored_headline(db, game_id: str) -> Optional[Dict[str, Any]]:
+    """The saved headline for a game, or None. Never calls the model."""
+    if not game_id:
+        return None
+    return await db[COLLECTION].find_one({"game_id": game_id}, {"_id": 0})
+
+
 async def headline_for_game(db, game: Mapping[str, Any], story: Mapping[str, Any]) -> Dict[str, Any]:
-    """The card's title and teaching: cached, model-written when it passes,
-    rule-written otherwise. Never raises."""
+    """The game's title and teaching: model-written when it passes, rule-
+    written otherwise. Never raises.
+
+    ONE model call per game, ever (Mohit, 2026-10-23: "once LLM is used,
+    don't make another call, llm_used = true, no LLM"). A game whose saved
+    headline has `llm_used` is served from storage even if its facts have
+    changed since -- including when the model's answer was refused, since the
+    model was still used. Only a call that never reached the model (an
+    outage) leaves `llm_used` unset, so that game may be tried again.
+    """
     try:
+        game_id = game.get("game_id")
+        saved = await stored_headline(db, game_id)
+        if saved and saved.get("llm_used"):
+            return saved
         observations = await db["move_observations"].find(
-            {"game_id": game.get("game_id")},
+            {"game_id": game_id},
             {"_id": 0, "subtype": 1, "missed_pattern": 1, "phase": 1,
              "found_best_in_critical": 1, "punished_opponent_blunder": 1,
              "responded_to_threat": 1},
         ).to_list(length=None)
         facts = headline_facts(story, game, observations)
         key = facts_key(facts)
-        game_id = game.get("game_id")
-        cached = await db[COLLECTION].find_one({"game_id": game_id, "facts_key": key}, {"_id": 0})
-        if cached:
-            return cached
         outcome = (story.get("ledger") or {}).get("outcome")
         written = await write_headline(facts, outcome)
+        reached_model = written.get("reason") not in ("llm_error", "disabled")
         if written.get("ok"):
             doc = {"title": written["title"], "teaching": written["teaching"], "source": "llm",
                    "model": written["model"]}
         else:
             doc = {**fallback_headline(story), "source": "rules", "reason": written.get("reason")}
         doc.update(game_id=game_id, facts_key=key, version=HEADLINE_VERSION,
-                   created_at=datetime.now(timezone.utc))
-        # Cache a model headline for good. A rules fallback caused by the
-        # model being down is retried later rather than kept.
-        if doc["source"] == "llm" or written.get("reason") not in ("llm_error",):
+                   llm_used=bool(reached_model), created_at=datetime.now(timezone.utc))
+        if reached_model:
             await db[COLLECTION].update_one({"game_id": game_id}, {"$set": doc}, upsert=True)
         return doc
     except Exception:

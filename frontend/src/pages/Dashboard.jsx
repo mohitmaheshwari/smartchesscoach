@@ -1176,9 +1176,25 @@ const Dashboard = ({ user }) => {
                             </span>
                           )}
                         </div>
-                        {diagnosis && (
+                        {/* The game's title, when one is saved, leads over the
+                            older diagnosis line; then its rarest tags
+                            (services/game_tags.py). Never a model call. */}
+                        {g.story_title ? (
+                          <div className="text-[12px] text-foreground/80 truncate" data-testid="lab-row-title">
+                            {g.story_title}
+                          </div>
+                        ) : diagnosis ? (
                           <div className="text-[11.5px] text-muted-foreground truncate">
                             {diagnosis}
+                          </div>
+                        ) : null}
+                        {g.story_tags?.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1" data-testid="lab-row-tags">
+                            {g.story_tags.map((t) => (
+                              <span key={t.id} className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                                {t.label}
+                              </span>
+                            ))}
                           </div>
                         )}
                       </div>

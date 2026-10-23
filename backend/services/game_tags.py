@@ -104,6 +104,79 @@ def tag_index_doc(game_id: str, user_id: Optional[str], tags: Optional[Mapping[s
     }
 
 
+# ─── The games list ─────────────────────────────────────────────────────
+
+# Tags a player sees on their games list. Internal or repeated ones
+# (result_, story_, ended_, time_control_, opening families) are left out:
+# the row already shows the result, and the title carries the story.
+_LIST_TAG = re.compile(r"^(user_|reached_|opening_played_|opening_came_out_worse$|"
+                       r"opposite_side_castling$|queens_traded_early$|long_game$)")
+_LIST_LABELS = {
+    "user_let_off": "let off by the opponent",
+    "user_lost_winning_position": "lost a winning position",
+    "user_punished_blunder": "punished a blunder",
+    "user_missed_their_blunder": "missed their blunder",
+    "user_tactically_active": "tactically active",
+    "user_found_critical_move": "found a critical move",
+    "user_missed_mate": "missed a mate",
+    "user_hung_piece": "left a piece undefended",
+    "user_moved_piece_to_unsafe_square": "moved a piece to an unsafe square",
+    "user_lost_material_to_tactic": "lost material to a tactic",
+    "user_ignored_king_attack": "missed a threat to the king",
+    "opening_came_out_worse": "worse out of the opening",
+    "opening_played_well": "played the opening well",
+    "opening_played_perfectly": "played the opening perfectly",
+}
+LIST_TAG_LIMIT = 3
+_counts_cache: Dict[str, Any] = {"at": 0.0, "counts": {}}
+
+
+def list_tag_label(tag: str) -> str:
+    if tag in _LIST_LABELS:
+        return _LIST_LABELS[tag]
+    text = re.sub(r"^user_", "", tag).replace("_", " ")
+    return text.replace(" opponent missed", ", opponent missed") \
+               .replace(" opponent punished", ", opponent punished")
+
+
+async def _global_tag_counts(db) -> Dict[str, int]:
+    """How many games carry each tag, refreshed every ten minutes, from the
+    slim records (0.3 s), so the rarest tags can be shown first."""
+    import time
+
+    if time.time() - _counts_cache["at"] < 600 and _counts_cache["counts"]:
+        return _counts_cache["counts"]
+    rows = await db[TAG_INDEX_COLLECTION].aggregate([
+        {"$project": {"_id": 0, "tags": 1}},
+        {"$unwind": "$tags"},
+        {"$group": {"_id": "$tags", "n": {"$sum": 1}}},
+    ]).to_list(length=None)
+    _counts_cache.update(at=time.time(), counts={r["_id"]: r["n"] for r in rows})
+    return _counts_cache["counts"]
+
+
+async def list_fields_for_games(db, game_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+    """Per game: the saved title and up to three readable tags, rarest first.
+
+    Reads only saved headlines and the slim tag records -- never calls the
+    model, so loading a games list costs nothing and stays fast.
+    """
+    ids = [g for g in game_ids if g]
+    if not ids:
+        return {}
+    from services.game_headline import COLLECTION as HEADLINES
+
+    out: Dict[str, Dict[str, Any]] = {g: {"story_title": None, "story_tags": []} for g in ids}
+    async for h in db[HEADLINES].find({"game_id": {"$in": ids}}, {"_id": 0, "game_id": 1, "title": 1}):
+        out[h["game_id"]]["story_title"] = h.get("title")
+    counts = await _global_tag_counts(db)
+    async for t in db[TAG_INDEX_COLLECTION].find({"game_id": {"$in": ids}}, {"_id": 0, "game_id": 1, "tags": 1}):
+        shown = sorted((tag for tag in t.get("tags") or [] if _LIST_TAG.match(tag)),
+                       key=lambda tag: (counts.get(tag, 0), tag))[:LIST_TAG_LIMIT]
+        out[t["game_id"]]["story_tags"] = [{"id": tag, "label": list_tag_label(tag)} for tag in shown]
+    return out
+
+
 def _named_mistake_allowed(quality_id: str) -> bool:
     """The one authority on whether a detector's name may be shown."""
     try:
