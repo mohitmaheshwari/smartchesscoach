@@ -282,3 +282,25 @@ class TestOneModelCallPerGame:
         _run(H.headline_for_game(db, GAME, STORY))
         _run(H.headline_for_game(db, GAME, STORY))
         assert len(calls) == 2
+
+
+class TestHonestWordsAreNotRefused:
+    """With one model call per game a wrong refusal is permanent. The first
+    336 backfilled games showed 21 of 25 refusals were honest words."""
+
+    def test_outplayed_in_a_loss_is_honest(self):
+        facts = ["The student lost by resignation.",
+                 "MAIN POINT: the opponent was better for most of the game."]
+        assert H.validate(facts, "The opponent outplayed you from the start",
+                          "They were better for most of the game. Look for safer moves and "
+                          "their best reply.", "loss") is None
+
+    def test_steady_and_time_as_advice(self):
+        assert H.validate(FACTS, "You won after your opponent missed chances",
+                          "Stay steady and take your time. Look for their best reply before "
+                          "you move.", "win") is None
+
+    def test_steadier_is_still_refused(self):
+        assert H.validate(FACTS, "You were the steadier player",
+                          "You gave away a winning position twice. Look for their best reply.",
+                          "win") == "empty praise: steadier"

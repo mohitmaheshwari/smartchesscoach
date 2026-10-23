@@ -53,8 +53,14 @@ TEACHING_WORDS = (8, 40)
 _TOKEN = re.compile(r"\b(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?)")
 _PIECES = ("queen", "rook", "knight", "bishop", "king", "pawn")
 # Praise the facts never contain. The old title's "steadier" is here on purpose.
+#
+# "steady" and "outplayed" were on this list and came off it on 2026-10-23,
+# after the first 336 backfilled games: 21 of 25 refusals were those two
+# words, used honestly -- "the opponent outplayed you" in a game the opponent
+# was better for most of, "stay steady" as advice. With one model call per
+# game, a wrong refusal is permanent, so the list holds only real praise.
 _EMPTY_PRAISE = ("brilliant", "flawless", "masterpiece", "genius", "crushed", "crushing",
-                 "dominated", "dominant", "steadier", "steady", "outplayed")
+                 "dominated", "dominant", "steadier")
 
 SYSTEM = (
     "You give a chess student's finished game its title and one teaching line.\n"
@@ -84,9 +90,11 @@ SYSTEM = (
     'Reply with JSON only: {"title": "...", "teaching": "..."}'
 )
 
-# Pattern words the model may only use when a fact names them.
+# Pattern words the model may only use when a fact names them. ("time" was
+# here too and refused "take your time"; time trouble reaches the model as a
+# fact when the clock tag is set, so it needs no separate guard.)
 _PATTERN_WORDS = ("fork", "pin", "skewer", "sacrifice", "castle", "castled", "castling",
-                  "endgame", "opening", "time")
+                  "endgame", "opening")
 
 
 def _count_words(n: int) -> str:
