@@ -1270,6 +1270,28 @@ def process_job(db, job):
                 #
                 # Measured at 1.5% of games, so this adds well under one
                 # caption call per game.
+                # What the coach knows about the PLAYER, gathered ONCE for
+                # the game. The arrow already shows what happened; this is
+                # how long they took over it, whether the weakness is live
+                # or fading, and whether they have trained the pattern.
+                #
+                # Mohit: "where is the teaching and the memory of player...
+                # game review should also consider the time taken to make
+                # that move, why he made that move?"
+                #
+                # Measured before building: time is on 69.4% of moves and
+                # the MEDIAN blunder of 200cp+ took 7 seconds, so half are
+                # played in under seven. 93% of user+gap pairs recur, which
+                # is why the repeat signal is the decay state and never a
+                # count -- this product shows no failure scoreboard.
+                from services import reader_context as _rctx
+                try:
+                    _reader = _rctx.gather(db, user_id, move_evaluations)
+                except Exception as _rc_err:
+                    logger.warning("[LLM_CAPTION] reader context "
+                                   "unavailable: %r", _rc_err)
+                    _reader = {}
+
                 from services.move_purposes import plan_purposes_for
                 _plans = []
                 for _m, _is_user in ([(m, True) for m in move_evaluations]
@@ -1302,7 +1324,8 @@ def process_job(db, job):
                                 str(mv.get("move") or ""),
                                 None, pp, mover_is_user=is_user,
                                 punishment_line=list(
-                                    mv.get("eval_line_played") or []))
+                                    mv.get("eval_line_played") or []),
+                                reader=_rctx.for_move(_reader, mv))
                             res = await write_caption(
                                 facts, rating=user_rating)
                             mv["llm_caption"] = res.get("caption")
@@ -1331,7 +1354,8 @@ def process_job(db, job):
                                 punishment_line=list(
                                     mv.get("pv_after_played") or []),
                                 opp_reply_is_clear=mv.get("opp_reply_is_clear"),
-                                best_is_only_move=mv.get("best_is_only_move"))
+                                best_is_only_move=mv.get("best_is_only_move"),
+                                reader=_rctx.for_move(_reader, mv))
                             res = await write_caption(facts, rating=user_rating)
                             mv["llm_caption"] = res.get("caption")
                             mv["llm_caption_refused"] = res.get("refused")

@@ -106,6 +106,29 @@ _COMMON = (
     "move was FINE and it prepares something. Never call it a mistake, "
     "never offer a better move, and say what is coming and what to do "
     "about it.\n"
+    "- `about_this_player` is what the coach knows about the READER. Use "
+    "it to say WHY the move happened, which the move alone cannot:\n"
+    "    `quick_for_this_player` with `seconds_on_this_move` -> they did "
+    "not look. Say the seconds plainly, once: \"you played this in four "
+    "seconds\". That is the lesson on such a card, not the chess.\n"
+    "    `they_have_solved_puzzles_on_this` -> they KNOW the pattern, so "
+    "it is about looking, not learning. Never tell them to learn it.\n"
+    "    `this_weakness_lately` is active, declining or fading. Say it in "
+    "words -- \"this one keeps coming back\", \"this is getting better\". "
+    "NEVER a number of past mistakes, and never a tally. No scoreboard.\n"
+    "    `clean_games_in_a_row` is good news and you MUST say it when it "
+    "is there, in the FIRST sentence, before the mistake: \"you had five "
+    "clean games before this one\". A player who is improving has to hear "
+    "it on the card where they slipped, or they hear it nowhere.\n"
+    "- Never scold. Nothing in `about_this_player` is an accusation; a "
+    "fast move is a habit to notice, not a failing.\n"
+    "- ALWAYS say what actually happened on the board -- the reply and "
+    "what it hits. `about_this_player` is the FRAME around that, never a "
+    "replacement for it. A card reading \"you played this in four seconds "
+    "and this keeps coming back\", with no mention of the move that "
+    "punished it, tells the reader nothing they can check.\n"
+    "- With `about_this_player` you may use three sentences instead of "
+    "two, since the frame and the board both have to fit.\n"
     "- `lesson` is the thing to teach. Say it in your own plain words. "
     "Never invent a different lesson, and never work one out from the "
     "other facts.\n"
@@ -191,6 +214,7 @@ def build_facts(
     punishment_line: Optional[List[str]] = None,
     opp_reply_is_clear: Optional[bool] = None,
     best_is_only_move: Optional[bool] = None,
+    reader: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """The fact bundle handed to the model. Engine output only.
 
@@ -239,6 +263,17 @@ def build_facts(
         facts["their_best_reply_is_clearly_best"] = bool(opp_reply_is_clear)
     if best_is_only_move is not None:
         facts["the_better_move_was_the_only_good_one"] = bool(best_is_only_move)
+    if reader:
+        # What the coach knows about the PLAYER, from services/reader_context.
+        # The arrow already shows what happened; this is how long they took
+        # over it, whether the weakness is live or fading, and whether they
+        # have trained the pattern. Measured first: time is on 69.4% of
+        # moves, and the median blunder of 200cp+ took SEVEN seconds.
+        #
+        # Never a count of past mistakes. The product does not show a
+        # failure scoreboard, so the decay service's own words -- active,
+        # declining, fading -- are what travel.
+        facts["about_this_player"] = dict(reader)
     return facts
 
 
