@@ -131,9 +131,26 @@ LIST_TAG_LIMIT = 3
 _counts_cache: Dict[str, Any] = {"at": 0.0, "counts": {}}
 
 
+_MATE_LABEL = {"back_rank_mate": "back rank mate", "smothered_mate": "smothered mate",
+               "double_check_mate": "mate with a double check"}
+
+
 def list_tag_label(tag: str) -> str:
     if tag in _LIST_LABELS:
         return _LIST_LABELS[tag]
+    m = re.match(r"^user_won_trapped_(\w+)$", tag)
+    if m:
+        return f"trapped and won their {m.group(1)}"
+    m = re.match(r"^user_trapped_opponent_(\w+)$", tag)
+    if m:
+        return f"shut in their {m.group(1)}"
+    m = re.match(r"^user_(delivered|suffered)_(\w+_mate)$", tag)
+    if m:
+        who, kind = m.groups()
+        if kind in _MATE_LABEL:
+            return f"{_MATE_LABEL[kind]} {'for you' if who == 'delivered' else 'against you'}"
+        piece = kind.replace("_mate", "")
+        return f"mated with the {piece}" if who == "delivered" else f"mated by their {piece}"
     text = re.sub(r"^user_", "", tag).replace("_", " ")
     return text.replace(" opponent missed", ", opponent missed") \
                .replace(" opponent punished", ", opponent punished")
@@ -171,7 +188,13 @@ async def list_fields_for_games(db, game_ids: List[str]) -> Dict[str, Dict[str, 
         out[h["game_id"]]["story_title"] = h.get("title")
     counts = await _global_tag_counts(db)
     async for t in db[TAG_INDEX_COLLECTION].find({"game_id": {"$in": ids}}, {"_id": 0, "game_id": 1, "tags": 1}):
-        shown = sorted((tag for tag in t.get("tags") or [] if _LIST_TAG.match(tag)),
+        tags = set(t.get("tags") or [])
+        # "trapped and won their knight" already says "shut in their knight".
+        for tag in list(tags):
+            m = re.match(r"^user_won_trapped_(\w+)$", tag)
+            if m:
+                tags.discard(f"user_trapped_opponent_{m.group(1)}")
+        shown = sorted((tag for tag in tags if _LIST_TAG.match(tag)),
                        key=lambda tag: (counts.get(tag, 0), tag))[:LIST_TAG_LIMIT]
         out[t["game_id"]]["story_tags"] = [{"id": tag, "label": list_tag_label(tag)} for tag in shown]
     return out

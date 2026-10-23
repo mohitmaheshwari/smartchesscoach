@@ -126,3 +126,13 @@ def test_the_games_list_gets_titles_and_the_rarest_readable_tags():
     # never shown on the list.
     assert labels == ["queen trapped, opponent missed", "reached rook endgame", "let off by the opponent"]
     assert out["g2"]["story_title"] is None
+
+
+def test_list_labels_read_naturally():
+    from services.game_tags import list_tag_label
+    assert list_tag_label("user_won_trapped_knight") == "trapped and won their knight"
+    assert list_tag_label("user_trapped_opponent_rook") == "shut in their rook"
+    assert list_tag_label("user_delivered_back_rank_mate") == "back rank mate for you"
+    assert list_tag_label("user_suffered_back_rank_mate") == "back rank mate against you"
+    assert list_tag_label("user_delivered_queen_mate") == "mated with the queen"
+    assert list_tag_label("user_suffered_knight_mate") == "mated by their knight"

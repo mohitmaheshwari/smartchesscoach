@@ -52,8 +52,12 @@ async def main() -> int:
         print(f"marked earlier headlines as used: {marked.modified_count}", flush=True)
 
     done = {h["game_id"] async for h in headlines.find({"llm_used": True}, {"_id": 0, "game_id": 1})}
-    todo = [a["game_id"] async for a in db.game_analyses.find(
-        {"game_story.plan": {"$ne": None}}, {"_id": 0, "game_id": 1}) if a.get("game_id") not in done]
+    with_story = {a["game_id"] async for a in db.game_analyses.find(
+        {"game_story.plan": {"$ne": None}}, {"_id": 0, "game_id": 1}) if a.get("game_id")}
+    # Newest games first: they are the ones the games list and home show.
+    todo = [g["game_id"] async for g in db.games.find(
+        {"is_analyzed": True}, {"_id": 0, "game_id": 1}).sort("played_at_utc", -1)
+        if g.get("game_id") in with_story and g["game_id"] not in done]
     if args.limit:
         todo = todo[:args.limit]
     print(f"games with a story and no headline from the model yet: {len(todo)}", flush=True)
