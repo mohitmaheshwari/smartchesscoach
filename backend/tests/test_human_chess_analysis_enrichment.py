@@ -123,3 +123,48 @@ def test_a_row_without_a_position_is_still_refused(monkeypatch):
     assert not called
     assert enriched[0]["human_policy_reason"] in (
         "no_position", "missing_pgn_position", "position_mismatch")
+
+
+def test_the_same_function_enriches_the_opponents_moves(monkeypatch):
+    """Mohit: "Opponent moves get no Maia2, why???"
+
+    There was no reason. `_user_positions(game, user_color)` collects
+    whichever side is to move, and the opponent's rating comes from the
+    matching PGN header -- so "user" means "the side these rows belong
+    to". The worker simply never called it a second time.
+
+    It is also the half that matters most: the engine answers Nxh3+ with
+    Kh2 while 70% of 1200s take the knight and lose it, and that
+    prediction is about THEIR reply, not ours.
+    """
+    monkeypatch.setenv("HUMAN_CHESS_ANALYSIS_ENRICHMENT_ENABLED", "true")
+    seen = []
+    monkeypatch.setattr(
+        "services.human_chess_analysis_enrichment.probe_configured_fathom",
+        lambda fen: (None, "outside_tablebase_coverage"),
+    )
+    monkeypatch.setattr(
+        "services.human_chess_analysis_enrichment.derive_human_policy_evidence",
+        lambda ctx: (seen.append((ctx.fen.split()[1], ctx.player_elo,
+                                  ctx.opponent_elo)),
+                     (None, "no_provider_available"))[1],
+    )
+    # Black's moves from the same PGN, enriched with the colour flipped.
+    black_rows = [
+        {"fen_before": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+         "cp_loss": 0},
+        {"fen_before": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 3 3",
+         "cp_loss": 0},
+    ]
+    enriched, _ = enrich_move_evaluations_with_human_chess(
+        black_rows, pgn=PGN, user_color="black", user_rating=1250
+    )
+    assert seen, "opponent rows must reach the policy provider"
+    for side_to_move, player_elo, opponent_elo in seen:
+        assert side_to_move == "b", "these are black's positions"
+        # The RATINGS swap with the colour. Feeding the user's rating for
+        # the opponent's move would predict the wrong player.
+        assert player_elo == 1250
+        assert opponent_elo == 1200
+    for row in enriched:
+        assert row["human_policy_reason"] != "not_teaching_candidate"

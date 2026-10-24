@@ -132,6 +132,32 @@ def _queue_error_payload(message: str) -> dict:
     }
 
 
+def _opp_rating_for(game: dict, opp_color: str):
+    """The opponent's rating, off the game document first.
+
+    The enrichment falls back to the PGN's WhiteElo/BlackElo, and this
+    morning that cost an afternoon: 108 of 200 of Mohit's games carry no
+    Elo header at all, including every one of the three most recent, while
+    `white_rating` / `black_rating` are present on 72.1% of them. Passing
+    the better source in means the policy provider is not refused with
+    `missing_measured_rating` on games we do have a rating for.
+
+    Returns None when nothing is known, which the enrichment already
+    handles by abstaining rather than guessing.
+    """
+    keys = (("white_rating", "black_rating")
+            if str(opp_color).lower() == "white"
+            else ("black_rating", "white_rating"))
+    for key in (keys[0], "opponent_rating"):
+        try:
+            value = int(game.get(key) or 0)
+        except (TypeError, ValueError):
+            continue
+        if value > 0:
+            return value
+    return None
+
+
 def mover_is_user(move: dict, user_color, default: bool = True) -> bool:
     """Whose move this is, read off the board rather than off a flag.
 
@@ -1693,6 +1719,39 @@ def process_job(db, job):
                     user_rating=exact_user_rating,
                 )
             )
+            # ...and the OPPONENT's moves, which is where this matters most.
+            #
+            # Mohit, when told they were excluded: "Opponent moves get no
+            # Maia2, why???" There was no reason. The enrichment is already
+            # colour-generic -- `_user_positions(game, user_color)` collects
+            # whichever side is to move and the opponent's rating comes from
+            # the matching PGN header -- so "user" really means "the side
+            # these rows belong to". It only ever got called once.
+            #
+            # And it is the half that started this: the whole point is that
+            # the engine answers Nxh3+ with Kh2 while 70% of 1200s take the
+            # knight and lose it. That prediction is about THEIR reply.
+            _opp_rows = (stockfish_result.get("opponent_moves") or []) \
+                if isinstance(stockfish_result, dict) else []
+            if _opp_rows:
+                _opp_color = "black" if str(user_color).lower() == "white" \
+                    else "white"
+                _opp_rating = _opp_rating_for(game, _opp_color)
+                _opp_rows, _opp_summary = (
+                    enrich_move_evaluations_with_human_chess(
+                        _opp_rows,
+                        pgn=pgn,
+                        user_color=_opp_color,
+                        user_rating=_opp_rating,
+                    )
+                )
+                if isinstance(stockfish_result, dict):
+                    stockfish_result["opponent_moves"] = _opp_rows
+                for _k in ("exact_evidence", "human_policy_evidence",
+                           "position_mismatch"):
+                    _human_chess_summary[_k] = (
+                        _human_chess_summary.get(_k, 0)
+                        + _opp_summary.get(_k, 0))
             logger.info(
                 "[HUMAN_CHESS] %s exact=%s human=%s mismatches=%s disabled=%s",
                 game_id,
