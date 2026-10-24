@@ -748,10 +748,27 @@ def _bishop_to_the_square_the_pawn_left(
             break
     if our_pawn is None or our_pawn == dest:
         return None
-    ahead = (chess.square_rank(our_pawn) > chess.square_rank(dest)
+    steps = (chess.square_rank(our_pawn) - chess.square_rank(dest)
              if us == chess.WHITE
-             else chess.square_rank(our_pawn) < chess.square_rank(dest))
-    if not ahead:
+             else chess.square_rank(dest) - chess.square_rank(our_pawn))
+    if steps <= 0:
+        return None
+    # ...and it must be a STEP, not a march. The first version asked only
+    # whether the pawn was ahead of the square, so a black pawn on g4 came
+    # back as "the pawn has already stepped to g4, which is what opened g7"
+    # -- a pawn that left three moves ago and is doing something else
+    # entirely. That case turned up while measuring a different idea.
+    #
+    # The cut is from the distribution, over the 91 cards where the
+    # bishop's square is free and its own pawn is past it:
+    #
+    #     1 step   47  51.6%     <- g6, b6, g3, b3: the plan itself
+    #     2 steps  20  22.0%     <- b5 before Bb7 is the same idea
+    #     3 steps  24  26.4%     <- a marched pawn, not a preparation
+    #
+    # Three of the nine cards this fact fired on were in that last group.
+    # They fall back to `develops_against_a_target`, which is true of them.
+    if steps > 2:
         return None
 
     return Purpose(

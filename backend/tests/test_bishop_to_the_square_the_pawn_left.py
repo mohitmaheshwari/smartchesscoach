@@ -157,3 +157,48 @@ class TestTheLessonIsTeachable:
         for clause in re.split(r"[;.]", p["lesson"]):
             n = len(re.findall(r"[a-z0-9]+", clause))
             assert n <= 14, (n, clause)
+
+class TestAStepNotAMarch:
+    """A pawn that left three moves ago is not a plan waiting to finish.
+
+    The first version asked only whether the pawn was ahead of the bishop's
+    square, so a black pawn on g4 came back as "the pawn has already
+    stepped to g4, which is what opened g7". It turned up while measuring a
+    different idea, which is the only reason it was caught.
+
+    The cut is from the distribution over the 91 cards where the bishop's
+    square is free and its own pawn is past it: 1 step 47 (51.6%), 2 steps
+    20 (22.0%), 3 steps 24 (26.4%). Three of the nine cards this fact fired
+    on were three-step marches.
+    """
+
+    def test_one_step_fires(self):
+        fen = "rnbqkbnr/pppppp1p/6p1/8/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 2"
+        assert _of(_ps(fen, "a6", "Bg7", ["Bg7"])) is not None
+
+    def test_two_steps_still_fires(self):
+        """b5 before Bb7 is the same idea, and g5 before Bg7 reads the same
+        way, so the cut cannot be at one."""
+        for fen in (
+            "rnbqkbnr/pppppp1p/8/6p1/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+            "rnbqkbnr/p1pppppp/8/1p6/3PP3/8/PPP2PPP/RNBQKBNR b KQkq - 0 3",
+        ):
+            best = "Bg7" if "6p1" in fen or "6p1/" in fen else "Bb7"
+            import chess as _c
+            b = _c.Board(fen)
+            best = next(x for x in ("Bg7", "Bb7")
+                        if x in [b.san(m) for m in b.legal_moves])
+            assert _of(_ps(fen, "a6", best, [best])) is not None, fen
+
+    def test_three_steps_is_silent(self):
+        """g4 for Black: the pawn is not in front of the bishop any more,
+        it is in their half of the board."""
+        fen = "rnbqkbnr/pppppp1p/8/8/3PP1p1/8/PPP2PPP/RNBQKBNR b KQkq - 0 4"
+        assert _of(_ps(fen, "a6", "Bg7", ["Bg7"])) is None
+
+    def test_the_marched_case_still_gets_a_fact(self):
+        """Silence is the wrong answer: it falls back to the consequence,
+        which is true of it."""
+        fen = "rnbqkbnr/pppppp1p/8/8/3PP1p1/8/PPP2PPP/RNBQKBNR b KQkq - 0 4"
+        ps = _ps(fen, "a6", "Bg7", ["Bg7"])
+        assert ps, "a developing bishop move must still say something"
