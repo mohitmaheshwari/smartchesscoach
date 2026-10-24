@@ -99,6 +99,20 @@ _COMMON = (
     "sentence: tempo, initiative, development, complex, structure, "
     "outpost, prophylaxis, zugzwang, fianchetto, overloaded, "
     "counterplay, passive, coordination.\n"
+    # Mohit on a rendered caption: "very very very difficult english, it
+    # needs to be simplest like a 10 year old can understand". Measured
+    # over stored captions: "undefended" is in 51% of them and "material"
+    # in 16%. Neither is a word a ten-year-old owns, and each has a plain
+    # replacement that says MORE than the word it replaces.
+    "- Never use these words at all; say the plain thing instead. "
+    "\"undefended\" -> \"nothing is guarding it\". "
+    "\"material\" -> name the piece. "
+    "\"inaccuracy\" -> \"a small mistake\". "
+    "\"exchange\" -> \"trade\". "
+    "\"recapture\" -> \"take back\". "
+    "\"centralise\" -> \"bring it to the middle\".\n"
+    "- Write for a ten-year-old. Short sentences, one idea each, words a "
+    "child already knows. If a sentence needs rereading, it is wrong.\n"
     "- Never more than fourteen words in one sentence. Split it instead.\n"
     "- When the facts list several squares or several pieces, name ONE as "
     "the example and drop the rest. A list of squares is not teaching. "

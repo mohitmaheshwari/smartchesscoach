@@ -24,32 +24,137 @@
     "abandoned_taken_san": "SAN of the move that collects it in the stored line."
   },
   "severity_tiers": [
-    {"when": {"severity_practical": "blunder"}, "tier": "blunder"},
-    {"when": {"severity_practical": "serious"}, "tier": "serious"},
-    {"when": {"severity_practical": "mistake"}, "tier": "mistake"},
-    {"when": {"severity_practical": "inaccuracy"}, "tier": "mistake"},
-    {"when": {"severity_practical": "good"}, "tier": "mistake"},
-    {"when": {"cp_loss": {"gte": 400}}, "tier": "blunder"},
-    {"when": {"cp_loss": {"gte": 250}}, "tier": "serious"},
-    {"tier": "mistake"}
+    {
+      "when": {
+        "severity_practical": "blunder"
+      },
+      "tier": "blunder"
+    },
+    {
+      "when": {
+        "severity_practical": "serious"
+      },
+      "tier": "serious"
+    },
+    {
+      "when": {
+        "severity_practical": "mistake"
+      },
+      "tier": "mistake"
+    },
+    {
+      "when": {
+        "severity_practical": "inaccuracy"
+      },
+      "tier": "mistake"
+    },
+    {
+      "when": {
+        "severity_practical": "good"
+      },
+      "tier": "mistake"
+    },
+    {
+      "when": {
+        "cp_loss": {
+          "gte": 400
+        }
+      },
+      "tier": "blunder"
+    },
+    {
+      "when": {
+        "cp_loss": {
+          "gte": 250
+        }
+      },
+      "tier": "serious"
+    },
+    {
+      "tier": "mistake"
+    }
   ],
   "severity_phrases": {
-    "blunder": "is a major blunder",
-    "serious": "is a serious mistake",
-    "mistake": "is a mistake"
+    "blunder": "was a big mistake",
+    "serious": "was a bad mistake",
+    "mistake": "was a mistake"
   },
-  "requires": ["move_san", "best_move", "severity_phrase"],
+  "requires": [
+    "move_san",
+    "best_move",
+    "severity_phrase"
+  ],
   "select_variant": [
-    {"when": {"curriculum_deviation_clause": "present"}, "variant": "with_curriculum_deviation"},
-    {"when": {"blocked_pawn_would_support": "present"}, "variant": "with_blocked_pawn_supports"},
-    {"when": {"blocked_pawn_would_prepare": "present"}, "variant": "with_blocked_pawn_prepares"},
-    {"when": {"blocked_pawn_file": "present"}, "variant": "with_blocked_pawn"},
-    {"when": {"abandoned_guard_shape": "present", "abandoned_guard_verb": "present", "abandoned_guard_piece": "present", "abandoned_lost_piece": "present", "abandoned_lost_square": "present", "abandoned_taken_san": "present"}, "variant": "with_abandoned_guard"},
-    {"when": {"board_state_clause": "present"}, "variant": "with_board_state"},
-    {"when": {"user_is_winning": true, "cp_loss": {"lt": 250}}, "variant": "with_winning_position"},
-    {"when": {"user_is_losing": true, "cp_loss": {"lt": 250}}, "variant": "with_losing_position"},
-    {"when": {"cp_loss": {"gte": 100}}, "variant": "default"},
-    {"variant": "silent_positional_preference"}
+    {
+      "when": {
+        "curriculum_deviation_clause": "present"
+      },
+      "variant": "with_curriculum_deviation"
+    },
+    {
+      "when": {
+        "blocked_pawn_would_support": "present"
+      },
+      "variant": "with_blocked_pawn_supports"
+    },
+    {
+      "when": {
+        "blocked_pawn_would_prepare": "present"
+      },
+      "variant": "with_blocked_pawn_prepares"
+    },
+    {
+      "when": {
+        "blocked_pawn_file": "present"
+      },
+      "variant": "with_blocked_pawn"
+    },
+    {
+      "when": {
+        "abandoned_guard_shape": "present",
+        "abandoned_guard_verb": "present",
+        "abandoned_guard_piece": "present",
+        "abandoned_lost_piece": "present",
+        "abandoned_lost_square": "present",
+        "abandoned_taken_san": "present"
+      },
+      "variant": "with_abandoned_guard"
+    },
+    {
+      "when": {
+        "board_state_clause": "present"
+      },
+      "variant": "with_board_state"
+    },
+    {
+      "when": {
+        "user_is_winning": true,
+        "cp_loss": {
+          "lt": 250
+        }
+      },
+      "variant": "with_winning_position"
+    },
+    {
+      "when": {
+        "user_is_losing": true,
+        "cp_loss": {
+          "lt": 250
+        }
+      },
+      "variant": "with_losing_position"
+    },
+    {
+      "when": {
+        "cp_loss": {
+          "gte": 100
+        }
+      },
+      "variant": "default"
+    },
+    {
+      "variant": "silent_positional_preference"
+    }
   ],
   "variants": {
     "default": "{move_san} {severity_phrase}. {best_move} was better.",

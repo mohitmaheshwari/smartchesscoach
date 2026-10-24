@@ -3908,14 +3908,31 @@ def _extract_caption_severity_word(caption_text: str) -> Optional[str]:
     if not caption_text:
         return None
     t = caption_text.lower()
-    if "is a major blunder" in t:
-        return "blunder"
-    if "is a serious mistake" in t:
-        return "mistake"
-    if "is a mistake" in t:
-        return "mistake"
-    if "is an inaccuracy" in t:
-        return "inaccuracy"
+    # BOTH wordings, because this parses text that is already STORED.
+    #
+    # Mohit on the rendered caption: "very very very difficult english, it
+    # needs to be simplest like a 10 year old can understand". "is an
+    # inaccuracy" is not a phrase a ten-year-old owns, so the authored
+    # severity_phrases became "was a big / bad / small mistake". Captions
+    # written before that change still say "is a major blunder", and the
+    # Lab badge and mastery cards derive their colour from this function --
+    # dropping the old phrases would blank the badge on every card already
+    # in the database.
+    #
+    # Order matters: the qualified phrases are checked before the bare
+    # "a mistake" so "big"/"bad"/"small" are not swallowed by it.
+    for phrase, word in (
+        ("is a major blunder", "blunder"),
+        ("was a big mistake", "blunder"),
+        ("is a serious mistake", "mistake"),
+        ("was a bad mistake", "mistake"),
+        ("is an inaccuracy", "inaccuracy"),
+        ("was a small mistake", "inaccuracy"),
+        ("is a mistake", "mistake"),
+        ("was a mistake", "mistake"),
+    ):
+        if phrase in t:
+            return word
     return None
 
 
@@ -4210,7 +4227,15 @@ def _verify_and_recover_caption(
     elif mover_is_user and sev_phrase:
         recovery = f"{played_san} {sev_phrase}."
     elif (not mover_is_user) and sev_phrase:
-        recovery = f"Opponent's {played_san} {sev_phrase}."
+        # "Your opponent played e6. That was a small mistake." -- two short
+        # sentences instead of a possessive noun phrase.
+        #
+        # Mohit on "Opponent's e6 is an inaccuracy": "very very very
+        # difficult english, it needs to be simplest like a 10 year old can
+        # understand". A ten-year-old does not say "Opponent's e6", and the
+        # severity phrases now read "was a big / bad / small mistake", which
+        # needs a subject to attach to.
+        recovery = f"Your opponent played {played_san}. That {sev_phrase}."
     elif best_move_san and best_move_san != played_san:
         # No phrase, but there IS a stronger move. `severity_practical` reads
         # "good" on plenty of cards the canonical tier calls a mistake (the two
@@ -4222,9 +4247,13 @@ def _verify_and_recover_caption(
         # Naming the stronger move asserts no verdict, and this function's own
         # contract already lists the best-move SAN among the irreducibly-true
         # claims recovery may make. It is strictly more than the SAN alone.
-        recovery = (f"{played_san}. {best_move_san} was stronger here."
+        # "stronger" and the possessive both go, for the same reason as the
+        # severity branch above: a ten-year-old says "better", and says
+        # "your opponent played e6", not "Opponent's e6".
+        recovery = (f"{played_san}. {best_move_san} was better here."
                     if mover_is_user
-                    else f"Opponent's {played_san}. {best_move_san} was stronger.")
+                    else f"Your opponent played {played_san}. "
+                         f"{best_move_san} was better.")
     else:
         # Clean move OR no severity and no alternative — acknowledge the SAN.
         recovery = f"{played_san}."

@@ -69,7 +69,9 @@ class TestMohitsCard:
         """Mohit on the first wording: "lessons are pathetic". It now says
         what the piece DOES rather than exhorting the reader to aim."""
         p = _of(self.ps, "develops_against_a_target")
-        assert "already hits one of their men" in p["lesson"]
+        # "men" is a chess word for pieces; a ten-year-old does not own it.
+        assert "attacks something" in p["lesson"]
+        assert "men" not in p["lesson"].split()
         assert "bring a new piece into the game" not in p["lesson"]
 
 

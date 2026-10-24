@@ -132,8 +132,10 @@ class TestWhatItMustNotClaim:
 class TestTheLessonIsTeachable:
     def test_it_states_the_transferable_rule(self):
         p = _of(_ps(MOHITS_CARD, "e6", "Bg7", PV_BEST))
-        assert "half a plan" in p["lesson"]
         assert "the square that pawn just left" in p["lesson"]
+        # "half a plan" went with the plain-English pass: it asked the
+        # reader to hold an idea instead of telling them what to do.
+        assert "half a plan" not in p["lesson"]
 
     def test_it_names_no_square_from_this_game(self):
         """A lesson is what they remember next week, so it cannot be about
@@ -225,8 +227,12 @@ class TestTheCascadePathGetsItToo:
         mv = b.parse_san("Bg7")
         # mover_is_user=False: his card is badged Opponent
         why = _recommended_move_why(b, mv, mover_is_user=False)
-        assert why == "is what their pawn step was for", why
+        assert why == "is why their pawn went to g6", why
         assert "brings a new piece into the game" != why
+        # Mohit: "very very very difficult english, it needs to be
+        # simplest like a 10 year old can understand". Every word here is
+        # one a child already owns.
+        assert "pawn step" not in why
 
     def test_the_possessive_follows_the_mover(self):
         """"your pawn step" under a card badged Opponent describes the
@@ -237,6 +243,7 @@ class TestTheCascadePathGetsItToo:
         b = chess.Board(MOHITS_CARD)
         mv = b.parse_san("Bg7")
         assert "your" in _recommended_move_why(b, mv, mover_is_user=True)
+        assert "their" in _recommended_move_why(b, mv, mover_is_user=False)
         assert "their" in _recommended_move_why(b, mv, mover_is_user=False)
 
     def test_develop_why_is_the_one_entry_point(self):

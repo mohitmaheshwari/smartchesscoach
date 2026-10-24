@@ -138,7 +138,8 @@ class TestTheCascadeGetsTheReason:
         b = chess.Board(AFTER_E6)
         mv = b.parse_san("h4")
         why = _recommended_move_why(b, mv, mover_is_user=True)
-        assert why == "heads for h5, hitting their pawn on g6", why
+        # "heads for" is an idiom; "sets up" is not.
+        assert why == "sets up h5 to attack their pawn on g6", why
 
     def test_the_possessive_names_whose_pawn_it_is(self):
         """The recommended reply is OURS, so the pawn under it is theirs.

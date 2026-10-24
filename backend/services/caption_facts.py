@@ -11033,11 +11033,11 @@ def _recommended_move_why(
             _kind = _dw.get("kind")
             if _kind == "bishop_to_the_square_the_pawn_left":
                 # Mohit's own words for the rule, in the "it {why}" slot.
-                return "is what %s pawn step was for" % _own
+                return "is why %s pawn went to %s" % (_own, _dw.get("pawn_on") or "")
             if _kind == "develops_against_a_target" and _dw.get("hits_square"):
                 # {opp} is the side NOT moving -- the reader on an opponent
                 # card, which is whose man is under the bishop.
-                return "comes out hitting %s %s on %s" % (
+                return "comes out and attacks %s %s on %s" % (
                     _opp, _dw.get("hits") or "piece", _dw["hits_square"])
         if pr in _REC_PRINCIPLE_PHRASE:
             return _rec_principle_phrase(pr, mover_is_user)
@@ -11056,7 +11056,7 @@ def _recommended_move_why(
         except Exception:
             _sw = {}
         if _sw.get("next_push") and _sw.get("pawn_on"):
-            return "heads for %s, hitting %s pawn on %s" % (
+            return "sets up %s to attack %s pawn on %s" % (
                 _sw["next_push"], _opp, _sw["pawn_on"])
     except Exception:
         return None

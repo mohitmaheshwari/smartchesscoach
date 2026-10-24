@@ -115,14 +115,14 @@ LESSON = {
     "develops_a_piece":
         "early on, every move should bring a new piece into the game",
     "develops_against_a_target":
-        "bring a piece out where it already hits one of their men; it "
-        "starts working at once",
+        "bring a new piece out to a square where it attacks something; "
+        "then it is doing a job straight away",
     "prepares_the_pawn_storm":
-        "meet a pawn that steps out at the side with your own edge pawn; "
-        "then they must answer you",
+        "when their pawn moves up on the side, push your edge pawn at it; "
+        "now they have to deal with it",
     "bishop_to_the_square_the_pawn_left":
-        "a pawn step in front of a bishop is half a plan; the bishop then "
-        "goes to the square that pawn just left",
+        "move the pawn in front of a bishop; then put the bishop on the "
+        "square that pawn just left",
     "played_develops_nothing":
         "when you are behind in development, a quiet pawn move is a move you "
         "cannot afford",

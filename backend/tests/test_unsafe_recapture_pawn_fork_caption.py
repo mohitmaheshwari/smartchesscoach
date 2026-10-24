@@ -177,7 +177,7 @@ def test_re1_central_caption_replaces_immediate_capture_fallback():
         6,
     )
     assert caption == (
-        "Opponent's Re1 is an inaccuracy. Play Nxe4. If Rxe4, d5 "
+        "Your opponent played Re1. That was a small mistake. Play Nxe4. If Rxe4, d5 "
         "attacks their rook and bishop together."
     )
     assert "trades his pawn" not in caption
@@ -237,7 +237,7 @@ def test_re1_full_decision_carries_caption_and_interactive_six_move_line():
 
     assert decision.should_skip is False
     assert decision.text.caption == (
-        "Opponent's Re1 is an inaccuracy. Play Nxe4. If Rxe4, d5 "
+        "Your opponent played Re1. That was a small mistake. Play Nxe4. If Rxe4, d5 "
         "attacks their rook and bishop together."
     )
     assert decision.teaching_meta.principle_cue == (
