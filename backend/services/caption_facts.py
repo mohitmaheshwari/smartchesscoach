@@ -11041,6 +11041,23 @@ def _recommended_move_why(
                     _opp, _dw.get("hits") or "piece", _dw["hits_square"])
         if pr in _REC_PRINCIPLE_PHRASE:
             return _rec_principle_phrase(pr, mover_is_user)
+
+        # 6) A ROOK PAWN heading at their pawn. Last, because it is a plan
+        #    rather than something already true, so anything above it is
+        #    more concrete.
+        #
+        #    Mohit's card ended "Play h4." and stopped. h4 hits nothing,
+        #    checks nothing and develops nothing, so every branch above
+        #    abstained and the card commanded a move with no reason. The
+        #    geometry is move_purposes', same as the develop branch.
+        try:
+            from services.move_purposes import pawn_storm_why as _storm_why
+            _sw = _storm_why(board, move) or {}
+        except Exception:
+            _sw = {}
+        if _sw.get("next_push") and _sw.get("pawn_on"):
+            return "heads for %s, hitting %s pawn on %s" % (
+                _sw["next_push"], _opp, _sw["pawn_on"])
     except Exception:
         return None
     return None

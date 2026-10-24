@@ -1207,6 +1207,32 @@ def develop_why(board, move) -> Optional[Dict[str, Any]]:
     return None
 
 
+def pawn_storm_why(board, move) -> Optional[Dict[str, Any]]:
+    """The reason behind a rook-pawn advance, for the cascade.
+
+    The other half of Mohit's card: it said "Play h4." and stopped. The
+    cascade asks `caption_facts._recommended_move_why` for every
+    recommended reply, and h4 hits nothing, checks nothing and develops
+    nothing, so every branch there abstained and the card commanded a move
+    with no reason -- the thing he has objected to since the Bxe2 card.
+
+    Same arrangement as `develop_why`: the geometry stays here, the caller
+    renders it. Returns the facts or None.
+    """
+    try:
+        us = board.turn
+        after = board.copy()
+        after.push(move)
+        p = _prepares_the_pawn_storm(board, move, after, us)
+        if p is not None:
+            out = dict(p.facts)
+            out["kind"] = p.kind
+            return out
+    except Exception:
+        pass
+    return None
+
+
 def plan_purposes_for(
     fen_before: str,
     played_san: str,

@@ -120,3 +120,67 @@ class TestItDoesNotCollideWithTheChase:
         assert "prepares_the_pawn_storm" in kinds
         assert "prepares_the_pawn_chase" not in kinds
         assert p["facts"]["rook_pawn_to"] == "h4"
+
+
+class TestTheCascadeGetsTheReason:
+    """"Play h4." with nothing after it was half of the card Mohit flagged.
+
+    The cascade asks `caption_facts._recommended_move_why` for every
+    recommended reply. h4 hits nothing, checks nothing and develops
+    nothing, so every branch there abstained and the card commanded a move
+    with no reason. `move_purposes.pawn_storm_why` is the one entry point,
+    so the geometry is not written twice.
+    """
+
+    def test_h4_gets_a_reason_from_the_cascade(self):
+        import chess
+        from services.caption_facts import _recommended_move_why
+        b = chess.Board(AFTER_E6)
+        mv = b.parse_san("h4")
+        why = _recommended_move_why(b, mv, mover_is_user=True)
+        assert why == "heads for h5, hitting their pawn on g6", why
+
+    def test_the_possessive_names_whose_pawn_it_is(self):
+        """The recommended reply is OURS, so the pawn under it is theirs.
+        On the mirrored case the reader owns it."""
+        import chess
+        from services.caption_facts import _recommended_move_why
+        b = chess.Board(AFTER_E6)
+        mv = b.parse_san("h4")
+        assert "their pawn" in _recommended_move_why(b, mv, True)
+        assert "your pawn" in _recommended_move_why(b, mv, False)
+
+    def test_the_geometry_is_not_duplicated(self):
+        from pathlib import Path
+        src = (Path(__file__).resolve().parents[1]
+               / "services" / "caption_facts.py").read_text(encoding="utf-8")
+        assert "from services.move_purposes import pawn_storm_why" in src
+        assert "PAWN_STORM_SHAPES" not in src
+
+
+class TestTheWhyActuallyReachesTheCaption:
+    """The append used to require the caption to END with "Play h4.".
+
+    The say-better backstop appends "They missed Bg7 -- it ..." after that
+    sentence, so an endswith test could never fire and the why was computed
+    and thrown away on exactly the cards it was written for -- correct code
+    reaching nothing, for the fourth time in this path.
+    """
+
+    def test_the_append_is_not_anchored_to_the_end(self):
+        from pathlib import Path
+        src = (Path(__file__).resolve().parents[1] / "services"
+               / "game_decryption_v5_service.py").read_text(encoding="utf-8")
+        i = src.index('_bare = f"Play {_rply}."')
+        region = src[i:i + 1200]
+        assert "_capt.endswith(_bare)" not in region, (
+            "an endswith test cannot fire once say-better has appended")
+        assert "_bare in _capt" in region
+
+    def test_it_respects_the_word_cap(self):
+        from pathlib import Path
+        src = (Path(__file__).resolve().parents[1] / "services"
+               / "game_decryption_v5_service.py").read_text(encoding="utf-8")
+        i = src.index('_bare = f"Play {_rply}."')
+        region = src[i:i + 1200]
+        assert "MAX_CAPTION_WORDS" in region
