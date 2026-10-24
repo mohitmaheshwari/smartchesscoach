@@ -268,3 +268,13 @@ dq_report.json
 # Engine output and a live DB export -- regenerable, read by nothing at runtime.
 backend/data/positional_engine_evidence.json
 backend/data/positional_reasons_snapshot.json
+
+# Maia2 weights: 280 MB per file, downloaded on first use into whatever
+# directory the script runs from, so a second copy appears under backend/
+# the moment it is run from there. Mohit's memory rule for this repo is
+# never `git add -A` on the server; this makes the accident impossible
+# either way.
+maia2_models/
+**/maia2_models/
+maia2_data/
+**/maia2_data/
