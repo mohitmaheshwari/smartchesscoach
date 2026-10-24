@@ -1171,6 +1171,42 @@ def _prepares_the_pawn_chase(b: chess.Board, played_san: str,
     return None
 
 
+def develop_why(board, move) -> Optional[Dict[str, Any]]:
+    """What a developing move actually does, for the OTHER caption path.
+
+    This module feeds `llm_caption`. The rule cascade has its own,
+    independent answer to "why is this move good" --
+    `caption_facts._recommended_move_why` -- and Mohit's card went down
+    THAT path: its record carries no `llm_caption` at all, so the three
+    facts added here never touched it. The card he flagged said "it brings
+    a new piece into the game" because `caption_facts.py:9706` maps the
+    principle `develop` to exactly that string.
+
+    Two writers for one question is the duplication this repo keeps
+    paying for, so the geometry stays here and only the PHRASING differs:
+    the detectors above return a proof for a model to rewrite, this
+    returns the same facts for the cascade to slot into "it {why}".
+
+    Returns the facts of whichever fires, idea before consequence, or None.
+    """
+    try:
+        us = board.turn
+        after = board.copy()
+        after.push(move)
+        for fn in (_bishop_to_the_square_the_pawn_left,
+                   _develops_against_a_target):
+            p = fn(board, move, after, us)
+            if p is not None:
+                out = dict(p.facts)
+                out["kind"] = p.kind
+                return out
+    except Exception:
+        # This module is pure and has no logger; a caption path must never
+        # fail because a board helper threw.
+        pass
+    return None
+
+
 def plan_purposes_for(
     fen_before: str,
     played_san: str,

@@ -202,3 +202,59 @@ class TestAStepNotAMarch:
         fen = "rnbqkbnr/pppppp1p/8/8/3PP1p1/8/PPP2PPP/RNBQKBNR b KQkq - 0 4"
         ps = _ps(fen, "a6", "Bg7", ["Bg7"])
         assert ps, "a developing bishop move must still say something"
+
+
+class TestTheCascadePathGetsItToo:
+    """The path Mohit's card actually took.
+
+    His record carries NO `llm_caption`, so the three facts in
+    move_purposes never touched it. The rule cascade answers "why is this
+    move good" through `caption_facts._recommended_move_why`, a second,
+    independent implementation whose `develop` branch returns the fixed
+    string at caption_facts.py:9706 -- "brings a new piece into the game",
+    which is the sentence he flagged.
+
+    `move_purposes.develop_why` is the single entry point both paths use,
+    so the geometry exists once and only the phrasing differs.
+    """
+
+    def test_the_cascade_now_states_the_idea(self):
+        import chess
+        from services.caption_facts import _recommended_move_why
+        b = chess.Board(MOHITS_CARD)
+        mv = b.parse_san("Bg7")
+        # mover_is_user=False: his card is badged Opponent
+        why = _recommended_move_why(b, mv, mover_is_user=False)
+        assert why == "is what their pawn step was for", why
+        assert "brings a new piece into the game" != why
+
+    def test_the_possessive_follows_the_mover(self):
+        """"your pawn step" under a card badged Opponent describes the
+        reader's pawn, which is the bug class that put "You played Be7" on
+        an opponent card."""
+        import chess
+        from services.caption_facts import _recommended_move_why
+        b = chess.Board(MOHITS_CARD)
+        mv = b.parse_san("Bg7")
+        assert "your" in _recommended_move_why(b, mv, mover_is_user=True)
+        assert "their" in _recommended_move_why(b, mv, mover_is_user=False)
+
+    def test_develop_why_is_the_one_entry_point(self):
+        """If caption_facts grows its own copy of the geometry, this fails."""
+        from pathlib import Path
+        src = (Path(__file__).resolve().parents[1]
+               / "services" / "caption_facts.py").read_text(encoding="utf-8")
+        assert "from services.move_purposes import develop_why" in src
+        for owned_by_move_purposes in ("_CENTRE_SQUARES", "SPOTS ="):
+            assert owned_by_move_purposes not in src, owned_by_move_purposes
+
+    def test_a_plain_developing_move_is_untouched(self):
+        """119 cards still get the generic phrase and that is correct for
+        them -- they develop and point at nothing."""
+        import chess
+        from services.caption_facts import _recommended_move_why
+        b = chess.Board(
+            "rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1")
+        mv = b.parse_san("Nf6")
+        why = _recommended_move_why(b, mv, mover_is_user=True)
+        assert why and "pawn step was for" not in why

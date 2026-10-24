@@ -11010,6 +11010,35 @@ def _recommended_move_why(
                     else "gives check, forcing you to respond")
 
         # 5) PRINCIPLE — castle/center/develop/outpost/rook (transferable idea).
+        #
+        # `develop` first asks the board what the piece actually does.
+        #
+        # Mohit opened a card reading "They missed Bg7 -- it brings a new
+        # piece into the game" and said the lesson was pathetic, then made
+        # the point that settles it: "generally when you play g3, idea is
+        # to play bg7, right?" Right -- the pawn step exists TO put the
+        # bishop on that square, and e6 postponed the plan g6 had already
+        # committed to. The generic phrase below is the string at
+        # _REC_PRINCIPLE_PHRASE["develop"], and it was all this branch had.
+        #
+        # The geometry lives in `move_purposes`, which owns it for the LLM
+        # path; calling it here keeps ONE implementation and only the
+        # phrasing differs. Facts, never a second opinion about the board.
+        if pr == "develop":
+            try:
+                from services.move_purposes import develop_why as _dev_why
+                _dw = _dev_why(board, move) or {}
+            except Exception:
+                _dw = {}
+            _kind = _dw.get("kind")
+            if _kind == "bishop_to_the_square_the_pawn_left":
+                # Mohit's own words for the rule, in the "it {why}" slot.
+                return "is what %s pawn step was for" % _own
+            if _kind == "develops_against_a_target" and _dw.get("hits_square"):
+                # {opp} is the side NOT moving -- the reader on an opponent
+                # card, which is whose man is under the bishop.
+                return "comes out hitting %s %s on %s" % (
+                    _opp, _dw.get("hits") or "piece", _dw["hits_square"])
         if pr in _REC_PRINCIPLE_PHRASE:
             return _rec_principle_phrase(pr, mover_is_user)
     except Exception:
