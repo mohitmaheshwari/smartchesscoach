@@ -712,6 +712,13 @@ app.include_router(admin_positional_reason_routes.router, prefix="/api")
 from routes import admin_detector_review as admin_detector_review_routes  # noqa: E402
 admin_detector_review_routes.set_db(db)
 app.include_router(admin_detector_review_routes.router, prefix="/api")
+# Stockfish's move beside the move a human of that rating would actually
+# play. Read-only: Maia2 runs on Mohit's machine and writes the collection,
+# because the model needs ~800 MB resident and this box has none to spare
+# until mongodb is capped and matrimonial moves off.
+from routes import admin_maia_review as admin_maia_review_routes  # noqa: E402
+admin_maia_review_routes.set_db(db)
+app.include_router(admin_maia_review_routes.router, prefix="/api")
 # Read the reasoning engine's own account of its work -- the eight steps, every
 # question it asked, and what became of each answer. Read-only; the steps come
 # from the engine so the page cannot drift from it. See

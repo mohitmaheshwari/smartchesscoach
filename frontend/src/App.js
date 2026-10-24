@@ -61,6 +61,7 @@ import AdminLlmCost from "@/pages/AdminLlmCost";
 import CalculationTest from "@/pages/CalculationTest";
 import MotifFindDrill from "@/pages/MotifFindDrill";
 import AdminDetectorReview from "@/pages/AdminDetectorReview";
+import AdminMaiaReview from "@/pages/AdminMaiaReview";
 import AdminReasoningTrace from "@/pages/AdminReasoningTrace";
 import AdminCaptionDrafts from "@/pages/AdminCaptionDrafts";
 import OpeningsOverview from "@/pages/OpeningsOverview";
@@ -586,6 +587,15 @@ function AppRouter() {
       <Route path="/admin/detector-review" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminDetectorReview user={user} />}
+        </ProtectedRoute>
+      } />
+      {/* Stockfish's move beside the move a human of that rating would
+          actually play. Read-only: Maia2 runs on Mohit's machine and writes
+          the collection this reads, because the model needs ~800MB resident
+          and the server has none spare yet. */}
+      <Route path="/admin/maia-review" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {({ user }) => <AdminMaiaReview user={user} />}
         </ProtectedRoute>
       } />
       {/* The reasoning engine's own account of its work: the eight steps, and
