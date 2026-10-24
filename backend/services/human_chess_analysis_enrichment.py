@@ -109,13 +109,25 @@ def enrich_move_evaluations_with_human_chess(
             row["exact_endgame_evidence"] = exact.contract_dict()
             summary["exact_evidence"] += 1
 
-        is_teaching_candidate = bool(
-            row.get("cognitive_gap")
-            or row.get("severity") in {"inaccuracy", "mistake", "blunder"}
-            or int(row.get("cp_loss") or 0) > 0
-        )
-        if not is_teaching_candidate:
-            row["human_policy_reason"] = "not_teaching_candidate"
+        # Every move, not only the ones that went wrong.
+        #
+        # Mohit, 2026-10-24: "each game analysis should have both stockfish
+        # and maia2". The gate here admitted a move only if it carried a
+        # cognitive_gap, a bad severity, or ANY cp_loss -- which excludes
+        # precisely the rows worth the most.
+        #
+        # Measured over 92 of his games before this changed: the positions
+        # where a player of his rating would probably have blundered and he
+        # did NOT are 1.4 a game, the likely move taken by a median 39% of
+        # peers (one by 89%) and losing a median 178cp. Every one of those
+        # has cp_loss under 50 and most have 0, so the old gate dropped the
+        # entire family. They are also the only source this product has for
+        # praise that is specific and checkable rather than filler.
+        #
+        # Cost is one policy call per ply, about 30ms, so roughly 1.2s on a
+        # game whose Stockfish analysis already takes a median 182s.
+        if not row.get("fen_before") and not row.get("fen"):
+            row["human_policy_reason"] = "no_position"
             continue
         if user_rating is None or opponent_rating is None:
             row["human_policy_reason"] = "missing_measured_rating"
