@@ -243,6 +243,20 @@ services:
       - GEOMETRY_REVIEWER_EMAILS=${GEOMETRY_REVIEWER_EMAILS:-}
       - VERIFIED_CAPTIONS=${VERIFIED_CAPTIONS:-false}
       - DISTILLED_CAPTIONS_ENABLED=${DISTILLED_CAPTIONS_ENABLED:-0}
+      # SIGNUP GATE (services/signup_gate.py, docs/invite_only_signup_scope.md).
+      # false = invite-only: an account is created only for an email with a
+      # waitlist row marked "invited". true = anyone may create an account.
+      #
+      # This line is here because it was MISSING here, and that is the whole
+      # bug. It was declared only in docker-compose.prod.yml -- which nothing
+      # runs: the live container's own
+      # com.docker.compose.project.config_files label reads
+      # /root/repos/smartchesscoach/docker-compose.yml. So the variable never
+      # reached the process, SIGNUPS_OPEN arrived EMPTY rather than "false",
+      # and setting it in .env did nothing however many times the container
+      # was recreated. A flag declared in a file nobody loads is not a flag.
+      # Checked 2026-10-24: SIGNUPS_OPEN appears in no other compose file.
+      - SIGNUPS_OPEN=${SIGNUPS_OPEN:-false}
       # LIVE OPENING NUDGE (2026-06-02, docs/pwc_realtime_opening_guidance.md):
       # per-move in-book curriculum coaching during live PWC play. Only fires
       # when the session has a detected/taught opening AND the position is
