@@ -59,6 +59,7 @@ def enrich_move_evaluations_with_human_chess(
     pgn: str,
     user_color: str,
     user_rating: Optional[int],
+    opponent_rating: Optional[int] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
     rows = [dict(row) for row in move_evaluations]
     summary = {
@@ -81,7 +82,16 @@ def enrich_move_evaluations_with_human_chess(
             row["human_policy_reason"] = "invalid_pgn"
         return rows, summary
 
-    opponent_rating = _header_rating(
+    # The caller's value first, the PGN header only as a fallback.
+    #
+    # The header was the sole source, and it refused 1,520 of 1,520 rows
+    # across 25 of Mohit's most recent games with `missing_measured_rating`
+    # -- those games carry no WhiteElo/BlackElo at all (108 of 200 do not),
+    # while `white_rating`/`black_rating` sit on the game document for 72.1%
+    # of them. Fixing only the user's side is not enough: BOTH ratings have
+    # to be known or the row is refused, so the opponent's missing header
+    # blocked every move.
+    opponent_rating = opponent_rating or _header_rating(
         game, "BlackElo" if str(user_color).lower() == "white" else "WhiteElo"
     )
     time_control = str(game.headers.get("TimeControl") or "")

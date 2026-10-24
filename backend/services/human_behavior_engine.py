@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 import hashlib
+from functools import lru_cache
 import importlib.metadata
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -103,17 +104,38 @@ class HumanBehaviorProvider:
         return out
 
 
+@lru_cache(maxsize=8)
+def _sha256_of(path: str, size: int, mtime_ns: int) -> str:
+    """The digest itself, cached on the file's identity.
+
+    `artifact_sha256` is a property and the provenance check reads it for
+    EVERY move. Unmemoised that re-hashed a 280MB model file each time:
+    1.09s a call, about 87s on an 80-move game, which is 21 hours over
+    Mohit's 879 games and would have added ~48% to a 182s analysis in the
+    worker once the flags go on.
+
+    Keyed on size and mtime as well as path, so replacing the model with a
+    different file re-hashes rather than serving a stale digest -- the
+    whole point of the check is to notice exactly that.
+    """
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _sha256_file(path: Optional[str]) -> Optional[str]:
     if not path:
         return None
     artifact = Path(path).expanduser()
     if not artifact.is_file():
         return None
-    digest = hashlib.sha256()
-    with artifact.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    try:
+        stat = artifact.stat()
+    except OSError:
+        return None
+    return _sha256_of(str(artifact), stat.st_size, stat.st_mtime_ns)
 
 
 class OtterProvider(HumanBehaviorProvider):

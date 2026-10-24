@@ -1717,6 +1717,10 @@ def process_job(db, job):
                     pgn=pgn,
                     user_color=user_color,
                     user_rating=exact_user_rating,
+                    opponent_rating=_opp_rating_for(
+                        game,
+                        "black" if str(user_color).lower() == "white"
+                        else "white"),
                 )
             )
             # ...and the OPPONENT's moves, which is where this matters most.
@@ -1743,6 +1747,7 @@ def process_job(db, job):
                         pgn=pgn,
                         user_color=_opp_color,
                         user_rating=_opp_rating,
+                        opponent_rating=exact_user_rating,
                     )
                 )
                 if isinstance(stockfish_result, dict):
