@@ -196,6 +196,49 @@ class TestMainPoint:
                  "ledger": {"outcome": "loss", "events": []}}
         assert H.main_point(story) == "the student had a winning position and lost it"
 
+    def test_a_loss_names_what_decided_it(self):
+        """1,468 losses were titled "Your big mistakes were punished"; 847 of
+        them had a mate, a lost queen or a lost rook the title never said."""
+        punished = {"kind": "your_mistake", "decisive": True, "punished": True,
+                    "danger": {"kind": "queen_lost"}}
+        story = {"plan": {"type": {"id": "hard_game"}},
+                 "ledger": {"outcome": "loss", "events": [punished]}}
+        assert H.main_point(story) == ("the opponent punished the student's big mistakes, "
+                                       "and the student lost the queen")
+        mated = {**story, "tags": {"ids": ["user_suffered_back_rank_mate"]}}
+        assert H.main_point(mated).endswith("and the game ended in a back rank checkmate")
+        by_queen = {**story, "tags": {"ids": ["user_suffered_queen_mate"]}}
+        assert H.main_point(by_queen).endswith("checkmate by the opponent's queen")
+
+    def test_an_unpunished_danger_did_not_decide_the_loss(self):
+        story = {"plan": {"type": {"id": "hard_game"}},
+                 "ledger": {"outcome": "loss", "events": [
+                     {"kind": "your_mistake", "decisive": True, "punished": False,
+                      "danger": {"kind": "queen_trapped"}}]}}
+        assert H.main_point(story) == "the opponent was better for most of the game"
+
+    def test_a_mistake_is_named_only_when_it_came_back(self, monkeypatch):
+        monkeypatch.setattr(H, "_allowed", lambda qid: True)
+        story = {"plan": {"type": {"id": "slipped_away"}},
+                 "ledger": {"outcome": "loss", "events": []}}
+        hang = {"subtype": "simple_hang", "missed_pattern": "piece_safety", "phase": "middlegame"}
+        assert H.main_point(story, [hang]) == "the student had a winning position and lost it"
+        assert H.main_point(story, [hang, hang]) == (
+            "the student had a winning position and lost it, and one mistake came more than "
+            "once: left a piece undefended")
+        pin = {"subtype": "missed_pin", "missed_pattern": "missed_tactic", "phase": "opening"}
+        assert H.main_point(story, [pin, pin]).endswith("and the student missed a pin more than once")
+
+    def test_a_loss_with_no_named_cause_says_the_missed_chances(self):
+        story = {"plan": {"type": {"id": "game"}}, "tags": {"ids": ["user_missed_their_blunder"]},
+                 "ledger": {"outcome": "loss", "events": []}}
+        assert H.main_point(story) == ("the student lost, and the opponent made big mistakes too, "
+                                       "and the student did not take them")
+
+    def test_wins_are_unchanged(self):
+        assert H.main_point({**STORY, "tags": {"ids": ["user_suffered_back_rank_mate"]}}) \
+            .startswith("the student won partly because")
+
     def test_no_point_is_invented(self):
         assert H.main_point({"plan": {"type": {"id": "game"}},
                              "ledger": {"outcome": "draw", "events": []}}) is None

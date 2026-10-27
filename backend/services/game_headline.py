@@ -41,7 +41,8 @@ logger = logging.getLogger(__name__)
 # the game without naming the moves". The facts now carry the tags and the
 # patterns seen in the moves, and neither the title nor the teaching may name
 # a move or a square.
-HEADLINE_VERSION = "game_headline.v2"
+# v3 (2026-10-27): a loss's main point names what decided it.
+HEADLINE_VERSION = "game_headline.v3"
 COLLECTION = "game_headlines"
 MODEL = os.environ.get("GAME_HEADLINE_MODEL") or os.environ.get("CAPTION_POLISH_MODEL") or "gpt-6-luna"
 EFFORT = os.environ.get("GAME_HEADLINE_EFFORT", "low")
@@ -71,7 +72,9 @@ SYSTEM = (
     "- Three to ten words, sentence case.\n"
     "- Names the game the way a coach would remember it: what happened and what decided "
     "it, from the student's side. It is not advice.\n"
-    "- When a MAIN POINT is given, the title says that point.\n"
+    "- When a MAIN POINT is given, the title says that point. When it names what decided "
+    "a loss (a checkmate, a lost queen, a mistake that came back), the title names that, "
+    "not just 'big mistakes'.\n"
     "- Prefer a pattern the facts show more than once, or the one that decided the game, "
     "over a single moment.\n"
     "- Never name a move or a square. Never use a number.\n"
@@ -101,7 +104,58 @@ def _count_words(n: int) -> str:
     return {0: "never", 1: "once", 2: "twice"}.get(n, "more than twice")
 
 
-def main_point(story: Mapping[str, Any]) -> Optional[str]:
+_SUFFERED_MATE = {"back_rank_mate": "a back rank checkmate", "smothered_mate": "a smothered checkmate",
+                  "double_check_mate": "a checkmate with a double check"}
+# Most serious first. Only a decisive mistake the opponent punished counts.
+_PUNISHED_DANGER = (
+    ("mate_allowed", "the student allowed a checkmate and the opponent found it"),
+    ("queen_trapped", "the student's queen was trapped and lost"),
+    ("queen_lost", "the student lost the queen"),
+    ("rook_trapped", "the student's rook was trapped and lost"),
+)
+# A missed chance is not a mistake the student made, so it is said apart.
+_MISSED_CHANCE = {"missed_fork": "a fork", "missed_pin": "a pin", "missed_skewer": "a skewer",
+                  "missed_mate": "a forced mate"}
+
+
+def what_decided_a_loss(story: Mapping[str, Any],
+                        observations: Optional[List[Mapping[str, Any]]] = None) -> Optional[str]:
+    """The pattern behind a loss, named by rules, never by the model.
+
+    Of 1,468 games titled "Your big mistakes were punished" (prod,
+    2026-10-27), 847 had a checkmate, a lost queen or a lost rook in their
+    tags, and the title said none of it. So the pattern goes into the main
+    point, and the model is told to say it.
+    """
+    tags = set((story.get("tags") or {}).get("ids") or [])
+    for tag in sorted(tags):
+        m = re.match(r"^user_suffered_(\w+_mate)$", tag)
+        if m:
+            kind = m.group(1)
+            if kind in _SUFFERED_MATE:
+                return f"the game ended in {_SUFFERED_MATE[kind]}"
+            return f"the game ended in checkmate by the opponent's {kind.replace('_mate', '')}"
+    dangers = {(e.get("danger") or {}).get("kind") for e in (story.get("ledger") or {}).get("events") or []
+               if e.get("kind") == "your_mistake" and e.get("decisive") and e.get("punished")}
+    for kind, text in _PUNISHED_DANGER:
+        if kind in dangers:
+            return text
+    # A mistake made more than once is a pattern, so it may be named; a single
+    # one may not have been the mistake that mattered.
+    repeated = [(len(seen), subtype, name) for (subtype, name), seen
+                in _mistake_names(observations or [], by_subtype=True).items() if len(seen) >= 2]
+    if repeated:
+        _, subtype, name = max(repeated)
+        if subtype in _MISSED_CHANCE:
+            return f"the student missed {_MISSED_CHANCE[subtype]} more than once"
+        return f"one mistake came more than once: {name.rstrip('.').lower()}"
+    if "user_missed_their_blunder" in tags:
+        return "the opponent made big mistakes too, and the student did not take them"
+    return None
+
+
+def main_point(story: Mapping[str, Any],
+               observations: Optional[List[Mapping[str, Any]]] = None) -> Optional[str]:
     """What the game was about, decided by rules from the ledger and plan.
 
     The model chose its own emphasis at first, and on Mohit's game wrote "You
@@ -109,6 +163,15 @@ def main_point(story: Mapping[str, Any]) -> Optional[str]:
     opponent missed chances" on another. The second is the point he asked
     for. So the point is decided here and the model only puts it in words.
     """
+    point = _main_point(story)
+    if (story.get("ledger") or {}).get("outcome") == "loss":
+        why = what_decided_a_loss(story, observations)
+        if why:
+            return f"{point or 'the student lost'}, and {why}"
+    return point
+
+
+def _main_point(story: Mapping[str, Any]) -> Optional[str]:
     plan = story.get("plan") or {}
     ledger = story.get("ledger") or {}
     events = ledger.get("events") or []
@@ -164,7 +227,7 @@ def headline_facts(story: Mapping[str, Any], game: Mapping[str, Any],
     elif outcome == "draw":
         facts.append(f"The game was a draw {how}.".replace("  ", " ").replace(" .", "."))
 
-    point = main_point(story)
+    point = main_point(story, observations)
     if point:
         facts.append(f"MAIN POINT: {point}.")
     if (plan.get("type") or {}).get("title"):
@@ -241,26 +304,36 @@ def _allowed(quality_id: str) -> bool:
         return False
 
 
+def _mistake_names(observations: List[Mapping[str, Any]], by_subtype: bool = False) -> Dict[Any, List[Any]]:
+    """{readable mistake name: [phase of each]}, only for names the quality
+    gate allows a player to see. Keyed (subtype, name) when `by_subtype`."""
+    from collections import defaultdict
+
+    try:
+        from services.pattern_catalog import get_pattern
+    except Exception:
+        get_pattern = lambda _id: None  # noqa: E731
+    phases: Dict[str, List[Any]] = defaultdict(list)
+    for o in observations:
+        subtype, pattern = o.get("subtype"), o.get("missed_pattern")
+        if subtype and pattern and _allowed(f"gap:{pattern}:{subtype}"):
+            name = _MISTAKE_NAME.get(subtype) or (get_pattern(subtype) or {}).get("human_name")
+            if name:
+                phases[(subtype, name) if by_subtype else name].append(o.get("phase"))
+    return phases
+
+
 def observation_facts(observations: List[Mapping[str, Any]]) -> List[str]:
     """What the move observations show, as counted patterns -- never a move.
 
     Mistakes appear only under a name the quality gate allows a player to
     see; a shadow-graded detector's claim is never handed to the model.
     """
-    from collections import Counter, defaultdict
+    from collections import Counter
 
-    try:
-        from services.pattern_catalog import get_pattern
-    except Exception:
-        get_pattern = lambda _id: None  # noqa: E731
-    phases = defaultdict(list)
+    phases = _mistake_names(observations)
     good = Counter()
     for o in observations:
-        subtype, pattern = o.get("subtype"), o.get("missed_pattern")
-        if subtype and pattern and _allowed(f"gap:{pattern}:{subtype}"):
-            name = _MISTAKE_NAME.get(subtype) or (get_pattern(subtype) or {}).get("human_name")
-            if name:
-                phases[name].append(o.get("phase"))
         for flag, label in (("found_best_in_critical", "Found the best move in a sharp moment"),
                             ("punished_opponent_blunder", "Punished an opponent's mistake"),
                             ("responded_to_threat", "Answered a threat")):

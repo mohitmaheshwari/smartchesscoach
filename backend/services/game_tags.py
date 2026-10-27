@@ -109,8 +109,13 @@ def tag_index_doc(game_id: str, user_id: Optional[str], tags: Optional[Mapping[s
 # Tags a player sees on their games list. Internal or repeated ones
 # (result_, story_, ended_, time_control_, opening families) are left out:
 # the row already shows the result, and the title carries the story.
-_LIST_TAG = re.compile(r"^(user_|reached_|opening_played_|opening_came_out_worse$|"
-                       r"opposite_side_castling$|queens_traded_early$|long_game$)")
+_LIST_TAG = re.compile(r"^(user_|opening_played_|opening_came_out_worse$)")
+# Bare facts describe a game without saying how it went, so they would take a
+# slot from a tag that teaches (Mohit, 2026-10-27). They stay searchable in
+# the Review Queue.
+_LIST_BARE_FACT = re.compile(r"^(user_castled_|user_promoted_a_pawn$|user_underpromoted$|"
+                             r"user_captured_en_passant$|user_in_time_scramble$|reached_|"
+                             r"opposite_side_castling$|queens_traded_early$|long_game$)")
 _LIST_LABELS = {
     "user_let_off": "let off by the opponent",
     "user_lost_winning_position": "lost a winning position",
@@ -194,7 +199,7 @@ async def list_fields_for_games(db, game_ids: List[str]) -> Dict[str, Dict[str, 
             m = re.match(r"^user_won_trapped_(\w+)$", tag)
             if m:
                 tags.discard(f"user_trapped_opponent_{m.group(1)}")
-        shown = sorted((tag for tag in tags if _LIST_TAG.match(tag)),
+        shown = sorted((tag for tag in tags if _LIST_TAG.match(tag) and not _LIST_BARE_FACT.match(tag)),
                        key=lambda tag: (counts.get(tag, 0), tag))[:LIST_TAG_LIMIT]
         out[t["game_id"]]["story_tags"] = [{"id": tag, "label": list_tag_label(tag)} for tag in shown]
     return out

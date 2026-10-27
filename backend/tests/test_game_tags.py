@@ -110,7 +110,9 @@ def test_the_games_list_gets_titles_and_the_rarest_readable_tags():
         "game_headlines": _Col([{"game_id": "g1", "title": "You won after your opponent missed chances"}]),
         "game_tag_index": _Col([
             {"game_id": "g1", "tags": ["result_win", "user_let_off", "user_queen_trapped_opponent_missed",
-                                       "reached_rook_endgame", "user_punished_blunder", "time_control_rapid"]},
+                                       "reached_rook_endgame", "user_punished_blunder", "time_control_rapid",
+                                       "user_castled_queenside", "opposite_side_castling",
+                                       "user_in_time_scramble", "user_never_castled"]},
             {"game_id": "g2", "tags": ["user_let_off", "user_punished_blunder"]},
             {"game_id": "g3", "tags": ["user_punished_blunder", "reached_rook_endgame"]},
         ]),
@@ -122,9 +124,9 @@ def test_the_games_list_gets_titles_and_the_rarest_readable_tags():
         loop.close()
     assert out["g1"]["story_title"] == "You won after your opponent missed chances"
     labels = [t["label"] for t in out["g1"]["story_tags"]]
-    # Rarest first (ties alphabetical); result and time-control tags are
-    # never shown on the list.
-    assert labels == ["queen trapped, opponent missed", "reached rook endgame", "let off by the opponent"]
+    # Rarest first (ties alphabetical); result, time-control and bare-fact
+    # tags (castling side, time scramble, endgame reached) are never shown.
+    assert labels == ["never castled", "queen trapped, opponent missed", "let off by the opponent"]
     assert out["g2"]["story_title"] is None
 
 
