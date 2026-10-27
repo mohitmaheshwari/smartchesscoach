@@ -62,12 +62,21 @@ def game_pace(move_evaluations: List[Dict]) -> Optional[float]:
 
 
 def gather(db, user_id: Optional[str],
-           move_evaluations: List[Dict]) -> Dict[str, Any]:
-    """Per-game, per-user context. Two reads. Never raises."""
+           move_evaluations: List[Dict],
+           game_id: Optional[str] = None) -> Dict[str, Any]:
+    """Per-game, per-user context. Four reads. Never raises.
+
+    `game_id` is optional so existing callers keep working; without it the
+    SEEN-BEFORE facts are skipped rather than guessed, because "have we
+    flagged this before" cannot be answered without knowing which game is
+    "now".
+    """
     ctx: Dict[str, Any] = {
         "pace_seconds": game_pace(move_evaluations),
         "decay": {},
         "trained": set(),
+        "pattern_here": {},     # move_number -> pattern_id, THIS game
+        "pattern_before": {},   # pattern_id -> what happened in EARLIER games
     }
     if db is None or not user_id:
         return ctx
@@ -93,7 +102,65 @@ def gather(db, user_id: Optional[str],
                 ctx["trained"].add(str(p))
     except Exception as exc:
         logger.debug("[reader_context] training history unavailable: %r", exc)
+    if game_id:
+        _gather_seen_before(db, user_id, game_id, ctx)
     return ctx
+
+
+def _gather_seen_before(db, user_id: str, game_id: str,
+                        ctx: Dict[str, Any]) -> None:
+    """Has this player been shown this exact pattern in an EARLIER game?
+
+    Mohit 2026-10-27: "have we coached him on this and asked to correct
+    ... he reviewed this game, we taught him that this was an issue, so
+    games should be connected, like a real coach does."
+
+    `user_pattern_events` is the one collection that can answer it:
+    142,392 rows, every one carrying user_id, game_id, move_number,
+    pattern_id and outcome. `user_concept_understanding` was the obvious
+    candidate and is the wrong one -- its `shown_games` holds 39 entries
+    across Mohit's 916 games, and its `shown_count` is a RENDER counter
+    (32,807 on a concept linked to 10 games), so neither field can carry
+    this.
+
+    `pattern_id` is also the vocabulary `data/pattern_catalog.json`
+    bridges to concepts, so nothing new has to be mapped. The coarse
+    `cognitive_gap` on the move row cannot be used: it has six values for
+    this user, against dozens of pattern ids.
+
+    Two reads, both indexed on user_id: this game's events to learn which
+    pattern each move belongs to, and the earlier events for history.
+    """
+    try:
+        for row in db.user_pattern_events.find(
+                {"user_id": user_id, "game_id": game_id},
+                {"_id": 0, "move_number": 1, "pattern_id": 1}):
+            mn, pid = row.get("move_number"), row.get("pattern_id")
+            if mn is not None and pid:
+                ctx["pattern_here"][int(mn)] = str(pid)
+    except Exception as exc:
+        logger.debug("[reader_context] this-game patterns unavailable: %r", exc)
+        return
+    wanted = set(ctx["pattern_here"].values())
+    if not wanted:
+        return
+    try:
+        for row in db.user_pattern_events.find(
+                {"user_id": user_id,
+                 "game_id": {"$ne": game_id},
+                 "pattern_id": {"$in": sorted(wanted)}},
+                {"_id": 0, "pattern_id": 1, "game_id": 1, "outcome": 1,
+                 "created_at": 1}).sort("created_at", -1):
+            pid = str(row.get("pattern_id"))
+            seen = ctx["pattern_before"].setdefault(
+                pid, {"games": set(), "last_outcome": None})
+            if row.get("game_id"):
+                seen["games"].add(str(row["game_id"]))
+            # Sorted newest first, so the first outcome seen is the latest.
+            if seen["last_outcome"] is None and row.get("outcome"):
+                seen["last_outcome"] = str(row["outcome"])
+    except Exception as exc:
+        logger.debug("[reader_context] pattern history unavailable: %r", exc)
 
 
 def for_move(ctx: Dict[str, Any], move: Dict[str, Any]) -> Dict[str, Any]:
@@ -128,4 +195,22 @@ def for_move(ctx: Dict[str, Any], move: Dict[str, Any]) -> Dict[str, Any]:
             # Changes the lesson entirely: not "learn this" but "you know
             # this one, you did not look".
             out["they_have_solved_puzzles_on_this"] = True
+    # SEEN BEFORE -- the same pattern, in an earlier game of their own.
+    # Booleans only. The house rule is no failure scoreboard, so this
+    # never says how many times: "we looked at this in an earlier game"
+    # is a coach's sentence, "your 7th time" is a tally.
+    mn = move.get("move_number")
+    if mn is not None:
+        try:
+            pid = (ctx.get("pattern_here") or {}).get(int(mn))
+        except (TypeError, ValueError):
+            pid = None
+        if pid:
+            seen = (ctx.get("pattern_before") or {}).get(pid)
+            if seen and seen.get("games"):
+                out["we_flagged_this_in_an_earlier_game"] = True
+                if seen.get("last_outcome") == "miss":
+                    out["they_missed_it_last_time_too"] = True
+                elif seen.get("last_outcome"):
+                    out["they_got_it_right_last_time"] = True
     return out

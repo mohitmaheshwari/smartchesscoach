@@ -1363,7 +1363,12 @@ def process_job(db, job):
                 # count -- this product shows no failure scoreboard.
                 from services import reader_context as _rctx
                 try:
-                    _reader = _rctx.gather(db, user_id, move_evaluations)
+                    # game_id is what lets the context say "we flagged this
+                    # in an earlier game": the pattern history has to
+                    # exclude the game being analysed, or every card would
+                    # claim it had seen itself before.
+                    _reader = _rctx.gather(db, user_id, move_evaluations,
+                                           game_id=game_id)
                 except Exception as _rc_err:
                     logger.warning("[LLM_CAPTION] reader context "
                                    "unavailable: %r", _rc_err)
