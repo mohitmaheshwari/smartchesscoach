@@ -106,6 +106,22 @@ async def main() -> int:
     if not pairs:
         print(f"{ARCHIVE} holds no dropped/kept pairs; nothing to repair.")
         return 0
+    # A game kept in one clean-up can be dropped in a later one (2026-10-19,
+    # then 2026-10-27). Follow the chain so nothing is repointed at a game
+    # that no longer exists.
+    kept_of = dict(pairs)
+
+    def final_keeper(game_id: str) -> str:
+        seen = set()
+        while game_id in kept_of and game_id not in seen:
+            seen.add(game_id)
+            game_id = kept_of[game_id]
+        return game_id
+
+    chained = sum(1 for _, kept in pairs if kept in kept_of)
+    pairs = [(dropped, final_keeper(kept)) for dropped, kept in pairs]
+    if chained:
+        print(f"keepers that were themselves dropped later: {chained:,} (followed to the final keeper)")
 
     all_ids = sorted({x for pair in pairs for x in pair})
     print(f"dropped/kept pairs: {len(pairs):,}\n")
@@ -133,6 +149,11 @@ async def main() -> int:
             print(f"   {len(unsafe):,} pairs where only the dropped id has a row -> move to keeper")
             if args.apply:
                 for dropped, kept in unsafe:
+                    # A keeper with two dropped copies gets the first copy's
+                    # row; the second is then a true duplicate.
+                    if await db[coll].count_documents({field: kept}, limit=1):
+                        safe.append((dropped, kept))
+                        continue
                     result = await db[coll].update_many({field: dropped}, {"$set": {field: kept}})
                     repointed_total += result.modified_count
         elif unsafe:
@@ -141,6 +162,7 @@ async def main() -> int:
             print(f"   !! {len(unsafe):,} pairs where ONLY the dropped id has rows "
                   f"-> SKIPPED, needs a repoint decision")
 
+        rows = sum(counts.get(d, 0) for d, _ in safe)
         if args.apply and safe:
             for start in range(0, len(safe), BATCH):
                 chunk = [d for d, _ in safe[start:start + BATCH]]

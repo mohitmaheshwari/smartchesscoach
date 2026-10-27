@@ -42,6 +42,10 @@ from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
 
 INDEX_NAME = "games_platform_game_id_unique"
 URL_INDEX_NAME = "games_user_url_unique"
+# Never copied from a dropped duplicate onto the keeper: they describe one
+# copy's own analysis, or its identity.
+KEEP_OWN_PREFIXES = ("analysis_", "analyzed_")
+KEEP_OWN_FIELDS = {"game_id", "is_analyzed", "pic_evidence", "imported_at", "platform_game_id"}
 
 # Dropped rows are copied here before deletion. There is no off-box backup of
 # this database, so a delete with no archive is unrecoverable; with one, the
@@ -156,9 +160,27 @@ async def main() -> int:
             print(f"      {user_id:<24} {count:,} extra rows")
 
         deleted = 0
+        filled: dict[str, int] = defaultdict(int)
         for (user_id, platform, gid), rows in sorted(dupes.items(), key=lambda kv: str(kv[0])):
             rows.sort(key=lambda r: rank_row(r, analysed_ids), reverse=True)
             keeper, drop = rows[0], rows[1:]
+            # The kept copy can lack what the dropped one has: 53 copies
+            # written by POST /import-games had no url and no ratings, while
+            # their twins from the sync did (2026-10-27). Copy over every
+            # field the keeper is missing, except the analysis state, which
+            # belongs to the copy that was analysed.
+            keeper_full = await db.games.find_one({"game_id": keeper["game_id"]}, {"_id": 0}) or {}
+            fill = {}
+            for row in drop:
+                other = await db.games.find_one({"game_id": row["game_id"]}, {"_id": 0}) or {}
+                for key, value in other.items():
+                    if key not in keeper_full and key not in fill and not key.startswith(KEEP_OWN_PREFIXES) \
+                            and key not in KEEP_OWN_FIELDS:
+                        fill[key] = value
+            for key in fill:
+                filled[key] += 1
+            if args.apply and fill:
+                await db.games.update_one({"game_id": keeper["game_id"]}, {"$set": fill})
             if deleted < 5 or args.apply is False and deleted < 5:
                 print(f"      {platform}/{gid} user={user_id}: keep "
                       f"{keeper['game_id'][:8]} (pgn {len(keeper.get('pgn') or '')}b, "
@@ -190,6 +212,10 @@ async def main() -> int:
                 # nothing is left pointing at a game that no longer exists.
                 await db.game_analyses.delete_many({"game_id": game_id})
                 await db.analysis_queue.delete_many({"game_id": game_id})
+        if filled:
+            print("   fields copied onto keepers that lacked them:")
+            for key, count in sorted(filled.items(), key=lambda kv: -kv[1]):
+                print(f"      {key:<28} {count:,}")
         if args.apply:
             print(f"   rows archived to {ARCHIVE} and deleted: {deleted:,}")
             print(f"   archive now holds: {await db[ARCHIVE].count_documents({}):,} rows")
