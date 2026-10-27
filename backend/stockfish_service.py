@@ -979,7 +979,45 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
                                 opp_reply_is_clear = abs(a - b) > REPLY_TIE_CP
                         elif len(opp_replies) == 1:
                             opp_reply_is_clear = True  # only one legal-ish answer
-                    
+
+                    # A move can be fine and still not be the best one, and on
+                    # those cards the BETTER move is the whole lesson. The
+                    # block above runs only for inaccuracy/mistake/blunder, so
+                    # a good move with a better alternative kept no line at
+                    # all. Mohit found the case: 1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6
+                    # 4.Nc3 Bc5, where Nxe4 is the fork trick -- give the
+                    # knight, play d5 forking bishop and knight, win it back.
+                    # Stored at 27cp, severity "good", pv_after_best = [], so
+                    # the caption fell back to "it moves into the middle,
+                    # where it takes squares away from their pieces" and the
+                    # tactic was never nameable. Material dips to -2 and
+                    # returns to 0 by ply 6, which no detector can see without
+                    # the line.
+                    #
+                    # ONE call, not the five above: the played move was not
+                    # bad, so there is no punishment to explain, no threat and
+                    # no tie among opponent replies. Measured over 60 games,
+                    # this adds a mean of 4.6 positions per game at 0.97s each
+                    # -- about 3% of the ~130s Stockfish pass -- because most
+                    # sub-threshold moves ARE best and 10.4 lines a game are
+                    # already stored.
+                    #
+                    # Same bar the stored `is_best` flag uses, so "not best"
+                    # means exactly what the rest of the pipeline means by it.
+                    if (not pv_after_best
+                            and best_move is not None
+                            and cp_loss > CP_THRESHOLDS["excellent"]):
+                        try:
+                            _better = board.copy()
+                            _better.push(best_move)
+                            pv_after_best = engine.get_principal_variation(
+                                _better, depth=PUNISHMENT_DEPTH,
+                                pv_length=PUNISHMENT_PV_PLIES)
+                        except Exception as _pv_exc:
+                            logger.debug(
+                                "[pv_after_best] non-best line unavailable "
+                                "at move %s: %r", move_number, _pv_exc)
+
                     board.push(move)
                     fen_after = board.fen()  # Store position after move
                     
