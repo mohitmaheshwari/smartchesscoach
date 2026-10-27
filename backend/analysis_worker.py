@@ -1297,6 +1297,8 @@ def process_job(db, job):
             try:
                 import asyncio as _aio
                 from services.llm_caption import build_facts, write_caption
+                from services.v5_llm_polish import (
+                    llm_may_write as _polish_gate)
                 from services.move_purposes import purposes_for, threat_check
 
                 # 40, not 100. Mohit opened a card reading only "Opponent's
@@ -1436,6 +1438,30 @@ def process_job(db, job):
                     async def _one(pair):
                         mv, is_user = pair
                         async with sem:
+                            # The model is only let near the cards it is
+                            # measurably good at. Verified on the 100
+                            # llm_captions already stored in production --
+                            # a path this gate was NOT fitted on, since it
+                            # came off the render path's 316 cards:
+                            #
+                            #   gate would ADMIT   n=68   clean 96%
+                            #   gate would REFUSE  n=32   clean 66%
+                            #
+                            # 10 of the 14 violations are
+                            # `free_when_defended`: the model calling a
+                            # defended piece undefended. Invented board
+                            # fact is the one failure a better prompt
+                            # cannot reach, so it is gated.
+                            #
+                            # Fault cards only. The plan/good-move path
+                            # above has no better move, so "quiet" is
+                            # undefined there and it stays unmeasured
+                            # rather than being refused wholesale.
+                            if not _polish_gate(
+                                    best_move_san=str(mv.get("best_move") or ""),
+                                    fen_before=mv.get("fen_before"),
+                                    cp_loss=mv.get("cp_loss")):
+                                return
                             # The same one face as the good moves above.
                             ps = _fw.facts_for_move(mv).all
                             facts = build_facts(

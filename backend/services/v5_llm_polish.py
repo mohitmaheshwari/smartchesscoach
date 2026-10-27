@@ -171,6 +171,74 @@ def _llm_available() -> bool:
     return bool(os.environ.get("OPENAI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY"))
 
 
+# Above this the LLM stops being safe even on a quiet position. Picked
+# from the distribution, never from instinct -- see llm_may_write.
+BLUNDER_CP = 300
+
+
+def llm_may_write(
+    *,
+    best_move_san: Optional[str],
+    fen_before: Optional[str],
+    cp_loss: Optional[int],
+) -> bool:
+    """Is this the kind of card the model is actually good at?
+
+    Mohit 2026-10-27: "straight up blunders and all are easy to capture
+    with templates and we are already doing that, but positions which
+    don't make sense, why something was an inaccuracy, endgames, where
+    captions and templates can't justify stockfish, i need my engine and
+    LLM to work there."
+
+    He was right, and the split is sharper than the hypothesis. Measured
+    over 316 user mistake cards from 55 games, scoring every caption with
+    narrator_claim_verifier.verify_caption(strict_v2=True) -- the board
+    deciding, not a word count:
+
+        cause        cp band    n    LLM clean   added a new square
+        quiet        100-199   141        95%           23%
+        quiet        200-299    33       100%           18%
+        quiet        300+       59        81%           15%
+        mechanical   100-199    36        87%           19%
+        mechanical   200-299    16        69%            6%
+        mechanical   300+       31        48%           10%
+
+    So the model is dangerous exactly where templates already work. Its
+    failures on mechanical cards are `piece_on_square` and
+    `free_when_defended` -- claiming a piece sits where it does not, or
+    that a defended piece is free. That is invented board fact, the one
+    class a better prompt cannot fix, so it has to be gated instead.
+
+    The gate is `quiet AND under 300cp`: 142 of 148 clean, 96%, on 174 of
+    the 316 cards. Two clauses rather than one because quiet-and-300+
+    drops to 81%, well below the 95-100% of the band this admits.
+
+    "Quiet" means the ENGINE's best move neither captures nor checks, so
+    there is no concrete cause for a template to name. It is read off the
+    position, never off rule_name, which is a knob.
+
+    Fails CLOSED. An unparseable position returns False, because the
+    expensive mistake is polishing a mechanical card, not skipping one.
+    """
+    try:
+        cp = int(cp_loss) if cp_loss is not None else None
+    except (TypeError, ValueError):
+        return False
+    if cp is None or cp >= BLUNDER_CP:
+        return False
+    if not fen_before or not best_move_san:
+        return False
+    try:
+        import chess
+        board = chess.Board(str(fen_before))
+        best = board.parse_san(str(best_move_san))
+        after = board.copy()
+        after.push(best)
+        return not (board.is_capture(best) or after.is_check())
+    except Exception:
+        return False
+
+
 async def polish_caption_async(
     facts: Dict[str, Any],
     base_caption: str,

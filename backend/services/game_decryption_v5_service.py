@@ -4606,12 +4606,23 @@ async def generate_game_decryption_v5(
             if (allow_llm_polish and is_user and (cp_loss or 0) >= 100
                     and caption_payload.get("caption")):
                 try:
-                    from services.v5_llm_polish import polish_caption_async
-                    caption_llm_polished = await polish_caption_async(
-                        facts=caption_facts,
-                        base_caption=caption_payload["caption"],
-                        pattern_family=caption_payload.get("rule_name"),
-                    )
+                    from services.v5_llm_polish import (
+                        polish_caption_async, llm_may_write)
+                    # The model is only let near the cards it is good at.
+                    # Measured over 316 mistake cards: on a quiet position
+                    # under 300cp its claims survive the board 96% of the
+                    # time, and on a mechanical blunder 48%, where it
+                    # invents `piece_on_square` and `free_when_defended`.
+                    # See llm_may_write for the full distribution.
+                    if llm_may_write(
+                            best_move_san=best_move,
+                            fen_before=fen_before,
+                            cp_loss=cp_loss):
+                        caption_llm_polished = await polish_caption_async(
+                            facts=caption_facts,
+                            base_caption=caption_payload["caption"],
+                            pattern_family=caption_payload.get("rule_name"),
+                        )
                 except Exception as _polish_exc:
                     logger.info(
                         f"[llm_polish] move {full_move_number} {move_san} "
