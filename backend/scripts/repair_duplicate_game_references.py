@@ -55,7 +55,17 @@ DELETE_COLLECTIONS = [
     ("user_pattern_events", "game_id"),
     ("user_teaching_memory", "game_id"),
     ("thinking_scores", "game_id"),
+    # Added 2026-10-27 for the second clean-up: one row per game each.
+    ("game_tag_index", "game_id"),
+    ("game_headlines", "game_id"),
 ]
+
+# Where only the dropped copy has a row, move it to the keeper rather than
+# skip it. A headline is one model call per game, ever (Mohit, 2026-10-23), so
+# dropping the only one would leave the keeper untitled for good. Both
+# collections are unique on game_id; the keeper has no row here, so a move
+# cannot collide.
+MOVE_WHEN_ONLY_COPY = {"game_tag_index", "game_headlines"}
 
 # Shared, user-facing pools. Never deleted here.
 REPOINT_COLLECTIONS = [
@@ -119,7 +129,13 @@ async def main() -> int:
         print(f"{coll}.{field}")
         print(f"   orphan rows on pairs whose keeper ALSO has rows: {rows:,} "
               f"({len(safe):,} pairs) -> delete")
-        if unsafe:
+        if unsafe and coll in MOVE_WHEN_ONLY_COPY:
+            print(f"   {len(unsafe):,} pairs where only the dropped id has a row -> move to keeper")
+            if args.apply:
+                for dropped, kept in unsafe:
+                    result = await db[coll].update_many({field: dropped}, {"$set": {field: kept}})
+                    repointed_total += result.modified_count
+        elif unsafe:
             # The measurement said this set is empty. If it ever is not, the
             # rows are the only copy and deleting them would lose data.
             print(f"   !! {len(unsafe):,} pairs where ONLY the dropped id has rows "

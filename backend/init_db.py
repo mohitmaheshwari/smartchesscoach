@@ -90,6 +90,17 @@ async def init_database():
         unique=True,
         partialFilterExpression={"platform_game_id": {"$exists": True}},
     )
+    # The same game by url. The index above only stops a writer that sets
+    # platform_game_id; a stale copy of the backend syncing into this database
+    # from another machine did not, and wrote 356 second copies between
+    # 2026-10-19 and 2026-10-27. Both import paths set `url` (the manual
+    # import only from 2026-10-27).
+    await db.games.create_index(
+        [("user_id", 1), ("url", 1)],
+        name="games_user_url_unique",
+        unique=True,
+        partialFilterExpression={"url": {"$gt": ""}},
+    )
     print("  ✓ games indexes")
     
     # Game analyses indexes

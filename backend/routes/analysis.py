@@ -175,12 +175,20 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
     else:
         raise HTTPException(status_code=400, detail="Invalid platform")
 
+    from journey_service import platform_identity_from_pgn
+    from pymongo.errors import DuplicateKeyError
+
     imported_count = 0
     for game_data in games_to_import[:30]:
-        existing = await db.games.find_one({
-            "user_id": user.user_id,
-            "pgn": game_data['pgn']
-        })
+        # The same identity the background sync uses, so a game it already
+        # imported is recognised here instead of being stored a second time.
+        platform_game_id, game_url = platform_identity_from_pgn(game_data['pgn'], platform)
+        identity = [{"user_id": user.user_id, "pgn": game_data['pgn']}]
+        if platform_game_id:
+            identity += [{"user_id": user.user_id, "platform": platform,
+                          "platform_game_id": platform_game_id},
+                         {"user_id": user.user_id, "url": game_url}]
+        existing = await db.games.find_one({"$or": identity})
         if existing:
             continue
 
@@ -190,7 +198,15 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
         )
         doc = game.model_dump()
         doc['imported_at'] = doc['imported_at'].isoformat()
-        await db.games.insert_one(doc)
+        # Only set when found: the unique index is partial on the field
+        # existing, so a null would collide with the next id-less game.
+        if platform_game_id:
+            doc['platform_game_id'] = platform_game_id
+            doc['url'] = game_url
+        try:
+            await db.games.insert_one(doc)
+        except DuplicateKeyError:
+            continue  # a concurrent sync stored it first
         imported_count += 1
 
         # Queue for Stockfish analysis

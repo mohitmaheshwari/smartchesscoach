@@ -41,6 +41,7 @@ sys.path.insert(0, str(BACKEND_ROOT))
 from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
 
 INDEX_NAME = "games_platform_game_id_unique"
+URL_INDEX_NAME = "games_user_url_unique"
 
 # Dropped rows are copied here before deletion. There is no off-box backup of
 # this database, so a delete with no archive is unrecoverable; with one, the
@@ -110,6 +111,10 @@ async def main() -> int:
     groups: dict[tuple, list[dict]] = defaultdict(list)
     writes = 0
     unresolved: dict[str, int] = defaultdict(int)
+    # Ids are written AFTER step 2. Once the unique index exists (it has since
+    # 2026-10-19), writing the id onto the second copy of a game before that
+    # copy is archived is a duplicate-key error.
+    pending_ids: dict[str, str] = {}
 
     cursor = db.games.find(
         {}, {"_id": 0, "game_id": 1, "user_id": 1, "platform": 1, "url": 1,
@@ -123,11 +128,7 @@ async def main() -> int:
             continue
         if not existing:
             writes += 1
-            if args.apply:
-                await db.games.update_one(
-                    {"game_id": row["game_id"]},
-                    {"$set": {"platform_game_id": derived}},
-                )
+            pending_ids[row["game_id"]] = derived
         groups[(row.get("user_id"), row.get("platform"), derived)].append(row)
 
     print(f"   ids to write : {writes:,}")
@@ -165,6 +166,7 @@ async def main() -> int:
                       f"drop {', '.join(r['game_id'][:8] for r in drop)}")
             for row in drop:
                 deleted += 1
+                pending_ids.pop(row["game_id"], None)
                 if not args.apply:
                     continue
 
@@ -194,6 +196,12 @@ async def main() -> int:
         else:
             print(f"   rows that would be archived then deleted: {deleted:,}")
 
+    # ------------------------------------------- 1b. ids for the survivors
+    print(f"\nstep 1b -- write platform_game_id onto the {len(pending_ids):,} kept rows that lack it")
+    if args.apply:
+        for game_id, derived in pending_ids.items():
+            await db.games.update_one({"game_id": game_id}, {"$set": {"platform_game_id": derived}})
+
     # ---------------------------------------------------- 3. index
     print(f"\nstep 3 -- unique partial index {INDEX_NAME}")
     existing_names = [ix["name"] async for ix in db.games.list_indexes()]
@@ -207,6 +215,22 @@ async def main() -> int:
             name=INDEX_NAME,
             unique=True,
             partialFilterExpression={"platform_game_id": {"$exists": True}},
+        )
+        print("   created")
+
+    # The same game by url, which also stops a writer that never sets
+    # platform_game_id (a stale backend on another machine, 2026-10-27).
+    print(f"\nstep 3b -- unique partial index {URL_INDEX_NAME}")
+    if URL_INDEX_NAME in existing_names:
+        print("   already present")
+    elif not args.apply:
+        print("   would create (unique on user_id + url, partial on a non-empty url)")
+    else:
+        await db.games.create_index(
+            [("user_id", 1), ("url", 1)],
+            name=URL_INDEX_NAME,
+            unique=True,
+            partialFilterExpression={"url": {"$gt": ""}},
         )
         print("   created")
 

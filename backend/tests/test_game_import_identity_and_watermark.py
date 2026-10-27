@@ -30,6 +30,7 @@ from journey_service import (  # noqa: E402
     chesscom_archive_months,
     extract_platform_game_id,
     newest_fetch_marker,
+    platform_identity_from_pgn,
     select_games_for_analysis,
 )
 
@@ -77,6 +78,26 @@ def test_the_two_stored_copies_of_one_game_resolve_to_the_same_identity():
     assert (extract_platform_game_id(short_copy, "lichess")
             == extract_platform_game_id(long_copy, "lichess")
             == "Jl8C0lUw")
+
+
+def test_the_manual_import_reads_the_same_identity_off_the_pgn():
+    """POST /import-games holds only the PGN. It stored no id and no url, so 53
+    of its 67 games on 2026-10-26 were second copies. The id and url it now
+    reads must be the ones the sync stores for the same game."""
+    live = '[Site "Chess.com"]\n[Link "https://www.chess.com/game/live/186001639478"]'
+    assert platform_identity_from_pgn(live, "chess.com") == (
+        extract_platform_game_id({"url": "https://www.chess.com/game/live/186001639478"}, "chess.com"),
+        "https://www.chess.com/game/live/186001639478")
+    daily = '[Site "Chess.com"]\n[Link "https://www.chess.com/game/daily/588123456"]'
+    assert platform_identity_from_pgn(daily, "chess.com") == (
+        "588123456", "https://www.chess.com/game/daily/588123456")
+    assert platform_identity_from_pgn('[Site "https://lichess.org/fQMZOvey"]', "lichess") == (
+        "fQMZOvey", "https://lichess.org/fQMZOvey")
+
+
+def test_a_pgn_without_a_game_link_yields_no_identity():
+    assert platform_identity_from_pgn('[Site "Chess.com"]', "chess.com") == (None, None)
+    assert platform_identity_from_pgn("", "lichess") == (None, None)
 
 
 # ---------------------------------------------------------------- watermark

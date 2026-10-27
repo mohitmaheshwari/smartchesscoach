@@ -14,7 +14,7 @@ import asyncio
 import logging
 import re
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import httpx
 from pymongo.errors import DuplicateKeyError
 
@@ -354,6 +354,32 @@ def extract_platform_game_id(game_data: Dict, platform: str) -> Optional[str]:
     if not match:
         match = re.search(r"/(\d+)/?$", url)
     return match.group(1) if match else None
+
+
+def platform_identity_from_pgn(pgn: str, platform: str) -> Tuple[Optional[str], Optional[str]]:
+    """(platform id, url) read off a PGN's own headers, for an import that
+    holds only the PGN (POST /import-games). The url is the one the sync
+    stores for the same game. chess.com puts it in [Link] -- its [Site] is just
+    "Chess.com" -- and lichess in [Site].
+
+    That import stored neither, and matched an existing game only by a
+    byte-equal PGN, so 53 of the 67 games it wrote on 2026-10-26 were second
+    copies of games already imported.
+    """
+    for key in ("Link", "Site"):
+        match = re.search(rf'\[{key} "([^"]+)"\]', pgn or "", re.I)
+        if not match:
+            continue
+        url = match.group(1)
+        if platform == "lichess":
+            found = re.search(r"lichess\.org/(\w{8})", url)
+            if found:
+                return found.group(1), f"https://lichess.org/{found.group(1)}"
+        else:
+            gid = extract_platform_game_id({"url": url}, platform)
+            if gid:
+                return gid, url
+    return None, None
 
 
 def newest_fetch_marker(games: List[Dict], platform: str) -> Optional[int]:
