@@ -1114,14 +1114,17 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           setShowingFutureMoves(false);
           setBoardFen(card.fen_after);
           applyCaptionArrows(card);
-        }, 1600);
+        }, 1800);
         return;
       }
       setPlayingLine({ key: "auto", idx: i });
       setBoardFen(frames[i].fen);
       setArrows(frames[i].arrows);
       setHighlights(frames[i].highlights);
-      lineTimerRef.current = setTimeout(() => step(i + 1), 1200);
+      // Each frame says how long it needs: the two that show the move you
+      // played and step back off it get longer than a ply of the line.
+      lineTimerRef.current = setTimeout(() => step(i + 1),
+                                        frames[i].hold || 1500);
     };
     step(0);
     return true;

@@ -45,6 +45,27 @@ export const buildLineFrames = (card, namesMoveInText) => {
   if (last < 0) last = 0;
 
   const frames = [];
+
+  // Your own move first, then the rewind, then the alternative.
+  //
+  // Mohit 2026-10-28, watching it: "it does't even show the move bishop
+  // move, it removes the bishop and palys the alternative move, that
+  // confuses user, like what just happened". Exactly right. The card sits on
+  // the position AFTER his move, so the first thing the old sequence did was
+  // put his bishop back on f8 and play a knight move, with nothing to say
+  // why. So the board he is already looking at gets an arrow for the move he
+  // played, holds, keeps that arrow while it steps back one ply -- which is
+  // what makes the rewind read as "undoing this" instead of a glitch -- and
+  // only then plays the engine's line.
+  const played = ((card.line_steps || {}).played || [])[0];
+  if (played && played.from && played.to && card.fen_after) {
+    const yours = [[played.from, played.to, "palegrey"]];
+    frames.push({ san: played.san, fen: card.fen_after, arrows: yours,
+                  highlights: [], hold: 1300, intro: true });
+    frames.push({ san: played.san, fen: fenBefore, arrows: yours,
+                  highlights: [], hold: 1300, intro: true });
+  }
+
   try {
     const game = new Chess(fenBefore);
     const drawn = [];
@@ -70,11 +91,15 @@ export const buildLineFrames = (card, namesMoveInText) => {
         fen: game.fen(),
         arrows: drawn.map((a) => [...a]).concat(forks),
         highlights: steps[i].captured_square ? [steps[i].captured_square] : [],
+        // Slower than the 1.2s it ran at first. Mohit: "it'st oo fast".
+        hold: 1500,
       });
     }
   } catch (err) {
     // A line that will not replay shows nothing rather than something wrong.
     return [];
   }
+  // Only the intro survived, so there is no alternative to show.
+  if (frames.every((f) => f.intro)) return [];
   return frames;
 };

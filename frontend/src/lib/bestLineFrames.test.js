@@ -21,6 +21,10 @@ const HIS_CARD = {
     "Nxe4 was a bit stronger, it gives up material, then d5 hits the bishop " +
     "and the knight at once, and dxe4 wins the knight on e4.",
   line_steps: {
+    played: [
+      { san: "Bc5", from: "f8", to: "c5", side: "mover",
+        captured_square: null, fork_targets: [] },
+    ],
     best: [
       { san: "Nxe4", from: "f6", to: "e4", side: "mover",
         captured_square: "e4", fork_targets: [] },
@@ -39,8 +43,31 @@ const HIS_CARD = {
 describe("buildLineFrames on Mohit's Nxe4 card", () => {
   const frames = buildLineFrames(HIS_CARD, namesMoveInText);
 
-  test("it stops at the fork, not at the end of the line", () => {
-    expect(frames.map((f) => f.san)).toEqual(["Nxe4", "Nxe4", "d5"]);
+  // Mohit, watching the first version: "it does't even show the move bishop
+  // move, it removes the bishop and palys the alternative move, that
+  // confuses user, like what just happened".
+  test("it shows your move first, then steps back off it", () => {
+    expect(frames[0].intro).toBe(true);
+    expect(frames[0].san).toBe("Bc5");
+    expect(frames[0].fen).toBe(HIS_CARD.fen_after);
+    expect(frames[0].arrows).toEqual([["f8", "c5", "palegrey"]]);
+
+    // The same arrow stays up while the board rewinds one ply, so the
+    // bishop going home reads as undoing that move, not as a glitch.
+    expect(frames[1].intro).toBe(true);
+    expect(frames[1].fen).toBe(HIS_CARD.fen_before);
+    expect(frames[1].arrows).toEqual([["f8", "c5", "palegrey"]]);
+  });
+
+  test("then it plays the line, and stops at the fork", () => {
+    expect(frames.filter((f) => !f.intro).map((f) => f.san))
+      .toEqual(["Nxe4", "Nxe4", "d5"]);
+  });
+
+  test("the two intro frames hold longer than a ply of the line", () => {
+    expect(frames[0].hold).toBeGreaterThan(1200);
+    expect(frames[1].hold).toBeGreaterThan(1200);
+    expect(frames[2].hold).toBe(1500);
   });
 
   test("the fork is drawn on the ply the pawn reaches d5", () => {
@@ -61,12 +88,13 @@ describe("buildLineFrames on Mohit's Nxe4 card", () => {
   });
 
   test("the move arrows accumulate, ours amber then blue, theirs grey", () => {
-    expect(frames[0].arrows).toEqual([["f6", "e4", "amber"]]);
-    expect(frames[1].arrows).toEqual([
+    const line = frames.filter((f) => !f.intro);
+    expect(line[0].arrows).toEqual([["f6", "e4", "amber"]]);
+    expect(line[1].arrows).toEqual([
       ["f6", "e4", "blue"],
       ["c3", "e4", "palegrey"],
     ]);
-    expect(frames[2].arrows.slice(0, 3)).toEqual([
+    expect(line[2].arrows.slice(0, 3)).toEqual([
       ["f6", "e4", "blue"],
       ["c3", "e4", "palegrey"],
       ["d7", "d5", "amber"],
@@ -74,14 +102,18 @@ describe("buildLineFrames on Mohit's Nxe4 card", () => {
   });
 
   test("each frame is the real position after that ply", () => {
+    const line = frames.filter((f) => !f.intro);
     // After Nxe4 Nxe4 d5 it is White to move and the pawn stands on d5.
-    expect(frames[2].fen.split(" ")[1]).toBe("w");
-    expect(frames[2].fen.split(" ")[0]).toContain("3p");
+    expect(line[2].fen.split(" ")[1]).toBe("w");
+    expect(line[2].fen.split(" ")[0]).toContain("3p");
   });
 
   test("a capture paints the square the piece died on", () => {
-    expect(frames[0].highlights).toEqual(["e4"]);
-    expect(frames[2].highlights).toEqual([]);
+    const line = frames.filter((f) => !f.intro);
+    expect(line[0].highlights).toEqual(["e4"]);
+    expect(line[2].highlights).toEqual([]);
+    // The intro frames claim nothing died.
+    expect(frames[0].highlights).toEqual([]);
   });
 });
 
@@ -111,8 +143,8 @@ describe("buildLineFrames refuses what it cannot show", () => {
         best: HIS_CARD.line_steps.best.map((s) => ({ ...s, fork_targets: [] })),
       },
     };
-    expect(buildLineFrames(quiet, namesMoveInText).map((f) => f.san))
-      .toEqual(["Nxe4"]);
+    expect(buildLineFrames(quiet, namesMoveInText)
+      .filter((f) => !f.intro).map((f) => f.san)).toEqual(["Nxe4"]);
   });
 
   // "Nxe4" is his move AND their recapture. Searching every ply matched
@@ -125,9 +157,10 @@ describe("buildLineFrames refuses what it cannot show", () => {
         best: HIS_CARD.line_steps.best.map((s) => ({ ...s, fork_targets: [] })),
       },
     };
-    const frames = buildLineFrames(collide, namesMoveInText);
-    expect(frames).toHaveLength(1);
-    expect(frames[0].arrows).toEqual([["f6", "e4", "amber"]]);
+    const line = buildLineFrames(collide, namesMoveInText)
+      .filter((f) => !f.intro);
+    expect(line).toHaveLength(1);
+    expect(line[0].arrows).toEqual([["f6", "e4", "amber"]]);
   });
 
   test("a fork the opponent gets in our line is not drawn as our lesson", () => {
@@ -141,9 +174,10 @@ describe("buildLineFrames refuses what it cannot show", () => {
         })),
       },
     };
-    const frames = buildLineFrames(theirs, namesMoveInText);
-    expect(frames.map((f) => f.san)).toEqual(["Nxe4"]);
-    expect(frames[0].arrows.filter((a) => a[2] === "red")).toHaveLength(0);
+    const line = buildLineFrames(theirs, namesMoveInText)
+      .filter((f) => !f.intro);
+    expect(line.map((f) => f.san)).toEqual(["Nxe4"]);
+    expect(line[0].arrows.filter((a) => a[2] === "red")).toHaveLength(0);
   });
 
   test("a caption naming nothing still shows the recommended move", () => {
@@ -154,7 +188,7 @@ describe("buildLineFrames refuses what it cannot show", () => {
         best: HIS_CARD.line_steps.best.map((s) => ({ ...s, fork_targets: [] })),
       },
     };
-    expect(buildLineFrames(silent, namesMoveInText).map((f) => f.san))
-      .toEqual(["Nxe4"]);
+    expect(buildLineFrames(silent, namesMoveInText)
+      .filter((f) => !f.intro).map((f) => f.san)).toEqual(["Nxe4"]);
   });
 });
