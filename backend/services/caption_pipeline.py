@@ -7163,8 +7163,13 @@ def describe_line_steps(fen_before, first_san, line, max_steps=8):
         # a caption claims a reason, so _line_fork_payoff also makes the line
         # pay for it (memory: single source of truth).
         _pair = forked_pair(after, move.to_square)
+        fork_targets = []
         if _pair is not None:
-            text += f" It forks the {_pair[0]} and the {_pair[1]}."
+            text += f" It forks the {_pair[0][0]} and the {_pair[1][0]}."
+            # The squares the arrows are drawn to, from the board this ply
+            # happens on. The card replays the line and draws them on that
+            # frame, so a fork is never drawn on a position it is not true of.
+            fork_targets = [_pair[0][1], _pair[1][1]]
 
         steps.append({
             "san": str(san),
@@ -7172,6 +7177,7 @@ def describe_line_steps(fen_before, first_san, line, max_steps=8):
             "from": chess.square_name(move.from_square),
             "to": square,
             "captured_square": captured_square,
+            "fork_targets": fork_targets,
             "side": "mover" if piece.color == mover else "opponent",
         })
         previous_to = move.to_square

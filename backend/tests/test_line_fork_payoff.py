@@ -126,14 +126,31 @@ def test_the_why_falls_back_when_the_fork_is_refused():
 
 # ── the shared predicate ─────────────────────────────────────────────
 
-def test_forked_pair_names_the_two_most_valuable_targets():
-    """Nf2 in game_af4d58d0936 hits the queen on d1, the rook on h1, the
-    bishop on d3 and a pawn. The sentence names the top two."""
+def test_forked_pair_names_the_two_targets_and_their_squares():
+    """The names feed the sentence; the squares feed the arrows.
+
+    Both come from the same call so the picture and the words cannot
+    disagree -- the whole reason the fork was described and never drawn.
+    """
     board = chess.Board(
         "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq - 5 4")
     for san in ["Nxe4", "Nxe4", "d5"]:
         board.push(board.parse_san(san))
-    assert forked_pair(board, chess.D5) == ("bishop", "knight")
+    assert forked_pair(board, chess.D5) == (("bishop", "c4"), ("knight", "e4"))
+
+
+def test_the_narrator_hands_the_fork_squares_to_the_board():
+    """describe_line_steps carries fork_targets on the ply the fork happens,
+    and on no other, so the card can draw it on the right frame."""
+    from services.caption_pipeline import describe_line_steps
+    steps = describe_line_steps(HIS_FEN, HIS_BEST, HIS_PV)
+    assert steps[2]["san"] == "d5"
+    assert steps[2]["fork_targets"] == ["c4", "e4"]
+    assert steps[2]["from"] == "d7" and steps[2]["to"] == "d5"
+    # the plies around it claim no fork
+    assert steps[0]["fork_targets"] == []
+    assert steps[1]["fork_targets"] == []
+    assert steps[3]["fork_targets"] == []
 
 
 def test_two_pawns_are_not_a_fork():

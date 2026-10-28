@@ -14,6 +14,7 @@ import { motion } from "framer-motion";
 import { resolveBadgeTier } from "../lib/moveBadge";
 import { shouldTranscribeLine } from "../lib/coachLine";
 import { FAULTED_SEVERITIES, namesMoveInText } from "../lib/moveSeverity";
+import { buildLineFrames } from "../lib/bestLineFrames";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
@@ -1083,6 +1084,62 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       console.error("Error showing alternative move:", err, move);
     }
   }, [decryptionData, currentMoveIndex]);
+
+  // The board shows the idea by itself.
+  //
+  // Mohit 2026-10-28, looking at his Nxe4 card: "ik clearly asked you to
+  // build arrow, but you didn't do that". The card said "then d5 hits the
+  // bishop and the knight at once" and the board showed nothing, because
+  // the only thing that drew an arrow was a button, and the fork is not
+  // true on the position the card sits on -- the pawn is still on d7 there,
+  // and an arrow from d5 would be drawn from an empty square.
+  //
+  // So the line is replayed on the board, a ply at a time, and the fork
+  // arrows are drawn on the frame the fork actually happens on. Every
+  // square comes from line_steps, computed on the board in
+  // describe_line_steps, so the picture cannot disagree with the sentence.
+  // When it is done the board returns to the player's own position.
+  const playBestLine = useCallback((card) => {
+    const frames = buildLineFrames(card, namesMoveInText);
+    if (!frames.length) return false;
+
+    setShowingFutureMoves(true);
+    const step = (i) => {
+      if (i >= frames.length) {
+        // Hold the last frame a moment, then give the player their board
+        // back exactly as navigation left it.
+        lineTimerRef.current = setTimeout(() => {
+          lineTimerRef.current = null;
+          setPlayingLine(null);
+          setShowingFutureMoves(false);
+          setBoardFen(card.fen_after);
+          applyCaptionArrows(card);
+        }, 1600);
+        return;
+      }
+      setPlayingLine({ key: "auto", idx: i });
+      setBoardFen(frames[i].fen);
+      setArrows(frames[i].arrows);
+      setHighlights(frames[i].highlights);
+      lineTimerRef.current = setTimeout(() => step(i + 1), 1200);
+    };
+    step(0);
+    return true;
+  }, [applyCaptionArrows]);
+
+  // One place, so every way of reaching a card behaves the same -- arrow
+  // keys, the move list, the eval graph, the first render.
+  useEffect(() => {
+    stopLinePlayback();
+    const card = decryptionData?.[currentMoveIndex];
+    if (!card || !card.is_user_move || card.is_best_move) return;
+    const best = card.best_move_san || card.best_move;
+    // Only where the card is talking about that move. A board that replays
+    // a line the text never mentions is noise.
+    if (!best || !namesMoveInText(card.caption, best)) return;
+    playBestLine(card);
+    return stopLinePlayback;
+  }, [currentMoveIndex, decryptionData, playBestLine, stopLinePlayback]);
 
   const resetToCurrentMove = useCallback(() => {
     if (!decryptionData || currentMoveIndex < 0) return;
@@ -2296,27 +2353,6 @@ const MoveCoachingCardV5 = ({
   // is, treated here as if the move had been fine.
   const isMistake = isUser && FAULTED_SEVERITIES.has(severity);
 
-  // Can the board show the move the caption names?
-  //
-  // Mohit 2026-10-28, on his Nxe4 card: "does it also show arrow?" It did not.
-  // The card carried best_move_arrows -- f6->e4, with the FEN they are true of
-  // -- and the only thing that draws them is the "See on board" button below,
-  // which hung off isMistake. That card is graded `good` (33cp) and its caption
-  // still reads "Though Nxe4 was a bit stronger, it gives up material, and
-  // dxe4 wins the knight on e4", so the player read about a move the board
-  // refused to show, and the arrow we computed and stored reached nobody.
-  //
-  // The gate is the caption, not the grade: if the text names the better move,
-  // the board can show it. That keeps the button tied to something the player
-  // just read -- it does NOT appear on the 626 cards per 60 games whose text
-  // names no alternative -- and adds 207 over 60 games, about three a game.
-  const bestSanOnCard = move.best_move_san || move.best_move || null;
-  const captionNamesBestMove =
-    isUser &&
-    !move.is_best_move &&
-    !!bestSanOnCard &&
-    namesMoveInText(move.caption, bestSanOnCard);
-  const canShowBestMove = !!bestSanOnCard && (isMistake || captionNamesBestMove);
   const hasThought = userThought?.saved;
 
   // Determine card style based on move type
@@ -2849,21 +2885,13 @@ const MoveCoachingCardV5 = ({
             which is the actual memory anchor. */}
         {false && patternContext?.is_recurring && isMistake && (<div />)}
 
-        {/* ─── STOCKFISH BRANCHING (what if best move?) ────────── */}
-        {canShowBestMove && (
-          <button
-            onClick={() => {
-              // Play the best move from fen_before, then PV continuation
-              const bestMove = move.best_move_san || move.best_move;
-              // First show the best move as an alternative
-              onShowAlternativeMove(bestMove);
-            }}
-            className="w-full text-xs text-blue-400 hover:text-blue-300 bg-blue-500/5 hover:bg-blue-500/10 rounded-lg p-2.5 border border-blue-500/15 transition-all flex items-center justify-center gap-1.5"
-          >
-            <Eye className="w-3 h-3" />
-            What if I played {move.best_move_san || move.best_move}? See on board
-          </button>
-        )}
+        {/* The "what if I played X? See on board" button lived here and is
+            gone. Mohit 2026-10-28: "i dn't want a what if, obvoiulsy
+            anybody can see that directly without you having that button".
+            It was a click that replayed the move and left the board
+            somewhere else, on a card whose move names are already
+            clickable. The board now plays the better line itself and draws
+            the fork -- see playBestLine in GameDecryptionV5. */}
 
         {/* "What's your plan now?" block retired (800-tester feedback). */}
         {false && !isUser && move.your_plan_now && (<div />)}

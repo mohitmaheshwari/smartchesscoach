@@ -10459,10 +10459,14 @@ FORK_PLY_LIMIT = 2
 def forked_pair(board_after: chess.Board, square: int):
     """The two best enemy pieces the piece on `square` hits at once, or None.
 
-    One definition, two callers: this and describe_line_steps' per-ply
-    narration, which is where the sentence a player would read comes from.
-    The side is taken from the piece standing there, so it serves a move by
-    either player.
+    Returns ((name, square), (name, square)), most valuable first.
+
+    One definition, three callers: the sentence a player reads, the why this
+    move is good, and the ARROWS. The square comes back with the name
+    because the picture and the words have to be the same fact -- Mohit, on
+    a card that named a fork and drew nothing: "ik clearly asked you to
+    build arrow, but you didn't do that". The side is taken from the piece
+    standing there, so it serves a move by either player.
 
     Kings are left out -- a check is named by the check branch -- and a
     target has to be worth a knight or more, because "it hits the pawn and
@@ -10481,11 +10485,12 @@ def forked_pair(board_after: chess.Board, square: int):
         value = PIECE_VALUE_CP.get(found.piece_type, 0)
         if value < PIECE_VALUE_CP[chess.KNIGHT]:
             continue
-        hits.append((value, PIECE_TYPE_NAMES.get(found.piece_type, "piece")))
+        hits.append((value, PIECE_TYPE_NAMES.get(found.piece_type, "piece"),
+                     chess.square_name(target)))
     if len(hits) < 2:
         return None
     hits.sort(key=lambda h: -h[0])
-    return hits[0][1], hits[1][1]
+    return (hits[0][1], hits[0][2]), (hits[1][1], hits[1][2])
 
 
 def _line_fork_payoff(
@@ -10589,7 +10594,7 @@ def _line_fork_payoff(
                 break
         if not survives:
             continue
-        return (san, pair[0], pair[1], ply)
+        return (san, pair[0][0], pair[1][0], ply)
     return None
 
 
