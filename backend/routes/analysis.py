@@ -164,7 +164,10 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
             resp = await client_http.get(
                 f"https://lichess.org/api/games/user/{username}",
                 params={"max": 30, "pgnInJson": False},
-                headers={"Accept": "application/x-chess-pgn"}
+                # Lichess answers this endpoint with 404 when there is no
+                # User-Agent (verified 2026-10-28: same request, 404 without,
+                # 200 with). The background sync always sent one.
+                headers={"Accept": "application/x-chess-pgn", "User-Agent": "ChessCoachAI/1.0"}
             )
             if resp.status_code != 200:
                 raise HTTPException(status_code=400, detail="Could not fetch Lichess games")
