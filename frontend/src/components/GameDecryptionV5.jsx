@@ -15,6 +15,7 @@ import { resolveBadgeTier } from "../lib/moveBadge";
 import { shouldTranscribeLine } from "../lib/coachLine";
 import { FAULTED_SEVERITIES, namesMoveInText } from "../lib/moveSeverity";
 import { buildLineFrames } from "../lib/bestLineFrames";
+import { shouldAnimateCard } from "../lib/animationSchedule";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
@@ -1142,9 +1143,12 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   // capture is not it: "Qxa1 ... this is exchanging queen, no tactic".
   useEffect(() => {
     stopLinePlayback();
-    const card = decryptionData?.[currentMoveIndex];
-    if (!card || !card.is_user_move || card.is_best_move) return;
-    if (!card.tactic_trigger) return;
+    // ...and only the FIRST card in this game carrying that recommendation.
+    // Mohit's other finding: Rxf4 is the engine's move at moves 31, 32 and
+    // 35 of one game because he kept missing it, so the identical line
+    // would animate three times in one review.
+    if (!shouldAnimateCard(decryptionData, currentMoveIndex)) return;
+    const card = decryptionData[currentMoveIndex];
     playBestLine(card);
     return stopLinePlayback;
   }, [currentMoveIndex, decryptionData, playBestLine, stopLinePlayback]);
