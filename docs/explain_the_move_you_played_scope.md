@@ -3,6 +3,9 @@
 **Status:** DRAFT, awaiting Mohit's sign-off. No code until then.
 **Date:** 2026-10-29
 **Author:** Claude. Every number here was measured against prod on 2026-10-28/29.
+**Scope widened 2026-10-29** on Mohit's instruction — "not just mistakes,
+inaccuracies too". The numbers below were re-measured for it, and they got
+worse: inaccuracies are the majority of faulted cards and the quietest.
 
 ---
 
@@ -13,28 +16,57 @@ Mohit, on an opponent card in game `461511c5`:
 > "it tells my move both captions and arrow, but doens't tell why their move
 > is bad, you know?"
 
-That is not one bad card. Measured over the 471 faulted moves in
-`positional_reason_queue` that have a card:
+That is not one bad card. Measured by **re-rendering 25 of his games through
+`generate_game_decryption_v5` on prod at the code that is live today**
+(`V5_COACHING_VERSION` 237, LLM polish off, no persistence) and reading every
+faulted card that came out — 605 cards:
 
-| the card... | cards | share |
-|---|---|---|
-| explains what YOUR move did **and** names a better move | 164 | 34.8% |
-| explains what YOUR move did, only | 22 | 4.7% |
-| **names a better move and never says what your move did** | **205** | **43.5%** |
-| **explains neither** | **80** | **17.0%** |
+| grade | cards | explains your move | names a better move only | neither |
+|---|---|---|---|---|
+| you inaccuracy | 166 | 11% | 12% | **77%** |
+| them inaccuracy | 162 | 10% | 18% | **72%** |
+| them mistake | 100 | 39% | 40% | 21% |
+| you mistake | 89 | 21% | 44% | 35% |
+| you blunder | 24 | 58% | 25% | 17% |
+| them serious | 23 | 35% | 43% | 22% |
+| them blunder | 21 | 67% | 14% | 19% |
+| you serious | 20 | 50% | 30% | 20% |
+| **all faulted cards** | **605** | **23%** | **25%** | **52%** |
 
-**60% of faulted moves are shown the answer and never told the error.**
+Two things fall out of that table, and the second is new:
+
+1. **The worse the move, the better we explain it.** 67% on their blunders,
+   10% on their inaccuracies. The machinery works where the punishment is
+   violent and goes quiet where it is not.
+2. **Inaccuracies are 54% of all faulted cards (328 of 605) and three
+   quarters of them say nothing at all.** Not "names a better move instead" —
+   *nothing*. That is the single biggest block of silence in the product, and
+   it is the band Mohit asked to include.
+
+Excluding inaccuracies, the mistake-and-worse bands explain 37.5% — which
+agrees with the 39.5% measured a day earlier over a different sample (471
+queue positions, mistakes and blunders only). The two samples are not the
+same games, so the agreement is a sanity check on the classifier, not a
+second measurement.
 
 A player who is told "Qd8 would have made things harder for your opponent"
 learns a move. A player who is told what their own move gave away learns a
-rule. The second is the product.
+rule. The second is the product. A player told neither has been handed a
+grade and no coaching at all.
 
 ---
 
 ## The cause, measured
 
-The sentence that explains a played move is built in
-`caption_pipeline.py:4103`. It requires two facts:
+There are **two** causes, and the second only appeared once inaccuracies were
+measured. Both were measured on the same 25 games as the table above, from the
+stored rows, by
+`scratchpad/punishment_shape_by_grade.py` and `scratchpad/noline_probe.py`.
+
+### Cause 1 — the fault clause needs a loud punishment
+
+The sentence that explains a played move is built by `reply_gap_sentence` in
+`caption_pipeline.py` (line 4087). It requires two facts:
 
 ```python
 reply  = gap.get("their_reply")
@@ -46,20 +78,48 @@ if not reply or not allows:
 `allows` only ever holds `check` or `capture`. So the clause can describe a
 punishment that gives check, or one that takes something, and nothing else.
 
-What punishments actually look like, over the same 471 cards:
+What the punishments actually are — the engine's first reply to the move that
+was played, pushed on the board and classified, 598 faulted rows:
 
-| the opponent's best reply is a... | cards | card explains the played move |
-|---|---|---|
-| check | 105 | **96 — 91%** |
-| capture | 75 | 40 — 53% |
-| **quiet move** | **284 — 60%** | **49 — 17%** |
+| grade | faulted | check | capture | quiet | no stored line |
+|---|---|---|---|---|---|
+| them inaccuracy | 167 | 2% | 11% | 38% | **49%** |
+| you inaccuracy | 152 | 2% | 22% | **58%** | 18% |
+| them mistake | 98 | 9% | 31% | 60% | 0% |
+| you mistake | 91 | 9% | 29% | 62% | 1% |
+| them serious | 25 | 20% | 44% | 36% | 0% |
+| you blunder | 23 | 39% | 30% | 30% | 0% |
+| them blunder | 22 | 32% | 36% | 32% | 0% |
+| you serious | 20 | 10% | 25% | 65% | 0% |
+| **all** | **598** | **8%** | **23%** | **51%** | **18%** |
 
-When the punishment checks, we explain the mistake nine times in ten. When
-it is quiet, we explain it fewer than two times in ten.
+Only **39% of your blunders** are punished by a check, and that is the best
+case in the whole table. Across all 598 faults, 51% of punishments are quiet
+— nothing for the clause to hold. That is why the explains-rate tracks
+severity: a blunder is more likely to be answered by force, so it is more
+likely to be explainable, which is an accident of the gate rather than a
+coaching decision.
 
 This is `c6` exactly. After `1.e4 e5 2.Nf3 c6?!` the punishment is `3.d4`:
 no check, no capture, nothing for the clause to hold, so the card graded the
 move and then talked about a different move instead.
+
+### Cause 2 — half the opponent's inaccuracies have no engine truth at all
+
+**81 of 167 opponent inaccuracies (48.5%) have no `pv_after_played`**, so
+there is no reply to describe, loud or quiet. 80 of those 81 are
+`derived: "user_evals"` with `engine_backfilled: None` and no `best_move`.
+Every opponent mistake, serious and blunder row has a line — 145 of 145.
+
+The reason is a threshold, not missing machinery. The backfill I ran on
+2026-10-28 takes `--min-cp`, defaulting to **100**
+(`backend/scripts/backfill_opponent_fault_lines.py:95`, skip at :121) — the
+mistake floor. Opponent inaccuracies sit at 30–99cp and were excluded by
+design.
+
+So roughly half of the worst band in the product is silent because nobody
+asked the engine. Re-running the existing script at `--min-cp 30` fills it.
+That is step zero of this work and it needs no new code.
 
 ---
 
@@ -84,7 +144,16 @@ The second sentence is the product. The move recommendation stays where it is.
 ## How it works
 
 No new architecture. The explanation machinery exists; it is pointed at the
-wrong move. Three sources, in order, all board-checkable:
+wrong move.
+
+**Step 0, before any of it: give the opponent's inaccuracies engine truth.**
+`backfill_opponent_fault_lines.py --min-cp 30`, which is an existing,
+already-run script with a different number. 48.5% of opponent inaccuracies
+currently have no line to explain from, and no rule below can fire without
+one. This is measured, cheap, and has to happen first or every number after
+it is measured against missing data.
+
+Then three sources, in order, all board-checkable:
 
 1. **What their quiet reply newly attacks.** Diff the attack sets before and
    after their reply. A quiet move that comes with a threat has a sentence:
@@ -149,29 +218,100 @@ died on day one against this column.
 
 ## How we will know it worked
 
-One number, measured the same way before and after:
+One number, measured the same way before and after, by re-rendering the same
+25 games through `generate_game_decryption_v5`:
 
 > of faulted cards, the share that say what the played move did wrong
 
-Today: **39.5%** (186 of 471). The target is the quiet-punishment band, which
-is 284 cards currently at 17%.
+Today: **23%** (138 of 605). Reported **by grade**, never as one blended
+number — the grades differ by a factor of six (10% on their inaccuracies,
+67% on their blunders) and a single average hides the band that matters most.
 
-Two guards:
+Three sub-targets, in the order they should move:
+1. **them inaccuracy, 10%** — half of it is the missing backfill, so this
+   should move first and furthest for the least work.
+2. **you inaccuracy, 11%** — 58% quiet punishments, 18% no line. This is the
+   band that needs the new sentences.
+3. **you mistake, 21%** — 44% of these already name a better move, so the
+   card is there and only the fault clause is missing.
+
+Three guards:
 - the claim verifier must pass every new sentence, on the board the claim is
   about — four instruments mis-resolved that board this week, including mine;
-- the caption word cap already drops whole `Lesson:` sentences from distilled
-  cards, so any added clause must be measured against it, not assumed to fit.
+- **the word cap will eat the new clause.** Not a prediction: the 25-game
+  re-render that produced the table above printed
+  `caption truncated: rule=distilled:opp_luft 70 words -> 52 (cap 60);
+  dropped: 'Lesson: a small, quiet pawn move is slow, so use your turn to
+  bring a piece out instead.'` The cap cut at the last sentence boundary and
+  deleted the one sentence that taught anything. Any added clause is measured
+  against `max_caption_words`, and if the cap has to choose, it must drop the
+  move recommendation before the lesson;
+- the measurement must be a re-render, never the stored cards. 113 games on
+  prod have `decryption_v5_version` unset and 87 sit at v230 while the code
+  is at v237, so a query against stored text measures last month's product.
+
+---
+
+## The on-demand button has the same gap, and answers anyway
+
+The "why, with engine" button (`/api/.../why/{game_id}/{move_number}`,
+`services/why_on_demand.py`) is the escape hatch for exactly these cards: it
+runs a fresh search and explains. It has the same blind spot, and it does not
+go quiet — it finds the nearest move it *can* describe and talks about that
+one instead.
+
+Traced on `1.c4 e5 2.Nc3 Nf6 3.g3 Bc5 4.e4` (FEN
+`rnbqk2r/pppp1ppp/5n2/2b1p3/2P5/2N3P1/PP1PPP1P/R1BQKBNR w KQkq - 1 4`), by
+running the endpoint's own logic with its own constants:
+
+```
+engine offered : Nf3 +34 | Bg2 +31 | d3 +16 | a3 +10 | e3 0 | Na4 -7 | ...
+answer         : "Na4 chases their bishop."   mechanism FORCES_RETREAT
+arrows         : c3->a4, c5->e7, f1->g2
+```
+
+`Nf3`, `Bg2`, `d3`, `a3` and `e3` are quiet developing moves with no
+mechanism, so all five were skipped. `Na4` is the engine's **sixth** choice,
+41cp below `Nf3`, and it won by being explicable. Three gates let it through:
+
+- `CANDIDATE_COUNT = 8` — it looks eight deep for something to say;
+- `CLOSENESS_CP = 50` — anything within 50cp of best is treated as
+  interchangeable, and 41 < 50;
+- `FORCES_RETREAT` pays a tempo proxy, `max(1, value // 10)`, so
+  `_explains_the_loss` (which demands a mechanism cover 25% of the loss)
+  barely tests it. A material mechanism has to earn its sentence; a
+  "chases their bishop" answer effectively does not.
+
+A confident wrong answer with arrows is worse than silence, because the
+player cannot tell. Two cheap fixes, either acceptable: name the top move in
+the sentence when the explained move is not it ("Nf3 was the move; Na4 also
+chases the bishop"), or refuse when the gap is non-zero *and* the mechanism
+is a tempo proxy rather than material.
+
+Not verified: whether this misranking is common or specific to quiet opening
+positions. It was traced on one position Mohit supplied. What would settle it
+is running the endpoint's candidate loop over the 598 faulted rows above and
+counting how often the kept candidate is not the top one.
 
 ---
 
 ## Open questions for Mohit
 
-1. **Is a quiet punishment worth a sentence at all?** 284 cards say the
-   opponent's best answer is a quiet move. "That lets them play Nd5, hitting
-   your bishop" is true and may still read as weak coaching.
+1. **Is a quiet punishment worth a sentence at all?** 51% of all faults are
+   answered by a quiet move. "That lets them play Nd5, hitting your bishop"
+   is true and may still read as weak coaching.
 2. **Which of the three sources first**, if they disagree on one card?
 3. **Teachability** — some board facts are true and useless ("your king's
    mobility fell by 2"). That call is yours per concept, not mine.
+4. **New: should an inaccuracy get a card at all?** 328 of 605 faulted cards
+   are inaccuracies, so including them doubles the surface. The alternative
+   is to say nothing on a 30–99cp drift and spend the work on the mistake
+   bands. You asked for inaccuracies in, so that is what this scope covers —
+   but it is the one decision that changes the size of the job, not just its
+   quality.
+5. **New: when the cap has to choose**, does the lesson sentence beat the
+   move recommendation? The cap already dropped a whole `Lesson:` line in the
+   measurement run above.
 
 ---
 
@@ -186,3 +326,16 @@ Two guards:
 - of the 79, **56 were ordinary tactics, not positional** — the residue is
   not what its name says
 - the biggest family is loose-piece / only-defender, 22 of 79
+
+Added 2026-10-29, for the inaccuracy band:
+
+- 25 games re-rendered through `generate_game_decryption_v5` at v237, LLM
+  polish off, nothing persisted → 605 faulted cards, split by grade
+- the same 25 games' stored rows, graded by canonical
+  `services.severity.classify_severity` → 598 faulted rows. The two counts
+  agree grade by grade to within a few cards, which is what says the render
+  table and the punishment table describe the same population
+- opponent rows are a **separate array** (`opponent_move_evaluations`). The
+  first run of the punishment script read `move_evaluations` alone, trusted
+  its `is_opponent_move` flag, and produced a table with no opponent rows at
+  all — it would have reported the user half as the whole product
