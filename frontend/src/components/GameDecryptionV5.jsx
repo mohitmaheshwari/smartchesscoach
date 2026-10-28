@@ -13,7 +13,8 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } fr
 import { motion } from "framer-motion";
 import { resolveBadgeTier } from "../lib/moveBadge";
 import { shouldTranscribeLine } from "../lib/coachLine";
-import { FAULTED_SEVERITIES, namesMoveInText } from "../lib/moveSeverity";
+import { FAULTED_SEVERITIES, isFaultedCard, namesMoveInText }
+  from "../lib/moveSeverity";
 import { buildLineFrames } from "../lib/bestLineFrames";
 import { shouldAnimateCard } from "../lib/animationSchedule";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -2175,7 +2176,7 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlinds
 // The important case is `found: false`. It happens, it is correct, and
 // it must render as "we cannot show a clear reason" -- never as a
 // softer generated sentence. Filling that gap is the bug being removed.
-const WhyThisWasBad = ({ gameId, move, onArrows }) => {
+const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
   const [state, setState] = useState("idle"); // idle | loading | done
   const [result, setResult] = useState(null);
 
@@ -2184,7 +2185,8 @@ const WhyThisWasBad = ({ gameId, move, onArrows }) => {
     try {
       const res = await fetch(
         `${API}/coach/why/${gameId}/${move.move_number}` +
-          `?san=${encodeURIComponent(move.move_san || "")}`,
+          `?san=${encodeURIComponent(move.move_san || "")}` +
+          `&opponent=${opponent ? "true" : "false"}`,
         { credentials: "include" },
       );
       const data = await res.json();
@@ -2671,10 +2673,20 @@ const MoveCoachingCardV5 = ({
           onCompare={onCompareCandidate}
         />
 
-        {/* The why, on demand. Only on our own real errors: an
-            inaccuracy rarely has a punishment worth a five-second wait. */}
-        {isUser && (severity === "blunder" || severity === "mistake") && (
-          <WhyThisWasBad gameId={gameId} move={move} onArrows={onWhyArrows} />
+        {/* The why, on demand, for a faulted move on EITHER side.
+            Mohit 2026-10-28: "for move from both sides, inaccuracy,
+            mistakes or blunders". It used to read `isUser && (blunder ||
+            mistake)`, which missed three things at once: their moves
+            entirely, our `serious` tier (250-399cp, 0.7 a game), and our
+            inaccuracies, which the practical tier files under `good` with
+            the real grade in severity_canonical (5 a game). */}
+        {isFaultedCard(move) && (
+          <WhyThisWasBad
+            gameId={gameId}
+            move={move}
+            opponent={!isUser}
+            onArrows={onWhyArrows}
+          />
         )}
 
         {/* v78.3 — "Play this line" button. Visible on user-mistake

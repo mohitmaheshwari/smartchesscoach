@@ -29,9 +29,37 @@ export const FAULTED_SEVERITIES = new Set([
   "blunder",
 ]);
 
-/** Did the engine fault this move? */
-export const isFaultedSeverity = (severity) =>
-  FAULTED_SEVERITIES.has(String(severity || "good"));
+/**
+ * Did the engine fault this move, on either side?
+ *
+ * Opponent cards carry the same grades behind an `opp_` prefix
+ * (opp_inaccuracy / opp_mistake / opp_serious / opp_blunder), measured
+ * over 120 games. A test written for one side silently covers none of
+ * the other, which is how the why button came to exist only for us.
+ */
+export const isFaultedSeverity = (severity) => {
+  const s = String(severity || "good");
+  return FAULTED_SEVERITIES.has(s.startsWith("opp_") ? s.slice(4) : s);
+};
+
+/**
+ * The grade to judge a card by.
+ *
+ * On our own cards the practical tier files an inaccuracy under `good`
+ * and keeps the real grade in severity_canonical -- 600 of 2,389 `good`
+ * cards over 120 games, 5 a game. Reading `severity` alone therefore
+ * calls an inaccuracy a fine move, which is why ours never got a why
+ * button while the opponent's opp_inaccuracy cards would have.
+ */
+export const gradeOf = (card) => {
+  const practical = String(card?.severity || "good");
+  if (isFaultedSeverity(practical)) return practical;
+  const canonical = String(card?.severity_canonical || "");
+  return isFaultedSeverity(canonical) ? canonical : practical;
+};
+
+/** Does this card describe a move the engine faulted, either side? */
+export const isFaultedCard = (card) => isFaultedSeverity(gradeOf(card));
 
 /**
  * Does this text name this move?

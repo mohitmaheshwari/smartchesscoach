@@ -1425,6 +1425,7 @@ async def get_move_why(
     game_id: str,
     move_number: int,
     san: Optional[str] = Query(default=None),
+    opponent: bool = Query(default=False),
     user: User = Depends(get_current_user),
 ):
     """Work out, on demand, why one move was a mistake.
@@ -1456,11 +1457,26 @@ async def get_move_why(
 
     analysis = await db.game_analyses.find_one(
         {"game_id": game_id},
-        {"_id": 0, "stockfish_analysis.move_evaluations": 1},
+        {"_id": 0,
+         "stockfish_analysis.move_evaluations": 1,
+         "stockfish_analysis.opponent_move_evaluations": 1},
     )
-    evaluations = (
-        (analysis or {}).get("stockfish_analysis") or {}
-    ).get("move_evaluations") or []
+    _sf = (analysis or {}).get("stockfish_analysis") or {}
+
+    # Their mistakes get the same button as ours.
+    #
+    # Mohit 2026-10-28: "for move from both sides, inaccuracy, mistakes or
+    # blunders". This endpoint read only move_evaluations and then filtered
+    # `not is_opponent_move` on top, so asking about their move returned
+    # "Move not analysed" -- the only on-demand explanation in the product
+    # could never speak about half the moves in the game.
+    #
+    # Which side is an argument, never a guess: both sides share a move
+    # number, and at move 5 both may have played "O-O", so inferring the
+    # side from the SAN would explain the wrong move on exactly the
+    # positions where it matters.
+    evaluations = (_sf.get("opponent_move_evaluations") if opponent
+                   else _sf.get("move_evaluations")) or []
 
     # move_number alone is NOT a key. Measured on 300 games: 31 of them
     # (10%) carry a duplicate move_number among the user's evaluations,
@@ -1469,7 +1485,7 @@ async def get_move_why(
     candidates_for_move = [
         m for m in evaluations
         if m.get("move_number") == move_number
-        and not m.get("is_opponent_move")
+        and bool(m.get("is_opponent_move")) == bool(opponent)
     ]
     target = None
     if san:

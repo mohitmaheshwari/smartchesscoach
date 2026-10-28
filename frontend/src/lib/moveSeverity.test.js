@@ -9,6 +9,8 @@
  */
 import {
   FAULTED_SEVERITIES,
+  gradeOf,
+  isFaultedCard,
   isFaultedSeverity,
   namesMoveInText,
 } from "./moveSeverity";
@@ -87,4 +89,54 @@ describe("namesMoveInText", () => {
     expect(namesMoveInText("Nf3 was better", null)).toBe(false);
     expect(namesMoveInText(null, null)).toBe(false);
   });
+});
+
+// Mohit 2026-10-28: "for move from both sides, inaccuracy, mistakes or
+// blunders". The why button used to test `isUser && (blunder || mistake)`,
+// which missed their moves entirely, our `serious` tier, and our
+// inaccuracies -- which the practical tier files under `good`.
+describe("faulted moves on either side", () => {
+  // Measured over 120 games: opponent cards carry opp_inaccuracy (521),
+  // opp_mistake (275), opp_serious (64), opp_blunder (84).
+  test.each(["opp_inaccuracy", "opp_mistake", "opp_serious", "opp_blunder"])(
+    "%s is a faulted move",
+    (tier) => {
+      expect(isFaultedSeverity(tier)).toBe(true);
+    }
+  );
+
+  test("their quiet moves are not", () => {
+    expect(isFaultedSeverity("context")).toBe(false);
+    expect(isFaultedSeverity("opp_good")).toBe(false);
+  });
+
+  // 600 of 2,389 of his `good` cards are canonically inaccuracies, 5 a
+  // game. Reading severity alone calls those fine moves.
+  test("our own inaccuracy hides under good, in severity_canonical", () => {
+    const card = { severity: "good", severity_canonical: "inaccuracy" };
+    expect(isFaultedSeverity(card.severity)).toBe(false);
+    expect(gradeOf(card)).toBe("inaccuracy");
+    expect(isFaultedCard(card)).toBe(true);
+  });
+
+  test("a genuinely good move stays good", () => {
+    const card = { severity: "good", severity_canonical: "good" };
+    expect(gradeOf(card)).toBe("good");
+    expect(isFaultedCard(card)).toBe(false);
+    expect(isFaultedCard({ severity: "context" })).toBe(false);
+    expect(isFaultedCard({})).toBe(false);
+    expect(isFaultedCard(null)).toBe(false);
+  });
+
+  test("the practical grade wins when it is already a fault", () => {
+    // A blunder whose canonical grade is milder must stay a blunder.
+    expect(gradeOf({ severity: "blunder", severity_canonical: "mistake" }))
+      .toBe("blunder");
+    expect(gradeOf({ severity: "opp_blunder" })).toBe("opp_blunder");
+  });
+
+  test.each(["mistake", "serious", "blunder"])(
+    "our %s still qualifies", (tier) => {
+      expect(isFaultedCard({ severity: tier })).toBe(true);
+    });
 });
