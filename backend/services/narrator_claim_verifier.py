@@ -103,6 +103,126 @@ def _capture_square(board: chess.Board, move: chess.Move) -> int:
     return move.to_square
 
 
+def best_move_capture_pair(fen_before, best_move_san):
+    """The (piece, square) the BETTER move itself captures, off fen_before.
+
+    This is the proof a sentence like "exf6 was better -- it takes the
+    knight on f6" depends on, and it is deliberately bound to ONE ply: the
+    better move's own. _stored_capture_claims unions every capture in both
+    stored lines, which is how
+
+        "bxc6+ was better -- it takes the pawn on c6"
+
+    got cleared. bxc6+ is en passant: it takes the pawn on c5 and only
+    LANDS on c6, and ('pawn', 'c6') had reached that union from a later
+    Nxc6. A claim is checked against the ply it belongs to (e0372d20), so
+    en passant resolves through _capture_square to the square the captured
+    pawn actually stands on.
+
+    Returns None when there is no better move, it is not a capture, or the
+    position will not parse -- never a guess.
+    """
+    if not fen_before or not best_move_san:
+        return None
+    try:
+        board = chess.Board(fen_before)
+        move = board.parse_san(str(best_move_san))
+    except Exception:
+        return None
+    if not board.is_capture(move):
+        return None
+    square = _capture_square(board, move)
+    victim = board.piece_at(square)
+    if victim is None:
+        return None
+    return _PNAME[victim.piece_type], chess.square_name(square)
+
+
+def move_bound_captures(fen_before, first_san, continuation):
+    """Every capture in a stored line, proved at its OWN ply.
+
+    Returns a set of (san, piece, square). The san is in it because the
+    square alone is not the claim: Mohit's card says
+
+        "Though Nxe4 was a bit stronger, it gives up material, and dxe4
+         wins the knight on e4."
+
+    which is true -- 4...Nxe4 5.Nxe4 d5 6.Bd3 dxe4 wins the knight back --
+    but only at ply 4, where 5.Nxe4 has put a knight on e4. e4 holds a
+    PAWN in fen_before, so best_move_capture_pair cannot prove it and the
+    card collapsed to "Bc5. Nxe4 was better here."
+
+    _stored_capture_claims proves the same square by forgetting which move
+    the claim is about, and that is exactly how
+
+        "bxc6+ was better -- it takes the pawn on c6"
+
+    was cleared: bxc6+ is en passant, it takes on c5, and ('pawn','c6')
+    came from a later Nxc6. Keeping the san binds piece, square AND move,
+    so that claim is refused while the true "pawn on c5" wording passes.
+
+    Fails closed: an unreplayable line returns only what was proved before
+    it broke, so a claim beyond that point gets no proof.
+
+    Known limit: the same SAN can occur at two plies -- here Black's Nxe4
+    and White's recapture Nxe4 -- and both are admitted, so a caption
+    saying "Nxe4 takes the knight on e4" would clear although the user's
+    Nxe4 took the pawn. It needs a repeated SAN inside one line, and the
+    narrower fix needs its own evidence about how often captions name a
+    move that repeats.
+    """
+    proved = set()
+    if not fen_before:
+        return proved
+    try:
+        board = chess.Board(fen_before)
+    except Exception:
+        return proved
+    for san in [first_san] + list(continuation or []):
+        if not san:
+            continue
+        try:
+            move = board.parse_san(str(san))
+        except Exception:
+            return proved
+        if board.is_capture(move):
+            square = _capture_square(board, move)
+            victim = board.piece_at(square)
+            if victim is not None:
+                proved.add((str(san), _PNAME[victim.piece_type],
+                            chess.square_name(square)))
+        board.push(move)
+    return proved
+
+
+def _claim_names_a_proved_capture(caption, start, piece, square, facts):
+    """Does the sentence name a move that captures this piece there?
+
+    The move has to appear in the run-up to the claim -- "dxe4 wins the
+    knight on e4" -- so a square that merely occurs somewhere in the line
+    cannot clear a sentence that never names the move reaching it.
+    """
+    proved = move_bound_captures(
+        facts.get("fen_before") or "",
+        facts.get("best_move_san"),
+        facts.get("pv_after_best") or [])
+    proved |= move_bound_captures(
+        facts.get("fen_before") or "",
+        facts.get("move_san"),
+        facts.get("pv_after_played") or [])
+    if not proved:
+        return False
+    # Only the text BEFORE the claim can name the move, and only within
+    # this sentence, so a move named two sentences earlier proves nothing.
+    lead = caption[:start]
+    cut = max(lead.rfind(". "), lead.rfind("; "))
+    lead = lead[cut + 1:] if cut >= 0 else lead
+    for san, pc, sq in proved:
+        if (pc, sq) == (piece, square) and san in lead:
+            return True
+    return False
+
+
 def _replay_branch(
     facts: Dict[str, Any],
     *,
@@ -437,13 +557,40 @@ def _check_piece_on_square(
     claims only — skip 'to/jumps to/plays' (those are future moves)."""
     out = []
     stored_captures = _stored_capture_claims(facts) if strict_v2 else set()
+    # The better move's own capture, proved at its own ply off fen_before.
+    #
+    # Unlike the union above this is NOT gated on strict_v2, because the
+    # player-facing caller -- game_decryption_v5_service's
+    # VERIFY_SOFTENED gate -- calls verify_caption WITHOUT strict_v2, so
+    # for it the hatch did not exist at all. A true sentence about the
+    # recommended move died there:
+    #
+    #     "Qxd4 was a small mistake. exd4 was better -- it takes the
+    #      knight on d4."
+    #
+    # exd4 does take the knight on d4. The board the caption is audited
+    # against is the one AFTER the played move, and the player's own Qxd4
+    # is standing on d4 by then. Measured over 60 games: 24 cards
+    # collapsed to the bare severity line, 4 of them this shape, every
+    # one a free-capture lesson.
+    #
+    # Turning this on for V1 is a correctness change, not a strictness
+    # one: it can only ever clear a claim the board proves at that ply,
+    # and binding it to the ply makes it safer than the strict_v2 union,
+    # which is what cleared the en-passant "pawn on c6".
+    best_pair = best_move_capture_pair(
+        facts.get("fen_before") or "", facts.get("best_move_san"))
     for m in re.finditer(r"\b(knight|bishop|rook|queen|king|pawn)\s+on\s+([a-h][1-8])\b",
                          caption, re.I):
         pc, sq = m.group(1).lower(), m.group(2).lower()
-        if (
-            strict_v2
-            and _is_stored_capture_phrase(caption, m.start())
-            and (pc, sq) in stored_captures
+        if _is_stored_capture_phrase(caption, m.start()) and (
+            (pc, sq) == best_pair
+            # ...or the sentence names a move that captures it at its own
+            # ply. Mohit's fork-trick card turns on this: Nxe4 takes the
+            # PAWN on e4, and the knight the caption names is the one
+            # 5.Nxe4 puts there, won back by dxe4 four plies in.
+            or _claim_names_a_proved_capture(caption, m.start(), pc, sq, facts)
+            or (strict_v2 and (pc, sq) in stored_captures)
         ):
             continue
         pa = post.piece_at(chess.parse_square(sq))
@@ -475,6 +622,16 @@ def _recommended_capture(facts: Dict[str, Any]):
         return (None, None)
 
 
+def _sentence_around(text: str, index: int) -> str:
+    """The one sentence a match sits in."""
+    lead = text[:index]
+    start = max(lead.rfind(". "), lead.rfind("; "), lead.rfind("! "))
+    start = start + 2 if start >= 0 else 0
+    tail = text.find(". ", index)
+    end = tail if tail >= 0 else len(text)
+    return text[start:end]
+
+
 def _check_free(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
     if not _FREE_RX.search(caption):
         return []
@@ -482,11 +639,32 @@ def _check_free(caption: str, facts: Dict[str, Any]) -> List[Dict[str, str]]:
     if mv is None:
         return []
     defs = base.attackers(not base.turn, mv.to_square)
-    if defs:
-        sq = chess.square_name(mv.to_square)
-        return [{"check": "free_when_defended",
-                 "detail": f"calls it free/won but {sq} is defended by "
-                           f"{[chess.square_name(s) for s in defs]} — the win is a tactic, not a free grab"}]
+    if not defs:
+        return []
+    sq = chess.square_name(mv.to_square)
+
+    # The claim has to be ABOUT this capture. Every caption carries a
+    # closing coaching principle, and those are generic imperatives:
+    #
+    #     "Rxf5 is a serious mistake. exf5 was better -- it takes the pawn
+    #      on f5. Before every move, look for a free piece to take."
+    #
+    # "a free piece" there is advice for next time, not an assertion that
+    # f5 is free, and f5 IS defended -- so the whole caption was thrown
+    # away over a sentence that makes no claim about the position. The
+    # test is not phrasing: a sentence that never names this move or this
+    # square cannot be saying this capture is free.
+    named = {sq}
+    for key in ("best_move_san", "move_san"):
+        san = facts.get(key)
+        if san:
+            named.add(str(san))
+    for m in _FREE_RX.finditer(caption):
+        sentence = _sentence_around(caption, m.start())
+        if any(token in sentence for token in named):
+            return [{"check": "free_when_defended",
+                     "detail": f"calls it free/won but {sq} is defended by "
+                               f"{[chess.square_name(s) for s in defs]} — the win is a tactic, not a free grab"}]
     return []
 
 

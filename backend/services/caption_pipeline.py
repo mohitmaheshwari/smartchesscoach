@@ -4123,6 +4123,136 @@ def reply_gap_sentence(gap: Optional[Dict[str, Any]],
     return f"That lets {who} play {reply}."
 
 
+# A capture claim about the RECOMMENDED move belongs to the board that move is
+# made FROM. The Phase 1 audit in _verify_and_recover_caption runs against
+# fen_after -- "what the player sees" -- which is right for "your queen on a7"
+# and wrong the moment the played move captured on the same square the better
+# move would have, because the player's own piece is standing on the target by
+# then:
+#
+#     "Ndxf2 was a small mistake. Ngxf2 was better -- it takes the pawn on f2."
+#     rejected: square f2 has a knight, not a pawn
+#
+# Measured over 60 games on the stored rows exactly as they ship: 23
+# rejections, 4 of them this shape, and every one of the four is a free-capture
+# lesson being replaced by a bare severity line.
+#
+# The pair is proved at the best move's OWN ply, off fen_before. Three
+# candidate rules recovered the same 4 captions on that sample -- "true on
+# fen_before", "true on fen_before and the caption names the best move", and
+# this one -- so the narrowest wins, because it is the only one that binds the
+# claim to a ply instead of asking whether the piece sat there at some point.
+# The loose version cleared "bxc6+ ... takes the pawn on c6", which is false:
+# bxc6+ is en passant and takes the pawn on c5, and ('pawn', 'c6') had reached
+# the allow-set from a later Nxc6 in the stored line. A claim is checked
+# against the ply it belongs to (e0372d20).
+#
+# A claim about a capture further down the line is deliberately NOT covered
+# here. That needs the line walked to the winning ply, and its own evidence.
+_CAPTURE_VERB_RE = _re_pb.compile(
+    r"\b(?:takes?|captures?|wins?|won|removes?)\s+(?:the\s+)?$", _re_pb.I)
+_CLAIM_PIECE_RE = _re_pb.compile(
+    r"\b(knight|bishop|rook|queen|king|pawn)\b", _re_pb.I)
+_CLAIM_SQUARE_RE = _re_pb.compile(r"\b([a-h][1-8])\b", _re_pb.I)
+
+
+def _claim_piece_square(claim_text: str) -> Optional[Tuple[str, str]]:
+    """The (piece, square) that a claim like 'the pawn on f2' names."""
+    piece = _CLAIM_PIECE_RE.search(claim_text or "")
+    square = _CLAIM_SQUARE_RE.search(claim_text or "")
+    if not piece or not square:
+        return None
+    return piece.group(1).lower(), square.group(1).lower()
+
+
+def _best_move_capture_pair(
+    fen_before: str,
+    best_move_san: Optional[str],
+) -> Optional[Tuple[str, str]]:
+    """What the better move itself captures, read off fen_before.
+
+    One definition, in narrator_claim_verifier, because the same proof now
+    clears the same claim at three gates: this one, the VERIFY_SOFTENED gate
+    in game_decryption_v5_service, and the strict FINAL_VERIFY_SOFTENED gate
+    below. A second copy here would be the next thing to drift
+    (feedback_single_source_of_truth).
+    """
+    from services.narrator_claim_verifier import best_move_capture_pair
+    return best_move_capture_pair(fen_before, best_move_san)
+
+
+def _clear_best_move_capture_claims(
+    audit,
+    caption: str,
+    *,
+    fen_before: str,
+    best_move_san: Optional[str],
+    pv_after_best: Optional[Sequence[str]] = None,
+    played_san: Optional[str] = None,
+    pv_after_played: Optional[Sequence[str]] = None,
+) -> int:
+    """Pass the piece-on-square claims a stored line proves at its own ply.
+
+    Mutates the audit in place and returns how many were cleared. Only a
+    capture PHRASE is eligible -- "it takes the pawn on f2" -- so a
+    current-location claim like "your knight on f2" is still judged on the
+    board the player is looking at.
+
+    Two proofs, both from narrator_claim_verifier so the three gates share
+    one definition:
+
+      * the better move's OWN capture, for "exd4 was better -- it takes
+        the knight on d4", where the played Qxd4 is sitting on the target
+        by the time the audit sees the board;
+      * a capture named further down the line, for Mohit's fork trick --
+        "dxe4 wins the knight on e4" -- where Nxe4 takes a PAWN and the
+        knight is the one the recapture puts there.
+
+    Both are bound to a ply, and the second to the move the sentence
+    names, which is what keeps the en-passant "pawn on c6" refused.
+    """
+    from services.narrator_claim_verifier import (
+        _claim_names_a_proved_capture)
+
+    proved = _best_move_capture_pair(fen_before, best_move_san)
+    facts = {
+        "fen_before": fen_before,
+        "best_move_san": best_move_san,
+        "pv_after_best": list(pv_after_best or ()),
+        "move_san": played_san,
+        "pv_after_played": list(pv_after_played or ()),
+    }
+    cleared = 0
+    lowered = (caption or "").lower()
+    for claim in getattr(audit, "claims", None) or []:
+        if getattr(claim, "verdict", None) != "fail":
+            continue
+        if getattr(claim, "kind", None) != "piece_on_square":
+            continue
+        text = getattr(claim, "text", "") or ""
+        at = lowered.find(text.lower())
+        if at < 0:
+            continue
+        if not _CAPTURE_VERB_RE.search(caption[max(0, at - 24):at]):
+            continue
+        pair = _claim_piece_square(text)
+        if pair is None:
+            continue
+        if pair == proved:
+            why = (f"the better move {best_move_san} captures the "
+                   f"{pair[0]} on {pair[1]}")
+        elif _claim_names_a_proved_capture(
+                caption, at, pair[0], pair[1], facts):
+            why = (f"the line captures the {pair[0]} on {pair[1]} at the "
+                   f"ply the sentence names")
+        else:
+            continue
+        claim.verdict = "pass"
+        claim.detail = f"{claim.detail}; cleared: {why}"
+        cleared += 1
+    return cleared
+
+
 def _verify_and_recover_caption(
     *,
     caption_payload: Dict[str, Any],
@@ -4186,6 +4316,21 @@ def _verify_and_recover_caption(
         )
     except Exception:
         return {"verdict": "not_run", "reason": "verifier_error"}
+
+    # A claim about the better move is judged on the board that move is made
+    # from, not on the one the played move created. See
+    # _clear_best_move_capture_claims.
+    try:
+        _cleared = _clear_best_move_capture_claims(
+            audit, text_in,
+            fen_before=fen_before, best_move_san=best_move_san,
+            pv_after_best=pv_after_best or [], played_san=played_san)
+    except Exception:
+        _cleared = 0
+    if _cleared:
+        logger.info(
+            "[caption_verifier] cleared %d capture claim(s) proved by the "
+            "better move %s", _cleared, best_move_san)
 
     phase1_failed = (audit.overall == "fail")
 
