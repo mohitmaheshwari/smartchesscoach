@@ -279,6 +279,17 @@ def main() -> int:
     rows.sort(key=lambda r: (r["priority"], -r.get("fresh_cp_loss", 0)))
     rows = rows[:LIMIT]
 
+    # Top up, never duplicate. The first version did a bare insert_many, so a
+    # second run appended the same positions again -- and the queue is keyed by
+    # fen everywhere downstream (model_reason_answers, reason_judgements), so a
+    # duplicate row means the same position asked twice and judged twice.
+    already = set(db.positional_reason_queue.distinct("fen"))
+    fresh = [r for r in rows if r["fen"] not in already]
+    skipped = len(rows) - len(fresh)
+    if skipped:
+        print(f"  already queued, skipped: {skipped}")
+    rows = fresh
+
     if rows:
         db.positional_reason_queue.insert_many(rows)
         db.positional_reason_queue.create_index("status")
