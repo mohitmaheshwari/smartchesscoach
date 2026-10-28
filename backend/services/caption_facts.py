@@ -10447,6 +10447,152 @@ def _outnumbered_target(
     return (best[0], best[1], best[2]) if best else None
 
 
+# Measured, not chosen. Over 300 of Mohit's games the stored lines hold 263
+# forks by the side the card is about, and the fork lands at ply 0 (the
+# recommended move itself forks) 36 times and ply 2 (our next move) 39 times
+# -- 78.1% of the forks that survive the two gates below. Ply 4 and 6 are 21
+# cards between them, and each needs the opponent to keep playing engine
+# moves for two or three more turns, which is not a reason a 1200 can act on.
+FORK_PLY_LIMIT = 2
+
+
+def forked_pair(board_after: chess.Board, square: int):
+    """The two best enemy pieces the piece on `square` hits at once, or None.
+
+    One definition, two callers: this and describe_line_steps' per-ply
+    narration, which is where the sentence a player would read comes from.
+    The side is taken from the piece standing there, so it serves a move by
+    either player.
+
+    Kings are left out -- a check is named by the check branch -- and a
+    target has to be worth a knight or more, because "it hits the pawn and
+    the pawn" is not a fork anyone is taught.
+    """
+    piece = board_after.piece_at(square)
+    if piece is None:
+        return None
+    hits = []
+    for target in board_after.attacks(square):
+        found = board_after.piece_at(target)
+        if found is None or found.color == piece.color:
+            continue
+        if found.piece_type == chess.KING:
+            continue
+        value = PIECE_VALUE_CP.get(found.piece_type, 0)
+        if value < PIECE_VALUE_CP[chess.KNIGHT]:
+            continue
+        hits.append((value, PIECE_TYPE_NAMES.get(found.piece_type, "piece")))
+    if len(hits) < 2:
+        return None
+    hits.sort(key=lambda h: -h[0])
+    return hits[0][1], hits[1][1]
+
+
+def _line_fork_payoff(
+    board: chess.Board, move: chess.Move, line: Optional[Sequence[str]]
+):
+    """A fork in the engine's line, close enough to teach and paid for.
+
+    Returns (fork_san, first_name, second_name, ply) or None.
+
+    Mohit 2026-10-28, on the card for his Nxe4 fork trick: "does it also
+    show arrow?" The arrow was there and unreachable, and so was the lesson.
+    describe_line_steps had already worked the whole thing out -- "d5. It
+    forks the bishop and the knight." -- and stored it in line_steps.best on
+    every card, where it renders only behind ?show_facts=1. The caption,
+    which is what a player reads, said "dxe4 wins the knight on e4": the
+    move that cashes the fork in, never the move that makes it. Memory:
+    train the move that made the weakness, not the one that lost material.
+
+    That text cannot simply be promoted, because the narrator's test is a
+    double attack, not a win. Graded against the engine's own line over 300
+    games, 263 forks by the card's side:
+
+        the line nets >= 100cp for the mover     124 of 263 (47.1%)
+        ...and the forking piece is not capturable   96 (28 forks win the
+            material while the forking piece itself sits en prise, and a
+            player told to fork with a piece that gets taken has learned
+            the wrong move)
+        ...and the fork lands by FORK_PLY_LIMIT      75 (78.1% of 96)
+
+    So 139 of the 263 fork sentences we already compute would be a lesson
+    the board refuses. This returns only the ones it backs.
+
+    Material is counted over the whole stored line, from the mover's side,
+    rather than read off the evaluation, which is clamped.
+    """
+    if not line:
+        return None
+    mover = board.turn
+
+    def material(b: chess.Board) -> int:
+        total = 0
+        for _sq, piece in b.piece_map().items():
+            value = PIECE_VALUE_CP.get(piece.piece_type, 0)
+            total += value if piece.color == mover else -value
+        return total
+
+    start = material(board)
+    walk = board.copy()
+    try:
+        first_san = walk.san(move)
+    except (ValueError, AssertionError):
+        return None
+    walk.push(move)
+
+    # Every fork OUR side reaches inside the teachable window, kept with the
+    # board it happens on so the escape check below is asked of that board
+    # and not of a later one.
+    candidates = []
+    if forked_pair(walk, move.to_square) is not None:
+        candidates.append((0, first_san, move.to_square, walk.copy()))
+    ply = 0
+    for san in line:
+        ply += 1
+        try:
+            step = walk.parse_san(str(san))
+        except (ValueError, AssertionError):
+            break
+        ours = walk.turn == mover
+        pushed_san = str(san)
+        walk.push(step)
+        if (ours and ply <= FORK_PLY_LIMIT
+                and forked_pair(walk, step.to_square) is not None):
+            candidates.append((ply, pushed_san, step.to_square, walk.copy()))
+
+    if not candidates:
+        return None
+    # The line has to pay for it. "It forks the bishop and the knight" is
+    # not a reason when the material never comes.
+    if material(walk) - start < 100:
+        return None
+
+    for ply, san, square, after in candidates:
+        pair = forked_pair(after, square)
+        if pair is None:
+            continue
+        forker = after.piece_at(square)
+        if forker is None:
+            continue
+        guards = after.attackers(mover, square)
+        forker_value = PIECE_VALUE_CP.get(forker.piece_type, 0)
+        survives = True
+        for reply in after.legal_moves:
+            if reply.to_square != square:
+                continue
+            taker = after.piece_at(reply.from_square)
+            if taker is None:
+                continue
+            if (not guards
+                    or PIECE_VALUE_CP.get(taker.piece_type, 0) < forker_value):
+                survives = False
+                break
+        if not survives:
+            continue
+        return (san, pair[0], pair[1], ply)
+    return None
+
+
 def _line_payoff_after_sacrifice(
     board: chess.Board, move: chess.Move, line: Optional[Sequence[str]]
 ):
@@ -10782,6 +10928,20 @@ def _recommended_move_why(
                         return (f"gives up material so {enabling_san} hits the king "
                                 f"and the loose {piece_name} on {square_name}")
                     if enabling_san:
+                        # Mohit's own card. "gives up material, and dxe4 wins
+                        # the knight on e4" is true and names the wrong move:
+                        # dxe4 only collects what d5 earned by hitting the
+                        # bishop and the knight at once. The fork goes first,
+                        # because that is the move he would play again.
+                        _fork = _line_fork_payoff(board, move, line)
+                        if _fork is not None and _fork[0] != enabling_san:
+                            _fsan, _first, _second, _ = _fork
+                            return (
+                                f"gives up material, then {_fsan} hits the "
+                                f"{_first} and the {_second} at once, and "
+                                f"{enabling_san} wins the {piece_name} on "
+                                f"{square_name}"
+                            )
                         return (f"gives up material, and {enabling_san} wins the "
                                 f"{piece_name} on {square_name}")
                     return f"wins the {piece_name} on {square_name} in the line"
@@ -11058,6 +11218,24 @@ def _recommended_move_why(
         if _sw.get("next_push") and _sw.get("pawn_on"):
             return "sets up %s to attack %s pawn on %s" % (
                 _sw["next_push"], _opp, _sw["pawn_on"])
+
+        # 7) A FORK THE LINE REACHES. Last of all, and only where every
+        #    branch above abstained, so no working reason is replaced by
+        #    this one.
+        #
+        #    Measured over 300 games: of the forks _line_fork_payoff backs,
+        #    32 sit on a card whose caption offers no reason at all --
+        #    "Qb8 doesn't change much here. Qd8 would have made things
+        #    harder for your opponent", while Qd4 two plies later hits the
+        #    bishop and the knight at once and wins one of them. A reason
+        #    the board proves beats silence.
+        _fork = _line_fork_payoff(board, move, line)
+        if _fork is not None:
+            _fsan, _first, _second, _fply = _fork
+            if _fply == 0:
+                return f"hits the {_first} and the {_second} at once"
+            return (f"leads to {_fsan}, hitting the {_first} and the "
+                    f"{_second} at once")
     except Exception:
         return None
     return None

@@ -63,6 +63,7 @@ from services.severity import (
     PracticalSeverity,
 )
 from services.caption_facts import (
+    forked_pair,
     PIECE_VALUE_CP,
     LegalMaterialLossCause,
     # VerifiedLineCause was used at the isinstance check below but never
@@ -7154,16 +7155,16 @@ def describe_line_steps(fen_before, first_san, line, max_steps=8):
             text += " Check."
 
         # A fork is the thing a player most often cannot see, so it is named.
-        hit = []
-        for sq in after.attacks(move.to_square):
-            target = after.piece_at(sq)
-            if (target and target.color != piece.color
-                    and _STORY_PIECE_VALUES.get(target.piece_type, 0) >= 3):
-                hit.append(target.piece_type)
-        if len(hit) >= 2:
-            names = [chess.piece_name(t) for t in sorted(
-                hit, key=lambda t: _STORY_PIECE_VALUES.get(t, 0), reverse=True)[:2]]
-            text += f" It forks the {names[0]} and the {names[1]}."
+        #
+        # The test lives in caption_facts.forked_pair, because the why-builder
+        # asks the same question of the same line and the two answers must not
+        # be able to disagree. What differs is the bar for SAYING it: here the
+        # sentence is a description of the line, so a double attack is enough;
+        # a caption claims a reason, so _line_fork_payoff also makes the line
+        # pay for it (memory: single source of truth).
+        _pair = forked_pair(after, move.to_square)
+        if _pair is not None:
+            text += f" It forks the {_pair[0]} and the {_pair[1]}."
 
         steps.append({
             "san": str(san),

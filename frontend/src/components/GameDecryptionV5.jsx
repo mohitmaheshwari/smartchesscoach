@@ -13,6 +13,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } fr
 import { motion } from "framer-motion";
 import { resolveBadgeTier } from "../lib/moveBadge";
 import { shouldTranscribeLine } from "../lib/coachLine";
+import { FAULTED_SEVERITIES, namesMoveInText } from "../lib/moveSeverity";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import LichessBoard from "@/components/LichessBoard";
@@ -2288,7 +2289,34 @@ const MoveCoachingCardV5 = ({
   const wasAcked = move.concept_id && acknowledgedConcepts.has(move.concept_id);
   
   // Show thought prompt for user mistakes
-  const isMistake = isUser && (severity === 'blunder' || severity === 'mistake' || severity === 'inaccuracy');
+  // The engine grades five tiers, not three. backend/services/severity.py:73
+  // is the list -- good / inaccuracy / mistake / serious / blunder -- and this
+  // card tested for three words inline, so `serious` matched nothing: 54 cards
+  // over 60 of Mohit's games, median 314cp lost, the second-worst tier there
+  // is, treated here as if the move had been fine.
+  const isMistake = isUser && FAULTED_SEVERITIES.has(severity);
+
+  // Can the board show the move the caption names?
+  //
+  // Mohit 2026-10-28, on his Nxe4 card: "does it also show arrow?" It did not.
+  // The card carried best_move_arrows -- f6->e4, with the FEN they are true of
+  // -- and the only thing that draws them is the "See on board" button below,
+  // which hung off isMistake. That card is graded `good` (33cp) and its caption
+  // still reads "Though Nxe4 was a bit stronger, it gives up material, and
+  // dxe4 wins the knight on e4", so the player read about a move the board
+  // refused to show, and the arrow we computed and stored reached nobody.
+  //
+  // The gate is the caption, not the grade: if the text names the better move,
+  // the board can show it. That keeps the button tied to something the player
+  // just read -- it does NOT appear on the 626 cards per 60 games whose text
+  // names no alternative -- and adds 207 over 60 games, about three a game.
+  const bestSanOnCard = move.best_move_san || move.best_move || null;
+  const captionNamesBestMove =
+    isUser &&
+    !move.is_best_move &&
+    !!bestSanOnCard &&
+    namesMoveInText(move.caption, bestSanOnCard);
+  const canShowBestMove = !!bestSanOnCard && (isMistake || captionNamesBestMove);
   const hasThought = userThought?.saved;
 
   // Determine card style based on move type
@@ -2822,7 +2850,7 @@ const MoveCoachingCardV5 = ({
         {false && patternContext?.is_recurring && isMistake && (<div />)}
 
         {/* ─── STOCKFISH BRANCHING (what if best move?) ────────── */}
-        {isMistake && (move.best_move_san || move.best_move) && (
+        {canShowBestMove && (
           <button
             onClick={() => {
               // Play the best move from fen_before, then PV continuation
