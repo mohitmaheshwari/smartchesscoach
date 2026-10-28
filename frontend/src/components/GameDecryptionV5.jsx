@@ -1129,14 +1129,19 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
   // One place, so every way of reaching a card behaves the same -- arrow
   // keys, the move list, the eval graph, the first render.
+  //
+  // The gate is tactic_trigger, computed on the board in the backend: the
+  // engine's move is a bigger piece taking a SMALLER DEFENDED one. Mohit
+  // 2026-10-28, after a looser rule fired on 7.8 cards a game: "if you show
+  // it on all moves, it might just irritate user". His rule is the
+  // contradiction -- a capture that loses material on the square, which the
+  // engine calls best anyway, because something is coming. An undefended
+  // capture is not it: "Qxa1 ... this is exchanging queen, no tactic".
   useEffect(() => {
     stopLinePlayback();
     const card = decryptionData?.[currentMoveIndex];
     if (!card || !card.is_user_move || card.is_best_move) return;
-    const best = card.best_move_san || card.best_move;
-    // Only where the card is talking about that move. A board that replays
-    // a line the text never mentions is noise.
-    if (!best || !namesMoveInText(card.caption, best)) return;
+    if (!card.tactic_trigger) return;
     playBestLine(card);
     return stopLinePlayback;
   }, [currentMoveIndex, decryptionData, playBestLine, stopLinePlayback]);

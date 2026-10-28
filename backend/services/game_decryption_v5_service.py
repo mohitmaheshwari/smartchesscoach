@@ -91,6 +91,67 @@ logger = logging.getLogger(__name__)
 # squeezed for space' (fb_68adf27b28c1, fb_2ad6a3fb208e). Bumping forces regen so existing
 # stored decryption_v5_data picks up both fixes on next read.
 
+def _v5_tactic_trigger(fen_before, best_san):
+    """Is the engine's move a bigger piece taking a SMALLER DEFENDED one?
+
+    Mohit's rule, in his words: "a bigger piece is taking up a smaller
+    defended piece and stockfish suggests it really as a top move". The
+    contradiction is the whole signal. A capture like that loses material on
+    the square -- that is what "defended by something cheaper" means -- so
+    when the engine still calls it best, something is coming that the player
+    cannot see. Nxe4 is the shape: a knight takes a pawn the c3 knight
+    guards, and the point is the fork two plies later.
+
+    An UNDEFENDED capture is not this. "Qxa1 -- a1 has no defender, so you
+    win a free rook" went into a review list under a looser version of this
+    rule and he threw it straight back: "this is exchanging queen, no
+    tactic". Winning loose material teaches nothing about tactics; it is
+    just counting.
+
+    Returns {attacker, victim, square, defenders} or None. En passant
+    resolves to the square the captured pawn stands on, not the one the
+    capturing pawn lands on.
+    """
+    if not fen_before or not best_san:
+        return None
+    try:
+        import chess as _chess
+        board = _chess.Board(str(fen_before))
+        move = board.parse_san(str(best_san))
+    except Exception:
+        return None
+    if not board.is_capture(move):
+        return None
+    attacker = board.piece_at(move.from_square)
+    square = move.to_square
+    if board.is_en_passant(move):
+        square += -8 if board.turn == _chess.WHITE else 8
+    victim = board.piece_at(square)
+    if attacker is None or victim is None:
+        return None
+    try:
+        from services.caption_facts import PIECE_VALUE_CP as _V
+    except Exception:
+        return None
+    # Strictly smaller. A knight taking a bishop is an even trade, not a
+    # paradox -- an earlier draft used "no greater than" and swept in 181
+    # pawn-takes-pawn and 108 bishop-takes-knight.
+    if _V.get(victim.piece_type, 0) >= _V.get(attacker.piece_type, 0):
+        return None
+    # Guards of the LANDING square, minus the victim itself, which cannot
+    # defend the square it is standing on.
+    defenders = [d for d in board.attackers(not board.turn, move.to_square)
+                 if d != square]
+    if not defenders:
+        return None
+    return {
+        "attacker": _chess.piece_name(attacker.piece_type),
+        "victim": _chess.piece_name(victim.piece_type),
+        "square": _chess.square_name(square),
+        "defenders": [_chess.square_name(d) for d in defenders],
+    }
+
+
 def _v5_line_steps(fen_before, played_san, best_san, pv_played, pv_best):
     """Both engine lines, narrated. Never raises: a card without steps is a
     card that renders the way it did yesterday."""
@@ -111,10 +172,49 @@ def _v5_line_steps(fen_before, played_san, best_san, pv_played, pv_best):
                                               list(pv_best or ()))
     except Exception:
         out["best"] = []
+
+    # The ARROWS answer to the same proof the sentence does.
+    #
+    # describe_line_steps marks a fork wherever a piece hits two men worth a
+    # knight, which is the right bar for describing a line and the wrong one
+    # for drawing a red arrow at a player. Measured over 61 games: 58 cards
+    # would have drawn fork arrows and 38 of them -- 66% -- are forks the
+    # caption refuses to claim, because the line never pays, the forking
+    # piece can just be taken, or it lands too deep to teach. One of them is
+    # "Rf7: It forks the knight and the knight" on a line that wins nothing.
+    #
+    # So the squares survive only on the ply _line_fork_payoff backs. The
+    # sentence in the step keeps its wording, because that text is the
+    # engine-paths panel's and is diagnostic; what a player sees drawn on a
+    # board now needs the same evidence as what a caption says.
+    try:
+        from services.caption_facts import _line_fork_payoff
+        import chess as _chess
+
+        backed_ply = None
+        if best_san and pv_best and fen_before:
+            _b = _chess.Board(str(fen_before))
+            _proof = _line_fork_payoff(_b, _b.parse_san(str(best_san)),
+                                       [str(x) for x in pv_best])
+            if _proof is not None:
+                backed_ply = _proof[3]
+        for _key, _steps in out.items():
+            for _i, _step in enumerate(_steps or []):
+                if _key == "best" and _i == backed_ply:
+                    continue
+                if _step.get("fork_targets"):
+                    _step["fork_targets"] = []
+    except Exception:
+        # Right-or-silent: if the proof cannot be run, no fork is drawn.
+        for _steps in out.values():
+            for _step in _steps or []:
+                if isinstance(_step, dict) and _step.get("fork_targets"):
+                    _step["fork_targets"] = []
     return out or None
 
 
-V5_COACHING_VERSION = 236  # v236 (2026-10-28): the board draws the fork; the "what if" button is gone. Mohit on what v235 shipped: "ik clearly asked you to build arrow, but you didn't do that, i dn't want a what if, obvoiulsy anybody can see that directly without you having that button". He is right on both counts. v235 widened the gate on a BUTTON -- a click that replayed the move and left the board somewhere else -- on a card whose move names are already clickable, so it was redundant as well as not an arrow. The button is removed. The real obstacle is geometric and is why I drifted: the card sits on fen_after, and the fork the caption names happens three plies later, so on the position he is looking at the pawn is still on d7 and an arrow from d5 would be drawn from an empty square -- the same wrong-board fault v234 fixed for the text. He chose, from three options, to have the board play the line itself. So on every card whose caption names a better move, the board replays that line a ply at a time -- ours amber then blue, theirs grey, the square a piece died on painted red -- draws the fork arrows on the frame the fork is true of, holds, and returns to his own position. It stops at the fork, or failing that at the deepest ply the caption names, because playing all eight says more than the card does and takes ten seconds to say it. forked_pair now returns the SQUARES with the names, and describe_line_steps puts them on the step as fork_targets, so the arrows and the sentence are one fact computed once on the board -- the frontend recomputes no chess. The bump is what puts fork_targets on the stored cards. Both searches look only at our own plies, which a test caught: in his own line "Nxe4" is both his move and their recapture, so a search over every ply stopped on theirs by a string collision and played a ply further than the card talks about -- the same two-plies-one-SAN trap already noted in move_bound_captures. A fork the opponent gets in our line is not drawn either. The frame builder lives in frontend/src/lib/bestLineFrames.js with 12 tests over his real card, including that the fork arrows appear on the d5 ply and on no earlier one. Subset regression 15 failed / 609 passed / 4 errors, failing ids identical to baseline. Still unfixed and unrelated: the 60-word cap dropped a whole 'Lesson:' sentence from a distilled:opp_luft card during the v235 deploy, and game_ec4 m15 prints its payoff sentence twice.
+V5_COACHING_VERSION = 237  # v237 (2026-10-28): the board animates on a contradiction, not on every card. Mohit on the v236 rule, which fired wherever the caption named a better move: "if you show it on all moves, it might just irritate user". Measured, he is right -- 481 cards over 62 games, 7.8 a game, 18 of 61 cards in his own game, and 72.6% of them one ply long, which is a board that lurches for no reason. His rule is narrower and better: "a bigger piece is taking up a smaller defended piece and stockfish suggests it really as a top move". That capture loses material on the square, so the engine calling it best IS the signal; Nxe4 is the shape, a knight taking a pawn the c3 knight guards. _v5_tactic_trigger computes it on the board and ships as tactic_trigger on the card, and the review page gates on nothing else. 87 cards over 201 games, 0.43 a game, in 55 of 201 games. The negative control is his too: a first pass used "smaller piece" without the defended test and put "Qxa1 -- a1 has no defender, so you win a free rook" in front of him, which he rejected -- "this is exchanging queen, no tactic". Winning loose material is counting, not tactics. Known from the same measurement and NOT addressed here: only 14 of the 87 have a fork to draw, 44 of 87 are lines that never bring the material back, and the same recommendation repeats on consecutive cards when the player keeps missing it -- Nxh3+ fires at moves 19, 20 and 21 of one game, so the same line animates three times. All three are his call after he reviews on real games. See tests/test_tactic_trigger.py.
+# v236 (2026-10-28): the board draws the fork; the "what if" button is gone. Mohit on what v235 shipped: "ik clearly asked you to build arrow, but you didn't do that, i dn't want a what if, obvoiulsy anybody can see that directly without you having that button". He is right on both counts. v235 widened the gate on a BUTTON -- a click that replayed the move and left the board somewhere else -- on a card whose move names are already clickable, so it was redundant as well as not an arrow. The button is removed. The real obstacle is geometric and is why I drifted: the card sits on fen_after, and the fork the caption names happens three plies later, so on the position he is looking at the pawn is still on d7 and an arrow from d5 would be drawn from an empty square -- the same wrong-board fault v234 fixed for the text. He chose, from three options, to have the board play the line itself. So on every card whose caption names a better move, the board replays that line a ply at a time -- ours amber then blue, theirs grey, the square a piece died on painted red -- draws the fork arrows on the frame the fork is true of, holds, and returns to his own position. It stops at the fork, or failing that at the deepest ply the caption names, because playing all eight says more than the card does and takes ten seconds to say it. forked_pair now returns the SQUARES with the names, and describe_line_steps puts them on the step as fork_targets, so the arrows and the sentence are one fact computed once on the board -- the frontend recomputes no chess. The bump is what puts fork_targets on the stored cards. Both searches look only at our own plies, which a test caught: in his own line "Nxe4" is both his move and their recapture, so a search over every ply stopped on theirs by a string collision and played a ply further than the card talks about -- the same two-plies-one-SAN trap already noted in move_bound_captures. A fork the opponent gets in our line is not drawn either. The frame builder lives in frontend/src/lib/bestLineFrames.js with 12 tests over his real card, including that the fork arrows appear on the d5 ply and on no earlier one. Subset regression 15 failed / 609 passed / 4 errors, failing ids identical to baseline. Still unfixed and unrelated: the 60-word cap dropped a whole 'Lesson:' sentence from a distilled:opp_luft card during the v235 deploy, and game_ec4 m15 prints its payoff sentence twice.
 # v235 (2026-10-28): the caption names the move that makes the fork, not the one that collects it. Mohit, on the card v234 had just repaired: "does it also show arrow?" It did not, and the reason was worse than a missing arrow. The card stored best_move_arrows (f6->e4, with the FEN they are true of) and the only thing that draws them is the "See on board" button, gated on isMistake -- which listed blunder/mistake/inaccuracy while the engine grades FIVE tiers (severity.py:73). His card is graded `good` (33cp), so the button never rendered and the arrow we computed and stored reached nobody; `serious` matched nothing either, 54 cards per 60 games at a median 314cp lost. The gate is now the caption: if the text names the better move, the board can show it (+207 buttons per 60 games, all on cards whose text names an alternative; the 626 that name none stay silent). The helpers moved to frontend/src/lib/moveSeverity.js so they can be tested without standing up the board and the router. Second half: describe_line_steps had ALREADY worked his lesson out -- "d5. It forks the bishop and the knight." -- and stored it in line_steps.best on every card, where it renders only behind ?show_facts=1. The caption said "dxe4 wins the knight on e4": the move that cashes the fork in, never the move that makes it. That text could not be promoted as it stands, because the narrator's test is a double attack, not a win: graded against the engine's own lines over 300 games, of 263 forks by the card's side only 124 (47.1%) end with the mover up 100cp, 96 of those keep the forking piece (28 fork while the forker sits en prise), and 75 land by ply 2 -- ply 0 is 36 and ply 2 is 39, while ply 4 and 6 are 21 cards needing the opponent to play on for three more turns. So 188 of the 263 sentences we already compute would be a lesson the board refuses, and _line_fork_payoff returns only the ones it backs. The fork test itself now lives once, in caption_facts.forked_pair, called by the narrator and the why-builder, because the same question asked of the same line must not get two answers. Three instruments failed before these numbers were trustworthy and each failed silently: the first walked line_steps, which caps at 8 plies, and so graded Mohit's own card FLAT one ply before exd4 won the pawn; the second joined cards to move_evaluations on fen_before, missed, and graded forks on squares the walk never reached; the third is the one whose control passes. Measured on the cards: 4 captions changed of 3,895, every one verify pass->pass, no rule moved, 23 recoveries before and after, 0 over the word cap, and all four hand-checked on their own boards (+100, +600, +600, +100cp). The last-resort branch, which speaks only where every other branch abstained, adds 2 reasons per 60 games -- not the 32 I first estimated: 20 of 22 available fork facts already had a why, and a card-level regex had miscounted them as silent. Known and unfixed: game_ec4 m15 prints its payoff sentence twice ("...wins the rook on f8. it wins the rook on f8."), which predates this change. Subset regression 15 failed / 608 passed / 4 errors against 15 / 596 / 4 on a clean HEAD worktree, failing ids identical. See tests/test_line_fork_payoff.py and frontend/src/lib/moveSeverity.test.js.
 # v234 (2026-10-28): a claim about the better move is checked on the board it is made from. Mohit asked what e5c65b26 had bought him, since his Nxe4 card still read "it moves into the middle". Measuring that honestly found a different bug, and it was live: _verify_and_recover_caption audits the caption against fen_after -- what the player sees -- which is right for "your queen on a7" and wrong the moment the played move captured on the same square the better move would have, because the player's own piece is standing on the target by then. "Ndxf2 was a small mistake. Ngxf2 was better -- it takes the pawn on f2" was rejected as "f2 has a knight, not a pawn", and Ngxf2 does take the pawn on f2. Measured over 60 games on the stored rows as they ship: 23 rejections, 4 of them this shape, every one a free-capture lesson replaced by a bare severity line. The proof is ply-bound and lives once in narrator_claim_verifier, because the same claim is judged at THREE gates -- content_correctness_audit here, narrator verify_caption from the VERIFY_SOFTENED gate (called WITHOUT strict_v2, so the hatch did not exist there at all), and _stage4_verify(strict_v2=True). Fixing only the first moved collapses 24 -> 20 while the sentence still reached no card. The negative control is why any of it is safe: the obvious fix, reusing _stored_capture_claims, cleared "bxc6+ was better -- it takes the pawn on c6", which is FALSE -- bxc6+ is en passant, it takes on c5 and only LANDS on c6, and the pair had reached that allow-set from a later Nxc6. A claim is checked against the ply it belongs to. move_bound_captures keys on (san, piece, square) so the fork trick also lands: "dxe4 wins the knight on e4", where Nxe4 takes a PAWN and the knight is the one the recapture puts there. _check_free is scoped too, because the first version of the fix made a card WORSE: clearing the square claim let a caption reach gate 3, where the closing principle "look for a free piece to take" was read as a claim that f5 is free. Measured on the cards rather than on the audit calls -- the first instrument recorded the verdict upstream of the clearing step and reported "unchanged" for a fix the tests prove works. 10 captions changed over 3,804, about 7 better, 2 lateral, 1 thinner (Bh5, where the softened floor had the better sentence). 30 tests, 6 negative controls. Limits: move_bound_captures admits the same SAN at two plies, so "Nxe4 takes the knight on e4" would clear although the user's Nxe4 took the pawn; the strict_v2 union is left alone. The bump is what re-renders them. See tests/test_best_move_capture_claim_board.py.
 # v233 (2026-10-24): plain English, for a ten-year-old. Mohit on the rendered card "Opponent's e6 is an inaccuracy. Play h4 - it heads for h5, hitting their pawn on g6. They missed Bg7 - it is what their pawn step was for": "very very very difficult english, it needs to be simplest like a 10 year old can understand". He was right and most of it was mine. Measured first: "undefended" appears in 51% of stored LLM captions and "material" in 16%, and 22 of R12_blunder.json's 114 authored variants used a word a child does not own -- counted on VISIBLE text, after stripping {placeholders}, because an earlier scan matched "tempo" inside {attack_with_tempo_piece} and inflated the list to 28. Changed: the 4 severity_phrases ("is an inaccuracy" -> "was a small mistake"), the 4 opponent variants ("Opponent's e6" -> "Your opponent played e6. That..."), 22 variants rewritten ("undefended" -> "nothing is guarding it", "recaptures" -> "takes back", "loses material" -> "gives up more than it wins"), my own three cascade phrases and three lessons, and llm_caption now bans those words outright. `_extract_caption_severity_word` accepts BOTH wordings, because it parses text already stored and the Lab badge derives its colour from it. The card now reads "Your opponent played e6. That was a small mistake. Play h4 - it sets up h5 to attack their pawn on g6. They missed Bg7 - it is why their pawn went to g6." Zero regressions: 14 failures before and after, identical set. The bump is what re-renders them.
@@ -5088,6 +5188,9 @@ async def generate_game_decryption_v5(
                     fen_before, move_san, best_move,
                     pv_after_played, pv_after_best,
                 ),
+                # Whether this card is one the board should animate at all.
+                # Mohit's rule, and the only thing the review page gates on.
+                "tactic_trigger": _v5_tactic_trigger(fen_before, best_move),
                 "caption_highlight_squares": caption_payload["highlight_squares"],
                 # The "what if I played X?" picture, with the FEN it is true
                 # of. The review page draws it only on that board.
