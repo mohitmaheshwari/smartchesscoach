@@ -32,8 +32,10 @@ import chess
 from services.punishment_resolver import (
     Punishment,
     _line_material_gain,
+    agent_owner,
     resolve_missed,
     resolve_received,
+    victim_owner,
 )
 from services.severity import SEVERITY_THRESHOLDS
 
@@ -112,11 +114,18 @@ MISMATCH_MIN_CP_LOSS = 1000
 MISMATCH_MIN_RATIO = 0.25
 
 
-def _phrase(p: Punishment, played_san: str) -> Optional[str]:
+def _phrase(p: Punishment, played_san: str,
+            mover_is_user: bool = True) -> Optional[str]:
     """One plain sentence. Short words, one idea, no numbers.
 
     Returns None for a mechanism we have no honest sentence for, which
     the caller treats exactly like no punishment at all.
+
+    `mover_is_user` says whose move is being explained, and every pronoun
+    below comes from it. Without it this function read "your" off
+    `direction` alone, which is right for the player's own moves and wrong
+    for every one of the opponent's -- 20 of 20 in a 320-position audit. See
+    punishment_resolver.victim_owner for the rule and the measurement.
     """
     # No silent fallback to the word "piece". If the resolver could not
     # name what was lost, we say "material" -- vaguer, but not a word
@@ -141,27 +150,38 @@ def _phrase(p: Punishment, played_san: str) -> Optional[str]:
             return f"{count} of {whose} {rest}"
         return f"{whose} {named}"
 
+    # Whose man is punished, and whose man does the punishing. Read from the
+    # direction AND from whose move it is -- never from the direction alone.
+    victim_whose = victim_owner(p.direction, mover_is_user)
+    agent_whose = agent_owner(p.direction, mover_is_user)
+    # The side that cannot save both pieces of a fork is the victim's side.
+    cannot_save = "You" if victim_whose == "your" else "They"
+    where = f" on {p.victim_square}" if p.victim_square else ""
+
     if p.direction == "received":
         if p.mechanism == "MATE":
             return f"After {played_san}, {agent} leads to mate."
         if p.mechanism == "WINS_MATERIAL":
             if named:
-                return f"After {played_san}, {agent} wins {_owned('your')}."
+                return f"After {played_san}, {agent} wins {_owned(victim_whose)}."
             return f"After {played_san}, {agent} wins material."
         if p.mechanism == "FORK":
             return (f"After {played_san}, {agent} attacks two things at once. "
-                    f"You cannot save both.")
+                    f"{cannot_save} cannot save both.")
         if p.mechanism == "TRAPPED":
-            where = f" on {p.victim_square}" if p.victim_square else ""
-            return (f"After {played_san}, your {piece}{where} has no safe "
-                    f"square left.")
+            return (f"After {played_san}, {victim_whose} {piece}{where} has no "
+                    f"safe square left.")
         if p.mechanism == "PROMOTES":
-            return (f"After {played_san}, their pawn runs through and "
+            # The pawn that promotes belongs to the AGENT, not the victim --
+            # the one mechanism where a single owner would have inverted the
+            # sentence, which is why agent_owner exists separately.
+            return (f"After {played_san}, {agent_whose} pawn runs through and "
                     f"becomes a queen.")
         if p.mechanism == "FORCES_RETREAT":
             back = (" straight back to where it came from"
                     if p.returns_home else "")
-            return f"After {played_san}, {agent} chases your {piece}{back}."
+            return (f"After {played_san}, {agent} chases {victim_whose} "
+                    f"{piece}{back}.")
         return None
 
     # direction == "missed": what the better move would have collected.
@@ -169,15 +189,17 @@ def _phrase(p: Punishment, played_san: str) -> Optional[str]:
         return f"{agent} leads to mate."
     if p.mechanism == "WINS_MATERIAL":
         if named:
-            return f"{agent} wins {_owned('their')}."
+            return f"{agent} wins {_owned(victim_whose)}."
         return f"{agent} wins material."
     if p.mechanism == "FORK":
-        return f"{agent} attacks two things at once. They cannot save both."
+        return (f"{agent} attacks two things at once. "
+                f"{cannot_save} cannot save both.")
     if p.mechanism == "TRAPPED":
-        where = f" on {p.victim_square}" if p.victim_square else ""
-        return f"{agent} leaves their {piece}{where} with no safe square."
+        return (f"{agent} leaves {victim_whose} {piece}{where} with no safe "
+                f"square.")
     if p.mechanism == "PROMOTES":
-        return f"{agent} lets your pawn run through and become a queen."
+        return (f"{agent} lets {agent_whose} pawn run through and become "
+                f"a queen.")
     if p.mechanism == "FORCES_RETREAT":
         # "back" only when it really goes back, which is what the `received`
         # branch above already did. This one asserted the direction on every
@@ -185,7 +207,7 @@ def _phrase(p: Punishment, played_san: str) -> Optional[str]:
         # home, while 45.9% moved FORWARD. The knight in Mohit's position went
         # c3 -> e4, to the centre, and the card called it driven back.
         back = " back" if p.returns_home else ""
-        return f"{agent} chases their {piece}{back}."
+        return f"{agent} chases {victim_whose} {piece}{back}."
     return None
 
 
@@ -307,11 +329,19 @@ def explain(
     pv_after_played: Sequence[str],
     candidates: Sequence[Dict[str, Any]],
     cp_loss: Optional[int] = None,
+    mover_is_user: bool = True,
 ) -> Optional[Dict[str, Any]]:
     """Why the played move was bad, or None if we cannot honestly say.
 
     `candidates` is stockfish_service.get_candidate_lines() output for the
     position BEFORE the played move -- best first, each with line_san.
+
+    `mover_is_user` says whose move is being explained. It is an ARGUMENT and
+    never inferred: both sides share a move number and both may have played
+    "O-O", so guessing it from the position would put the wrong pronouns on
+    exactly the cards where it matters. The endpoint already knows, from its
+    `opponent` flag. Default True keeps the behaviour that was correct -- the
+    player's own moves -- and fixes the half that was not.
 
     Order of attack:
       1. What their reply actually collects. This is the most direct
@@ -329,7 +359,7 @@ def explain(
     #    walks lines; this does not need to.
     _mate = _mate_from_score(candidates, played_san, pv_after_played)
     if _mate is not None:
-        _mtext = _phrase(_mate, played_san)
+        _mtext = _phrase(_mate, played_san, mover_is_user)
         if _mtext:
             _mline = ([played_san, _mate.agent_move] + list(_mate.line)
                       if _mate.direction == "received"
@@ -345,6 +375,12 @@ def explain(
                 "candidate_rank": None,
                 "eval_gap_cp": 0,
                 "payoff_cp": _mate.payoff_cp,
+                # The resolver's own finding, for a phrasing layer that wants
+                # to say more than _phrase()'s template. `text` above stays
+                # the deterministic sentence and remains what ships unless a
+                # caller replaces it. Additive: nothing reads this yet except
+                # services/why_words.py.
+                "punishment": _mate.as_dict(),
             }
 
     # 1. The punishment we took.
@@ -352,7 +388,7 @@ def explain(
     if got is not None and not _explains_the_loss(got, cp_loss):
         got = None          # names a scrap on a catastrophe; say nothing
     if got is not None:
-        text = _phrase(got, played_san)
+        text = _phrase(got, played_san, mover_is_user)
         if text and got.mechanism == "FORCES_RETREAT" and \
                 not got.returns_home:
             # Name what the retreat COSTS, not just that it happened. A
@@ -385,6 +421,7 @@ def explain(
                 "candidate_rank": None,
                 "eval_gap_cp": 0,
                 "payoff_cp": got.payoff_cp,
+                "punishment": got.as_dict(),
             }
 
     # 2. The opportunity we missed -- but only credit the better move with
@@ -416,7 +453,7 @@ def explain(
             continue
         if not _explains_the_loss(missed, cp_loss):
             continue
-        text = _phrase(missed, played_san)
+        text = _phrase(missed, played_san, mover_is_user)
         if not text:
             continue
         return {
@@ -433,6 +470,7 @@ def explain(
             "candidate_rank": rank,
             "eval_gap_cp": gap,
             "payoff_cp": missed.payoff_cp,
+            "punishment": missed.as_dict(),
         }
 
     # 3. Nothing we can stand behind.

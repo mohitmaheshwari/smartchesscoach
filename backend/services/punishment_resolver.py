@@ -97,6 +97,43 @@ class Punishment:
         }
 
 
+def victim_owner(direction: str, mover_is_user: bool = True) -> str:
+    """"your" or "their", for the man the punishment happens TO.
+
+    `direction` says which side the punishment runs, relative to the move:
+
+        received  the reply punishes the move that was played, so the victim
+                  belongs to the MOVER and the agent to their opponent
+        missed    the better move would have collected it, so the victim
+                  belongs to the mover's OPPONENT and the agent to the mover
+
+    Neither says who is READING, and that is the bug this exists to remove.
+    The why button answers the opponent's moves too (routes/coach.py, the
+    `opponent` flag), and `_phrase()` wrote "your {piece}" for every
+    `received` punishment whatever the side. Audited over 320 positions: of
+    the 44 answers carrying a victim square, all 24 on the player's own moves
+    were right and all 20 on the opponent's were wrong -- "After Bxh1, your
+    queen on d7 has no safe square left" about the opponent's own queen.
+
+    Verified against the board rather than against the template: the victim's
+    square comes from the resolver and the colour of the man standing there
+    from python-chess.
+    """
+    received = (direction or "") == "received"
+    return "your" if received == bool(mover_is_user) else "their"
+
+
+def agent_owner(direction: str, mover_is_user: bool = True) -> str:
+    """"your" or "their", for the man that DOES the damage.
+
+    Always the other side from the victim. Kept as its own function because
+    one mechanism needs it the other way round: on PROMOTES the thing named is
+    the agent's pawn, not the victim, so a single owner would have inverted
+    exactly that sentence.
+    """
+    return "their" if victim_owner(direction, mover_is_user) == "your" else "your"
+
+
 def _material(board: chess.Board, colour: bool) -> int:
     return sum(PIECE_VALUE_CP.get(p.piece_type, 0)
                for p in board.piece_map().values() if p.color == colour)
