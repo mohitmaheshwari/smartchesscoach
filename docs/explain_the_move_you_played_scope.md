@@ -123,6 +123,67 @@ That is step zero of this work and it needs no new code.
 
 ---
 
+## Re-measured 2026-10-29 (second pass), and it changed the plan
+
+The first split used a predicate that lived in a command line. Written down
+as `scratchpad/classify_v2.py` and re-run over 619 faulted cards from the
+same 25 games, two things changed.
+
+**The first predicate was wrong.** It checked whether a recommended move was
+legal in `fen_before`. On an opponent card the recommendation is the *user's
+reply*, legal in `fen_after`, so every "Your opponent played Bg3. That was a
+mistake. Play f5." scored as saying nothing — which made their blunders look
+like the least-explained moves in the game. Same wrong-board class as the
+other four instrument bugs this week.
+
+**Three buckets could not separate the two whys**, and that separation IS
+the complaint:
+
+| the card says... | cards | share |
+|---|---|---|
+| **fault** — what the played move did or allowed | 93 | **15%** |
+| opportunity — why the recommended move is good | 173 | 28% |
+| recommend — names a move, no reason at all | 204 | 33% |
+| nothing | 142 | 23% |
+
+So the product does explain things; it mostly explains *the other move*.
+61% of faulted cards either name a move with no reason or say nothing.
+
+**One rule owns the surface.** `R12_blunder` produces **406 of 619 cards
+(66%)**, and splits 13% fault / 37% opportunity / 43% recommend / 7%
+nothing. Any change here is one template, not twenty.
+
+**And `facts:*` captions are a fifth category.** "Bxe6 takes your bishop,
+but your queen and your pawn can take back — an even trade" describes what
+their move did and never says why it was an inaccuracy. It reads approvingly
+of a move the engine docks. Describing is not faulting.
+
+---
+
+## Step zero changed: stop grading non-mistakes as mistakes
+
+The negative control every candidate predicate must pass — *fires on the
+fault, stays quiet on the engine's own move* — was never pointed at the
+severity grade itself. Pointing it there:
+
+- **36 of 619 faulted cards fault a move equal to the stored `best_move`,
+  and a fresh depth-18 Stockfish confirms 30 of them ARE the top move.**
+  Verified by re-running the engine on each card's own FEN
+  (`scratchpad/verify_engine_move.py`), not by trusting a stored field.
+- The captions say so under a fault grade: *"Nc6 is the best move in this
+  position."* → `you inaccuracy`. *"Qh1#. Checkmate."* → `you blunder`,
+  cp_loss 0, played move identical to best.
+- Of 328 inaccuracy cards, 32 (9.8%) are the engine's own move and **102
+  (31%) sit at or below 39cp** — at or under the canonical 30cp floor, and
+  inside the noise of a difference between two searches.
+
+This reorders the work. Mining explanations for the inaccuracy band before
+gating the grade would hand agents positions where the move was fine and ask
+them why it was bad — which is how a mining run produces fiction. Subtract
+the non-mistakes first; then the residue is worth explaining.
+
+---
+
 ## What this will be
 
 For a faulted move whose punishment is quiet, the card says what the quiet
