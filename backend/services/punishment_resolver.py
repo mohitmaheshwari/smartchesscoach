@@ -187,9 +187,24 @@ def _must_move(board: chess.Board, square: int, owner: bool) -> bool:
     defenders = board.attackers(owner, square)
     if len(attackers) > len(defenders):
         return True
-    cheapest = min(PIECE_VALUE_CP.get(board.piece_at(s).piece_type, 0)
-                   for s in attackers if board.piece_at(s) is not None)
-    return cheapest < PIECE_VALUE_CP.get(piece.piece_type, 0)
+    # A KING is not the cheapest attacker -- it is usually no attacker at all.
+    # PIECE_VALUE_CP[KING] is 0 ("no exchange value; SEE caps before king
+    # capture", caption_facts.py:121), which is right for SEE and wrong here:
+    # min() then returns 0, and 0 < any piece value, so EVERY man a king stands
+    # next to was declared obliged to move. A king can only take an UNDEFENDED
+    # man, so on a defended one its capture is illegal and chases nothing.
+    #
+    # Measured on a real line: after Re6 Qxf5 gxf5 Kf7, _must_move said the rook
+    # on e6 must move because the king "attacks" it, while Kxe6 is illegal --
+    # the rook is defended twice. FORCES_RETREAT then claims they chase a rook
+    # that nobody can touch.
+    _cheap = [PIECE_VALUE_CP.get(board.piece_at(s).piece_type, 0)
+              for s in attackers
+              if board.piece_at(s) is not None
+              and not (board.piece_at(s).piece_type == chess.KING and defenders)]
+    if not _cheap:
+        return False
+    return min(_cheap) < PIECE_VALUE_CP.get(piece.piece_type, 0)
 
 
 def _safe_squares(board: chess.Board, square: int, owner: bool) -> List[chess.Move]:

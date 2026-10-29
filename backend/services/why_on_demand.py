@@ -59,6 +59,26 @@ CLOSENESS_CP = 50
 # your knight" captions to fix 5 bad ones, measured on 108 answers.
 MATERIAL_MECHANISMS = ("WINS_MATERIAL", "FORK", "TRAPPED")
 
+# Mate arrives in the SCORE, and the line walk threw it away.
+#
+# get_candidate_lines reports every eval through score(mate_score=100000), so a
+# forced mate comes back as 100000 minus its distance. _consequences looks for
+# mate by replaying `line[:_LINE_PLY]` instead -- six plies -- so a mate in nine
+# moves is eighteen plies away and invisible, and the engine's own certainty is
+# discarded in favour of a truncated replay.
+#
+# Measured on 320 positions: 4 carry a mate score and the button is silent on
+# all 4, while 0 of the 242 it CAN explain carry one. A mate score predicts
+# silence perfectly. Three of the four are stored at cp_loss 8640-9148, so these
+# are not marginal positions -- they are the worst moves in the sample, and the
+# one answer we are certain of is the one we drop.
+#
+# The floor is read off the encoding, not chosen: a mate is 100000 minus a
+# distance of at most a few hundred plies, and a real centipawn eval never comes
+# close -- measured over 192,112 stored evals, the non-mate maximum is 8308.
+MATE_SCORE_BASE = 100_000
+MATE_SCORE_FLOOR = 99_000
+
 # When a move costs this much or more and the material we can name covers
 # less than MISMATCH_MIN_RATIO of it, we have not found the real reason.
 # Measured on 115 material answers: below 1000cp the claim covers at least
@@ -162,6 +182,77 @@ def _explains_the_loss(p: Punishment, cp_loss: Optional[int]) -> bool:
     return (p.payoff_cp or 0) >= MISMATCH_MIN_RATIO * cp_loss
 
 
+def _mate_from_score(
+    candidates: Sequence[Dict[str, Any]],
+    played_san: str,
+    played_line: Sequence[str],
+) -> Optional[Punishment]:
+    """A forced mate, taken from the engine's score rather than a line walk.
+
+    Two answers live here, and both are certainties rather than inferences --
+    the engine is not estimating when it returns a mate score:
+
+      the played move ALLOWS one : its own eval is mate against the mover while
+                                   the best move's is not
+      the played move MISSES one : the best move's eval is mate FOR the mover
+                                   while the played move's is not
+
+    Both need the played move's own evaluation, which exists only when it is
+    among the candidates the engine returned. When it is not, this stays silent
+    rather than guess -- the same right-or-silent rule as everywhere else.
+
+    Deliberately NOT a seventh mechanism: it is the MATE mechanism, reading the
+    field it should have read all along, so it inherits MATE's place at the top
+    of MECHANISM_RANK and its two existing sentences.
+    """
+    cands = [c for c in (candidates or []) if c.get("eval_cp") is not None]
+    if not cands:
+        return None
+    played_norm = str(played_san or "").strip()
+    mine = None
+    for c in cands:
+        if str(c.get("move_san") or "").strip() == played_norm:
+            mine = c
+            break
+    if mine is None:
+        return None
+
+    best_cp = cands[0]["eval_cp"]
+    played_cp = mine["eval_cp"]
+    best_is_mate_for_us = best_cp >= MATE_SCORE_FLOOR
+    played_is_mate_for_us = played_cp >= MATE_SCORE_FLOOR
+    played_is_mate_against = played_cp <= -MATE_SCORE_FLOOR
+    best_is_mate_against = best_cp <= -MATE_SCORE_FLOOR
+
+    # The move walked into a forced mate that was avoidable. Both-ways mate is
+    # excluded on purpose: if every move loses to mate, the move caused nothing,
+    # which is the same reasoning that stopped "already being mated" counting as
+    # walking into mate (services/severity.py).
+    if played_is_mate_against and not best_is_mate_against:
+        reply = next((str(m).strip() for m in (played_line or [])
+                      if str(m or "").strip()), None)
+        if not reply:
+            return None
+        return Punishment(
+            direction="received", mechanism="MATE", agent_move=reply,
+            payoff_cp=MATE_SCORE_BASE - abs(int(played_cp)),
+            line=[str(m).strip() for m in list(played_line or [])[:6]],
+        )
+
+    # A forced mate was there and the move let it go.
+    if best_is_mate_for_us and not played_is_mate_for_us:
+        line = [str(m).strip() for m in (cands[0].get("line_san") or [])
+                if str(m or "").strip()]
+        if not line:
+            return None
+        return Punishment(
+            direction="missed", mechanism="MATE", agent_move=line[0],
+            payoff_cp=MATE_SCORE_BASE - abs(int(best_cp)),
+            line=line[1:7],
+        )
+    return None
+
+
 def _arrows(fen_before: str, line_san: Sequence[str],
             limit: int = 3) -> List[Dict[str, str]]:
     """One arrow per move of the line we are showing, in board order.
@@ -209,6 +300,30 @@ def explain(
     """
     if not fen_before or not played_san:
         return None
+
+    # 0. A forced mate, read off the engine's score. First, because MATE is
+    #    first in MECHANISM_RANK and because it is the one answer the engine
+    #    states outright instead of leaving us to derive it. Everything below
+    #    walks lines; this does not need to.
+    _mate = _mate_from_score(candidates, played_san, pv_after_played)
+    if _mate is not None:
+        _mtext = _phrase(_mate, played_san)
+        if _mtext:
+            _mline = ([played_san, _mate.agent_move] + list(_mate.line)
+                      if _mate.direction == "received"
+                      else [_mate.agent_move] + list(_mate.line))
+            return {
+                "found": True,
+                "direction": _mate.direction,
+                "mechanism": "MATE",
+                "text": _mtext,
+                "move_san": _mate.agent_move,
+                "line_san": _mline,
+                "arrows": _arrows(fen_before, _mline),
+                "candidate_rank": None,
+                "eval_gap_cp": 0,
+                "payoff_cp": _mate.payoff_cp,
+            }
 
     # 1. The punishment we took.
     got = resolve_received(fen_before, played_san, list(pv_after_played or []))
