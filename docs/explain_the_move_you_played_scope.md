@@ -123,7 +123,92 @@ That is step zero of this work and it needs no new code.
 
 ---
 
+## Third pass, 2026-10-29: the instrument was starved, and two of my three bugs were mine
+
+> **Everything in the two sections below is measured from a contaminated
+> render.** Read this section first. It says which claims survive, which are
+> retracted, and which are being re-measured. The old text is left in place
+> because a wrong number is corrected, not deleted.
+
+`generate_game_decryption_v5` merges the opponent eval rows with
+`await db.game_analyses.find_one(...)`
+(`backend/services/game_decryption_v5_service.py:3338`), inside a bare
+`except Exception` that falls back to `[]`. My harness passed a **sync
+pymongo** client, so that `await` raised `TypeError` on a dict, the handler
+swallowed it, and **every opponent row was discarded** — no `best_move`, no
+PV, no `cp_loss`. Production uses motor (`server.py:54`). Opponent cards are
+about half the corpus, so half of the 619 was measured against a render with
+no engine truth on that side at all. Proved by re-running the same trace with
+both clients: with pymongo every opponent call reaches the severity gate with
+`best_move_san=None`; with motor the same calls get `Qe2`, `Nc4`, `Kg4`,
+`Nge5`, `Qxe6+`, `Qd3+`.
+
+**Retracted — `R01_mate→VERIFY_SOFTENED` is not erasing mates.** I reported
+that on `game_74fdbd74c468` m44 the floor replaced a deliverable mate with
+*"Your opponent repositions the pawn; a more active try was available here"*.
+The **stored production card** for that move reads *"Your opponent played e7 —
+it allows Qh1#, which is checkmate. Qd3+ was stronger: it gives check, forcing
+you to respond."* The softening marker is in the stored rule chain, but it
+landed on a different sentence and the mate survived. The bad text existed
+only in my harness, because the facts reached the verifier empty for exactly
+the reason above. No product change needed; nothing to fix here.
+
+**Retracted in part — "30 of 619 cards fault the engine's own top move."**
+20 of the 36 were opponent cards whose gate had nothing to compare, so that
+number is not a product measurement. The depth-18 re-check was sound; the
+population it ran on was not.
+
+**Survives, and is now measured on stored production rows instead.** There is
+a real bug, and a narrower one. **A card ships two grades.** `severity` passes
+five sanity gates. `severity_canonical` was re-derived from raw `cp_loss` at
+the card dict (`_practical.canonical_tier`) and passed **none** of them. And
+`frontend/src/lib/moveSeverity.js` `gradeOf` prefers `severity_canonical`
+whenever `severity` reads good — a rule added on 2026-10-28 for the real case
+where practical softening files an inaccuracy under good. So the UI undid every
+gate: best-move-equals-played, mate delivered, mate still forced, forced
+recapture, book move.
+
+Traced by intercepting `compute_severity_for_move` rather than reading the
+code, then confirmed against the stored card:
+
+| stored card | `severity` | `severity_canonical` | what the player reads |
+|---|---|---|---|
+| m44 `Qh1#` (checkmate) | `good` | **`blunder`** | blunder |
+| m28 `Nc4` (engine's top move) | `context` | **`inaccuracy`** | inaccuracy |
+| m34 `Kf7` (real 89cp inaccuracy) | `good` | `inaccuracy` | inaccuracy ✓ |
+
+Over **500 stored games / 29,802 cards**: 3,054 at risk, **2,746 of them
+legitimate** — the band and practical softening put a real inaccuracy under
+good deliberately, and recovering it is what that field is for — and **308
+wrong**: 275 where the played move IS the engine's best, 33 where the move is
+checkmate. **1.03% of cards, 0.62 a game.** A lower bound, because only two of
+the five gates are visible in stored data.
+
+The fix is not "gate harder", because the two kinds of gate mean opposite
+things:
+
+- a **sanity** gate says the engine did not fault this move — the grade itself
+  was wrong, so canonical must follow it;
+- a **presentation** gate says we choose not to lead with it — the grade
+  stands, and reaching past it is the whole purpose of the field, so canonical
+  must not follow, or those 2,746 real inaccuracies stop being recoverable.
+
+Shipped as **v238** (`b5781e2e`), with
+`backend/tests/test_canonical_severity_respects_gates.py` locking both
+directions and the presentation gate as the negative control. Stored reviews
+re-render on next view.
+
+**Being re-measured:** the 4-way caption split, the `R12_blunder` share, the
+`R_TIER2_outpost` praise case, and the "31% of the inaccuracy band at or below
+39cp" figure all came from the starved run. Re-running the same 25 games with
+motor; the table below stands only until that lands.
+
+---
+
 ## Re-measured 2026-10-29 (second pass), and it changed the plan
+
+> Superseded in part by the third pass above — the numbers in this section
+> were rendered without the opponent eval rows.
 
 The first split used a predicate that lived in a command line. Written down
 as `scratchpad/classify_v2.py` and re-run over 619 faulted cards from the
@@ -161,6 +246,11 @@ of a move the engine docks. Describing is not faulting.
 ---
 
 ## Step zero changed: stop grading non-mistakes as mistakes
+
+> Superseded in part by the third pass above. The reasoning holds and the
+> step shipped as v238; the specific counts below were rendered without the
+> opponent eval rows, and the honest numbers are 308 of 29,802 stored cards
+> (1.03%, 0.62 a game) rather than 30 of 619.
 
 The negative control every candidate predicate must pass — *fires on the
 fault, stays quiet on the engine's own move* — was never pointed at the
