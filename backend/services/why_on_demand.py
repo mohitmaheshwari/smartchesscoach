@@ -35,6 +35,7 @@ from services.punishment_resolver import (
     resolve_missed,
     resolve_received,
 )
+from services.severity import SEVERITY_THRESHOLDS
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,28 @@ CANDIDATE_DEPTH = 18
 # We will not recommend a move that is materially worse than the engine's
 # best just because it made a tidier story. Measured: the best move is
 # itself explainable 25/36 times, and 31/36 land inside this bound.
-CLOSENESS_CP = 50
+#
+# 2026-10-29: it is the CANONICAL INACCURACY FLOOR, not 50.
+#
+# Those two numbers disagreed, and the gap was the only source of wrong answers
+# in the engine. services.severity calls a move 30cp or worse an inaccuracy, so
+# at 50 this function was free to prescribe a move it would itself fault -- "c5
+# wins their pawn" where the engine approves of Be7, Nc6 and Nf6; "g5 chases
+# their bishop" where it approves of f5, Bxc4 and Na6.
+#
+# Measured over 309 faulted positions, the same positions at both settings:
+#
+#     window   answered    missed answers   wrong   received   wrong
+#       50cp   248 (80%)        59            8       189        0
+#       30cp   240 (78%)        51            0       189        0
+#
+# Tightening loses exactly 8 answers and ALL EIGHT are the wrong ones -- not one
+# correct answer is lost. Two points of coverage for every incorrect
+# recommendation in the sample. The diagnosis half (`received`) is untouched:
+# 189 answers, zero errors, at either setting.
+#
+# Imported rather than restated so the two can never drift apart again.
+CLOSENESS_CP = SEVERITY_THRESHOLDS["inaccuracy"]
 
 # Mechanisms whose payoff_cp is real material, and so is comparable with a
 # move's cp_loss. The others are not: MATE and PROMOTES pay a constant, and
