@@ -246,9 +246,17 @@ Three guards:
   deleted the one sentence that taught anything. Any added clause is measured
   against `max_caption_words`, and if the cap has to choose, it must drop the
   move recommendation before the lesson;
-- the measurement must be a re-render, never the stored cards. 113 games on
-  prod have `decryption_v5_version` unset and 87 sit at v230 while the code
-  is at v237, so a query against stored text measures last month's product.
+- the measurement must be a re-render, never the stored cards. Counted over
+  the whole collection on 2026-10-29: **18,561 of 19,576 `game_analyses`
+  (94.8%) hold cards rendered at v230**, against code at v237 — plus 437
+  unset, 418 at v233 and only 40 at v237. A query against stored caption
+  text measures a product seven versions old. (An earlier draft of this doc
+  said "113 unset and 87 at v230"; that was one user's games read as the
+  collection, and it was wrong by two orders of magnitude.)
+
+  The same fact is the good news about shipping: the lazy path re-renders
+  whenever the stored version is behind the code's, so a fix reaches those
+  18,561 games on next view without a migration.
 
 ---
 
