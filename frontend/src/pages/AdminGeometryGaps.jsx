@@ -36,6 +36,37 @@ const CLUSTER_LABEL = {
   best_move_is_mate: "Best move is mate",
 };
 
+// What the board decided about Claude's reason, in the words the page uses.
+// "not probeable" is NOT a refutation: it means the only thing that could be
+// scored was the null move, so nothing about the reason itself was tested.
+const JUDGE_LABEL = {
+  confirmed: "confirmed by the board",
+  refuted: "refuted by the board",
+  not_probeable: "could not be put to the board",
+  cannot_test: "nothing to test",
+};
+
+// One probe's numbers, in the engine's own units. A relation shows the two
+// groups the judge compared; a placement or a pass shows what it recovered.
+const probeNumbers = (p) => {
+  if (!p) return "";
+  if (p.kind === "relation") {
+    const top = (xs) => (Array.isArray(xs) ? xs : [])
+      .map((x) => (Array.isArray(x) ? x[0] : x))
+      .sort((a, b) => b - a)
+      .slice(0, 3)
+      .map((n) => (n > 0 ? `+${n}` : `${n}`))
+      .join(" ");
+    return `break ${top(p.break) || "—"} · keep ${top(p.keep) || "—"}`;
+  }
+  if (p.kind === "placement" || p.kind === "pass") {
+    if (typeof p.recovers !== "number") return p.why || "";
+    const share = typeof p.share === "number" && Math.abs(p.share) <= 1000 ? ` (${p.share}%)` : "";
+    return `recovers ${p.recovers > 0 ? "+" : ""}${p.recovers} of ${p.cost ?? "?"}${share}`;
+  }
+  return "";
+};
+
 const sanToArrow = (fen, san, color) => {
   if (!fen || !san) return null;
   try {
@@ -68,6 +99,10 @@ export default function AdminGeometryGaps() {
   const [mode, setMode] = useState("gaps");
   const [side, setSide] = useState("");
   const [why, setWhy] = useState("");
+  // Fourth queue. Mohit, 2026-10-29: "add a section on claude reason for
+  // those positions too, so I can verify them right there." `judge` filters
+  // by what the board said about the reason.
+  const [judge, setJudge] = useState("");
   // Play your own move and ask the engine what it answers. Mohit, 2026-09-30:
   // "if I play a move on the board, can you give me stockfish response for
   // that move, so I really know why the move I play doesn't work?" The two
@@ -84,6 +119,8 @@ export default function AdminGeometryGaps() {
       const path =
         mode === "why"
           ? "/admin/geometry-gaps/no-why/results"
+          : mode === "claude"
+          ? "/admin/geometry-gaps/claude-reasons/results"
           : "/admin/geometry-gaps/results";
       const r = await fetch(`${API}${path}`, {
         credentials: "include",
@@ -108,6 +145,10 @@ export default function AdminGeometryGaps() {
           ? `${API}/admin/geometry-gaps/no-why/next${
               side ? `?side=${encodeURIComponent(side)}` : ""
             }`
+          : mode === "claude"
+          ? `${API}/admin/geometry-gaps/claude-reasons/next${
+              judge ? `?judge=${encodeURIComponent(judge)}` : ""
+            }`
           : mode === "unexplained"
           ? `${API}/admin/geometry-gaps/unexplained/next${
               side ? `?side=${encodeURIComponent(side)}` : ""
@@ -129,6 +170,8 @@ export default function AdminGeometryGaps() {
             ? "Every caption in the corpus has a why. Nothing left."
             : mode === "unexplained"
             ? "Every blunder has an explanation now. Nothing left."
+            : mode === "claude"
+            ? "Every reason in this set has been ruled on."
             : "Nothing left to rule on in this cluster."
         );
       } else if (!res.ok) {
@@ -143,7 +186,7 @@ export default function AdminGeometryGaps() {
       setLoading(false);
       loadResults();
     }
-  }, [cluster, mode, side, loadResults]);
+  }, [cluster, mode, side, judge, loadResults]);
 
   useEffect(() => {
     load();
@@ -199,6 +242,26 @@ export default function AdminGeometryGaps() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ ...item, action, reason, why: why.trim() }),
+      });
+      await load();
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // The fourth queue records whether a human agrees with the reason the board
+  // confirmed. The note is the reviewer's own reason, when it differs.
+  const submitClaude = async (verdict) => {
+    if (!item || saving) return;
+    setSaving(true);
+    try {
+      await fetch(`${API}/admin/geometry-gaps/claude-reasons`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ key: item.key, verdict, note: why.trim() }),
       });
       await load();
     } catch (e) {
@@ -423,11 +486,15 @@ export default function AdminGeometryGaps() {
           <h1 className="text-2xl font-semibold">
             {mode === "why"
               ? "Blunders that never say why"
+              : mode === "claude"
+              ? "Claude's reason, judged by the board"
               : "Mistakes the board cannot explain yet"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {mode === "why"
               ? "Each of these is a real mistake whose caption never explains itself. Write the missing sentence, or say the move needs no coaching. 697 of 5,683 across 500 games."
+              : mode === "claude"
+              ? "The 61 moves out of 320 where the why button had nothing to say. For each: the reason Claude would give, and what happened when that reason was tested on the board. Say whether you agree."
               : "Click any move to play the line out on the board. The punishment line after the mistake is usually where the real lesson is."}
           </p>
         </header>
@@ -442,6 +509,10 @@ export default function AdminGeometryGaps() {
               // games. Mohit 2026-10-10: "we already have geometrty-gaps
               // page, we shuld hae put in there ... may bea seperat tab".
               ["unexplained", "No explanation"],
+              // Claude's reason for each silent position, with the board's
+              // verdict on it. Mohit 2026-10-29: "so I can verify them
+              // right there."
+              ["claude", "Claude's reasons"],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -465,6 +536,19 @@ export default function AdminGeometryGaps() {
             >
               <option value="">All clusters</option>
               {Object.entries(CLUSTER_LABEL).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          ) : mode === "claude" ? (
+            <select
+              className="rounded border bg-background px-2 py-1 text-sm"
+              value={judge}
+              onChange={(e) => setJudge(e.target.value)}
+            >
+              <option value="">Every verdict</option>
+              {Object.entries(JUDGE_LABEL).map(([key, label]) => (
                 <option key={key} value={key}>
                   {label}
                 </option>
@@ -596,7 +680,7 @@ export default function AdminGeometryGaps() {
                 </p>
                 <p className="mt-2 text-sm">
                   <span className="rounded bg-amber-100 px-2 py-0.5 text-amber-900">
-                    {CLUSTER_LABEL[item.cluster] || item.cluster}
+                    {CLUSTER_LABEL[item.cluster] || item.cluster || item.bucket}
                   </span>
                 </p>
                 <button
@@ -634,7 +718,99 @@ export default function AdminGeometryGaps() {
               )}
               {renderLine("best", "What the engine wanted", "text-green-600")}
 
-              {mode === "unexplained" ? (
+              {mode === "claude" ? (
+                <>
+                  <div
+                    className="rounded border border-violet-500/50 bg-violet-500/5 p-3"
+                    data-testid="claude-reason"
+                  >
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      Claude&rsquo;s reason
+                      {item.bucket ? ` · ${item.bucket}` : ""}
+                    </div>
+                    <p className="mt-1 text-sm">{item.reason}</p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      The board says:{" "}
+                      <strong className="text-foreground">
+                        {JUDGE_LABEL[item.judge_overall] || item.judge_overall || "?"}
+                      </strong>
+                      {typeof item.cp_loss === "number"
+                        ? ` · ${item.cp_loss} cp on a fresh depth-18 search`
+                        : ""}
+                      {item.grade_fresh ? ` · ${item.grade_fresh}` : ""}
+                    </p>
+                  </div>
+
+                  {Array.isArray(item.probes) && item.probes.length ? (
+                    <div className="rounded-lg border p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Put to the board
+                      </p>
+                      <table className="mt-2 w-full text-sm">
+                        <tbody>
+                          {item.probes.map((p, i) => (
+                            <tr key={`${i}-${p.label}`} className="border-t align-top">
+                              <td className="py-1 pr-3">
+                                {p.label}
+                                <div className="text-[11px] text-muted-foreground">{p.kind}</div>
+                              </td>
+                              <td className="py-1 pr-3 font-mono text-xs text-muted-foreground">
+                                {probeNumbers(p)}
+                              </td>
+                              <td className="py-1 text-xs whitespace-nowrap">{p.verdict}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Numbers are centipawns recovered when that one thing is
+                        changed on the board. A relation shows squares that break
+                        it against squares that keep it; if both recover the same,
+                        the relation was not the cause.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <label className="text-sm font-medium" htmlFor="gap-claude-note">
+                      Your reason, if it differs
+                    </label>
+                    <textarea
+                      id="gap-claude-note"
+                      className="mt-1 w-full rounded border bg-background p-2 text-sm"
+                      rows={3}
+                      value={why}
+                      onChange={(e) => setWhy(e.target.value)}
+                      placeholder="e.g. It is really about the bishop pair, not the square."
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={() => submitClaude("agree")} disabled={saving}>
+                      Agree
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => submitClaude("disagree")}
+                      disabled={saving}
+                    >
+                      Disagree
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => submitClaude("unsure")}
+                      disabled={saving}
+                    >
+                      Not sure
+                    </Button>
+                    {results && typeof results.in_set === "number" ? (
+                      <span className="self-center text-xs text-muted-foreground">
+                        {results.total} of {results.in_set} ruled
+                      </span>
+                    ) : null}
+                  </div>
+                </>
+              ) : mode === "unexplained" ? (
                 <>
                   <div className="rounded border border-sky-500/50 bg-sky-500/5 p-3">
                     <div className="text-[11px] uppercase tracking-wide text-muted-foreground">

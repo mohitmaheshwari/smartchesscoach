@@ -712,6 +712,12 @@ app.include_router(admin_positional_reason_routes.router, prefix="/api")
 from routes import admin_detector_review as admin_detector_review_routes  # noqa: E402
 admin_detector_review_routes.set_db(db)
 app.include_router(admin_detector_review_routes.router, prefix="/api")
+
+# The fourth geometry-gaps queue: Claude's reason for each silent position,
+# with what the board said when it was tested. Same gate, same page.
+from routes import admin_claude_reasons as admin_claude_reason_routes  # noqa: E402
+admin_claude_reason_routes.set_db(db)
+app.include_router(admin_claude_reason_routes.router, prefix="/api")
 # Stockfish's move beside the move a human of that rating would actually
 # play. Read-only: Maia2 runs on Mohit's machine and writes the collection,
 # because the model needs ~800 MB resident and this box has none to spare

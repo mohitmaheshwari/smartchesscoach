@@ -72,6 +72,65 @@ test("an illegal line truncates instead of corrupting the board", async () => {
   expect(boardFen()).toBeTruthy();   // still a legal FEN, not a crash
 });
 
+// ── the fourth queue: Claude's reason, judged by the board ───────────
+//
+// Mohit, 2026-10-29: "add a section on claude reason for those positions too,
+// so I can verify them right there."
+
+const CLAUDE_ITEM = {
+  ...ITEM,
+  queue: "claude",
+  key: "game_x:23:Qxd6",
+  bucket: "geometry",
+  reason: "The queen walks into Nc4 with tempo.",
+  judge_overall: "confirmed",
+  probes: [
+    { label: "the knight belongs on c4", kind: "placement", verdict: "CONFIRMED",
+      recovers: 50, cost: 90, share: 55 },
+    { label: "the move achieved nothing", kind: "pass",
+      verdict: "the move did real work", recovers: -30, cost: 90, share: -33 },
+  ],
+};
+
+const openClaudeTab = async () => {
+  const tab = Array.from(container.querySelectorAll("button"))
+    .find((b) => b.textContent === "Claude's reasons");
+  await act(async () => tab.click());
+};
+
+test("the Claude tab fetches its own queue and shows the reason", async () => {
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => CLAUDE_ITEM });
+  await act(async () => root.render(<AdminGeometryGaps />));
+  await openClaudeTab();
+  expect(global.fetch.mock.calls.some((c) => String(c[0]).includes("/claude-reasons/next"))).toBe(true);
+  expect(container.querySelector('[data-testid="claude-reason"]')).not.toBeNull();
+  expect(container.textContent).toContain("The queen walks into Nc4 with tempo.");
+  expect(container.textContent).toContain("confirmed by the board");
+  // the probe numbers are shown, not just the verdict
+  expect(container.textContent).toContain("recovers +50 of 90 (55%)");
+});
+
+test("agreeing posts the key and the verdict", async () => {
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => CLAUDE_ITEM });
+  await act(async () => root.render(<AdminGeometryGaps />));
+  await openClaudeTab();
+  const agree = Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "Agree");
+  await act(async () => agree.click());
+  const posted = global.fetch.mock.calls.find(
+    (c) => c[1] && c[1].method === "POST" && String(c[0]).endsWith("/claude-reasons"));
+  expect(posted).toBeTruthy();
+  expect(JSON.parse(posted[1].body)).toMatchObject({ key: "game_x:23:Qxd6", verdict: "agree" });
+});
+
+test("the board and both lines still work on the Claude tab", async () => {
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => CLAUDE_ITEM });
+  await act(async () => root.render(<AdminGeometryGaps />));
+  await openClaudeTab();
+  expect(boardFen()).toBe(ITEM.fen);
+  await clickMove("Nc4");
+  expect(boardFen()).toContain("2N");
+});
+
 test("a 403 says so instead of rendering an empty page", async () => {
   global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 403, json: async () => ({}) });
   await act(async () => root.render(<AdminGeometryGaps />));
