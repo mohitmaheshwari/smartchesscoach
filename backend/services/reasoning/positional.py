@@ -212,6 +212,116 @@ def recapture_hypothesis(root, played, alternative, report, base_records, stable
     return h, facts
 
 
+def support_chain_hypothesis(root, played, alternative, report, base_records, stable_records,
+                             session, add_line, *, verification_nodes):
+    """Follow lost pawn support through the opponent's actual best-reply line."""
+    event = played['events'][0]
+    if event['moving_piece'] != 'pawn' or played['root_uci'] == alternative['root_uci']:
+        return None, []
+    snapshot = next((s for s in report['snapshots'] if s['timeline_id'] == played['id'] and s['ply'] == 0), None)
+    if snapshot is None:
+        return None, []
+    after, alt = chess.Board(played['nodes'][1]['fen']), chess.Board(alternative['nodes'][1]['fen'])
+    origin = chess.parse_square(event['origin'])
+    own = 'white' if root.turn else 'black'
+    board_facts = event_facts(played)
+    candidates = []
+    for abandoned in (f for f in board_facts if f.relation == 'coverage_abandoned' and f.ply == 1):
+        middle = chess.parse_square(abandoned.object)
+        piece = root.piece_at(middle)
+        if (piece != chess.Piece(chess.PAWN, root.turn) or after.piece_at(middle) != piece
+                or set(root.attackers(root.turn, middle)) != {origin} or after.attackers(root.turn, middle)
+                or alt.piece_at(origin) != root.piece_at(origin) or middle not in alt.attacks(origin)):
+            continue
+        middle_id = played['nodes'][0]['relations'][abandoned.object]['piece_id']
+        attack = next((f for f in board_facts if f.relation == 'attacks_piece' and f.ply == 2
+                       and f.object == middle_id), None)
+        if attack is None:
+            continue
+        for hint in snapshot['features'].get('outposts', {}).get('evidence', []):
+            if hint.get('color') != own or hint.get('kind') != 'outpost':
+                continue
+            try:
+                key = chess.parse_square(hint['square'])
+            except (ValueError, KeyError, TypeError):
+                continue
+            key_piece = root.piece_at(key)
+            if (key_piece is None or key_piece.color != root.turn or key_piece.piece_type not in (chess.KNIGHT, chess.BISHOP)
+                    or set(root.attackers(root.turn, key)) != {middle}
+                    or after.piece_at(key) != key_piece or alt.piece_at(key) != key_piece
+                    or set(alt.attackers(root.turn, key)) != {middle}):
+                continue
+            key_id = played['nodes'][0]['relations'][hint['square']]['piece_id']
+            capture = next((f for f in board_facts if f.relation == 'captures' and f.ply > 2
+                            and f.object == middle_id and f.subject == attack.subject), None)
+            if capture is None:
+                continue
+            end = chess.Board(played['nodes'][capture.ply]['fen'])
+            if (played['nodes'][capture.ply]['relations'].get(hint['square'], {}).get('piece_id') != key_id
+                    or end.attackers(root.turn, key) or not end.attackers(not root.turn, key)):
+                continue
+            exposed = [{'piece_id': played['nodes'][capture.ply]['relations'][chess.square_name(s)]['piece_id'],
+                        'piece': chess.piece_name(end.piece_type_at(s)), 'square': chess.square_name(s)}
+                       for s in sorted(end.attackers(not root.turn, key))]
+            candidates.append((abandoned, attack, capture, key_id, hint['square'], key_piece, exposed))
+    if len(candidates) != 1:
+        return None, []
+    abandoned, attack, capture, key_id, key_square, key_piece, exposed = candidates[0]
+    facts = [f for f in board_facts if f.ply <= capture.ply]
+    facts += [f for f in event_facts(alternative) if f.relation == 'legal_move']
+    obj = {'kind': 'comparative_support_chain', 'root_connected': True,
+           'played_timeline_id': played['id'], 'alternative_timeline_id': alternative['id'],
+           'contrast_root_uci': played['root_uci'], 'guard_id': event['moving_piece_id'],
+           'guard_square': event['origin'], 'defender_id': capture.object, 'defender_square': abandoned.object,
+           'key_id': key_id, 'key_square': key_square, 'key_piece': chess.piece_name(key_piece.piece_type),
+           'abandoned_proposition_id': abandoned.id, 'defender_attack_id': attack.id,
+           'capture_proposition_id': capture.id, 'capture_ply': capture.ply, 'exposed_to': exposed,
+           'demonstration_san': played['moves_san'][:capture.ply], 'feature_snapshot_id': snapshot['id'],
+           'root_comparisons': [], 'reply_references': [], 'equivalence_cp': session.config.equivalence_cp}
+    h = proposal('PREVENT', alternative['root_uci'], obj, facts,
+                 [{'kind': 'lost_guard_exposes_supported_piece', 'abandoned_id': abandoned.id,
+                   'attack_id': attack.id, 'capture_id': capture.id}])
+    h.wording_strength = 'support_loss_retained_by_unrestricted_best_reply'
+    h.unresolved = ['not_an_exhaustive_forced_reply_proof', 'no_exact_causal_cp_allocation']
+    for records in (base_records, stable_records):
+        a, p = records[alternative['root_uci']], records[played['root_uci']]
+        if any(r.status != 'complete_iteration' or not r.lines for r in (a, p)):
+            h.unresolved.append('root_comparison_unavailable')
+            return h, facts
+        pair = _pair(a, p, own)
+        obj['root_comparisons'].append(pair)
+        h.search_ids.extend((a.id, p.id))
+        if comparison(pair['best_score'], pair['other_score'], session.config.equivalence_cp) != 'inferior':
+            h.unresolved.append('root_comparison_not_stable')
+            return h, facts
+    pbase, pstable = base_records[played['root_uci']], stable_records[played['root_uci']]
+    if common_prefix(pbase.lines[0]['moves_uci'], pstable.lines[0]['moves_uci']) < capture.ply:
+        h.unresolved.append('beyond_root_stability_agreement')
+        return h, facts
+    refs = []
+    for line in (played, alternative):
+        board = root.copy()
+        board.push_uci(line['root_uci'])
+        ref = session.query(board, 'support_opponent_best_reply', nodes=verification_nodes, depth=20)
+        h.search_ids.append(ref.id)
+        obj['reply_references'].append({'search_id': ref.id, 'timeline_id': line['id']})
+        if not ref.lines or ref.status != 'complete_iteration' or ref.lines[0].get('depth', 0) < 20:
+            h.unresolved.append('opponent_reference_depth_not_reached')
+            return h, facts
+        if line is played and common_prefix(line['moves_uci'], [line['root_uci'], *ref.lines[0]['moves_uci']]) < capture.ply:
+            h.unresolved.append('best_reply_does_not_retain_support_loss')
+            return h, facts
+        refs.append(ref)
+    obj['reference_comparison'] = _pair(refs[1], refs[0], own)
+    pair = obj['reference_comparison']
+    if comparison(pair['best_score'], pair['other_score'], session.config.equivalence_cp) != 'inferior':
+        h.unresolved.append('deeper_root_preference_not_retained')
+        return h, facts
+    h.search_ids = sorted(set(h.search_ids))
+    h.status = 'supported_mechanism'
+    return h, facts
+
+
 def piece_pressure_hypothesis(root, played, alternative, report, base_records, stable_records,
                               session, add_line, *, verification_nodes):
     """Test a pawn-attack hint through reply identity and a matched counterfactual.

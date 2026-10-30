@@ -1,5 +1,11 @@
 # Pawn-pressure composition in the combined offline engine
 
+**Relevance correction:** the facts below remain board-true, but Mohit correctly
+rejected the f3 feature as the explanation of c4. The played move breaks the
+c3–d4–e5 protection chain. See
+[the corrected causal account](support_chain_reasoning_correction_2026_10_30.md).
+The previous c4 selection and its regression assertion are superseded.
+
 Authorised fix, 2026-10-30: after inspecting the unused ChessGPT hint on
 `15.c4`, Mohit requested, “please fix that and try again.” This extends the
 existing [combined offline engine](combined_reasoning_scope.md). It changes

@@ -183,8 +183,8 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
                 break
     positional_mechanism = None
     if positional_report and not direct_contrast and not forcing_mechanism and played_line and best and comparison_status == 'inferior':
-        from .positional import recapture_hypothesis, piece_pressure_hypothesis
-        for build in (recapture_hypothesis, piece_pressure_hypothesis):
+        from .positional import support_chain_hypothesis, recapture_hypothesis, piece_pressure_hypothesis
+        for build in (support_chain_hypothesis, recapture_hypothesis, piece_pressure_hypothesis):
             candidate, extra = build(board, played_line, primary[best], positional_report,
                 base_records, root_records, session, add_line, verification_nodes=verification_nodes)
             if candidate is not None:
@@ -193,6 +193,10 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
                 hypotheses[:] = hypotheses[:config.max_hypotheses]
                 if candidate.status == 'supported_mechanism':
                     positional_mechanism = candidate
+                    break
+                if candidate.objective['kind'] == 'comparative_support_chain':
+                    # An unverified explanation of what the played move broke
+                    # must not be replaced by an incidental best-move virtue.
                     break
     # Reserve useful work for quiet objectives before optional resources.
     quiet = next((h for h in hypotheses if h.root_uci == teaching_root and h.objective["kind"] == "castle"), None)
@@ -290,7 +294,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     result["objectives"] = [{"hypothesis_id": h.id, **h.objective} for h in hypotheses]
     def admission(h):
         obj = h["objective"]
-        if obj["kind"] in ("comparative_sequence", "comparative_threat", "comparative_recapture", "comparative_piece_pressure"):
+        if obj["kind"] in ("comparative_sequence", "comparative_threat", "comparative_recapture", "comparative_piece_pressure", "comparative_support_chain"):
             return {"admitted": True, "reason": "verified_conditional_certificate", "search_ids": h["search_ids"]}
         relation = "clears_castling_path" if obj["kind"] == "castle" else "captures" if obj["kind"] in ("capture", "checking_capture") else "reaches" if obj["kind"] == "reach" else obj["kind"]
         choices = [accepted_facts[key] for key in h["proposition_ids"] if accepted_facts[key]["relation"] == relation
@@ -315,7 +319,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     # Experimental deterministic shortlist ordering, explicitly not a calibrated shipping rank.
     def teaching_order(h):
         return (h["objective"]["kind"] != "checkmates", not bool(h["objective"].get("root_capture_contrast")), h["status"] != "supported_mechanism",
-                h["objective"]["kind"] not in ("comparative_sequence", "comparative_threat", "comparative_recapture", "comparative_piece_pressure"), h["objective"]["kind"] != "checking_capture",
+                h["objective"]["kind"] not in ("comparative_sequence", "comparative_threat", "comparative_recapture", "comparative_piece_pressure", "comparative_support_chain"), h["objective"]["kind"] != "checking_capture",
                 h["objective"]["kind"] != "castle", not bool(h["dependencies"]), h["id"])
     selected = min(selectable, key=teaching_order) if selectable else None
     result["selected_teaching_point"] = selected
@@ -337,7 +341,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     if selected:
         records = {r.id: r for r in session.records}
         for index, sentence in enumerate(result["coaching"].get("sentences", [])):
-            conditional = selected["objective"]["kind"] in ("comparative_sequence", "comparative_threat", "comparative_recapture", "comparative_piece_pressure")
+            conditional = selected["objective"]["kind"] in ("comparative_sequence", "comparative_threat", "comparative_recapture", "comparative_piece_pressure", "comparative_support_chain")
             decisions = [] if conditional else [admit_fact(accepted_facts[key], line_lookup[accepted_facts[key]["timeline_id"]], root_line,
                 base_records.get(teaching_root), root_records.get(teaching_root), reference) for key in sentence["proposition_ids"]
                 if accepted_facts[key]["timeline_id"] == root_line["id"]]
@@ -370,7 +374,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     if positional_report is not None:
         result['reproducibility']['positional_provider'] = positional_report['provider']
         result['reproducibility']['positional_allocations'] = {'feature_plies': feature_plies, 'verification_nodes': verification_nodes}
-        result['reproducibility']['selection_policy'] += '_with_verified_recapture_and_piece_pressure'
+        result['reproducibility']['selection_policy'] += '_with_played_support_loss_before_positional_virtues'
     result["runtime"] = {"wall_ms": round(1000 * (time.perf_counter() - started), 3), "query_count": session.executed_queries,
         "query_records": len(session.records),
         "requested_engine_nodes": session.requested_nodes, "actual_engine_nodes": sum(r.actual_nodes for r in session.records),

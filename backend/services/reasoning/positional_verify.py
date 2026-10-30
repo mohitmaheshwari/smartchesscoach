@@ -51,6 +51,19 @@ def _score_for(record, pov):
     return raw if raw['pov'] == pov else {**raw, 'value': -raw['value'], 'pov': pov}
 
 
+def _canonical_board_line(line):
+    from .timeline import build_timeline
+    root = chess.Board(line['nodes'][0]['fen'])
+    expected = build_timeline(root, line['moves_uci'], line['search_id'], len(line['moves_uci']))
+    # Node IDs also bind the original move history; geometry is reconstructed
+    # from the supplied position while those history-bound IDs are retained.
+    return (all(line[key] == expected[key] for key in ('events', 'moves_san', 'root_uci'))
+            and len(line['nodes']) == len(expected['nodes'])
+            and all({k: v for k, v in actual.items() if k != 'id'} ==
+                    {k: v for k, v in rebuilt.items() if k != 'id'}
+                    for actual, rebuilt in zip(line['nodes'], expected['nodes'])))
+
+
 def _pair_supported(pair, searches, fen, best_roots, other_roots, pov, epsilon, record_pov):
     a, b = searches[pair['best_search_id']], searches[pair['other_search_id']]
     if (a['status'] != 'complete_iteration' or b['status'] != 'complete_iteration'
@@ -189,7 +202,6 @@ def verify_recapture(h, propositions, timelines, searches):
 def verify_piece_pressure(h, propositions, timelines, searches):
     """Check pawn pressure independently of the imported hint and composer."""
     from .contracts import Proposition
-    from .timeline import build_timeline
     from .verify import verify
     obj = h.objective
     if (h.operation != 'PREPARE' or h.wording_strength != 'demonstrated_pawn_pressure_with_verified_replies'
@@ -201,15 +213,7 @@ def verify_piece_pressure(h, propositions, timelines, searches):
     target = chess.parse_square(obj['target_square'])
     own = a['nodes'][0]['turn']
     opponent = 'black' if own == 'white' else 'white'
-    def canonical(line):
-        expected = build_timeline(root, line['moves_uci'], line['search_id'], len(line['moves_uci']))
-        # The original history contributes to node IDs; a board-only verifier
-        # reconstructs geometry/events, retaining the supplied history-bound IDs.
-        return (all(line[key] == expected[key] for key in ('events', 'moves_san', 'root_uci'))
-                and len(line['nodes']) == len(expected['nodes'])
-                and all({k: v for k, v in actual.items() if k != 'id'} ==
-                        {k: v for k, v in rebuilt.items() if k != 'id'}
-                        for actual, rebuilt in zip(line['nodes'], expected['nodes'])))
+    canonical = _canonical_board_line
     if (not canonical(p) or not canonical(a) or a['root_uci'] != h.root_uci
             or p['root_uci'] != obj['contrast_root_uci'] or p['root_uci'] == a['root_uci']
             or p['nodes'][0]['fen'] != root.fen()):
@@ -333,4 +337,113 @@ def verify_piece_pressure(h, propositions, timelines, searches):
         return 'piece_pressure_dependency_receipt_missing'
     if not all_ids <= set(h.search_ids):
         return 'piece_pressure_search_receipt_missing'
+    return None
+
+
+def verify_support_chain(h, propositions, timelines, searches):
+    """Rebuild the played move's lost-support graph, not just a best-move feature."""
+    from .contracts import Proposition
+    from .verify import verify
+    o = h.objective
+    if (h.operation != 'PREVENT' or h.wording_strength != 'support_loss_retained_by_unrestricted_best_reply'
+            or h.dependencies != [{'kind': 'lost_guard_exposes_supported_piece',
+                'abandoned_id': o['abandoned_proposition_id'], 'attack_id': o['defender_attack_id'],
+                'capture_id': o['capture_proposition_id']}] or searches is None):
+        return 'unsupported_support_chain_strength'
+    p, a = timelines[o['played_timeline_id']], timelines[o['alternative_timeline_id']]
+    if (not _canonical_board_line(p) or not _canonical_board_line(a)
+            or p['root_uci'] != o['contrast_root_uci'] or a['root_uci'] != h.root_uci
+            or p['root_uci'] == a['root_uci'] or p['nodes'][0]['fen'] != a['nodes'][0]['fen']):
+        return 'wrong_support_chain_root_binding'
+    root = chess.Board(p['nodes'][0]['fen'])
+    after, alt = chess.Board(p['nodes'][1]['fen']), chess.Board(a['nodes'][1]['fen'])
+    guard, middle, key = [chess.parse_square(o[name]) for name in ('guard_square', 'defender_square', 'key_square')]
+    own = p['nodes'][0]['turn']
+    abandoned, attack, capture = [propositions[o[name]] for name in
+        ('abandoned_proposition_id', 'defender_attack_id', 'capture_proposition_id')]
+    if (p['events'][0]['moving_piece'] != 'pawn' or p['events'][0]['origin'] != o['guard_square']
+            or p['events'][0]['moving_piece_id'] != o['guard_id']
+            or p['nodes'][0]['relations'][o['defender_square']]['piece_id'] != o['defender_id']
+            or p['nodes'][0]['relations'][o['key_square']]['piece_id'] != o['key_id']
+            or root.piece_at(middle) != chess.Piece(chess.PAWN, root.turn)
+            or set(root.attackers(root.turn, middle)) != {guard}
+            or set(root.attackers(root.turn, key)) != {middle}
+            or root.piece_at(key).color != root.turn or root.piece_type_at(key) not in (chess.KNIGHT, chess.BISHOP)
+            or o['key_piece'] != chess.piece_name(root.piece_type_at(key))
+            or after.attackers(root.turn, middle) or set(after.attackers(root.turn, key)) != {middle}
+            or a['nodes'][1]['relations'].get(o['guard_square'], {}).get('piece_id') != o['guard_id']
+            or a['nodes'][1]['relations'].get(o['defender_square'], {}).get('piece_id') != o['defender_id']
+            or a['nodes'][1]['relations'].get(o['key_square'], {}).get('piece_id') != o['key_id']
+            or middle not in alt.attacks(guard) or set(alt.attackers(root.turn, key)) != {middle}):
+        return 'support_chain_identity_or_guard_relationship_false'
+    if (abandoned['relation'] != 'coverage_abandoned' or abandoned['timeline_id'] != p['id']
+            or abandoned['ply'] != 1 or abandoned['subject'] != o['guard_id']
+            or abandoned['object'] != o['defender_square'] or abandoned['actor'] != own
+            or attack['relation'] != 'attacks_piece' or attack['timeline_id'] != p['id']
+            or attack['ply'] != 2 or attack['object'] != o['defender_id']
+            or capture['relation'] != 'captures' or capture['timeline_id'] != p['id']
+            or capture['object'] != o['defender_id'] or capture['subject'] != attack['subject']
+            or capture['ply'] != o['capture_ply'] or o['capture_ply'] <= 2
+            or o['demonstration_san'] != p['moves_san'][:o['capture_ply']]):
+        return 'support_chain_event_order_or_words_false'
+    node = p['nodes'][o['capture_ply']]
+    end = chess.Board(node['fen'])
+    exposed = [{'piece_id': node['relations'][chess.square_name(s)]['piece_id'],
+                'piece': chess.piece_name(end.piece_type_at(s)), 'square': chess.square_name(s)}
+               for s in sorted(end.attackers(not root.turn, key))]
+    if (node['relations'].get(o['key_square'], {}).get('piece_id') != o['key_id']
+            or end.attackers(root.turn, key) or not exposed or exposed != o['exposed_to']):
+        return 'supported_piece_not_exposed_as_claimed'
+    required = [('legal_move', p['id'], 1, o['guard_id'], p['root_uci']),
+                ('legal_move', a['id'], 1, a['events'][0]['moving_piece_id'], a['root_uci']),
+                ('coverage_abandoned', p['id'], 1, o['guard_id'], o['defender_square']),
+                ('attacks_piece', p['id'], 2, attack['subject'], o['defender_id']),
+                ('captures', p['id'], o['capture_ply'], attack['subject'], o['defender_id'])]
+    required.extend(('reaches', p['id'], e['ply'], e['moving_piece_id'], e['destination'])
+                    for e in p['events'][:o['capture_ply']])
+    receipts = set()
+    for identity in h.proposition_ids:
+        fact = propositions[identity]
+        if fact['timeline_id'] not in (p['id'], a['id']) or verify(
+                Proposition(**{**fact, 'evidence_ids': tuple(fact['evidence_ids'])}), timelines[fact['timeline_id']]):
+            return 'support_chain_fact_failed_independent_check'
+        receipts.add((fact['relation'], fact['timeline_id'], fact['ply'], fact['subject'], fact['object']))
+    if not set(required) <= receipts:
+        return 'support_chain_fact_receipt_missing'
+    if h.status == 'incomplete_hypothesis':
+        return None
+    if h.status != 'supported_mechanism' or len(o['root_comparisons']) != 2:
+        return 'support_chain_incomplete'
+    search_ids = set()
+    for pair in o['root_comparisons']:
+        if not _pair_supported(pair, searches, root.fen(), [a['root_uci']], [p['root_uci']], own, o['equivalence_cp'], own):
+            return 'support_chain_root_score_binding_failed'
+        search_ids.update((pair['best_search_id'], pair['other_search_id']))
+    p_records = [searches[pair['other_search_id']] for pair in o['root_comparisons']]
+    if (common_prefix(p_records[0]['lines'][0]['moves_uci'], p_records[1]['lines'][0]['moves_uci']) < o['capture_ply']
+            or p['search_id'] != p_records[1]['id'] or a['search_id'] != o['root_comparisons'][1]['best_search_id']
+            or common_prefix(p['moves_uci'], p_records[1]['lines'][0]['moves_uci']) < o['capture_ply']):
+        return 'support_chain_beyond_stability_agreement'
+    if len(o['reply_references']) != 2:
+        return 'support_chain_reply_references_missing'
+    refs = []
+    for binding, line in zip(o['reply_references'], (p, a)):
+        rec = searches[binding['search_id']]
+        if (binding['timeline_id'] != line['id'] or rec['fen'] != line['nodes'][1]['fen']
+                or rec['root_moves'] or rec['status'] != 'complete_iteration' or not rec['lines']
+                or rec['requested_depth'] != 20 or rec['lines'][0].get('depth', 0) < 20
+                or rec['lines'][0]['score']['pov'] != own):
+            return 'support_chain_reply_not_completed_unrestricted_reference'
+        if line is p and common_prefix(line['moves_uci'], [line['root_uci'], *rec['lines'][0]['moves_uci']]) < o['capture_ply']:
+            return 'support_chain_not_retained_by_best_reply'
+        refs.append(rec)
+        search_ids.add(rec['id'])
+    pair = o['reference_comparison']
+    if (pair['best_search_id'] != refs[1]['id'] or pair['other_search_id'] != refs[0]['id'] or pair['pov'] != own
+            or pair['best_score'] != _score_for(refs[1], own) or pair['other_score'] != _score_for(refs[0], own)
+            or refs[0]['requested_nodes'] != refs[1]['requested_nodes']
+            or comparison(pair['best_score'], pair['other_score'], o['equivalence_cp']) != 'inferior'):
+        return 'support_chain_deeper_root_comparison_failed'
+    if not search_ids <= set(h.search_ids):
+        return 'support_chain_search_receipt_missing'
     return None

@@ -12,6 +12,8 @@ def render(selected: dict | None, propositions: dict, comparison_status: str, co
         return render_recapture(selected, facts)
     if selected["objective"]["kind"] == "comparative_piece_pressure":
         return render_piece_pressure(selected, facts)
+    if selected["objective"]["kind"] == "comparative_support_chain":
+        return render_support_chain(selected, facts)
     if selected["objective"]["kind"] in ("comparative_sequence", "comparative_threat"):
         return render_comparative(selected, facts)
     root = next((p for p in facts if p["relation"] == "legal_move"), None)
@@ -84,6 +86,24 @@ def add_resource(coaching: dict, fact: dict | None) -> dict:
     habit = coaching["teaching_habit"]
     coaching["text"] = coaching["text"].removesuffix(habit).rstrip() + " " + text + " " + habit
     return coaching
+
+
+def render_support_chain(selected, facts):
+    o = selected['objective']
+    played = next(p for p in facts if p['relation'] == 'legal_move' and p['timeline_id'] == o['played_timeline_id'])
+    alt = next(p for p in facts if p['relation'] == 'legal_move' and p['timeline_id'] == o['alternative_timeline_id'])
+    attack = next(p for p in facts if p['id'] == o['defender_attack_id'])
+    own = played['actor'].capitalize()
+    opponent = 'Black' if own == 'White' else 'White'
+    threats = ' and '.join(f"{opponent}'s {p['piece']} on {p['square']}" for p in o['exposed_to'])
+    text = [f"With {played['data']['move']}, the pawn leaves {o['guard_square']} and stops defending {o['defender_square']}. The pawn on {o['defender_square']} is the only defender of {own}'s {o['key_piece']} on {o['key_square']}.",
+            f"{opponent}'s {attack['data']['move']} attacks that undefended pawn. After {' '.join(o['demonstration_san'])}, that pawn is gone and the {o['key_piece']} on {o['key_square']} is undefended against {threats}.",
+            f"{alt['data']['move']} keeps the pawn on {o['guard_square']} defending {o['defender_square']} and the pawn on {o['defender_square']} defending {o['key_square']}."]
+    habit = 'Before pushing a pawn, check what it protects and what depends on that protection.'
+    return {'title': 'Keep the support intact', 'text': ' '.join([*text, habit]),
+            'sentences': [{'frame': 'comparative_support_chain', 'proposition_ids': selected['proposition_ids'],
+                           'search_ids': selected['search_ids'], 'text': sentence} for sentence in text],
+            'teaching_habit': habit, 'comparison_text': '', 'scope': selected['wording_strength']}
 
 
 def render_piece_pressure(selected, facts):
