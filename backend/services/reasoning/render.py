@@ -109,8 +109,15 @@ def render_comparative(selected, facts):
         sentences.append(text + (", trading queens." if obj["queen_exchange"] else ", capturing the checking piece."))
         defence = obj["defence_scope"]
         if defence.get("refutes_ignoring_reply_mate_tree"):
-            sentences.append(f"{own} also has an earlier defence: {defence['first_reply_san']} avoids this immediate mating line.")
+            score = defence["first_reply_score"]
+            if score["kind"] == "cp":
+                sentences.append(f"After {own}'s {defence['first_reply_san']}, the engine score is {score['value'] / 100:+.2f} from {own}'s side.")
+            else:
+                winner = own if score["value"] > 0 else opponent
+                sentences.append(f"After {own}'s {defence['first_reply_san']}, the engine finds mate in {abs(score['value'])} for {winner}.")
         title, habit = "Cover the square behind the threat", "When a quiet move prepares a check, check which squares your pieces need to cover."
     return {"title": title, "text": " ".join([*sentences, habit]),
-            "sentences": [{"frame": obj["kind"], "proposition_ids": ids, "text": text} for text in sentences],
+            "sentences": [{"frame": obj["kind"], "proposition_ids": ids,
+                           "search_ids": [obj["defence_scope"]["search_id"]] if obj["kind"] == "comparative_threat" and text.startswith("After " + own + "'s ") else [],
+                           "text": text} for text in sentences],
             "teaching_habit": habit, "comparison_text": "", "scope": selected["wording_strength"]}

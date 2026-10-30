@@ -325,6 +325,8 @@ def verify_comparative(h, edge, propositions, timelines, searches):
         reply = chess.Move.from_uci(record["lines"][0]["root_uci"])
         if record["status"] != "complete_iteration" or record["fen"] != node.fen() or reply not in node.legal_moves or node.san(reply) != defence["first_reply_san"]:
             return "invalid_earlier_defence_evidence"
+        if defence["first_reply_score"] != record["lines"][0]["score"] or defence["first_reply_score"]["pov"] != pov:
+            return "wrong_earlier_defence_score"
         node.push(reply)
         if _verified_mate_two(node, check):
             return "earlier_defence_does_not_refute_mate_tree"

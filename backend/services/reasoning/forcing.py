@@ -273,6 +273,7 @@ def threat_hypothesis(root, played_uci, alternative_uci, setup_uci, session, add
                 if check in candidate.legal_moves:
                     defence_scope["refutes_ignoring_reply_mate_tree"] = mate_two_witness(candidate, check) is None
                     defence_scope["first_reply_san"] = after_setup.san(chess.Move.from_uci(response["root_uci"]))
+                    defence_scope["first_reply_score"] = dict(response["score"])
         exchange = (len(a_line["events"]) > 5 and a_line["events"][3]["moving_piece"] == "queen"
                     and a_line["events"][4]["moving_piece"] == "queen"
                     and a_line["events"][5]["captured_piece_id"] == a_line["events"][4]["moving_piece_id"])

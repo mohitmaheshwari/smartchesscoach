@@ -147,6 +147,8 @@ def test_qf8_composes_missing_cover_check_capture_and_retained_support():
         assert text in output
     assert "wins the queen" not in output
     assert h.objective["defence_scope"]["all_defences_exhausted"] is False
+    assert "avoids this immediate mating line" not in output
+    assert "-11.00" in output and "Black" in output
 
 
 @pytest.mark.parametrize("settings", [{"supported": False}, {"budget": False}, {"max_plies": 3}])
@@ -195,6 +197,12 @@ def test_an_ignoring_move_cannot_be_presented_as_an_earlier_defence():
     searches[defence["search_id"]]["lines"][0]["root_uci"] = "a6a5"
     defence["first_reply_san"] = "a5"
     assert verify_dependencies(h, facts, lines, searches) == "earlier_defence_does_not_refute_mate_tree"
+
+
+def test_named_defence_score_cannot_be_changed_into_relief():
+    h, facts, lines, searches = accepted(threat_case())
+    h.objective["defence_scope"]["first_reply_score"]["value"] = 300
+    assert verify_dependencies(h, facts, lines, searches)
 
 
 @pytest.mark.parametrize("builder", [sequence_case, threat_case])
