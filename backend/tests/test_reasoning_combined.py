@@ -19,10 +19,10 @@ def hybrid():
     return import_module('services.reasoning.positional')
 
 
-def fixture(mirror=False, reference_depth=20):
+def fixture(mirror=False, reference_depth=20, alternative_moves=None):
     board = chess.Board(FEN)
     p = ['c6e5', 'f3e5']
-    a = ['g5g4', 'f3d2', 'c6e5', 'd4e5']
+    a = list(alternative_moves or ['g5g4', 'f3d2', 'c6e5', 'd4e5'])
     if mirror:
         board = board.mirror()
         def flip(raw):
@@ -71,8 +71,8 @@ def fixture(mirror=False, reference_depth=20):
     return board, played, alternative, base, stable, Session(), add_line, timelines
 
 
-def compose(mirror=False, reference_depth=20):
-    board, played, alternative, base, stable, session, add_line, timelines = fixture(mirror, reference_depth)
+def compose(mirror=False, reference_depth=20, alternative_moves=None):
+    board, played, alternative, base, stable, session, add_line, timelines = fixture(mirror, reference_depth, alternative_moves)
     report = hybrid().compare_position_features([played, alternative], max_plies=4)
     h, extra = hybrid().recapture_hypothesis(board, played, alternative, report, base,
                                             stable, session, add_line,
@@ -152,3 +152,79 @@ def test_composition_does_not_claim_all_legal_replies_are_forced():
     h, facts, documents, searches, timelines = compose()
     h.wording_strength = 'unavoidable'
     assert verify_dependencies(h, documents, timelines, searches) is not None
+
+
+def test_restricted_opponent_reference_cannot_support_a_complete_chain():
+    h, facts, documents, searches, timelines = compose()
+    reference = searches[h.objective['reply_references'][0]['search_id']]
+    reference['root_moves'] = [reference['lines'][0]['moves_uci'][0]]
+    assert verify_dependencies(h, documents, timelines, searches) is not None
+
+
+def test_invented_recapture_score_is_rejected():
+    h, facts, documents, searches, timelines = compose()
+    h.objective['recapture_comparisons'][0]['best_score']['value'] += 50
+    assert verify_dependencies(h, documents, timelines, searches) is not None
+
+
+def test_missing_placement_receipt_is_rejected():
+    h, facts, documents, searches, timelines = compose()
+    h.proposition_ids.remove(h.objective['placement_proposition_id'])
+    assert verify_dependencies(h, documents, timelines, searches) is not None
+
+
+def test_pawn_advance_challenge_is_not_permitted_by_a_false_feature_label():
+    from services.reasoning.contracts import Proposition
+    h, facts, documents, searches, timelines = compose()
+    p = next(p for p in facts.values() if p.relation == 'secure_piece_placement')
+    changed = deepcopy(timelines[p.timeline_id])
+    board = chess.Board(changed['nodes'][p.ply]['fen'])
+    board.remove_piece_at(chess.F5)
+    board.set_piece_at(chess.F7, chess.Piece(chess.PAWN, chess.BLACK))
+    changed['nodes'][p.ply]['fen'] = board.fen()
+    assert verify(Proposition(**asdict(p)), changed) is not None
+
+
+def test_controlled_text_explains_the_chain_and_keeps_the_limit():
+    from services.reasoning.render import render
+    h, facts, documents, searches, timelines = compose()
+    result = render(asdict(h), documents, 'inferior', {})
+    assert "After Black's Nxe5, White can play Nxe5" in result['text']
+    assert 'protected by the pawn on d4' in result['text']
+    assert 'g4 instead attacks the defending knight on f3 first' in result['text']
+    assert result['text'].endswith('Before an exchange, check which piece would take back.')
+    assert 'only legal' not in result['text'] and 'must' not in result['text']
+    assert result['scope'] == h.wording_strength
+
+
+def test_disabled_combination_never_constructs_a_feature_provider(monkeypatch):
+    from services.reasoning.engine import explain_fen
+    from test_reasoning_boundaries import config
+    def forbidden(*args):
+        raise AssertionError('Feature provider must remain opt-in')
+    monkeypatch.setattr(hybrid().ChessGPTFeatures, '__init__', forbidden)
+    result = explain_fen('7k/6Q1/5K2/8/8/8/8/8 b - - 0 1', config=config())
+    assert 'feature_evidence' not in result
+
+
+def test_combination_requires_explicit_experimental_allocations():
+    from services.reasoning.engine import explain_fen
+    from test_reasoning_boundaries import config
+    with pytest.raises(ValueError, match='feature_plies'):
+        explain_fen(FEN, 'Nxe5', config=config(), positional_features=True)
+
+
+def test_longer_demonstrations_preserve_every_intermediate_move_in_text():
+    from services.reasoning.render import render
+    h, facts, documents, searches, timelines = compose(
+        alternative_moves=['g5g4', 'f3d2', 'h6h5', 'c4c5', 'c6e5', 'd4e5'])
+    assert h.status == 'supported_mechanism'
+    assert verify_dependencies(h, documents, timelines, searches) is None
+    assert 'After Nd2 h5 c5 Nxe5 dxe5' in render(asdict(h), documents, 'inferior', {})['text']
+
+
+def test_a_newly_advanced_pawn_is_not_the_original_recapture_counterfactual():
+    h, facts, documents, searches, timelines = compose(
+        alternative_moves=['g5g4', 'f3d2', 'h6h5', 'f2f4', 'c6e5', 'f4e5'])
+    assert h.status == 'incomplete_hypothesis'
+    assert 'alternative_recapture_not_legal_in_played_branch' in h.unresolved
