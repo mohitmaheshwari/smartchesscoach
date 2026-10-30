@@ -16,7 +16,7 @@ from services.reasoning.verify import verify, verify_dependencies
 FEN = 'r1b2rk1/ppp5/5q1p/3pNpp1/3Pn3/2PB4/P1Q2PPP/R3K2R w KQ - 0 15'
 
 
-def fixture(*, mirror=False, depth=20, reference_retreats=True, ignore_is_worse=True, history=False, max_plies=18):
+def fixture(*, mirror=False, depth=20, reference_retreats=True, ignore_is_worse=True, history=False, max_plies=18, same_destination=False):
     root = chess.Board(FEN)
     if history:
         for san in ('Nf7', 'Re8', 'Ne5', 'Rf8'):
@@ -24,6 +24,8 @@ def fixture(*, mirror=False, depth=20, reference_retreats=True, ignore_is_worse=
     played = ['c3c4', 'c7c5', 'c4d5', 'c5d4']
     alternative = ['f2f3', 'e4c5']
     reference = ['e4d6', 'h2h4', 'g5g4']
+    if same_destination:
+        reference = ['e4c5']
     witness = ['c7c5', 'f3e4', 'f5e4', 'd3b5']
     def flip(raw):
         m = chess.Move.from_uci(raw)
@@ -171,6 +173,14 @@ def test_pressure_verifier_preserves_history_bound_node_ids():
     h, facts, lines, searches = compose(history=True)
     assert h.status == 'supported_mechanism'
     assert verify_dependencies(h, facts, lines, searches) is None
+
+
+def test_pressure_text_does_not_invent_variable_destinations_when_all_replies_agree():
+    h, facts, lines, searches = compose(same_destination=True)
+    assert h.status == 'supported_mechanism'
+    assert verify_dependencies(h, facts, lines, searches) is None
+    text = render(asdict(h), facts, 'inferior', {})['text']
+    assert 'different squares' not in text
 
 
 @pytest.mark.parametrize('horizon,reason', [(1, 'reply_projection_horizon_too_short'),
