@@ -17,6 +17,37 @@ def _verify(p: Proposition, timeline: dict) -> str | None:
         return "unsupported_strength_or_polarity"
     if p.timeline_id != timeline["id"] or not 0 < p.ply <= len(timeline["events"]):
         return "wrong_timeline_or_ply"
+    if p.relation in ("checking_capture_available", "checking_capture_unavailable", "retained_coverage"):
+        node = timeline["nodes"][p.ply]
+        if p.evidence_ids != (timeline["search_id"], node["id"]):
+            return "wrong_evidence_reference"
+        board = chess.Board(node["fen"])
+        state = next((s for s in node["relations"].values() if s["piece_id"] == p.subject), None)
+        if state is None or p.actor != p.subject.split(":", 1)[0]:
+            return "wrong_snapshot_actor_or_identity"
+        source = chess.parse_square(state["square"])
+        if p.relation == "retained_coverage":
+            square = chess.parse_square(p.object)
+            if p.data["piece"] != chess.piece_name(board.piece_type_at(source)) or p.data["square"] != state["square"]:
+                return "wrong_retained_piece"
+            since = p.data["retained_since_ply"]
+            if isinstance(since, bool) or not isinstance(since, int) or not 0 <= since <= p.ply:
+                return "invalid_retained_scope"
+            for snapshot in timeline["nodes"][since:p.ply + 1]:
+                piece = next((s for s in snapshot["relations"].values() if s["piece_id"] == p.subject), None)
+                if piece is None or square not in chess.Board(snapshot["fen"]).attacks(chess.parse_square(piece["square"])):
+                    return "coverage_not_retained"
+            return None
+        target = node["relations"].get(p.data["target_square"])
+        move = chess.Move.from_uci(p.data["move_uci"])
+        if (target is None or target["piece_id"] != p.object or move.from_square != source
+                or move.to_square != chess.parse_square(p.data["target_square"])
+                or board.piece_at(source).color != board.turn):
+            return "wrong_checking_capture_entities"
+        available = move in board.legal_moves and board.is_capture(move) and board.gives_check(move)
+        if p.relation == "checking_capture_available":
+            return None if available and board.san(move) == p.data["move_san"] else "checking_capture_unavailable"
+        return None if not available else "checking_capture_actually_available"
     event = timeline["events"][p.ply - 1]
     before = chess.Board(timeline["nodes"][p.ply - 1]["fen"])
     move = chess.Move.from_uci(event["move_uci"])
@@ -71,11 +102,11 @@ def _verify(p: Proposition, timeline: dict) -> str | None:
         ok = move.promotion is not None and chess.piece_name(move.promotion) == p.object and p.data.get("square") == chess.square_name(move.to_square)
     elif p.relation == "castles":
         ok = before.is_castling(move) and p.object == chess.square_name(move.to_square)
-    elif p.relation in ("coverage_gained", "coverage_abandoned", "coverage_maintained"):
+    elif p.relation in ("coverage_gained", "coverage_abandoned", "coverage_maintained", "coverage_not_gained"):
         square = chess.parse_square(p.object)
         prior, current = square in before.attacks(move.from_square), square in after.attacks(move.to_square)
         ok = {"coverage_gained": not prior and current, "coverage_abandoned": prior and not current,
-              "coverage_maintained": prior and current}[p.relation]
+              "coverage_maintained": prior and current, "coverage_not_gained": not prior and not current}[p.relation]
     elif p.relation == "clears_castling_path":
         king = before.king(before.turn)
         target = chess.parse_square(p.object)
@@ -98,7 +129,7 @@ def _verify(p: Proposition, timeline: dict) -> str | None:
     return None if ok else "relationship_not_true_at_this_event"
 
 
-def verify_dependencies(hypothesis, propositions: dict, timelines: dict) -> str | None:
+def verify_dependencies(hypothesis, propositions: dict, timelines: dict, searches=None) -> str | None:
     """Check composed links as relations over the accepted facts and legal events.
 
     This validates a demonstrated dependency, not necessity or attribution of
@@ -106,7 +137,17 @@ def verify_dependencies(hypothesis, propositions: dict, timelines: dict) -> str 
     """
     try:
         facts = [propositions[key] for key in hypothesis.proposition_ids]
-        if any(timelines[p["timeline_id"]]["root_uci"] != hypothesis.root_uci for p in facts if p["relation"] != "captures" or hypothesis.operation != "PREVENT"):
+        allowed_roots = {hypothesis.root_uci}
+        if hypothesis.objective["kind"] in ("comparative_sequence", "comparative_threat"):
+            sequence = hypothesis.objective["kind"] == "comparative_sequence"
+            permitted = "conditional_on_setup_and_demonstrated_exchange" if sequence else "conditional_threat_with_searched_defences"
+            if (hypothesis.wording_strength not in (permitted, "demonstrated_continuation_with_alternative_branches")
+                    or len(hypothesis.dependencies) != 1
+                    or hypothesis.dependencies[0]["kind"] != ("checking_capture_changes_exchange" if sequence else "added_cover_answers_prepared_check")
+                    or hypothesis.operation != ("SEQUENCE" if sequence else "PREVENT")):
+                return "unsupported_comparative_strength_or_dependency"
+            allowed_roots.add(hypothesis.objective["contrast_root_uci"])
+        if any(timelines[p["timeline_id"]]["root_uci"] not in allowed_roots for p in facts if p["relation"] != "captures" or hypothesis.operation != "PREVENT"):
             return "incompatible_root_branches"
         for edge in hypothesis.dependencies:
             if edge["kind"] in ("opened_capture_line", "opened_entry_line"):
@@ -133,8 +174,181 @@ def verify_dependencies(hypothesis, propositions: dict, timelines: dict) -> str 
             elif edge["kind"] == "compound_castling_prerequisite":
                 if not any(p["relation"] == "clears_castling_path" for p in facts):
                     return "missing_castling_prerequisite"
+            elif edge["kind"] in ("checking_capture_changes_exchange", "added_cover_answers_prepared_check"):
+                problem = verify_comparative(hypothesis, edge, propositions, timelines, searches)
+                if problem:
+                    return problem
             else:
                 return "unknown_dependency_operation"
     except (ValueError, KeyError, IndexError, TypeError):
         return "malformed_dependency"
     return None
+
+
+def _replay_certificate(line):
+    board = chess.Board(line["nodes"][0]["fen"])
+    for ply, raw in enumerate(line["moves_uci"], 1):
+        move = chess.Move.from_uci(raw)
+        if move not in board.legal_moves:
+            raise ValueError("illegal_certificate")
+        if board.san(move) != line["moves_san"][ply - 1]:
+            raise ValueError("wrong_certificate_move_name")
+        board.push(move)
+        if board.fen() != line["nodes"][ply]["fen"]:
+            raise ValueError("wrong_certificate_position")
+    return board
+
+
+def verify_comparative(h, edge, propositions, timelines, searches):
+    p, a = timelines[edge["played_timeline_id"]], timelines[edge["alternative_timeline_id"]]
+    p_final, a_final = _replay_certificate(p), _replay_certificate(a)
+    obj = h.objective
+    if (p["nodes"][0]["fen"] != a["nodes"][0]["fen"] or p["moves_uci"][1] != a["moves_uci"][1]
+            or obj["contrast_root_uci"] != p["root_uci"] or h.root_uci != a["root_uci"]
+            or obj["played_san"] != p["moves_san"][0] or obj["alternative_san"] != a["moves_san"][0]
+            or obj["setup_san"] != p["moves_san"][1]
+            or obj["played_timeline_id"] != p["id"] or obj["alternative_timeline_id"] != a["id"]):
+        return "wrong_comparative_roots_or_setup"
+    if edge["kind"] == "checking_capture_changes_exchange":
+        available, unavailable = propositions[edge["available_id"]], propositions[edge["unavailable_id"]]
+        if (available["relation"] != "checking_capture_available" or unavailable["relation"] != "checking_capture_unavailable"
+                or available["subject"] != unavailable["subject"] or available["object"] != unavailable["object"]
+                or available["timeline_id"] != a["id"] or unavailable["timeline_id"] != p["id"]
+                or available["ply"] != 2 or unavailable["ply"] != 2
+                or a["events"][2]["captured_piece_id"] != available["object"] or not a["events"][2]["gave_check"]
+                or obj["resource_san"] != available["data"]["move_san"]
+                or obj["target_square"] != available["data"]["target_square"]
+                or obj["exchange_san"] != p["moves_san"][2:] or a["moves_uci"][4:] != p["moves_uci"][2:]):
+            return "checking_capture_link_not_established"
+        queen_sets = [{e["captured_piece_id"] for e in line["events"] if e["captured_piece"] == "queen"} for line in (p, a)]
+        if len(queen_sets[0]) != 2 or queen_sets[0] != queen_sets[1]:
+            return "both_queens_not_exchanged"
+        certificate = obj["certificate"]
+        after_check = chess.Board(a["nodes"][3]["fen"])
+        if (certificate["played_line"] != p["moves_uci"] or certificate["alternative_line"] != a["moves_uci"]
+                or certificate["setup_uci"] != p["moves_uci"][1] or certificate["checking_capture"] != a["moves_uci"][2]
+                or certificate["legal_check_evasions"] != sorted(m.uci() for m in after_check.legal_moves)
+                or certificate["target_square"] != obj["target_square"] or certificate["victim_piece"] != obj["extra_piece"]
+                or certificate["scope"] != "conditional_on_setup_and_demonstrated_exchange"):
+            return "wrong_serialized_sequence_certificate"
+        victim_type = chess.Board(a["nodes"][2]["fen"]).piece_type_at(chess.parse_square(available["data"]["target_square"]))
+        if obj["extra_piece"] != chess.piece_name(victim_type):
+            return "wrong_extra_piece"
+        own = chess.Board(p["nodes"][0]["fen"]).turn
+        for piece_type in (chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN):
+            gain = (len(a_final.pieces(piece_type, own)) - len(a_final.pieces(piece_type, not own))) - (len(p_final.pieces(piece_type, own)) - len(p_final.pieces(piece_type, not own)))
+            if gain != (1 if piece_type == victim_type else 0):
+                return "comparative_material_not_the_named_piece"
+        return None
+    missing, gained = propositions[edge["missing_id"]], propositions[edge["gained_id"]]
+    if (missing["subject"] != gained["subject"] or missing["object"] != gained["object"]
+            or missing["object"] != obj["target_square"] or missing["timeline_id"] != p["id"] or gained["timeline_id"] != a["id"]
+            or missing["relation"] not in ("coverage_not_gained", "coverage_abandoned")
+            or gained["relation"] not in ("coverage_gained", "coverage_maintained")
+            or p["moves_uci"][2:4] != a["moves_uci"][2:4] or not p["events"][3]["gave_check"]
+            or a["events"][4]["moving_piece_id"] != gained["subject"]
+            or a["events"][4]["captured_piece_id"] != a["events"][3]["moving_piece_id"]
+            or a["events"][4]["captured_square"] != gained["object"]
+            or obj["check_san"] != p["moves_san"][3] or obj["capture_san"] != a["moves_san"][4]
+            or obj["wait_san"] != p["moves_san"][2] or obj["mate_line_san"] != p["moves_san"][3:]
+            or obj["answer_line_san"] != a["moves_san"][4:6]
+            or missing["ply"] != 1 or gained["ply"] != 1
+            or bool(obj["origin_covered"]) != (missing["relation"] == "coverage_abandoned")):
+        return "added_cover_does_not_answer_the_resource"
+    exchange = (len(a["events"]) > 5 and a["events"][3]["moving_piece"] == "queen"
+                and a["events"][4]["moving_piece"] == "queen"
+                and a["events"][5]["captured_piece_id"] == a["events"][4]["moving_piece_id"])
+    if obj["queen_exchange"] != exchange:
+        return "queen_exchange_not_established"
+    if not p_final.is_checkmate():
+        return "demonstration_does_not_end_in_mate"
+    for key in h.proposition_ids:
+        fact = propositions[key]
+        if fact["relation"] == "retained_coverage" and (fact["timeline_id"] != p["id"]
+                or fact["ply"] != len(p["events"]) or fact["data"]["retained_since_ply"] != 0
+                or fact["object"] != p["events"][-1]["destination"]
+                or fact["actor"] != p["nodes"][-2]["turn"]):
+            return "retained_support_not_linked_to_mating_piece"
+    # Independently close the claimed mate-in-two tree after the legal waiting
+    # move. It is not a claim about other earlier defender choices.
+    before = chess.Board(p["nodes"][3]["fen"])
+    check = chess.Move.from_uci(p["moves_uci"][3])
+    if not _verified_mate_two(before, check):
+        return "conditional_mate_tree_has_a_defence"
+    certificate = obj["certificate"]
+    if (certificate["played_prefix"] != p["moves_uci"][:3] or certificate["alternative_prefix"] != a["moves_uci"][:4]
+            or certificate["played_uci"] != p["moves_uci"][0] or certificate["alternative_uci"] != a["moves_uci"][0]
+            or certificate["setup_uci"] != p["moves_uci"][1] or certificate["wait_uci"] != p["moves_uci"][2]
+            or certificate["check_uci"] != check.uci() or certificate["capture_answer_uci"] != a["moves_uci"][4]
+            or certificate["target_square"] != obj["target_square"] or certificate["origin_covered"] != obj["origin_covered"]
+            or certificate["status"] != "legal_conditional_witness"):
+        return "wrong_serialized_threat_certificate"
+    after_check = before.copy()
+    after_check.push(check)
+    tree = certificate["mate_tree"]
+    evasions = sorted(m.uci() for m in after_check.legal_moves)
+    if (tree["all_evasions"] != evasions or tree["depth"] != (1 if after_check.is_checkmate() else 2)
+            or (evasions and sorted(branch[1] for branch in tree["lines"]) != evasions)
+            or not tree["lines"] or tree["lines"][0] != p["moves_uci"][3:]):
+        return "wrong_serialized_mate_tree"
+    for branch in tree["lines"]:
+        node = before.copy()
+        if branch[0] != check.uci() or len(branch) != (1 if after_check.is_checkmate() else 3):
+            return "wrong_serialized_mate_tree"
+        for raw in branch:
+            action = chess.Move.from_uci(raw)
+            if action not in node.legal_moves:
+                return "illegal_serialized_mate_branch"
+            node.push(action)
+        if not node.is_checkmate():
+            return "serialized_branch_is_not_mate"
+    if searches is None:
+        return "missing_comparative_search_evidence"
+    if len(obj["score_pairs"]) != 2:
+        return "missing_comparative_search_evidence"
+    from .search import comparison
+    pov = p["nodes"][0]["turn"]
+    for got_id, covered_id in obj["score_pairs"]:
+        got, covered = searches[got_id], searches[covered_id]
+        if (got["status"] != "complete_iteration" or covered["status"] != "complete_iteration"
+                or not got["lines"] or not covered["lines"]
+                or got["fen"] != p["nodes"][3]["fen"] or covered["fen"] != a["nodes"][4]["fen"]
+                or got["root_moves"] != [p["moves_uci"][3]] or covered["root_moves"] != [a["moves_uci"][4]]
+                or got["lines"][0]["root_uci"] != p["moves_uci"][3] or covered["lines"][0]["root_uci"] != a["moves_uci"][4]
+                or got["lines"][0]["score"]["pov"] != pov or covered["lines"][0]["score"]["pov"] != pov
+                or comparison(covered["lines"][0]["score"], got["lines"][0]["score"], obj["equivalence_cp"]) != "inferior"):
+            return "comparative_resource_not_supported_by_search"
+    defence = obj["defence_scope"]
+    if defence.get("refutes_ignoring_reply_mate_tree"):
+        record = searches[defence["search_id"]]
+        node = chess.Board(p["nodes"][2]["fen"])
+        reply = chess.Move.from_uci(record["lines"][0]["root_uci"])
+        if record["status"] != "complete_iteration" or record["fen"] != node.fen() or reply not in node.legal_moves or node.san(reply) != defence["first_reply_san"]:
+            return "invalid_earlier_defence_evidence"
+        node.push(reply)
+        if _verified_mate_two(node, check):
+            return "earlier_defence_does_not_refute_mate_tree"
+    return None
+
+
+def _verified_mate_two(board, check):
+    """Independent finite rule validation, separate from candidate generation."""
+    if check not in board.legal_moves or not board.gives_check(check):
+        return False
+    after = board.copy()
+    after.push(check)
+    if after.is_checkmate():
+        return True
+    replies = list(after.legal_moves)
+    for response in replies:
+        node = after.copy()
+        node.push(response)
+        finishes = []
+        for move in list(node.legal_moves):
+            child = node.copy()
+            child.push(move)
+            if child.is_checkmate():
+                finishes.append(move)
+        if not finishes:
+            return False
+    return bool(replies)

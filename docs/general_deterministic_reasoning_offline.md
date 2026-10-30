@@ -50,11 +50,13 @@ Illegal input raises `ValueError`. Terminal positions need no engine process. No
 
 - Fresh Stockfish processes, single-thread search, completed common-depth MultiPV iterations, separately typed mate/CP scores, recorded bounds and a shared query/node ledger.
 - Played-root analysis before optional alternatives, including played moves absent from ranking. Compared roots get independent searches at both configured budgets.
+- Equivalent choices select teaching evidence on the played root. Mate distances remain distinct coaching decisions, including mate in one versus a slower mate.
 - Full rule/history-aware query identity, binary/config/source hashes, engine options, and runtime/memory instrumentation.
 - Branch views over the canonical stored-line replay, with retained relationship snapshots, piece lineage, castling's rook movement, en passant and promotion type changes.
 - Finite objective generation and prerequisite joins: captures/checks, opened lines, same-piece routes to concrete targets, castling preparation, maintained coverage, pawn transformations and candidate prevention of observed resources.
 - Adaptive AND/OR investigation of castling and entry-square objectives, with legal own actions, adequate searched opponent replies, forcing resources, explicit omissions and unknown horizons.
 - Independent checks for proposition actors, identities, timing, polarity, quantifiers, board relations and composed event/route dependencies.
+- Comparative forcing certificates: an available checking capture changes a demonstrated queen exchange; or changed coverage answers a prepared check. A diagnostic pass only proposes a check. Acceptance requires a legal waiting-move witness, a closed local mate tree, legal alternate capture, two numerical searches, and independent dependency validation. Earlier defensive choices remain explicitly outside that local mate proof.
 - Rejection of universal interpretations when a legal branch supplies a counterexample. A true but incidental capture cannot become the selected teaching point without a root-dependent link.
 - Controlled sentence frames. No LLM, network provider, MongoDB, product route, caption override, or worker invocation is involved.
 
@@ -62,7 +64,7 @@ Illegal input raises `ValueError`. Terminal positions need no engine process. No
 
 ## Current limits
 
-The initial core can demonstrate consequences and some exact mechanisms, including immediate mate. A witnessed capture is never promoted to a material win merely because it appears in a PV. The output explicitly leaves settlement and unsearched defences unresolved. Candidate `PREVENT`, defensive responsibility and persistent pawn-structure benefits remain incomplete unless supported; missing resources in a PV do not prove prevention.
+The core can demonstrate consequences and a few exact or conditional comparative mechanisms, including immediate mate, checking captures during a queen exchange, and coverage against a prepared checking threat. These are limited families, not a general solution to forcing chess. A witnessed capture is never promoted to a material win merely because it appears in a PV. The output explicitly leaves settlement and unsearched defences unresolved. Defensive responsibility and persistent pawn-structure benefits remain incomplete unless supported; missing resources in a PV do not prove prevention.
 
 The current objective-policy search supports castling and concrete piece-entry routes. The larger algorithm's full pawn-break/structural policy search, general quiet defensive objectives, competing-account adjudication and measured teaching selection are further work. Most searched accounts remain `supported_consequence`, not a proven comparative mechanism. Player level is recorded but critical chess facts and frames do not yet vary by rating.
 
@@ -93,7 +95,15 @@ Sealed evaluation additionally requires matching frozen config, code and binary 
 
 ## Verification and next gate
 
-The original relevant suites passed after implementation: **302 tests**. Direct boundary checks additionally exercised altered actors/objects/polarity/strength/timing, correct f5 transitions, piece identity through castling/promotion/EP, legal history, invalid FEN/moves, score classes and mandatory played analysis under a one-query cap. No new test file was committed.
+The original implementation reported 302 existing tests and uncommitted direct boundary checks. The review follow-up commits executable tests: 95 engine-free boundary/search/forcing regressions and seven opt-in local Stockfish integration tests. The first tests-only commit preceded the reviewed fixes. See the [follow-up evidence](general_deterministic_reasoning_review_fixes_2026_10_30.md) for the actual commands, baseline failures and scope limits.
+
+From `backend`, run the engine-free suites with:
+
+```powershell
+python -m pytest tests/test_reasoning_boundaries.py tests/test_reasoning_review_regressions.py tests/test_reasoning_forcing.py tests/test_reasoning_search_contracts.py -q
+```
+
+For the real-engine tests, explicitly set `CHESSGURU_TEST_STOCKFISH` to a local executable, then run `python -m pytest tests/test_reasoning_engine_integration.py -q -s`. Without that variable they skip. These tests use the original 30k/120k budgets, check complete output repeatability outside runtime, and save per-case JSON in pytest's temporary directory. They access no API or database.
 
 The repository-mandated `tests/test_all_flows.py` was attempted with `REACT_APP_BACKEND_URL=http://127.0.0.1:8001`. It stopped at the first request with `httpx.ConnectError`; no local server was listening. No deployed application was used as a substitute. The [implementation evidence](general_deterministic_reasoning_implementation_2026_10_30.md) records actual development outputs and the remaining quality gate.
 

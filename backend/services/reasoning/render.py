@@ -6,6 +6,8 @@ def render(selected: dict | None, propositions: dict, comparison_status: str, co
     if selected is None:
         return {"text": "I could not establish a clear explanation within this search.", "sentences": []}
     facts = [propositions[p] for p in selected["proposition_ids"]]
+    if selected["objective"]["kind"] in ("comparative_sequence", "comparative_threat"):
+        return render_comparative(selected, facts)
     root = next((p for p in facts if p["relation"] == "legal_move"), None)
     sentences = []
     for relation in ("checkmates", "promotes_to", "captures", "clears_castling_path", "reaches"):
@@ -76,3 +78,39 @@ def add_resource(coaching: dict, fact: dict | None) -> dict:
     habit = coaching["teaching_habit"]
     coaching["text"] = coaching["text"].removesuffix(habit).rstrip() + " " + text + " " + habit
     return coaching
+
+
+def render_comparative(selected, facts):
+    """Every field in these frames is bound to verified comparative evidence."""
+    obj = selected["objective"]
+    ids = [p["id"] for p in facts]
+    played = next(p for p in facts if p["relation"] == "legal_move" and p["timeline_id"] == obj["played_timeline_id"])
+    own = played["actor"].capitalize()
+    opponent = "Black" if own == "White" else "White"
+    if obj["kind"] == "comparative_sequence":
+        exchange = " ".join(obj["exchange_san"])
+        sentences = [f"After {opponent}'s {obj['setup_san']}, {obj['played_san']} still allows {exchange}, exchanging queens.",
+                     f"{obj['alternative_san']} instead allows {obj['resource_san']}, taking the {obj['extra_piece']} on {obj['target_square']} with check before that exchange; {obj['played_san']} has no such checking capture."]
+        reply = next((p for p in facts if p["relation"] == "only_legal_reply" and p["timeline_id"] == obj["alternative_timeline_id"] and p["ply"] == 3), None)
+        if reply:
+            sentences.append(f"At that point, {reply['data']['move']} is the only legal reply.")
+        title, habit = "Check before exchanging", "Before taking back, look for a stronger move with check."
+    else:
+        missing = next(p for p in facts if p["relation"] in ("coverage_not_gained", "coverage_abandoned"))
+        coverage = "leaves" if missing["relation"] == "coverage_abandoned" else "adds no cover on"
+        sentences = [f"{obj['played_san']} {coverage} {obj['target_square']}; {obj['alternative_san']} would let {own}'s {played['data']['piece']} cover it."]
+        mating_line = " ".join(obj["mate_line_san"])
+        text = f"{opponent}'s {obj['setup_san']} prepares {obj['check_san']}: for example, after {own}'s {obj['wait_san']}, {mating_line} is mate"
+        support = next((p for p in facts if p["relation"] == "retained_coverage"), None)
+        text += f", with the {support['data']['piece']} on {support['data']['square']} still protecting {support['object']}." if support else "."
+        sentences.append(text)
+        answer = " ".join(obj["answer_line_san"])
+        text = f"After {obj['alternative_san']}, the same plan can be met by {answer}"
+        sentences.append(text + (", trading queens." if obj["queen_exchange"] else ", capturing the checking piece."))
+        defence = obj["defence_scope"]
+        if defence.get("refutes_ignoring_reply_mate_tree"):
+            sentences.append(f"{own} also has an earlier defence: {defence['first_reply_san']} avoids this immediate mating line.")
+        title, habit = "Cover the square behind the threat", "When a quiet move prepares a check, check which squares your pieces need to cover."
+    return {"title": title, "text": " ".join([*sentences, habit]),
+            "sentences": [{"frame": obj["kind"], "proposition_ids": ids, "text": text} for text in sentences],
+            "teaching_habit": habit, "comparison_text": "", "scope": selected["wording_strength"]}

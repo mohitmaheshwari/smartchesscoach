@@ -1,5 +1,7 @@
 # Offline reasoning — implementation evidence, 2026-10-30
 
+This is the original pre-review snapshot. Its missing committed boundary tests and reviewed output defects are addressed in the [review follow-up](general_deterministic_reasoning_review_fixes_2026_10_30.md), which records the later results and remaining limits.
+
 Authorisation: Mohit's “okay, move ahead” after the repository-grounded plan. Scope: first offline vertical slice; no production integration. [Usage and current limits](general_deterministic_reasoning_offline.md), [scope](general_deterministic_reasoning_scope.md), [original algorithm](general_deterministic_reasoning_algorithm.md).
 
 ## Implemented path

@@ -9,6 +9,7 @@ import chess
 
 from services.stored_line_verifier import parse_legal_move, STORED_LINE_VERIFIER_VERSION
 from .contracts import ReasoningConfig, VERSION, fingerprint
+from .forcing import sequence_hypothesis, threat_hypothesis
 from .investigation import investigate
 from .objectives import generate, prevention_candidates, challenge
 from .render import render, add_resource
@@ -119,6 +120,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
 
     def add_line(moves, record, *, retain_hypotheses=True):
         line = build_timeline(board, moves, record.id, config.max_plies)
+        line["evidence_origin"] = record.status
         if any(t["id"] == line["id"] for t in timelines):
             return line
         timelines.append(line)
@@ -139,12 +141,24 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
         result["candidates"].append({"move_uci": move.uci(), "move_san": board.san(move),
             "role": "played" if move == played else "searched_alternative", "assessment": complete.get(move.uci(), {}).get("score"),
             "base_search_id": base_records[move.uci()].id, "stability_search_id": record.id})
-    # Reserve useful work for quiet objectives before optional forcing resources
-    # consume the shared budget. The adaptive search includes opponent replies.
+    # Comparative forcing evidence has priority over unrelated quiet routes.
+    forcing_mechanism = None
+    played_line = primary.get(played.uci()) if played else None
+    if played_line and best and played.uci() != best and comparison_status == "inferior" and len(played_line["events"]) >= 2:
+        setup = played_line["moves_uci"][1]
+        for build in (sequence_hypothesis, threat_hypothesis):
+            candidate, extra = build(board, played.uci(), best, setup, session, add_line)
+            if candidate is not None:
+                facts.extend(extra)
+                hypotheses.insert(0, candidate)
+                hypotheses[:] = hypotheses[:config.max_hypotheses]
+                forcing_mechanism = candidate
+                break
+    # Reserve useful work for quiet objectives before optional resources.
     quiet = next((h for h in hypotheses if h.root_uci == teaching_root and h.objective["kind"] == "castle"), None)
     if quiet is None:
         quiet = next((h for h in hypotheses if h.root_uci == teaching_root and h.objective["kind"] == "reach"), None)
-    if quiet and session.can_query():
+    if quiet and not forcing_mechanism and session.can_query():
         investigation = investigate(board, chess.Move.from_uci(teaching_root), quiet.objective, session)
         result["investigations"].append(investigation)
         for witness in investigation["witnesses"]:
@@ -199,7 +213,8 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     for h in hypotheses:
         challenge(h, timelines)
         missing = sorted(set(h.proposition_ids) - set(accepted_facts))
-        dependency_problem = None if missing else verify_dependencies(h, accepted_facts, line_lookup)
+        dependency_problem = None if missing else verify_dependencies(h, accepted_facts, line_lookup,
+            {r.id: r.document() for r in session.records})
         if missing or dependency_problem:
             h.status = "rejected"
             h.unresolved.append("proposition_failed_verification" if missing else dependency_problem)
@@ -218,7 +233,8 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     selectable = [h for h in result["hypotheses"]["accepted"] if h["root_uci"] == teaching_root and h["objective"].get("root_connected")]
     # Experimental deterministic shortlist ordering, explicitly not a calibrated shipping rank.
     def teaching_order(h):
-        return (h["status"] != "supported_mechanism", h["objective"]["kind"] != "checking_capture",
+        return (h["objective"]["kind"] != "checkmates", h["status"] != "supported_mechanism",
+                h["objective"]["kind"] not in ("comparative_sequence", "comparative_threat"), h["objective"]["kind"] != "checking_capture",
                 h["objective"]["kind"] != "castle", not bool(h["dependencies"]), h["id"])
     selected = min(selectable, key=teaching_order) if selectable else None
     result["selected_teaching_point"] = selected
