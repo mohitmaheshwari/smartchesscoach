@@ -89,3 +89,28 @@ def test_nontext_provider_result_is_refused():
     async def caller(*args, **kwargs): return {'unexpected': 'object'}
     r = asyncio.run(api().propose_evidence_reasoning(sample(), max_tokens=2000, caller=caller))
     assert r['status'] == 'refused'
+
+
+def test_cli_packet_only_mode_never_calls_a_model(tmp_path, monkeypatch):
+    from scripts import explain_position_evidence as cli
+    from dataclasses import asdict
+    from test_reasoning_boundaries import config
+    p = sample(); p['input']['played_san'] = 'g4'; p['runtime'] = {'wall_ms': 0}
+    monkeypatch.setattr(cli, 'build_position_evidence', lambda *args, **kwargs: p)
+    async def forbidden(*args, **kwargs): raise AssertionError('packet-only called a provider')
+    monkeypatch.setattr(api(), 'propose_evidence_reasoning', forbidden)
+    settings = tmp_path / 'config.json'; settings.write_text(json.dumps(asdict(config())))
+    out = tmp_path / 'result'
+    assert cli.main(['--fen-before', p['input']['fen_before'], '--played-move', 'g4',
+        '--config', str(settings), '--engine', 'not-executed', '--depth', '20', '--output-dir', str(out)]) == 0
+    assert json.loads((out / 'summary.json').read_text())['model_status'] == 'not_called'
+    assert (out / 'evidence.json').is_file() and (out / 'model_input.json').is_file()
+
+
+def test_cli_does_not_load_credentials_without_explicit_model_mode(tmp_path):
+    from scripts import explain_position_evidence as cli
+    with pytest.raises(SystemExit) as error:
+        cli.main(['--fen-before', 'unused', '--played-move', 'g4', '--config', 'unused',
+            '--engine', 'unused', '--depth', '20', '--output-dir', str(tmp_path / 'out'),
+            '--env-file', 'unused.env'])
+    assert error.value.code == 2

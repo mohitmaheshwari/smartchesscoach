@@ -14,8 +14,10 @@ pytestmark = pytest.mark.skipif(not ENGINE, reason='explicit local engine path r
 
 
 def test_live_g4_packet_preserves_sources_horizon_identities_and_material(tmp_path):
-    result = build_position_evidence(FEN, 'g4', config=config(engine_path=ENGINE, nodes=8000000,
-        stability_nodes=8000000, max_total_nodes=40000000, max_queries=5, rank_width=3, hash_mb=64), depth=24)
+    artifact = os.environ.get('CHESSGURU_TEST_EVIDENCE_ARTIFACT')
+    result = json.loads(Path(artifact).read_text(encoding='utf-8')) if artifact else build_position_evidence(
+        FEN, 'g4', config=config(engine_path=ENGINE, nodes=8000000, stability_nodes=8000000,
+        max_total_nodes=40000000, max_queries=5, rank_width=3, hash_mb=64), depth=24)
     (tmp_path / 'evidence.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
     assert result['status'] == 'complete'
     assert result['input']['played_uci'] == 'g5g4'
