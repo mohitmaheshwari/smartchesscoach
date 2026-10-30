@@ -95,6 +95,8 @@ Sealed evaluation additionally requires matching frozen config, code and binary 
 
 ## Verification and next gate
 
+The later [relevance correction](general_deterministic_reasoning_relevance_2026_10_30.md) adds sentence/source receipts, rejects forced-branch resources, requires depth-20 agreement for later ordinary events, leads with direct root capture contrasts tied to both root score gaps, and renders the cost of a named defence. Its evidence supersedes the original selection policy and earlier test counts below.
+
 The original implementation reported 302 existing tests and uncommitted direct boundary checks. The review follow-up commits executable tests: 95 engine-free boundary/search/forcing regressions and seven opt-in local Stockfish integration tests. The first tests-only commit preceded the reviewed fixes. See the [follow-up evidence](general_deterministic_reasoning_review_fixes_2026_10_30.md) for the actual commands, baseline failures and scope limits.
 
 From `backend`, run the engine-free suites with:

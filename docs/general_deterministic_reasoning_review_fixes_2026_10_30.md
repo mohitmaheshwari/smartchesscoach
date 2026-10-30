@@ -1,5 +1,7 @@
 # Offline reasoning review follow-up — 2026-10-30
 
+This records the first review correction at `6d900d0b`. The later [relevance correction and frozen rerun](general_deterministic_reasoning_relevance_2026_10_30.md) supersedes its defence wording, resource admission, and hypothesis ranking. Its historical examples and counts are retained as that earlier snapshot.
+
 Scope: the user's reproduced prototype review, in the requested order. No route, worker, caption pipeline, database, environment configuration or deployed service was changed. The main checkout was restored to `working-code`, preserving its original three tracked edits. Changes are isolated on `codex/reasoning-review-fixes` in the managed review worktree.
 
 ## Tests before fixes
