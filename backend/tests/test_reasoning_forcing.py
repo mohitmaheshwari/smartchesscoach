@@ -143,12 +143,13 @@ def test_qf8_composes_missing_cover_check_capture_and_retained_support():
     assert any(p["relation"] == "retained_coverage" and p["object"] == "f6" and p["data"]["square"] == "d5" for p in facts.values())
     assert h.objective["queen_exchange"] is True
     output = render(asdict(h), facts, "inferior", {})["text"]
-    for text in ("Qf8", "Qh7", "f5", "Qd7", "Qf5+", "Qxf5 exf5", "trading queens", "knight on d5", "Rc8", "for example"):
+    for text in ("Qf8", "Qh7", "f5", "Qd7", "Qf5+", "Qxf5 exf5", "trading queens", "knight on d5", "for example"):
         assert text in output
     assert "wins the queen" not in output
     assert h.objective["defence_scope"]["all_defences_exhausted"] is False
     assert "avoids this immediate mating line" not in output
-    assert "-11.00" in output and "Black" in output
+    assert "Rc8" not in output
+    assert "engine score" not in output and "-11.00" not in output
 
 
 @pytest.mark.parametrize("settings", [{"supported": False}, {"budget": False}, {"max_plies": 3}])
