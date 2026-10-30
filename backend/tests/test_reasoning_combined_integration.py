@@ -98,15 +98,16 @@ def test_combined_output_is_repeatable_outside_runtime(outputs):
     assert stable(deepcopy(outputs['c4'])) == stable(deepcopy(outputs['c4_repeat']))
 
 
-def test_real_pawn_pressure_has_a_verified_reply_class_and_exchange_example(outputs):
+def test_played_support_loss_precedes_an_unrelated_alternative_feature(outputs):
     result = outputs['c4']
     assert result['status'] == 'supported_mechanism'
     point = result['selected_teaching_point']
-    assert point['objective']['kind'] == 'comparative_piece_pressure'
-    assert point['objective']['reply_agreement'] == 'same_piece_leaves_target_square'
-    assert 'pawn on f3' in result['coaching']['text']
-    assert "Black's knight on e4" in result['coaching']['text']
-    assert 'f3 c5 fxe4 fxe4' in result['coaching']['text']
+    assert point['objective']['kind'] == 'comparative_support_chain'
+    assert 'leaves c3 and stops defending d4' in result['coaching']['text']
+    assert "White's knight on e5" in result['coaching']['text']
+    assert 'c4 c5 cxd5 cxd4' in result['coaching']['text']
+    assert "Black's queen on f6" in result['coaching']['text']
+    assert 'f3 c5 fxe4 fxe4' not in result['coaching']['text']
     assert 'must move' not in result['coaching']['text']
 
 
@@ -114,6 +115,6 @@ def test_pressure_budget_exhaustion_does_not_relax_the_depth_gate(outputs):
     result = outputs['c4_limited']
     assert result['selected_teaching_point'] is None
     pressure = [h for h in result['hypotheses']['incomplete']
-                if h['objective']['kind'] == 'comparative_piece_pressure']
+                if h['objective']['kind'] == 'comparative_support_chain']
     assert len(pressure) == 1
     assert 'opponent_reference_depth_not_reached' in pressure[0]['unresolved']

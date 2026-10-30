@@ -3,10 +3,11 @@ from copy import deepcopy
 from dataclasses import asdict
 
 import pytest
+import chess
 
 from services.reasoning import positional
 from services.reasoning.render import render
-from services.reasoning.timeline import event_facts
+from services.reasoning.timeline import build_timeline, event_facts
 from services.reasoning.verify import verify, verify_dependencies
 from test_reasoning_piece_pressure import fixture
 
@@ -92,3 +93,39 @@ def test_support_family_does_not_select_an_unrelated_static_outpost():
     h, facts = positional.support_chain_hypothesis(root, p, a, report, base, stable,
         session, add_line, verification_nodes=2000000)
     assert h is None and not facts
+
+
+def test_support_account_abstains_when_the_completed_best_reply_avoids_the_chain():
+    root, p, a, base, stable, session, add_line, _ = fixture()
+    original = session.query
+    def changed_reply(board, purpose, **kwargs):
+        rec = original(board, purpose, **kwargs)
+        if board.fen() == p['nodes'][1]['fen']:
+            rec.lines[0]['moves_uci'] = ['e4f2']
+        return rec
+    session.query = changed_reply
+    report = positional.compare_position_features([p, a], max_plies=4)
+    h, _ = positional.support_chain_hypothesis(root, p, a, report, base, stable,
+        session, add_line, verification_nodes=2000000)
+    assert h.status == 'incomplete_hypothesis'
+    assert 'best_reply_does_not_retain_support_loss' in h.unresolved
+
+
+@pytest.mark.parametrize('extra_support', ['defender', 'key_piece'])
+def test_a_remaining_defender_prevents_the_claim_of_a_broken_support_chain(extra_support):
+    root, p, a, base, stable, session, add_line, _ = fixture()
+    if extra_support == 'defender':
+        root.remove_piece_at(chess.D3)
+        root.set_piece_at(chess.E3, chess.Piece(chess.BISHOP, chess.WHITE))
+        alt_moves = a['moves_uci']
+    else:
+        root.remove_piece_at(chess.F2)
+        root.set_piece_at(chess.F4, chess.Piece(chess.PAWN, chess.WHITE))
+        alt_moves = ['e1g1']
+    played = build_timeline(root, p['moves_uci'], p['search_id'], 18)
+    alternative = build_timeline(root, alt_moves, a['search_id'], 18)
+    report = positional.compare_position_features([played, alternative], max_plies=4)
+    h, facts = positional.support_chain_hypothesis(root, played, alternative, report, base, stable,
+        session, add_line, verification_nodes=2000000)
+    assert h is None and not facts
+    assert len(session.records) == 4
