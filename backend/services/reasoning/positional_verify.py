@@ -184,3 +184,153 @@ def verify_recapture(h, propositions, timelines, searches):
     if not bound_ids <= set(h.search_ids):
         return 'recapture_search_receipts_missing'
     return None
+
+
+def verify_piece_pressure(h, propositions, timelines, searches):
+    """Check pawn pressure independently of the imported hint and composer."""
+    from .contracts import Proposition
+    from .timeline import build_timeline
+    from .verify import verify
+    obj = h.objective
+    if (h.operation != 'PREPARE' or h.wording_strength != 'demonstrated_pawn_pressure_with_verified_replies'
+            or h.dependencies != [{'kind': 'pawn_attack_changes_reply', 'attack_id': obj['attack_proposition_id']}]
+            or obj['reply_agreement'] != 'same_piece_leaves_target_square' or searches is None):
+        return 'unsupported_piece_pressure_strength_or_dependency'
+    p, a = timelines[obj['played_timeline_id']], timelines[obj['alternative_timeline_id']]
+    root = chess.Board(a['nodes'][0]['fen'])
+    target = chess.parse_square(obj['target_square'])
+    own = a['nodes'][0]['turn']
+    opponent = 'black' if own == 'white' else 'white'
+    def canonical(line):
+        expected = build_timeline(root, line['moves_uci'], line['search_id'], len(line['moves_uci']))
+        # The original history contributes to node IDs; a board-only verifier
+        # reconstructs geometry/events, retaining the supplied history-bound IDs.
+        return (all(line[key] == expected[key] for key in ('events', 'moves_san', 'root_uci'))
+                and len(line['nodes']) == len(expected['nodes'])
+                and all({k: v for k, v in actual.items() if k != 'id'} ==
+                        {k: v for k, v in rebuilt.items() if k != 'id'}
+                        for actual, rebuilt in zip(line['nodes'], expected['nodes'])))
+    if (not canonical(p) or not canonical(a) or a['root_uci'] != h.root_uci
+            or p['root_uci'] != obj['contrast_root_uci'] or p['root_uci'] == a['root_uci']
+            or p['nodes'][0]['fen'] != root.fen()):
+        return 'wrong_piece_pressure_root_binding'
+    after = chess.Board(a['nodes'][1]['fen'])
+    played_after = chess.Board(p['nodes'][1]['fen'])
+    attack = propositions[obj['attack_proposition_id']]
+    event = a['events'][0]
+    target_piece = after.piece_at(target)
+    if (event['moving_piece'] != 'pawn' or event['moving_piece_id'] != obj['attacker_id']
+            or attack['relation'] != 'attacks_piece' or attack['ply'] != 1 or attack['timeline_id'] != a['id']
+            or attack['actor'] != own or attack['subject'] != obj['attacker_id'] or attack['object'] != obj['target_id']
+            or attack['data']['square'] != obj['target_square'] or target_piece is None
+            or target_piece.color == root.turn or target_piece.piece_type in (chess.PAWN, chess.KING)
+            or a['nodes'][0]['relations'].get(obj['target_square'], {}).get('piece_id') != obj['target_id']
+            or p['nodes'][1]['relations'].get(obj['target_square'], {}).get('piece_id') != obj['target_id']
+            or played_after.attackers(root.turn, target) & played_after.pieces(chess.PAWN, root.turn)):
+        return 'wrong_piece_pressure_attack_or_target'
+    for key in h.proposition_ids:
+        fact = propositions[key]
+        line = timelines[fact['timeline_id']]
+        if verify(Proposition(**{**fact, 'evidence_ids': tuple(fact['evidence_ids'])}), line):
+            return 'piece_pressure_fact_failed_independent_check'
+    required = [('legal_move', p['id'], 1, p['events'][0]['moving_piece_id'], p['root_uci']),
+                ('legal_move', a['id'], 1, obj['attacker_id'], a['root_uci']),
+                ('attacks_piece', a['id'], 1, obj['attacker_id'], obj['target_id'])]
+    def has_receipts(items):
+        return all(any((propositions[key]['relation'], propositions[key]['timeline_id'],
+                        propositions[key]['ply'], propositions[key]['subject'], propositions[key]['object']) == item
+                       for key in h.proposition_ids) for item in items)
+    if obj['attack_proposition_id'] not in h.proposition_ids or not has_receipts(required):
+        return 'piece_pressure_root_receipt_missing'
+    if h.status == 'incomplete_hypothesis':
+        return None
+    if h.status != 'supported_mechanism' or len(obj['root_comparisons']) != 2:
+        return 'piece_pressure_support_incomplete'
+    epsilon = obj['equivalence_cp']
+    all_ids = set()
+    allocations = []
+    # Geometric reply agreement: the same target moves in both root PVs.
+    # We deliberately do not claim the varying destination is a stable fact.
+    for pair in obj['root_comparisons']:
+        if not _pair_supported(pair, searches, root.fen(), [a['root_uci']], [p['root_uci']], own, epsilon, own):
+            return 'piece_pressure_root_score_binding_failed'
+        rec = searches[pair['best_search_id']]
+        moves = rec['lines'][0]['moves_uci']
+        if len(moves) < 2 or chess.Move.from_uci(moves[1]).from_square != target:
+            return 'piece_pressure_root_reply_identity_not_stable'
+        board = root.copy()
+        for raw in moves[:2]:
+            move = chess.Move.from_uci(raw)
+            if move not in board.legal_moves:
+                return 'illegal_piece_pressure_root_reply'
+            board.push(move)
+        allocations.append(rec['requested_nodes'])
+        all_ids.update((pair['best_search_id'], pair['other_search_id']))
+    if (allocations[0] > allocations[1]
+            or a['search_id'] != obj['root_comparisons'][1]['best_search_id']
+            or p['search_id'] != obj['root_comparisons'][1]['other_search_id']):
+        return 'piece_pressure_root_allocations_or_primary_binding_failed'
+    if len(obj['reply_references']) != 2:
+        return 'piece_pressure_reply_references_missing'
+    ref_records, allowed = [], {p['id'], a['id']}
+    for binding, primary in zip(obj['reply_references'], (p, a)):
+        rec, line = searches[binding['search_id']], timelines[binding['timeline_id']]
+        if (rec['root_moves'] or rec['fen'] != primary['nodes'][1]['fen']
+                or rec['status'] != 'complete_iteration' or not rec['lines']
+                or rec['requested_depth'] != 20 or rec['lines'][0].get('depth', 0) < 20
+                or rec['lines'][0]['score']['pov'] != own or not canonical(line)
+                or line['search_id'] != rec['id'] or line['root_uci'] != primary['root_uci']
+                or line['moves_uci'] != [primary['root_uci'], *rec['lines'][0]['moves_uci']][:len(line['moves_uci'])]
+                or len(line['events']) < 2):
+            return 'piece_pressure_reply_not_completed_unrestricted_reference'
+        if primary is a:
+            if line['events'][1]['moving_piece_id'] != obj['target_id']:
+                return 'piece_pressure_best_reply_does_not_move_target'
+        elif line['nodes'][2]['relations'].get(obj['target_square'], {}).get('piece_id') != obj['target_id']:
+            return 'piece_pressure_played_reply_also_moves_target'
+        required.append(('reaches', line['id'], 2, line['events'][1]['moving_piece_id'], line['events'][1]['destination']))
+        ref_records.append(rec)
+        allowed.add(line['id'])
+        all_ids.add(rec['id'])
+    pair = obj['reference_comparison']
+    if (pair['best_search_id'] != ref_records[1]['id'] or pair['other_search_id'] != ref_records[0]['id']
+            or pair['pov'] != own or pair['best_score'] != _score_for(ref_records[1], own)
+            or pair['other_score'] != _score_for(ref_records[0], own)
+            or ref_records[0]['requested_nodes'] != ref_records[1]['requested_nodes']
+            or comparison(pair['best_score'], pair['other_score'], epsilon) != 'inferior'):
+        return 'piece_pressure_deeper_root_comparison_failed'
+    staying = sorted(m.uci() for m in after.legal_moves if m.from_square != target)
+    if not staying or len(obj['pressure_comparisons']) != 2:
+        return 'piece_pressure_counterfactual_missing'
+    witnesses = []
+    for allocation, pair in zip(allocations, obj['pressure_comparisons']):
+        if not _pair_supported(pair, searches, after.fen(), [], staying, opponent, epsilon, own):
+            return 'piece_pressure_counterfactual_score_binding_failed'
+        best, other = searches[pair['best_search_id']], searches[pair['other_search_id']]
+        best_move = chess.Move.from_uci(best['lines'][0]['moves_uci'][0])
+        if (best['requested_nodes'] != allocation
+                or best_move not in after.legal_moves or best_move.from_square != target):
+            return 'piece_pressure_counterfactual_reply_or_allocation_changed'
+        witnesses.append(other)
+        all_ids.update((best['id'], other['id']))
+    witness = timelines[obj['witness_timeline_id']]
+    if (common_prefix(witnesses[0]['lines'][0]['moves_uci'], witnesses[1]['lines'][0]['moves_uci']) < 3
+            or not canonical(witness) or len(witness['events']) < 4
+            or witness['search_id'] != witnesses[1]['id'] or witness['root_uci'] != a['root_uci']
+            or witness['moves_uci'][:4] != [a['root_uci'], *witnesses[1]['lines'][0]['moves_uci'][:3]]
+            or obj['witness_san'] != witness['moves_san'][:4]):
+        return 'piece_pressure_witness_beyond_stability_or_wrong_words'
+    take, retake = witness['events'][2:4]
+    if (take['moving_piece_id'] != obj['attacker_id'] or take['captured_piece_id'] != obj['target_id']
+            or retake['captured_piece_id'] != obj['attacker_id']):
+        return 'piece_pressure_witness_capture_join_failed'
+    required.extend(('reaches', witness['id'], e['ply'], e['moving_piece_id'], e['destination'])
+                    for e in witness['events'][:4])
+    required.extend([('captures', witness['id'], 3, obj['attacker_id'], obj['target_id']),
+                     ('captures', witness['id'], 4, retake['moving_piece_id'], obj['attacker_id'])])
+    allowed.add(witness['id'])
+    if any(propositions[key]['timeline_id'] not in allowed for key in h.proposition_ids) or not has_receipts(required):
+        return 'piece_pressure_dependency_receipt_missing'
+    if not all_ids <= set(h.search_ids):
+        return 'piece_pressure_search_receipt_missing'
+    return None

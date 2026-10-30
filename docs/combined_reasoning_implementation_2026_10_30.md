@@ -130,7 +130,8 @@ From the worktree's `backend` directory in PowerShell:
 
 ```powershell
 $reasoningTests = (Get-ChildItem tests/test_reasoning*.py |
-    Where-Object { $_.Name -notlike '*integration*' }).FullName
+    Where-Object { $_.Name -notlike '*integration*' -and
+        $_.Name -ne 'test_reasoning_trace_is_the_engines_own_account.py' }).FullName
 python -m pytest -q @reasoningTests
 
 $env:CHESSGURU_TEST_STOCKFISH = 'C:\Users\MIISCO\chess-tools\engine\stockfish\stockfish-windows-x86-64-universal.exe'

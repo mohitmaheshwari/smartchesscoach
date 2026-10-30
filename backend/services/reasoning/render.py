@@ -10,6 +10,8 @@ def render(selected: dict | None, propositions: dict, comparison_status: str, co
         return render_capture_contrast(selected, facts)
     if selected["objective"]["kind"] == "comparative_recapture":
         return render_recapture(selected, facts)
+    if selected["objective"]["kind"] == "comparative_piece_pressure":
+        return render_piece_pressure(selected, facts)
     if selected["objective"]["kind"] in ("comparative_sequence", "comparative_threat"):
         return render_comparative(selected, facts)
     root = next((p for p in facts if p["relation"] == "legal_move"), None)
@@ -82,6 +84,25 @@ def add_resource(coaching: dict, fact: dict | None) -> dict:
     habit = coaching["teaching_habit"]
     coaching["text"] = coaching["text"].removesuffix(habit).rstrip() + " " + text + " " + habit
     return coaching
+
+
+def render_piece_pressure(selected, facts):
+    obj = selected['objective']
+    played = next(p for p in facts if p['relation'] == 'legal_move' and p['timeline_id'] == obj['played_timeline_id'])
+    alternative = next(p for p in facts if p['relation'] == 'legal_move' and p['timeline_id'] == obj['alternative_timeline_id'])
+    attack = next(p for p in facts if p['id'] == obj['attack_proposition_id'])
+    opponent = 'Black' if attack['actor'] == 'white' else 'White'
+    own = attack['actor'].capitalize()
+    target = attack['data']['target_piece']
+    witness = ' '.join(obj['witness_san'])
+    text = [f"{alternative['data']['move']} uses the pawn on {alternative['data']['square']} to attack {opponent}'s {target} on {attack['data']['square']}; {played['data']['move']} leaves that {target} without a pawn attack.",
+            f"The best replies found after {alternative['data']['move']} move that {target} away.",
+            f"Leaving it there is worse for {opponent} in both comparisons: for example, {witness} exchanges {own}'s pawn for that {target}."]
+    habit = 'Check whether a pawn can challenge an active enemy piece before starting another plan.'
+    return {'title': 'Challenge the active piece', 'text': ' '.join([*text, habit]),
+            'sentences': [{'frame': 'comparative_piece_pressure', 'proposition_ids': selected['proposition_ids'],
+                           'search_ids': selected['search_ids'], 'text': sentence} for sentence in text],
+            'teaching_habit': habit, 'comparison_text': '', 'scope': selected['wording_strength']}
 
 
 def render_recapture(selected, facts):

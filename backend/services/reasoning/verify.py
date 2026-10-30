@@ -143,6 +143,9 @@ def verify_dependencies(hypothesis, propositions: dict, timelines: dict, searche
         if hypothesis.objective["kind"] == "comparative_recapture":
             from .positional_verify import verify_recapture
             return verify_recapture(hypothesis, propositions, timelines, searches)
+        if hypothesis.objective["kind"] == "comparative_piece_pressure":
+            from .positional_verify import verify_piece_pressure
+            return verify_piece_pressure(hypothesis, propositions, timelines, searches)
         allowed_roots = {hypothesis.root_uci}
         if hypothesis.objective.get("root_capture_contrast"):
             allowed_roots.add(hypothesis.objective["root_capture_contrast"]["played_root_uci"])

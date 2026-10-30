@@ -210,3 +210,136 @@ def recapture_hypothesis(root, played, alternative, report, base_records, stable
     h.search_ids = sorted(set(h.search_ids))
     h.status = 'supported_mechanism'
     return h, facts
+
+
+def piece_pressure_hypothesis(root, played, alternative, report, base_records, stable_records,
+                              session, add_line, *, verification_nodes):
+    """Test a pawn-attack hint through reply identity and a matched counterfactual.
+
+    Reply destinations may differ. Only the invariant that this exact piece
+    leaves its original square is taught; no variable continuation is spliced.
+    """
+    if played['root_uci'] == alternative['root_uci']:
+        return None, []
+    attack_event = alternative['events'][0]
+    if attack_event['moving_piece'] != 'pawn':
+        return None, []
+    snapshot = next((s for s in report['snapshots'] if s['timeline_id'] == alternative['id'] and s['ply'] == 1), None)
+    if snapshot is None:
+        return None, []
+    after = chess.Board(alternative['nodes'][1]['fen'])
+    played_after = chess.Board(played['nodes'][1]['fen'])
+    hints = snapshot['features'].get('tempo', {}).get('evidence', [])
+    candidates = []
+    for fact in event_facts(alternative):
+        if fact.ply != 1 or fact.relation != 'attacks_piece' or fact.subject != attack_event['moving_piece_id']:
+            continue
+        square = chess.parse_square(fact.data['square'])
+        piece = after.piece_at(square)
+        if (piece is None or piece.piece_type in (chess.PAWN, chess.KING)
+                or alternative['nodes'][0]['relations'].get(fact.data['square'], {}).get('piece_id') != fact.object
+                or played['nodes'][1]['relations'].get(fact.data['square'], {}).get('piece_id') != fact.object
+                or played_after.attackers(root.turn, square) & played_after.pieces(chess.PAWN, root.turn)):
+            continue
+        if any(e.get('kind') == 'forced_reply'
+               and e.get('target') == chess.piece_name(piece.piece_type) + ' on ' + fact.data['square']
+               for e in hints):
+            candidates.append(fact)
+    # Fork attribution needs a separate composition; do not arbitrarily pick
+    # one attacked piece and call it the reason for the whole decision.
+    if len(candidates) != 1:
+        return None, []
+    attack = candidates[0]
+    facts = [p for line in (played, alternative) for p in event_facts(line)
+             if p.ply == 1 and p.relation == 'legal_move'] + [attack]
+    obj = {'kind': 'comparative_piece_pressure', 'root_connected': True,
+           'played_timeline_id': played['id'], 'alternative_timeline_id': alternative['id'],
+           'contrast_root_uci': played['root_uci'], 'target_id': attack.object,
+           'target_square': attack.data['square'], 'attacker_id': attack.subject,
+           'attack_proposition_id': attack.id, 'feature_snapshot_id': snapshot['id'],
+           'reply_agreement': 'same_piece_leaves_target_square',
+           'root_comparisons': [], 'reply_references': [], 'pressure_comparisons': [],
+           'equivalence_cp': session.config.equivalence_cp}
+    h = proposal('PREPARE', alternative['root_uci'], obj, facts,
+                 [{'kind': 'pawn_attack_changes_reply', 'attack_id': attack.id}])
+    h.wording_strength = 'demonstrated_pawn_pressure_with_verified_replies'
+    h.unresolved = ['not_an_exhaustive_forced_reply_proof', 'no_exact_causal_cp_allocation']
+    target = chess.parse_square(obj['target_square'])
+    for records in (base_records, stable_records):
+        a, p = records[alternative['root_uci']], records[played['root_uci']]
+        if any(r.status != 'complete_iteration' or not r.lines for r in (a, p)):
+            h.unresolved.append('root_comparison_unavailable')
+            return h, facts
+        pair = _pair(a, p, 'white' if root.turn else 'black')
+        obj['root_comparisons'].append(pair)
+        h.search_ids.extend([a.id, p.id])
+        if comparison(pair['best_score'], pair['other_score'], session.config.equivalence_cp) != 'inferior':
+            h.unresolved.append('root_comparison_not_stable')
+            return h, facts
+        if len(a.lines[0]['moves_uci']) < 2 or chess.Move.from_uci(a.lines[0]['moves_uci'][1]).from_square != target:
+            h.unresolved.append('root_searches_do_not_agree_target_moves')
+            return h, facts
+    references = []
+    for line in (played, alternative):
+        board = root.copy()
+        board.push_uci(line['root_uci'])
+        rec = session.query(board, 'pressure_opponent_best_reply', nodes=verification_nodes, depth=20)
+        h.search_ids.append(rec.id)
+        if not rec.lines or rec.status != 'complete_iteration' or rec.lines[0].get('depth', 0) < 20:
+            h.unresolved.append('opponent_reference_depth_not_reached')
+            return h, facts
+        view = add_line([line['root_uci'], *rec.lines[0]['moves_uci']], rec, retain_hypotheses=False)
+        obj['reply_references'].append({'search_id': rec.id, 'timeline_id': view['id']})
+        facts.extend(p for p in event_facts(view) if p.ply <= 2)
+        references.append(rec)
+        if len(view['events']) < 2:
+            h.unresolved.append('reply_projection_horizon_too_short')
+            return h, facts
+        if line is alternative:
+            if view['events'][1]['moving_piece_id'] != obj['target_id']:
+                h.unresolved.append('best_reply_does_not_move_target_piece')
+                return h, facts
+        elif view['nodes'][2]['relations'].get(obj['target_square'], {}).get('piece_id') != obj['target_id']:
+            h.unresolved.append('played_reply_also_moves_target_piece')
+            return h, facts
+    obj['reference_comparison'] = _pair(references[1], references[0], 'white' if root.turn else 'black')
+    if comparison(obj['reference_comparison']['best_score'], obj['reference_comparison']['other_score'], session.config.equivalence_cp) != 'inferior':
+        h.unresolved.append('deeper_root_preference_not_retained')
+        return h, facts
+    staying = sorted((m for m in after.legal_moves if m.from_square != target), key=lambda m: m.uci())
+    if not staying:
+        h.unresolved.append('no_legal_counterfactual_leaves_target')
+        return h, facts
+    witnesses = []
+    for nodes in (session.config.nodes, session.config.stability_nodes):
+        best = session.query(after, 'pressure_best_reply', nodes=nodes)
+        other = session.query(after, 'pressure_target_stays', roots=staying, nodes=nodes)
+        h.search_ids.extend([best.id, other.id])
+        if (any(r.status != 'complete_iteration' or not r.lines for r in (best, other))
+                or chess.Move.from_uci(best.lines[0]['moves_uci'][0]).from_square != target):
+            h.unresolved.append('pressure_reply_comparison_unavailable_or_changed')
+            return h, facts
+        pair = _pair(best, other, 'black' if root.turn else 'white')
+        obj['pressure_comparisons'].append(pair)
+        if comparison(pair['best_score'], pair['other_score'], session.config.equivalence_cp) != 'inferior':
+            h.unresolved.append('leaving_target_not_stably_worse')
+            return h, facts
+        witnesses.append(other)
+    if common_prefix(witnesses[0].lines[0]['moves_uci'], witnesses[1].lines[0]['moves_uci']) < 3:
+        h.unresolved.append('counterfactual_capture_not_stable')
+        return h, facts
+    witness = add_line([alternative['root_uci'], *witnesses[1].lines[0]['moves_uci']], witnesses[1], retain_hypotheses=False)
+    if len(witness['events']) < 4:
+        h.unresolved.append('exchange_projection_horizon_too_short')
+        return h, facts
+    take, reply = witness['events'][2:4]
+    if (take['moving_piece_id'] != obj['attacker_id'] or take['captured_piece_id'] != obj['target_id']
+            or reply['captured_piece_id'] != obj['attacker_id']):
+        h.unresolved.append('counterfactual_pawn_for_piece_exchange_not_established')
+        return h, facts
+    obj['witness_timeline_id'], obj['witness_san'] = witness['id'], witness['moves_san'][:4]
+    facts.extend(p for p in event_facts(witness) if p.ply <= 4)
+    h.proposition_ids = sorted({p.id for p in facts})
+    h.search_ids = sorted(set(h.search_ids))
+    h.status = 'supported_mechanism'
+    return h, facts
