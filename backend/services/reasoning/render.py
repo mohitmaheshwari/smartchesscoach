@@ -8,6 +8,8 @@ def render(selected: dict | None, propositions: dict, comparison_status: str, co
     facts = [propositions[p] for p in selected["proposition_ids"]]
     if selected["objective"].get("root_capture_contrast"):
         return render_capture_contrast(selected, facts)
+    if selected["objective"]["kind"] == "comparative_recapture":
+        return render_recapture(selected, facts)
     if selected["objective"]["kind"] in ("comparative_sequence", "comparative_threat"):
         return render_comparative(selected, facts)
     root = next((p for p in facts if p["relation"] == "legal_move"), None)
@@ -80,6 +82,32 @@ def add_resource(coaching: dict, fact: dict | None) -> dict:
     habit = coaching["teaching_habit"]
     coaching["text"] = coaching["text"].removesuffix(habit).rstrip() + " " + text + " " + habit
     return coaching
+
+
+def render_recapture(selected, facts):
+    obj = selected['objective']
+    played = next(p for p in facts if p['relation'] == 'legal_move' and p['timeline_id'] == obj['played_timeline_id'])
+    alternative = next(p for p in facts if p['relation'] == 'legal_move' and p['timeline_id'] == obj['alternative_timeline_id'])
+    placement = next(p for p in facts if p['id'] == obj['placement_proposition_id'])
+    recapture = next(p for p in facts if p['relation'] == 'captures' and p['timeline_id'] == obj['played_timeline_id'] and p['ply'] == 2)
+    attack = next(p for p in facts if p['relation'] == 'attacks_piece' and p['timeline_id'] == obj['alternative_timeline_id']
+                  and p['ply'] == 1 and p['object'] == obj['defender_id'])
+    final = next(p for p in facts if p['relation'] == 'captures' and p['timeline_id'] == obj['alternative_timeline_id']
+                 and p['ply'] == obj['recapture_ply'])
+    own, opponent = played['actor'].capitalize(), placement['actor'].capitalize()
+    support = ' and '.join(placement['data']['pawn_defenders'])
+    where = 'in the centre on' if placement['data']['central_square'] else 'on'
+    pawn = 'pawn' if len(placement['data']['pawn_defenders']) == 1 else 'pawns'
+    continuation = ' '.join(obj['demonstration_san'][1:])
+    text = [f"After {own}'s {played['data']['move']}, {opponent} can play {recapture['data']['move']}, placing the {placement['data']['piece']} {where} {placement['object']}.",
+            f"That {placement['data']['piece']} is protected by the {pawn} on {support}, and no {own} piece attacks it at that point.",
+            f"No {own} pawn currently on an adjacent file can chase it away by advancing.",
+            f"In the compared line, {alternative['data']['move']} instead attacks the defending {attack['data']['target_piece']} on {attack['data']['square']} first. After {continuation}, {opponent} has a {final['data']['piece']} on {final['data']['square']} instead."]
+    habit = 'Before an exchange, check which piece would take back.'
+    return {'title': 'Change which piece takes back', 'text': ' '.join([*text, habit]),
+            'sentences': [{'frame': 'comparative_recapture', 'proposition_ids': selected['proposition_ids'],
+                           'search_ids': selected['search_ids'], 'text': sentence} for sentence in text],
+            'teaching_habit': habit, 'comparison_text': '', 'scope': selected['wording_strength']}
 
 
 def render_capture_contrast(selected, facts):

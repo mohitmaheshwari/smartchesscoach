@@ -17,6 +17,9 @@ def _verify(p: Proposition, timeline: dict) -> str | None:
         return "unsupported_strength_or_polarity"
     if p.timeline_id != timeline["id"] or not 0 < p.ply <= len(timeline["events"]):
         return "wrong_timeline_or_ply"
+    if p.relation == "secure_piece_placement":
+        from .positional_verify import verify_placement
+        return verify_placement(p, timeline)
     if p.relation in ("checking_capture_available", "checking_capture_unavailable", "retained_coverage"):
         node = timeline["nodes"][p.ply]
         if p.evidence_ids != (timeline["search_id"], node["id"]):
@@ -137,6 +140,9 @@ def verify_dependencies(hypothesis, propositions: dict, timelines: dict, searche
     """
     try:
         facts = [propositions[key] for key in hypothesis.proposition_ids]
+        if hypothesis.objective["kind"] == "comparative_recapture":
+            from .positional_verify import verify_recapture
+            return verify_recapture(hypothesis, propositions, timelines, searches)
         allowed_roots = {hypothesis.root_uci}
         if hypothesis.objective.get("root_capture_contrast"):
             allowed_roots.add(hypothesis.objective["root_capture_contrast"]["played_root_uci"])

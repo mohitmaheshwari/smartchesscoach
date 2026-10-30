@@ -103,6 +103,9 @@ def test_feature_snapshots_are_bound_to_our_nodes_and_do_not_claim_cp_causality(
     snapshot = next(s for s in report['snapshots'] if s['timeline_id'] == played['id'] and s['ply'] == 2)
     assert snapshot['node_id'] == played['nodes'][2]['id']
     assert snapshot['fen'] == played['nodes'][2]['fen']
+    assert snapshot['side_to_move'] == played['nodes'][2]['turn']
+    assert report['value_pov'] == 'white'
+    assert report['value_units'] == 'upstream_raw_feature_units'
     assert report['authority'] == 'candidate_evidence_only'
     assert all('causal_cp' not in d and 'share_of_gap' not in d for d in report['differences'])
 

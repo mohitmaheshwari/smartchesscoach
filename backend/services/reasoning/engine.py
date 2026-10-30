@@ -42,9 +42,18 @@ def input_board(fen: str, history: dict | None):
     return replay, "complete_from_initial_position" if history["initial_fen"] == chess.STARTING_FEN else "provided_segment"
 
 
-def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, config: ReasoningConfig) -> dict:
+def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, config: ReasoningConfig,
+                positional_features=False, feature_plies=None, verification_nodes=None) -> dict:
     if isinstance(player_level, bool) or not isinstance(player_level, int) or player_level < 0:
         raise ValueError("player_level must be a nonnegative integer")
+    if not isinstance(positional_features, bool):
+        raise ValueError('positional_features must be boolean')
+    if positional_features:
+        for name, value in (('feature_plies', feature_plies), ('verification_nodes', verification_nodes)):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(name + ' is required as a positive experimental allocation')
+    elif feature_plies is not None or verification_nodes is not None:
+        raise ValueError('positional allocations require the positional provider')
     started = time.perf_counter()
     board, history_status = input_board(fen, history)
     played = parse_legal_move(board, played_move) if played_move is not None else None
@@ -147,6 +156,13 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     # A direct root action tied to both root score gaps precedes a local
     # counterfactual coverage witness. Do not call that witness the gap's cause.
     played_line = primary.get(played.uci()) if played else None
+    positional_report = None
+    if positional_features:
+        from .positional import compare_position_features
+        feature_started = time.perf_counter()
+        positional_report = compare_position_features(list(primary.values()), max_plies=feature_plies)
+        positional_report['runtime_ms'] = round(1000 * (time.perf_counter() - feature_started), 3)
+        result['feature_evidence'] = positional_report
     direct_contrast = False
     if best and comparison_status == "inferior":
         for h in hypotheses:
@@ -165,11 +181,21 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
                 hypotheses[:] = hypotheses[:config.max_hypotheses]
                 forcing_mechanism = candidate
                 break
+    positional_mechanism = None
+    if positional_report and not direct_contrast and not forcing_mechanism and played_line and best and comparison_status == 'inferior':
+        from .positional import recapture_hypothesis
+        candidate, extra = recapture_hypothesis(board, played_line, primary[best], positional_report,
+            base_records, root_records, session, add_line, verification_nodes=verification_nodes)
+        if candidate is not None:
+            facts.extend(extra)
+            hypotheses.insert(0, candidate)
+            hypotheses[:] = hypotheses[:config.max_hypotheses]
+            positional_mechanism = candidate if candidate.status == 'supported_mechanism' else None
     # Reserve useful work for quiet objectives before optional resources.
     quiet = next((h for h in hypotheses if h.root_uci == teaching_root and h.objective["kind"] == "castle"), None)
     if quiet is None:
         quiet = next((h for h in hypotheses if h.root_uci == teaching_root and h.objective["kind"] == "reach"), None)
-    if quiet and not forcing_mechanism and not direct_contrast and session.can_query():
+    if quiet and not forcing_mechanism and not positional_mechanism and not direct_contrast and session.can_query():
         investigation = investigate(board, chess.Move.from_uci(teaching_root), quiet.objective, session)
         result["investigations"].append(investigation)
         for witness in investigation["witnesses"]:
@@ -185,7 +211,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
             quiet.unresolved = ["comparative_cause_not_established", "quiet_policy_covers_searched_adequate_replies_only"]
     # Relevant legal responses are searched even when they do not feature in the main PV.
     resource_scopes = []
-    for key in list(dict.fromkeys([teaching_root, best, played.uci() if played else None, *primary])):
+    for key in ([] if positional_mechanism else list(dict.fromkeys([teaching_root, best, played.uci() if played else None, *primary]))):
         if not key or key not in primary:
             continue
         after = board.copy()
@@ -220,7 +246,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     needs_later = any(h.root_uci == teaching_root and h.objective.get("root_connected")
         and h.objective["kind"] in ("capture", "checking_capture", "reach")
         and (h.objective.get("outcome_ply", 2) > 1) for h in hypotheses)
-    if root_line and not direct_contrast and not forcing_mechanism and needs_later:
+    if root_line and not direct_contrast and not forcing_mechanism and not positional_mechanism and needs_later:
         remaining = config.max_total_nodes - session.requested_nodes
         if remaining > 0 and session.can_query(remaining):
             after = board.copy()
@@ -261,7 +287,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     result["objectives"] = [{"hypothesis_id": h.id, **h.objective} for h in hypotheses]
     def admission(h):
         obj = h["objective"]
-        if obj["kind"] in ("comparative_sequence", "comparative_threat"):
+        if obj["kind"] in ("comparative_sequence", "comparative_threat", "comparative_recapture"):
             return {"admitted": True, "reason": "verified_conditional_certificate", "search_ids": h["search_ids"]}
         relation = "clears_castling_path" if obj["kind"] == "castle" else "captures" if obj["kind"] in ("capture", "checking_capture") else "reaches" if obj["kind"] == "reach" else obj["kind"]
         choices = [accepted_facts[key] for key in h["proposition_ids"] if accepted_facts[key]["relation"] == relation
@@ -286,7 +312,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     # Experimental deterministic shortlist ordering, explicitly not a calibrated shipping rank.
     def teaching_order(h):
         return (h["objective"]["kind"] != "checkmates", not bool(h["objective"].get("root_capture_contrast")), h["status"] != "supported_mechanism",
-                h["objective"]["kind"] not in ("comparative_sequence", "comparative_threat"), h["objective"]["kind"] != "checking_capture",
+                h["objective"]["kind"] not in ("comparative_sequence", "comparative_threat", "comparative_recapture"), h["objective"]["kind"] != "checking_capture",
                 h["objective"]["kind"] != "castle", not bool(h["dependencies"]), h["id"])
     selected = min(selectable, key=teaching_order) if selectable else None
     result["selected_teaching_point"] = selected
@@ -308,7 +334,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     if selected:
         records = {r.id: r for r in session.records}
         for index, sentence in enumerate(result["coaching"].get("sentences", [])):
-            conditional = selected["objective"]["kind"] in ("comparative_sequence", "comparative_threat")
+            conditional = selected["objective"]["kind"] in ("comparative_sequence", "comparative_threat", "comparative_recapture")
             decisions = [] if conditional else [admit_fact(accepted_facts[key], line_lookup[accepted_facts[key]["timeline_id"]], root_line,
                 base_records.get(teaching_root), root_records.get(teaching_root), reference) for key in sentence["proposition_ids"]
                 if accepted_facts[key]["timeline_id"] == root_line["id"]]
@@ -338,6 +364,10 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     result["reproducibility"] = {**session.document(), "replay_version": STORED_LINE_VERIFIER_VERSION,
         "source_hashes": {p.name: fingerprint_bytes(p) for p in [*sorted(Path(__file__).parent.glob("*.py")), Path(__file__).parents[1] / "stored_line_verifier.py"]},
         "selection_policy": "review_v2_root_gap_then_conditional_then_depth20_agreement", "render_version": VERSION}
+    if positional_report is not None:
+        result['reproducibility']['positional_provider'] = positional_report['provider']
+        result['reproducibility']['positional_allocations'] = {'feature_plies': feature_plies, 'verification_nodes': verification_nodes}
+        result['reproducibility']['selection_policy'] += '_with_verified_recapture_preparation'
     result["runtime"] = {"wall_ms": round(1000 * (time.perf_counter() - started), 3), "query_count": session.executed_queries,
         "query_records": len(session.records),
         "requested_engine_nodes": session.requested_nodes, "actual_engine_nodes": sum(r.actual_nodes for r in session.records),

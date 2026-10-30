@@ -1,0 +1,11 @@
+{
+  "upstream": "https://github.com/loocookie/ChessGPT",
+  "revision": "b7ea991854f926250036105f152894881e7820a2",
+  "source_path": "chessgpt/features.py",
+  "source_sha256": "cbf257583293c0f1f1a2981b0b90381b5495b63d6d46dd71bc600214a8e86a65",
+  "permission": {
+    "source": "Mohit explicitly confirmed in this task on 2026-10-30: I have the author\u2019s permission",
+    "scope": "Reuse and modification in ChessGuru as confirmed by the user; no broader open-source licence is asserted."
+  },
+  "changes": "None; feature file is the exact upstream Git blob. Search, calibration weights and model providers are not vendored."
+}
