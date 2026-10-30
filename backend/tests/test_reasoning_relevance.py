@@ -101,6 +101,8 @@ def test_rook_capture_contrast_uses_the_root_eval_gap_and_leads_the_text(monkeyp
     assert result["coaching"]["text"].startswith("Rxc2 takes Black's rook on c2")
     assert "Re1" in result["coaching"]["text"]
     assert "f2" not in result["coaching"]["text"]
+    assert "engine score" not in result["coaching"]["text"]
+    assert "6.13" not in result["coaching"]["text"]
     assert result["sentence_admission"] and all(s["admitted"] for s in result["sentence_admission"])
 
 

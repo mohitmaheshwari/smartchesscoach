@@ -70,3 +70,32 @@ These are offline learning/decision criteria. A later product experiment must me
 - Leave production adapters, all deferred items and pre-existing user work untouched.
 
 Pre-code audit: **PASS for the offline prototype**. Gates 1–2: literal output and teaching-point headline above. Gate 3: no shipping numeric locks; configuration is required and recorded. Gate 4: decision/transfer usefulness, not activation. Gate 5: deferred product work excluded. Gate 6: direct authorisation in this chat. New verification scripts live outside `backend/tests` and are never committed as product tests.
+
+## Run-4 correction — 2026-10-30
+
+Mohit's forwarded review directs the next work toward the generic operation
+"forbid the punishing reply, search again, measure the drop" and corpus
+frequency, while keeping a model to wording. This extends the already
+authorised offline investigation; it introduces no new player feature.
+
+The next output is a **reply-dependency measurement**, not another motif family:
+at an actual legal node, save the unrestricted search and a search allowing
+every legal move except the nominated reply. Record actor-correct typed scores,
+depths, budgets, replacement reply, legal timelines and root relationship changes.
+An empty allowed set must never accidentally mean an unrestricted search.
+Unreached depths, budget failures, mate scores and search reversals stay explicit.
+No new numeric teaching threshold is selected. Numbers stay in diagnostic JSON;
+the existing renderer's raw score sentences are removed.
+
+Demonstration: the disclosed Nxe5 and c4 positions, the proposed Rf4 consequence
+as a negative control, and the existing eight corpus pressure misses. Use the
+4,442 exported matches to rank the next investigation groups by observed
+frequency. These inputs are disclosed diagnostics, not held-out validation.
+
+A large reply-dependency measurement locates a promising decision. It does not
+establish the board mechanism, attribute the whole root gap, or certify a lesson.
+The new operator must not loosen the pressure witness or turn a generic pawn
+attack into a causal explanation. Root changes and replay facts remain available
+for the subsequent connection step. No LLM calls or new automatic captions are
+part of this correction; the earlier evidence-to-LLM experiment remains a failed
+offline record, not the next reasoning direction.

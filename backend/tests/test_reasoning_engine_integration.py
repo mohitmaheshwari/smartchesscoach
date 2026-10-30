@@ -53,8 +53,9 @@ def test_real_engine_comparative_qf8(results):
     assert "avoids this immediate mating line" not in result["coaching"]["text"]
     # A named defence is optional; if rendered, its numerical cost is required.
     defence = result["selected_teaching_point"]["objective"]["defence_scope"]
-    if defence.get("first_reply_san") in result["coaching"]["text"]:
-        assert "engine score" in result["coaching"]["text"]
+    assert "engine score" not in result["coaching"]["text"]
+    # A defence with only a score receipt has no verified plain-English cost.
+    assert defence.get("first_reply_san") not in result["coaching"]["text"]
 
 
 def test_real_engine_equivalent_move_describes_the_played_root(results):
