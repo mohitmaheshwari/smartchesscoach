@@ -51,7 +51,7 @@ def test_real_engine_comparative_qf8(results):
     assert result["selected_teaching_point"]["objective"]["kind"] == "comparative_threat"
     assert "Qf8 adds no cover on f5" in result["coaching"]["text"]
     assert "avoids this immediate mating line" not in result["coaching"]["text"]
-    # A named defence is optional; if rendered, its numerical cost is required.
+    # Do not name a defence whose only cost evidence is a numerical score.
     defence = result["selected_teaching_point"]["objective"]["defence_scope"]
     assert "engine score" not in result["coaching"]["text"]
     # A defence with only a score receipt has no verified plain-English cost.

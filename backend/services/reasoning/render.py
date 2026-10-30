@@ -158,8 +158,7 @@ def render_capture_contrast(selected, facts):
     opponent = "Black" if own == "White" else "White"
     data = capture["data"]
     text = f"{obj['best_san']} takes {opponent}'s {data['captured_piece']} on {data['square']} immediately; {obj['played_san']} leaves that {data['captured_piece']} there."
-    gap = obj["comparisons"][-1]
-    comparison_text = f"In the deeper search, {obj['best_san']} improves {own}'s engine score by {gap['gap_cp'] / 100:.2f} compared with {obj['played_san']}."
+    comparison_text = ""
     habit = "Check available captures before choosing a quiet move, then follow the opponent's reply."
     return {"title": "Check the available capture", "text": " ".join((text, comparison_text, habit)),
             "sentences": [{"frame": "root_capture_contrast", "proposition_ids": selected["proposition_ids"],
@@ -195,14 +194,8 @@ def render_comparative(selected, facts):
         answer = " ".join(obj["answer_line_san"])
         text = f"After {obj['alternative_san']}, the same plan can be met by {answer}"
         sentences.append(text + (", trading queens." if obj["queen_exchange"] else ", capturing the checking piece."))
-        defence = obj["defence_scope"]
-        if defence.get("refutes_ignoring_reply_mate_tree"):
-            score = defence["first_reply_score"]
-            if score["kind"] == "cp":
-                sentences.append(f"After {obj['played_san']} {obj['setup_san']} {defence['first_reply_san']}, the engine score is {score['value'] / 100:+.2f} from {own}'s side.")
-            else:
-                winner = own if score["value"] > 0 else opponent
-                sentences.append(f"After {obj['played_san']} {obj['setup_san']} {defence['first_reply_san']}, the engine finds mate in {abs(score['value'])} for {winner}.")
+        # The search score alone does not certify a plain-English cost for a
+        # named defence. Retain the receipt in JSON and omit the sentence.
         title, habit = "Cover the square behind the threat", "When a quiet move prepares a check, check which squares your pieces need to cover."
     return {"title": title, "text": " ".join([*sentences, habit]),
             "sentences": [{"frame": obj["kind"], "proposition_ids": ids,

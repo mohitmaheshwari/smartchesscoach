@@ -1,5 +1,11 @@
 # Position evidence to GPT-6-luna — scope
 
+Run-4 decision: retain this as the record of a failed offline reasoning
+experiment. Continue reusing the evidence collector, but future reasoning
+development belongs in the deterministic engine. A model may word an already
+established account; raw board evidence is not a verified account. See the
+run-4 correction in `general_deterministic_reasoning_scope.md`.
+
 Status: implementation authorised by Mohit's explicit request on 2026-10-30
 to prepare the discussed solution: Stockfish punishment lines up to 15 plies,
 initial and per-move piece strengths/weaknesses, then GPT-6-luna reasoning.
