@@ -116,6 +116,29 @@ def test_cli_does_not_load_credentials_without_explicit_model_mode(tmp_path):
     assert error.value.code == 2
 
 
+def test_cli_refused_prose_is_retained_for_audit_but_not_presented_as_an_explanation(tmp_path, monkeypatch):
+    from scripts import explain_position_evidence as cli
+    from dataclasses import asdict
+    from test_reasoning_boundaries import config
+    p = sample(); p['input']['played_san'] = 'g4'; p['runtime'] = {'wall_ms': 0}
+    monkeypatch.setattr(cli, 'build_position_evidence', lambda *args, **kwargs: p)
+    value = response(p)
+    async def refused(*args, **kwargs):
+        return {'status': 'refused', 'raw_response': json.dumps(value), 'proposal': value,
+                'request': {'model': 'gpt-6-luna'}, 'checks': {'passed': False, 'errors': ['unknown_state']}}
+    monkeypatch.setattr(api(), 'propose_evidence_reasoning', refused)
+    settings = tmp_path / 'config.json'; settings.write_text(json.dumps(asdict(config())))
+    out = tmp_path / 'result'
+    assert cli.main(['--fen-before', p['input']['fen_before'], '--played-move', 'g4',
+        '--config', str(settings), '--engine', 'not-executed', '--depth', '20', '--output-dir', str(out),
+        '--call-model', '--max-output-tokens', '2000']) == 3
+    summary = json.loads((out / 'summary.json').read_text())
+    assert summary['model_status'] == 'refused'
+    assert 'explanation' not in summary
+    assert json.loads((out / 'model_result.json').read_text())['proposal'] == value
+    assert json.loads((out / 'model_response.txt').read_text()) == value
+
+
 def test_capture_event_reference_can_name_the_piece_just_captured():
     p = sample(); value = response(p); branch = p['branches'][0]
     value['connections'][0]['claim'] = 'The knight is captured by this move.'
