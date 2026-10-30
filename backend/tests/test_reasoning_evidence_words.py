@@ -2,6 +2,7 @@
 import asyncio
 import json
 from importlib import import_module
+import pytest
 
 from test_reasoning_evidence import sample
 
@@ -70,3 +71,21 @@ def test_invalid_json_is_retained_and_refused():
     async def caller(*args, **kwargs): return 'This is not a structured result.'
     r = asyncio.run(api().propose_evidence_reasoning(sample(), max_tokens=2000, caller=caller))
     assert r['status'] == 'refused' and r['raw_response']
+
+
+@pytest.mark.parametrize('field,bad', [('branch_id', {}), ('state_id', []), ('piece_ids', {})])
+def test_malformed_reference_types_are_refused_instead_of_crashing(field, bad):
+    p = sample(); value = response(p)
+    if field == 'branch_id':
+        value['connections'][0][field] = bad
+    else:
+        value['connections'][0]['evidence_refs'][0][field] = bad
+    async def caller(*args, **kwargs): return json.dumps(value)
+    r = asyncio.run(api().propose_evidence_reasoning(p, max_tokens=2000, caller=caller))
+    assert r['status'] == 'refused'
+
+
+def test_nontext_provider_result_is_refused():
+    async def caller(*args, **kwargs): return {'unexpected': 'object'}
+    r = asyncio.run(api().propose_evidence_reasoning(sample(), max_tokens=2000, caller=caller))
+    assert r['status'] == 'refused'

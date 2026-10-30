@@ -184,3 +184,45 @@ def test_budget_failure_is_partial_evidence_and_never_invents_an_alternative():
     assert p['status'] == 'partial'
     assert p['search_quality']['incomplete_search_ids']
     assert all(b['role'] == 'played' for b in p['branches'])
+
+
+def test_reply_source_is_unrestricted_and_at_the_actual_post_move_position():
+    root = chess.Board(FEN); after = root.copy(); after.push_uci(PLAYED[0])
+    r = SearchRecord('reply', 'reply', after.fen(), [PLAYED[1]], 100, 1, 'complete_iteration',
+        [{'moves_uci': PLAYED[1:], 'score': {'kind': 'cp', 'value': -40, 'pov': 'black'}, 'depth': 20}], requested_depth=20)
+    with pytest.raises(ValueError):
+        api().packet_from_timelines(root, [{'role': 'played', 'origin': 'reply',
+            'search_id': 'reply', 'moves_uci': PLAYED}], [r.document()], depth=20)
+    r.root_moves = []; r.fen = root.fen()
+    with pytest.raises(ValueError):
+        api().packet_from_timelines(root, [{'role': 'played', 'origin': 'reply',
+            'search_id': 'reply', 'moves_uci': PLAYED}], [r.document()], depth=20)
+
+
+def test_unreached_requested_depth_is_visible_in_packet():
+    root = chess.Board(FEN)
+    r = SearchRecord('low', 'low', root.fen(), [PLAYED[0]], 100, 1, 'complete_iteration',
+        [{'moves_uci': PLAYED[:2], 'score': {'kind': 'cp', 'value': -40, 'pov': 'black'}, 'depth': 19}], requested_depth=20)
+    p = api().packet_from_timelines(root, [{'role': 'played', 'origin': 'root',
+        'search_id': 'low', 'moves_uci': PLAYED[:2]}], [r.document()], depth=20)
+    assert p['status'] == 'partial' and p['search_quality']['incomplete_search_ids'] == ['low']
+
+
+def test_terminal_line_stops_at_mate_without_padding():
+    root = chess.Board('7k/6pp/8/8/3b4/8/8/QK2R3 w - - 0 1')
+    r = SearchRecord('mate', 'mate', root.fen(), ['a1a8'], 100, 1, 'complete_iteration',
+        [{'moves_uci': ['a1a8'], 'score': {'kind': 'mate', 'value': 1, 'pov': 'white'}, 'depth': 20}], requested_depth=20)
+    p = api().packet_from_timelines(root, [{'role': 'played', 'origin': 'root',
+        'search_id': 'mate', 'moves_uci': ['a1a8']}], [r.document()], depth=20)
+    assert p['branches'][0]['available_plies'] == 1
+    assert p['branches'][0]['stop_reason'] == 'terminal'
+
+
+def test_model_view_has_no_local_engine_path_or_unscanned_search_tail():
+    p = sample(max_plies=3)
+    p['settings']['search_config'] = {'engine_path': 'private-machine-path'}
+    view = api().model_packet(p)
+    import json
+    assert 'private-machine-path' not in json.dumps(view)
+    for r in view['searches']:
+        assert all(len(l['moves_san']) <= 3 for l in r['lines'])
