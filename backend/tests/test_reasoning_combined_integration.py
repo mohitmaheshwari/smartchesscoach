@@ -103,6 +103,10 @@ def test_played_support_loss_precedes_an_unrelated_alternative_feature(outputs):
     assert result['status'] == 'supported_mechanism'
     point = result['selected_teaching_point']
     assert point['objective']['kind'] == 'comparative_support_chain'
+    assert point['objective']['guard_id'] == 'white:pawn:c3'
+    assert point['objective']['defender_id'] == 'white:pawn:d4'
+    assert point['objective']['key_id'] == 'white:knight:e5'
+    assert point['objective']['capture_ply'] == 4
     assert 'leaves c3 and stops defending d4' in result['coaching']['text']
     assert "White's knight on e5" in result['coaching']['text']
     assert 'c4 c5 cxd5 cxd4' in result['coaching']['text']

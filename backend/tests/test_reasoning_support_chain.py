@@ -36,6 +36,7 @@ def test_support_chain_joins_origin_loss_enemy_attack_defender_capture_and_expos
     assert ('leaves c6 and stops defending d5' if mirror else 'leaves c3 and stops defending d4') in text
     assert ('knight on e4' if mirror else 'knight on e5') in text
     assert ('queen on f3' if mirror else 'queen on f6') in text
+    assert ('pawn on d5 defending e4' if mirror else 'pawn on d4 defending e5') in text
     assert 'pawn for that knight' not in text
     assert text.endswith('Before pushing a pawn, check what it protects and what depends on that protection.')
 
