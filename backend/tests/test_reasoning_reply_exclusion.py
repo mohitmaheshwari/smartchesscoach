@@ -67,6 +67,15 @@ def test_nominated_move_can_have_no_measured_value_without_being_a_reason():
     assert result['mechanism_established'] is False
 
 
+def test_deleting_a_move_the_baseline_does_not_choose_cannot_support_dependency():
+    # Removing an unused root move can perturb search, even producing a positive
+    # score delta. The unrestricted best continuation is still legal without it.
+    result = api().probe_reply_dependency(chess.Board(), Session(), depth=20, exclude_move='e4')
+    assert all(m['drop_cp'] == 30 for m in result['measurements'])
+    assert result['signal'] == 'excluded_move_not_baseline_choice'
+    assert all(m['excluded_was_baseline_choice'] is False for m in result['measurements'])
+
+
 @pytest.mark.parametrize('settings', [{'depth': 19}, {'unavailable': True}])
 def test_incomplete_search_does_not_supply_a_measured_effect(settings):
     result = api().probe_reply_dependency(chess.Board(), Session(**settings), depth=20)
