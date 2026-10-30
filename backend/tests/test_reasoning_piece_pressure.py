@@ -7,7 +7,7 @@ import chess
 import pytest
 
 from services.reasoning import positional
-from services.reasoning.contracts import Hypothesis, SearchRecord, fingerprint
+from services.reasoning.contracts import SearchRecord, fingerprint
 from services.reasoning.render import render
 from services.reasoning.timeline import build_timeline, event_facts
 from services.reasoning.verify import verify, verify_dependencies
@@ -16,8 +16,11 @@ from services.reasoning.verify import verify, verify_dependencies
 FEN = 'r1b2rk1/ppp5/5q1p/3pNpp1/3Pn3/2PB4/P1Q2PPP/R3K2R w KQ - 0 15'
 
 
-def fixture(*, mirror=False, depth=20, reference_retreats=True, ignore_is_worse=True):
+def fixture(*, mirror=False, depth=20, reference_retreats=True, ignore_is_worse=True, history=False, max_plies=18):
     root = chess.Board(FEN)
+    if history:
+        for san in ('Nf7', 'Re8', 'Ne5', 'Rf8'):
+            root.push_san(san)
     played = ['c3c4', 'c7c5', 'c4d5', 'c5d4']
     alternative = ['f2f3', 'e4c5']
     reference = ['e4d6', 'h2h4', 'g5g4']
@@ -42,7 +45,7 @@ def fixture(*, mirror=False, depth=20, reference_retreats=True, ignore_is_worse=
               alternative[0]: record('alt_stable', root, [alternative[0]], alternative, 14, 120000)}
     timelines = {}
     def add_line(moves, rec, **kwargs):
-        line = build_timeline(root, moves, rec.id, 18)
+        line = build_timeline(root, moves, rec.id, max_plies)
         line['source_query'] = {'purpose': rec.purpose, 'root_moves': rec.root_moves,
             'start_ply': 0 if rec.fen == root.fen() else 1}
         timelines[line['id']] = line
@@ -89,7 +92,7 @@ def test_pressure_composes_when_best_replies_move_the_same_piece_to_different_sq
     assert h.objective['kind'] == 'comparative_piece_pressure'
     assert h.objective['reply_agreement'] == 'same_piece_leaves_target_square'
     assert verify_dependencies(h, facts, lines, searches) is None
-    text = render(asdict(h), facts, 'inferior')['text']
+    text = render(asdict(h), facts, 'inferior', {})['text']
     assert ('pawn on f6' if mirror else 'pawn on f3') in text
     assert ('knight on e5' if mirror else 'knight on e4') in text
     assert 'forced' not in text.lower() and 'must move' not in text.lower()
@@ -110,7 +113,7 @@ def test_incomplete_pressure_never_becomes_a_teaching_certificate(settings, reas
 
 @pytest.mark.parametrize('mutation', ['strength', 'target', 'actor', 'root_score', 'reply_roots',
                                      'reply_depth', 'reply_score', 'counterfactual_roots',
-                                     'missing_capture', 'witness_words', 'search_receipt'])
+                                     'missing_capture', 'witness_words', 'search_receipt', 'pressure_best_move_illegal'])
 def test_independent_pressure_verifier_rejects_forged_links(mutation):
     h, facts, lines, searches = compose()
     h, facts, lines, searches = deepcopy((h, facts, lines, searches))
@@ -140,6 +143,9 @@ def test_independent_pressure_verifier_rejects_forged_links(mutation):
         o['witness_san'][1] = 'Kh8'
     elif mutation == 'search_receipt':
         h.search_ids.remove(o['reply_references'][1]['search_id'])
+    elif mutation == 'pressure_best_move_illegal':
+        pair = o['pressure_comparisons'][0]
+        searches[pair['best_search_id']]['lines'][0]['moves_uci'][0] = 'e4e8'
     assert verify_dependencies(h, facts, lines, searches) is not None
 
 
@@ -159,3 +165,18 @@ def test_same_pressure_in_both_roots_is_not_a_contrast():
     h, _ = positional.piece_pressure_hypothesis(root, a, a, report, base, stable,
         session, add_line, verification_nodes=2000000)
     assert h is None
+
+
+def test_pressure_verifier_preserves_history_bound_node_ids():
+    h, facts, lines, searches = compose(history=True)
+    assert h.status == 'supported_mechanism'
+    assert verify_dependencies(h, facts, lines, searches) is None
+
+
+@pytest.mark.parametrize('horizon,reason', [(1, 'reply_projection_horizon_too_short'),
+                                         (3, 'exchange_projection_horizon_too_short')])
+def test_short_projection_leaves_pressure_incomplete_without_inventing_events(horizon, reason):
+    h, facts, lines, searches = compose(max_plies=horizon)
+    assert h.status == 'incomplete_hypothesis'
+    assert reason in h.unresolved
+    assert verify_dependencies(h, facts, lines, searches) is None

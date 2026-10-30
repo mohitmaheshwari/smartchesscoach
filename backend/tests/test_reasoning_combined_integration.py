@@ -11,6 +11,7 @@ from test_reasoning_boundaries import NA4, QF8, config
 from test_reasoning_combined import FEN
 from test_reasoning_review_regressions import QUIET
 from test_reasoning_relevance import ROOK
+from test_reasoning_piece_pressure import FEN as PRESSURE_FEN
 
 
 ENGINE = os.environ.get('CHESSGURU_TEST_STOCKFISH')
@@ -30,7 +31,10 @@ def outputs(tmp_path_factory):
              ('qa2', '7k/6pp/8/8/3b4/8/8/QK2R3 w - - 0 1', 'Qa2', True, 2000000),
              ('rook_contrast', ROOK, 'Re1', True, 2000000),
              ('qc2', 'rnbq1rk1/pppp1p2/4p2p/6p1/2PPn3/2P3B1/P4PPP/R2QKBNR w KQ - 0 9', 'Qc2', True, 2000000),
-             ('nxe5_repeat', FEN, 'Nxe5', True, 6000000)]
+             ('nxe5_repeat', FEN, 'Nxe5', True, 6000000),
+             ('c4', PRESSURE_FEN, 'c4', True, 6000000),
+             ('c4_repeat', PRESSURE_FEN, 'c4', True, 6000000),
+             ('c4_limited', PRESSURE_FEN, 'c4', True, 2000000)]
     for name, fen, played, combined, budget in cases:
         settings = config(engine_path=ENGINE, nodes=30000, stability_nodes=120000,
                           max_queries=32, max_total_nodes=budget, rank_width=4, hash_mb=64)
@@ -74,7 +78,7 @@ def test_all_claims_have_receipts_and_searches_stay_inside_their_explicit_caps(o
     for name, result in outputs.items():
         assert not result['invalid_propositions']
         assert all(row['admitted'] for row in result['sentence_admission'])
-        budget = 6000000 if name.startswith('nxe5') else 2000000
+        budget = 6000000 if name.startswith('nxe5') or name in ('c4', 'c4_repeat') else 2000000
         assert result['runtime']['requested_engine_nodes'] <= budget
         assert result['runtime']['query_count'] <= 32
         if name != 'nxe5_baseline_same_cap':
@@ -91,3 +95,25 @@ def test_combined_output_is_repeatable_outside_runtime(outputs):
             return [stable(item) for item in value]
         return value
     assert stable(deepcopy(outputs['nxe5'])) == stable(deepcopy(outputs['nxe5_repeat']))
+    assert stable(deepcopy(outputs['c4'])) == stable(deepcopy(outputs['c4_repeat']))
+
+
+def test_real_pawn_pressure_has_a_verified_reply_class_and_exchange_example(outputs):
+    result = outputs['c4']
+    assert result['status'] == 'supported_mechanism'
+    point = result['selected_teaching_point']
+    assert point['objective']['kind'] == 'comparative_piece_pressure'
+    assert point['objective']['reply_agreement'] == 'same_piece_leaves_target_square'
+    assert 'pawn on f3' in result['coaching']['text']
+    assert "Black's knight on e4" in result['coaching']['text']
+    assert 'f3 c5 fxe4 fxe4' in result['coaching']['text']
+    assert 'must move' not in result['coaching']['text']
+
+
+def test_pressure_budget_exhaustion_does_not_relax_the_depth_gate(outputs):
+    result = outputs['c4_limited']
+    assert result['selected_teaching_point'] is None
+    pressure = [h for h in result['hypotheses']['incomplete']
+                if h['objective']['kind'] == 'comparative_piece_pressure']
+    assert len(pressure) == 1
+    assert 'opponent_reference_depth_not_reached' in pressure[0]['unresolved']
