@@ -169,6 +169,4 @@ def comparison(best: dict | None, other: dict | None, epsilon: int) -> str:
         return "equivalent" if abs(best["value"] - other["value"]) < epsilon else "inferior" if best["value"] > other["value"] else "better"
     if best == other:
         return "equivalent"
-    if best["kind"] == other["kind"] == "mate" and (best["value"] > 0) == (other["value"] > 0):
-        return "same_mate_class"
     return "inferior" if score_order(best) > score_order(other) else "better"

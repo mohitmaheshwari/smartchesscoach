@@ -85,6 +85,7 @@ def _verify(p: Proposition, timeline: dict) -> str | None:
         path = chess.SquareSet(chess.between(king, rook))
         ok = (p.ply == 1 and rights and move.from_square in path
               and move.to_square not in path
+              and p.data.get("cleared_square") == chess.square_name(move.from_square)
               and (after.has_kingside_castling_rights(before.turn) if kingside else after.has_queenside_castling_rights(before.turn)))
     elif p.relation == "pawn_transforms":
         ok = before.piece_type_at(move.from_square) == chess.PAWN and p.object == chess.square_name(move.to_square)

@@ -95,7 +95,8 @@ def generate(timeline: dict, facts: list[Proposition]) -> tuple[list[Hypothesis]
             kept = after.has_kingside_castling_rights(root.turn) if kingside else after.has_queenside_castling_rights(root.turn)
             if rights and kept and root_move.from_square in path and root_move.to_square not in path:
                 cleared = atom(timeline, 1, root_id, "clears_castling_path", chess.square_name(destination),
-                               piece=chess.piece_name(root.piece_type_at(root_move.from_square)), move=root.san(root_move))
+                               piece=chess.piece_name(root.piece_type_at(root_move.from_square)), move=root.san(root_move),
+                               cleared_square=root_event["origin"])
                 extra.append(cleared)
                 witnessed = [p for p in facts if p.relation == "castles" and p.actor == own and p.object == cleared.object]
                 h = proposal("PREPARE", timeline["root_uci"], {"kind": "castle", "king_id": next(s["piece_id"] for s in timeline["nodes"][0]["relations"].values() if s["piece"] == "king" and s["piece_id"].startswith(own + ":")),

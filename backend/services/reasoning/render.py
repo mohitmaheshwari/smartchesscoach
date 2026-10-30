@@ -15,7 +15,7 @@ def render(selected: dict | None, propositions: dict, comparison_status: str, co
         actor = match["actor"].capitalize()
         data = match["data"]
         if relation == "checkmates":
-            text = f"In this line, {data['move']} is checkmate."
+            text = f"{data['move']} is checkmate." if match["ply"] == 1 else f"In this line, {data['move']} is checkmate."
             title, habit = "Look for checkmate", "Before choosing a move, check for mate."
         elif relation == "promotes_to":
             text = f"In this line, {actor}'s pawn reaches {data['square']} and becomes a {match['object']}."
@@ -27,7 +27,7 @@ def render(selected: dict | None, propositions: dict, comparison_status: str, co
             title = "Look for a capture with check" if checking else "Follow the whole exchange"
             habit = "Before taking back, look for a stronger move with check." if checking else "Follow the replies before deciding what an exchange wins."
         elif relation == "clears_castling_path":
-            text = f"{data['move']} moves the {data['piece']} out of the way for castling."
+            text = f"{data['move']} moves the {data['piece']} off {data['cleared_square']}, making room to castle."
             title, habit = "Make room for the king", "Check the opponent's threats while getting the king to safety."
         else:
             attack = next((p for p in facts if p["relation"] == "attacks_piece" and p["ply"] == match["ply"]), None)
@@ -54,10 +54,13 @@ def render(selected: dict | None, propositions: dict, comparison_status: str, co
     # Comparison and scope are deliberately independent of an invented causal allocation.
     comparison_text = {"equivalent": "The compared moves are close in these searches.",
                        "played_is_best": "The played move is among the strongest choices checked.",
-                       "same_mate_class": "Both choices have the same mate outcome in these searches.",
                        "inferior": "The engine prefers the alternative in both searches.",
                        "unstable": "The comparison changed with more search.",
                        "unknown": "The comparison remains unresolved.", "not_played": ""}.get(comparison_status, "")
+    mate = context.get("mate_comparison")
+    if mate and mate["kind"] == "faster_mate":
+        comparison_text = f"The engine finds mate in {mate['played_in']} after {mate['played_san']}, but this choice finishes "
+        comparison_text += "immediately." if mate["best_in"] == 1 else f"in {mate['best_in']}."
     return {"title": title, "text": " ".join([*(s["text"] for s in sentences), comparison_text, habit]).replace("  ", " "),
             "sentences": sentences, "teaching_habit": habit, "comparison_text": comparison_text,
             "scope": selected["wording_strength"]}
@@ -67,8 +70,7 @@ def add_resource(coaching: dict, fact: dict | None) -> dict:
     if fact is None or not coaching.get("sentences"):
         return coaching
     data = fact["data"]
-    move = ("..." if fact["actor"] == "black" else "") + data["move"]
-    text = f"In one line, {move} attacks the {data['target_piece']} on {data['square']}."
+    text = f"Later in this line, {fact['actor'].capitalize()} plays {data['move']}, attacking the {data['target_piece']} on {data['square']}."
     coaching["sentences"].append({"frame": "attacks_piece", "proposition_ids": [fact["id"]], "text": text})
     # Keep the transferable habit last.
     habit = coaching["teaching_habit"]

@@ -101,6 +101,17 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     result["context"]["comparison"] = comparison_status
     result["context"]["assessment"] = complete[best]["score"] if best else None
     result["context"]["best_searched_uci"] = best
+    teaching_root = played.uci() if played and comparison_status in ("equivalent", "played_is_best") else best
+    result["context"]["teaching_root_uci"] = teaching_root
+    if played and best and comparison_status == "inferior":
+        best_score = complete[best]["score"]
+        played_score = complete.get(played.uci(), {}).get("score")
+        if (played_score and best_score["kind"] == played_score["kind"] == "mate"
+                and best_score["value"] > 0 and played_score["value"] > 0):
+            result["context"]["mate_comparison"] = {
+                "kind": "faster_mate", "best_in": best_score["value"], "played_in": played_score["value"],
+                "played_san": board.san(played), "best_san": board.san(chess.Move.from_uci(best)),
+                "evidence_class": "engine_search", "search_ids": [root_records[best].id, root_records[played.uci()].id]}
     if best and complete[best]["score"]["kind"] == "mate" and complete[best]["score"]["value"] <= 0:
         result["context"]["resistance_context"] = "engine_finds_mate_against_mover_even_after_best_searched_choice"
     facts, hypotheses, timelines = [], [], []
@@ -130,11 +141,11 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
             "base_search_id": base_records[move.uci()].id, "stability_search_id": record.id})
     # Reserve useful work for quiet objectives before optional forcing resources
     # consume the shared budget. The adaptive search includes opponent replies.
-    quiet = next((h for h in hypotheses if h.root_uci == best and h.objective["kind"] == "castle"), None)
+    quiet = next((h for h in hypotheses if h.root_uci == teaching_root and h.objective["kind"] == "castle"), None)
     if quiet is None:
-        quiet = next((h for h in hypotheses if h.root_uci == best and h.objective["kind"] == "reach"), None)
+        quiet = next((h for h in hypotheses if h.root_uci == teaching_root and h.objective["kind"] == "reach"), None)
     if quiet and session.can_query():
-        investigation = investigate(board, chess.Move.from_uci(best), quiet.objective, session)
+        investigation = investigate(board, chess.Move.from_uci(teaching_root), quiet.objective, session)
         result["investigations"].append(investigation)
         for witness in investigation["witnesses"]:
             record = next(r for r in session.records if r.id == witness["search_id"])
@@ -149,7 +160,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
             quiet.unresolved = ["comparative_cause_not_established", "quiet_policy_covers_searched_adequate_replies_only"]
     # Relevant legal responses are searched even when they do not feature in the main PV.
     resource_scopes = []
-    for key in list(dict.fromkeys([best, played.uci() if played else None, *primary])):
+    for key in list(dict.fromkeys([teaching_root, best, played.uci() if played else None, *primary])):
         if not key or key not in primary:
             continue
         after = board.copy()
@@ -204,7 +215,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     result["propositions"] = list(accepted_facts.values())
     result["invalid_propositions"] = invalid
     result["objectives"] = [{"hypothesis_id": h.id, **h.objective} for h in hypotheses]
-    selectable = [h for h in result["hypotheses"]["accepted"] if h["root_uci"] == best and h["objective"].get("root_connected")]
+    selectable = [h for h in result["hypotheses"]["accepted"] if h["root_uci"] == teaching_root and h["objective"].get("root_connected")]
     # Experimental deterministic shortlist ordering, explicitly not a calibrated shipping rank.
     def teaching_order(h):
         return (h["status"] != "supported_mechanism", h["objective"]["kind"] != "checking_capture",
