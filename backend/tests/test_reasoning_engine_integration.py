@@ -12,6 +12,7 @@ import pytest
 from services.reasoning.engine import explain_fen
 from test_reasoning_boundaries import NA4, QF8, config
 from test_reasoning_review_regressions import QUIET
+from test_reasoning_relevance import ROOK
 
 
 ENGINE = os.environ.get("CHESSGURU_TEST_STOCKFISH")
@@ -26,6 +27,7 @@ def results(tmp_path_factory):
     cases = [("na4", NA4, "Na4"), ("qf8", QF8, "Qf8"),
              ("nf3", QUIET, "Nf3"), ("e4", QUIET, "e4"),
              ("qa2", "7k/6pp/8/8/3b4/8/8/QK2R3 w - - 0 1", "Qa2"),
+             ("rook_contrast", ROOK, "Re1"),
              ("na4_repeat", NA4, "Na4")]
     destination = tmp_path_factory.mktemp("reasoning_engine_regressions")
     outputs = {}
@@ -67,6 +69,14 @@ def test_real_engine_later_black_e4_names_its_actor(results):
     for sentence in result["coaching"]["sentences"]:
         if sentence["frame"] == "attacks_piece" and "e4" in sentence["text"]:
             assert "Black" in sentence["text"] and "Later" in sentence["text"]
+    assert "Black plays e4" not in results["nf3"]["coaching"]["text"]
+
+
+def test_real_engine_root_capture_precedes_a_conditional_coverage_story(results):
+    result = results["rook_contrast"]
+    assert result["coaching"]["text"].startswith("Rxc2 takes Black's rook on c2")
+    assert "f2" not in result["coaching"]["text"]
+    assert all(row["admitted"] for row in result["sentence_admission"])
 
 
 def test_real_engine_mate_one_is_a_lesson_over_mate_six(results):

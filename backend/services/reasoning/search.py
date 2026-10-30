@@ -37,7 +37,7 @@ class SearchSession:
         nodes = self.config.nodes if nodes is None else nodes
         return self.executed_queries < self.config.max_queries and self.requested_nodes + nodes <= self.config.max_total_nodes
 
-    def query(self, board: chess.Board, purpose: str, *, roots=(), width=1, nodes=None) -> SearchRecord:
+    def query(self, board: chess.Board, purpose: str, *, roots=(), width=1, nodes=None, depth=None) -> SearchRecord:
         nodes = self.config.nodes if nodes is None else nodes
         moves = sorted(set(roots), key=lambda m: m.uci())
         if any(m not in board.legal_moves for m in moves):
@@ -49,10 +49,15 @@ class SearchSession:
                     "engine_sha256": self.manifest["engine_sha256"],
                     "roots": [m.uci() for m in moves], "nodes": nodes, "width": width,
                     "config": self.manifest["config_digest"]}
+        if depth is not None:
+            if isinstance(depth, bool) or not isinstance(depth, int) or depth <= 0:
+                raise ValueError("depth must be a positive integer")
+            identity["depth"] = depth
         key = fingerprint(identity)
         if key in self._cache:
             return self._cache[key]
         record = SearchRecord(key, purpose, board.fen(), identity["roots"], nodes, width, "unavailable")
+        record.requested_depth = depth
         if not width:
             record.stop_reason = "terminal_no_legal_moves"
             self.records.append(record)
@@ -91,7 +96,7 @@ class SearchSession:
                 kwargs = {"multipv": width}
                 if moves:
                     kwargs["root_moves"] = moves
-                with engine.analysis(board, chess.engine.Limit(nodes=nodes), **kwargs) as stream:
+                with engine.analysis(board, chess.engine.Limit(nodes=nodes, depth=depth), **kwargs) as stream:
                     for info in stream:
                         record.actual_nodes = max(record.actual_nodes, info.get("nodes", 0))
                         if process is not None:
@@ -128,6 +133,8 @@ class SearchSession:
                                              "moves_san": sans, "score": asdict(typed), "depth": info["depth"],
                                              "nodes": info.get("nodes", 0)})
                     record.status, record.stop_reason = "complete_iteration", "node_limit"
+                    if depth is not None and min(line["depth"] for line in record.lines) >= depth:
+                        record.stop_reason = "depth_limit"
                 else:
                     record.stop_reason = "no_complete_unbounded_iteration"
         except Exception as exc:

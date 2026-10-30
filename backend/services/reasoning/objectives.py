@@ -7,6 +7,74 @@ from .contracts import Hypothesis, Proposition, proposal
 from .timeline import atom
 
 
+def common_prefix(first, second):
+    return next((i for i, (a, b) in enumerate(zip(first, second)) if a != b), min(len(first), len(second)))
+
+
+def admit_fact(fact, line, primary, base, stable, reference):
+    """Board truth is separate from eligibility for a non-conditional sentence."""
+    source = line.get("source_query", {})
+    result = {"admitted": False, "proposition_id": fact["id"], "timeline_id": line["id"],
+              "search_ids": [line["search_id"]], "source_query": source}
+    if source.get("start_ply", 0) > 0 and source.get("root_moves"):
+        return {**result, "reason": "forced_opponent_root"}
+    if primary is None or line["id"] != primary["id"]:
+        return {**result, "reason": "not_the_primary_stability_line"}
+    if fact["ply"] == 1:
+        return {**result, "admitted": True, "reason": "exact_root_action", "agreement_plies": 1}
+    if not base or not stable or not base.lines or not stable.lines:
+        return {**result, "reason": "root_stability_unavailable"}
+    agreement = common_prefix(base.lines[0]["moves_uci"], stable.lines[0]["moves_uci"])
+    result.update(agreement_plies=agreement, search_ids=[base.id, stable.id])
+    if fact["ply"] > agreement:
+        return {**result, "reason": "beyond_root_stability_agreement"}
+    if reference is None or reference.status != "complete_iteration" or not reference.lines:
+        return {**result, "reason": "opponent_reference_unavailable"}
+    if reference.root_moves or reference.fen != primary["nodes"][1]["fen"]:
+        return {**result, "reason": "opponent_reference_is_restricted_or_wrong_node"}
+    result["search_ids"].append(reference.id)
+    result["reference_depth"] = reference.lines[0].get("depth", 0)
+    if result["reference_depth"] < 20:
+        return {**result, "reason": "opponent_reference_depth_not_reached"}
+    agreement = min(agreement, common_prefix(stable.lines[0]["moves_uci"], [primary["root_uci"], *reference.lines[0]["moves_uci"]]))
+    return {**result, "agreement_plies": agreement, "admitted": fact["ply"] <= agreement,
+            "reason": "agrees_with_depth20_best_reply" if fact["ply"] <= agreement else "best_reply_does_not_retain_this_event"}
+
+
+def attach_capture_contrast(h, played, alternative, facts, base_records, stable_records, epsilon):
+    """Bind an immediate capture contrast to both original root score gaps.
+
+    No evaluation fraction is attributed to the captured piece. This direct
+    decision evidence takes precedence over a conditional coverage witness.
+    """
+    if (not played or not alternative or played["root_uci"] == h.root_uci
+            or h.objective["kind"] not in ("capture", "checking_capture") or h.objective["outcome_ply"] != 1):
+        return False
+    capture = next(p for p in facts if p.id in h.proposition_ids and p.relation == "captures")
+    target = played["nodes"][1]["relations"].get(capture.data["square"])
+    if not target or target["piece_id"] != capture.object:
+        return False
+    from .search import comparison
+    pairs = []
+    for records in (base_records, stable_records):
+        a, p = records[h.root_uci], records[played["root_uci"]]
+        if a.status != "complete_iteration" or p.status != "complete_iteration" or not a.lines or not p.lines:
+            return False
+        best, other = a.lines[0]["score"], p.lines[0]["score"]
+        if best["kind"] != "cp" or other["kind"] != "cp" or comparison(best, other, epsilon) != "inferior":
+            return False
+        pairs.append({"best_search_id": a.id, "played_search_id": p.id,
+                      "best_score": dict(best), "played_score": dict(other), "gap_cp": best["value"] - other["value"]})
+    root_fact = next(p for p in facts if p.timeline_id == played["id"] and p.relation == "legal_move")
+    h.proposition_ids.append(root_fact.id)
+    h.objective["root_capture_contrast"] = {"played_timeline_id": played["id"], "alternative_timeline_id": alternative["id"],
+        "played_san": played["moves_san"][0], "best_san": alternative["moves_san"][0],
+        "played_root_uci": played["root_uci"], "comparisons": pairs, "equivalence_cp": epsilon}
+    h.dependencies.append({"kind": "root_capture_contrast", "capture_id": capture.id, "played_root_id": root_fact.id})
+    h.search_ids.extend(row[key] for row in pairs for key in ("best_search_id", "played_search_id"))
+    return True
+
+
 def generate(timeline: dict, facts: list[Proposition]) -> tuple[list[Hypothesis], list[Proposition]]:
     root_event = timeline["events"][0]
     root = chess.Board(timeline["nodes"][0]["fen"])

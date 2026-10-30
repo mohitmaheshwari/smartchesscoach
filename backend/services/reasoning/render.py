@@ -6,6 +6,8 @@ def render(selected: dict | None, propositions: dict, comparison_status: str, co
     if selected is None:
         return {"text": "I could not establish a clear explanation within this search.", "sentences": []}
     facts = [propositions[p] for p in selected["proposition_ids"]]
+    if selected["objective"].get("root_capture_contrast"):
+        return render_capture_contrast(selected, facts)
     if selected["objective"]["kind"] in ("comparative_sequence", "comparative_threat"):
         return render_comparative(selected, facts)
     root = next((p for p in facts if p["relation"] == "legal_move"), None)
@@ -80,6 +82,23 @@ def add_resource(coaching: dict, fact: dict | None) -> dict:
     return coaching
 
 
+def render_capture_contrast(selected, facts):
+    obj = selected["objective"]["root_capture_contrast"]
+    capture = next(p for p in facts if p["relation"] == "captures" and p["ply"] == 1)
+    own = capture["actor"].capitalize()
+    opponent = "Black" if own == "White" else "White"
+    data = capture["data"]
+    text = f"{obj['best_san']} takes {opponent}'s {data['captured_piece']} on {data['square']} immediately; {obj['played_san']} leaves that {data['captured_piece']} there."
+    gap = obj["comparisons"][-1]
+    comparison_text = f"In the deeper search, {obj['best_san']} improves {own}'s engine score by {gap['gap_cp'] / 100:.2f} compared with {obj['played_san']}."
+    habit = "Check available captures before choosing a quiet move, then follow the opponent's reply."
+    return {"title": "Check the available capture", "text": " ".join((text, comparison_text, habit)),
+            "sentences": [{"frame": "root_capture_contrast", "proposition_ids": selected["proposition_ids"],
+                           "search_ids": selected["search_ids"], "text": text}],
+            "teaching_habit": habit, "comparison_text": comparison_text,
+            "scope": "exact_root_capture_with_stable_engine_comparison"}
+
+
 def render_comparative(selected, facts):
     """Every field in these frames is bound to verified comparative evidence."""
     obj = selected["objective"]
@@ -111,13 +130,13 @@ def render_comparative(selected, facts):
         if defence.get("refutes_ignoring_reply_mate_tree"):
             score = defence["first_reply_score"]
             if score["kind"] == "cp":
-                sentences.append(f"After {own}'s {defence['first_reply_san']}, the engine score is {score['value'] / 100:+.2f} from {own}'s side.")
+                sentences.append(f"After {obj['played_san']} {obj['setup_san']} {defence['first_reply_san']}, the engine score is {score['value'] / 100:+.2f} from {own}'s side.")
             else:
                 winner = own if score["value"] > 0 else opponent
-                sentences.append(f"After {own}'s {defence['first_reply_san']}, the engine finds mate in {abs(score['value'])} for {winner}.")
+                sentences.append(f"After {obj['played_san']} {obj['setup_san']} {defence['first_reply_san']}, the engine finds mate in {abs(score['value'])} for {winner}.")
         title, habit = "Cover the square behind the threat", "When a quiet move prepares a check, check which squares your pieces need to cover."
     return {"title": title, "text": " ".join([*sentences, habit]),
             "sentences": [{"frame": obj["kind"], "proposition_ids": ids,
-                           "search_ids": [obj["defence_scope"]["search_id"]] if obj["kind"] == "comparative_threat" and text.startswith("After " + own + "'s ") else [],
+                           "search_ids": [obj["defence_scope"]["search_id"]] if obj["kind"] == "comparative_threat" and text.startswith(f"After {obj['played_san']} {obj['setup_san']} ") else [],
                            "text": text} for text in sentences],
             "teaching_habit": habit, "comparison_text": "", "scope": selected["wording_strength"]}

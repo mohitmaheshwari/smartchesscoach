@@ -4,6 +4,7 @@ import sys
 
 import chess
 import chess.engine
+import pytest
 
 from services.reasoning.engine import explain_fen
 from services.reasoning.search import SearchSession
@@ -34,7 +35,8 @@ def test_total_requested_nodes_are_a_hard_gate(tmp_path):
     assert search.query(chess.Board(), "budget").actual_nodes == 0
 
 
-def test_only_common_depth_unbounded_multipv_is_retained(tmp_path, monkeypatch):
+@pytest.mark.parametrize("depth", [None, 5, 20])
+def test_only_common_depth_unbounded_multipv_is_retained(tmp_path, monkeypatch, depth):
     monkeypatch.setitem(sys.modules, "psutil", None)
     e4, d4 = chess.Move.from_uci("e2e4"), chess.Move.from_uci("d2d4")
     score = lambda n: chess.engine.PovScore(chess.engine.Cp(n), chess.WHITE)
@@ -56,6 +58,7 @@ def test_only_common_depth_unbounded_multipv_is_retained(tmp_path, monkeypatch):
         def configure(self, options): self.settings = options
         def analysis(self, board, limit, **kwargs):
             assert kwargs["multipv"] == 2 and limit.nodes == 100
+            assert limit.depth == depth
             return Stream()
 
     launches = []
@@ -64,12 +67,14 @@ def test_only_common_depth_unbounded_multipv_is_retained(tmp_path, monkeypatch):
         return Engine()
     monkeypatch.setattr(chess.engine.SimpleEngine, "popen_uci", launch)
     search = session(tmp_path)
-    record = search.query(chess.Board(), "rank", width=2)
+    record = search.query(chess.Board(), "rank", width=2, depth=depth)
     assert record.status == "complete_iteration"
     assert [line["depth"] for line in record.lines] == [5, 5]
     assert [line["score"]["value"] for line in record.lines] == [-40, -35]
     assert all(line["score"]["pov"] == "black" for line in record.lines)
-    assert search.query(chess.Board(), "reuse", width=2) is record
+    assert search.query(chess.Board(), "reuse", width=2, depth=depth) is record
+    assert record.requested_depth == depth
+    assert record.stop_reason == ("depth_limit" if depth == 5 else "node_limit")
     assert len(launches) == search.executed_queries == 1
     assert search.requested_nodes == 100
 

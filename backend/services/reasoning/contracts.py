@@ -67,6 +67,7 @@ class SearchRecord:
     actual_nodes: int = 0
     stop_reason: str = ""
     runtime: dict = field(default_factory=dict)
+    requested_depth: int | None = None
 
     def document(self) -> dict:
         return asdict(self)

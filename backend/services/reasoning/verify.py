@@ -138,6 +138,8 @@ def verify_dependencies(hypothesis, propositions: dict, timelines: dict, searche
     try:
         facts = [propositions[key] for key in hypothesis.proposition_ids]
         allowed_roots = {hypothesis.root_uci}
+        if hypothesis.objective.get("root_capture_contrast"):
+            allowed_roots.add(hypothesis.objective["root_capture_contrast"]["played_root_uci"])
         if hypothesis.objective["kind"] in ("comparative_sequence", "comparative_threat"):
             sequence = hypothesis.objective["kind"] == "comparative_sequence"
             permitted = "conditional_on_setup_and_demonstrated_exchange" if sequence else "conditional_threat_with_searched_defences"
@@ -174,6 +176,30 @@ def verify_dependencies(hypothesis, propositions: dict, timelines: dict, searche
             elif edge["kind"] == "compound_castling_prerequisite":
                 if not any(p["relation"] == "clears_castling_path" for p in facts):
                     return "missing_castling_prerequisite"
+            elif edge["kind"] == "root_capture_contrast":
+                obj = hypothesis.objective["root_capture_contrast"]
+                capture, played_root = propositions[edge["capture_id"]], propositions[edge["played_root_id"]]
+                p, a = timelines[obj["played_timeline_id"]], timelines[obj["alternative_timeline_id"]]
+                target = p["nodes"][1]["relations"].get(capture["data"]["square"], {})
+                if (capture["relation"] != "captures" or capture["ply"] != 1 or capture["timeline_id"] != a["id"]
+                        or played_root["relation"] != "legal_move" or played_root["timeline_id"] != p["id"]
+                        or p["nodes"][0]["fen"] != a["nodes"][0]["fen"] or a["root_uci"] != hypothesis.root_uci
+                        or p["root_uci"] != obj["played_root_uci"] or obj["played_san"] != p["moves_san"][0]
+                        or obj["best_san"] != a["moves_san"][0] or target.get("piece_id") != capture["object"]
+                        or len(obj["comparisons"]) != 2 or searches is None):
+                    return "wrong_root_capture_contrast"
+                from .search import comparison
+                for pair in obj["comparisons"]:
+                    best, other = searches[pair["best_search_id"]], searches[pair["played_search_id"]]
+                    if (best["status"] != "complete_iteration" or other["status"] != "complete_iteration"
+                            or best["fen"] != a["nodes"][0]["fen"] or other["fen"] != p["nodes"][0]["fen"]
+                            or best["root_moves"] != [a["root_uci"]] or other["root_moves"] != [p["root_uci"]]
+                            or best["lines"][0]["score"] != pair["best_score"] or other["lines"][0]["score"] != pair["played_score"]
+                            or pair["best_score"]["kind"] != "cp" or pair["played_score"]["kind"] != "cp"
+                            or pair["best_score"]["pov"] != a["nodes"][0]["turn"] or pair["played_score"]["pov"] != a["nodes"][0]["turn"]
+                            or pair["gap_cp"] != pair["best_score"]["value"] - pair["played_score"]["value"]
+                            or comparison(pair["best_score"], pair["played_score"], obj["equivalence_cp"]) != "inferior"):
+                        return "root_gap_not_supported_by_both_searches"
             elif edge["kind"] in ("checking_capture_changes_exchange", "added_cover_answers_prepared_check"):
                 problem = verify_comparative(hypothesis, edge, propositions, timelines, searches)
                 if problem:

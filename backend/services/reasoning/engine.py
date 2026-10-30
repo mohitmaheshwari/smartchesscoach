@@ -11,7 +11,7 @@ from services.stored_line_verifier import parse_legal_move, STORED_LINE_VERIFIER
 from .contracts import ReasoningConfig, VERSION, fingerprint
 from .forcing import sequence_hypothesis, threat_hypothesis
 from .investigation import investigate
-from .objectives import generate, prevention_candidates, challenge
+from .objectives import generate, prevention_candidates, challenge, attach_capture_contrast, admit_fact, common_prefix
 from .render import render, add_resource
 from .search import SearchSession, score_order, comparison, fingerprint_bytes
 from .timeline import build_timeline, event_facts, as_documents
@@ -59,6 +59,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
               "candidates": [], "objectives": [], "hypotheses": {"accepted": [], "rejected": [], "incomplete": []},
               "timelines": [], "propositions": [], "invalid_propositions": [], "investigations": [],
               "searches": [], "selected_teaching_point": None, "coaching": {}, "search_scope": {"exhaustive": False}}
+    result.update(sentence_admission=[], teaching_admission=[], resource_admission=[])
     terminal = board.outcome(claim_draw=False)
     if terminal is not None:
         result["context"]["terminal"] = {"termination": terminal.termination.name, "result": terminal.result()}
@@ -121,6 +122,8 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     def add_line(moves, record, *, retain_hypotheses=True):
         line = build_timeline(board, moves, record.id, config.max_plies)
         line["evidence_origin"] = record.status
+        line["source_query"] = {"purpose": record.purpose, "root_moves": record.root_moves,
+            "start_ply": next((i for i, node in enumerate(line["nodes"]) if node["fen"] == record.fen), 0)}
         if any(t["id"] == line["id"] for t in timelines):
             return line
         timelines.append(line)
@@ -141,10 +144,18 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
         result["candidates"].append({"move_uci": move.uci(), "move_san": board.san(move),
             "role": "played" if move == played else "searched_alternative", "assessment": complete.get(move.uci(), {}).get("score"),
             "base_search_id": base_records[move.uci()].id, "stability_search_id": record.id})
+    # A direct root action tied to both root score gaps precedes a local
+    # counterfactual coverage witness. Do not call that witness the gap's cause.
+    played_line = primary.get(played.uci()) if played else None
+    direct_contrast = False
+    if best and comparison_status == "inferior":
+        for h in hypotheses:
+            if h.root_uci == best:
+                direct_contrast = attach_capture_contrast(h, played_line, primary.get(best), facts,
+                    base_records, root_records, config.equivalence_cp) or direct_contrast
     # Comparative forcing evidence has priority over unrelated quiet routes.
     forcing_mechanism = None
-    played_line = primary.get(played.uci()) if played else None
-    if played_line and best and played.uci() != best and comparison_status == "inferior" and len(played_line["events"]) >= 2:
+    if not direct_contrast and played_line and best and played.uci() != best and comparison_status == "inferior" and len(played_line["events"]) >= 2:
         setup = played_line["moves_uci"][1]
         for build in (sequence_hypothesis, threat_hypothesis):
             candidate, extra = build(board, played.uci(), best, setup, session, add_line)
@@ -158,7 +169,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     quiet = next((h for h in hypotheses if h.root_uci == teaching_root and h.objective["kind"] == "castle"), None)
     if quiet is None:
         quiet = next((h for h in hypotheses if h.root_uci == teaching_root and h.objective["kind"] == "reach"), None)
-    if quiet and not forcing_mechanism and session.can_query():
+    if quiet and not forcing_mechanism and not direct_contrast and session.can_query():
         investigation = investigate(board, chess.Move.from_uci(teaching_root), quiet.objective, session)
         result["investigations"].append(investigation)
         for witness in investigation["witnesses"]:
@@ -201,6 +212,24 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
         for h in prevention_candidates(primary.get(played.uci()) if played else None, line, facts):
             if len(hypotheses) < config.max_hypotheses:
                 hypotheses.append(h)
+    # A later coaching event needs a fresh unrestricted opponent best reply at
+    # the review's requested depth. The remaining existing allocation is its
+    # hard node cap; an unfinished depth target supplies no permission to speak.
+    reference = None
+    root_line = primary.get(teaching_root)
+    needs_later = any(h.root_uci == teaching_root and h.objective.get("root_connected")
+        and h.objective["kind"] in ("capture", "checking_capture", "reach")
+        and (h.objective.get("outcome_ply", 2) > 1) for h in hypotheses)
+    if root_line and not direct_contrast and not forcing_mechanism and needs_later:
+        remaining = config.max_total_nodes - session.requested_nodes
+        if remaining > 0 and session.can_query(remaining):
+            after = board.copy()
+            after.push_uci(teaching_root)
+            if not after.is_game_over(claim_draw=False):
+                reference = session.query(after, "coaching_best_reply_depth20", nodes=remaining, depth=20)
+        result["relevance_reference"] = {"search_id": reference.id if reference else None,
+            "requested_depth": 20, "achieved_depth": reference.lines[0].get("depth", 0) if reference and reference.lines else None,
+            "status": reference.status if reference else "unavailable_within_existing_budget"}
     line_lookup = {t["id"]: t for t in timelines}
     unique_facts = {p.id: p for p in facts}
     accepted_facts, invalid = {}, []
@@ -230,10 +259,33 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
     result["propositions"] = list(accepted_facts.values())
     result["invalid_propositions"] = invalid
     result["objectives"] = [{"hypothesis_id": h.id, **h.objective} for h in hypotheses]
-    selectable = [h for h in result["hypotheses"]["accepted"] if h["root_uci"] == teaching_root and h["objective"].get("root_connected")]
+    def admission(h):
+        obj = h["objective"]
+        if obj["kind"] in ("comparative_sequence", "comparative_threat"):
+            return {"admitted": True, "reason": "verified_conditional_certificate", "search_ids": h["search_ids"]}
+        relation = "clears_castling_path" if obj["kind"] == "castle" else "captures" if obj["kind"] in ("capture", "checking_capture") else "reaches" if obj["kind"] == "reach" else obj["kind"]
+        choices = [accepted_facts[key] for key in h["proposition_ids"] if accepted_facts[key]["relation"] == relation
+                   and accepted_facts[key]["timeline_id"] == obj.get("timeline_id")]
+        if obj["kind"] == "reach":
+            choices = [p for p in choices if p["subject"] == obj["piece_id"] and p["object"] == obj["square"]]
+        if obj.get("outcome_ply"):
+            choices = [p for p in choices if p["ply"] == obj["outcome_ply"]]
+        if not choices:
+            return {"admitted": False, "reason": "no_decisive_fact_link"}
+        fact = min(choices, key=lambda p: (p["ply"], p["id"]))
+        return admit_fact(fact, line_lookup[fact["timeline_id"]], root_line,
+                          base_records.get(teaching_root), root_records.get(teaching_root), reference)
+
+    selectable = []
+    for h in result["hypotheses"]["accepted"]:
+        if h["root_uci"] == teaching_root and h["objective"].get("root_connected"):
+            decision = admission(h)
+            result["teaching_admission"].append({"hypothesis_id": h["id"], **decision})
+            if decision["admitted"]:
+                selectable.append(h)
     # Experimental deterministic shortlist ordering, explicitly not a calibrated shipping rank.
     def teaching_order(h):
-        return (h["objective"]["kind"] != "checkmates", h["status"] != "supported_mechanism",
+        return (h["objective"]["kind"] != "checkmates", not bool(h["objective"].get("root_capture_contrast")), h["status"] != "supported_mechanism",
                 h["objective"]["kind"] not in ("comparative_sequence", "comparative_threat"), h["objective"]["kind"] != "checking_capture",
                 h["objective"]["kind"] != "castle", not bool(h["dependencies"]), h["id"])
     selected = min(selectable, key=teaching_order) if selectable else None
@@ -244,8 +296,36 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
         resources = [p for p in accepted_facts.values() if p["relation"] == "attacks_piece"
                      and p["actor"] != result["context"]["side_to_move"]
                      and line_lookup[p["timeline_id"]]["root_uci"] == selected["root_uci"]]
-        resource = min(resources, key=lambda p: (p["data"]["piece"] != "pawn", p["ply"], p["id"])) if resources else None
+        eligible = []
+        for p in resources:
+            decision = admit_fact(p, line_lookup[p["timeline_id"]], root_line,
+                base_records.get(teaching_root), root_records.get(teaching_root), reference)
+            result["resource_admission"].append(decision)
+            if decision["admitted"]:
+                eligible.append(p)
+        resource = min(eligible, key=lambda p: (p["ply"], p["id"])) if eligible else None
         result["coaching"] = add_resource(result["coaching"], resource)
+    if selected:
+        records = {r.id: r for r in session.records}
+        for index, sentence in enumerate(result["coaching"].get("sentences", [])):
+            conditional = selected["objective"]["kind"] in ("comparative_sequence", "comparative_threat")
+            decisions = [] if conditional else [admit_fact(accepted_facts[key], line_lookup[accepted_facts[key]["timeline_id"]], root_line,
+                base_records.get(teaching_root), root_records.get(teaching_root), reference) for key in sentence["proposition_ids"]
+                if accepted_facts[key]["timeline_id"] == root_line["id"]]
+            search_ids = set(sentence.get("search_ids", [])) | {sid for d in decisions for sid in d["search_ids"]}
+            if conditional:
+                search_ids.update(selected["search_ids"])
+            result["sentence_admission"].append({"sentence_index": index, "frame": sentence["frame"],
+                "admitted": all(d["admitted"] for d in decisions),
+                "reason": "verified_conditional_certificate" if conditional else "root_action_or_depth20_agreement",
+                "fact_admission": decisions, "search_ids": sorted(search_ids),
+                "sources": [{"search_id": key, "purpose": records[key].purpose, "root_moves": records[key].root_moves,
+                             "requested_depth": records[key].requested_depth} for key in sorted(search_ids) if key in records]})
+        if result["coaching"].get("comparison_text"):
+            result["sentence_admission"].append({"frame": "engine_comparison", "admitted": True,
+                "reason": "original_root_search_comparison", "search_ids": sorted(set(selected["search_ids"]) | {r.id for key in (teaching_root, played.uci() if played else None) if key for r in (base_records[key], root_records[key])})})
+        if result["coaching"].get("teaching_habit"):
+            result["sentence_admission"].append({"frame": "teaching_habit", "admitted": True, "reason": "general_teaching_principle", "search_ids": []})
     result["timelines"] = timelines
     result["searches"] = [r.document() for r in session.records]
     result["search_scope"] = {"exhaustive": False, "resource_scopes": resource_scopes,
@@ -257,7 +337,7 @@ def explain_fen(fen: str, played_move=None, player_level=1200, history=None, *, 
         "quiet_investigation": "performed" if result["investigations"] else "not_completed_within_budget"}
     result["reproducibility"] = {**session.document(), "replay_version": STORED_LINE_VERIFIER_VERSION,
         "source_hashes": {p.name: fingerprint_bytes(p) for p in [*sorted(Path(__file__).parent.glob("*.py")), Path(__file__).parents[1] / "stored_line_verifier.py"]},
-        "selection_policy": "experimental_lexicographic_v1_uncalibrated", "render_version": VERSION}
+        "selection_policy": "review_v2_root_gap_then_conditional_then_depth20_agreement", "render_version": VERSION}
     result["runtime"] = {"wall_ms": round(1000 * (time.perf_counter() - started), 3), "query_count": session.executed_queries,
         "query_records": len(session.records),
         "requested_engine_nodes": session.requested_nodes, "actual_engine_nodes": sum(r.actual_nodes for r in session.records),
