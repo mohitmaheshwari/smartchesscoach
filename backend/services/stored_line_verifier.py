@@ -628,6 +628,28 @@ def _stored_line_event(
     )
 
 
+def root_piece_ids(board: chess.Board) -> Dict[chess.Square, str]:
+    """Piece lineage at this supplied root, without inventing prior history."""
+    return {
+        square: f"{'white' if piece.color == chess.WHITE else 'black'}:{_piece_name(piece.piece_type)}:{chess.square_name(square)}"
+        for square, piece in board.piece_map().items()
+    }
+
+
+def relationship_snapshot(
+    board: chess.Board, piece_ids: Optional[Mapping[chess.Square, str]] = None
+) -> Dict[str, StoredPieceRelationState]:
+    """Full geometry snapshot, including unchanged enabling relationships.
+
+    These are geometric facts, never assertions of tactical safety. A caller
+    continuing a replay supplies its lineage map; a standalone board is a root.
+    """
+    identities = root_piece_ids(board) if piece_ids is None else piece_ids
+    if set(identities) != set(board.piece_map()):
+        raise ValueError("piece identity map does not match occupied squares")
+    return _relation_states(board, board.turn, identities)
+
+
 def replay_stored_line(
     board_before: chess.Board,
     leading_move: Any,
@@ -666,13 +688,7 @@ def replay_stored_line(
     )
 
     board = initial.copy(stack=False)
-    piece_ids = {
-        square: (
-            f"{'white' if piece.color == chess.WHITE else 'black'}:"
-            f"{_piece_name(piece.piece_type)}:{chess.square_name(square)}"
-        )
-        for square, piece in board.piece_map().items()
-    }
+    piece_ids = root_piece_ids(board)
     own_before = _material(board, initiator)
     opp_before = _material(board, not initiator)
     replayed = []
