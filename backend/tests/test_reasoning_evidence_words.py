@@ -114,3 +114,22 @@ def test_cli_does_not_load_credentials_without_explicit_model_mode(tmp_path):
             '--engine', 'unused', '--depth', '20', '--output-dir', str(tmp_path / 'out'),
             '--env-file', 'unused.env'])
     assert error.value.code == 2
+
+
+def test_capture_event_reference_can_name_the_piece_just_captured():
+    p = sample(); value = response(p); branch = p['branches'][0]
+    value['connections'][0]['claim'] = 'The knight is captured by this move.'
+    value['connections'][0]['evidence_refs'] = [{'state_id': branch['state_ids'][3],
+        'piece_ids': ['black:knight:f7', 'white:knight:e5']}]
+    async def caller(*args, **kwargs): return json.dumps(value)
+    r = asyncio.run(api().propose_evidence_reasoning(p, max_tokens=2000, caller=caller))
+    assert r['status'] == 'unreviewed_proposal'
+
+
+def test_capture_reference_cannot_keep_a_piece_alive_at_a_later_unrelated_event():
+    p = sample(); value = response(p); branch = p['branches'][0]
+    value['connections'][0]['evidence_refs'] = [{'state_id': branch['state_ids'][4],
+        'piece_ids': ['white:knight:e5']}]
+    async def caller(*args, **kwargs): return json.dumps(value)
+    r = asyncio.run(api().propose_evidence_reasoning(p, max_tokens=2000, caller=caller))
+    assert r['status'] == 'refused'
