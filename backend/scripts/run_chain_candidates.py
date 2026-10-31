@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import chess
 from services.reasoning import ReasoningConfig
 from services.reasoning.chain_builder import build_candidate_chains
+from services.reasoning.chain_challenge import challenge_candidates
 from services.reasoning.contracts import fingerprint
 from services.reasoning.engine import input_board
 from services.reasoning.search import SearchSession, fingerprint_bytes
@@ -62,6 +63,8 @@ def main():
                 if ranking.lines and ranking.lines[0]['root_uci'] != move.uci():
                     alternate = build_timeline(root, ranking.lines[0]['moves_uci'], ranking.id, config.max_plies)
                 result = build_candidate_chains(root, played, alternate)
+                result['challenges'] = challenge_candidates(root, played, alternate, result['candidates'],
+                    played_root.document(), reply.document(), ranking.document(), depth=args.depth)
                 result.update(status='complete_search' if all(map(complete, (played_root, reply, ranking))) else 'partial_search',
                     played_moves=played['moves_san'], alternative_moves=alternate['moves_san'] if alternate else [],
                     history_status=history, played_timeline=played, alternative_timeline=alternate)
@@ -70,6 +73,7 @@ def main():
                     'query_count': session.executed_queries, 'actual_nodes': sum(r.actual_nodes for r in session.records)})
             save(case['id']+'.json', result)
             row = {'id': case['id'], 'status': result['status'], 'candidates': len(result['candidates']),
+                'candidate_needs_review': sum(c['status'] == 'candidate_needs_review' for c in result.get('challenges', [])),
                 'moves': result.get('played_moves', [])[:5], 'runtime': result['runtime']}
         except (ValueError, KeyError, TypeError, OSError) as exc:
             row = {'id': case['id'], 'status': 'error', 'error': str(exc)}
