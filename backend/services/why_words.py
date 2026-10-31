@@ -193,6 +193,33 @@ def swapped_ownership(facts: Dict[str, Any], text: str) -> Optional[str]:
     return None
 
 
+_GAIN_VERB = r"(?:wins?|won|takes?|took|captures?|captured|picks? up|picked up|picking up|gains?)"
+
+
+def victim_given_the_verb(facts: Dict[str, Any], text: str) -> Optional[str]:
+    """Why the text must be refused for making the piece that is won the winner.
+
+    Live 2026-10-31, deploy-verify game move 14: facts `the_piece_involved:
+    "your pawn"`, relation "the piece is won", deterministic "After hxg4, Bg3
+    wins your pawn"; gpt-6-luna wrote "Your pawn wins a piece after hxg4."
+    Same tokens, same owner, the relation verb present: every check passed and
+    the sentence was false. The piece the facts name as the one that changes
+    hands may not be the subject of a winning verb.
+    """
+    named = str(facts.get("the_piece_involved") or "").strip().lower()
+    if not named:
+        return None
+    m = _OWNED.search(named)
+    if not m:
+        return None
+    owner, piece = _owner_key(m.group(1)), m.group(2).lower()
+    owner_words = r"your" if owner == "your" else r"(?:their|(?:the\s+)?opponent'?s)"
+    pattern = rf"\b{owner_words}\s+{piece}s?\b(?:\s+on\s+[a-h][1-8])?\s+(?:also\s+|then\s+|simply\s+|now\s+)?{_GAIN_VERB}\b"
+    if re.search(pattern, (text or "").lower()):
+        return f"the {piece} that is won is given the winning verb"
+    return None
+
+
 def conveys_relation(mechanism: str, text: str) -> Optional[str]:
     """Why the text drops the engine's finding, or None when it keeps it."""
     wanted = _CONVEYS.get((mechanism or "").upper())
@@ -333,6 +360,10 @@ def validate(facts: Dict[str, Any], text: str) -> Optional[str]:
     swapped = swapped_ownership(facts, text)
     if swapped:
         return swapped
+    if _mechanism_of(facts) in ("WINS_MATERIAL", "HANGING", "LOST_GUARD", "ATTACKS"):
+        inverted = victim_given_the_verb(facts, text)
+        if inverted:
+            return inverted
     return conveys_relation(_mechanism_of(facts), text)
 
 

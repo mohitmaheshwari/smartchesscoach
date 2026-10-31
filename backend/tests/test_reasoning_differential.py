@@ -273,6 +273,17 @@ def test_words_layer_refuses_a_piece_given_to_the_wrong_side():
     assert validate(both, "The exchange on f4 costs you your rook for their bishop.") is None
 
 
+def test_words_layer_refuses_the_won_piece_as_the_winner():
+    # Live, 2026-10-31, deploy-verify game move 14: "Bg3 wins your pawn" became "Your pawn wins a piece".
+    from services.why_words import validate
+    facts = {"whose_move": "the reader's", "the_move_played": "hxg4", "relation": "the piece is won -- it changes hands for nothing like it",
+             "the_move_that_does_it": "Bg3", "this_happens_after_the_move_played": True, "the_piece_involved": "your pawn"}
+    assert validate(facts, "Your pawn wins a piece after hxg4. The opponent's Bg3 leaves it for nothing.") \
+        == "the pawn that is won is given the winning verb"
+    assert validate(facts, "After hxg4, Bg3 wins your pawn for nothing.") is None
+    assert validate(facts, "Your pawn on g4 falls to Bg3 after hxg4.") is None
+
+
 def test_words_layer_accepts_the_cause_facts_and_refuses_added_chess():
     from services.why_words import validate
     facts = {"whose_move": "the reader's", "the_move_played": "Kc8", "the_better_move": "Kd8",
