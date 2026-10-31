@@ -927,7 +927,8 @@ def build_facts(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             facts["what_the_move_played_changed"] = lead["text"]
             facts["relation"] = cause_relation(lead["kind"])
             if lead.get("piece"):
-                facts["the_piece_involved"] = f"{lead['owner']} {lead['piece']}"
+                from services.why_words import _owned
+                facts["the_piece_involved"] = _owned(lead["owner"], lead["piece"])
             if lead.get("square"):
                 facts["the_square_it_is_on"] = lead["square"]
             if lead.get("guard_square"):

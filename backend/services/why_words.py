@@ -82,8 +82,9 @@ SYSTEM = (
     "fact. Do not soften it either: 'forced to move' is not 'attacks', and "
     "naming a piece is not the same as saying it is won.\n"
     "- Short sentences, one idea each, common words. No numbers.\n"
-    "- `your` and `their` in the facts say whose piece it is. Keep every piece "
-    "with the owner the facts give it; never swap them.\n"
+    "- `your` means the reader's piece and `the opponent's` (or `their`) the "
+    "other side's. Keep every piece with the owner the facts give it; never "
+    "swap them.\n"
     "- Write like a coach talking to the player: lead with the point, then the "
     "proof, in one or two sentences.\n"
     "- `whose_move` says whose move is being explained. When it is theirs, "
@@ -164,7 +165,12 @@ _CONVEYS: Dict[str, str] = {
 }
 
 
-_OWNED = re.compile(r"\b(your|their)\s+(pawn|knight|bishop|rook|queen|king)s?\b", re.I)
+_OWNED = re.compile(r"\b(your|their|(?:the\s+)?opponent'?s)\s+(pawn|knight|bishop|rook|queen|king)s?\b", re.I)
+
+
+def _owner_key(owner: str) -> str:
+    owner = owner.lower()
+    return "their" if "opponent" in owner else owner
 
 
 def swapped_ownership(facts: Dict[str, Any], text: str) -> Optional[str]:
@@ -178,8 +184,8 @@ def swapped_ownership(facts: Dict[str, Any], text: str) -> Optional[str]:
     engine supplied; the model may not change it.
     """
     from services.llm_caption import _flatten
-    said = {(o.lower(), p.lower()) for o, p in _OWNED.findall(text or "")}
-    given = {(o.lower(), p.lower()) for o, p in _OWNED.findall(_flatten(facts))}
+    said = {(_owner_key(o), p.lower()) for o, p in _OWNED.findall(text or "")}
+    given = {(_owner_key(o), p.lower()) for o, p in _OWNED.findall(_flatten(facts))}
     for owner, piece in said:
         other = "their" if owner == "your" else "your"
         if (other, piece) in given and (owner, piece) not in given:
@@ -198,7 +204,14 @@ def conveys_relation(mechanism: str, text: str) -> Optional[str]:
 
 
 def _owned(whose: str, named: Optional[str]) -> str:
-    """'your knight' / 'two of their pawns', the same reading _phrase() uses."""
+    """'your knight' / 'two of the opponent's pawns'.
+
+    The facts say "the opponent's", not "their": measured live 2026-10-31,
+    gpt-6-luna turned "their bishop" into "Your bishop" on three of six
+    calls with "their" in the facts and the ownership rule in the prompt.
+    "the opponent's" leaves nothing to misread. The guard accepts both.
+    """
+    whose = "the opponent's" if whose == "their" else whose
     named = (named or "").strip().lower()
     if not named:
         return f"{whose} piece"

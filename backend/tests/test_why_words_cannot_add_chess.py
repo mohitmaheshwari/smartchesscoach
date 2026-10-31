@@ -118,7 +118,7 @@ class TestTheRelationHasToSurvive:
         the fact, not the model adding one."""
         assert _facts("MATE")["the_piece_involved"] == "your king"
         assert _facts("MATE", direction="missed")["the_piece_involved"] \
-            == "their king"
+            == "the opponent's king"
 
     def test_a_named_mate_victim_is_not_overwritten(self):
         assert _facts("MATE", victim_piece="rook")["the_piece_involved"] \
@@ -238,19 +238,19 @@ class TestWhoseThingItIs:
 
     def test_missed_takes_from_the_opponent(self):
         f = _facts("WINS_MATERIAL", direction="missed", victim_piece="rook")
-        assert f["the_piece_involved"] == "their rook"
+        assert f["the_piece_involved"] == "the opponent's rook"
 
     def test_it_flips_again_when_the_move_is_the_opponents(self):
         """Their mistake gets the same button. The reader is then the side NOT
         moving, so "your" and "their" both swap."""
         f = _facts("WINS_MATERIAL", direction="received",
                    victim_piece="rook", mover_is_user=False)
-        assert f["the_piece_involved"] == "their rook"
+        assert f["the_piece_involved"] == "the opponent's rook"
 
     def test_a_count_reads_as_a_person_would_say_it(self):
         f = _facts("WINS_MATERIAL", direction="missed",
                    victim_piece="two pawns")
-        assert f["the_piece_involved"] == "two of their pawns"
+        assert f["the_piece_involved"] == "two of the opponent's pawns"
 
     def test_the_reader_is_told_whose_move_it_is(self):
         assert _facts("MATE")["whose_move"] == "the reader's"
