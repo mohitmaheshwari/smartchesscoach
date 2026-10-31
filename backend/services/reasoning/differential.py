@@ -290,8 +290,8 @@ def differential_causes(root: chess.Board, played: chess.Move, alternative: ches
             tail = "" if defended else " Nothing defends it."
             causes.append({"kind": "attacks", "reply": reply_san, "piece": detail["piece"], "square": detail["square"],
                            "defended": defended, "owner": mover_owner,
-                           "text": (f"After {played_san}, {reply_san} attacks {mover_owner} {detail['piece']} on "
-                                    f"{detail['square']}. After {alt_san} it does not.{tail}")})
+                           "text": (f"After {played_san}, {reply_san} hits {mover_owner} {detail['piece']} on "
+                                    f"{detail['square']}. After {alt_san} it would not.{tail}")})
         elif kind == "captures":
             if detail["on_moved_square"]:
                 continue                  # keyed by square; a different piece on the exchange square is the exchange
@@ -425,11 +425,11 @@ def exchange_sentence(g: Dict[str, Any], *, played_san: str, reply_san: Optional
         hit = next(p for p in g["plies"] if not p["by_mover"])
         if gained is None:
             if hit["ply"] == 1:
-                text = f"After {played_san}, {hit['san']} takes {your} {lost} on {g['square']}" + \
-                       (" and nothing takes back." if with_clause else ".")
+                text = f"After {played_san}, {hit['san']} simply takes {your} {lost} on {g['square']}" + \
+                       (", and nothing can take back." if with_clause else ".")
             else:
-                text = (f"After {played_san}, {reply_san} leads to {hit['san']}, which takes {your} {lost} on "
-                        f"{g['square']}" + (" with nothing taking back." if with_clause else "."))
+                text = (f"After {played_san}, {reply_san} starts a line that ends with {hit['san']} taking {your} "
+                        f"{lost} on {g['square']}" + (" for free." if with_clause else "."))
         else:
             text = f"After {played_san}, the exchange on {g['square']} costs {you} a {lost} for a {gained}."
         return {"mechanism": "WINS_MATERIAL", "direction": "received", "agent_move": hit["san"], "square": g["square"],
@@ -439,12 +439,12 @@ def exchange_sentence(g: Dict[str, Any], *, played_san: str, reply_san: Optional
     hit = next(p for p in g["plies"] if p["by_mover"])
     if lost is None:
         if hit["ply"] == 0:
-            text = f"{alt_san} takes {their} {won} on {g['square']}" + (" for nothing." if with_clause else ".")
+            text = f"{alt_san} simply takes {their} {won} on {g['square']}" + (" for free." if with_clause else ".")
         else:
-            text = f"{alt_san} leads to {hit['san']}, taking {their} {won} on {g['square']}" + \
-                   (" for nothing." if with_clause else ".")
+            text = f"{alt_san} was the move: it leads to {hit['san']}, picking up {their} {won} on {g['square']}" + \
+                   (" for free." if with_clause else ".")
     else:
-        text = f"{alt_san} leads to an exchange on {g['square']} that wins {their} {won} for a {lost}."
+        text = f"{alt_san} was the move: the exchange on {g['square']} wins {their} {won} for a {lost}."
     return {"mechanism": "WINS_MATERIAL", "direction": "missed", "agent_move": hit["san"], "square": g["square"],
             "victim_piece": won, "victim_square": g["square"], "gained_piece": lost, "payoff_cp": g["net_cp"],
             "ply": hit["ply"], "captures": captures, "text": text}
@@ -499,13 +499,13 @@ def material_claim(ledger_played: Sequence[Dict[str, Any]], ledger_alt: Sequence
     # line that merely loses less than the other is not "a pawn up".
     if better_by < EXCHANGE_MIN_CP or uncertain or (total_mine >= 0 if received else total_mine <= 0):
         return None
-    you = "you" if mover_is_user else "them"
+    you = "you" if mover_is_user else "they"
     amount = material_words(better_by)
     if received:
-        text = f"After {played_san}, {reply_san} starts a series of exchanges that leaves {you} {amount} down."
+        text = f"After {played_san}, the exchanges that follow {reply_san} leave {you} {amount} down."
         agent = reply_san
     else:
-        text = f"{alt_san} starts a series of exchanges that leaves {you} {amount} up."
+        text = f"{alt_san} was the move: after the exchanges {you} come out {amount} up."
         agent = alt_san
     captures = [p["san"] for grp in mine for p in grp["plies"]]
     return {"mechanism": "WINS_MATERIAL", "direction": "received" if received else "missed", "agent_move": agent,
@@ -641,7 +641,8 @@ def alternative_double_attack(root: chess.Board, played: chess.Move, alternative
 
     first, second = hits[0], hits[1]
     cannot = "They" if owner == "their" else "You"
-    text = f"{alt_san} attacks two things at once: {name(first)} and {name(second)}. {cannot} cannot save both."
+    text = (f"{alt_san} was the move: it hits {name(first)} and {name(second)} at the same time. "
+            f"{cannot} cannot save both.")
     return {"mechanism": "FORK", "direction": "missed", "agent_move": alt_san, "targets": hits,
             "victim_piece": first[0], "victim_square": first[1] or None, "payoff_cp": None, "line": [],
             "retreat_san": None, "returns_home": False, "text": text}

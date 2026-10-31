@@ -2193,10 +2193,15 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
       setResult(data);
       setState("done");
       if (data?.found && data.arrows?.length && onArrows) {
+        // The line alternates sides from the first arrow, which is the
+        // mover's: the move played (received) or the better move (missed).
+        // Colour says whose move it is, as the card's own arrows do: red
+        // theirs, blue ours, green the better move we did not play.
+        const missed = data.direction === "missed";
         onArrows(
           data.arrows
             .filter((a) => a?.from && a?.to)
-            .map((a, i) => [a.from, a.to, i === 0 ? "red" : "blue"]),
+            .map((a, i) => [a.from, a.to, i % 2 === 0 ? (missed ? "green" : "blue") : "red"]),
         );
       }
     } catch (e) {
@@ -2205,14 +2210,18 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
     }
   };
 
+  // The card is a light surface (bg-white / bg-red-50) whatever the app
+  // theme, so this box is styled for it. The first version used dark-theme
+  // classes (text-gray-200 on it) and the answer was close to invisible.
   if (state === "idle") {
     return (
-      <div className="mt-2">
+      <div className="mt-3">
         <button
           onClick={ask}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 border border-sky-500/30"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-sky-800 bg-sky-50 border border-sky-200 hover:bg-sky-100 transition-colors"
           data-testid="why-btn"
         >
+          <Lightbulb className="w-4 h-4" />
           Why was this bad?
         </button>
       </div>
@@ -2221,8 +2230,9 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
 
   if (state === "loading") {
     return (
-      <div className="mt-2 text-xs text-sky-400/80" data-testid="why-loading">
-        Coach is working it out&hellip;
+      <div className="mt-3 flex items-center gap-2 text-sm text-gray-700" data-testid="why-loading">
+        <Loader2 className="w-4 h-4 animate-spin text-sky-700" />
+        <span>Checking the position with the engine, about ten seconds&hellip;</span>
       </div>
     );
   }
@@ -2234,28 +2244,34 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
     // else is added.
     return (
       <div
-        className="mt-2 rounded border border-gray-600/40 bg-gray-500/5 p-2.5 text-xs text-gray-400"
+        className="mt-3 rounded-lg border border-gray-200 bg-white/70 p-3 text-sm text-gray-700 leading-relaxed"
         data-testid="why-none"
       >
-        {result?.better_move
-          ? `The engine preferred ${result.better_move} here. We can’t show a clear reason beyond that.`
-          : "We can’t show a clear reason here."}
+        {result?.better_move ? (
+          <>
+            No single tactic to point at here. The engine simply prefers{" "}
+            <span className="font-mono font-semibold text-gray-900">{result.better_move}</span>.
+          </>
+        ) : (
+          "We can’t show a clear reason for this one."
+        )}
       </div>
     );
   }
 
   return (
     <div
-      className="mt-2 rounded border border-sky-500/30 bg-sky-500/5 p-2.5 space-y-1.5"
+      className="mt-3 rounded-lg border border-sky-200 bg-white/80 p-3 space-y-2"
       data-testid="why-found"
     >
-      <div className="text-xs uppercase tracking-wide text-sky-400 font-medium">
-        Why it was bad
+      <div className="text-[11px] uppercase tracking-wide text-sky-700 font-semibold">
+        Why
       </div>
-      <div className="text-sm text-gray-200 leading-relaxed">{result.text}</div>
+      <p className="text-[15px] text-gray-900 leading-relaxed">{result.text}</p>
       {result.better_move && result.direction === "received" && (
-        <div className="text-xs text-gray-400" data-testid="why-better">
-          Better was {result.better_move}.
+        <div className="text-sm text-gray-700" data-testid="why-better">
+          Better was{" "}
+          <span className="font-mono font-semibold text-emerald-700">{result.better_move}</span>.
         </div>
       )}
       {/* The bare SAN list that used to sit here ("Re1 Bd2 Re2") was engine

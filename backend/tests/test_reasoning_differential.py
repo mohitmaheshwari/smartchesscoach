@@ -38,7 +38,7 @@ def test_recapture_on_the_exchange_square_cancels_and_the_new_attack_remains():
     out = causes("2rqkb1r/1p2pp1p/p1bp1np1/3N4/1Q2P3/5N2/PPP2PPP/R1B2RK1 b k - 3 11", "Nxd5", "Bxd5", "exd5")
     assert [c["kind"] for c in out] == ["attacks"]
     assert out[0]["piece"] == "bishop" and out[0]["square"] == "c6"
-    assert "After Nxd5, exd5 attacks your bishop on c6." in out[0]["text"]
+    assert "After Nxd5, exd5 hits your bishop on c6." in out[0]["text"]
 
 
 def test_a_reply_that_hits_the_moved_piece_on_both_branches_is_not_a_reason():
@@ -87,14 +87,14 @@ def test_ledger_reads_an_exchange_and_an_unanswered_capture_from_the_engine_line
     loss = first_unshared_exchange(played, better, losing=True)
     assert loss["square"] == "g5" and loss["net_cp"] == -300 and loss["mover_won"] == []
     said = exchange_sentence(loss, played_san="Bxd5", reply_san="Nxd5", alt_san="exd5", received=True, mover_is_user=True)
-    assert said["text"] == "After Bxd5, Nxd5 leads to Qxg5, which takes your knight on g5 with nothing taking back."
+    assert said["text"] == "After Bxd5, Nxd5 starts a line that ends with Qxg5 taking your knight on g5 for free."
     assert said["mechanism"] == "WINS_MATERIAL" and said["victim_piece"] == "knight" and said["ply"] == 3
-    # The line regains a knight on c6, so the whole-line claim drops "nothing taking back"
+    # The line regains a knight on c6, so the whole-line claim drops "for free"
     # and stands on the eval gap instead.
     from services.reasoning.differential import material_claim
     claim = material_claim(played, better, played_plies=10, alt_plies=10, received=True, gap=647, move_class="blunder",
                            played_san="Bxd5", reply_san="Nxd5", alt_san="exd5", mover_is_user=True)
-    assert claim["text"] == "After Bxd5, Nxd5 leads to Qxg5, which takes your knight on g5."
+    assert claim["text"] == "After Bxd5, Nxd5 starts a line that ends with Qxg5 taking your knight on g5."
     assert material_claim(played, better, played_plies=10, alt_plies=10, received=True, gap=60, move_class="inaccuracy",
                           played_san="Bxd5", reply_san="Nxd5", alt_san="exd5", mover_is_user=True) is None
 
@@ -108,7 +108,7 @@ def test_a_gain_the_line_gives_back_elsewhere_becomes_the_net_in_words():
     claim = material_claim(played, better, played_plies=9, alt_plies=9, received=False, gap=133, move_class="mistake",
                            played_san="Qa3", reply_san="Qc5", alt_san="Rxc2", mover_is_user=True)
     assert claim["series"] is True
-    assert claim["text"] == "Rxc2 starts a series of exchanges that leaves you a pawn up."
+    assert claim["text"] == "Rxc2 was the move: after the exchanges you come out a pawn up."
     assert material_words(100) == "a pawn" and material_words(300) == "a piece" and material_words(500) == "a rook"
 
 

@@ -82,6 +82,10 @@ SYSTEM = (
     "fact. Do not soften it either: 'forced to move' is not 'attacks', and "
     "naming a piece is not the same as saying it is won.\n"
     "- Short sentences, one idea each, common words. No numbers.\n"
+    "- `your` and `their` in the facts say whose piece it is. Keep every piece "
+    "with the owner the facts give it; never swap them.\n"
+    "- Write like a coach talking to the player: lead with the point, then the "
+    "proof, in one or two sentences.\n"
     "- `whose_move` says whose move is being explained. When it is theirs, "
     "never tell the reader what they should have played.\n"
     "Reply with the sentences only."
@@ -139,8 +143,8 @@ _RELATION: Dict[str, str] = {
 _CONVEYS: Dict[str, str] = {
     "WINS_MATERIAL": (r"\bwins?\b|\bwon\b|\btakes?\b|\btaken\b|\bcaptur"
                       r"|\blose[sr]?\b|\blost\b|\bfalls?\b|\bgoes down\b"
-                      r"|\bpicks? up\b|\bpicked up\b|\bgives? up\b|\bdrops?\b"
-                      r"|\bcosts?\b|\bup\b|\bdown\b|\bahead\b|\bbehind\b"),
+                      r"|\bpick(?:s|ed|ing)? up\b|\bgives? up\b|\bdrops?\b"
+                      r"|\bcosts?\b|\bup\b|\bdown\b|\bahead\b|\bbehind\b|\bfree\b"),
     "MATE": r"\bmate[sd]?\b|\bcheckmate",
     "FORK": r"\btwo\b|\bboth\b|\bdouble",
     "TRAPPED": (r"\bno safe\b|\bnowhere\b|\bno square|\btrapped\b|\bstuck\b"
