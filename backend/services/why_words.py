@@ -115,6 +115,15 @@ _RELATION: Dict[str, str] = {
     "TRAPPED": "the piece has no safe square to go to",
     "PROMOTES": "the pawn reaches the last row and becomes a queen",
     "FORCES_RETREAT": "the piece is forced to move away",
+    # The differential causes (services/reasoning/differential.py, 2026-10-31):
+    # what the played move CHANGED so that the reply works, kept only when the
+    # same reply does not do it after the better move. Same contract as the
+    # six above: handed over as `relation`, checked on the way back.
+    "CHECK": "the reply comes with check only after the move played",
+    "LOST_GUARD": "the move played took away the guard of the piece the reply attacks",
+    "HANGING": "the piece can simply be taken after the move played",
+    "ATTACKS": "the reply attacks a piece it could not attack after the better move",
+    "UNCOVERS_ATTACK": "the reply opens a line onto a piece",
 }
 
 # Any ONE of these conveys the relation. Written as alternatives, not as a
@@ -141,6 +150,12 @@ _CONVEYS: Dict[str, str] = {
                        r"|\b(?:has|have|had) to (?:move|go|run)\b|\bdriv"
                        r"|\bretreat|\bruns? (?:away|back)\b|\bmoves? (?:away|back)\b"
                        r"|\bmove (?:away|back)\b|\bback off\b|\bsends?\b|\bsent\b"),
+    "CHECK": r"\bcheck",
+    "LOST_GUARD": (r"\bguard|\bdefen|\bprotect|\bcover|\bunprotected\b|\bundefended\b"
+                   r"|\bno one\b|\bnobody\b|\bnothing\b|\balone\b|\bloose\b"),
+    "HANGING": r"\btakes?\b|\btaken\b|\bcaptur|\bfree\b|\bhang|\bwins?\b|\blose[sr]?\b|\blost\b|\bfalls?\b",
+    "ATTACKS": r"\battack|\bhits?\b|\bhitting\b|\bthreat|\baims?\b|\btargets?\b",
+    "UNCOVERS_ATTACK": r"\bopen|\bline\b|\bthrough\b|\buncover|\bdiscover|\bclear",
 }
 
 

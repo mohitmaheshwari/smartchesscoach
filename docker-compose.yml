@@ -97,6 +97,18 @@ services:
       # arrows are not involved either way.
       - LLM_CAPTIONS_ENABLED=${LLM_CAPTIONS_ENABLED:-0}
       - LLM_CAPTION_MODEL=${LLM_CAPTION_MODEL:-gpt-6-luna}
+      # The why button (2026-10-31, docs/why_differential_scope.md). The
+      # differential engine runs first behind WHY_DIFFERENTIAL_ENABLED and
+      # falls through to the old path when it finds nothing; the words layer
+      # (services/why_words.py, gpt-6-luna) replaces the template sentence
+      # only when WHY_WORDS_ENABLED=1 and its validator accepts the text.
+      # Depth and node caps bound one button press to a few seconds.
+      - WHY_DIFFERENTIAL_ENABLED=${WHY_DIFFERENTIAL_ENABLED:-0}
+      - WHY_DIFFERENTIAL_DEPTH=${WHY_DIFFERENTIAL_DEPTH:-16}
+      - WHY_DIFFERENTIAL_NODES=${WHY_DIFFERENTIAL_NODES:-2000000}
+      - WHY_WORDS_ENABLED=${WHY_WORDS_ENABLED:-0}
+      - WHY_WORDS_MODEL=${WHY_WORDS_MODEL:-gpt-6-luna}
+      - WHY_WORDS_EFFORT=${WHY_WORDS_EFFORT:-low}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-780116053739-2eh0431pndqofkbga1m0o7j35p3bklvt.apps.googleusercontent.com}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://chessguru.ai/api/auth/google/callback}

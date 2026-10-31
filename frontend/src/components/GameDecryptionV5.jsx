@@ -2228,13 +2228,18 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
   }
 
   if (!result?.found) {
-    // Deliberately blunt. See the note at the top of this component.
+    // Deliberately blunt. See the note at the top of this component. The
+    // engine's own choice is a true thing we can still show (2026-10-31, the
+    // differential engine names it even when it finds no mechanism); nothing
+    // else is added.
     return (
       <div
         className="mt-2 rounded border border-gray-600/40 bg-gray-500/5 p-2.5 text-xs text-gray-400"
         data-testid="why-none"
       >
-        We can&rsquo;t show a clear reason here.
+        {result?.better_move
+          ? `The engine preferred ${result.better_move} here. We can’t show a clear reason beyond that.`
+          : "We can’t show a clear reason here."}
       </div>
     );
   }
@@ -2248,6 +2253,11 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
         Why it was bad
       </div>
       <div className="text-sm text-gray-200 leading-relaxed">{result.text}</div>
+      {result.better_move && result.direction === "received" && (
+        <div className="text-xs text-gray-400" data-testid="why-better">
+          Better was {result.better_move}.
+        </div>
+      )}
       {/* The bare SAN list that used to sit here ("Re1 Bd2 Re2") was engine
           output, not coaching -- Mohit 2026-10-02: "why it was bad and what
           happens next are really bad stuff... they just run stockfish".

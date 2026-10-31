@@ -1505,6 +1505,57 @@ async def get_move_why(
     if not fen_before or not played_san:
         return {"found": False, "reason": "no_position"}
 
+    import asyncio
+
+    # The rating decides the class a gap earns (rating_resolver is the single
+    # table) and is told to the words model. Never fatal.
+    rating = None
+    try:
+        from services.rating_resolver import resolve_coaching_rating
+        rating = (await resolve_coaching_rating(db, user.user_id)).get("rating")
+    except Exception:                                   # noqa: BLE001
+        logger.debug("why: rating unavailable for %s", game_id, exc_info=True)
+
+    # Mohit 2026-10-31: the differential engine first (services/reasoning/
+    # differential.py, through services/why_differential.py). It measures both
+    # branches, explains a punished move backwards from the located reply and a
+    # missed one from the better move's line. Default off; when it finds
+    # nothing the path below runs exactly as before, so nothing is silenced.
+    from services.why_differential import (
+        NO_FALLBACK_REASONS,
+        WHY_DIFFERENTIAL_ENABLED,
+        explain as explain_differential,
+        old_answer_contradicts_eval,
+        old_answer_is_an_exchange,
+        summary as differential_summary,
+        to_response as differential_response,
+    )
+    differential = None
+    if WHY_DIFFERENTIAL_ENABLED:
+        try:
+            differential = await asyncio.to_thread(
+                explain_differential, fen_before, played_san,
+                mover_is_user=not opponent, rating=rating,
+                alternative_san=target.get("best_move"))
+        except Exception:                               # noqa: BLE001
+            logger.exception("why differential failed for %s move %s", game_id, move_number)
+            differential = None
+        if differential and differential.get("found"):
+            result = differential_response(differential)
+            result["move_number"] = move_number
+            result["played_san"] = played_san
+            result["fen_before"] = fen_before
+            await _attach_words(result, result.get("facts"), rating=rating)
+            return result
+        if differential and differential.get("reason") in NO_FALLBACK_REASONS:
+            # The differential has a verdict the old path would contradict:
+            # the move is the engine's own choice, or the better move allows
+            # the same thing. Say so, name the better move, add nothing.
+            return {"found": False, "reason": differential["reason"],
+                    "better_move": differential.get("better_move"),
+                    "differential": differential_summary(differential),
+                    "move_number": move_number, "played_san": played_san, "fen_before": fen_before}
+
     def _run():
         # Sync engine work, kept off the event loop. threads=1 is not a
         # performance setting: multi-threaded Stockfish returns a
@@ -1556,8 +1607,6 @@ async def get_move_why(
             mover_is_user=not opponent,
         )
 
-    import asyncio
-
     try:
         result = await asyncio.to_thread(_run)
     except Exception:
@@ -1565,13 +1614,61 @@ async def get_move_why(
                          game_id, move_number)
         return {"found": False, "reason": "engine_error"}
 
+    if result and differential is not None and (
+            old_answer_is_an_exchange(fen_before, played_san, result)
+            or old_answer_contradicts_eval(differential, result)):
+        # The old path's recapture framing ("exf5 wins your knight" after
+        # Nxf5) is true from the position after the move and wrong for the
+        # reader; a material claim on an inaccuracy contradicts the engine.
+        result = None
+
     if not result:
-        return {"found": False, "reason": "no_explainable_candidate"}
+        out = {"found": False, "reason": "no_explainable_candidate"}
+        if differential is not None:
+            # The engine's choice is still a true thing to show when no
+            # mechanism was found; the card names it and says no more.
+            out["differential"] = differential_summary(differential)
+            out["better_move"] = differential.get("better_move")
+        return out
 
     result["move_number"] = move_number
     result["played_san"] = played_san
     result["fen_before"] = fen_before
+    result["engine"] = "on_demand"
+    if differential is not None:
+        result["differential"] = differential_summary(differential)
+        result.setdefault("better_move", differential.get("better_move"))
+    # The same words model for the resolver's finding, from its own facts.
+    punishment = result.get("punishment")
+    if punishment:
+        from types import SimpleNamespace
+
+        from services.why_words import build_facts as build_resolver_facts
+        facts = build_resolver_facts(SimpleNamespace(**punishment), played_san,
+                                     mover_is_user=not opponent)
+        await _attach_words(result, facts, rating=rating)
     return result
+
+
+async def _attach_words(result: dict, facts, *, rating) -> None:
+    """Replace the template sentence with gpt-6-luna's when the words layer
+    accepts it. The deterministic sentence is kept under `deterministic_text`
+    and ships unchanged when the layer is off or refuses -- never silence.
+    """
+    from services import why_words
+    if not facts:
+        result["words"] = {"refused": "no facts"}
+        return
+    try:
+        said = await why_words.write(facts, rating=rating)
+    except Exception:                                   # noqa: BLE001
+        logger.exception("why words failed")
+        result["words"] = {"refused": "error"}
+        return
+    result["words"] = {"model": said.get("model"), "refused": said.get("refused")}
+    if said.get("text"):
+        result["deterministic_text"] = result.get("text")
+        result["text"] = said["text"]
 
 
 @router.post("/decryption/v5/{game_id}/validation-review")
