@@ -139,7 +139,8 @@ _RELATION: Dict[str, str] = {
 _CONVEYS: Dict[str, str] = {
     "WINS_MATERIAL": (r"\bwins?\b|\bwon\b|\btakes?\b|\btaken\b|\bcaptur"
                       r"|\blose[sr]?\b|\blost\b|\bfalls?\b|\bgoes down\b"
-                      r"|\bpicks? up\b|\bpicked up\b|\bgives? up\b|\bdrops?\b"),
+                      r"|\bpicks? up\b|\bpicked up\b|\bgives? up\b|\bdrops?\b"
+                      r"|\bcosts?\b|\bup\b|\bdown\b|\bahead\b|\bbehind\b"),
     "MATE": r"\bmate[sd]?\b|\bcheckmate",
     "FORK": r"\btwo\b|\bboth\b|\bdouble",
     "TRAPPED": (r"\bno safe\b|\bnowhere\b|\bno square|\btrapped\b|\bstuck\b"
@@ -157,6 +158,29 @@ _CONVEYS: Dict[str, str] = {
     "ATTACKS": r"\battack|\bhits?\b|\bhitting\b|\bthreat|\baims?\b|\btargets?\b",
     "UNCOVERS_ATTACK": r"\bopen|\bline\b|\bthrough\b|\buncover|\bdiscover|\bclear",
 }
+
+
+_OWNED = re.compile(r"\b(your|their)\s+(pawn|knight|bishop|rook|queen|king)s?\b", re.I)
+
+
+def swapped_ownership(facts: Dict[str, Any], text: str) -> Optional[str]:
+    """Why the text must be refused for giving a piece to the wrong side.
+
+    Containment cannot see this: "their bishop" in the facts and "Your bishop
+    on f4 is won" in the answer use the same tokens. Measured live 2026-10-31
+    on the deploy-verify game, move 15: facts `the_piece_involved: "their
+    bishop"`, gpt-6-luna wrote "Your bishop on f4 is won, as gxf4 takes it for
+    nothing" and every other check passed. The owner of a piece is a fact the
+    engine supplied; the model may not change it.
+    """
+    from services.llm_caption import _flatten
+    said = {(o.lower(), p.lower()) for o, p in _OWNED.findall(text or "")}
+    given = {(o.lower(), p.lower()) for o, p in _OWNED.findall(_flatten(facts))}
+    for owner, piece in said:
+        other = "their" if owner == "your" else "your"
+        if (other, piece) in given and (owner, piece) not in given:
+            return f"swapped ownership of the {piece}"
+    return None
 
 
 def conveys_relation(mechanism: str, text: str) -> Optional[str]:
@@ -289,6 +313,9 @@ def validate(facts: Dict[str, Any], text: str) -> Optional[str]:
         return f"invented chess not in the facts: {invented}"
     if re.search(r"\d[\d.]*\s*(cp\b|centipawns?|pawns? of)", text, re.I):
         return "talks in evaluations"
+    swapped = swapped_ownership(facts, text)
+    if swapped:
+        return swapped
     return conveys_relation(_mechanism_of(facts), text)
 
 

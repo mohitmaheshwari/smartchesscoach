@@ -257,6 +257,22 @@ def test_illegal_input_raises_instead_of_explaining():
                      session_factory=lambda cfg, pov, hist: ScriptedSession(pov))
 
 
+def test_words_layer_refuses_a_piece_given_to_the_wrong_side():
+    # Live, 2026-10-31, deploy-verify game move 15: facts said "their bishop", the model wrote "Your bishop".
+    from services.why_words import validate
+    facts = {"whose_move": "the reader's", "the_move_played": "Bxg4", "the_better_move": "gxf4",
+             "this_happens_after_the_move_played": False, "the_move_that_does_it": "gxf4",
+             "relation": "the piece is won -- it changes hands for nothing like it",
+             "the_piece_involved": "their bishop", "the_square_it_is_on": "f4",
+             "what_happens_to_the_material": "gxf4 takes their bishop on f4 for nothing."}
+    assert validate(facts, "Your bishop on f4 is won, as gxf4 takes it for nothing.") == "swapped ownership of the bishop"
+    assert validate(facts, "Their bishop on f4 is won, as gxf4 takes it for nothing.") is None
+    # Both owners present in the facts (an exchange) may both be named.
+    both = dict(facts, what_happens_to_the_material="the exchange on f4 costs you a rook for their bishop",
+                the_piece_involved="your rook")
+    assert validate(both, "The exchange on f4 costs you your rook for their bishop.") is None
+
+
 def test_words_layer_accepts_the_cause_facts_and_refuses_added_chess():
     from services.why_words import validate
     facts = {"whose_move": "the reader's", "the_move_played": "Kc8", "the_better_move": "Kd8",
