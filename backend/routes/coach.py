@@ -1516,6 +1516,19 @@ async def get_move_why(
     except Exception:                                   # noqa: BLE001
         logger.debug("why: rating unavailable for %s", game_id, exc_info=True)
 
+    async def _after_nothing_found(out: dict) -> dict:
+        # Mohit 2026-11-02: a position the button cannot explain is queued and
+        # studied later on his machine (services/why_queue.py, scope in
+        # docs/why_queue_claude_scope.md). A published study comes back as
+        # the answer; otherwise the card learns it is being studied. The live
+        # engine's own `found: true` answers never pass through here.
+        from services import why_queue
+        return await why_queue.on_nothing_found(
+            db, out, fen_before=fen_before, played_san=played_san, game_id=game_id,
+            move_number=move_number, opponent=opponent, user_id=user.user_id,
+            stored_best=target.get("best_move"), stored_class=target.get("evaluation"),
+            rating=rating, differential=out.get("differential"))
+
     # Mohit 2026-10-31: the differential engine first (services/reasoning/
     # differential.py, through services/why_differential.py). It measures both
     # branches, explains a punished move backwards from the located reply and a
@@ -1551,10 +1564,11 @@ async def get_move_why(
             # The differential has a verdict the old path would contradict:
             # the move is the engine's own choice, or the better move allows
             # the same thing. Say so, name the better move, add nothing.
-            return {"found": False, "reason": differential["reason"],
-                    "better_move": differential.get("better_move"),
-                    "differential": differential_summary(differential),
-                    "move_number": move_number, "played_san": played_san, "fen_before": fen_before}
+            return await _after_nothing_found({
+                "found": False, "reason": differential["reason"],
+                "better_move": differential.get("better_move"),
+                "differential": differential_summary(differential),
+                "move_number": move_number, "played_san": played_san, "fen_before": fen_before})
 
     def _run():
         # Sync engine work, kept off the event loop. threads=1 is not a
@@ -1623,13 +1637,14 @@ async def get_move_why(
         result = None
 
     if not result:
-        out = {"found": False, "reason": "no_explainable_candidate"}
+        out = {"found": False, "reason": "no_explainable_candidate",
+               "move_number": move_number, "played_san": played_san, "fen_before": fen_before}
         if differential is not None:
             # The engine's choice is still a true thing to show when no
             # mechanism was found; the card names it and says no more.
             out["differential"] = differential_summary(differential)
             out["better_move"] = differential.get("better_move")
-        return out
+        return await _after_nothing_found(out)
 
     result["move_number"] = move_number
     result["played_san"] = played_san

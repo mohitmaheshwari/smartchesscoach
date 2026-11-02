@@ -71,6 +71,9 @@ class _DB:
     def __init__(self, reviews):
         self.claude_reason_reviews = _Collection(reviews)
         self.claude_reason_rulings = _Collection()
+        # The live Why queue's studies share this tab (services/why_queue.py);
+        # empty here, so these tests still describe the seeded set alone.
+        self.why_reasons = _Collection()
 
 
 class _User:

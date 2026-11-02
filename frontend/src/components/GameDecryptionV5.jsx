@@ -2255,6 +2255,18 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
         ) : (
           "We can’t show a clear reason for this one."
         )}
+        {/* Mohit 2026-11-02: a position the engine cannot explain is queued
+            and studied later on his machine (docs/why_queue_claude_scope.md).
+            The server says which: `studying` while it waits, `no_lesson`
+            when the study found nothing to teach. Nothing else is added. */}
+        {result?.study?.text && (
+          <p
+            className={`mt-2 ${result.study.state === "no_lesson" ? "text-gray-700" : "text-sky-800"}`}
+            data-testid={`why-study-${result.study.state}`}
+          >
+            {result.study.text}
+          </p>
+        )}
       </div>
     );
   }
@@ -2266,6 +2278,11 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
     >
       <div className="text-[11px] uppercase tracking-wide text-sky-700 font-semibold">
         Why
+        {result.engine === "studied" && (
+          <span className="ml-2 normal-case tracking-normal font-normal text-gray-500" data-testid="why-studied">
+            · studied later by the coach
+          </span>
+        )}
       </div>
       <p className="text-[15px] text-gray-900 leading-relaxed">{result.text}</p>
       {result.better_move && result.direction === "received" && (

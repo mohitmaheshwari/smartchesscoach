@@ -413,6 +413,12 @@ async def lifespan(app: FastAPI):
         logger.error(f"Error initializing Game Review validation indexes: {e}")
 
     try:
+        from services.why_queue import ensure_indexes as ensure_why_queue_indexes
+        await ensure_why_queue_indexes(db)
+    except Exception as e:
+        logger.error(f"Error initializing Why queue indexes: {e}")
+
+    try:
         from services.coach_selected_review_service import (
             ensure_review_prescription_indexes,
         )

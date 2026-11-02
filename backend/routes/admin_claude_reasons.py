@@ -75,6 +75,17 @@ async def next_claude_reason(
     """
     _require_db()
     ruled = set(await db.claude_reason_rulings.distinct("key"))
+    # The live Why queue's studies come first (services/why_queue.py, 2026-11-02):
+    # they are waiting to reach a card, the seeded set is not. Review-first
+    # means a gate-passed study sits here until someone presses Agree.
+    from services.why_queue import HELD, HELD_FOR_REVIEW, review_row
+    live_query: Dict[str, Any] = {"status": {"$in": [HELD_FOR_REVIEW, HELD]}}
+    if judge == "confirmed":
+        live_query["status"] = HELD_FOR_REVIEW
+    elif judge:
+        live_query["status"] = HELD if judge == "refuted" else "__none__"
+    live = [review_row(r) for r in await db.why_reasons.find(live_query, {"_id": 0}).to_list(length=None)]
+    live.sort(key=lambda r: (0 if r.get("judge_overall") == "confirmed" else 1, str(r.get("created_at") or "")))
     query: Dict[str, Any] = {}
     if judge:
         query["judge_overall"] = judge
@@ -83,6 +94,7 @@ async def next_claude_reason(
     rows = await db.claude_reason_reviews.find(query, {"_id": 0}).to_list(length=None)
     order = {"confirmed": 0, "refuted": 1, "not_probeable": 2, "cannot_test": 3}
     rows.sort(key=lambda r: (order.get(str(r.get("judge_overall")), 9), int(r.get("idx") or 0)))
+    rows = live + rows if not bucket else rows
     for row in rows:
         if row.get("key") in ruled:
             continue
@@ -110,8 +122,17 @@ async def rule_claude_reason(
     if verdict not in VERDICTS:
         raise HTTPException(status_code=400, detail="verdict must be agree, disagree or unsure")
     row = await db.claude_reason_reviews.find_one({"key": key}, {"_id": 0})
+    live_status = None
     if not row:
-        raise HTTPException(status_code=404, detail="no such position in the review set")
+        # A study from the live Why queue: the ruling also decides whether
+        # it reaches the card. Agree publishes, disagree rejects.
+        from services.why_queue import apply_ruling, review_row
+        live = await db.why_reasons.find_one({"key": key}, {"_id": 0})
+        if not live:
+            raise HTTPException(status_code=404, detail="no such position in the review set")
+        row = review_row(live)
+        live_status = await apply_ruling(db, key, verdict, ruled_by=user.user_id,
+                                         note=str(payload.get("note") or ""))
     await db.claude_reason_rulings.update_one(
         {"key": key},
         {"$set": {
@@ -129,10 +150,14 @@ async def rule_claude_reason(
             "ruled_by": user.user_id,
             "author_email": (getattr(user, "email", "") or "").lower(),
             "ruled_at": datetime.now(timezone.utc).isoformat(),
+            "source": row.get("source") or "seeded",
         }},
         upsert=True,
     )
-    return {"ok": True, "key": key, "verdict": verdict}
+    out = {"ok": True, "key": key, "verdict": verdict}
+    if live_status is not None:
+        out["study_status"] = live_status
+    return out
 
 
 @router.get("/admin/geometry-gaps/claude-reasons/results")
@@ -146,6 +171,9 @@ async def claude_reason_results(user: User = Depends(require_geometry_reviewer))
     """
     _require_db()
     total = await db.claude_reason_reviews.count_documents({})
+    live_by_status: Dict[str, int] = {}
+    for status in ("held_for_review", "held", "published", "rejected", "no_lesson"):
+        live_by_status[status] = await db.why_reasons.count_documents({"status": status})
     rows = await db.claude_reason_rulings.find({}, {"_id": 0}).to_list(length=None)
     grid: Dict[str, Dict[str, int]] = {}
     by_verdict: Dict[str, int] = {}
@@ -158,6 +186,7 @@ async def claude_reason_results(user: User = Depends(require_geometry_reviewer))
     return {
         "total": len(rows),
         "in_set": total,
+        "why_queue": live_by_status,
         "by_verdict": by_verdict,
         "by_judge_then_verdict": grid,
         "disagreed_with_confirmed": [
