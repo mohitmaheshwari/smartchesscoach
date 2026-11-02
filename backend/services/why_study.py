@@ -307,7 +307,16 @@ SYSTEM_PROMPT = """You are a chess coach's analyst. You are given one position w
 Rules.
 - Reason only from the packet. It holds the engine's lines and the board facts; nothing else exists.
 - Every chess statement in your reason must be backed by a CLAIM in `claims`, using only the claim kinds listed in the schema. A claim is a thing the board or the engine can replay. If you cannot express a statement as a claim, do not say it.
-- The reason: two to four short sentences, at most sixty words in all. Plain English. No numbers, no centipawns, no evaluations. Name the better move once. Say what the move played fails to do or allows, and what the better move does instead. Pronouns: the packet's `pronouns` field says which colour is "you/your" and which is "the opponent/their". Never call the opponent's piece "your".
+- The reason: two to five short sentences, at most sixty words in all. No numbers, no centipawns, no evaluations. Name the better move once. Say what the move played fails to do or allows, and what the better move does instead. Pronouns: the packet's `pronouns` field says which colour is "you/your" and which is "the opponent/their". Never call the opponent's piece "your".
+
+How to write it. The reader is ten years old, or reading English as a second language, on a phone, between games. Anybody must be able to read it once, understand it, and explain it to a friend.
+- Never more than fourteen words in one sentence. Split it instead. Count.
+- One idea in each sentence. Everyday words. Prefer five short sentences to two clever ones.
+- No metaphor, no idiom, no figure of speech. Not "the queen is stuck in traffic", not "heads for", not "spends a move". Say what happens on the board.
+- Never use these words at all; say the plain thing instead. "undefended" / "loose" / "hanging" / "en prise" -> "nothing is guarding it". "material" -> name the piece or pawn. "inaccuracy" -> "a small mistake". "exchange" -> "trade". "recapture" -> "take back". "develop" / "development" -> "bring a piece out". "tempo" -> "a wasted move". "centralise" -> "bring it to the middle". Never: initiative, counterplay, prophylaxis, structure, outpost, passive, coordination, compensation, zugzwang, fianchetto, ply.
+- Piece names, square names, "check", "takes", "guards", "attacks", "castle" are fine. A pattern word is fine only if the same sentence explains it with the pieces on the board: "a skewer: hit the knight, then win the pawn behind it".
+- When the facts list several squares or pieces, name ONE as the example and drop the rest. A list is not teaching.
+- The reader must finish knowing what to do differently next game. If the honest lesson cannot be said plainly, say the simplest true part and stop.
 - Every piece you mention must be the `subject` or `target` of one of your claims, with its square, on the board where you mean it (set `after` to the moves that reach that board). A move name counts for its own piece and destination square. A piece you cannot tie to a claim is a piece you may not mention.
 - The `shared_threat_probes` section is where the mechanism usually hides: a threat that both moves allow but that only the better move answers well. Prefer a claim about that over a bare "the better line is better".
 - If the packet shows no mechanism, only that the position is a little worse with nothing concrete, set `no_lesson` true and say why in one line. That is a real and useful answer. Do not invent a lesson.
@@ -317,13 +326,13 @@ Rules.
 Example. Black played 4...b6 in a Scandinavian; the better move was Nf6; it is the reader's own move, so Black is "you".
 {"no_lesson": false,
  "mechanism": "a pawn move while pieces are still at home",
- "reason": "b6 spends a move on a pawn while your pieces are still at home. Your queen on e6 stands where your e-pawn needs to go, so your bishop on f8 cannot move and you cannot castle. Nf6 brings a piece out instead.",
+ "reason": "b6 moves a pawn while your pieces are still at home. Your queen on e6 stands where your e-pawn needs to go. So your bishop on f8 cannot move, and you cannot castle. Nf6 brings a piece out instead.",
  "claims": [
   {"kind": "blocks_own_pawn", "label": "your queen on e6 stands in front of your e7 pawn", "after": ["b6"], "subject": "e6", "target": "e7"},
   {"kind": "no_legal_moves", "label": "your bishop on f8 cannot move after b6", "after": ["b6"], "subject": "f8"},
   {"kind": "castling_illegal", "label": "you cannot castle after b6", "after": ["b6"], "side": "black"}
  ]}
-Every piece in that reason (queen e6, pawn e7, bishop f8) is the subject or target of a claim, every move named (b6, Nf6) is the move played or the better move, and there is not one number.
+Every piece in that reason (queen e6, pawn e7, bishop f8) is the subject or target of a claim, every move named (b6, Nf6) is the move played or the better move, no sentence is over fourteen words, and there is not one number.
 """
 
 CLAIM_SCHEMA: Dict[str, Any] = {
@@ -531,9 +540,66 @@ def facts_from_claims(claims: List[Dict[str, Any]], fen_before: str, *, mover_is
     return {"moves": sorted(set(moves)), "squares": sorted(set(squares)), "owned": sorted(set(owned))}
 
 
+# Words a ten-year-old does not own, each with the plain thing that says more.
+# The same list the live caption prompt bans (services/llm_caption.py); measured
+# there: "undefended" sat in 51% of stored captions, "material" in 16%.
+HARD_WORDS: Dict[str, str] = {
+    "undefended": "nothing is guarding it", "loose": "nothing is guarding it",
+    "hanging": "nothing is guarding it", "en prise": "nothing is guarding it",
+    "material": "name the piece or pawn", "inaccuracy": "a small mistake",
+    "exchange": "trade", "recapture": "take back", "recaptures": "take back",
+    "develop": "bring a piece out", "develops": "brings a piece out", "developing": "bringing a piece out",
+    "development": "bringing pieces out", "developed": "brought out",
+    "tempo": "a wasted move", "tempi": "wasted moves", "centralise": "bring it to the middle",
+    "centralize": "bring it to the middle", "initiative": "say what the attack does",
+    "counterplay": "say what the other side can do", "prophylaxis": "stops that plan",
+    "prophylactic": "stops that plan", "structure": "say which pawns", "outpost": "a safe square",
+    "passive": "has very little room", "coordination": "work together", "compensation": "gets something back",
+    "zugzwang": "no good moves left", "fianchetto": "the bishop on the long line", "ply": "one move",
+    "plies": "moves",
+}
+SENTENCE_WORD_LIMIT = 14
+_HARD_WORD_RE = re.compile(r"\b(" + "|".join(sorted((re.escape(w) for w in HARD_WORDS), key=len, reverse=True)) + r")\b", re.I)
+
+
+def readability(text: str) -> Dict[str, Any]:
+    """How the reason reads, as numbers for the reviewer and notes for the model.
+
+    Measured, never a hold: refusing a true reason for a long word would silence
+    it, and the position already has nothing (feedback_caption_very_easy_english:
+    "measure and report the number; do not refuse on it").
+    """
+    from services.llm_caption import _SAN
+    text = (text or "").strip()
+    sentences = [s for s in re.split(r"(?<=[.!?:;])\s+", text) if s.strip()]
+    counts = [len(_SAN.sub(" x ", s).split()) for s in sentences]
+    hard = sorted({m.group(1).lower() for m in _HARD_WORD_RE.finditer(text)})
+    plain_words = [w.strip(".,;:!?'\"()") for w in _SAN.sub(" ", text).split()]
+    long_words = sorted({w for w in plain_words if len(w) > 12 and "-" not in w})
+    notes: List[str] = []
+    for i, n in enumerate(counts, 1):
+        if n > SENTENCE_WORD_LIMIT:
+            notes.append(f"sentence {i} has {n} words; the limit is fourteen. Split it.")
+    for w in hard:
+        notes.append(f"hard word '{w}': say '{HARD_WORDS.get(w, 'the plain thing')}' instead")
+    for w in long_words:
+        notes.append(f"long word '{w}': find a shorter everyday word")
+    total = sum(counts)
+    if total > 60:
+        notes.append(f"{total} words in all; the limit is sixty")
+    return {"sentences": len(sentences), "words": total,
+            "longest_sentence_words": max(counts) if counts else 0,
+            "hard_words": hard, "long_words": long_words, "notes": notes}
+
+
 def gate_text(text: str, claims: List[Dict[str, Any]], *, fen_before: str, played_san: str,
               better_san: Optional[str], mover_is_user: bool) -> List[str]:
-    """Why the reason may not ship, as a list; empty when it may."""
+    """Why the reason may not ship, as a list; empty when it may.
+
+    Truth and containment hold a reason; reading level does not (see
+    readability()). The one length failure left is a safety net for an answer
+    that is plainly not a card.
+    """
     from services.llm_caption import _SAN, _flatten, _implied_pieces, _tokens
     from services.why_words import swapped_ownership
 
@@ -542,11 +608,8 @@ def gate_text(text: str, claims: List[Dict[str, Any]], *, fen_before: str, playe
     if not text:
         return ["empty reason"]
     words = text.split()
-    if len(words) > 80:
-        failures.append(f"too long ({len(words)} words)")
-    sentences = [s for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
-    if len(sentences) > 4:
-        failures.append(f"too many sentences ({len(sentences)})")
+    if len(words) > 120:
+        failures.append(f"far too long ({len(words)} words)")
     stripped = _SAN.sub(" ", text)
     if re.search(r"\d", stripped):
         failures.append("uses a number")
@@ -605,7 +668,8 @@ def run_gate(answer: Dict[str, Any], *, fen_before: str, played_san: str, better
     claims = [dict(c) for c in (answer.get("claims") or [])]
     failures: List[str] = []
     if answer.get("no_lesson"):
-        return {"passed": True, "failures": [], "claims": claims, "no_lesson": True}
+        return {"passed": True, "failures": [], "claims": claims, "no_lesson": True,
+                "readability": readability(str(answer.get("no_lesson_why") or "")), "notes": []}
     if not claims:
         failures.append("a reason with no claims")
     needs_engine = any(c.get("kind") in ("capture_loses", "line_better") for c in claims)
@@ -620,15 +684,30 @@ def run_gate(answer: Dict[str, Any], *, fen_before: str, played_san: str, better
     finally:
         if eng is not None:
             eng.quit()
-    failures.extend(gate_text(str(answer.get("reason") or ""), claims, fen_before=fen_before,
+    reason_text = str(answer.get("reason") or "")
+    failures.extend(gate_text(reason_text, claims, fen_before=fen_before,
                               played_san=played_san, better_san=better_san, mover_is_user=mover_is_user))
-    return {"passed": not failures, "failures": failures, "claims": claims, "no_lesson": False}
+    read = readability(reason_text)
+    return {"passed": not failures, "failures": failures, "claims": claims, "no_lesson": False,
+            "readability": read, "notes": list(read["notes"])}
 
 
-def user_prompt(packet: Dict[str, Any]) -> str:
-    return ("Study this position and answer in the JSON shape you were given.\n\n"
+def user_prompt(packet: Dict[str, Any], *, previous: Optional[Dict[str, Any]] = None,
+                fixes: Optional[Sequence[str]] = None) -> str:
+    """The packet as the model's message; with `previous` and `fixes`, the rewrite request."""
+    text = ("Study this position and answer in the JSON shape you were given.\n\n"
             + json.dumps(packet, indent=1, default=str))
+    if previous is not None:
+        text += ("\n\nYou already answered once. Here is that answer:\n"
+                 + json.dumps({k: previous.get(k) for k in ("no_lesson", "mechanism", "reason", "claims")},
+                              indent=1, default=str)
+                 + "\n\nIt was checked against the board and the writing rules. Fix every point below and "
+                 "answer again in full. Keep every claim that replayed; drop or correct the ones that did "
+                 "not; rewrite the reason so each sentence has at most fourteen words and uses only the "
+                 "words a ten-year-old owns.\n- " + "\n- ".join(fixes or []))
+    return text
 
 
-__all__ = ["CLAIM_KINDS", "CLAIM_SCHEMA", "SYSTEM_PROMPT", "board_facts", "build_packet", "check_claim",
-           "facts_from_claims", "gate_text", "open_engine", "owner_on_square", "replay", "run_gate", "user_prompt"]
+__all__ = ["CLAIM_KINDS", "CLAIM_SCHEMA", "HARD_WORDS", "SENTENCE_WORD_LIMIT", "SYSTEM_PROMPT", "board_facts",
+           "build_packet", "check_claim", "facts_from_claims", "gate_text", "open_engine", "owner_on_square",
+           "readability", "replay", "run_gate", "user_prompt"]

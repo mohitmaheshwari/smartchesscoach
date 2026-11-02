@@ -75,6 +75,15 @@ Task Scheduler every 15 minutes while the machine is on. Per run:
   out and the engine confirms the swing it asserts (a queen lost, a pawn won).
   Then the existing words-layer guards: containment, ownership, verb direction.
   All pass → `done`. Any fail → `held`, with the failing claim named.
+- **the reading level** (Mohit 2026-11-02: "make sure the language is too easy
+  for anybody to explain and understand"): the prompt writes for a ten-year-old,
+  at most fourteen words a sentence, one idea each, no metaphor, and bans the
+  words the live caption prompt bans ("undefended", "material", "tempo",
+  "develop", ...), each with the plain replacement. The gate MEASURES it (longest
+  sentence, word count, hard words) and never holds on it, because refusing a
+  true reason for a long word would silence it. Instead the worker asks the model
+  once more, with the notes and the board failures, and keeps the better answer.
+  The reviewer sees the numbers on the row.
 - write the result back to `why_reasons` (keyed like the queue row) and update
   the queue status
 

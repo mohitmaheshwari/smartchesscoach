@@ -147,9 +147,51 @@ class TestTheWords:
         right = GOOD.replace("The queen on d1 cannot move", "The opponent's queen on d1 cannot move")
         assert not any("ownership" in f for f in _text_failures(right, mover_is_user=False))
 
-    def test_too_many_sentences_is_refused(self):
+    def test_reading_level_never_holds_a_true_reason(self):
+        # Five short sentences are fine; a long sentence or a hard word is a note, not a failure.
         long = GOOD + " One more. And another. And a sixth sentence here."
-        assert any("sentences" in f for f in _text_failures(long))
+        assert not any("sentences" in f for f in _text_failures(long))
+        hard = GOOD.replace("nothing guards it", "it is undefended")
+        assert not any("undefended" in f for f in _text_failures(hard))
+
+
+class TestReadability:
+    def test_a_sentence_over_fourteen_words_is_noted_with_its_number(self):
+        r = ws.readability("After b3, Qg6 attacks the pawn on g2 and nothing guards it, and the queen on d1 cannot help.")
+        assert r["longest_sentence_words"] > 14
+        assert any("sentence 1 has" in n and "fourteen" in n for n in r["notes"])
+
+    def test_a_hard_word_is_noted_with_the_plain_replacement(self):
+        r = ws.readability("The g2 pawn is undefended. d4 is better.")
+        assert r["hard_words"] == ["undefended"]
+        assert any("nothing is guarding it" in n for n in r["notes"])
+
+    def test_moves_and_squares_are_not_words_to_count_against_the_reader(self):
+        r = ws.readability("After d4 Qg6 Qd2 Qxg2 Bb5+ c6 Qxg2, the queen is lost.")
+        assert r["hard_words"] == [] and r["long_words"] == []
+        assert r["longest_sentence_words"] <= 14
+
+    def test_plain_short_text_has_no_notes(self):
+        r = ws.readability("b3 moves a pawn while your pieces are still at home. Nf6 brings a piece out instead.")
+        assert r["notes"] == [] and r["sentences"] == 2
+
+    def test_the_prompts_own_example_passes_its_own_rules(self):
+        start = ws.SYSTEM_PROMPT.index('"reason": "') + len('"reason": "')
+        example = ws.SYSTEM_PROMPT[start:ws.SYSTEM_PROMPT.index('"', start)]
+        assert ws.readability(example)["notes"] == []
+
+    def test_the_gate_carries_notes_without_failing(self):
+        text = GOOD.replace("nothing guards it", "it is undefended")
+        gate = ws.run_gate({"no_lesson": False, "reason": text, "claims": CLAIMS},
+                           fen_before=FEN, played_san="b3", better_san="d4", mover_is_user=False)
+        assert gate["passed"], gate["failures"]
+        assert any("undefended" in n for n in gate["notes"])
+
+    def test_the_rewrite_prompt_carries_the_previous_answer_and_the_fixes(self):
+        text = ws.user_prompt({"fen_before": FEN}, previous={"reason": "old", "claims": []},
+                              fixes=["sentence 1 has 19 words; the limit is fourteen. Split it."])
+        assert "You already answered once" in text and '"reason": "old"' in text
+        assert "fourteen" in text
 
 
 class TestTheGate:

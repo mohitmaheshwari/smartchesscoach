@@ -226,6 +226,15 @@ def review_row(reason: Dict[str, Any]) -> Dict[str, Any]:
             "kind": c.get("kind"),
             "verdict": "passed" if c.get("verified") else ("FAILED: " + str(c.get("failure") or "")),
         })
+    read = reason.get("readability") or {}
+    if read:
+        hard = ", ".join(read.get("hard_words") or []) or "none"
+        probes.append({
+            "label": "plain English",
+            "kind": "readability",
+            "verdict": (f"longest sentence {read.get('longest_sentence_words', '?')} words · "
+                        f"{read.get('words', '?')} words in all · hard words: {hard}"),
+        })
     status = reason.get("status")
     if status == NO_LESSON:
         bucket = "why queue · no lesson"

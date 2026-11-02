@@ -233,6 +233,14 @@ class TestTheReviewTab:
         assert row["probes"][0]["verdict"] == "passed"
         assert row["bucket"].startswith("why queue")
 
+    def test_the_reviewer_sees_how_it_reads(self, db):
+        db.why_reasons.rows.append(_reason(
+            wq.HELD_FOR_REVIEW,
+            readability={"sentences": 3, "words": 41, "longest_sentence_words": 17, "hard_words": ["undefended"]}))
+        row = _run(admin.next_claude_reason(judge=None, bucket=None, user=_User()))
+        plain = [p for p in row["probes"] if p["kind"] == "readability"]
+        assert plain and "17 words" in plain[0]["verdict"] and "undefended" in plain[0]["verdict"]
+
     def test_a_gate_failed_study_reads_refuted_and_names_the_failure(self, db):
         db.why_reasons.rows.append(_reason(
             wq.HELD, gate={"passed": False, "failures": ["the queen on g6 attacks g2: g2 is defended"]},

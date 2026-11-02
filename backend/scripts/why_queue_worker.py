@@ -199,9 +199,33 @@ def study(row: Dict[str, Any], *, depth: int, engine_path: Optional[str], scratc
     model_out = run_claude(why_study.SYSTEM_PROMPT, why_study.user_prompt(packet), why_study.CLAIM_SCHEMA, cwd=scratch)
     answer = model_out["answer"]
     log.info("claude answered %s in %.1fs, cost %s", row["key"], time.time() - t1, model_out.get("cost_usd"))
-
     gate = why_study.run_gate(answer, fen_before=fen, played_san=played, better_san=better,
                               mover_is_user=mover_is_user, engine_path=engine_path)
+    attempts = 1
+    cost = float(model_out.get("cost_usd") or 0)
+
+    # One rewrite when the board or the writing rules found fault. Mohit
+    # 2026-11-02: "make sure the language is too easy for anybody to explain
+    # and understand." A long sentence or a hard word never holds a true
+    # reason (that would silence it); it earns one more pass with the notes.
+    fixes = list(gate["failures"]) + list(gate.get("notes") or [])
+    if fixes and not gate["no_lesson"]:
+        log.info("rewrite for %s: %s", row["key"], fixes)
+        t2 = time.time()
+        second = run_claude(why_study.SYSTEM_PROMPT,
+                            why_study.user_prompt(packet, previous=answer, fixes=fixes),
+                            why_study.CLAIM_SCHEMA, cwd=scratch)
+        attempts = 2
+        cost += float(second.get("cost_usd") or 0)
+        gate2 = why_study.run_gate(second["answer"], fen_before=fen, played_san=played, better_san=better,
+                                   mover_is_user=mover_is_user, engine_path=engine_path)
+        log.info("rewrite answered %s in %.1fs: passed=%s notes=%d (first: passed=%s notes=%d)",
+                 row["key"], time.time() - t2, gate2["passed"], len(gate2.get("notes") or []),
+                 gate["passed"], len(gate.get("notes") or []))
+        better_second = (gate2["passed"], -len(gate2.get("notes") or [])) >= (gate["passed"], -len(gate.get("notes") or []))
+        if better_second:
+            answer, gate, model_out = second["answer"], gate2, {**model_out, "model": second.get("model") or model_out.get("model")}
+
     if gate["no_lesson"]:
         status = "no_lesson"
     elif gate["passed"]:
@@ -217,9 +241,10 @@ def study(row: Dict[str, Any], *, depth: int, engine_path: Optional[str], scratc
         "no_lesson_why": str(answer.get("no_lesson_why") or "").strip() or None,
         "mechanism_label": str(answer.get("mechanism") or "").strip() or None,
         "claims": gate["claims"], "gate": {"passed": gate["passed"], "failures": gate["failures"]},
+        "readability": gate.get("readability"), "notes": gate.get("notes") or [], "attempts": attempts,
         "packet": {k: packet.get(k) for k in ("pv_after_played", "pv_after_best", "root_candidates_cp_for_mover",
                                                "shared_threat_probes", "material_along_best_lines")},
-        "model": model_out.get("model"), "cost_usd": model_out.get("cost_usd"),
+        "model": model_out.get("model"), "cost_usd": round(cost, 4),
         "seconds": {"packet": round(packet_s, 1), "model": round(time.time() - t1, 1)},
         "worker_host": platform.node(),
         "studied_at": _now(),
@@ -253,7 +278,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                "requests": [{"side": args.local_side}], "stored_class": None, "rating": None, "differential": None}
         reason = study(row, depth=args.depth, engine_path=args.engine, scratch=scratch)
         shown = {k: reason[k] for k in ("key", "status", "reason", "no_lesson_why", "mechanism_label",
-                                         "claims", "gate", "cost_usd", "seconds", "model")}
+                                         "claims", "gate", "readability", "notes", "attempts", "cost_usd",
+                                         "seconds", "model")}
         out_path = LOG_DIR / f"local_{played}_{int(time.time())}.json"
         out_path.write_text(json.dumps(reason, indent=1, default=str), encoding="utf-8")
         print(json.dumps(shown, indent=1, default=str))
