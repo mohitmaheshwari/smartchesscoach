@@ -1,6 +1,8 @@
 # Why queue: Claude studies the positions the button cannot explain — scope
 
-Status: draft for Mohit's sign-off, 2026-11-02. No code until signed.
+Status: signed by Mohit 2026-11-02 ("go with recommendations": review-first,
+click-only, both sides). Built the same day in 0bc654df; worker scheduled on
+Mohit's machine as the Windows task "ChessGuru Why queue", every 15 minutes.
 Parents: `docs/why_differential_scope.md` (the live engine), `docs/why_positional_families_scope.md` (families 1–5).
 
 ## The ask, in Mohit's words

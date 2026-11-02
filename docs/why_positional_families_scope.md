@@ -100,6 +100,35 @@ ho22 and ho04: the gap is a king attack (a series of checks ending in material
 or a mate threat). Check is already a cause; the family adds the consequence by
 counting checks and the king's escape squares along each line.
 
+## Family 5 (candidate, 2026-11-02, not signed): a threat left unanswered
+
+Found on 6.b3 in the b6 game (set entry `mohit_b3`). After b3 and after the
+better d4, Black's same reply ...Qg6 attacks the g2 pawn, which nothing
+defends. The differential calls that shared and stays silent, and the tempo
+family is silent because both pawn moves free the c1 bishop. The difference
+is the defence: after b3 White's queen on d1 has no legal move and the least
+bad answer gives up the bishop (Bb5+, Bxc6); after d4 the queen reaches d2
+and the pawn is poisoned (Qxg2 loses the queen to Bb5+ and Qxg2).
+
+**Root facts (board).** The reply's target: a piece or pawn the best reply
+attacks with zero defenders, the same on both branches. The mover's pieces
+with zero legal moves (the boxed queen).
+
+**Line facts (differential).** On the better branch, play the capture of the
+target and read the engine: a swing of a piece or more means the target is
+poisoned, and the line names the refutation (the check that clears the rank).
+On the played branch, the mover's piece that could defend has no move, or
+the first move of the line gives up material or the bishop pair to cover it.
+
+**Sentence shape.** "After b3, Qg6 attacks the g2 pawn and nothing guards it;
+your queen on d1 cannot move to help. d4 opens the queen's road: after d4,
+taking on g2 loses the queen to Bb5+." Every clause is a board fact or a
+played line; the class stays the engine's.
+
+**What it must never do.** Read a threat off the PV: a first draft of this
+note said d4 "threatens d5 against the queen", and the engine says d5 is
+worse than Bf4. Play the line before claiming it.
+
 ## Measurement before any threshold is locked
 
 1. The 37-position set: positive controls b6 (new entry), ho16, ho18, ho09,
