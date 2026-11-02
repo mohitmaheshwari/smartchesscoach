@@ -212,21 +212,46 @@ def developed_at(root: chess.Board, line_san: Sequence[str], mover: chess.Color,
     return {"plies": plies, "undeveloped": len(facts["undeveloped"]), "castled": facts["castled"]}
 
 
-def _lead(played_san: str, effect: Dict[str, Any]) -> Dict[str, str]:
-    """The first sentence, and the same fact as a fragment for the words model."""
+def _capture(root: chess.Board, move: chess.Move) -> Optional[Dict[str, str]]:
+    """What a move takes, and with what, or None for a quiet move."""
+    if not root.is_capture(move):
+        return None
+    square = move.to_square
+    victim = root.piece_at(square)
+    if victim is None and root.is_en_passant(move):
+        square = chess.square(chess.square_file(move.to_square), chess.square_rank(move.from_square))
+        victim = root.piece_at(square)
+    mover_piece = root.piece_at(move.from_square)
+    return {"square": chess.square_name(square), "piece": PIECE_NAME[victim.piece_type],
+            "with": PIECE_NAME[mover_piece.piece_type]}
+
+
+def _lead(played_san: str, effect: Dict[str, Any], your: str, capture: Optional[Dict[str, str]] = None,
+          same_capture: bool = False) -> Dict[str, str]:
+    """The first sentence, and the same fact as a fragment for the words model.
+
+    A capture is never described as a move that "does not bring a piece out"
+    without saying it took something (recent games, 2026-11-02: cxb3 traded a
+    pawn for a pawn; bxc6 and Nxc6 both took back on c6).
+    """
     piece = effect["moved_piece"]
-    if piece == "queen":
+    if capture and same_capture:
+        fragment = f"takes on {capture['square']} with the {capture['with']} and brings no piece out"
+    elif capture:
+        fragment = f"trades a {capture['with']} for a {capture['piece']} while {your} pieces are still at home"
+    elif piece == "queen":
         fragment = "brings the queen out before the pieces" if effect["from_home"] else "moves the queen again"
     elif piece in ("knight", "bishop"):
-        fragment = "moves a piece that is already out"
+        fragment = "moves a piece that is already out while others are still at home"
+    elif piece == "pawn":
+        fragment = f"spends a move on a pawn while {your} pieces are still at home"
     else:
-        fragment = "brings no piece out"
-    sentence = f"{played_san} does not bring a piece out." if fragment == "brings no piece out" else f"{played_san} {fragment}."
-    return {"sentence": sentence, "fragment": fragment}
+        fragment = f"does not bring a piece out while {your} pieces are still at home"
+    return {"sentence": f"{played_san} {fragment}.", "fragment": fragment}
 
 
-def _better(alt_san: str, effect: Dict[str, Any], your: str,
-            same_threat: Optional[Dict[str, str]] = None, their: str = "their") -> Dict[str, str]:
+def _better(alt_san: str, effect: Dict[str, Any], your: str, their: str = "their",
+            same_threat: Optional[Dict[str, str]] = None, same_capture: Optional[str] = None) -> Dict[str, str]:
     if effect["frees"]:
         fragment = f"frees the {effect['frees']['piece']} on {effect['frees']['square']}"
     elif effect["unblocks"]:
@@ -235,7 +260,12 @@ def _better(alt_san: str, effect: Dict[str, Any], your: str,
         fragment = f"brings the {effect['develops']} out"
     else:
         fragment = f"gets {your} king to safety"
-    if same_threat:
+    if same_capture:
+        # Which piece recaptures: both moves take on the same square, so the
+        # only difference is what the capturing piece does for development
+        # (recent games: bxc6 against Nxc6 on move 3).
+        fragment = f"takes on {same_capture} just the same and {fragment}"
+    elif same_threat:
         # Move-order: both moves hit the same piece, so the only difference is
         # which of the mover's pieces does the job (mohit_qc2: Qc2 and Bd3
         # both attack the knight on e4; Bd3 also develops).
@@ -258,21 +288,27 @@ def same_threat(root: chess.Board, played: chess.Move, alternative: chess.Move) 
 
 def tempo_claim(root: chess.Board, played: chess.Move, alternative: chess.Move, *,
                 played_line: Sequence[str], alt_line: Sequence[str], move_class: str,
-                mover_is_user: bool) -> Dict[str, Any]:
+                mover_is_user: bool, ledger_played: Optional[Sequence[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """The measurement for this family on one position, and the sentence when it fires.
 
     Always returns the measurement (`eligible`, `fires`, `why_not`, the facts
     and the line counts) so a run over many positions gives the fire-rate
-    distribution the thresholds are read from.
+    distribution the thresholds are read from. `ledger_played` is the
+    differential's exchange ledger for the played line; a played CAPTURE is a
+    tempo loss only when that ledger shows it as an even trade, or when the
+    better move takes on the same square (which piece recaptures).
     """
     mover = root.turn
     played_san, alt_san = root.san(played), root.san(alternative)
     facts_root = development_facts(root, mover)
     played_effect = move_effect(root, played)
     alt_effect = move_effect(root, alternative)
+    cap_played, cap_alt = _capture(root, played), _capture(root, alternative)
+    same_capture = bool(cap_played and cap_alt and cap_played["square"] == cap_alt["square"])
     out: Dict[str, Any] = {
         "eligible": False, "fires": False, "why_not": None,
         "root": facts_root, "played_effect": played_effect, "better_effect": alt_effect,
+        "played_capture": cap_played, "same_capture": same_capture, "same_threat": None,
         "retreats_played": forced_retreats(root, played_line, mover),
         "retreats_better": forced_retreats(root, alt_line, mover),
         "developed_played": developed_at(root, played_line, mover),
@@ -292,6 +328,14 @@ def tempo_claim(root: chess.Board, played: chess.Move, alternative: chess.Move, 
     if alt_effect["kinds"] == ["none"]:
         out["why_not"] = "shared_quiet"
         return out
+    if cap_played and not same_capture:
+        # A capture the better move does not make: the ledger has to show an
+        # even trade, or the question is material against development and
+        # not a tempo claim at all.
+        group = next((g for g in (ledger_played or []) if g["square"] == cap_played["square"]), None)
+        if group is None or group.get("open") or group["net_cp"] != 0:
+            out["why_not"] = "played_capture_not_even"
+            return out
     out["fires"] = True
 
     from services.why_words import _RELATION, _owned
@@ -299,16 +343,19 @@ def tempo_claim(root: chess.Board, played: chess.Move, alternative: chess.Move, 
     you = "you" if mover_is_user else "they"
     owner = "your" if mover_is_user else "their"
 
-    lead = _lead(played_san, played_effect)
+    lead = _lead(played_san, played_effect, your, cap_played, same_capture)
     their = "their" if mover_is_user else "your"
-    threat = same_threat(root, played, alternative)
-    better = _better(alt_san, alt_effect, your, threat, their)
+    threat = None if same_capture else same_threat(root, played, alternative)
+    better = _better(alt_san, alt_effect, your, their, same_threat=threat,
+                     same_capture=cap_played["square"] if same_capture else None)
     out["same_threat"] = threat
     facts: Dict[str, Any] = {
         "relation": _RELATION["TEMPO"],
         "what_the_move_played_does": lead["fragment"],
         "what_the_better_move_does": better["fragment"],
     }
+    if same_capture:
+        facts["the_square_both_moves_take_on"] = cap_played["square"]
     if threat:
         facts["the_piece_both_moves_attack"] = f"{_owned('their' if mover_is_user else 'your', threat['piece'])} on {threat['square']}"
 

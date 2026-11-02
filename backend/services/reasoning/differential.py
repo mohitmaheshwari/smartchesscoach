@@ -875,7 +875,7 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
     if not result["found"] and result["class"] in ("inaccuracy", "mistake"):
         from .tempo import tempo_claim
         tempo = tempo_claim(root, played, alternative, played_line=played_line, alt_line=alt_line,
-                            move_class=result["class"], mover_is_user=mover_is_user)
+                            move_class=result["class"], mover_is_user=mover_is_user, ledger_played=ledger_played)
         result["tempo"] = {k: v for k, v in tempo.items() if k not in ("text", "facts")}
         if tempo["fires"]:
             result.update(found=True, direction="missed", mechanism="TEMPO", text=tempo["text"],

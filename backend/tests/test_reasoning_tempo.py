@@ -75,8 +75,8 @@ def test_b6_against_nf6_fires_with_the_cause_the_better_move_and_the_chase():
                 alt_line=["Nf6", "Nf3", "Qd6", "d4", "e6", "O-O", "a6", "Qd3"])
     assert out["fires"] is True
     assert out["text"] == (
-        "b6 does not bring a piece out. Your queen on e6 is standing where your e-pawn needs to go, "
-        "so the bishop on f8 cannot move and you cannot castle. Nf6 brings the knight out. "
+        "b6 spends a move on a pawn while your pieces are still at home. Your queen on e6 is standing where "
+        "your e-pawn needs to go, so the bishop on f8 cannot move and you cannot castle. Nf6 brings the knight out. "
         "After b6, d5 makes your queen move again.")
     assert out["facts"]["the_piece_that_cannot_move"] == "your bishop on f8"
     assert out["facts"]["what_is_in_its_way"] == "your queen on e6, the square the e-pawn needs"
@@ -105,6 +105,39 @@ def test_a_move_order_position_says_the_better_move_makes_the_same_threat_and_de
     assert out["facts"]["the_piece_both_moves_attack"] == "the opponent's knight on e4"
     # b6 and Nf6 attack nothing in common, so no such clause there.
     assert claim("b6", "Nf6", played_line=["b6"], alt_line=["Nf6"])["same_threat"] is None
+
+
+RECAPTURE = "rnbqkb1r/pp3ppp/2B5/3pp3/4N3/8/PPPP1PPP/R1BQK1NR b KQkq - 0 3"   # recent game, move 3: bxc6 against Nxc6
+TRADE = "rn2kb1r/ppp3p1/5p2/5b1p/2ppN2P/1P3P2/P1PP2P1/R1B1K1NR b KQkq - 0 9"  # recent game, move 9: cxb3 against Na6
+
+
+def test_which_piece_recaptures_says_both_moves_take_on_the_same_square():
+    board = chess.Board(RECAPTURE)
+    out = tempo_claim(board, board.parse_san("bxc6"), board.parse_san("Nxc6"), played_line=["bxc6", "Ng3", "c5"],
+                      alt_line=["Nxc6", "Ng3", "h5"], move_class="inaccuracy", mover_is_user=True)
+    assert out["fires"] is True and out["same_capture"] is True
+    assert out["text"] == ("bxc6 takes on c6 with the pawn and brings no piece out. "
+                           "Nxc6 takes on c6 just the same and brings the knight out.")
+    assert out["facts"]["the_square_both_moves_take_on"] == "c6"
+
+
+def test_a_played_capture_is_a_tempo_loss_only_when_the_ledger_shows_an_even_trade():
+    from services.reasoning.differential import exchange_ledger
+    board = chess.Board(TRADE)
+    even = exchange_ledger(board, ["cxb3", "axb3", "d3", "c3"], chess.BLACK)
+    out = tempo_claim(board, board.parse_san("cxb3"), board.parse_san("Na6"), played_line=["cxb3", "axb3", "d3", "c3"],
+                      alt_line=["Na6", "Kd1", "O-O-O"], move_class="mistake", mover_is_user=True, ledger_played=even)
+    assert out["fires"] is True
+    assert out["text"] == ("cxb3 trades a pawn for a pawn while your pieces are still at home. "
+                           "Na6 brings the knight out.")
+    # No ledger: unknown, silent. A capture that wins a pawn the better move does not take: material, silent.
+    assert tempo_claim(board, board.parse_san("cxb3"), board.parse_san("Na6"), played_line=["cxb3"], alt_line=["Na6"],
+                       move_class="mistake", mover_is_user=True)["why_not"] == "played_capture_not_even"
+    won = exchange_ledger(board, ["cxb3", "Kd1"], chess.BLACK)
+    assert won[0]["net_cp"] == 100 and not won[0]["open"]
+    assert tempo_claim(board, board.parse_san("cxb3"), board.parse_san("Na6"), played_line=["cxb3", "Kd1"],
+                       alt_line=["Na6", "Kd1"], move_class="mistake", mover_is_user=True,
+                       ledger_played=won)["why_not"] == "played_capture_not_even"
 
 
 def test_a_quiet_better_move_is_a_shared_property_and_stays_silent():
@@ -181,7 +214,8 @@ def test_explain_move_falls_through_the_material_families_to_tempo(monkeypatch):
     r = explain_move(B6, "b6", config=config(), depth=16, rating=1200, session_factory=ScriptedSession)
     assert r["found"] is True and r["mechanism"] == "TEMPO" and r["direction"] == "missed"
     assert r["class"] == "inaccuracy" and r["better_move"] == "Nf6"
-    assert r["text"].startswith("b6 does not bring a piece out. Your queen on e6 is standing where your e-pawn needs to go")
+    assert r["text"].startswith("b6 spends a move on a pawn while your pieces are still at home. "
+                                "Your queen on e6 is standing where your e-pawn needs to go")
     assert r["text"].endswith("After b6, d5 makes your queen move again.")
     assert r["line_san"] == ["Nf6"] and len(r["arrows"]) == 1
     facts = build_facts(r)
