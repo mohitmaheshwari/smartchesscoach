@@ -129,6 +129,10 @@ _RELATION: Dict[str, str] = {
     "HANGING": "the piece can simply be taken after the move played",
     "ATTACKS": "the reply attacks a piece it could not attack after the better move",
     "UNCOVERS_ATTACK": "the reply opens a line onto a piece",
+    # The tempo family (services/reasoning/tempo.py, 2026-11-02): no material
+    # separates the lines; the better move brings a piece out, frees one or
+    # steps out of a pawn's way, and the played move does none of those.
+    "TEMPO": "the move played brings no piece out while the better move does, so a move is lost",
 }
 
 # Any ONE of these conveys the relation. Written as alternatives, not as a
@@ -162,6 +166,9 @@ _CONVEYS: Dict[str, str] = {
     "HANGING": r"\btakes?\b|\btaken\b|\bcaptur|\bfree\b|\bhang|\bwins?\b|\blose[sr]?\b|\blost\b|\bfalls?\b",
     "ATTACKS": r"\battack|\bhits?\b|\bhitting\b|\bthreat|\baims?\b|\btargets?\b",
     "UNCOVERS_ATTACK": r"\bopen|\bline\b|\bthrough\b|\buncover|\bdiscover|\bclear",
+    "TEMPO": (r"\bbring|\bbrought\b|\bout\b|\bdevelop|\btime\b|\btempo|\bslow|\bwast|\bbehind\b"
+              r"|\bstuck\b|\bcan(?:not|'t) move\b|\bfree|\bin (?:the|its|their|your) way\b|\bway\b"
+              r"|\bcastl|\bhome\b|\bpiece out\b"),
 }
 
 

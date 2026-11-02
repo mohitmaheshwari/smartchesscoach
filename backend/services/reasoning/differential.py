@@ -866,6 +866,23 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
     for attempt in order:
         if attempt():
             break
+
+    # TEMPO runs last: when nothing material separates the lines and the move
+    # is an inaccuracy or a mistake, the difference may be that the better
+    # move brings a piece out and the played move does not (Mohit's 4...b6,
+    # 2026-11-02). The measurement is kept whether or not it fires, so a run
+    # over many positions gives the fire-rate distribution.
+    if not result["found"] and result["class"] in ("inaccuracy", "mistake"):
+        from .tempo import tempo_claim
+        tempo = tempo_claim(root, played, alternative, played_line=played_line, alt_line=alt_line,
+                            move_class=result["class"], mover_is_user=mover_is_user)
+        result["tempo"] = {k: v for k, v in tempo.items() if k not in ("text", "facts")}
+        if tempo["fires"]:
+            result.update(found=True, direction="missed", mechanism="TEMPO", text=tempo["text"],
+                          consequence=tempo["consequence"], tempo_facts=tempo["facts"])
+            result["line_san"] = [alt_san]
+            result["arrows"] = _arrows(fen_before, [alt_san], limit=1)
+
     if not result["found"]:
         result["reason"] = "shared_consequence_only" if result.get("shared_consequence") else "no_mechanism"
     result["facts"] = build_facts(result)
@@ -875,9 +892,18 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
 def _without_prefix(phrase: str, played_san: str) -> str:
     """'After Nd4, Nxe5 wins your pawn.' -> 'Nxe5 wins your pawn.' when a cause already set the scene.
 
-    No re-capitalising: a pawn move's SAN starts lowercase and "C5 wins" is not a move."""
+    A move is never re-capitalised: a pawn move's SAN starts lowercase and
+    "C5 wins" is not a move. A plain word is (ho10, run 7: "the exchanges that
+    follow exd5 leave you a pawn down." began a sentence in lowercase)."""
     prefix = f"After {played_san}, "
-    return phrase[len(prefix):] if phrase.startswith(prefix) else phrase
+    if not phrase.startswith(prefix):
+        return phrase
+    rest = phrase[len(prefix):]
+    first = rest.split(" ", 1)[0]
+    from services.llm_caption import _SAN
+    if first and first[0].islower() and not _SAN.fullmatch(first.rstrip(".,")):
+        rest = first[0].upper() + rest[1:]
+    return rest
 
 
 def _finish(result: Dict[str, Any], session, started: float, keep_searches: bool) -> Dict[str, Any]:
@@ -917,6 +943,13 @@ def build_facts(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "the_move_played": result["input"]["played_san"],
         "the_better_move": result.get("better_move"),
     }
+    if result.get("mechanism") == "TEMPO":
+        # The tempo family's facts are all board facts about development; none
+        # of the material keys below apply. The line is withheld here too.
+        facts["this_happens_after_the_move_played"] = False
+        facts["the_move_that_does_it"] = result.get("better_move")
+        facts.update(result.get("tempo_facts") or {})
+        return facts
     consequence = result.get("consequence")
     causes = result.get("causes") or []
     if result["direction"] == "received":

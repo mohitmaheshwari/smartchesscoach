@@ -294,3 +294,14 @@ def test_words_layer_accepts_the_cause_facts_and_refuses_added_chess():
     assert validate(facts, "Kc8 puts the king where Qxe6 comes with check, so White keeps the move. Kd8 avoids that.") is None
     assert validate(facts, "Kc8 lets Qxe6 in, and Kd8 was the better square.") == "dropped the CHECK relation"
     assert "invented" in validate(facts, "Kc8 walks into Qxe6+ and then Qxh6 picks up the h6 pawn with check.")
+
+
+def test_a_second_sentence_starts_with_a_capital_unless_it_starts_with_a_move():
+    from services.reasoning.differential import _without_prefix
+    # ho10, run 7: "the exchanges that follow exd5 leave you a pawn down." began in lowercase.
+    assert _without_prefix("After Nxd5, the exchanges that follow exd5 leave you a pawn down.", "Nxd5") \
+        == "The exchanges that follow exd5 leave you a pawn down."
+    # A pawn move is a move: "C5 wins" is not one.
+    assert _without_prefix("After c4, c5 hits your pawn on d4.", "c4") == "c5 hits your pawn on d4."
+    assert _without_prefix("After c4, exd5 takes your knight.", "c4") == "exd5 takes your knight."
+    assert _without_prefix("Nxe5 wins your pawn.", "Nd4") == "Nxe5 wins your pawn."
