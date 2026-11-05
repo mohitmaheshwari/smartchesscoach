@@ -461,7 +461,7 @@ TREND_WORDS = {
     "more": "More often",
     "new": "New this week",
     "not_enough": "Not enough games",
-    "none": "Nothing stood out",
+    "none": "—",
 }
 
 NUMBER_WORDS = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight",

@@ -534,7 +534,7 @@ export function AcademyStudent() {
               </div>
               {!confirmRemove ? (
                 <button type="button" className="w-fit text-sm text-red-700 underline" onClick={() => setConfirmRemove(true)}>
-                  Remove {s.display_name} and delete their games
+                  Remove {s.display_name} and delete their data
                 </button>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
