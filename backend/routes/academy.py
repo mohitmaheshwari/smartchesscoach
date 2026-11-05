@@ -214,11 +214,52 @@ async def build_week(student: Dict[str, Any], start=None) -> Optional[Dict[str, 
     return row
 
 
+# The ordinary sync fetches 50 games a pass oldest-first and queues only the 3
+# newest of each pass for analysis (journey_service.sync_user_games). That is
+# right for an adult who opens the app; a child never does, so most of a busy
+# week would stay unread. Academy children get their last two weeks queued
+# here, below every ordinary job (the worker takes the highest priority first
+# and ordinary syncs use 5..9), so no adult's analysis waits on a child's.
+ACADEMY_QUEUE_PRIORITY = 3
+BACKFILL_DAYS = 14
+BACKFILL_MAX_GAMES = 40
+SKIP_SPEEDS = ("bullet", "ultrabullet")
+
+
+async def queue_unanalysed(user_id: str) -> int:
+    since = datetime.utcnow() - timedelta(days=BACKFILL_DAYS)
+    rows = await db.games.find(
+        {"user_id": user_id, "played_at_utc": {"$gte": since}, "is_analyzed": {"$ne": True}},
+        {"_id": 0, "game_id": 1, "pgn": 1, "user_color": 1, "time_control_category": 1,
+         "analysis_status": 1},
+    ).sort("played_at_utc", -1).to_list(BACKFILL_MAX_GAMES * 2)
+    queued = 0
+    for g in rows:
+        if queued >= BACKFILL_MAX_GAMES:
+            break
+        if str(g.get("time_control_category") or "").lower() in SKIP_SPEEDS:
+            continue
+        if g.get("analysis_status") == "skipped" or not g.get("pgn"):
+            continue
+        await db.analysis_queue.update_one(
+            {"game_id": g["game_id"], "user_id": user_id},
+            {"$setOnInsert": {"game_id": g["game_id"], "user_id": user_id, "pgn": g["pgn"],
+                              "user_color": g.get("user_color", "white"), "status": "pending",
+                              "priority": ACADEMY_QUEUE_PRIORITY, "auto_synced": True,
+                              "source": "academy_backfill",
+                              "queued_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True)
+        queued += 1
+    return queued
+
+
 async def build_all_weeks() -> int:
     n = 0
     async for student in db[svc.STUDENTS].find({"deleted_at": None, "consent.status": "given"},
                                                {"_id": 0}):
         try:
+            if student.get("child_user_id"):
+                await queue_unanalysed(student["child_user_id"])
             if await build_week(student):
                 n += 1
         except Exception as exc:  # one child's bad row must not stop the rest
@@ -532,6 +573,12 @@ async def give_consent(token: str, request: Request, payload: Dict[str, Any] = B
     update = {k: v for k, v in (("lichess_username", student.get("lichess_username")),
                                 ("chess_com_username", student.get("chesscom_username"))) if v}
     if update:
+        # Start the import at the beginning of last week, not three months
+        # back: the report and the trend need these two weeks, and the
+        # ordinary first sync would spend its passes on August.
+        start = datetime.combine(svc.week_start() - timedelta(days=7), datetime.min.time(),
+                                 tzinfo=svc.IST)
+        update["last_game_sync"] = start.astimezone(timezone.utc).isoformat()
         await db.users.update_one({"user_id": student["child_user_id"]}, {"$set": update})
         asyncio.create_task(_first_sync(student["child_user_id"]))
     return {"ok": True, "status": "given"}
@@ -545,6 +592,7 @@ async def _first_sync(user_id: str) -> None:
         doc = await db.users.find_one({"user_id": user_id}, {"_id": 0})
         if doc:
             await sync_user_games(db, user_id, doc)
+            await queue_unanalysed(user_id)
     except Exception as exc:
         logger.error("first sync for academy child %s failed: %s", user_id, exc)
 

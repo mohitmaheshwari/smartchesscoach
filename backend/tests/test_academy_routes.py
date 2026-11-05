@@ -375,3 +375,35 @@ def test_the_homework_opponent_plays_at_the_real_rating():
     opponent = routes.homework_opponent(900)
     assert opponent.skill_level == rating_to_skill_level(900)
     assert rating_to_skill_level(900) < rating_to_skill_level(COACH_MIN_RATING)
+
+
+# ---------------------------------------------------------------------------
+# a child's games are read even though the child never opens the app
+# ---------------------------------------------------------------------------
+def test_consent_starts_the_import_at_the_start_of_last_week(db):
+    _, _, _, student = _setup(db)
+    run(routes.give_consent(student["consent_token"], _Req(),
+                            {"agree": True, "parent_name": "Meena", "is_parent": True}))
+    child = next(u for u in db.users.rows if u["user_id"] == student["child_user_id"])
+    start = datetime.fromisoformat(child["last_game_sync"])
+    begin, _ = svc.week_bounds_utc(svc.week_start() - timedelta(days=7))
+    assert start.replace(tzinfo=None) == begin
+
+
+def test_unread_games_are_queued_below_every_ordinary_job(db):
+    uid = "user_kid"
+    recent = datetime.utcnow() - timedelta(days=2)
+    db.games.rows += [
+        {"user_id": uid, "game_id": "rapid", "pgn": "1. e4", "played_at_utc": recent, "time_control_category": "rapid"},
+        {"user_id": uid, "game_id": "bullet", "pgn": "1. e4", "played_at_utc": recent, "time_control_category": "bullet"},
+        {"user_id": uid, "game_id": "done", "pgn": "1. e4", "played_at_utc": recent, "is_analyzed": True},
+        {"user_id": uid, "game_id": "old", "pgn": "1. e4", "played_at_utc": recent - timedelta(days=30)},
+    ]
+    db.analysis_queue.rows.append({"game_id": "rapid", "user_id": uid, "status": "failed", "priority": 7})
+    db.games.rows.append({"user_id": uid, "game_id": "blitz", "pgn": "1. d4", "played_at_utc": recent,
+                          "time_control_category": "blitz"})
+    assert run(routes.queue_unanalysed(uid)) == 2
+    by_id = {r["game_id"]: r for r in db.analysis_queue.rows}
+    assert set(by_id) == {"rapid", "blitz"}
+    assert by_id["blitz"]["priority"] == routes.ACADEMY_QUEUE_PRIORITY < 5
+    assert by_id["rapid"]["status"] == "failed"  # an existing job is never rewritten
