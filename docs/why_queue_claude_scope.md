@@ -48,8 +48,12 @@ Not reused: the LLM gateway at `host.docker.internal:8000` (nothing listens on
 ## The pieces to build
 
 **1. The queue (prod Mongo, collection `why_queue`).** Written by `get_move_why`
-on every `found: false` exit except `engine_choice` and `no_gap` (the move is
-the engine's own choice; there is nothing to study). One row per POSITION,
+on every `found: false` exit except an outage (`engine_error`, `no_position`,
+`root_search_unavailable`). `engine_choice` and `no_gap` were left out at first
+as answers; since 2026-11-05 they are studied too, because the button renders
+only on a card that already called the move a fault, so to the player they are
+the card contradicting itself (Ke7 in 5e68fc88: caption "That was a mistake",
+box "No single tactic to point at here", nothing queued). One row per POSITION,
 keyed by `fen_before + played_san`, with the list of (game_id, move_number,
 side, user_id) that asked. The b6 position sits in nine games; it is studied
 once. Fields: fen, played, stored best, class, the account's rating band, what

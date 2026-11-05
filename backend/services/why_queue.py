@@ -44,18 +44,26 @@ PUBLISHED = "published"
 REJECTED = "rejected"
 NO_LESSON = "no_lesson"
 
-# The live reasons that mean "nothing to say": these are studied. The engine's
-# own choice (engine_choice / no_gap) is not a silence, it is an answer, and an
-# engine error is an outage, not a position.
-STUDY_WHEN = frozenset({"no_mechanism", "shared_consequence_only", "no_explainable_candidate"})
+# The live reasons that are studied: every silence the player can meet. The
+# button renders only on a card that already called the move a fault, so "no
+# gap" and "the engine's own choice" are not answers to that player, they are
+# the card contradicting itself. Mohit 2026-11-05 on Ke7 in 5e68fc88, caption
+# "That was a mistake", box "No single tactic to point at here. The engine
+# simply prefers Bd6." and no study line: "i don't see that on the UI". Until
+# then those two were left out as answers. An engine error is an outage, not a
+# position, and a move with no stored position cannot be studied.
+STUDY_WHEN = frozenset({"no_mechanism", "shared_consequence_only", "no_explainable_candidate",
+                        "no_gap", "engine_choice"})
 
 # Review-first is the default Mohit chose. Flip to "1" only after the first
 # batch has been graded (scope: 30 positions).
 AUTO_PUBLISH = os.environ.get("WHY_QUEUE_AUTO_PUBLISH", "0") == "1"
 
 STUDYING_LINE = "The coach will study this one and leave the answer here."
-NO_LESSON_LINE = ("The coach studied this one: there is no single lesson here, "
-                  "the position is simply a little worse.")
+# Says nothing about the position. The first study of a real click (5e68fc88
+# move 13, 2026-11-05) was a dead-lost position, and the old line's "the
+# position is simply a little worse" was false there.
+NO_LESSON_LINE = "The coach studied this one: there is no single lesson in this move."
 
 
 def _now() -> str:

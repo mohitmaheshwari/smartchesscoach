@@ -146,9 +146,22 @@ class TestQueueing:
         assert len(db.why_queue.rows) == 1
         assert [r["game_id"] for r in db.why_queue.rows[0]["requests"]] == ["g1", "g2"]
 
-    def test_the_engines_own_choice_is_not_queued(self):
+    def test_no_gap_and_the_engines_own_choice_are_queued_too(self):
+        # 2026-11-05, Ke7 in 5e68fc88: the card said "That was a mistake", the
+        # box said "No single tactic to point at here. The engine simply
+        # prefers Bd6.", and nothing was queued because no_gap was treated as
+        # an answer. The button renders only on a card that already called
+        # the move a fault, so to that player it is a silence.
         db = _DB()
-        for reason in ("engine_choice", "no_gap", "engine_error"):
+        for reason, san in (("no_gap", "b3"), ("engine_choice", "Nf3")):
+            out = _ask(db, _nothing(reason), played_san=san)
+            assert out["found"] is False
+            assert out["study"] == {"state": "studying", "text": wq.STUDYING_LINE}
+        assert sorted(r["live_reason"] for r in db.why_queue.rows) == ["engine_choice", "no_gap"]
+
+    def test_an_outage_is_not_queued(self):
+        db = _DB()
+        for reason in ("engine_error", "no_position", "root_search_unavailable"):
             out = _ask(db, _nothing(reason))
             assert "study" not in out
         assert db.why_queue.rows == []

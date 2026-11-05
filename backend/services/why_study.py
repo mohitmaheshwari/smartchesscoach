@@ -185,6 +185,11 @@ def build_packet(fen_before: str, played_san: str, *, better_san: Optional[str] 
 
     with open_engine(engine_path) as eng:
         root_lines = lines(eng, root, mover, depth, 5, 8)
+        # A stored best that IS the move played (the live engine's
+        # "engine_choice", studied since 2026-11-05) would make the better
+        # line the played line; take the engine's next candidate instead.
+        if better_san and better_san.strip().rstrip("+#!?") == played_san.strip().rstrip("+#!?"):
+            better_san = None
         if not better_san:
             for cand in root_lines:
                 if cand["san"] != played_san:
@@ -320,6 +325,7 @@ How to write it. The reader is ten years old, or reading English as a second lan
 - Every piece you mention must be the `subject` or `target` of one of your claims, with its square, on the board where you mean it (set `after` to the moves that reach that board). A move name counts for its own piece and destination square. A piece you cannot tie to a claim is a piece you may not mention.
 - The `shared_threat_probes` section is where the mechanism usually hides: a threat that both moves allow but that only the better move answers well. Prefer a claim about that over a bare "the better line is better".
 - If the packet shows no mechanism, only that the position is a little worse with nothing concrete, set `no_lesson` true and say why in one line. That is a real and useful answer. Do not invent a lesson.
+- `live_engine_said` is what the quick engine on the site answered when the player asked. Its `reason` `no_gap` means it measured no real difference between the two moves; `engine_choice` means the move played was its own first choice. The card still called the move a fault. If the lines here agree with the quick engine, set `no_lesson` true and say so in one line; if they show a real difference the quick engine missed, that difference is the lesson.
 - Do not read a threat off a line without checking it in the facts or probes: a move in a line is not a threat until the board says what it attacks.
 - `attacks` needs a piece on the target square. For an empty square use `controls`. For "the better line is better" use `line_better` with `worse_line` = the moves of the move played's line and `better_line` = the moves of the better move's line, both starting from the position before the move played.
 
