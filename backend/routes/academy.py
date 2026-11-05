@@ -421,12 +421,20 @@ def _row_for_table(student, week, homework_status) -> Dict[str, Any]:
     habit = (week or {}).get("habit")
     habit_id = (habit or {}).get("id")
     games = int(((week or {}).get("games") or {}).get("count") or 0)
+    analysed = int(((week or {}).get("games") or {}).get("analysed") or 0)
+    if habit_id in svc.HABIT_WORDS:
+        habit_words = svc.HABIT_WORDS[habit_id]["short"]
+    elif not games:
+        habit_words = "No games this week"
+    elif not analysed:
+        habit_words = "Games still being read"
+    else:
+        habit_words = "Nothing stood out"
     return {
         "student_id": student["student_id"],
         "name": student["display_name"],
         "consent": (student.get("consent") or {}).get("status"),
-        "habit": svc.HABIT_WORDS[habit_id]["short"] if habit_id in svc.HABIT_WORDS
-        else ("Nothing stood out" if games else "No games this week"),
+        "habit": habit_words,
         "trend": (week or {}).get("trend") or "none",
         "trend_words": svc.TREND_WORDS.get((week or {}).get("trend") or "none"),
         "games_words": "None" if games == 0 else ("A few" if games < 5 else "Many"),

@@ -203,9 +203,9 @@ def test_the_coach_sees_why_a_child_needs_them():
     given = {"consent": {"status": "given"}, "lichess_username": "x"}
     assert svc.needs_coach({"consent": {"status": "pending"}}, None, "none") == "Waiting for the parent to agree"
     assert svc.needs_coach(given, {"games": {"count": 0}}, "none") == "No games to read"
-    assert svc.needs_coach(given, {"games": {"count": 4}, "trend": "more"}, "none") == "Getting worse"
-    assert svc.needs_coach(given, {"games": {"count": 4}, "homework": {"fen": "x"}}, "not_started") == "Homework not started"
-    assert svc.needs_coach(given, {"games": {"count": 4}}, "none") is None
+    assert svc.needs_coach(given, {"games": {"count": 4, "analysed": 4}, "trend": "more"}, "none") == "Getting worse"
+    assert svc.needs_coach(given, {"games": {"count": 4, "analysed": 4}, "homework": {"fen": "x"}}, "not_started") == "Homework not started"
+    assert svc.needs_coach(given, {"games": {"count": 4, "analysed": 4}}, "none") is None
 
 
 def test_a_class_topic_needs_two_children():
@@ -249,3 +249,11 @@ def test_the_week_starts_on_monday_in_india():
 ])
 def test_homework_verdict(fen, color, pawns, expected):
     assert svc.homework_verdict(chess.Board(fen), color, pawns) == expected
+
+
+def test_imported_but_unread_games_are_not_called_clean():
+    week = svc.summarise_week([_game("g1"), _game("g2")], [])
+    out = svc.render_report(week, child_name="Rohan")
+    assert out["sections"][1]["headline"] == "The games are still being read."
+    given = {"consent": {"status": "given"}, "lichess_username": "x"}
+    assert svc.needs_coach(given, week, "none") is None

@@ -538,6 +538,16 @@ def render_report(week: Mapping[str, Any], *, child_name: str, batch_name: str =
             "key": [["red", f"{name}'s move"], ["green", "A safe move"]],
         })
         question = words["home_question"]
+    elif count and not int(games.get("analysed") or 0):
+        # Imported but not read yet: saying "nothing stood out" would be a
+        # claim about games nobody has looked at.
+        out["sections"].append({
+            "kind": "habit", "eyebrow": "The habit we saw this week",
+            "headline": "The games are still being read.",
+            "lines": ["The coach sends the report once they are."],
+            "boards": [],
+        })
+        question = "Before you move, can that piece be taken?"
     else:
         out["sections"].append({
             "kind": "habit", "eyebrow": "The habit we saw this week",
@@ -597,6 +607,8 @@ def needs_coach(student: Mapping[str, Any], week: Optional[Mapping[str, Any]],
         return "No online account added"
     if not week or not (week.get("games") or {}).get("count"):
         return "No games to read"
+    if not (week.get("games") or {}).get("analysed"):
+        return None  # imported, still being read; nothing to act on yet
     if week.get("trend") == "more":
         return "Getting worse"
     if week.get("homework") and homework_status == "not_started":
