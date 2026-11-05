@@ -452,3 +452,11 @@ pre-lesson evidence may count (§10, open).
 6. **Does a demonstration before any lesson count toward mastery?** 265 of 274 rows
    are pre-lesson. Counting them measures skill; not counting them measures teaching.
    Decide before WS2.
+
+   **Answered 2026-11-05** (Mohit: "do what you recommend"). **They count.** The
+   product's claim is about the player — "the system knows when you've stopped making
+   them" — not about the lesson, and a player who already resists the hanging move
+   should not be made to sit a lesson to be believed. But the two are never blended:
+   every ruling carries `after_first_lesson`, so any surface that claims *teaching*
+   worked (a parent report, an academy view) must count only the post-lesson ones, and
+   says "could already do it" for the rest.

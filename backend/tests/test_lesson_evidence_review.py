@@ -224,6 +224,7 @@ def test_a_ruling_lands_in_rulings_and_never_in_the_ledger(db):
     ruling = db.lesson_evidence_rulings.rows[0]
     assert ruling["pair"] == "u1|piece_safety_simple_hang"
     assert ruling["reviewer_name"] == "Farhan"
+    assert ruling["after_first_lesson"] is True
     assert ruling["author_email"] == "coach@example.com"
     assert db.learning_sessions.writes == []
     assert db.lesson_evidence_reviews.writes == []

@@ -98,6 +98,9 @@ async def rule_lesson_evidence(
             "pair": row.get("pair"),
             "user_id": row.get("user_id"),
             "detector_quality_id": row.get("detector_quality_id"),
+            # Pre-lesson demonstrations count toward mastery, but a surface that
+            # claims the TEACHING worked must count only these (scope §10.6).
+            "after_first_lesson": bool(row.get("after_first_lesson")),
             "verdict": verdict,
             "note": str(payload.get("note") or "")[:2000],
             # The login is shared with reviewing coaches, so the account alone
