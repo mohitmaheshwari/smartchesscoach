@@ -142,6 +142,38 @@ def test_ledger_names_a_lost_exchange_and_ignores_an_even_trade():
     assert first_unshared_exchange(even, [], losing=True) is None
 
 
+def test_the_opponents_sentences_use_them_as_the_object_and_they_as_the_subject(monkeypatch):
+    # 0801f1a8 (Mohit, 2026-09-24) m7 Bf8 and m8 a6, opponent cards: "the exchange
+    # on c7 costs they a queen for a knight". The subject form stood in the object
+    # slot on every opponent-side exchange sentence.
+    from services.reasoning import differential
+    from services.reasoning.differential import exchange_sentence, first_unshared_exchange, material_claim
+    fen = "rn1q1rk1/b2b1ppp/1p1p1n2/PPp1pP2/4P3/3B1N1P/1B1P2P1/RN1QK2R w KQ - 0 14"
+    played = ledger(fen, "axb6 Qxb6 Nc3 c4 Rxa7 Rxa7 Bxc4 Nc6 g4 d5")
+    better = ledger(fen, "Nc3 bxa5 Bc4 Bc8 d3 Nbd7 Bc1 Bb7 Bg5 d5")
+    loss = first_unshared_exchange(played, better, losing=True)
+    text = exchange_sentence(loss, played_san="axb6", reply_san="Qxb6", alt_san="Nc3", received=True, mover_is_user=False)["text"]
+    assert text == "After axb6, the exchange on a7 costs them a rook for a bishop."
+    # The whole-line net, both directions.
+    fen8 = "2q5/3k1p1p/p2pb1p1/1p2p3/Q7/1P6/P1r2PPP/R1R3K1 w - - 0 23"
+    better8 = ledger(fen8, "Rxc2 bxa4 Rxc8 Kxc8 bxa4 Kc7 Rc1+ Kb6 a3")
+    played8 = ledger(fen8, "Qa3 Qc5 Qxc5 Rxc5 Rxc5 dxc5 Kf1 a5 Ke1")
+    missed = material_claim(played8, better8, played_plies=9, alt_plies=9, received=False, gap=133, move_class="mistake",
+                            played_san="Qa3", reply_san="Qc5", alt_san="Rxc2", mover_is_user=False)
+    assert missed["text"] == "Rxc2 was the move: after the exchanges they come out a pawn up."
+    # Received series: no single exchange to name, the line simply ends behind.
+    monkeypatch.setattr(differential, "first_unshared_exchange", lambda *a, **k: None)
+    monkeypatch.setattr(differential, "closed_groups", lambda ledger_, plies: list(ledger_))
+    mine = [{"square": "b6", "net_cp": -120, "plies": [{"san": "Qxb6", "by_mover": False, "ply": 1}],
+             "mover_won": [], "mover_lost": ["pawn"], "open": False}]
+    got = material_claim(mine, [], played_plies=9, alt_plies=9, received=True, gap=180, move_class="mistake",
+                         played_san="axb6", reply_san="Qxb6", alt_san="Nc3", mover_is_user=False)
+    assert got["series"] is True
+    assert got["text"] == "After axb6, the exchanges that follow Qxb6 leave them a pawn down."
+    for bad in ("costs they", "leave they"):
+        assert bad not in text and bad not in got["text"]
+
+
 def test_ledger_shares_the_same_exchange_across_branches():
     from services.reasoning.differential import first_unshared_exchange
     fen = "8/1p1k1Q2/2p1p2p/p3P1p1/P7/2P3PK/1q6/8 b - - 3 38"

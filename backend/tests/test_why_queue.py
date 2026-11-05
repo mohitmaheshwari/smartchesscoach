@@ -101,7 +101,10 @@ class _User:
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    # A fresh loop each time: run after the other why/reasoning files, the
+    # module-level loop was already closed and every test here failed with
+    # "There is no current event loop" (16 of 17, 2026-11-05); alone it passed.
+    return asyncio.run(coro)
 
 
 def _nothing(reason="no_mechanism"):

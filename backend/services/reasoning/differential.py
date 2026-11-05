@@ -416,7 +416,9 @@ def exchange_sentence(g: Dict[str, Any], *, played_san: str, reply_san: Optional
 
     `with_clause` adds "for nothing" / "nothing takes back" and is the caller's
     promise that the rest of the line does not give the material back."""
-    you = "you" if mover_is_user else "they"
+    # Object position ("costs them"), never the subject form: 0801f1a8 m7 and
+    # m8 read "costs they a queen for a knight" on the opponent's cards.
+    them = "you" if mover_is_user else "them"
     your = "your" if mover_is_user else "their"
     their = "their" if mover_is_user else "your"
     captures = [p["san"] for p in g["plies"]]
@@ -431,7 +433,7 @@ def exchange_sentence(g: Dict[str, Any], *, played_san: str, reply_san: Optional
                 text = (f"After {played_san}, {reply_san} starts a line that ends with {hit['san']} taking {your} "
                         f"{lost} on {g['square']}" + (" for free." if with_clause else "."))
         else:
-            text = f"After {played_san}, the exchange on {g['square']} costs {you} a {lost} for a {gained}."
+            text = f"After {played_san}, the exchange on {g['square']} costs {them} a {lost} for a {gained}."
         return {"mechanism": "WINS_MATERIAL", "direction": "received", "agent_move": hit["san"], "square": g["square"],
                 "victim_piece": lost, "victim_square": g["square"], "gained_piece": gained, "payoff_cp": -g["net_cp"],
                 "ply": hit["ply"], "captures": captures, "text": text}
@@ -499,10 +501,11 @@ def material_claim(ledger_played: Sequence[Dict[str, Any]], ledger_alt: Sequence
     # line that merely loses less than the other is not "a pawn up".
     if better_by < EXCHANGE_MIN_CP or uncertain or (total_mine >= 0 if received else total_mine <= 0):
         return None
-    you = "you" if mover_is_user else "they"
+    you = "you" if mover_is_user else "they"        # subject: "they come out"
+    them = "you" if mover_is_user else "them"       # object: "leave them"
     amount = material_words(better_by)
     if received:
-        text = f"After {played_san}, the exchanges that follow {reply_san} leave {you} {amount} down."
+        text = f"After {played_san}, the exchanges that follow {reply_san} leave {them} {amount} down."
         agent = reply_san
     else:
         text = f"{alt_san} was the move: after the exchanges {you} come out {amount} up."
