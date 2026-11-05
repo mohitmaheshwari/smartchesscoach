@@ -282,3 +282,81 @@ test("branching off a line keeps that line on screen", async () => {
   expect(buttons).toContain("Nc4");
   expect(buttons).toContain("Qd3");
 });
+
+// ── the fifth queue: lesson evidence, judged by a coach ──────────────
+//
+// docs/phase1_lesson_evidence_review_scope.md: a real-game move where a player
+// kept a piece safe while a hanging move was a real temptation.
+
+const LESSON_ITEM = {
+  queue: "lesson",
+  key: "grl_a",
+  pair: "u1|piece_safety_simple_hang",
+  user_id: "user_abc",
+  skill_id: "piece_safety_simple_hang",
+  detector_quality_id: "gap:piece_safety:destination_safety_exact",
+  fen: "6k1/8/3p1p2/8/8/5N2/8/6K1 w - - 0 1",
+  side_to_move: "white",
+  played_san: "Nd4",
+  moved_piece: "knight",
+  tempting_moves: [{ uci: "f3e5", san: "Ne5", probability: 0.12 }, { uci: "f3g5", san: "Ng5", probability: 0.03 }],
+  temptation: 0.15,
+  user_rating: 1169,
+  opponent_rating: 1191,
+  occurred_at: "2026-10-01 10:00:00",
+  first_lesson_at: "2026-09-02T08:00:00",
+  after_first_lesson: true,
+  record: { kept: 14, lost: 9 },
+  pairs_waiting: 23,
+};
+
+const openLessonTab = async () => {
+  const tab = Array.from(container.querySelectorAll("button"))
+    .find((b) => b.textContent === "Lesson evidence");
+  await act(async () => tab.click());
+};
+
+test("the lesson tab fetches its own queue and asks the one question", async () => {
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => LESSON_ITEM });
+  await act(async () => root.render(<AdminGeometryGaps />));
+  await openLessonTab();
+  expect(global.fetch.mock.calls.some((c) => String(c[0]).endsWith("/admin/lesson-evidence/next"))).toBe(true);
+  const card = container.querySelector('[data-testid="lesson-evidence-card"]');
+  expect(card).not.toBeNull();
+  expect(card.textContent).toContain("Keeping a piece safe after it moves");
+  expect(card.textContent).toContain("12% of players at this rating");
+  expect(card.textContent).toContain("kept 14, lost 9");
+  expect(container.textContent).toContain("Does this move show they understand the idea?");
+  // green for what they played, red for the move that would have hung the knight
+  expect(lastBoardProps.arrows).toEqual([["f3", "d4", "green"], ["f3", "e5", "red"]]);
+  // the mistake panels of the other queues are not drawn
+  expect(container.textContent).not.toContain("Engine preferred");
+});
+
+test("a ruling posts the key, the verdict, the note and the reviewer's name", async () => {
+  global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, json: async () => LESSON_ITEM });
+  await act(async () => root.render(<AdminGeometryGaps />));
+  await openLessonTab();
+  const name = container.querySelector("#lesson-reviewer");
+  const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+  await act(async () => {
+    setter.call(name, "Farhan");
+    name.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  const yes = Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "Yes, it shows it");
+  await act(async () => yes.click());
+  const posted = global.fetch.mock.calls.find(
+    (c) => c[1] && c[1].method === "POST" && String(c[0]).endsWith("/admin/lesson-evidence"));
+  expect(posted).toBeTruthy();
+  expect(JSON.parse(posted[1].body)).toEqual({ key: "grl_a", verdict: "yes", note: "", reviewer_name: "Farhan" });
+});
+
+test("an empty lesson queue says why it is empty", async () => {
+  global.fetch = jest.fn().mockResolvedValue({
+    ok: false, status: 404,
+    json: async () => ({ detail: "No positions have been seeded yet (scripts/seed_lesson_evidence_reviews.py)." }),
+  });
+  await act(async () => root.render(<AdminGeometryGaps />));
+  await openLessonTab();
+  expect(container.textContent).toContain("No positions have been seeded yet");
+});

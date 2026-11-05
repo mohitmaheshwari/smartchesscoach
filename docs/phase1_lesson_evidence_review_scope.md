@@ -229,3 +229,226 @@ but it has to hold *within* a pair, not across the corpus.
 
 WS1 can proceed in parallel with WS0, because reviewing evidence does not require the
 join; only awarding mastery from it does.
+
+---
+
+## 8. Re-measured 2026-11-05 — nothing built, the evidence keeps growing
+
+Read-only against prod `chess_coach.learning_sessions`, events nested at
+`events[]` (469 session documents hold them).
+
+| | 2026-10-20 (§7.1) | 2026-11-05 |
+|---|---|---|
+| all events | 6,824 | **8,150** (1,204 since 10-20) |
+| `evidence_eligible` True | 3 | **3** — same three, one user, none since 10-20 |
+| `shadow_only_not_visible_mastery` | 6,091 | **7,276** |
+| `lesson_result` events | 6,124 | **7,276** (1,063 since 10-20) |
+| distinct users | 38 | **43** |
+| (user, concept) pairs | 42, 30 with 10+ | **105, 38 with 10+** |
+| `application.outcome` | 3,590 applied / 2,141 missed / 393 not_measured | **4,031 / 2,784 / 461** |
+| `application.source_type` organic_game | 5,709 | **6,793** of 7,276 (93%) |
+| `piece_safety_simple_hang` share | 5,759 of 6,124 | **6,645 of 7,276** (91%) |
+
+New since 10-20: tactic skills now carry evidence (`missed_tactic_missed_skewer` 69,
+`_pin` 48, `_fork` 43). Breadth is still thin; concentration in one skill is unchanged.
+
+**Built since 10-20: nothing.** No `lesson_evidence_rulings` collection or
+`/admin/lesson-evidence` route exists in `backend/` or `frontend/src`; no commit on
+`working-code` since 10-20 names WS0–WS3. `concept_id` is still written as `None`
+(`services/game_decryption_v5_service.py:5164`). The two related branches
+(`closed-loop-sprint/ws0-ws1a-dryrun`, `codex/progress-evidence-page-v1`) are September
+work, 890+ commits behind, and implement neither this scope's WS0 nor WS1.
+
+**A correction to carry forward.** On 11-05 I proposed "switch the evidence on for one
+lesson first". That is the "open the gate" framing §0 already retired: it breaks C1 and
+the founder decision (coach review before any admission). The order stays WS0 → WS1 →
+WS2 → WS3.
+
+**Still blocking code — unchanged from §6, plus one:**
+1. Who reviews (existing identity, or free-text `reviewer_name`)?
+2. How many approved demonstrations per concept (proposed: one, plus the streak)?
+3. Does a `false` ruling do anything beyond being a bug report (proposed: no)?
+4. WS0: is adopting `detector_quality_id` as the one concept identity agreed?
+
+**Answered 2026-11-05.** Mohit, replying "go ahead" to questions 2–4 as proposed:
+one approved demonstration plus the existing streak; a `false` ruling is a bug report
+only and strips nothing; `detector_quality_id` is the one concept identity. Question 1
+was not answered, so the default stands: free-text `reviewer_name`, as on the existing
+review surfaces. Next gate: `/audit-pre-code`.
+
+**Pre-code audit 2026-11-05: BLOCKED.** One finding changes the design:
+
+- **C4 is stale.** Mastery does not promote on the streak alone. Since 2026-09-21
+  `may_promote_to_mastered` (`services/concept_test_service.py:99-129`) refuses unless
+  `tests_passed >= 1`, and `concept_mastery_tracker.py:418-421` calls it; `tests_passed`
+  is incremented by the concept test (`concept_test_service.py:413`). So a proof
+  requirement already exists. WS2 must decide whether a coach-approved lesson
+  demonstration is a **second way** to satisfy that proof, or an **extra** requirement on
+  top of the concept test. Not decided.
+- Also missing before code: a literal mockup of the coach review card and of what the
+  player sees when evidence is admitted; a behaviour-changing success criterion; explicit
+  signoff to code.
+
+**Answered 2026-11-05 (Mohit, "go ahead" to the recommendation):** a coach-approved
+demonstration is a **second way** to satisfy the proof in `may_promote_to_mastered`,
+beside the concept test. The clean streak is still required on top. Section 9 drafts the
+rest.
+
+---
+
+## 9. Draft 2026-11-05 — mockups and success measure (awaiting sign-off)
+
+### 9.1 What the coach sees — EXTEND the existing review shape
+
+A new tab beside `/admin/geometry-gaps` and the detector review, using the same
+`next` / POST / `results` shape (C3). One event per (player, concept) pair, round-robin
+(§7.4). Built from a real event: `piece_safety_simple_hang`, origin
+`external_game_observation`, outcome `applied`, provenance
+`move_observations 83010352-…:22`.
+
+```
+┌ Lesson evidence ─────────────────────────────── 38 pairs waiting ┐
+│ Concept   Keeping a piece safe after it moves                    │
+│           gap:piece_safety:destination_safety_exact              │
+│ Player    user_…  ·  taught this on 2 Sep  ·  this is a real game│
+│                                                                  │
+│   [ board: the position before the player's move ]               │
+│   green arrow: the move they played                              │
+│   grey arrow:  the move that would have left a piece hanging     │
+│                                                                  │
+│ After the lesson, in a real game, they moved the bishop to a     │
+│ square where it could not be taken for free.                     │
+│ Their record on this concept since the lesson: kept 14, lost 9.  │
+│                                                                  │
+│ Does this move show they understand the idea?                    │
+│   [ Yes, it shows it ]   [ No ]   [ Not sure ]                   │
+│   Why not? (optional) ________   Your name ________              │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+The question is the honest one (§3): did this attempt demonstrate understanding, not
+"is the detector right". Admin surface, so counts are allowed here.
+
+### 9.2 What the player sees — EXTEND the Lab mastery panel
+
+`MasteryPanel` on `/lab` (`frontend/src/components/coach/MasteryPanel.jsx`, mounted by
+`Dashboard.jsx`) already has a `demonstrated` state with an emerald check. The new path
+lands there. No new page. Player text follows the house rules: simple English, no numbers.
+
+After a coach approves, before the streak is complete:
+```
+  Piece safety
+   ◐ Keeping pieces safe                          Shown in a game
+     A coach looked at a game where you kept a piece safe that you
+     used to leave hanging. Keep doing it and it counts as learned.
+     [ See that move ]
+```
+After the streak completes:
+```
+   ✓ Keeping pieces safe                                  Learned
+     You showed it in a real game and kept it up after that.
+     [ See that move ]
+```
+If they slip later, the existing amber "slipping" state applies unchanged.
+
+### 9.3 Success measure
+
+**Baseline, measured 2026-11-05 (prod, read-only).** For the 35 (player, concept)
+pairs with at least 10 real-game outcomes, the median share "kept" (applied) is **0.52**.
+Splitting each pair's history in half by time, the median goes from **0.58** in the first
+half to **0.46** in the second; 10 pairs went up, 17 down, 8 unchanged. That is a small
+sample with a known confound (opponents and positions change over time), so this sizes the
+problem and does not characterise it. It does mean "learned" cannot be assumed to stick.
+
+**Primary (behaviour):** of pairs that reach *Learned* through the new path, at least
+**70%** keep a kept-share in real games over the next 30 days that is no lower than their
+own share in the 30 days before the approval. Provisional; `/lock-via-data` after the
+first 20 such pairs.
+
+**Secondary (the surface changes):** after a concept becomes *Learned*, the player's next
+Lab focus is a different concept by their next session.
+
+**Health, not success:** share of reviewed events ruled Yes / No / Not sure, and every
+No, which is a bug report (§6.3).
+
+### 9.4 One more open question, raised by the mockup
+
+5. **What makes an event worth reviewing?** Most real-game "kept" events are a piece
+   moved to a safe square, which most moves are. Approving those would make mastery
+   easy without showing anything. Proposed: serve only events where a hanging move
+   was a real temptation, e.g. Maia at the player's rating gives the hanging move at
+   least some probability. The cutoff gets locked with `/lock-via-data` from the
+   distribution, not chosen now. Also to verify in WS1: whether `move_observations`
+   stores the hanging alternative, or the card must recompute it.
+
+### 9.5 Q5 locked 2026-11-05 (Mohit: "do what you recommend")
+
+```
+DECISION LOCKED: which real-game "kept" events a coach is asked to review
+
+VALUE: serve an event only when all four hold
+  1. the stored outcome is "applied" AND the played move grades "pass" today under
+     grade_destination_safety_candidate (the outcome still agrees with the detector)
+  2. temptation T >= 0.05, where T = Maia probability, at the player's game rating
+     against the opponent's, summed over every legal move that
+     grade_destination_safety_candidate marks "fail" (it hangs a piece)
+  3. the played move's execution_quality is not mistake or blunder (inherited
+     classification, not a new number)
+  4. the game has a stored user rating (Maia needs one)
+
+EVIDENCE (prod read-only export, Maia2 rapid model locally, 5,511 of 6,757 real-game
+piece-safety events joined to their stored position):
+  - Positive control: in 1,475 "missed" events where the played move really hangs a
+    piece today, T in that position has deciles .008 .016 .026 .040 .060 .085 .123
+    .179 .303. 0.05 sits at the median: 55% of real hangs happened at T >= 0.05.
+  - "Kept" events: T deciles 0 .001 .002 .004 .007 .011 .020 .036 .088. Most kept
+    events had almost no temptation: the triviality problem, measured.
+  - Coverage, kept-and-not-a-mistake: T>=.02 572 events / 25 pairs;
+    T>=.05 257 / 23 pairs (median 7 per pair); T>=.10 115 / 20 pairs. No cliff in pair
+    coverage, so the cutoff is anchored on the positive control instead.
+  - Agreement check: 192 "applied" events now grade "fail" (the move did hang a
+    piece) and 605 "missed" events now grade "pass"; 197 "missed" are pawn or king
+    moves the detector does not cover. 994 of 5,511 (18%) stored outcomes disagree with
+    today's detector, which is why rule 1 re-grades instead of trusting the stored label.
+
+REJECTED:
+  - no cutoff: 3,042 events, nearly all with nothing tempting to resist
+  - T > 0 ("any hanging move exists"): 95.5% of kept events qualify; filters nothing
+  - T >= 0.02: easier than three quarters of real hangs; weaker demonstration for 2 more pairs
+  - T >= 0.10: drops to 20 pairs and 4 events per pair for little gain in strength
+
+MEASUREMENT METHOD: scratchpad q5/export.py (prod container, read-only) ->
+q5/temptation.py (local Maia2, grade_destination_safety_candidate on every legal move)
+-> q5/analyse.py. Caveat: Maia predicts real hangs weakly (median Maia probability of the
+hanging move a player actually played: 0.019), so T ranks temptation; it does not prove it.
+```
+
+**Sign-off to code, 2026-11-05.** Mohit: "do what you recommend, you already know what
+am i trying to build", in reply to the request for "locked, code it". Recorded as the
+explicit sign-off for WS1; WS0, WS2 and WS3 follow in that order.
+
+### 9.6 WS1 built 2026-11-05 — the first seed
+
+`scripts/seed_lesson_evidence_reviews.py`, run export (prod, read-only) → score (local
+Maia) → load (prod). From 5,892 real-game destination-safety events:
+
+| step | events |
+|---|---|
+| not kept (stored outcome) | 1,883 |
+| no stored position to join | 775 |
+| the move was itself a mistake or blunder | 525 |
+| stored "kept" but the move hangs a piece today | 175 |
+| no game rating | 60 |
+| **candidates** | **2,474** |
+| **rows after the temptation floor** | **274**, across **23** player-concept pairs |
+
+Only **5 of 274** rows come after the player's first finished piece-safety lesson; 265
+are from players who have not finished one. So most of this evidence says "can already
+do it", not "the lesson landed". The card states which it is, and WS2 must decide whether
+pre-lesson evidence may count (§10, open).
+
+## 10. Open after WS1
+
+6. **Does a demonstration before any lesson count toward mastery?** 265 of 274 rows
+   are pre-lesson. Counting them measures skill; not counting them measures teaching.
+   Decide before WS2.

@@ -724,6 +724,12 @@ app.include_router(admin_detector_review_routes.router, prefix="/api")
 from routes import admin_claude_reasons as admin_claude_reason_routes  # noqa: E402
 admin_claude_reason_routes.set_db(db)
 app.include_router(admin_claude_reason_routes.router, prefix="/api")
+# The fifth queue: a coach says whether a real-game move showed the lesson's
+# idea. Evidence only -- the shadow ledger is never written. See
+# docs/phase1_lesson_evidence_review_scope.md.
+from routes import admin_lesson_evidence as admin_lesson_evidence_routes  # noqa: E402
+admin_lesson_evidence_routes.set_db(db)
+app.include_router(admin_lesson_evidence_routes.router, prefix="/api")
 # Stockfish's move beside the move a human of that rating would actually
 # play. Read-only: Maia2 runs on Mohit's machine and writes the collection,
 # because the model needs ~800 MB resident and this box has none to spare

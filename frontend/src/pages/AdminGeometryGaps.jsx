@@ -67,6 +67,27 @@ const probeNumbers = (p) => {
   return "";
 };
 
+// The fifth queue asks about a lesson, not a mistake: the concept in words.
+const LESSON_CONCEPT_LABEL = {
+  "gap:piece_safety:destination_safety_exact": "Keeping a piece safe after it moves",
+};
+
+const shortDate = (iso) => {
+  if (!iso) return "";
+  const d = new Date(String(iso).replace(" ", "T"));
+  return Number.isNaN(d.getTime())
+    ? String(iso).slice(0, 10)
+    : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+};
+
+const readReviewerName = () => {
+  try {
+    return window.localStorage.getItem("lessonEvidenceReviewer") || "";
+  } catch {
+    return "";
+  }
+};
+
 const sanToArrow = (fen, san, color) => {
   if (!fen || !san) return null;
   try {
@@ -77,6 +98,129 @@ const sanToArrow = (fen, san, color) => {
     return null;
   }
 };
+
+// One real-game move, and the one question the coach is asked about it. The
+// question is "does this show understanding", not "is the detector right":
+// those are different judgements (scope §3).
+function LessonEvidenceCard({
+  item,
+  note,
+  setNote,
+  reviewerName,
+  setReviewerName,
+  saving,
+  onRule,
+  results,
+}) {
+  const concept =
+    LESSON_CONCEPT_LABEL[item.detector_quality_id] || item.skill_id;
+  const tempting = item.tempting_moves || [];
+  const lessonLine = item.first_lesson_at
+    ? item.after_first_lesson
+      ? `after their first lesson on this (${shortDate(item.first_lesson_at)})`
+      : `before their first lesson on this (${shortDate(item.first_lesson_at)})`
+    : "no finished lesson on this yet";
+  return (
+    <>
+      <div className="rounded-lg border p-4" data-testid="lesson-evidence-card">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          {concept}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {item.user_id} · rated {item.user_rating}
+          {item.opponent_rating ? ` vs ${item.opponent_rating}` : ""} · real game on{" "}
+          {shortDate(item.occurred_at)}, {lessonLine}
+        </p>
+        <p className="mt-3 text-sm">
+          They played{" "}
+          <strong className="text-green-600">{item.played_san}</strong> and the{" "}
+          {item.moved_piece || "piece"} is safe there.
+        </p>
+        {tempting.length ? (
+          <p className="mt-2 text-sm">
+            <span className="text-muted-foreground">
+              Moves here that would have hung a piece:
+            </span>{" "}
+            {tempting.map((m, i) => (
+              <span key={m.uci}>
+                {i ? ", " : ""}
+                <strong className={i === 0 ? "text-red-600" : ""}>{m.san}</strong>
+                <span className="text-muted-foreground">
+                  {" "}
+                  ({Math.round((m.probability || 0) * 100)}% of players at this rating)
+                </span>
+              </span>
+            ))}
+          </p>
+        ) : null}
+        <p className="mt-2 text-sm text-muted-foreground">
+          Their record on this concept in real games: kept{" "}
+          {item.record?.kept ?? 0}, lost {item.record?.lost ?? 0}.
+        </p>
+        <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">
+          {item.fen}
+        </p>
+      </div>
+
+      <div className="rounded border border-emerald-500/50 bg-emerald-500/5 p-3">
+        <p className="text-sm font-medium">
+          Does this move show they understand the idea?
+        </p>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Say yes only if keeping the piece safe here looks like a choice they
+          made, not luck. One yes, plus clean games after it, is what lets the
+          concept count as learned.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button onClick={() => onRule("yes")} disabled={saving}>
+            Yes, it shows it
+          </Button>
+          <Button variant="outline" onClick={() => onRule("no")} disabled={saving}>
+            No
+          </Button>
+          <Button variant="ghost" onClick={() => onRule("unsure")} disabled={saving}>
+            Not sure
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
+        <div>
+          <label className="text-sm font-medium" htmlFor="lesson-note">
+            Why not? (optional)
+          </label>
+          <textarea
+            id="lesson-note"
+            className="mt-1 w-full rounded border bg-background p-2 text-sm"
+            rows={2}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. Every other move was safe too; nothing to resist."
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium" htmlFor="lesson-reviewer">
+            Your name
+          </label>
+          <input
+            id="lesson-reviewer"
+            className="mt-1 w-full rounded border bg-background p-2 text-sm"
+            value={reviewerName}
+            onChange={(e) => setReviewerName(e.target.value)}
+            placeholder="e.g. Farhan"
+          />
+        </div>
+      </div>
+
+      {results && typeof results.in_set === "number" ? (
+        <p className="text-xs text-muted-foreground">
+          {results.total} ruled · {results.pairs_approved} of {results.pairs}{" "}
+          player-concept pairs have a yes · {item.pairs_waiting} pairs waiting
+        </p>
+      ) : null}
+    </>
+  );
+}
 
 export default function AdminGeometryGaps() {
   const [item, setItem] = useState(null);
@@ -103,6 +247,10 @@ export default function AdminGeometryGaps() {
   // those positions too, so I can verify them right there." `judge` filters
   // by what the board said about the reason.
   const [judge, setJudge] = useState("");
+  // Fifth queue: a coach says whether a real-game move showed the lesson's
+  // idea. The login is shared with reviewing coaches, so each ruling carries
+  // a typed name (docs/phase1_lesson_evidence_review_scope.md, §6.1).
+  const [reviewerName, setReviewerName] = useState(readReviewerName);
   // Play your own move and ask the engine what it answers. Mohit, 2026-09-30:
   // "if I play a move on the board, can you give me stockfish response for
   // that move, so I really know why the move I play doesn't work?" The two
@@ -121,6 +269,8 @@ export default function AdminGeometryGaps() {
           ? "/admin/geometry-gaps/no-why/results"
           : mode === "claude"
           ? "/admin/geometry-gaps/claude-reasons/results"
+          : mode === "lesson"
+          ? "/admin/lesson-evidence/results"
           : "/admin/geometry-gaps/results";
       const r = await fetch(`${API}${path}`, {
         credentials: "include",
@@ -153,6 +303,8 @@ export default function AdminGeometryGaps() {
           ? `${API}/admin/geometry-gaps/unexplained/next${
               side ? `?side=${encodeURIComponent(side)}` : ""
             }`
+          : mode === "lesson"
+          ? `${API}/admin/lesson-evidence/next`
           : `${API}/admin/geometry-gaps/next${
               cluster ? `?cluster=${encodeURIComponent(cluster)}` : ""
             }`;
@@ -163,6 +315,17 @@ export default function AdminGeometryGaps() {
         setItem(null);
         setDenied(true);
         setError("");
+      } else if (res.status === 404 && mode === "lesson") {
+        // Two different empties: nothing seeded yet, or everything ruled.
+        // The server says which.
+        setItem(null);
+        let detail = "";
+        try {
+          detail = (await res.json())?.detail || "";
+        } catch {
+          /* fall through to the generic line */
+        }
+        setError(detail || "Nothing left to judge in this queue.");
       } else if (res.status === 404) {
         setItem(null);
         setError(
@@ -262,6 +425,36 @@ export default function AdminGeometryGaps() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ key: item.key, verdict, note: why.trim() }),
+      });
+      await load();
+    } catch (e) {
+      setError(String(e.message || e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // The fifth queue's answer is evidence, never a promotion: a "yes" awards
+  // nothing by itself and the lesson ledger is never written.
+  const submitEvidence = async (verdict) => {
+    if (!item || saving) return;
+    setSaving(true);
+    try {
+      try {
+        window.localStorage.setItem("lessonEvidenceReviewer", reviewerName.trim());
+      } catch {
+        /* the name is a convenience; the ruling still carries it */
+      }
+      await fetch(`${API}/admin/lesson-evidence`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          key: item.key,
+          verdict,
+          note: why.trim(),
+          reviewer_name: reviewerName.trim(),
+        }),
       });
       await load();
     } catch (e) {
@@ -425,11 +618,20 @@ export default function AdminGeometryGaps() {
   const arrows = useMemo(() => {
     if (!item) return [];
     if (view.arrow) return [view.arrow];
+    if (mode === "lesson") {
+      // Green: what they played, and kept the piece safe. Red: the move that
+      // would have hung one, which is what made resisting it a real choice.
+      const top = (item.tempting_moves || [])[0];
+      return [
+        sanToArrow(item.fen, item.played_san, "green"),
+        top ? sanToArrow(item.fen, top.san, "red") : null,
+      ].filter(Boolean);
+    }
     return [
       sanToArrow(item.fen, item.played_san, "red"),
       sanToArrow(item.fen, item.best_san, "green"),
     ].filter(Boolean);
-  }, [item, view]);
+  }, [item, view, mode]);
 
   const renderLine = (which, label, colorClass) => {
     const moves = movesFor(which);
@@ -488,6 +690,8 @@ export default function AdminGeometryGaps() {
               ? "Blunders that never say why"
               : mode === "claude"
               ? "Claude's reason, judged by the board"
+              : mode === "lesson"
+              ? "Did this move show the lesson's idea?"
               : "Mistakes the board cannot explain yet"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -495,6 +699,8 @@ export default function AdminGeometryGaps() {
               ? "Each of these is a real mistake whose caption never explains itself. Write the missing sentence, or say the move needs no coaching. 697 of 5,683 across 500 games."
               : mode === "claude"
               ? "The 61 moves out of 320 where the why button had nothing to say. For each: the reason Claude would give, and what happened when that reason was tested on the board. Say whether you agree."
+              : mode === "lesson"
+              ? "Real games where a player kept a piece safe while a move that hangs one was a real temptation for their level. Your answer is evidence: it never awards anything on its own, and \"No\" takes nothing away."
               : "Click any move to play the line out on the board. The punishment line after the mistake is usually where the real lesson is."}
           </p>
         </header>
@@ -513,6 +719,9 @@ export default function AdminGeometryGaps() {
               // verdict on it. Mohit 2026-10-29: "so I can verify them
               // right there."
               ["claude", "Claude's reasons"],
+              // A coach approves real-game evidence that a lesson landed.
+              // docs/phase1_lesson_evidence_review_scope.md.
+              ["lesson", "Lesson evidence"],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -554,7 +763,7 @@ export default function AdminGeometryGaps() {
                 </option>
               ))}
             </select>
-          ) : (
+          ) : mode === "lesson" ? null : (
             <select
               className="rounded border bg-background px-2 py-1 text-sm"
               value={side}
@@ -664,6 +873,19 @@ export default function AdminGeometryGaps() {
               ) : null}
             </div>
             <div className="space-y-4">
+              {mode === "lesson" ? (
+                <LessonEvidenceCard
+                  item={item}
+                  note={why}
+                  setNote={setWhy}
+                  reviewerName={reviewerName}
+                  setReviewerName={setReviewerName}
+                  saving={saving}
+                  onRule={submitEvidence}
+                  results={results}
+                />
+              ) : (
+              <>
               <div className="rounded-lg border p-4">
                 <p className="text-sm">
                   <span className="text-muted-foreground">Played</span>{" "}
@@ -985,6 +1207,8 @@ export default function AdminGeometryGaps() {
                     </Button>
                   </div>
                 </>
+              )}
+              </>
               )}
             </div>
           </div>
