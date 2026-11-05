@@ -58,6 +58,8 @@ import AdminPositionalReasons from "@/pages/AdminPositionalReasons";
 import AdminReasonJudge from "@/pages/AdminReasonJudge";
 import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
 import AdminLlmCost from "@/pages/AdminLlmCost";
+import { AcademyHome, AcademyBatch, AcademyStudent } from "@/pages/Academy";
+import { FamilyConsent, FamilyReport, FamilyHomework } from "@/pages/AcademyFamily";
 import CalculationTest from "@/pages/CalculationTest";
 import MotifFindDrill from "@/pages/MotifFindDrill";
 import AdminDetectorReview from "@/pages/AdminDetectorReview";
@@ -343,6 +345,12 @@ function AppRouter() {
       <Route path="/learn/openings" element={<OpeningsIndex />} />
       <Route path="/learn/openings/:slug" element={<OpeningGuide />} />
 
+      {/* Academy pilot family links: no account, a long random token each.
+          docs/academy_pilot_scope.md. */}
+      <Route path="/consent/:token" element={<FamilyConsent />} />
+      <Route path="/r/:token" element={<FamilyReport />} />
+      <Route path="/homework/:token" element={<FamilyHomework />} />
+
       <Route path="/welcome" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {() => <ActivationHub />}
@@ -563,6 +571,22 @@ function AppRouter() {
         </ProtectedRoute>
       } />
       {/* Who asked for an invite, and one click to let them in. */}
+      {/* Academy staff: owner and coaches. The server checks the academy. */}
+      <Route path="/academy" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {() => <AcademyHome />}
+        </ProtectedRoute>
+      } />
+      <Route path="/academy/batch/:batchId" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {() => <AcademyBatch />}
+        </ProtectedRoute>
+      } />
+      <Route path="/academy/student/:studentId" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {() => <AcademyStudent />}
+        </ProtectedRoute>
+      } />
       <Route path="/admin/waitlist" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminWaitlist user={user} />}

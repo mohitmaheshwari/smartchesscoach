@@ -110,6 +110,18 @@ PUBLIC_ROUTES: dict[str, str] = {
     "POST /api/training/tricks/validate-avoidance": "trap library reference content; identical for every visitor",
     "POST /api/training/tricks/validate-recognition": "trap library reference content; identical for every visitor",
     "POST /api/traps/suggest": "trap library reference content; identical for every visitor",
+
+    # ---- Academy pilot family links, 2026-11-05 (docs/academy_pilot_scope.md) ----
+    # A parent has no account. Each child carries three long random tokens, and
+    # a token opens only its own page; a wrong or short token is a 404.
+    "GET /api/academy/consent/{token}": "family consent link; token opens only that child's consent page",
+    "POST /api/academy/consent/{token}": "family consent link; records the parent's agreement",
+    "POST /api/academy/consent/{token}/withdraw": "family consent link; the parent stops and deletes",
+    "GET /api/academy/report/{token}": "family report link; shows only the coach-approved report",
+    "GET /api/academy/homework/{token}": "family homework link; that child's homework position only",
+    "POST /api/academy/homework/{token}/start": "family homework link; starts a try",
+    "POST /api/academy/homework/{token}/move": "family homework link; one move of a try",
+    "POST /api/academy/homework/{token}/stop": "family homework link; ends a try",
 }
 
 

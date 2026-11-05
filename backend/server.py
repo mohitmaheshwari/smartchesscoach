@@ -452,6 +452,15 @@ async def lifespan(app: FastAPI):
 
     # 2026-07-03: Focus-outcome check runs every 6h to fire improved/regressed
     # resolutions so HomePage banners have live source of truth.
+    try:
+        from routes.academy import ensure_indexes as ensure_academy_indexes
+        await ensure_academy_indexes(db)
+    except Exception as e:
+        logger.error(f"Error initializing academy indexes: {e}")
+    from routes.academy import academy_week_loop
+    asyncio.create_task(academy_week_loop())
+    logger.info("Academy week builder started (2 hour interval)")
+
     _focus_outcome_task = asyncio.create_task(focus_outcome_loop())
     logger.info("Focus-outcome scheduler started (6 hour interval)")
 
@@ -730,6 +739,11 @@ app.include_router(admin_claude_reason_routes.router, prefix="/api")
 from routes import admin_lesson_evidence as admin_lesson_evidence_routes  # noqa: E402
 admin_lesson_evidence_routes.set_db(db)
 app.include_router(admin_lesson_evidence_routes.router, prefix="/api")
+# Academy pilot: academies, batches, children with parent consent, the weekly
+# parent report and Win it back homework. See docs/academy_pilot_scope.md.
+from routes import academy as academy_routes  # noqa: E402
+academy_routes.set_db(db)
+app.include_router(academy_routes.router, prefix="/api")
 # Stockfish's move beside the move a human of that rating would actually
 # play. Read-only: Maia2 runs on Mohit's machine and writes the collection,
 # because the model needs ~800 MB resident and this box has none to spare

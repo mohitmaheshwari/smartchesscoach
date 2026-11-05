@@ -26,7 +26,8 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
-  Flag
+  Flag,
+  Users
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { API } from "@/App";
@@ -49,6 +50,14 @@ import {
  * and read as a small board surrounded by furniture -- which is the opposite
  * of a board-led coaching screen.
  */
+const ACADEMY_STAFF_KEY = "chessguru.academy_staff";
+export const rememberAcademyStaff = (isStaff) => {
+  try { window.localStorage.setItem(ACADEMY_STAFF_KEY, isStaff ? "1" : "0"); } catch { /* storage blocked */ }
+};
+const isAcademyStaff = () => {
+  try { return window.localStorage.getItem(ACADEMY_STAFF_KEY) === "1"; } catch { return false; }
+};
+
 const Layout = ({ children, user, fullBleed = false }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -176,6 +185,9 @@ const Layout = ({ children, user, fullBleed = false }) => {
       ? [{ name: 'Game Review', href: CURRICULUM_ROUTES.gameReview, icon: FlaskConical }]
       : []),
     { name: 'Progress', href: '/progress', icon: TrendingUp },
+    // Academy staff only. Set by the academy page itself after the server
+    // lists an academy for this account, so Layout makes no extra request.
+    ...(isAcademyStaff() ? [{ name: 'Academy', href: '/academy', icon: Users }] : []),
   ];
 
   // Admin nav is locked to the owner email on top of the role check.
