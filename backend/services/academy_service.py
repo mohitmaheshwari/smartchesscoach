@@ -47,7 +47,8 @@ WEEKS = "academy_student_weeks"
 REPORTS = "academy_parent_reports"
 ATTEMPTS = "academy_homework_attempts"
 
-CONSENT_TEXT_VERSION = "consent.v1"
+# v2 2026-11-05: deletion covers everything held about the child, not only games.
+CONSENT_TEXT_VERSION = "consent.v2"
 
 MISTAKE = {"mistake", "blunder"}
 GOOD = {"good", "excellent", "best", "brilliant", "great"}

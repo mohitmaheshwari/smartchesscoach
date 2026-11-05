@@ -597,7 +597,7 @@ CONSENT_POINTS = [
     "We use them to show your child's coach and you which habits to work on.",
     "We keep your child's first name, the chess account name and your phone number.",
     "We do not show your child to other people, and no one can message your child.",
-    "You can stop at any time from the report. We then delete your child's games.",
+    "You can stop at any time from the report. We then delete everything we hold about your child.",
 ]
 
 

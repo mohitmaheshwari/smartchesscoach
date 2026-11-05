@@ -79,7 +79,7 @@ export function FamilyConsent() {
     return (
       <Shell>
         <Message title="Stopped">
-          <p>{page.child_name}'s games have been deleted from ChessGuru. Nothing more will be read.</p>
+          <p>Everything about {page.child_name} has been deleted from ChessGuru. Nothing more will be read.</p>
         </Message>
       </Shell>
     );
@@ -131,11 +131,11 @@ export function FamilyConsent() {
           <p>Thank you. Your first weekly report comes from the coach.</p>
           {!confirmStop ? (
             <button type="button" className="w-fit text-sm underline" onClick={() => setConfirmStop(true)}>
-              Stop and delete {page.child_name}'s games
+              Stop and delete {page.child_name}'s data
             </button>
           ) : (
             <div className="grid gap-2 rounded-xl border border-red-300 p-3">
-              <p>This deletes {page.child_name}'s games and reports. It cannot be undone.</p>
+              <p>This deletes everything we hold about {page.child_name}. It cannot be undone.</p>
               <div className="flex flex-wrap gap-2">
                 <button type="button" disabled={busy} onClick={stop}
                   className="rounded-full bg-red-600 px-4 py-2 font-semibold text-white">
@@ -200,7 +200,7 @@ export function FamilyReport() {
     <Shell>
       <ParentReport report={page.report} homeworkLink={page.homework_link} />
       <a href={page.stop_link} className="text-sm text-muted-foreground underline">
-        Stop the reports and delete the games
+        Stop the reports and delete the data
       </a>
     </Shell>
   );

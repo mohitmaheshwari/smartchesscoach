@@ -52,7 +52,7 @@ test("the parent sees the coach-approved report with its boards and no digits", 
   expect(text).toContain("Rohan's week");
   expect(text).toContain("Rohan moves a piece to a square where it can be taken.");
   expect(container.querySelectorAll("[data-testid=board]").length).toBe(1);
-  expect(text).toContain("Stop the reports and delete the games");
+  expect(text).toContain("Stop the reports and delete the data");
   expect(global.fetch.mock.calls[0][0]).toBe("http://test/api/academy/report/tok");
 });
 
