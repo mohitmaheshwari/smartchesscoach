@@ -115,6 +115,11 @@ class _Coll:
     async def delete_many(self, query):
         self.rows = [r for r in self.rows if not _matches(r, query)]
 
+    async def delete_one(self, query):
+        hit = next((r for r in self.rows if _matches(r, query)), None)
+        if hit is not None:
+            self.rows.remove(hit)
+
     async def count_documents(self, query):
         return len([r for r in self.rows if _matches(r, query)])
 
@@ -128,6 +133,9 @@ class _DB:
 
     def __getitem__(self, name):
         return self._c.setdefault(name, _Coll())
+
+    async def list_collection_names(self):
+        return list(self._c)
 
     def __getattr__(self, name):
         if name.startswith("_"):
@@ -216,11 +224,13 @@ def test_stop_and_delete_removes_the_child_games(db):
     db.game_analyses.rows.append({"game_id": "g1"})
     db.move_observations.rows.append({"user_id": uid, "game_id": "g1"})
     db.games.rows.append({"user_id": "someone_else", "game_id": "g2"})
+    db.player_profiles.rows.append({"user_id": uid, "top_weaknesses": ["piece_safety"]})
+    db.player_profiles.rows.append({"user_id": "someone_else"})
     run(routes.withdraw_consent(student["consent_token"]))
     assert [g["game_id"] for g in db.games.rows] == ["g2"]
     assert db.game_analyses.rows == [] and db.move_observations.rows == []
-    child = next(u for u in db.users.rows if u["user_id"] == uid)
-    assert "lichess_username" not in child
+    assert [p["user_id"] for p in db.player_profiles.rows] == ["someone_else"]
+    assert not any(u["user_id"] == uid for u in db.users.rows)
     assert run(routes.report_page(student["report_token"])) == {"status": "deleted"}
     assert db[svc.STUDENTS].rows[0]["parent_phone"] is None
 

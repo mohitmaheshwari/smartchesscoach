@@ -641,8 +641,13 @@ async def give_consent(token: str, request: Request, payload: Dict[str, Any] = B
                                  tzinfo=svc.IST)
         update["last_game_sync"] = start.astimezone(timezone.utc).isoformat()
         await db.users.update_one({"user_id": student["child_user_id"]}, {"$set": update})
-        asyncio.create_task(_first_sync(student["child_user_id"]))
+        task = asyncio.create_task(_first_sync(student["child_user_id"]))
+        _BACKGROUND.add(task)  # the loop keeps only a weak reference to a task
+        task.add_done_callback(_BACKGROUND.discard)
     return {"ok": True, "status": "given"}
+
+
+_BACKGROUND: set = set()
 
 
 async def _first_sync(user_id: str) -> None:
@@ -659,6 +664,13 @@ async def _first_sync(user_id: str) -> None:
 
 
 async def _delete_child_data(student: Dict[str, Any], *, reason: str, by: str) -> None:
+    """Everything keyed to the child's account goes, not only the games.
+
+    The consent page promises deletion. Profiles, pattern rows, scores and
+    notifications are all derived from the games and all carry the child's
+    user_id, which belongs to this child alone (made here, never shared), so
+    every collection is swept for it. A withdrawal is rare; the sweep is fine.
+    """
     uid = student.get("child_user_id")
     if uid:
         game_ids = [g["game_id"] for g in await db.games.find({"user_id": uid}, {"_id": 0, "game_id": 1}).to_list(10000)]
@@ -669,8 +681,15 @@ async def _delete_child_data(student: Dict[str, Any], *, reason: str, by: str) -
         if game_ids:
             await db.game_analyses.delete_many({"game_id": {"$in": game_ids}})
             await db.analysis_queue.delete_many({"game_id": {"$in": game_ids}})
-        await db.games.delete_many({"user_id": uid})
-        await db.move_observations.delete_many({"user_id": uid})
+        keep = {"users"} | {c for c in (svc.ACADEMIES, svc.STAFF, svc.BATCHES, svc.STUDENTS)}
+        for name in await db.list_collection_names():
+            if name.startswith("system.") or name in keep:
+                continue
+            try:
+                await db[name].delete_many({"user_id": uid})
+            except Exception as exc:  # a view or capped collection must not stop the rest
+                logger.warning("child data sweep skipped %s: %s", name, exc)
+        await db.users.delete_one({"user_id": uid})
     for coll in (svc.WEEKS, svc.REPORTS, svc.ATTEMPTS, EVIDENCE):
         await db[coll].delete_many({"student_id": student["student_id"]})
     for side in ("white_student_id", "black_student_id"):
