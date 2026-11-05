@@ -55,7 +55,17 @@ export const gradeOf = (card) => {
   const practical = String(card?.severity || "good");
   if (isFaultedSeverity(practical)) return practical;
   const canonical = String(card?.severity_canonical || "");
-  return isFaultedSeverity(canonical) ? canonical : practical;
+  if (isFaultedSeverity(canonical)) return canonical;
+  // The word the caption itself used. The badge leads with it
+  // (moveBadge.js tierFromCaption), so when both grades were withdrawn
+  // but the sentence still says "was a mistake", the player is shown a
+  // Mistake badge, a mistake caption and no way to ask why. Mohit
+  // 2026-11-05 on Be2, move 6 of 5e68fc88 (book-move gate set both grades
+  // to good, caption kept the word): "it doesn't show why bad button?".
+  // 998 stored cards across 20,139 games had that shape. If the card says
+  // it, the player can ask.
+  const word = String(card?.caption_severity_word || "");
+  return isFaultedSeverity(word) ? word : practical;
 };
 
 /** Does this card describe a move the engine faulted, either side? */

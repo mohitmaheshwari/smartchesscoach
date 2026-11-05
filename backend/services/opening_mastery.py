@@ -522,6 +522,40 @@ def _find_variation(game_moves: List[str], opening: OpeningFamily) -> Optional[O
     return best_match
 
 
+def _san_key(san: str) -> str:
+    """One spelling for a move: the JSON lines carry no check marks, a
+    game's SAN does ("Qe6+")."""
+    return str(san or "").strip().rstrip("+#!?").lower()
+
+
+def known_line_covers(moves: List[str]) -> bool:
+    """Is this whole sequence, LAST MOVE INCLUDED, inside a line we know?
+
+    `detect_opening_from_moves` names the opening from a fixed prefix: e4 d5
+    is already "Scandinavian Defense", and every sequence that starts that
+    way gets the same answer whatever follows. A caller that reads that answer
+    as "this move is book" is told yes about any move after the prefix.
+    is_book_opening_move read it that way: on 5e68fc88 it withdrew the
+    engine's grade on 6.Be2 at 113 cp, and would have on Nb5 in the same
+    position (checked 2026-11-05). Here the candidate has to sit inside a line
+    the theory file holds, the family's first moves or one of its variations,
+    matched ply for ply from move one. Unknown is not book.
+    """
+    if not moves:
+        return False
+    info = detect_opening_from_moves(moves)
+    family = OPENING_DATABASE.get((info or {}).get("opening_key") or "")
+    if family is None:
+        return False
+    seq = [_san_key(m) for m in moves]
+    lines = [family.first_moves] + [v.moves for v in family.variations]
+    for line in lines:
+        keys = [_san_key(m) for m in (line or [])]
+        if len(keys) >= len(seq) and keys[:len(seq)] == seq:
+            return True
+    return False
+
+
 def detect_opening_from_fen(fen: str) -> Optional[Dict]:
     """
     Detect opening from a FEN position.

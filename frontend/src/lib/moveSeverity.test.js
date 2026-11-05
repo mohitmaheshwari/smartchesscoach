@@ -139,4 +139,21 @@ describe("faulted moves on either side", () => {
     "our %s still qualifies", (tier) => {
       expect(isFaultedCard({ severity: tier })).toBe(true);
     });
+
+  // 2026-11-05, Be2 at move 6 of 5e68fc88: the book-move gate withdrew both
+  // grades to good, the caption still read "Be2 was a mistake", the badge
+  // (which reads the caption's word first) said Mistake, and the card had no
+  // why button. 998 stored cards across 20,139 games had that shape.
+  test("a card whose own caption calls the move a fault gets the button", () => {
+    const card = { severity: "good", severity_canonical: "good", caption_severity_word: "mistake" };
+    expect(gradeOf(card)).toBe("mistake");
+    expect(isFaultedCard(card)).toBe(true);
+    expect(isFaultedCard({ severity: "good", severity_canonical: "good", caption_severity_word: "inaccuracy" })).toBe(true);
+  });
+
+  test("a caption word that is not a fault changes nothing", () => {
+    expect(isFaultedCard({ severity: "good", caption_severity_word: "good" })).toBe(false);
+    expect(isFaultedCard({ severity: "good", caption_severity_word: null })).toBe(false);
+    expect(gradeOf({ severity: "good", caption_severity_word: "best" })).toBe("good");
+  });
 });
