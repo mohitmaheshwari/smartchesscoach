@@ -1085,6 +1085,52 @@ def update_player_identity_sync(db, user_id: str, game_result: str, moves_analys
         traceback.print_exc()
 
 
+def user_move_count(pgn: str, user_color) -> int:
+    """How many moves the user actually made in this game.
+
+    The short-game check below compares the analysis against THIS, not against
+    a fixed floor. A game can be short and complete: on 2026-11-04/05 all six
+    "failed" jobs were real games of 0-7 plies (abandoned daily games, a
+    resignation, a mate in four), and in every one the analysis had covered
+    every move the user made. They were marked failed anyway, and the deploy
+    gate read them as a spike.
+    """
+    import io
+    import chess
+    import chess.pgn
+
+    game = chess.pgn.read_game(io.StringIO(pgn or ""))
+    if game is None:
+        return 0
+    want = chess.WHITE if str(user_color or "white").lower() == "white" else chess.BLACK
+    board = game.board()
+    count = 0
+    for move in game.mainline_moves():
+        if board.turn == want:
+            count += 1
+        board.push(move)
+    return count
+
+
+def mark_job_skipped(db, game_id, reason):
+    """A terminal state for a game with nothing to analyse. Not a failure."""
+    logger.info(f"[SKIP] {game_id}: {reason}")
+    now = datetime.now(timezone.utc)
+    db.analysis_queue.update_one(
+        {"game_id": game_id},
+        {"$set": {
+            "status": "skipped",
+            "skipped_at": now,
+            "skip_reason": reason,
+            "retrying": False,
+        }},
+    )
+    db.games.update_one(
+        {"game_id": game_id},
+        {"$set": {"analysis_status": "skipped", "analysis_error": None}},
+    )
+
+
 def process_job(db, job):
     """
     Process a single analysis job.
@@ -1118,7 +1164,13 @@ def process_job(db, job):
             return False
         
         user_color = game.get("user_color", "white")
-        
+
+        # Nothing the user played means nothing to coach and nothing broken.
+        expected_user_moves = user_move_count(pgn, user_color)
+        if expected_user_moves == 0:
+            mark_job_skipped(db, game_id, "no_user_moves")
+            return True
+
         # Preserve exact game-time provenance separately from the coaching
         # fallback. A missing rating remains unknown in storage/corpus queries.
         game_rating = resolve_game_user_rating(game)
@@ -1185,7 +1237,9 @@ def process_job(db, job):
         is_valid_analysis = True
         validation_error = None
         
-        if total_moves < 5:
+        # Under five moves is only suspicious when the game had more: a short
+        # game whose every user move was analysed is complete, not broken.
+        if total_moves < 5 and total_moves < expected_user_moves:
             is_valid_analysis = False
             validation_error = f"Too few moves analyzed ({total_moves})"
         elif accuracy == 0 and blunders == 0 and mistakes == 0 and best_moves == 0:
