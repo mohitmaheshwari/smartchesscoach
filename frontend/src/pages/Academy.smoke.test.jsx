@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { act } from "react";
 import { AcademyBatch, AcademyStudent } from "@/pages/Academy";
-import { FamilyConsent, FamilyReport, FamilyHomework } from "@/pages/AcademyFamily";
+import { FamilyConsent, FamilyReport, FamilyHomework, FamilyClassGame } from "@/pages/AcademyFamily";
 
 let mockParams = {};
 jest.mock("react-router-dom", () => ({
@@ -111,4 +111,16 @@ test("a child waiting for consent shows the WhatsApp consent button, not a repor
   const link = [...container.querySelectorAll("a")].find((a) => a.textContent.includes("WhatsApp"));
   expect(link.getAttribute("href")).toBe("https://wa.me/919876543210?text=Hello");
   expect(container.querySelector("[data-testid=parent-report]")).toBeNull();
+});
+
+test("a class game shows whose move it is and lets the child resign", async () => {
+  await render({ token: "tok" }, <FamilyClassGame />, {
+    class_game_id: "cg1", fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    moves: [], ply: 0, turn: "white", status: "playing", my_color: "white",
+    opponent_name: "Ananya", white_name: "Rohan", black_name: "Ananya", last_move: null,
+  });
+  const text = container.textContent;
+  expect(text).toContain("You are playing Ananya");
+  expect(text).toContain("Your move.");
+  expect(text).toContain("Resign");
 });

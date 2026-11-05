@@ -548,12 +548,19 @@ def render_report(week: Mapping[str, Any], *, child_name: str, batch_name: str =
 
     good = week.get("good_moment")
     if good:
+        lines = [f"The {good['piece']} was under attack. {name} kept it safe."]
+        # The coach's own judgement, in the coach's name. It is not a claim
+        # that the habit is gone; the report never makes that claim alone.
+        confirmed_by = (good.get("confirmed_by_name") or "").strip()
+        if confirmed_by:
+            lines.append(f"{confirmed_by} checked this move. It shows {name} understands the idea.")
         out["sections"].append({
             "kind": "good", "eyebrow": "A good moment",
             "headline": f"Here {name} spotted the danger.",
-            "lines": [f"The {good['piece']} was under attack. {name} kept it safe."],
+            "lines": lines,
             "boards": [_board(good)],
             "key": [["green", f"{name}'s move"], ["red", "The danger"]],
+            "confirmed": bool(confirmed_by),
         })
 
     homework = week.get("homework")
@@ -652,3 +659,68 @@ HOMEWORK_RESULT_WORDS = {
     "lost": "Not this time. Try it again.",
     "drawn": "It ended in a draw. Try again to win it.",
 }
+
+
+# ---------------------------------------------------------------------------
+# class games: two children of one batch, on the site
+# ---------------------------------------------------------------------------
+CLASS_GAMES = "academy_class_games"
+
+CLASS_STATUS_WORDS = {
+    "playing": "Playing",
+    "white_won": "White won",
+    "black_won": "Black won",
+    "draw": "Draw",
+}
+
+
+def class_game_outcome(board: chess.Board, resigned: Optional[str] = None) -> Optional[Dict[str, str]]:
+    """How a class game ended, or None while it goes on.
+
+    `resigned` is the colour that resigned. A draw by repetition or the
+    fifty-move rule is applied automatically: children do not claim draws.
+    """
+    if resigned in ("white", "black"):
+        winner = "black" if resigned == "white" else "white"
+        return {"status": f"{winner}_won", "result": "1-0" if winner == "white" else "0-1",
+                "reason": "resigned"}
+    if board.is_checkmate():
+        winner = "black" if board.turn == chess.WHITE else "white"
+        return {"status": f"{winner}_won", "result": "1-0" if winner == "white" else "0-1",
+                "reason": "checkmate"}
+    if (board.is_stalemate() or board.is_insufficient_material()
+            or board.can_claim_threefold_repetition() or board.can_claim_fifty_moves()):
+        return {"status": "draw", "result": "1/2-1/2", "reason": "draw"}
+    return None
+
+
+def class_game_pgn(white: str, black: str, sans: Sequence[str], result: str,
+                   played: datetime, event: str) -> str:
+    def tag(name, value):
+        return '[%s "%s"]' % (name, str(value).replace('"', ""))
+    headers = [tag("Event", event), tag("Site", "ChessGuru"), tag("Date", played.strftime("%Y.%m.%d")),
+               tag("White", white), tag("Black", black), tag("Result", result)]
+    body = []
+    for i, san in enumerate(sans):
+        if i % 2 == 0:
+            body.append(f"{i // 2 + 1}.")
+        body.append(san)
+    body.append(result)
+    return "\n".join(headers) + "\n\n" + " ".join(body) + "\n"
+
+
+CLASS_RESULT_WORDS = {
+    ("checkmate", True): "Checkmate. You won.",
+    ("checkmate", False): "Checkmate. You lost this one.",
+    ("resigned", True): "They resigned. You won.",
+    ("resigned", False): "You resigned.",
+}
+
+
+def class_result_words(outcome: Optional[Mapping[str, str]], my_color: str) -> Optional[str]:
+    if not outcome:
+        return None
+    if outcome.get("status") == "draw":
+        return "The game is a draw."
+    won = outcome.get("status") == f"{my_color}_won"
+    return CLASS_RESULT_WORDS.get((outcome.get("reason"), won))

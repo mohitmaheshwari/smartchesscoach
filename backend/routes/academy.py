@@ -72,6 +72,9 @@ async def ensure_indexes(database) -> None:
     await database[svc.WEEKS].create_index([("student_id", 1), ("week_start", 1)], unique=True)
     await database[svc.REPORTS].create_index([("student_id", 1), ("approved_at", -1)])
     await database[svc.ATTEMPTS].create_index([("student_id", 1), ("week_start", 1)])
+    await database[svc.CLASS_GAMES].create_index([("batch_id", 1), ("created_at", -1)])
+    for token in ("white_token", "black_token"):
+        await database[svc.CLASS_GAMES].create_index([(token, 1)], unique=True)
 
 
 # ---------------------------------------------------------------------------
@@ -206,6 +209,15 @@ async def build_week(student: Dict[str, Any], start=None) -> Optional[Dict[str, 
         prev = svc.summarise_week(prev_games, prev_obs)
     week = svc.summarise_week(games, obs, prev)
     week["better_moves"] = await _better_moves(week.get("habit"))
+    # A coach's confirmation survives the rebuild when the good moment is the
+    # same move; a different move is a new moment and starts unconfirmed.
+    old = await db[svc.WEEKS].find_one({"student_id": student["student_id"],
+                                        "week_start": start.isoformat()}, {"_id": 0, "good_moment": 1})
+    old_good, new_good = (old or {}).get("good_moment") or {}, week.get("good_moment")
+    if new_good and old_good.get("confirmed_by_name") and \
+            (old_good.get("fen"), old_good.get("move_uci")) == (new_good["fen"], new_good["move_uci"]):
+        for key in ("confirmed_by_name", "confirmed_by", "confirmed_at"):
+            new_good[key] = old_good.get(key)
     row = {**week, "student_id": student["student_id"], "week_start": start.isoformat(),
            "built_at": _now()}
     await db[svc.WEEKS].update_one({"student_id": student["student_id"],
@@ -309,15 +321,27 @@ async def my_academies(user: User = Depends(get_current_user)):
 
 @router.post("")
 async def create_academy(payload: Dict[str, Any] = Body(...), user: User = Depends(get_current_user)):
-    name = _clean(payload.get("name"))
+    """An academy, or -- with kind "family" -- a parent's own home set-up.
+
+    A family is the same shape with one batch called "Home": the parent is the
+    owner and the coach, and agrees on the consent page for their own child.
+    """
+    family = payload.get("kind") == "family"
+    name = _clean(payload.get("name")) or (f"{user.name}'s family" if family else "")
     if len(name) < 2:
         raise HTTPException(400, "Give the academy a name.")
     academy = {"academy_id": svc.new_id("acad"), "name": name, "city": _clean(payload.get("city"), 60),
+               "kind": "family" if family else "academy",
                "owner_user_id": user.user_id, "created_at": _now()}
     await db[svc.ACADEMIES].insert_one(dict(academy))
     await db[svc.STAFF].insert_one({"academy_id": academy["academy_id"], "user_id": user.user_id,
                                     "name": user.name, "email": (user.email or "").lower(),
                                     "role": "owner", "added_at": _now()})
+    if family:
+        batch = {"batch_id": svc.new_id("batch"), "academy_id": academy["academy_id"], "name": "Home",
+                 "coach_name": user.name, "created_by": user.user_id, "created_at": _now()}
+        await db[svc.BATCHES].insert_one(dict(batch))
+        academy["batch_id"] = batch["batch_id"]
     return academy
 
 
@@ -434,7 +458,8 @@ async def batch_view(batch_id: str, user: User = Depends(get_current_user)):
     else:
         summary = "Every child is on track this week."
     return {"batch": {k: v for k, v in batch.items() if k != "academy"},
-            "academy": {"academy_id": batch["academy"]["academy_id"], "name": batch["academy"]["name"]},
+            "academy": {"academy_id": batch["academy"]["academy_id"], "name": batch["academy"]["name"],
+                        "kind": batch["academy"].get("kind", "academy")},
             "week_start": start, "summary": summary, "topic": svc.class_topic(weeks), "rows": rows}
 
 
@@ -459,7 +484,8 @@ async def student_view(student_id: str, user: User = Depends(get_current_user)):
                                                 "chesscom_username", "parent_name", "parent_phone",
                                                 "batch_id", "consent")},
         "batch": {"batch_id": student["batch_id"], "name": (batch or {}).get("name")},
-        "academy": {"academy_id": academy["academy_id"], "name": academy["name"]},
+        "academy": {"academy_id": academy["academy_id"], "name": academy["name"],
+                    "kind": academy.get("kind", "academy")},
         "week_start": start, "week_built_at": (week or {}).get("built_at"),
         "row": _row_for_table(student, week, status),
         "preview": preview, "last_report": last, "links": _links(student),
@@ -497,6 +523,41 @@ async def approve_report(student_id: str, payload: Dict[str, Any] = Body(default
     return {"ok": True, "report_id": report["report_id"], "link": _links(student)["report"],
             "whatsapp": svc.whatsapp_link(student["parent_phone"],
                                           _report_message(student, student["academy"]))}
+
+
+EVIDENCE = "academy_coach_evidence"
+
+
+@router.post("/student/{student_id}/confirm-good-moment")
+async def confirm_good_moment(student_id: str, payload: Dict[str, Any] = Body(default={}),
+                              user: User = Depends(get_current_user)):
+    """The coach says this week's good moment shows the child understands.
+
+    Kept on the week (so the report says it, in the coach's name) and as its
+    own evidence row, the same shape the lesson-evidence queue keeps, so the
+    mastery work can read coach-approved real-game moves later. A rebuild of
+    the week keeps the confirmation when the same move is still the good
+    moment.
+    """
+    student = await _student_for(user, student_id)
+    batch = await db[svc.BATCHES].find_one({"batch_id": student["batch_id"]}, {"_id": 0}) or {}
+    start = svc.week_start().isoformat()
+    week = await db[svc.WEEKS].find_one({"student_id": student_id, "week_start": start}, {"_id": 0})
+    good = (week or {}).get("good_moment")
+    if not good:
+        raise HTTPException(409, "There is no good moment this week to confirm.")
+    name = _clean(payload.get("coach_name"), 60) or batch.get("coach_name") or user.name
+    confirmation = {"confirmed_by_name": name, "confirmed_by": user.user_id, "confirmed_at": _now()}
+    await db[svc.WEEKS].update_one({"student_id": student_id, "week_start": start},
+                                   {"$set": {f"good_moment.{k}": v for k, v in confirmation.items()}})
+    await db[EVIDENCE].update_one(
+        {"student_id": student_id, "fen": good["fen"], "move_uci": good["move_uci"]},
+        {"$set": {"student_id": student_id, "child_user_id": student.get("child_user_id"),
+                  "academy_id": student["academy_id"], "kind": good["kind"], "piece": good.get("piece"),
+                  "fen": good["fen"], "move_uci": good["move_uci"], "game_id": good.get("game_id"),
+                  "ply": good.get("ply"), "week_start": start, **confirmation}},
+        upsert=True)
+    return {"ok": True, "confirmed_by_name": name}
 
 
 @router.post("/student/{student_id}/sent")
@@ -610,8 +671,10 @@ async def _delete_child_data(student: Dict[str, Any], *, reason: str, by: str) -
             await db.analysis_queue.delete_many({"game_id": {"$in": game_ids}})
         await db.games.delete_many({"user_id": uid})
         await db.move_observations.delete_many({"user_id": uid})
-    for coll in (svc.WEEKS, svc.REPORTS, svc.ATTEMPTS):
+    for coll in (svc.WEEKS, svc.REPORTS, svc.ATTEMPTS, EVIDENCE):
         await db[coll].delete_many({"student_id": student["student_id"]})
+    for side in ("white_student_id", "black_student_id"):
+        await db[svc.CLASS_GAMES].delete_many({side: student["student_id"]})
     await db[svc.STUDENTS].update_one(
         {"student_id": student["student_id"]},
         {"$set": {"deleted_at": _now(), "deleted_reason": reason, "deleted_by": by,
@@ -776,6 +839,178 @@ async def homework_move(token: str, payload: Dict[str, Any] = Body(...)):
         update["finished_at"] = _now()
     await db[svc.ATTEMPTS].update_one({"attempt_id": attempt["attempt_id"]}, {"$set": update})
     return {**_attempt_view({**attempt, **update}), "reply": reply}
+
+
+# ---------------------------------------------------------------------------
+# class games: two children of one batch play each other on the site
+# ---------------------------------------------------------------------------
+# No clocks, no chat, no strangers: a coach pairs two children of the same
+# batch and each gets a link. Every move is saved as it is played, so a game
+# survives a deploy. A finished game is written to each child's `games` like
+# an imported game and queued for analysis, so it reaches the weekly report.
+def _class_view(game: Dict[str, Any], color: Optional[str] = None) -> Dict[str, Any]:
+    board = chess.Board(game["fen"])
+    moves = game.get("moves") or []
+    out = {
+        "class_game_id": game["class_game_id"], "fen": game["fen"],
+        "moves": [m["san"] for m in moves], "ply": len(moves),
+        "turn": "white" if board.turn == chess.WHITE else "black",
+        "status": game["status"], "status_words": svc.CLASS_STATUS_WORDS.get(game["status"]),
+        "white_name": game["white_name"], "black_name": game["black_name"],
+        "last_move": moves[-1]["uci"] if moves else None,
+    }
+    if color:
+        out["my_color"] = color
+        out["opponent_name"] = game["black_name"] if color == "white" else game["white_name"]
+        out["result_words"] = svc.class_result_words(game.get("outcome"), color)
+    return out
+
+
+@router.post("/batch/{batch_id}/class-games")
+async def create_class_game(batch_id: str, payload: Dict[str, Any] = Body(...),
+                            user: User = Depends(get_current_user)):
+    batch = await _batch_for(user, batch_id)
+    white_id, black_id = payload.get("white_student_id"), payload.get("black_student_id")
+    if not white_id or not black_id or white_id == black_id:
+        raise HTTPException(400, "Pick two different children.")
+    sides = {}
+    for color, sid in (("white", white_id), ("black", black_id)):
+        s = await db[svc.STUDENTS].find_one({"student_id": sid, "batch_id": batch_id, "deleted_at": None},
+                                            {"_id": 0})
+        if not s:
+            raise HTTPException(404, "Both children must be in this batch.")
+        if (s.get("consent") or {}).get("status") != "given":
+            raise HTTPException(409, f"{s['display_name']}'s parent has not agreed yet.")
+        sides[color] = s
+    game = {"class_game_id": svc.new_id("cg"), "academy_id": batch["academy_id"], "batch_id": batch_id,
+            "white_student_id": white_id, "black_student_id": black_id,
+            "white_name": sides["white"]["display_name"], "black_name": sides["black"]["display_name"],
+            "white_token": svc.new_token(), "black_token": svc.new_token(),
+            "fen": chess.STARTING_FEN, "moves": [], "status": "playing",
+            "created_by": user.user_id, "created_at": _now(), "updated_at": _now()}
+    await db[svc.CLASS_GAMES].insert_one(dict(game))
+    site = _site()
+    links = {c: f"{site}/play/{game[c + '_token']}" for c in ("white", "black")}
+    whatsapp = {}
+    for c in ("white", "black"):
+        other = game["black_name"] if c == "white" else game["white_name"]
+        whatsapp[c] = svc.whatsapp_link(
+            sides[c].get("parent_phone"),
+            f"{sides[c]['display_name']} has a class game against {other}: {links[c]}")
+    return {"class_game_id": game["class_game_id"], "links": links, "whatsapp": whatsapp}
+
+
+@router.get("/batch/{batch_id}/class-games")
+async def list_class_games(batch_id: str, user: User = Depends(get_current_user)):
+    await _batch_for(user, batch_id)
+    rows = await db[svc.CLASS_GAMES].find({"batch_id": batch_id}, {"_id": 0}).sort(
+        "created_at", -1).to_list(20)
+    site = _site()
+    return {"games": [{**_class_view(g),
+                       "links": {c: f"{site}/play/{g[c + '_token']}" for c in ("white", "black")}}
+                      for g in rows]}
+
+
+async def _class_game_by(token: str):
+    if not token or len(token) < 16:
+        raise HTTPException(404, "This link is not valid.")
+    for color in ("white", "black"):
+        game = await db[svc.CLASS_GAMES].find_one({f"{color}_token": token}, {"_id": 0})
+        if game:
+            return game, color
+    raise HTTPException(404, "This link is not valid.")
+
+
+async def _store_class_game(game: Dict[str, Any]) -> None:
+    """Write the finished game to each child's games and queue it for analysis."""
+    played = datetime.now(timezone.utc)
+    sans = [m["san"] for m in game.get("moves") or []]
+    if len(sans) < 2:
+        return
+    result = (game.get("outcome") or {}).get("result", "*")
+    pgn = svc.class_game_pgn(game["white_name"], game["black_name"], sans, result, played,
+                             "ChessGuru class game")
+    for color in ("white", "black"):
+        student = await db[svc.STUDENTS].find_one({"student_id": game[f"{color}_student_id"],
+                                                   "deleted_at": None}, {"_id": 0})
+        if not student or (student.get("consent") or {}).get("status") != "given":
+            continue
+        uid = student["child_user_id"]
+        game_id = f"class_{game['class_game_id']}_{color}"
+        opponent = game["black_name"] if color == "white" else game["white_name"]
+        await db.games.update_one({"game_id": game_id}, {"$setOnInsert": {
+            "game_id": game_id, "user_id": uid, "platform": "chessguru", "pgn": pgn,
+            "user_color": color, "result": result, "opponent_name": opponent, "opponent": opponent,
+            "white_player": game["white_name"], "black_player": game["black_name"],
+            "time_control": "untimed", "time_control_category": "classical",
+            "played_at_utc": played.replace(tzinfo=None), "date_played": played.isoformat(),
+            "imported_at": played.isoformat(), "is_analyzed": False, "analysis_status": "queued",
+            "class_game_id": game["class_game_id"], "academy_id": game["academy_id"]}}, upsert=True)
+        await db.analysis_queue.update_one({"game_id": game_id, "user_id": uid}, {"$setOnInsert": {
+            "game_id": game_id, "user_id": uid, "pgn": pgn, "user_color": color, "status": "pending",
+            "priority": ACADEMY_QUEUE_PRIORITY + 1, "auto_synced": True,
+            "source": "academy_class_game", "queued_at": played.isoformat()}}, upsert=True)
+
+
+@router.get("/play/{token}")
+async def class_game_page(token: str):
+    game, color = await _class_game_by(token)
+    return _class_view(game, color)
+
+
+@router.post("/play/{token}/move")
+async def class_game_move(token: str, payload: Dict[str, Any] = Body(...)):
+    game, color = await _class_game_by(token)
+    if game["status"] != "playing":
+        raise HTTPException(409, "This game has ended.")
+    board = chess.Board(game["fen"])
+    if ("white" if board.turn == chess.WHITE else "black") != color:
+        raise HTTPException(409, "Wait for the other side to move.")
+    ply = len(game.get("moves") or [])
+    if payload.get("ply") is not None and int(payload["ply"]) != ply:
+        raise HTTPException(409, "The board changed. It has been refreshed.")
+    try:
+        move = chess.Move.from_uci(str(payload.get("uci") or ""))
+    except ValueError:
+        raise HTTPException(400, "That is not a move.")
+    if move not in board.legal_moves:
+        promo = chess.Move(move.from_square, move.to_square, promotion=chess.QUEEN)
+        if promo not in board.legal_moves:
+            raise HTTPException(400, "That move is not allowed here.")
+        move = promo
+    entry = {"uci": move.uci(), "san": board.san(move), "at": _now()}
+    board.push(move)
+    outcome = svc.class_game_outcome(board)
+    update = {"fen": board.fen(), "updated_at": _now(),
+              "status": outcome["status"] if outcome else "playing"}
+    if outcome:
+        update["outcome"] = outcome
+        update["finished_at"] = _now()
+    # Only one move per ply can land: the second of two racing taps matches
+    # nothing and is told to refresh.
+    res = await db[svc.CLASS_GAMES].update_one(
+        {"class_game_id": game["class_game_id"], "fen": game["fen"]},
+        {"$set": {**update, "moves": (game.get("moves") or []) + [entry]}})
+    if getattr(res, "matched_count", 1) == 0:
+        raise HTTPException(409, "The board changed. It has been refreshed.")
+    game = await db[svc.CLASS_GAMES].find_one({"class_game_id": game["class_game_id"]}, {"_id": 0})
+    if outcome:
+        await _store_class_game(game)
+    return _class_view(game, color)
+
+
+@router.post("/play/{token}/resign")
+async def class_game_resign(token: str):
+    game, color = await _class_game_by(token)
+    if game["status"] != "playing":
+        raise HTTPException(409, "This game has ended.")
+    outcome = svc.class_game_outcome(chess.Board(game["fen"]), resigned=color)
+    await db[svc.CLASS_GAMES].update_one({"class_game_id": game["class_game_id"]},
+                                         {"$set": {"status": outcome["status"], "outcome": outcome,
+                                                   "finished_at": _now(), "updated_at": _now()}})
+    game = await db[svc.CLASS_GAMES].find_one({"class_game_id": game["class_game_id"]}, {"_id": 0})
+    await _store_class_game(game)
+    return _class_view(game, color)
 
 
 @router.post("/homework/{token}/stop")

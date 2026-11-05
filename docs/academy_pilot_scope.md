@@ -90,6 +90,23 @@ to ChessGuru ... [I agree]                 [board, you play, engine replies]
 - Words only. No digits reach a parent or a child; a test locks it.
 - Switched on for everyone (no flag), per the sign-off.
 
+### Added the same night (Phase 2 items from the vision, under the same sign-off)
+
+- **Class games.** A coach pairs two consented children of one batch; each
+  gets a `/play/<token>` link. No clocks, no chat, no strangers, polling every
+  few seconds, every move saved (a game survives a deploy), one move per ply
+  even when two taps race. A finished game is written to each child's `games`
+  (`platform: "chessguru"`) and queued for analysis, so it reaches the report.
+  Answers the vision's first risk: children who rarely play online.
+- **The coach confirms a good moment.** One button on the child's page. The
+  report then says "<coach> checked this move. It shows <child> understands
+  the idea." It is the coach's judgement in the coach's name, not a claim that
+  the habit is gone. Each confirmation is also kept in
+  `academy_coach_evidence` (same idea as the lesson-evidence queue) for the
+  mastery work to read later.
+- **A parent without an academy.** "I am a parent" makes a family with one
+  "Home" batch; the parent agrees on the consent page for their own child.
+
 ## 4. Explicitly out of scope (V1)
 
 - Automatic WhatsApp sending through the Business API. Needs a ChessGuru

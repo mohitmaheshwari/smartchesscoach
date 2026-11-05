@@ -207,6 +207,105 @@ export function FamilyReport() {
 }
 
 // ---------------------------------------------------------------------------
+// class game: two children of one batch
+// ---------------------------------------------------------------------------
+const POLL_MS = 2500;
+
+export function FamilyClassGame() {
+  const { token } = useParams();
+  const [game, setGame] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [confirmResign, setConfirmResign] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/academy/play/${token}`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(body.detail || "This link is not valid."); return; }
+      setGame(body);
+    } catch {
+      setError("We could not reach ChessGuru. Check your internet.");
+    }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Wait for the other side: poll only while it is their turn.
+  const waiting = game && game.status === "playing" && game.turn !== game.my_color;
+  useEffect(() => {
+    if (!waiting) return undefined;
+    const id = setInterval(load, POLL_MS);
+    return () => clearInterval(id);
+  }, [waiting, load]);
+
+  if (!game) {
+    return <Shell>{error ? <Message title="This link does not work">{error}</Message> : <p>Loading…</p>}</Shell>;
+  }
+
+  const myTurn = game.status === "playing" && game.turn === game.my_color;
+
+  const onMove = async (move) => {
+    if (!myTurn || busy) return;
+    setBusy(true);
+    setError("");
+    const promotion = move.san && move.san.includes("=") ? "q" : "";
+    try {
+      setGame(await post(`/academy/play/${token}/move`, { uci: `${move.from}${move.to}${promotion}`, ply: game.ply }));
+    } catch (err) {
+      setError(err.message);
+      load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resign = async () => {
+    try { setGame(await post(`/academy/play/${token}/resign`)); } catch (err) { setError(err.message); }
+    setConfirmResign(false);
+  };
+
+  return (
+    <Shell>
+      <section className="grid gap-3 rounded-2xl border bg-card p-5">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Class game</p>
+        <h1 className="text-2xl font-bold">You are playing {game.opponent_name}</h1>
+        <p className="text-muted-foreground">You play {game.my_color}.</p>
+        <div className="w-full max-w-[400px]">
+          <LichessBoard
+            key={`${game.ply}-${game.status}`}
+            fen={game.fen}
+            orientation={game.my_color}
+            interactive={myTurn && !busy}
+            viewOnly={!myTurn}
+            movableColor={game.my_color}
+            lastMove={game.last_move ? [game.last_move.slice(0, 2), game.last_move.slice(2, 4)] : null}
+            onMove={onMove}
+          />
+        </div>
+        {game.status === "playing" ? (
+          <p className="text-lg font-semibold">{myTurn ? "Your move." : `Waiting for ${game.opponent_name}…`}</p>
+        ) : (
+          <p className="text-lg font-semibold">{game.result_words || game.status_words}</p>
+        )}
+        {error && <p className="text-red-600">{error}</p>}
+        {game.status === "playing" && (
+          !confirmResign ? (
+            <button type="button" className="w-fit text-sm underline" onClick={() => setConfirmResign(true)}>Resign</button>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <span>Give up this game?</span>
+              <button type="button" className="rounded-full bg-red-600 px-4 py-2 font-semibold text-white" onClick={resign}>Yes, resign</button>
+              <button type="button" className="rounded-full border px-4 py-2" onClick={() => setConfirmResign(false)}>Keep playing</button>
+            </div>
+          )
+        )}
+      </section>
+    </Shell>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // homework
 // ---------------------------------------------------------------------------
 export function FamilyHomework() {

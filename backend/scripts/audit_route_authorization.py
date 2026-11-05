@@ -122,6 +122,9 @@ PUBLIC_ROUTES: dict[str, str] = {
     "POST /api/academy/homework/{token}/start": "family homework link; starts a try",
     "POST /api/academy/homework/{token}/move": "family homework link; one move of a try",
     "POST /api/academy/homework/{token}/stop": "family homework link; ends a try",
+    "GET /api/academy/play/{token}": "class game link; that one game, from that child's side",
+    "POST /api/academy/play/{token}/move": "class game link; a move, only on that side's turn",
+    "POST /api/academy/play/{token}/resign": "class game link; that side resigns",
 }
 
 

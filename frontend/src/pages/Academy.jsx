@@ -84,6 +84,7 @@ function CopyButton({ text, label = "Copy link" }) {
 // /academy
 // ---------------------------------------------------------------------------
 export function AcademyHome() {
+  const navigate = useNavigate();
   const [state, reload] = useLoad("/academy/me");
   const [form, setForm] = useState({ name: "", city: "" });
   const [batchName, setBatchName] = useState({});
@@ -112,6 +113,19 @@ export function AcademyHome() {
       </header>
       {error && <p className="text-red-600">{error}</p>}
       {note && <p className="text-emerald-700">{note}</p>}
+
+      {academies.length === 0 && (
+        <Card>
+          <h2 className="text-xl font-semibold">I am a parent</h2>
+          <p>No academy? Set up your child at home. You get the same weekly report.</p>
+          <button type="button" className={primary + " w-fit"} onClick={() => run(async () => {
+            const out = await call("/academy", { method: "POST", body: { kind: "family" } });
+            if (out.batch_id) navigate(`/academy/batch/${out.batch_id}`);
+          })}>
+            Set up my child
+          </button>
+        </Card>
+      )}
 
       {academies.length === 0 && (
         <Card>
@@ -183,6 +197,86 @@ export function AcademyHome() {
         </div>
       ))}
     </Page>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// class games, on the batch page
+// ---------------------------------------------------------------------------
+function ClassGames({ batchId, rows }) {
+  const [state, reload] = useLoad(`/academy/batch/${batchId}/class-games`);
+  const ready = rows.filter((r) => r.consent === "given");
+  const [white, setWhite] = useState("");
+  const [black, setBlack] = useState("");
+  const [made, setMade] = useState(null);
+  const [error, setError] = useState("");
+
+  const create = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      setMade(await call(`/academy/batch/${batchId}/class-games`, {
+        method: "POST", body: { white_student_id: white, black_student_id: black },
+      }));
+      reload();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+  const nameOf = (id) => (rows.find((r) => r.student_id === id) || {}).name;
+
+  return (
+    <Card>
+      <h2 className="text-lg font-semibold">Class games</h2>
+      <p>Pair two children. Each gets a link to play the other here. The game counts in their weekly report.</p>
+      {ready.length < 2 ? (
+        <p className="text-sm text-muted-foreground">Two children with a parent's agreement are needed.</p>
+      ) : (
+        <form className="flex flex-wrap items-center gap-2" onSubmit={create}>
+          <label htmlFor="cg-white" className="sr-only">White</label>
+          <select id="cg-white" className={`${field} sm:w-48`} value={white} onChange={(e) => setWhite(e.target.value)}>
+            <option value="">White…</option>
+            {ready.map((r) => <option key={r.student_id} value={r.student_id}>{r.name}</option>)}
+          </select>
+          <span>plays</span>
+          <label htmlFor="cg-black" className="sr-only">Black</label>
+          <select id="cg-black" className={`${field} sm:w-48`} value={black} onChange={(e) => setBlack(e.target.value)}>
+            <option value="">Black…</option>
+            {ready.map((r) => <option key={r.student_id} value={r.student_id}>{r.name}</option>)}
+          </select>
+          <button className={primary} type="submit" disabled={!white || !black}>Start game</button>
+        </form>
+      )}
+      {error && <p className="text-red-600">{error}</p>}
+      {made && (
+        <div className="grid gap-2 rounded-xl border border-emerald-300 p-3">
+          <p>Game ready. Open each link on the child's device, or send it to the parent.</p>
+          {["white", "black"].map((c) => (
+            <div key={c} className="flex flex-wrap items-center gap-2">
+              <span className="w-28 font-semibold">{nameOf(c === "white" ? white : black)} ({c})</span>
+              <CopyButton text={made.links[c]} />
+              <WhatsAppButton href={made.whatsapp[c]} label="Send to parent" />
+            </div>
+          ))}
+        </div>
+      )}
+      {(state.data?.games || []).length > 0 && (
+        <ul className="grid gap-1.5 text-sm">
+          {state.data.games.map((g) => (
+            <li key={g.class_game_id} className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold">{g.white_name} – {g.black_name}</span>
+              <Pill>{g.status === "playing" ? (g.turn === "white" ? `${g.white_name} to move` : `${g.black_name} to move`) : g.status_words}</Pill>
+              {g.status === "playing" && (
+                <>
+                  <CopyButton text={g.links.white} label={`${g.white_name}'s link`} />
+                  <CopyButton text={g.links.black} label={`${g.black_name}'s link`} />
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 
@@ -272,14 +366,25 @@ export function AcademyBatch() {
         </div>
       )}
 
+      <ClassGames batchId={batchId} rows={view.rows} />
+
       {added && (
         <Card className="border-emerald-300">
           <h2 className="text-lg font-semibold">{added.name} is added</h2>
-          <p>Send the parent the link to agree. Nothing is read until they do.</p>
-          <div className="flex flex-wrap gap-2">
-            <WhatsAppButton href={added.whatsapp} label="Send consent link on WhatsApp" />
-            <CopyButton text={added.links.consent} />
-          </div>
+          {view.academy.kind === "family" ? (
+            <>
+              <p>Read and agree on the next page. Nothing is read until you do.</p>
+              <a href={added.links.consent} className={primary + " w-fit"}>Read and agree</a>
+            </>
+          ) : (
+            <>
+              <p>Send the parent the link to agree. Nothing is read until they do.</p>
+              <div className="flex flex-wrap gap-2">
+                <WhatsAppButton href={added.whatsapp} label="Send consent link on WhatsApp" />
+                <CopyButton text={added.links.consent} />
+              </div>
+            </>
+          )}
         </Card>
       )}
 
@@ -347,8 +452,14 @@ export function AcademyStudent() {
           <h2 className="text-lg font-semibold">Waiting for the parent to agree</h2>
           <p>Nothing about {s.display_name} is read until the parent agrees on the consent link.</p>
           <div className="flex flex-wrap gap-2">
-            <WhatsAppButton href={view.whatsapp_consent} label="Send consent link on WhatsApp" />
-            <CopyButton text={view.links.consent} />
+            {view.academy.kind === "family" ? (
+              <a href={view.links.consent} className={primary}>Read and agree</a>
+            ) : (
+              <>
+                <WhatsAppButton href={view.whatsapp_consent} label="Send consent link on WhatsApp" />
+                <CopyButton text={view.links.consent} />
+              </>
+            )}
           </div>
         </Card>
       ) : (
@@ -368,6 +479,22 @@ export function AcademyStudent() {
               </div>
               {!view.week_built_at && <p className="text-sm">The first games are being imported. Press Refresh in a few minutes.</p>}
             </Card>
+            {(view.preview?.sections || []).some((sec) => sec.kind === "good") && (
+              <Card>
+                <Eyebrow>A good moment</Eyebrow>
+                {(view.preview.sections.find((sec) => sec.kind === "good") || {}).confirmed ? (
+                  <p>You confirmed this move. The report says so, in your name.</p>
+                ) : (
+                  <>
+                    <p>Does this move show {s.display_name} understands the idea? If you confirm it, the report says so in your name.</p>
+                    <button type="button" className={secondary} disabled={!!busy}
+                      onClick={() => act("confirm", async () => { await call(`/academy/student/${studentId}/confirm-good-moment`, { method: "POST", body: {} }); await reload(); })}>
+                      Yes, it shows they understand
+                    </button>
+                  </>
+                )}
+              </Card>
+            )}
             <Card>
               <Eyebrow>Your note to the parent</Eyebrow>
               <textarea id="coach-note" rows={4} className={field} value={note} maxLength={400}

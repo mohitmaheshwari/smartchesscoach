@@ -407,3 +407,118 @@ def test_unread_games_are_queued_below_every_ordinary_job(db):
     assert set(by_id) == {"rapid", "blitz"}
     assert by_id["blitz"]["priority"] == routes.ACADEMY_QUEUE_PRIORITY < 5
     assert by_id["rapid"]["status"] == "failed"  # an existing job is never rewritten
+
+
+# ---------------------------------------------------------------------------
+# class games
+# ---------------------------------------------------------------------------
+def _two_children(db):
+    academy, batch, _, rohan = _setup(db)
+    run(routes.add_student(batch["batch_id"], {"display_name": "Ananya", "parent_phone": "9876500000",
+                                               "lichess_username": "ananya_x"}, user=COACH))
+    ananya = db[svc.STUDENTS].rows[1]
+    for s in (rohan, ananya):
+        run(routes.give_consent(s["consent_token"], _Req(),
+                                {"agree": True, "parent_name": "Parent", "is_parent": True}))
+    return batch, db[svc.STUDENTS].rows[0], db[svc.STUDENTS].rows[1]
+
+
+def test_a_class_game_needs_two_consented_children_of_the_batch(db):
+    academy, batch, _, rohan = _setup(db)
+    run(routes.add_student(batch["batch_id"], {"display_name": "Ananya", "parent_phone": "9876500000"},
+                           user=COACH))
+    ananya = db[svc.STUDENTS].rows[1]
+    with pytest.raises(HTTPException) as e:
+        run(routes.create_class_game(batch["batch_id"], {"white_student_id": rohan["student_id"],
+                                                         "black_student_id": rohan["student_id"]}, user=COACH))
+    assert e.value.status_code == 400
+    with pytest.raises(HTTPException) as e:
+        run(routes.create_class_game(batch["batch_id"], {"white_student_id": rohan["student_id"],
+                                                         "black_student_id": ananya["student_id"]}, user=COACH))
+    assert e.value.status_code == 409
+    with pytest.raises(HTTPException) as e:
+        run(routes.create_class_game(batch["batch_id"], {"white_student_id": rohan["student_id"],
+                                                         "black_student_id": ananya["student_id"]}, user=STRANGER))
+    assert e.value.status_code == 403
+
+
+def test_a_class_game_is_played_to_mate_and_reaches_both_children(db):
+    batch, rohan, ananya = _two_children(db)
+    out = run(routes.create_class_game(batch["batch_id"], {"white_student_id": rohan["student_id"],
+                                                           "black_student_id": ananya["student_id"]}, user=COACH))
+    w = out["links"]["white"].rsplit("/", 1)[1]
+    b = out["links"]["black"].rsplit("/", 1)[1]
+    assert run(routes.class_game_page(b))["my_color"] == "black"
+    with pytest.raises(HTTPException) as e:
+        run(routes.class_game_move(b, {"uci": "e7e5"}))
+    assert e.value.status_code == 409  # not black's turn
+    for token, uci in ((w, "f2f3"), (b, "e7e5"), (w, "g2g4")):
+        run(routes.class_game_move(token, {"uci": uci}))
+    with pytest.raises(HTTPException) as e:
+        run(routes.class_game_move(b, {"uci": "d8h4", "ply": 2}))
+    assert e.value.status_code == 409  # stale board
+    end = run(routes.class_game_move(b, {"uci": "d8h4", "ply": 3}))
+    assert end["status"] == "black_won" and end["result_words"] == "Checkmate. You won."
+    assert run(routes.class_game_page(w))["result_words"] == "Checkmate. You lost this one."
+    stored = {g["user_id"]: g for g in db.games.rows if g.get("platform") == "chessguru"}
+    assert set(stored) == {rohan["child_user_id"], ananya["child_user_id"]}
+    assert stored[rohan["child_user_id"]]["user_color"] == "white"
+    assert stored[rohan["child_user_id"]]["result"] == "0-1"
+    assert "1. f3 e5 2. g4 Qh4# 0-1" in stored[rohan["child_user_id"]]["pgn"]
+    queued = [q for q in db.analysis_queue.rows if q.get("source") == "academy_class_game"]
+    assert len(queued) == 2
+    with pytest.raises(HTTPException):
+        run(routes.class_game_move(w, {"uci": "a2a3"}))
+
+
+def test_resigning_ends_the_game_and_removing_a_child_removes_their_games(db):
+    batch, rohan, ananya = _two_children(db)
+    out = run(routes.create_class_game(batch["batch_id"], {"white_student_id": rohan["student_id"],
+                                                           "black_student_id": ananya["student_id"]}, user=COACH))
+    w = out["links"]["white"].rsplit("/", 1)[1]
+    b = out["links"]["black"].rsplit("/", 1)[1]
+    run(routes.class_game_move(w, {"uci": "e2e4"}))
+    run(routes.class_game_move(b, {"uci": "e7e5"}))
+    end = run(routes.class_game_resign(w))
+    assert end["status"] == "black_won" and end["result_words"] == "You resigned."
+    listed = run(routes.list_class_games(batch["batch_id"], user=COACH))["games"]
+    assert listed[0]["status_words"] == "Black won"
+    run(routes.remove_student(rohan["student_id"], user=COACH))
+    assert db[svc.CLASS_GAMES].rows == []
+    assert [g["user_id"] for g in db.games.rows if g.get("platform") == "chessguru"] == [ananya["child_user_id"]]
+
+
+# ---------------------------------------------------------------------------
+# the coach confirms a good moment; a parent without an academy
+# ---------------------------------------------------------------------------
+SAVE = "6k1/8/8/8/4p3/5N2/8/6K1 w - - 0 1"
+
+
+def test_a_confirmed_good_moment_is_said_in_the_coach_name_and_survives_a_rebuild(db):
+    _, _, student = _consented_with_games(db)
+    uid = student["child_user_id"]
+    db.games.rows.append({"user_id": uid, "game_id": "g3", "result": "1-0", "user_color": "white",
+                          "played_at_utc": _played_this_week(0), "opponent_rating": 1100})
+    db.move_observations.rows.append({"user_id": uid, "game_id": "g3", "ply": 9, "fen_before": SAVE,
+                                      "move_uci": "f3d4", "color": "white", "execution_quality": "best"})
+    with pytest.raises(HTTPException):
+        run(routes.confirm_good_moment(student["student_id"], {}, user=COACH))  # week not built
+    run(routes.refresh_student(student["student_id"], user=COACH))
+    out = run(routes.confirm_good_moment(student["student_id"], {}, user=COACH))
+    assert out["confirmed_by_name"] == "Coach Priya"
+    run(routes.refresh_student(student["student_id"], user=COACH))
+    view = run(routes.student_view(student["student_id"], user=COACH))
+    good = next(s for s in view["preview"]["sections"] if s["kind"] == "good")
+    assert good["confirmed"] is True
+    assert "Coach Priya checked this move. It shows Rohan understands the idea." in good["lines"]
+    assert db["academy_coach_evidence"].rows[0]["move_uci"] == "f3d4"
+    with pytest.raises(HTTPException):
+        run(routes.confirm_good_moment(student["student_id"], {}, user=STRANGER))
+
+
+def test_a_parent_sets_up_a_family_with_a_home_batch(db):
+    parent = _User("parent")
+    out = run(routes.create_academy({"kind": "family"}, user=parent))
+    assert out["kind"] == "family" and out["name"] == "Parent's family"
+    view = run(routes.batch_view(out["batch_id"], user=parent))
+    assert view["batch"]["name"] == "Home" and view["academy"]["kind"] == "family"
