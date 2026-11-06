@@ -2057,6 +2057,17 @@ def inject_opp_side_narration_facts(
                         if _wins_material:
                             _piece_name = chess.piece_name(_captured.piece_type)
                             caption_facts["user_best_reply_captures_piece_type"] = _piece_name
+                            # captured_piece_type is about to stop meaning "what
+                            # THIS move took" and start meaning "what the reply
+                            # takes". The floor sentence "Your opponent takes
+                            # the X" needs the first meaning: 9a1bc553 m21, the
+                            # opponent's Nxg3 took a bishop, the reply Nxg3
+                            # takes the knight, and the card said "takes the
+                            # knight" (hand grade 2026-11-06). Keep the move's
+                            # own capture under its own name.
+                            caption_facts.setdefault(
+                                "played_captured_piece_type",
+                                caption_facts.get("captured_piece_type"))
                             caption_facts["captured_piece_type"] = _piece_name
                             caption_facts["target_square"] = chess.square_name(_ur_move.to_square)
                 except Exception:
@@ -4285,6 +4296,7 @@ def _clear_best_move_relation_claims(
     *,
     fen_before: str,
     best_move_san: Optional[str],
+    pv_after_best: Optional[Sequence[str]] = None,
 ) -> int:
     """Pass the piece-on-square claims the better move's own relation proves.
 
@@ -4295,10 +4307,13 @@ def _clear_best_move_relation_claims(
     rook now stands on e7. The whole sentence went and the bare severity line
     took its place. The proof is narrator_claim_verifier.best_move_relation_proves,
     so the three gates share one definition (feedback_single_source_of_truth).
+    The stored line after the better move goes with it: the proof also asks
+    that the relation survive the opponent's first reply.
     """
     from services.narrator_claim_verifier import best_move_relation_proves
 
-    facts = {"fen_before": fen_before, "best_move_san": best_move_san}
+    facts = {"fen_before": fen_before, "best_move_san": best_move_san,
+             "pv_after_best": list(pv_after_best or [])}
     cleared = 0
     lowered = (caption or "").lower()
     for claim in getattr(audit, "claims", None) or []:
@@ -4403,7 +4418,8 @@ def _verify_and_recover_caption(
             "better move %s", _cleared, best_move_san)
     try:
         _cleared_relation = _clear_best_move_relation_claims(
-            audit, text_in, fen_before=fen_before, best_move_san=best_move_san)
+            audit, text_in, fen_before=fen_before, best_move_san=best_move_san,
+            pv_after_best=pv_after_best)
     except Exception:
         _cleared_relation = 0
     if _cleared_relation:
