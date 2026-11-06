@@ -103,6 +103,26 @@ def test_an_unanswered_capture_one_ply_in_is_still_said_plainly():
     assert out["capture_square"] == "e4" and out["captured_piece"] == "pawn"
 
 
+def test_nothing_can_take_back_is_only_said_when_nothing_can():
+    """Hand grade of the first final-code render (2026-11-06): 9 of 29
+    "simply takes ... and nothing can take back" sentences sat on a board
+    where a recapture was legal. The engine line does not play it, because it
+    loses more, but the sentence states a board fact that is false."""
+    # 157fead3 m18: Rxb7 takes the bishop and Qxb7 is legal; the line plays f5.
+    out = gap("r4r1k/pbqp1p1p/3bpp2/2p4B/4N1Q1/6P1/P1P2P1P/1R3RK1 b - - 3 18",
+              "Qc6", "Be7", ["Rxb7", "f5", "Qh4", "fxe4"], ["Qh4", "Bxe4", "Qxe4", "d5"], mover_cp_loss=222)
+    assert out is not None and "material" in out["allows"]
+    assert out["material"]["text"] == "After Qc6, Rxb7 takes your bishop on b7."
+    # 17f38d52 m24: Rxg3+ takes the pawn with check and hxg3 is legal.
+    out = gap("6r1/2pq1p1k/pb3p1p/3P2r1/4P3/3N1QP1/P4P1P/1R3RK1 w - - 0 24",
+              "Qxf6", "Kg2", ["Rxg3+", "Kh1", "Rxd3", "Rg1"], ["Rg4", "Rfc1", "Rh4", "Nf4"], mover_cp_loss=713)
+    assert "nothing can take back" not in out["material"]["text"]
+    assert "simply" not in out["material"]["text"]
+    # Where nothing can take back, it is still said (1.d4 d5 2.e4 dxe4).
+    out = gap(E4, "e4", "c4", ["dxe4"], ["e6"], mover_cp_loss=150)
+    assert out["material"]["text"].endswith("simply takes your pawn on e4, and nothing can take back.")
+
+
 def test_the_opponents_card_words_the_cost_as_theirs():
     out = gap(AXB6, "axb6", "Nc3", AXB6_PV_PLAYED, AXB6_PV_BEST, mover_cp_loss=250, mover_is_user=False)
     assert out["material"]["text"] == "After axb6, the exchange on a7 costs them a rook for a bishop."

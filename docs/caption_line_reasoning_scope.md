@@ -283,3 +283,132 @@ sentences.
   `narrator_claim_verifier.py` or `reasoning/differential.py`. Checked
   2026-11-06: the only open PR (#1, "Latest code") touches none of them.
 - Mohit has signed off on this document.
+
+---
+
+## 8. Build record (2026-11-06)
+
+Branch `claude/why-queue`. Not merged, not deployed. Every number below was
+measured in this session; where a run is still going the count of games it
+covers is stated.
+
+**Commits**
+
+| Commit | What |
+|---|---|
+| `1e181273` | Fix 1: a relation claim about the better move is proved on that move's board |
+| `a9b707ae` | Fix 2: the exchange ledger replaces the one-ply capture sentence; the ledger's two wording defects |
+| `e07b3c15` | Fix 1 corrected by its hand grade: the relation must survive the reply; the floor names what the move took |
+| `6876dcad`, `1171da3b`, `14e0b157` | Fix 3: the check-first family, the card wiring, and three rounds of tightening from the fire-rate pass |
+| `16271b64` | V5 v241, the single bump |
+| `bbe75903` | Fix 2 corrected by its dry run: the ledger sentence reaches the card |
+| next commit | Fix 2 corrected by its hand grade: "nothing can take back" only when nothing can |
+
+**The Rxe7 card, rendered by the final code from both stored copies of the game
+(3628ebef and 98360122), through every verifier gate:**
+
+```
+Rxe7 ends with their king taking back on e7. Re6+ was better — it makes their
+king step away first, and then Rxe7 wins the knight with nothing to take back.
+Check first, take second.
+
+[Why?]  Both Rxe7 and Re6+ go for the knight on e7. After Rxe7, the pieces
+        come off on e7 and their king on f6 takes back last. Re6+ first makes
+        their king step away to g5. Then Rxe7 takes the knight and the king
+        cannot take back.
+```
+
+Not yet read from a stored row or on screen: that needs the deploy.
+
+**Fix 3, measured on the whole corpus (20,259 games, read-only scan)**
+
+| | User cards | Opponent cards |
+|---|---|---|
+| Played move is a capture, better move is a check | 4,834 | 2,494 |
+| Full shape (the check is not a capture; the better line takes the same piece on the same square with its next move) | 524 | 331 |
+| Family fires | 32 | 21 |
+| Fires on a mistake or worse | 28 | 17 |
+| Silent: the recapture in the played line is not the king's | 466 | 297 |
+| Silent: the king still guards the square after the check | 13 | 6 |
+| Silent: other (reply not a king move, reply takes material, no gain after a sacrifice, checker lost later, still recaptured) | 13 | 7 |
+
+All 32 fired user cards were read against their two lines; each sentence matches
+its line. The first passes fired on 60 and then 36 cards; the hand grades of
+those are what set the conditions (see the commit messages). The answer to open
+question 2: V1 is the king's recapture, 6% of the shape. The other 89% is a
+recapture by another piece, which this family does not explain.
+
+Why-engine regression set (42 positions with `mohit_rxe7` added): 24 of the
+original 41 found before and after, no position moved from found to silent, no
+fire on the 8 good moves. Two sentences changed, both the series wording fix
+("a piece down" to "two pawns down" on dev_qf8, "two pawns up" to "a pawn up" on
+mohit_f3; both match the ledger's net for that line).
+
+**Fix 2**
+
+- Probe on the 38 current-version mistake-or-worse cards that carried the old
+  sentence: the ledger speaks on 27; the 11 silences are 8 even trades, 2 the
+  Rxe7 card, 1 a forced mate. The old sentence had framed each of those trades
+  as a loss.
+- The first build passed 498 tests and put the ledger sentence on no card: the
+  stage read the tier from a field that does not exist. A 347-game dry run
+  showed 309 old sentences removed and 0 ledger sentences in their place.
+  Fixed in `bbe75903`, with tests that go through the render function.
+- First final-code render (139 games): 0 cards carry the old sentence; 104
+  carry a ledger sentence (70 user, 34 opponent); on 27 a sentence existed and
+  the word cap or the final verifier stopped it. Every "simply takes" sentence
+  was checked on the board: 9 of the 29 that said "and nothing can take back"
+  sat where a recapture was legal (157fead3 m18: Rxb7 with Qxb7 on the board;
+  the line does not play it). The ledger now records whether each capture
+  could be answered on its square and says "simply", "nothing can take back"
+  and "for free" only when it could not. The same sentence is the Why
+  button's, so the live button has this defect until the deploy.
+- Of the 19,371 stored cards with the old sentence, 11,022 are inaccuracies.
+  Those lose the sentence and get nothing in its place, by the ledger's own
+  rule (no material claim on an inaccuracy). That is a deliberate loss of
+  coverage on inaccuracies and it is Mohit's to accept or not.
+
+**Fix 1**
+
+- First bulk render (before the survival rule), 2,717 games, 4,409 emptied
+  cards: 461 kept a sentence (10.5%), 3,818 were still emptied (86.6%).
+- The hand grade of 30 found two sentences that should not have shipped; both
+  are fixed in `e07b3c15`. It also found three that come from other paths and
+  are not fixed here (see "Found, not fixed").
+- So fix 1 as scoped rescues about one emptied card in ten. It is not the main
+  cause.
+
+**The main cause, found by tracing 60 games (99 replaced captions)**
+
+58 of the 99 are one sentence on opponent cards: "lets you play A, and B then
+takes their P on S". The piece reaches S a move or two into the stored line, and
+the first verifier gate judges it on the current board. All 58 replay true at
+the ply B is played. That gate already has the proof for this
+(`_clear_best_move_capture_claims` accepts the played line); it is never given
+the played line. Passing it through is on the branch
+`claude/caption-line-claims` with an added check of the owner word. It is
+outside the text of fix 1 above and is not part of what was signed.
+
+**Found, not fixed**
+
+- The skewer clause is computed on the board before the move: "Bd6 allows Bxd6,
+  skewering your bishop on f4" when Bd6 is the bishop that left f4. The verifier
+  rejects these, correctly. 7 of the first 30 still-replaced captions after both
+  verifier changes.
+- "leaves your bishop with nothing guarding it — they take it back on f7" on
+  f1b9e955 m5, where the knight on g5 guards f7.
+- "Play Bxe5 — it wins a pawn" / "Play hxg6 — it wins a pawn" on recaptures
+  (7dd9ce00 m24, 62c9bb00 m22).
+- f00eef29 m47: the stored best move tells the player not to take a free rook
+  (Kxd5, best Kc4). Stored-analysis defect.
+- Phase 2 (`_verify_phase2_attack_claims`) is alive, not dead as section 0
+  implies: it rejected 12 of 99 captions in the trace. Some are misfires: it
+  reads "Nxc2 lets Rac1 attack the knight on c2", a sentence about the played
+  line, as a claim about the better move.
+- Prod runs `DISTILLED_CAPTIONS_ENABLED=1` in the backend container and unset
+  in both analysis workers, so stored captions are a mix of two render paths.
+
+**Measurement runs still going (final code `bbe75903`, throwaway containers,
+read-only login, capped at 600 MB each, stopped by a watchdog under 800 MB
+free)**: the 9,496 games holding an emptied card, and the 2,000-game sample.
+The shared box has no swap and fell to 446 MB free once during the day.
