@@ -125,6 +125,13 @@ PUBLIC_ROUTES: dict[str, str] = {
     "GET /api/academy/play/{token}": "class game link; that one game, from that child's side",
     "POST /api/academy/play/{token}/move": "class game link; a move, only on that side's turn",
     "POST /api/academy/play/{token}/resign": "class game link; that side resigns",
+    # ---- First steps classes, 2026-11-06 (docs/first_steps_scope.md) ----
+    # The class link works only after the parent's consent is given.
+    "GET /api/academy/class/{token}": "family class link; that child's classes only, after consent",
+    "POST /api/academy/class/{token}/start": "family class link; starts that child's next class",
+    "POST /api/academy/class/{token}/answer": "family class link; one answer, judged on the server",
+    "POST /api/academy/class/{token}/retry": "family class link; plays a game item again",
+    "POST /api/academy/class/{token}/next": "family class link; moves to the next item",
 }
 
 

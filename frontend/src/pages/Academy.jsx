@@ -465,6 +465,35 @@ export function AcademyStudent() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)]">
           <div className="grid content-start gap-4">
+            {view.first_steps && (
+              <Card>
+                <Eyebrow>First steps classes</Eyebrow>
+                {!view.first_steps.placed ? (
+                  <p>{s.display_name} hasn't started yet. The first visit asks three quick questions to find the right class.</p>
+                ) : view.first_steps.all_done ? (
+                  <p>{s.display_name} has finished every rules class and is ready for real games.</p>
+                ) : (
+                  <p>Next class: <b>{view.first_steps.next?.title}</b></p>
+                )}
+                {view.first_steps.placed && (
+                  <p className="text-sm text-muted-foreground" data-testid="first-steps-classes">
+                    {view.first_steps.classes.map((c) => `${c.passed || c.skipped ? "✔" : "○"} ${c.title}`).join("  ·  ")}
+                  </p>
+                )}
+                {view.first_steps.last && <p className="text-sm">Last class: {view.first_steps.last.parent}</p>}
+                {view.first_steps.notes?.length > 0 && (
+                  <p className="text-sm">What the taps show: {s.display_name} {view.first_steps.notes.join("; ")}.</p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {view.academy.kind === "family" ? (
+                    <a href={view.links.class} className={primary}>Open the class</a>
+                  ) : (
+                    <WhatsAppButton href={view.whatsapp_class} label="Send class link on WhatsApp" />
+                  )}
+                  <CopyButton text={view.links.class} label="Copy class link" />
+                </div>
+              </Card>
+            )}
             <Card>
               <Eyebrow>This week</Eyebrow>
               <p className="text-lg">{view.row.habit}</p>

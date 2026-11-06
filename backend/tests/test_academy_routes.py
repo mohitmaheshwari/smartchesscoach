@@ -108,7 +108,11 @@ class _Coll:
             for key in (update.get("$unset") or {}):
                 row.pop(key, None)
             for key, value in (update.get("$inc") or {}).items():
-                row[key] = row.get(key, 0) + value
+                target = row
+                parts = key.split(".")
+                for part in parts[:-1]:
+                    target = target.setdefault(part, {})
+                target[parts[-1]] = target.get(parts[-1], 0) + value
             for key, value in (update.get("$min") or {}).items():
                 row[key] = min(row[key], value) if key in row else value
 
@@ -532,3 +536,148 @@ def test_a_parent_sets_up_a_family_with_a_home_batch(db):
     assert out["kind"] == "family" and out["name"] == "Parent's family"
     view = run(routes.batch_view(out["batch_id"], user=parent))
     assert view["batch"]["name"] == "Home" and view["academy"]["kind"] == "family"
+
+
+# ---------------------------------------------------------------------------
+# first steps classes (docs/first_steps_scope.md)
+# ---------------------------------------------------------------------------
+def _class_child(db):
+    _, _, _, student = _setup(db)
+    run(routes.give_consent(student["consent_token"], _Req(),
+                            {"agree": True, "parent_name": "Meena", "is_parent": True}))
+    return db[svc.STUDENTS].rows[0]
+
+
+def _answer(token, view, answer):
+    return run(routes.class_answer(token, {"session_id": view["session_id"],
+                                           "item_id": view["current"]["id"], "answer": answer}))
+
+
+def test_a_class_link_needs_consent_first(db):
+    _, _, _, student = _setup(db)
+    assert student["class_token"]
+    with pytest.raises(HTTPException) as e:
+        run(routes.class_home(student["class_token"]))
+    assert e.value.status_code == 409
+
+
+def test_placement_then_the_first_class_and_every_answer_is_judged_on_the_server(db):
+    student = _class_child(db)
+    token = student["class_token"]
+    home = run(routes.class_home(token))
+    assert home["placed"] is False and home["open"] is None
+    view = run(routes.class_start(token))
+    assert view["kind"] == "placement" and view["current"]["id"] == "place-knight"
+    assert "expect" not in view["current"]
+    out = _answer(token, view, {"skip": True})            # "I don't know yet"
+    assert out["result"]["outcome"] == "skipped"
+    view = run(routes.class_next(token, {"session_id": view["session_id"]}))
+    out = _answer(token, view, {"choice": "yes"})
+    view = run(routes.class_next(token, {"session_id": view["session_id"]}))
+    out = _answer(token, view, {"move": "d1d8"})
+    assert out["result"]["outcome"] == "right"
+    done = run(routes.class_next(token, {"session_id": view["session_id"]}))
+    assert done["summary"]["level"] == 0 and done["summary"]["next"] == "The rook"
+    assert db[svc.STUDENTS].rows[0]["first_steps"]["level"] == 0
+
+    view = run(routes.class_start(token))
+    assert view["kind"] == "class" and view["class_id"] == "rook"
+    assert view["parts"][0] == "Warm-up" and view["current"]["id"] == "rook-meet"
+    wrong = _answer(token, view, {"square": "b2"})
+    assert wrong["result"]["kind"] == "wrong_piece" and "bishop" in wrong["result"]["say"]
+    session = db["academy_class_sessions"].rows[0] if db["academy_class_sessions"].rows[0]["kind"] == "class" \
+        else db["academy_class_sessions"].rows[1]
+    assert session["mistakes"]["wrong_piece"] == 1
+    assert session["user_id"] == student["child_user_id"]
+    with pytest.raises(HTTPException):
+        run(routes.class_next(token, {"session_id": view["session_id"]}))   # not finished yet
+    right = _answer(token, view, {"square": "d4"})
+    assert right["result"]["outcome"] == "right" and right["session"]["stars"] == 1
+
+
+def _play_rook_class(db, token, fail_check=False):
+    view = run(routes.class_start(token))
+    sid = view["session_id"]
+    plays = {
+        "rook-meet": [{"square": "d4"}],
+        "rook-lines": [{"square": s} for s in ("a4", "b4", "c4", "e4", "f4", "g4", "h4",
+                                               "d1", "d2", "d3", "d5", "d6", "d7", "d8")],
+        "rook-blocked": [{"square": "a7"}] + [{"square": s} for s in ("a2", "a3", "a4", "b1", "c1", "d1",
+                                                                       "e1", "f1", "g1")],
+        "rook-take": [{"square": "d5"}],
+        "rook-stars-1": [{"square": s} for s in ("a6", "f6", "f2")],
+        "rook-check": ([{"square": "c3"}, {"square": "c3"}] if fail_check
+                       else [{"square": s} for s in ("b3", "b4", "b1", "a2", "c2", "d2", "e2")]),
+    }
+    while view["current"] is not None:
+        item = view["current"]["id"]
+        if item == "rook-stars-2":
+            out = None
+            for sq in ("b1", "b6", "b3", "d3", "d6", "h6"):
+                out = _answer(token, view, {"square": sq})
+            assert out["result"]["outcome"] in ("right", "done")
+        else:
+            for a in plays[item]:
+                out = _answer(token, view, a)
+        view = run(routes.class_next(token, {"session_id": sid}))
+    return view
+
+
+def test_a_class_is_passed_only_through_its_check_and_the_next_class_starts_with_a_warm_up(db):
+    student = _class_child(db)
+    token = student["class_token"]
+    db[svc.STUDENTS].rows[0]["first_steps"] = {"level": 0}
+    failed = _play_rook_class(db, token, fail_check=True)
+    assert failed["summary"]["passed"] is False and failed["summary"]["next"] == "The rook"
+    passed = _play_rook_class(db, token)
+    assert passed["summary"]["passed"] is True and passed["summary"]["next"] == "The bishop"
+    assert "rook moves" in passed["summary"]["parent"]
+    nxt = run(routes.class_start(token))
+    assert nxt["class_id"] == "bishop"
+    assert nxt["current"]["id"] == "rook-recall"           # last class, asked again
+    assert nxt["parts"][:2] == ["Warm-up", "Warm-up"]      # plus the top mistake: jumped -> blocked rook
+    staff = run(routes.student_view(student["student_id"], user=COACH))
+    fs_view = staff["first_steps"]
+    assert [c["passed"] for c in fs_view["classes"]][:2] == [True, False]
+    assert fs_view["last"]["passed"] is True
+    assert staff["links"]["class"].endswith(token)
+
+
+def test_a_check_item_gives_no_hint_and_shows_the_answer_after_two_misses(db):
+    student = _class_child(db)
+    token = student["class_token"]
+    db[svc.STUDENTS].rows[0]["first_steps"] = {"level": 2}
+    view = run(routes.class_start(token))
+    while view["current"]["id"] != "mate-test":
+        cur = view["current"]
+        sid = view["session_id"]
+        if cur["kind"] == "game":
+            run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"], "answer": {"move": "a1a7"}}))
+            db["academy_class_sessions"].rows[-1]["item_state"][cur["id"]]["finished"] = True
+        else:
+            from services import first_steps as fs
+            item = fs.item_by_id(fs.class_by_id("checkmate"), cur["id"])
+            key = "choice" if item["kind"] == "choose" else "move"
+            run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"],
+                                            "answer": {key: sorted(fs.answers(item))[0]}}))
+        view = run(routes.class_next(token, {"session_id": sid}))
+    first = _answer(token, view, {"move": "h1a1"})
+    assert first["result"]["say"] == "Not quite. Try once more." and "reveal" not in first["result"]
+    with pytest.raises(HTTPException):
+        _answer(token, view, {"reveal": True})
+    second = _answer(token, view, {"move": "h1a1"})
+    assert second["result"]["reveal"]["sans"] == ["Rh8#"]
+    end = run(routes.class_next(token, {"session_id": view["session_id"]}))
+    assert end["summary"]["passed"] is False
+
+
+def test_removing_a_child_removes_their_class_answers(db):
+    student = _class_child(db)
+    token = student["class_token"]
+    view = run(routes.class_start(token))
+    _answer(token, view, {"skip": True})
+    assert db["academy_class_sessions"].rows
+    run(routes.withdraw_consent(student["consent_token"]))
+    assert db["academy_class_sessions"].rows == []
+    with pytest.raises(HTTPException):
+        run(routes.class_home(token))

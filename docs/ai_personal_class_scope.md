@@ -1,6 +1,7 @@
 # AI personal class — scope
 
-**Status:** DRAFT — awaiting Mohit's sign-off. No code until signed.
+**Status:** SIGNED OFF 2026-11-06 — Mohit: "okay, go ahead." Code waits on the
+pre-code locks in section 7 ("harder", the right-answer margin, the practice pool count).
 **Author:** Claude, 2026-11-06, against `origin/working-code` at 7a185d0e.
 **Mockup:** one class built from Mohit's real games, every position engine-checked —
 see the artifact linked in the sign-off record at the end.

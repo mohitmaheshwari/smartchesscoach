@@ -1,6 +1,6 @@
 # First steps — scope
 
-**Status:** DRAFT — awaiting Mohit's sign-off. No code until signed.
+**Status:** SIGNED OFF 2026-11-06 — Mohit: "okay, go ahead."
 **Author:** Claude, 2026-11-06, against `origin/working-code` at 290803eb.
 **Mockup:** the first class (the rook, with "collect the stars"), playable —
 linked in the sign-off record at the end.
@@ -171,3 +171,11 @@ Not success: classes opened, stars given, minutes spent.
 
 - 2026-11-06 — drafted. Awaiting Mohit.
 - Mockup (playable first class, the rook): https://claude.ai/artifact/7A1SVPguLVSmcaU5iRPvzV
+- 2026-11-06 — signed off ("okay, go ahead"). Built the same day: placement and
+  all eight classes as content (`backend/data/first_steps_classes.json`), every
+  authored answer checked against the rules engine in
+  `tests/test_first_steps.py`; the class engine (`services/first_steps.py`); the
+  class link `/class/:token` (after consent only); the coach's "First steps"
+  card. Consent text moved to v3 so it says class answers are kept. Not built
+  yet: the first opponent for real games (needs measured data, section 6) and
+  read-aloud in Hindi.

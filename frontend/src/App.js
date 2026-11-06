@@ -60,6 +60,7 @@ import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
 import AdminLlmCost from "@/pages/AdminLlmCost";
 import { AcademyHome, AcademyBatch, AcademyStudent } from "@/pages/Academy";
 import { FamilyConsent, FamilyReport, FamilyHomework, FamilyClassGame } from "@/pages/AcademyFamily";
+import FirstStepsClass from "@/pages/FirstStepsClass";
 import CalculationTest from "@/pages/CalculationTest";
 import MotifFindDrill from "@/pages/MotifFindDrill";
 import AdminDetectorReview from "@/pages/AdminDetectorReview";
@@ -351,6 +352,7 @@ function AppRouter() {
       <Route path="/r/:token" element={<FamilyReport />} />
       <Route path="/homework/:token" element={<FamilyHomework />} />
       <Route path="/play/:token" element={<FamilyClassGame />} />
+      <Route path="/class/:token" element={<FirstStepsClass />} />
 
       <Route path="/welcome" element={
         <ProtectedRoute skipOnboardingCheck={true}>

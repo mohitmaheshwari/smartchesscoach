@@ -30,6 +30,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from routes.auth import User, get_current_user
 from services import academy_service as svc
+from services import first_steps as fs
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/academy", tags=["Academy"])
@@ -75,6 +76,11 @@ async def ensure_indexes(database) -> None:
     await database[svc.CLASS_GAMES].create_index([("batch_id", 1), ("created_at", -1)])
     for token in ("white_token", "black_token"):
         await database[svc.CLASS_GAMES].create_index([(token, 1)], unique=True)
+    # Children added before classes existed have no class token until first use.
+    await database[svc.STUDENTS].create_index(
+        [("class_token", 1)], unique=True, partialFilterExpression={"class_token": {"$type": "string"}})
+    await database[fs.SESSIONS].create_index([("session_id", 1)], unique=True)
+    await database[fs.SESSIONS].create_index([("student_id", 1), ("started_at", 1)])
 
 
 # ---------------------------------------------------------------------------
@@ -122,17 +128,26 @@ async def _student_for(user: User, student_id: str) -> Dict[str, Any]:
 
 def _links(student: Dict[str, Any]) -> Dict[str, str]:
     site = _site()
-    return {
+    links = {
         "consent": f"{site}/consent/{student['consent_token']}",
         "report": f"{site}/r/{student['report_token']}",
         "homework": f"{site}/homework/{student['homework_token']}",
     }
+    if student.get("class_token"):
+        links["class"] = f"{site}/class/{student['class_token']}"
+    return links
 
 
 def _consent_message(student: Dict[str, Any], academy: Dict[str, Any]) -> str:
     return (f"Hello {student.get('parent_name') or ''}. {academy['name']} uses ChessGuru to "
             f"follow {student['display_name']}'s online chess games and send you a short weekly "
             f"report. Please read and agree here: {_links(student)['consent']}").replace("  ", " ")
+
+
+def _class_message(student: Dict[str, Any]) -> str:
+    return (f"Hello {student.get('parent_name') or ''}. Here is {student['display_name']}'s chess class "
+            f"on ChessGuru. Open it on a phone or tablet and let {student['display_name']} play: "
+            f"{_links(student).get('class', '')}").replace("  ", " ")
 
 
 def _report_message(student: Dict[str, Any], academy: Dict[str, Any]) -> str:
@@ -409,7 +424,7 @@ async def add_student(batch_id: str, payload: Dict[str, Any] = Body(...),
         "child_user_id": child_user_id,
         "consent": {"status": "pending", "text_version": svc.CONSENT_TEXT_VERSION},
         "consent_token": svc.new_token(), "report_token": svc.new_token(),
-        "homework_token": svc.new_token(),
+        "homework_token": svc.new_token(), "class_token": svc.new_token(),
         "created_by": user.user_id, "created_at": _now(), "deleted_at": None,
     }
     await db[svc.STUDENTS].insert_one(dict(student))
@@ -487,7 +502,13 @@ async def student_view(student_id: str, user: User = Depends(get_current_user)):
                                     coach_name=(batch or {}).get("coach_name", ""),
                                     better_moves=week.get("better_moves"))
     academy = student["academy"]
+    await _class_token(student)
+    first_steps = None
+    if (student.get("consent") or {}).get("status") == "given":
+        first_steps = await first_steps_for_staff(student)
     return {
+        "first_steps": first_steps,
+        "whatsapp_class": svc.whatsapp_link(student["parent_phone"], _class_message(student)),
         "student": {k: student.get(k) for k in ("student_id", "display_name", "lichess_username",
                                                 "chesscom_username", "parent_name", "parent_phone",
                                                 "batch_id", "consent")},
@@ -601,8 +622,9 @@ async def _student_by(field: str, token: str) -> Dict[str, Any]:
 
 
 CONSENT_POINTS = [
-    "We read the chess games your child plays online, on the account you name.",
-    "We use them to show your child's coach and you which habits to work on.",
+    "If your child has an online chess account, we read the games they play there.",
+    "If your child takes ChessGuru classes, we keep their answers, so the next class fits what they found hard.",
+    "We use the games and answers to show your child's coach and you what to work on.",
     "We keep your child's first name, the chess account name and your phone number.",
     "We do not show your child to other people, and no one can message your child.",
     "You can stop at any time from the report. We then delete everything we hold about your child.",
@@ -698,7 +720,7 @@ async def _delete_child_data(student: Dict[str, Any], *, reason: str, by: str) -
             except Exception as exc:  # a view or capped collection must not stop the rest
                 logger.warning("child data sweep skipped %s: %s", name, exc)
         await db.users.delete_one({"user_id": uid})
-    for coll in (svc.WEEKS, svc.REPORTS, svc.ATTEMPTS, EVIDENCE):
+    for coll in (svc.WEEKS, svc.REPORTS, svc.ATTEMPTS, EVIDENCE, fs.SESSIONS):
         await db[coll].delete_many({"student_id": student["student_id"]})
     for side in ("white_student_id", "black_student_id"):
         await db[svc.CLASS_GAMES].delete_many({side: student["student_id"]})
@@ -1051,3 +1073,292 @@ async def homework_stop(token: str, payload: Dict[str, Any] = Body(...)):
     await db[svc.ATTEMPTS].update_one({"attempt_id": attempt["attempt_id"]},
                                       {"$set": {"status": status, "finished_at": _now()}})
     return _attempt_view({**attempt, "status": status})
+
+
+# ---------------------------------------------------------------------------
+# family: first steps classes (docs/first_steps_scope.md)
+# ---------------------------------------------------------------------------
+# A child with no games learns the rules here, from the class link. Every tap
+# is judged by services/first_steps.py on the server and kept as evidence on
+# the class session, which carries the child's user_id so "Stop and delete"
+# sweeps it with everything else.
+REVEAL_AFTER = 2  # wrong tries before "Show me" is offered (or, on a check item, the answer)
+
+
+async def _class_token(student: Dict[str, Any]) -> str:
+    """Children added before classes existed get their class link on first use."""
+    if student.get("class_token"):
+        return student["class_token"]
+    await db[svc.STUDENTS].update_one({"student_id": student["student_id"], "class_token": None},
+                                      {"$set": {"class_token": svc.new_token()}})
+    fresh = await db[svc.STUDENTS].find_one({"student_id": student["student_id"]}, {"_id": 0, "class_token": 1})
+    student["class_token"] = fresh["class_token"]
+    return student["class_token"]
+
+
+async def _class_child(token: str) -> Dict[str, Any]:
+    student = await _student_by("class_token", token)
+    if student.get("deleted_at"):
+        raise HTTPException(410, "This link no longer works.")
+    if (student.get("consent") or {}).get("status") != "given" or not student.get("child_user_id"):
+        raise HTTPException(409, "A parent needs to agree first. Ask your coach for the link.")
+    return student
+
+
+async def _sessions(student_id: str) -> List[Dict[str, Any]]:
+    return await db[fs.SESSIONS].find({"student_id": student_id}, {"_id": 0}).sort("started_at", 1).to_list(500)
+
+
+def _passed(sessions: List[Dict[str, Any]]) -> List[str]:
+    return [s["class_id"] for s in sessions if s.get("kind") == "class" and s.get("passed")]
+
+
+def _item_content(ref: Dict[str, Any]) -> Dict[str, Any]:
+    if ref["owner"] == "placement":
+        item = next(i for i in fs.load_content()["placement"]["items"] if i["id"] == ref["item_id"])
+    else:
+        item = fs.item_by_id(fs.class_by_id(ref["owner"]), ref["item_id"])
+    return {**item, "part": ref.get("part") or item.get("part"),
+            "test": False if ref.get("warm") else item.get("test", False)}
+
+
+def _session_view(session: Dict[str, Any]) -> Dict[str, Any]:
+    refs = session["items"]
+    i = session["index"]
+    current = None
+    if i < len(refs):
+        ref = refs[i]
+        item = _item_content(ref)
+        st = session["item_state"].get(ref["item_id"], {})
+        current = fs.public_item(item, st.get("state"))
+        current.update({"wrong": st.get("wrong", 0), "solved": st.get("solved", False),
+                        "finished": st.get("finished", False), "revealed": st.get("revealed", False),
+                        "can_reveal": (not item.get("test") and st.get("wrong", 0) >= REVEAL_AFTER
+                                       and not st.get("finished")),
+                        "can_retry": item["kind"] in ("stars", "game") and st.get("finished", False)
+                                     and not st.get("solved"),
+                        "can_skip": ref["owner"] == "placement" and not st.get("finished")})
+    return {"session_id": session["session_id"], "kind": session["kind"], "class_id": session.get("class_id"),
+            "title": session.get("title"), "index": i, "count": len(refs),
+            "parts": [r.get("part") for r in refs], "stars": session.get("stars", 0),
+            "current": current, "finished_at": session.get("finished_at"), "summary": session.get("summary")}
+
+
+def _overview(student: Dict[str, Any], sessions: List[Dict[str, Any]]) -> Dict[str, Any]:
+    level = (student.get("first_steps") or {}).get("level")
+    passed = _passed(sessions)
+    nxt = fs.next_class(level, passed) if level is not None else None
+    start_order = fs.class_by_id(fs.LEVEL_START[level])["order"] if level is not None else 1
+    return {
+        "child_name": student["display_name"],
+        "placed": level is not None, "level": level,
+        "classes": [{"id": c["id"], "title": c["title"], "passed": c["id"] in passed,
+                     "skipped": level is not None and c["order"] < start_order}
+                    for c in fs.classes()],
+        "next": {"id": nxt["id"], "title": nxt["title"]} if nxt else None,
+        "all_done": level is not None and nxt is None,
+    }
+
+
+@router.get("/class/{token}")
+async def class_home(token: str):
+    student = await _class_child(token)
+    sessions = await _sessions(student["student_id"])
+    open_ = next((s for s in reversed(sessions) if not s.get("finished_at")), None)
+    return {**_overview(student, sessions), "open": _session_view(open_) if open_ else None}
+
+
+@router.post("/class/{token}/start")
+async def class_start(token: str):
+    student = await _class_child(token)
+    sessions = await _sessions(student["student_id"])
+    open_ = next((s for s in reversed(sessions) if not s.get("finished_at")), None)
+    if open_:
+        return _session_view(open_)
+    level = (student.get("first_steps") or {}).get("level")
+    if level is None:
+        placement = fs.load_content()["placement"]
+        refs = [{"owner": "placement", "item_id": i["id"], "part": i["part"]} for i in placement["items"]]
+        kind, class_id, title = "placement", None, placement["title"]
+    else:
+        passed = _passed(sessions)
+        cls = fs.next_class(level, passed)
+        if cls is None:
+            raise HTTPException(409, "Every class is done. Time for real games!")
+        prev_cls = next((c for c in reversed(fs.classes())
+                         if c["order"] < cls["order"] and c["id"] in passed), None)
+        prev_session = next((s for s in reversed(sessions)
+                             if prev_cls and s.get("class_id") == prev_cls["id"]), None)
+        warm = fs.warm_up_for(cls, prev_cls, (prev_session or {}).get("mistakes") or {})
+        refs = [{"owner": prev_cls["id"], "item_id": w["id"], "part": "Warm-up", "warm": True,
+                 "why": w.get("why")} for w in warm]
+        refs += [{"owner": cls["id"], "item_id": i["id"], "part": i["part"]}
+                 for i in cls["items"] if not i.get("recall_only")]
+        kind, class_id, title = "class", cls["id"], cls["title"]
+    session = {"session_id": svc.new_id("cls"), "student_id": student["student_id"],
+               "user_id": student["child_user_id"], "academy_id": student["academy_id"],
+               "kind": kind, "class_id": class_id, "title": title, "items": refs, "index": 0,
+               "item_state": {}, "mistakes": {}, "stars": 0, "started_at": _now(),
+               "content_version": fs.load_content().get("schema_version")}
+    await db[fs.SESSIONS].insert_one(dict(session))
+    return _session_view(session)
+
+
+async def _open_session(student: Dict[str, Any], session_id: Any) -> Dict[str, Any]:
+    session = await db[fs.SESSIONS].find_one({"session_id": session_id, "student_id": student["student_id"]},
+                                             {"_id": 0})
+    if not session or session.get("finished_at"):
+        raise HTTPException(409, "This class has ended. Start the next one.")
+    return session
+
+
+@router.post("/class/{token}/answer")
+async def class_answer(token: str, payload: Dict[str, Any] = Body(...)):
+    student = await _class_child(token)
+    session = await _open_session(student, payload.get("session_id"))
+    ref = session["items"][session["index"]]
+    if payload.get("item_id") != ref["item_id"]:
+        raise HTTPException(409, "That question has moved on. Reload the class.")
+    item = _item_content(ref)
+    st = dict(session["item_state"].get(ref["item_id"]) or {"wrong": 0, "tries": 0})
+    if st.get("finished"):
+        return {"result": {"outcome": "ignored"}, "session": _session_view(session)}
+    answer = payload.get("answer") or {}
+    if answer.get("skip"):  # placement only: "I don't know yet"
+        if ref["owner"] != "placement":
+            raise HTTPException(409, "This one can't be skipped.")
+        result = {"outcome": "skipped", "kind": None, "say": "That's fine. We'll learn it together."}
+    elif answer.get("reveal"):
+        if item.get("test") or st.get("wrong", 0) < REVEAL_AFTER:
+            raise HTTPException(409, "Try once more first.")
+        result = {"outcome": "revealed", "kind": None, "say": "Here it is.", "reveal": fs.reveal(item)}
+    else:
+        try:
+            result = fs.grade(item, answer, st.get("state"))
+        except (ValueError, KeyError, TypeError):
+            raise HTTPException(400, "That answer could not be read.")
+    outcome = result["outcome"]
+    if outcome == "ignored":
+        return {"result": result, "session": _session_view(session)}
+    st["tries"] = st.get("tries", 0) + 1
+    if "state" in result:
+        st["state"] = result["state"]
+    inc: Dict[str, int] = {}
+    if outcome == "wrong":
+        st["wrong"] = st.get("wrong", 0) + 1
+        kind = result.get("kind") or "wrong"
+        kinds = dict(st.get("kinds") or {})
+        kinds[kind] = kinds.get(kind, 0) + 1
+        st["kinds"] = kinds
+        inc[f"mistakes.{kind}"] = 1
+        if item.get("test"):
+            # A check item gives no hints. After the second miss it shows the answer and is failed.
+            if st["wrong"] < REVEAL_AFTER:
+                result["say"] = "Not quite. Try once more."
+            else:
+                result["say"] = "Here is the answer. We'll practise it again."
+                result["reveal"] = fs.reveal(item)
+                st["finished"], st["revealed"] = True, True
+    elif outcome == "right":
+        st["solved"], st["finished"] = True, True
+        st["clean"] = st.get("wrong", 0) == 0 and not st.get("revealed")
+        if not item.get("test") and session.get("stars", 0) < 5:
+            inc["stars"] = 1
+    elif outcome in ("done", "skipped", "revealed"):
+        st["finished"] = True
+        st["revealed"] = bool(st.get("revealed") or outcome == "revealed")
+        if result.get("kind"):
+            inc[f"mistakes.{result['kind']}"] = 1
+    update: Dict[str, Any] = {"$set": {f"item_state.{ref['item_id']}": st, "updated_at": _now()}}
+    if inc:
+        update["$inc"] = inc
+    await db[fs.SESSIONS].update_one({"session_id": session["session_id"]}, update)
+    session = await db[fs.SESSIONS].find_one({"session_id": session["session_id"]}, {"_id": 0})
+    return {"result": {k: v for k, v in result.items() if k != "state"}, "session": _session_view(session)}
+
+
+@router.post("/class/{token}/retry")
+async def class_retry(token: str, payload: Dict[str, Any] = Body(...)):
+    """Play a stars level or a game again. Earlier tries stay counted."""
+    student = await _class_child(token)
+    session = await _open_session(student, payload.get("session_id"))
+    ref = session["items"][session["index"]]
+    item = _item_content(ref)
+    st = dict(session["item_state"].get(ref["item_id"]) or {})
+    if item["kind"] not in ("stars", "game") or st.get("solved"):
+        raise HTTPException(409, "This one can't be played again.")
+    st.update({"state": {}, "finished": False, "retries": st.get("retries", 0) + 1})
+    await db[fs.SESSIONS].update_one({"session_id": session["session_id"]},
+                                     {"$set": {f"item_state.{ref['item_id']}": st}})
+    session["item_state"][ref["item_id"]] = st
+    return _session_view(session)
+
+
+@router.post("/class/{token}/next")
+async def class_next(token: str, payload: Dict[str, Any] = Body(...)):
+    student = await _class_child(token)
+    session = await _open_session(student, payload.get("session_id"))
+    ref = session["items"][session["index"]]
+    if not (session["item_state"].get(ref["item_id"]) or {}).get("finished"):
+        raise HTTPException(409, "Finish this one first.")
+    index = session["index"] + 1
+    if index < len(session["items"]):
+        await db[fs.SESSIONS].update_one({"session_id": session["session_id"]},
+                                         {"$set": {"index": index, "updated_at": _now()}})
+        session["index"] = index
+        return _session_view(session)
+    return await _finish_class(student, session)
+
+
+async def _finish_class(student: Dict[str, Any], session: Dict[str, Any]) -> Dict[str, Any]:
+    states = session["item_state"]
+    name = student["display_name"]
+    update: Dict[str, Any] = {"finished_at": _now(), "index": len(session["items"])}
+    if session["kind"] == "placement":
+        results = {}
+        for ref in session["items"]:
+            results[_item_content(ref)["result"]] = bool((states.get(ref["item_id"]) or {}).get("clean"))
+        level = fs.placement_level(results)
+        await db[svc.STUDENTS].update_one({"student_id": student["student_id"]},
+                                          {"$set": {"first_steps.level": level, "first_steps.placed_at": _now(),
+                                                    "first_steps.placement": results}})
+        first = fs.class_by_id(fs.LEVEL_START[level])
+        summary = {"say": f"Thank you, {name}! Your first class is ready: {first['title'].lower()}.",
+                   "next": first["title"], "level": level}
+    else:
+        cls = fs.class_by_id(session["class_id"])
+        tests = [r for r in session["items"] if not r.get("warm") and _item_content(r).get("test")]
+        passed = all((states.get(r["item_id"]) or {}).get("solved")
+                     and not (states.get(r["item_id"]) or {}).get("revealed") for r in tests)
+        later = [c for c in fs.classes() if c["order"] > cls["order"]]
+        nxt = (later[0] if later else None) if passed else cls
+        update["passed"] = passed
+        if passed:
+            say = f"Well done, {name}! Today you learnt {cls['learnt']}."
+            parent = f"Today {name} learnt {cls['learnt']}."
+        else:
+            say = f"Good work, {name}! Next time we'll practise {cls['title'].lower()} once more."
+            parent = f"Today {name} practised {cls['title'].lower()}. One more class on it, then the next one."
+        summary = {"say": say, "parent": parent, "passed": passed,
+                   "notes": fs.coach_notes(session.get("mistakes") or {}),
+                   "next": nxt["title"] if nxt else None, "all_done": passed and not later}
+    update["summary"] = summary
+    await db[fs.SESSIONS].update_one({"session_id": session["session_id"]}, {"$set": update})
+    session.update(update)
+    return _session_view(session)
+
+
+async def first_steps_for_staff(student: Dict[str, Any]) -> Dict[str, Any]:
+    """What the coach sees: where the child is in the eight classes and what
+    the taps have shown in the last three classes."""
+    sessions = await _sessions(student["student_id"])
+    done = [s for s in sessions if s.get("kind") == "class" and s.get("finished_at")]
+    mistakes: Dict[str, int] = {}
+    for s in done[-3:]:
+        for k, v in (s.get("mistakes") or {}).items():
+            mistakes[k] = mistakes.get(k, 0) + v
+    last = done[-1] if done else None
+    return {**_overview(student, sessions),
+            "last": {"title": last["title"], "passed": last.get("passed"), "finished_at": last.get("finished_at"),
+                     "parent": (last.get("summary") or {}).get("parent")} if last else None,
+            "notes": fs.coach_notes(mistakes)}
