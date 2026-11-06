@@ -133,6 +133,11 @@ _RELATION: Dict[str, str] = {
     # separates the lines; the better move brings a piece out, frees one or
     # steps out of a pawn's way, and the played move does none of those.
     "TEMPO": "the move played brings no piece out while the better move does, so a move is lost",
+    # The check-first family (services/reasoning/check_first.py, 2026-11-06):
+    # both moves take the same piece on the same square; after the move
+    # played the king takes back there, and the better move's check makes the
+    # king step away first.
+    "CHECK_FIRST": "the better move gives check first, so the king steps away and can no longer take back",
 }
 
 # Any ONE of these conveys the relation. Written as alternatives, not as a
@@ -169,6 +174,8 @@ _CONVEYS: Dict[str, str] = {
     "TEMPO": (r"\bbring|\bbrought\b|\bout\b|\bdevelop|\btime\b|\btempo|\bslow|\bwast|\bbehind\b"
               r"|\bstuck\b|\bcan(?:not|'t) move\b|\bfree|\bin (?:the|its|their|your) way\b|\bway\b"
               r"|\bcastl|\bhome\b|\bpiece out\b"),
+    # The check has to be said; "the king steps away" alone could be any move.
+    "CHECK_FIRST": r"\bcheck",
 }
 
 
