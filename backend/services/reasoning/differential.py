@@ -342,9 +342,18 @@ def exchange_ledger(root: chess.Board, line_san: Sequence[str], mover: chess.Col
                                 "first_by_mover": board.turn == mover}
                 order.append(name)
             g = groups[name]
-            g["plies"].append({"ply": ply, "san": board.san(move), "by_mover": board.turn == mover,
-                               "captured": PIECE_NAME[captured.piece_type]})
+            entry = {"ply": ply, "san": board.san(move), "by_mover": board.turn == mover,
+                     "captured": PIECE_NAME[captured.piece_type]}
+            g["plies"].append(entry)
             (g["mover_won"] if board.turn == mover else g["mover_lost"]).append(PIECE_NAME[captured.piece_type])
+            board.push(move)
+            # Could the other side have taken back on that square? The line may
+            # not do it -- taking back can lose more -- but then "nothing can
+            # take back" is not a fact of the board. 157fead3 m18 said it of
+            # Rxb7 with Qxb7 legal; 9 of 29 such sentences in the first
+            # final-code render had a legal recapture (hand grade 2026-11-06).
+            entry["answerable"] = any(m.to_square == move.to_square for m in board.legal_moves)
+            continue
         board.push(move)
     by_name = {v: k for k, v in PIECE_NAME.items()}
     last_ply = min(len(line_san), max_plies) - 1
@@ -452,13 +461,18 @@ def exchange_sentence(g: Dict[str, Any], *, played_san: str, reply_san: Optional
         lost, gained = _dearest(g["mover_lost"]), _dearest(g["mover_won"])
         lost_all, gained_all = _pieces_phrase(g["mover_lost"], article=False), _pieces_phrase(g["mover_won"])
         hit = next(p for p in g["plies"] if not p["by_mover"])
+        # A recapture that was legal and not played: the capture is stated,
+        # without "simply", "nothing can take back" or "for free".
+        answerable = bool(hit.get("answerable"))
+        clean = with_clause and not answerable
+        simply = "" if answerable else "simply "
         if gained is None:
             if hit["ply"] == 1:
-                text = f"After {played_san}, {hit['san']} simply takes {your} {lost_all} on {g['square']}" + \
-                       (", and nothing can take back." if with_clause else ".")
+                text = f"After {played_san}, {hit['san']} {simply}takes {your} {lost_all} on {g['square']}" + \
+                       (", and nothing can take back." if clean else ".")
             else:
                 text = (f"After {played_san}, {reply_san} starts a line that ends with {hit['san']} taking {your} "
-                        f"{lost_all} on {g['square']}" + (" for free." if with_clause else "."))
+                        f"{lost_all} on {g['square']}" + (" for free." if clean else "."))
         else:
             text = (f"After {played_san}, the exchange on {g['square']} costs {them} "
                     f"{_pieces_phrase(g['mover_lost'])} for {gained_all}.")
@@ -469,12 +483,15 @@ def exchange_sentence(g: Dict[str, Any], *, played_san: str, reply_san: Optional
     won, lost = _dearest(g["mover_won"]), _dearest(g["mover_lost"])
     won_all = _pieces_phrase(g["mover_won"], article=False)
     hit = next(p for p in g["plies"] if p["by_mover"])
+    answerable = bool(hit.get("answerable"))
+    clean = with_clause and not answerable
+    simply = "" if answerable else "simply "
     if lost is None:
         if hit["ply"] == 0:
-            text = f"{alt_san} simply takes {their} {won_all} on {g['square']}" + (" for free." if with_clause else ".")
+            text = f"{alt_san} {simply}takes {their} {won_all} on {g['square']}" + (" for free." if clean else ".")
         else:
             text = f"{alt_san} was the move: it leads to {hit['san']}, picking up {their} {won_all} on {g['square']}" + \
-                   (" for free." if with_clause else ".")
+                   (" for free." if clean else ".")
     else:
         text = (f"{alt_san} was the move: the exchange on {g['square']} wins {their} {won_all} "
                 f"for {_pieces_phrase(g['mover_lost'])}.")
