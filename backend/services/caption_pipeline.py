@@ -4266,6 +4266,50 @@ def _clear_best_move_capture_claims(
     return cleared
 
 
+def _clear_best_move_relation_claims(
+    audit,
+    caption: str,
+    *,
+    fen_before: str,
+    best_move_san: Optional[str],
+) -> int:
+    """Pass the piece-on-square claims the better move's own relation proves.
+
+    The sibling of _clear_best_move_capture_claims for the other verb family.
+    Mohit 2026-11-06, Rxe7 of 3628ebef move 32: R12 wrote "Re6+ was better --
+    it also hits the knight on e7", true on the board Re6+ is played on, and
+    the Phase 1 audit judged it on the board after Rxe7, where the player's own
+    rook now stands on e7. The whole sentence went and the bare severity line
+    took its place. The proof is narrator_claim_verifier.best_move_relation_proves,
+    so the three gates share one definition (feedback_single_source_of_truth).
+    """
+    from services.narrator_claim_verifier import best_move_relation_proves
+
+    facts = {"fen_before": fen_before, "best_move_san": best_move_san}
+    cleared = 0
+    lowered = (caption or "").lower()
+    for claim in getattr(audit, "claims", None) or []:
+        if getattr(claim, "verdict", None) != "fail":
+            continue
+        if getattr(claim, "kind", None) != "piece_on_square":
+            continue
+        text = getattr(claim, "text", "") or ""
+        at = lowered.find(text.lower())
+        if at < 0:
+            continue
+        pair = _claim_piece_square(text)
+        if pair is None:
+            continue
+        if not best_move_relation_proves(caption, at, pair[0], pair[1], facts):
+            continue
+        claim.verdict = "pass"
+        claim.detail = (f"{claim.detail}; cleared: the better move {best_move_san} "
+                        f"makes that relation to the {pair[0]} on {pair[1]} on the "
+                        f"board it is played on")
+        cleared += 1
+    return cleared
+
+
 def _verify_and_recover_caption(
     *,
     caption_payload: Dict[str, Any],
@@ -4344,6 +4388,15 @@ def _verify_and_recover_caption(
         logger.info(
             "[caption_verifier] cleared %d capture claim(s) proved by the "
             "better move %s", _cleared, best_move_san)
+    try:
+        _cleared_relation = _clear_best_move_relation_claims(
+            audit, text_in, fen_before=fen_before, best_move_san=best_move_san)
+    except Exception:
+        _cleared_relation = 0
+    if _cleared_relation:
+        logger.info(
+            "[caption_verifier] cleared %d relation claim(s) made by the "
+            "better move %s", _cleared_relation, best_move_san)
 
     phase1_failed = (audit.overall == "fail")
 
