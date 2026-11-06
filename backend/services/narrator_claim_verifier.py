@@ -546,6 +546,92 @@ def _is_stored_capture_phrase(caption: str, start: int) -> bool:
     )
 
 
+# A relation the better move makes, judged on the board the better move makes.
+#
+# Mohit 2026-11-06, Rxe7 of 3628ebef move 32: R12 wrote "Re6+ was better -- it
+# also hits the knight on e7" and the verifier threw the sentence away. It
+# judged "the knight on e7" on the board AFTER the played Rxe7, where the
+# player's own rook stands on e7 because it has just taken that knight. The
+# capture hatch above covers takes / captures / wins / removes only; this is
+# the same wrong-board defect one verb family over. Measured on the stored
+# cards 2026-11-06: 15,604 captions had been replaced by the bare severity
+# line (5,108 user, 10,496 opponent); which share is this shape is what the
+# dry-run re-render after this change reports.
+#
+# Narrow on purpose, like the capture hatch: the claim must follow one of the
+# relation verbs below, sit in a sentence that names the better move, and the
+# board after the better move must show the named piece on the square with
+# the better move's piece attacking it (its own piece, for the defend verbs).
+# caption_pipeline's Phase 2 still asks whether an attack claim survives the
+# opponent's reply. Nothing here can clear a claim the board does not prove.
+_RELATION_ATTACK_RX = re.compile(
+    r"\b(?:hits?|attacks?|threatens?|targets?|eyes?|pressures?)\s+(?:the\s+)?"
+    r"(?:undefended\s+|loose\s+|hanging\s+|weak\s+)?$", re.I)
+_RELATION_DEFEND_RX = re.compile(
+    r"\b(?:defends?|protects?|covers?|guards?|supports?)\s+(?:the\s+)?"
+    r"(?:undefended\s+|loose\s+|hanging\s+|weak\s+)?$", re.I)
+
+
+def _relation_kind(caption: str, start: int):
+    prefix = caption[max(0, start - 28):start]
+    if _RELATION_ATTACK_RX.search(prefix):
+        return "attacks"
+    if _RELATION_DEFEND_RX.search(prefix):
+        return "defends"
+    return None
+
+
+def _sentence_lead(caption: str, start: int) -> str:
+    """The text of the claim's own sentence before the claim."""
+    lead = caption[:start]
+    cut = max(lead.rfind(". "), lead.rfind("; "))
+    return lead[cut + 1:] if cut >= 0 else lead
+
+
+def _names_move(text: str, san) -> bool:
+    """The move appears as its own token: Re6+ or Re6, never the e7 inside Rxe7."""
+    core = re.sub(r"[+#!?]+$", "", str(san or ""))
+    if not core:
+        return False
+    return re.search(r"(?<![A-Za-z0-9])" + re.escape(core) + r"[+#]?(?![A-Za-z0-9])", text) is not None
+
+
+def best_move_relation_proves(caption: str, start: int, piece: str, square: str,
+                              facts: Dict[str, Any]) -> bool:
+    """Does the better move itself make the relation this claim states?
+
+    True only when the claim follows a relation verb, its sentence names the
+    better move, and on the board after the better move the named piece
+    stands on the square and the better move's piece attacks (or, for the
+    defend verbs, defends) it. Fails closed on anything it cannot replay.
+    """
+    kind = _relation_kind(caption, start)
+    if kind is None:
+        return False
+    best = facts.get("best_move_san")
+    fen = facts.get("fen_before")
+    if not best or not fen or piece not in _PIECE:
+        return False
+    if not _names_move(_sentence_lead(caption, start), best):
+        return False
+    try:
+        board = chess.Board(fen)
+        move = board.parse_san(str(best))
+        target_square = chess.parse_square(square)
+    except Exception:
+        return False
+    mover = board.turn
+    board.push(move)
+    target = board.piece_at(target_square)
+    if target is None or target.piece_type != _PIECE[piece]:
+        return False
+    if kind == "attacks" and target.color == mover:
+        return False
+    if kind == "defends" and target.color != mover:
+        return False
+    return target_square in board.attacks(move.to_square)
+
+
 def _check_piece_on_square(
     caption: str,
     post: chess.Board,
@@ -592,6 +678,10 @@ def _check_piece_on_square(
             or _claim_names_a_proved_capture(caption, m.start(), pc, sq, facts)
             or (strict_v2 and (pc, sq) in stored_captures)
         ):
+            continue
+        # "Re6+ was better -- it also hits the knight on e7": the relation the
+        # better move makes, proved on the board it makes it on.
+        if best_move_relation_proves(caption, m.start(), pc, sq, facts):
             continue
         pa = post.piece_at(chess.parse_square(sq))
         if pa is None or pa.piece_type != _PIECE[pc]:
