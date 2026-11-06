@@ -4215,6 +4215,7 @@ def _clear_best_move_capture_claims(
     pv_after_best: Optional[Sequence[str]] = None,
     played_san: Optional[str] = None,
     pv_after_played: Optional[Sequence[str]] = None,
+    user_color: Optional[str] = None,
 ) -> int:
     """Pass the piece-on-square claims a stored line proves at its own ply.
 
@@ -4237,7 +4238,7 @@ def _clear_best_move_capture_claims(
     names, which is what keeps the en-passant "pawn on c6" refused.
     """
     from services.narrator_claim_verifier import (
-        _claim_names_a_proved_capture)
+        _claim_names_a_proved_capture, named_capture_owner_matches)
 
     proved = _best_move_capture_pair(fen_before, best_move_san)
     facts = {
@@ -4246,6 +4247,7 @@ def _clear_best_move_capture_claims(
         "pv_after_best": list(pv_after_best or ()),
         "move_san": played_san,
         "pv_after_played": list(pv_after_played or ()),
+        "user_color": user_color,
     }
     cleared = 0
     lowered = (caption or "").lower()
@@ -4268,6 +4270,16 @@ def _clear_best_move_capture_claims(
                    f"{pair[0]} on {pair[1]}")
         elif _claim_names_a_proved_capture(
                 caption, at, pair[0], pair[1], facts):
+            # "their queen" / "your queen" is a claim too. The audit failed
+            # some of these on colour alone ("piece on d6 is white, but text
+            # says 'their'"), and the same SAN can capture twice in a line,
+            # so the capture that clears the claim must be of that side's
+            # piece. A claim with no owner word is cleared as before.
+            _owner = _re_pb.match(r"\s*(your|their)\b", text, _re_pb.I)
+            if _owner and user_color and not named_capture_owner_matches(
+                    caption, at, pair[0], pair[1],
+                    _owner.group(1).lower() == "your", facts):
+                continue
             why = (f"the line captures the {pair[0]} on {pair[1]} at the "
                    f"ply the sentence names")
         else:
@@ -4337,6 +4349,7 @@ def _verify_and_recover_caption(
     pv_after_best: List[str],
     severity_practical: str,
     mover_is_user: bool,
+    pv_after_played: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Post-render board-grounding check.
 
@@ -4394,10 +4407,19 @@ def _verify_and_recover_caption(
     # from, not on the one the played move created. See
     # _clear_best_move_capture_claims.
     try:
+        # The played line goes with it. The clear was written to prove a
+        # capture named further down EITHER stored line, and for the played
+        # line it never could: this function was not given that line, so
+        # "lets you play e6, and Rxc4 then takes their queen on c4" was
+        # judged on the board after the played move, where c4 is empty, and
+        # the whole caption was replaced. Traced over 60 games 2026-11-06:
+        # 58 of 99 replaced captions were this sentence, and all 58 replay
+        # true at the ply the taking move is played.
         _cleared = _clear_best_move_capture_claims(
             audit, text_in,
             fen_before=fen_before, best_move_san=best_move_san,
-            pv_after_best=pv_after_best or [], played_san=played_san)
+            pv_after_best=pv_after_best or [], played_san=played_san,
+            pv_after_played=pv_after_played or [], user_color=user_color)
     except Exception:
         _cleared = 0
     if _cleared:
@@ -8606,6 +8628,7 @@ def build_move_teaching_decision(
             pv_after_best=list(inputs.pv_after_best or []),
             severity_practical=practical.practical_tier,
             mover_is_user=bool(inputs.mover_is_user),
+            pv_after_played=list(inputs.pv_after_played or []),
         )
         caption_facts["caption_verification"] = _verifier_telemetry
     except Exception as _ver_exc:

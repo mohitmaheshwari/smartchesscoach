@@ -223,6 +223,51 @@ def _claim_names_a_proved_capture(caption, start, piece, square, facts):
     return False
 
 
+def named_capture_owner_matches(caption, start, piece, square, owner_is_user, facts) -> bool:
+    """Does a move the sentence names take a piece of THAT side there?
+
+    _claim_names_a_proved_capture proves the move, the piece and the square.
+    It does not prove whose piece it was, and the same SAN can occur twice in
+    a line -- Bxf5 by one side taking a knight, Bxf5 by the other taking the
+    bishop that just landed -- so a sentence saying "their bishop" could be
+    cleared on the strength of the other capture. This asks for a capture,
+    by a move named in the sentence, of a piece of the stated type on the
+    stated square that belongs to the stated side.
+
+    `owner_is_user` is True for "your", False for "their". The user's colour
+    comes from facts["user_color"]. Fails closed on anything it cannot replay.
+    """
+    user_color = str(facts.get("user_color") or "").lower()
+    if user_color not in ("white", "black") or piece not in _PIECE:
+        return False
+    owner = (chess.WHITE if user_color == "white" else chess.BLACK)
+    if not owner_is_user:
+        owner = not owner
+    lead = caption[:start]
+    cut = max(lead.rfind(". "), lead.rfind("; "))
+    lead = lead[cut + 1:] if cut >= 0 else lead
+    for first_key, continuation_key in (("move_san", "pv_after_played"),
+                                        ("best_move_san", "pv_after_best")):
+        if not facts.get(first_key):
+            continue
+        try:
+            _, entries, _complete = _replay_branch(
+                facts, first_key=first_key, continuation_key=continuation_key)
+        except Exception:
+            continue
+        for entry in entries:
+            captured = entry.get("captured_piece")
+            if captured is None or captured.color != owner:
+                continue
+            if captured.piece_type != _PIECE[piece]:
+                continue
+            if chess.square_name(entry["capture_square"]) != square:
+                continue
+            if entry["san"] in lead:
+                return True
+    return False
+
+
 def _replay_branch(
     facts: Dict[str, Any],
     *,
