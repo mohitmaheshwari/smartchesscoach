@@ -302,7 +302,7 @@ covers is stated.
 | `6876dcad`, `1171da3b`, `14e0b157` | Fix 3: the check-first family, the card wiring, and three rounds of tightening from the fire-rate pass |
 | `16271b64` | V5 v241, the single bump |
 | `bbe75903` | Fix 2 corrected by its dry run: the ledger sentence reaches the card |
-| next commit | Fix 2 corrected by its hand grade: "nothing can take back" only when nothing can |
+| `a147a57e` | Fix 2 corrected by its hand grade: "nothing can take back" only when nothing can |
 
 **The Rxe7 card, rendered by the final code from both stored copies of the game
 (3628ebef and 98360122), through every verifier gate:**
