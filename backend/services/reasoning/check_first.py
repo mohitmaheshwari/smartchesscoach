@@ -45,7 +45,7 @@ search produced; the caption facts pass the stored lines.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, Sequence
 
 import chess
 
@@ -165,18 +165,23 @@ def check_first_claim(root: chess.Board, played_line: Sequence[str], alt_line: S
     out["check_forces_king"] = every_reply_is_king
 
     # ---- played: the king takes back on the square
+    # "Takes back" means the king's capture belongs to the exchange the played
+    # move started: every move from the played capture up to it is a capture
+    # on S. A king that wanders over and takes the piece many moves later
+    # (d4b52618 m42: cxd3 a1=Q+ ... Kxd3) is another story.
     king_ply = None
     king_from = None
-    opp_captures_on_square: List[int] = []
     walk = root.copy()
     for ply, san in enumerate(played_line[:LINE_HORIZON]):
         move = parse_legal_move(walk, san)
         if move is None:
             break
-        if walk.turn != mover and move.to_square == square and walk.piece_at(square) is not None:
-            opp_captures_on_square.append(ply)
-            if walk.piece_type_at(move.from_square) == chess.KING and king_ply is None:
-                king_ply, king_from = ply, chess.square_name(move.from_square)
+        on_square = move.to_square == square and walk.piece_at(square) is not None
+        if ply >= 1 and not on_square:
+            break                                  # the exchange on S is over
+        if walk.turn != mover and on_square and walk.piece_type_at(move.from_square) == chess.KING:
+            king_ply, king_from = ply, chess.square_name(move.from_square)
+            break
         walk.push(move)
     if king_ply is None:
         out["why_not"] = "no_king_recapture"
@@ -200,6 +205,10 @@ def check_first_claim(root: chess.Board, played_line: Sequence[str], alt_line: S
     after = board.copy()
     after.push(parse_legal_move(board, capture_san))
     rest = alt_line[capture_ply + 1:LINE_HORIZON]
+    # Where the checking piece stands now, unless the king already took it or
+    # it is the piece that made the capture on S.
+    checker_square = None if (sacrificed or after.piece_at(alt.to_square) is None
+                              or after.piece_at(alt.to_square).color != mover) else alt.to_square
     for san in rest:
         move = parse_legal_move(after, san)
         if move is None:
@@ -207,6 +216,13 @@ def check_first_claim(root: chess.Board, played_line: Sequence[str], alt_line: S
         if after.turn != mover and move.to_square == square:
             out["why_not"] = "still_recaptured"
             return out
+        if after.turn != mover and checker_square is not None and move.to_square == checker_square:
+            # The check cost its piece a move or two later (bc7bb6bf m51:
+            # Nd8+ Kd5 Rxb7 Rxd8). "Wins the pawn" would leave that out.
+            out["why_not"] = "checker_lost_later"
+            return out
+        if after.turn == mover and checker_square is not None and move.from_square == checker_square:
+            checker_square = move.to_square
         after.push(move)
     if not rest and any(m.to_square == square for m in after.legal_moves):
         # The line ends on the capture and a recapture is legal: unknown.
