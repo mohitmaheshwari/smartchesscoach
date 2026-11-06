@@ -105,8 +105,11 @@ function Session({ token, view, setView, onDone }) {
   const owl = (m) => setMood(([, n]) => [m, n + 1]);
   const effect = (e) => setFx((f) => ({ ...e, seq: f.seq + 1 }));
 
+  const pending = useRef(null);
   const send = async (answer, tapped, el) => {
-    if (busy.current) return;
+    // A child taps fast. A tap made while the last one is being checked is
+    // kept (only the latest) and sent as soon as the answer comes back.
+    if (busy.current) { pending.current = [answer, tapped, el]; return; }
     busy.current = true;
     const before = cur;
     try {
@@ -152,10 +155,19 @@ function Session({ token, view, setView, onDone }) {
       setView(out.session);
     } catch (e) {
       setFeedback(["hint", e.message]);
+      pending.current = null;
     } finally {
       busy.current = false;
     }
+    if (pending.current) {
+      const queued = pending.current;
+      pending.current = null;
+      setTimeout(() => sendRef.current(...queued), 0);  // after React has drawn the new view
+    }
   };
+  // The queued tap must use the newest view (session and item), not the one this call started with.
+  const sendRef = useRef(send);
+  sendRef.current = send;
 
   const movable = cur && (cur.kind === "move_goal" || cur.kind === "game");
   const pieces = cur ? parseFen(cur.fen) : {};
