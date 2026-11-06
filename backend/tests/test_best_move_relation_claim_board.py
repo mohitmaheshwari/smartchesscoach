@@ -130,6 +130,90 @@ def test_nothing_is_proved_without_a_better_move_or_a_position():
                                          _facts(RXE7_FEN, "Rxe7", "Qz9"))
 
 
+# ── the reason must survive the opponent's first reply ───────────────────
+#
+# Hand grade of the first bulk render, 2026-11-06: a relation that is true on
+# the board after the better move and gone one ply later was let through.
+
+def _with_line(facts, line):
+    return dict(facts, pv_after_best=list(line))
+
+
+def test_the_rxe7_relation_survives_the_kings_step():
+    at = RXE7_CAPTION.index("knight on e7")
+    facts = _with_line(_facts(RXE7_FEN, "Rxe7", "Re6+"), ["Kg5", "Rxe7", "Qxd4"])
+    assert best_move_relation_proves(RXE7_CAPTION, at, "knight", "e7", facts)
+
+
+def test_an_attack_is_not_proved_when_the_reply_takes_the_attacker():
+    # 67523b9d m39: Bxd4 does hit the b6 pawn, and exd4 takes the bishop.
+    fen = "2r3k1/1p1r1p2/1P2q1p1/2bp3p/3B3n/4P2P/Q3BPP1/2R1R1K1 b - - 1 39"
+    caption = "Qxb6 was a mistake. Bxd4 was better — it attacks the pawn on b6 that nothing is guarding."
+    at = caption.index("pawn on b6")
+    assert best_move_relation_proves(caption, at, "pawn", "b6", _facts(fen, "Qxb6", "Bxd4"))
+    assert not best_move_relation_proves(
+        caption, at, "pawn", "b6", _with_line(_facts(fen, "Qxb6", "Bxd4"), ["exd4", "Qxb6"]))
+    # A reply that leaves bishop, pawn and diagonal alone keeps the claim.
+    assert best_move_relation_proves(
+        caption, at, "pawn", "b6", _with_line(_facts(fen, "Qxb6", "Bxd4"), ["Rxc8+", "Rd8"]))
+
+
+def test_an_attack_is_not_proved_when_the_reply_moves_the_target_away():
+    # Mohit 2026-10-03: "as knight can be moved right?"
+    fen = "1k2n2r/p1p5/1p5p/8/3q4/1Q3B2/PP3PP1/4R1K1 w - - 0 1"
+    caption = "Qc2 was a mistake. Qb5 was better — it attacks the knight on e8."
+    at = caption.index("knight on e8")
+    assert not best_move_relation_proves(
+        caption, at, "knight", "e8", _with_line(_facts(fen, "Qc2", "Qb5"), ["Nd6", "Qc6"]))
+    assert best_move_relation_proves(
+        caption, at, "knight", "e8", _with_line(_facts(fen, "Qc2", "Qb5"), ["a5", "Qc6"]))
+
+
+def test_a_defence_holds_when_the_piece_is_taken_and_the_defender_takes_back():
+    # 5118ded7 m13: d3 guards the queen on e4; Qxe4+ dxe4 is the trade on its terms.
+    fen = "r3k2r/ppp1qp1p/6p1/2bP4/4Q1b1/5N2/PPPP1PPP/R1B1K2R w KQkq - 1 13"
+    caption = "Your opponent takes the queen. They had d3, which defends the queen on e4."
+    at = caption.index("queen on e4")
+    assert best_move_relation_proves(
+        caption, at, "queen", "e4", _with_line(_facts(fen, "Qxe7+", "d3"), ["Qxe4+", "dxe4"]))
+
+
+def test_a_defence_is_not_proved_when_the_reply_takes_the_defender():
+    fen = "4k3/8/8/8/1b2P3/8/8/1N2K3 w - - 0 1"
+    caption = "Kf1 was a mistake. Nc3 was better — it defends the pawn on e4."
+    at = caption.index("pawn on e4")
+    assert best_move_relation_proves(caption, at, "pawn", "e4", _facts(fen, "Kf1", "Nc3"))
+    assert not best_move_relation_proves(
+        caption, at, "pawn", "e4", _with_line(_facts(fen, "Kf1", "Nc3"), ["Bxc3+", "Kf2"]))
+
+
+def test_a_line_that_does_not_replay_leaves_the_board_to_decide():
+    at = RXE7_CAPTION.index("knight on e7")
+    facts = _with_line(_facts(RXE7_FEN, "Rxe7", "Re6+"), ["Zz9"])
+    assert best_move_relation_proves(RXE7_CAPTION, at, "knight", "e7", facts)
+
+
+# ── the floor names the piece the move itself took ───────────────────────
+
+def test_the_floor_names_what_the_move_took_not_what_the_reply_takes():
+    # 9a1bc553 m21: the opponent's Nxg3 takes a bishop; the reply Nxg3 takes
+    # the knight, and the pipeline re-points captured_piece_type at it.
+    from services.caption_facts import extract_facts
+    from services.caption_fallback_tiers import tier23_caption
+
+    fen = "3r1r1k/1p2b1p1/pqpp3p/4p2n/P1Q1P3/1P4B1/2PRNPPP/4R1K1 b - - 6 21"
+    facts = extract_facts(fen_before=fen, played_san="Nxg3", best_move_san="d5", cp_loss=0,
+                          opp_cp_loss=43, pv_after_played=["Nxg3"], pv_after_best=["exd5"],
+                          mover_is_user=False, full_move_number=21)
+    assert facts["captured_piece_type"] == "bishop"
+    facts["played_captured_piece_type"] = facts["captured_piece_type"]
+    facts["captured_piece_type"] = "knight"          # what the pipeline does on this card
+    text, _rule = tier23_caption(facts, flagged_mistake=True)
+    assert "takes the knight" not in text
+    if "takes the" in text:
+        assert "takes the bishop" in text
+
+
 # ── gate 1: the Phase 1 audit in caption_pipeline ────────────────────────
 
 def test_gate_1_clears_the_rxe7_claim():

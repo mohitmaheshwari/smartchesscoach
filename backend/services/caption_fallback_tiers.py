@@ -206,7 +206,11 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
 
     # ── Tier 2 — explain what the move does (priority order) ───────────────
     if facts.get("is_capture"):
-        cap = _PIECE.get(facts.get("captured_piece_type"), "piece")
+        # What THIS move took. On an opponent card the pipeline re-points
+        # captured_piece_type at the piece the reply takes, and keeps the
+        # move's own capture under played_captured_piece_type.
+        _own_cap = facts.get("played_captured_piece_type") or facts.get("captured_piece_type")
+        cap = _PIECE.get(_own_cap, "piece")
         verb = "take" if facts.get("mover_is_user") else "takes"
         # No "on {square}": SAN already names it (feedback_dont_restate_destination_square),
         # and "{captured} on {sq}" reads as a present-tense location claim the verifier
@@ -215,7 +219,7 @@ def tier23_caption(facts: Dict[str, Any], flagged_mistake: bool = False) -> Tupl
         # Material verdict ONLY from a SEE-verified fact. material_delta alone ignores the
         # recapture, so never assert "winning"/"even" from it.
         if facts.get("free_capture_uncontested"):
-            what = "pawn" if facts.get("captured_piece_type") == "pawn" else "piece"
+            what = "pawn" if _own_cap == "pawn" else "piece"
             # If a clearly better WAY to take it existed (e.g. recapture with the pawn,
             # not the queen), surface that instead of overselling "free".
             tail = ("." + _suf) if _suf else f" — a free {what}."

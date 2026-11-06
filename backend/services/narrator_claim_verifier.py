@@ -629,7 +629,59 @@ def best_move_relation_proves(caption: str, start: int, piece: str, square: str,
         return False
     if kind == "defends" and target.color != mover:
         return False
-    return target_square in board.attacks(move.to_square)
+    if target_square not in board.attacks(move.to_square):
+        return False
+    return _relation_survives_reply(board, move, target_square, target, kind,
+                                    facts.get("pv_after_best"))
+
+
+def _relation_survives_reply(board: chess.Board, move: chess.Move, target_square: int,
+                             target: chess.Piece, kind: str, pv_after_best: Any) -> bool:
+    """The reason must still be true after the opponent's first reply.
+
+    Mohit 2026-10-03, on "Qb5 was better -- it wins the knight on e8": "the
+    question is what is the best move for opponent after Qb5 ... as knight can
+    be moved right?" A relation that is true on the board after the better
+    move and gone one ply later was never the reason. Hand grade of fix 1,
+    2026-11-06, 67523b9d m39: "Bxd4 was better -- it attacks the pawn on b6
+    that nothing is guarding, and your bishop can take it next move", where
+    the line's reply takes that bishop.
+
+    `board` is the position after the better move. The reply is the first
+    move of the stored line after it. An attack survives when the attacking
+    piece, the target and the line between them are all still there. A
+    defence survives when the defender is still there and either still guards
+    the piece or can take back on its square. With no stored reply, or one
+    that does not replay, the board alone decides, as it did before.
+    """
+    try:
+        reply_san = str(list(pv_after_best or [])[0])
+    except Exception:
+        return True
+    if not reply_san:
+        return True
+    try:
+        reply = board.parse_san(reply_san)
+    except Exception:
+        return True
+    actor_before = board.piece_at(move.to_square)
+    after = board.copy()
+    after.push(reply)
+    actor = after.piece_at(move.to_square)
+    if (actor is None or actor_before is None or actor.color != actor_before.color
+            or actor.piece_type != actor_before.piece_type):
+        return False                          # the piece that made the relation was taken
+    still_sees = target_square in after.attacks(move.to_square)
+    now = after.piece_at(target_square)
+    same_piece = (now is not None and now.color == target.color
+                  and now.piece_type == target.piece_type)
+    if kind == "attacks":
+        return same_piece and still_sees      # it moved away, was traded off, or the line closed
+    if same_piece:
+        return still_sees
+    # The defended piece was taken on its square: the defence held if the
+    # defender can take back there.
+    return now is not None and now.color != target.color and still_sees
 
 
 def _check_piece_on_square(
