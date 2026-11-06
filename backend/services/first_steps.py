@@ -611,7 +611,8 @@ def _push(board: chess.Board, move: chess.Move, game: str) -> None:
 # ---------------------------------------------------------------------------
 def public_item(item: Mapping[str, Any], state: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     state = state or {}
-    out = {k: item[k] for k in ("id", "part", "kind", "say", "sub", "test", "options", "flip", "marks") if k in item}
+    # "from" names the piece a task is about, so the page can light up its lines; it is not an answer.
+    out = {k: item[k] for k in ("id", "part", "kind", "say", "sub", "test", "options", "flip", "marks", "from") if k in item}
     if item["kind"] == "stars":
         out.update({"fen": _stars_board(item, state.get("at") or item["start"]).fen(),
                     "stars_left": state.get("left", item["stars"]), "moves": state.get("moves", 0),

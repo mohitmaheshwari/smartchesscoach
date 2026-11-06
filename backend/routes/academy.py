@@ -1157,6 +1157,7 @@ def _overview(student: Dict[str, Any], sessions: List[Dict[str, Any]]) -> Dict[s
                     for c in fs.classes()],
         "next": {"id": nxt["id"], "title": nxt["title"]} if nxt else None,
         "all_done": level is not None and nxt is None,
+        "stars": sum(int(s.get("stars") or 0) for s in sessions if s.get("finished_at")),
     }
 
 

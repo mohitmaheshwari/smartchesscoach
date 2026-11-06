@@ -4,27 +4,19 @@
  * Reached by the child's class link, with no account. The page only shows
  * and sends taps: every answer is judged on the server by
  * services/first_steps.py, which also keeps it as evidence for the next class.
+ * The look (journey map, Guru the owl, the wooden board, sound and sparkle)
+ * lives in components/kids.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { API } from "@/App";
+import "@/components/kids/kids.css";
+import KidsBoard, { parseFen } from "@/components/kids/KidsBoard";
+import JourneyMap from "@/components/kids/JourneyMap";
+import { CLASS_ART, Medal, Owl, SpeakerIcon, Star, World } from "@/components/kids/KidsArt";
+import { burst, centerOf, confetti, flyStar, isMuted, setMuted, sfx } from "@/components/kids/kidsFx";
 
-const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
-const FILES = "abcdefgh";
-
-export function parseFen(fen) {
-  const pieces = {};
-  const rows = String(fen || "").split(" ")[0].split("/");
-  rows.forEach((row, i) => {
-    let file = 0;
-    for (const ch of row) {
-      if (/\d/.test(ch)) { file += Number(ch); continue; }
-      pieces[`${FILES[file]}${8 - i}`] = { type: ch.toLowerCase(), white: ch === ch.toUpperCase() };
-      file += 1;
-    }
-  });
-  return pieces;
-}
+export { parseFen };
 
 async function call(path, body) {
   const res = await fetch(`${API}/academy/class/${path}`, body === undefined ? undefined : {
@@ -44,68 +36,52 @@ function speak(text) {
   } catch { /* the browser has no voice; the words are on the screen */ }
 }
 
-function Board({ fen, marks, stars, flip, onTap }) {
-  const pieces = parseFen(fen);
-  const squares = [];
-  for (let row = 0; row < 8; row += 1) {
-    for (let col = 0; col < 8; col += 1) {
-      const rank = flip ? row + 1 : 8 - row;
-      const file = flip ? 7 - col : col;
-      const sq = `${FILES[file]}${rank}`;
-      const p = pieces[sq];
-      const light = (file + rank) % 2 === 1;
-      const mark = marks[sq];
-      const star = stars.includes(sq);
-      const label = `${sq}${p ? ` ${p.white ? "white" : "black"} ${{ k: "king", q: "queen", r: "rook", b: "bishop", n: "knight", p: "pawn" }[p.type]}` : star ? " star" : ""}`;
-      squares.push(
-        <button key={sq} type="button" data-sq={sq} aria-label={label} onClick={() => onTap(sq)}
-          className="relative grid min-h-0 min-w-0 place-items-center overflow-hidden p-0 focus-visible:outline focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-primary"
-          style={{ background: light ? "#efd9b4" : "#b58863", fontSize: "clamp(22px, 8vw, 38px)", lineHeight: 1,
-                   fontFamily: '"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",serif' }}>
-          {p ? (
-            <span style={p.white
-              ? { color: "#fbfaf6", textShadow: "0 0 1px #2a2620,0 0 1px #2a2620,0 1px 1px #2a2620" }
-              : { color: "#1d1b18" }}>{GLYPH[p.type]}</span>
-          ) : star ? <span style={{ color: "#f2b632", textShadow: "0 0 2px #7a5208", fontSize: "0.8em" }}>{"★"}</span> : null}
-          {mark && <span aria-hidden className="pointer-events-none absolute inset-0" style={MARK_STYLE[mark]} />}
-          {row === 7 && <span className="absolute bottom-0 right-0.5 text-[9px] font-semibold text-[#3b2e20] opacity-70">{FILES[file]}</span>}
-          {col === 0 && <span className="absolute left-0.5 top-0 text-[9px] font-semibold text-[#3b2e20] opacity-70">{rank}</span>}
-        </button>,
-      );
-    }
+/** Moves between two positions, by colour: [[from, to], ...]. */
+function diffMoves(before, after) {
+  const a = parseFen(before);
+  const b = parseFen(after);
+  const out = [];
+  for (const white of [true, false]) {
+    const gone = Object.keys(a).filter((s) => a[s].white === white && !(b[s] && b[s].white === white && b[s].type === a[s].type));
+    const came = Object.keys(b).filter((s) => b[s].white === white && !(a[s] && a[s].white === white && a[s].type === b[s].type));
+    if (gone.length === 1 && came.length === 1) out.push([gone[0], came[0]]);
   }
+  return out;
+}
+
+function Words({ text }) {
+  if (!text) return null;
+  return text.split(/(\s+)/).map((w, i) => (
+    <span key={`${i}-${w}`} className="w" style={{ animationDelay: `${Math.min(i, 40) * 22}ms` }}>{w}</span>
+  ));
+}
+
+function Hud({ name, sub, stars }) {
+  const [muted, setM] = useState(isMuted());
   return (
-    <div className="grid aspect-square w-full select-none overflow-hidden rounded-lg"
-      style={{ touchAction: "manipulation", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gridTemplateRows: "repeat(8, minmax(0, 1fr))" }}>
-      {squares}
+    <div className="kids-hud">
+      <div className="kids-avatar" aria-hidden="true">{(name || "?")[0]}</div>
+      <div className="kids-who">{name}<small>{sub}</small></div>
+      <div className="kids-pill" id="kids-starpill" aria-label={`${stars} stars`}><Star /><span>{stars}</span></div>
+      <button type="button" className="kids-icon-btn" aria-label={muted ? "Turn sound on" : "Turn sound off"}
+        onClick={() => { setMuted(!muted); setM(!muted); if (muted) sfx.pop(); }}>
+        <SpeakerIcon muted={muted} />
+      </button>
     </div>
   );
 }
 
-const MARK_STYLE = {
-  found: { background: "radial-gradient(circle, rgba(47,125,67,.75) 22%, transparent 24%)" },
-  answer: { background: "radial-gradient(circle, rgba(47,111,94,.5) 22%, transparent 24%)" },
-  miss: { background: "radial-gradient(circle, rgba(181,69,47,.7) 18%, transparent 20%)" },
-  pick: { boxShadow: "inset 0 0 0 4px rgba(47,111,94,.9)" },
-  last: { boxShadow: "inset 0 0 0 4px rgba(232,163,61,.85)" },
-  marked: { boxShadow: "inset 0 0 0 4px rgba(63,95,143,.85)" },
-};
-
-function Stars({ n }) {
+function Coach({ mood, bump, say, sub, feedback }) {
   return (
-    <span className="whitespace-nowrap text-xl tracking-widest" aria-label={`${n} stars`}>
-      {[0, 1, 2, 3, 4].map((k) => <span key={k} style={{ color: k < n ? "#e8a33d" : "#d6d3c9" }}>{"★"}</span>)}
-    </span>
-  );
-}
-
-function Coach({ say, sub }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="grid h-11 w-11 flex-none place-items-center rounded-full bg-primary text-xl font-bold text-primary-foreground">C</div>
-      <div className="min-w-0">
-        <p className="text-xl font-semibold leading-snug">{say}</p>
-        {sub && <p className="mt-0.5 text-[15px] text-muted-foreground">{sub}</p>}
+    <div className="kids-coach">
+      <Owl mood={mood} bump={bump} />
+      <div className={`kids-bubble ${feedback ? feedback[0] : ""}`}>
+        <div className="kids-say" key={say}><Words text={say} /></div>
+        {sub && <div className="kids-sub">{sub}</div>}
+        {feedback && <div className={`kids-feedback ${feedback[0]}`} key={feedback[1]}><Words text={feedback[1]} /></div>}
+        <button type="button" className="kids-read" onClick={() => speak(`${say}. ${sub || ""} ${feedback ? feedback[1] : ""}`)}>
+          <SpeakerIcon /> Read aloud
+        </button>
       </div>
     </div>
   );
@@ -115,33 +91,69 @@ function Session({ token, view, setView, onDone }) {
   const cur = view.current;
   const [feedback, setFeedback] = useState(null);
   const [pick, setPick] = useState(null);
-  const [miss, setMiss] = useState(null);
   const [reveal, setReveal] = useState(null);
   const [last, setLast] = useState([]);
-  const [busy, setBusy] = useState(false);
+  const [slides, setSlides] = useState([]);
+  const [fx, setFx] = useState({ seq: 0 });
+  const [mood, setMood] = useState(["", 0]);
+  const busy = useRef(false);
 
-  useEffect(() => { setFeedback(null); setPick(null); setMiss(null); setReveal(null); setLast([]); }, [cur?.id]);
+  useEffect(() => {
+    setFeedback(null); setPick(null); setReveal(null); setLast([]); setSlides([]); setFx({ seq: 0 }); setMood(["", 0]);
+  }, [cur?.id]);
 
-  const send = async (answer, tapped) => {
-    if (busy) return;
-    setBusy(true);
+  const owl = (m) => setMood(([, n]) => [m, n + 1]);
+  const effect = (e) => setFx((f) => ({ ...e, seq: f.seq + 1 }));
+
+  const send = async (answer, tapped, el) => {
+    if (busy.current) return;
+    busy.current = true;
+    const before = cur;
     try {
       const out = await call(`${token}/answer`, { session_id: view.session_id, item_id: cur.id, answer });
       const r = out.result;
+      const next = out.session.current;
       if (r.outcome !== "ignored") {
         let say = r.say;
         if (r.reveal?.choice) say = `${say} The answer is ${r.reveal.choice === "yes" ? "yes" : "no"}.`;
         if (r.reveal?.sans?.length) say = `${say} ${r.reveal.sans.length === 1 ? "The move is" : "Moves that work:"} ${r.reveal.sans.join(", ")}.`;
-        setFeedback(say ? [r.outcome === "right" || r.outcome === "progress" ? "good" : "hint", say] : null);
-        setMiss(r.outcome === "wrong" ? tapped : null);
+        const good = r.outcome === "right" || r.outcome === "progress";
+        setFeedback(say ? [good ? "good" : "hint", say] : null);
         if (r.reveal) setReveal(r.reveal);
-        if (r.played) setLast(r.played.length > 1 ? [r.played[1].slice(0, 2), r.played[1].slice(2, 4)] : []);
+        if (r.played) {
+          setSlides(r.played.map((m) => [m.slice(0, 2), m.slice(2, 4)]));
+          setLast(r.played.length > 1 ? [r.played[1].slice(0, 2), r.played[1].slice(2, 4)] : []);
+        } else if (next && before.fen !== next.fen) {
+          setSlides(diffMoves(before.fen, next.fen));
+        }
+        const [x, y] = el ? centerOf(el) : [window.innerWidth / 2, window.innerHeight / 2];
+        if (r.outcome === "wrong") {
+          sfx.wrong(); owl("think");
+          const p = tapped && parseFen(before.fen)[tapped];
+          effect({ flash: p ? null : tapped, wiggle: p ? tapped : null, shake: true });
+        } else if (r.outcome === "progress") {
+          if (before.kind === "tap_reach") { sfx.found((next?.found || []).length - 1); burst(x, y, 6); }
+          else sfx.slide();
+          const gotStar = before.kind === "stars" && (next?.stars_left || []).length < (before.stars_left || []).length;
+          if (gotStar) { owl("happy"); setTimeout(() => { burst(x, y, 24); sfx.star(); }, 300); }
+        } else if (r.outcome === "right") {
+          sfx.right(); owl("cheer");
+          if (before.kind === "stars" || before.kind === "game") sfx.fanfare();
+          setTimeout(() => burst(x, y, 24), before.kind === "stars" ? 300 : 0);
+          if (before.kind === "tap_reach" && before.from) effect({ beams: before.from, hop: before.from });
+          else if (tapped && parseFen(before.fen)[tapped]) effect({ hop: tapped });
+          if (!before.test) flyStar(el || document.querySelector(".kids-board"));
+        } else if (r.outcome === "done") {
+          owl("wow");
+        } else if (r.outcome === "skipped" || r.outcome === "revealed") {
+          owl("happy");
+        }
       }
       setView(out.session);
     } catch (e) {
       setFeedback(["hint", e.message]);
     } finally {
-      setBusy(false);
+      busy.current = false;
     }
   };
 
@@ -149,81 +161,106 @@ function Session({ token, view, setView, onDone }) {
   const pieces = cur ? parseFen(cur.fen) : {};
   const childWhite = (cur?.child || "w") === "w";
 
-  const onTap = (sq) => {
+  const onTap = (sq, el) => {
     if (!cur || cur.finished) return;
-    if (!movable) { send({ square: sq }, sq); return; }
+    if (!movable) { send({ square: sq }, sq, el); return; }
     const p = pieces[sq];
-    if (p && p.white === childWhite) { setPick(sq); return; }
-    if (pick) { const from = pick; setPick(null); send({ move: from + sq }, sq); }
+    if (p && p.white === childWhite) { sfx.pop(); setPick(sq); return; }
+    if (pick) { const from = pick; setPick(null); send({ move: from + sq }, sq, el); }
   };
 
   const next = async () => {
+    sfx.pop();
     try {
       const out = await call(`${token}/next`, { session_id: view.session_id });
       if (out.finished_at) onDone(out); else setView(out);
     } catch (e) { setFeedback(["hint", e.message]); }
   };
   const retry = async () => {
-    try { setView(await call(`${token}/retry`, { session_id: view.session_id })); setFeedback(null); setLast([]); }
+    sfx.pop();
+    try { setView(await call(`${token}/retry`, { session_id: view.session_id })); setFeedback(null); setLast([]); setSlides([]); owl(""); }
     catch (e) { setFeedback(["hint", e.message]); }
   };
 
   if (!cur) return null;
   const marks = {};
   (cur.marks || []).forEach((s) => { marks[s] = "marked"; });
-  (cur.found || []).forEach((s) => { marks[s] = "found"; });
-  if (reveal?.squares) reveal.squares.forEach((s) => { if (!marks[s]) marks[s] = "answer"; });
   last.forEach((s) => { marks[s] = "last"; });
-  if (miss && !marks[miss]) marks[miss] = "miss";
-  if (pick) marks[pick] = "pick";
+  (cur.found || []).forEach((s) => { marks[s] = "found"; });
+  if (reveal?.squares) reveal.squares.forEach((s) => { if (marks[s] !== "found") marks[s] = "show"; });
   const count = cur.kind === "tap_reach" ? `${(cur.found || []).length} of ${cur.total} squares found`
-    : cur.kind === "stars" ? `Moves: ${cur.moves} · Can you do it in ${cur.par}?` : null;
+    : cur.kind === "stars" ? `Moves: ${cur.moves}` : null;
 
   return (
-    <section className="grid gap-4 rounded-3xl border bg-card p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-bold uppercase tracking-widest text-primary">{view.title} · {cur.part}</span>
-        <Stars n={view.stars} />
+    <section className="kids-scene">
+      <div className="kids-steps" aria-hidden="true">
+        {view.parts.map((_, k) => <span key={k} className={k < view.index || (k === view.index && cur.finished) ? "on" : ""} />)}
       </div>
-      <div className="flex gap-1.5" aria-hidden>
-        {view.parts.map((_, k) => <span key={k} className={`h-1.5 flex-1 rounded ${k <= view.index ? "bg-primary" : "bg-muted"}`} />)}
-      </div>
-      <Coach say={cur.say} sub={cur.sub} />
-      <Board fen={cur.fen} marks={marks} stars={cur.kind === "stars" ? cur.stars_left || [] : []} flip={!!cur.flip} onTap={onTap} />
-      {count && <p className="text-sm font-semibold text-muted-foreground">{count}</p>}
-      {feedback && (
-        <p className={`rounded-xl px-4 py-2.5 font-semibold ${feedback[0] === "good" ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200" : "bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200"}`}>
-          {feedback[1]}
-        </p>
-      )}
+      <Coach mood={mood[0]} bump={mood[1]} say={cur.say} sub={cur.sub} feedback={feedback} />
+      <KidsBoard fen={cur.fen} flip={!!cur.flip} marks={marks} stars={cur.kind === "stars" ? cur.stars_left || [] : []}
+        picked={pick} slides={slides} effects={fx} onTap={onTap} />
       {cur.kind === "choose" && !cur.finished && (
-        <div className="flex gap-3">
+        <div className="kids-choices">
           {(cur.options || []).map((o) => (
-            <button key={o.id} type="button" onClick={() => send({ choice: o.id })}
-              className="flex-1 rounded-full border-2 border-primary px-5 py-2.5 text-lg font-bold">{o.label}</button>
+            <button key={o.id} type="button" className={`kids-btn ${o.id === "yes" ? "green" : ""}`}
+              onClick={(e) => send({ choice: o.id }, null, e.currentTarget)}>{o.label}</button>
           ))}
         </div>
       )}
-      <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => speak(`${cur.say} ${cur.sub || ""} ${feedback ? feedback[1] : ""}`)}
-          className="rounded-full border px-4 py-2 text-sm font-semibold">Read aloud</button>
-        {cur.can_skip && <button type="button" onClick={() => send({ skip: true })} className="rounded-full border px-4 py-2 text-sm font-semibold">I don&apos;t know yet</button>}
-        {cur.can_reveal && <button type="button" onClick={() => send({ reveal: true })} className="rounded-full border px-4 py-2 text-sm font-semibold">Show me</button>}
-        {cur.can_retry && <button type="button" onClick={retry} className="rounded-full border px-4 py-2 text-sm font-semibold">Try again</button>}
-        {cur.finished && <button type="button" onClick={next} className="rounded-full bg-primary px-6 py-2.5 text-lg font-bold text-primary-foreground">Next</button>}
+      <div className="kids-counter">
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {count && <span className="kids-chip">{count}</span>}
+          {cur.kind === "stars" && <span className="kids-chip">Goal: {cur.par}</span>}
+          {cur.test && <span className="kids-chip">No hints this time</span>}
+        </div>
+        <div className="kids-actions">
+          {cur.can_skip && <button type="button" className="kids-btn ghost" onClick={() => send({ skip: true })}>I don&apos;t know yet</button>}
+          {cur.can_reveal && <button type="button" className="kids-btn ghost" onClick={() => send({ reveal: true })}>Show me</button>}
+          {cur.can_retry && <button type="button" className="kids-btn ghost" onClick={retry}>Try again</button>}
+          {cur.finished && <button type="button" className="kids-btn green" onClick={next}>Next</button>}
+        </div>
       </div>
     </section>
   );
 }
 
-function Finished({ view, onStart }) {
+function Finished({ view, name, onBack }) {
   const s = view.summary || {};
+  const placement = view.kind === "placement";
+  const art = CLASS_ART[view.class_id] || CLASS_ART.rook;
+  useEffect(() => {
+    if (placement || s.passed) {
+      const t = setTimeout(() => { sfx.fanfare(); confetti(); }, 250);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [placement, s.passed]);
   return (
-    <section className="grid gap-4 rounded-3xl border bg-card p-5">
-      <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-widest text-primary">{view.title}</span><Stars n={view.stars} /></div>
-      <Coach say={s.say} sub={s.next ? `Next class: ${s.next.toLowerCase()}.` : s.all_done ? "You've finished every class. Time to play real games!" : null} />
-      {s.parent && <p className="rounded-xl bg-muted px-4 py-2.5 text-[15px]"><b>For your parent:</b> {s.parent}</p>}
-      {s.next && <button type="button" onClick={onStart} className="justify-self-start rounded-full bg-primary px-6 py-2.5 text-lg font-bold text-primary-foreground">Start the next class</button>}
+    <section className="kids-scene">
+      <div className="kids-card">
+        {placement ? (
+          <>
+            <Owl mood="cheer" />
+            <h2>Your journey is ready!</h2>
+            <p>{s.say}</p>
+          </>
+        ) : s.passed ? (
+          <>
+            <Medal piece={art.piece} label={`${art.badge} badge`} />
+            <h2>{art.badge}!</h2>
+            <p>{s.say}</p>
+            <div className="kids-earned">{[0, 1, 2].map((k) => <Star key={k} style={{ animationDelay: `${0.6 + k * 0.18}s` }} />)}</div>
+          </>
+        ) : (
+          <>
+            <Owl mood="happy" />
+            <h2>Good try, {name}!</h2>
+            <p>{s.say}</p>
+          </>
+        )}
+        {s.parent && <div className="kids-parent"><b>For your parent:</b> {s.parent}</div>}
+        <button type="button" className="kids-btn big" onClick={onBack}>{placement ? "See my journey" : "Back to the journey"}</button>
+      </div>
     </section>
   );
 }
@@ -234,6 +271,7 @@ export default function FirstStepsClass() {
   const [view, setView] = useState(null);
   const [done, setDone] = useState(null);
   const [error, setError] = useState("");
+  const [celebrate, setCelebrate] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -245,38 +283,63 @@ export default function FirstStepsClass() {
   useEffect(() => { load(); }, [load]);
 
   const start = async () => {
-    try { setDone(null); setView(await call(`${token}/start`, {})); }
+    sfx.pop();
+    try { setDone(null); setCelebrate(false); setView(await call(`${token}/start`, {})); }
     catch (e) { setError(e.message); }
   };
+  const back = async () => {
+    sfx.pop();
+    const passed = done?.summary?.passed;
+    setDone(null); setView(null);
+    await load();
+    setCelebrate(!!passed);
+  };
+
+  const name = home?.child_name || "";
+  // home.stars counts finished classes; the class in hand adds its own.
+  const stars = (home?.stars || 0) + (view ? view.stars : done ? done.stars : 0);
+  const sub = done ? (done.kind === "placement" ? "All set" : "Class finished") : view ? `${view.title}` : "Chess Kingdom";
 
   return (
-    <div className="min-h-screen bg-background px-4 py-6 text-foreground">
-      <div className="mx-auto grid w-full max-w-[460px] gap-4">
-        <p className="text-sm font-semibold text-muted-foreground">ChessGuru · First steps</p>
-        {error && <section className="rounded-2xl border bg-card p-5"><p className="font-semibold">{error}</p></section>}
-        {!error && !home && <p className="text-muted-foreground">Getting your class ready…</p>}
-        {done && <Finished view={done} onStart={start} />}
-        {!done && view && <Session token={token} view={view} setView={setView} onDone={(v) => { setDone(v); setView(null); }} />}
-        {!done && !view && home && (
-          <section className="grid gap-4 rounded-3xl border bg-card p-5">
-            <Coach say={`Hi ${home.child_name}!`}
-              sub={!home.placed ? "Let's start with three quick questions, so your classes fit you."
-                : home.all_done ? "You've finished every class. Time to play real games!"
-                : `Your next class: ${home.next.title.toLowerCase()}.`} />
-            {home.placed && (
-              <ol className="grid gap-1.5">
-                {home.classes.map((c) => (
-                  <li key={c.id} className="flex items-center gap-2 text-[15px]">
-                    <span aria-hidden style={{ color: c.passed || c.skipped ? "#2f7d43" : "#b9b5aa" }}>{c.passed || c.skipped ? "✔" : "○"}</span>
-                    <span className={c.id === home.next?.id ? "font-bold" : ""}>{c.title}</span>
-                    {c.skipped && <span className="text-xs text-muted-foreground">(you know this)</span>}
-                  </li>
-                ))}
-              </ol>
-            )}
-            {!home.all_done && <button type="button" onClick={start} className="justify-self-start rounded-full bg-primary px-6 py-2.5 text-lg font-bold text-primary-foreground">{home.placed ? "Start the class" : "Let's go"}</button>}
-          </section>
-        )}
+    <div className="kids">
+      <World />
+      <div className="kids-wrap">
+        <main className="kids-app">
+          {home && <Hud name={name} sub={sub} stars={stars} />}
+          {error && (
+            <section className="kids-card"><Owl mood="think" /><p style={{ color: "#1f2a44" }}>{error}</p></section>
+          )}
+          {!error && !home && <div className="kids-loading"><Owl mood="happy" />Getting your class ready…</div>}
+          {done && <Finished view={done} name={name} onBack={back} />}
+          {!done && view && (
+            <Session token={token} view={view} setView={setView}
+              onDone={(v) => { setDone(v); setView(null); }} />
+          )}
+          {!done && !view && home && !home.placed && (
+            <section className="kids-scene">
+              <div className="kids-card">
+                <Owl mood="happy" />
+                <h2>Hi {name}!</h2>
+                <p>I&apos;m Guru, your chess coach. Let&apos;s start with three quick questions, so your classes fit you.</p>
+                <button type="button" className="kids-btn big" onClick={start}>Let&apos;s go</button>
+              </div>
+            </section>
+          )}
+          {!done && !view && home && home.placed && (
+            <section className="kids-scene">
+              <JourneyMap classes={home.classes} nextId={home.next?.id} celebrate={celebrate} onPlay={start} />
+              <div className="kids-panel">
+                <Owl small mood={celebrate ? "cheer" : ""} />
+                <p>
+                  <b>{home.all_done ? "Every class done!" : home.next?.title}</b>
+                  {home.all_done ? "You've finished every class. Time to play real games!"
+                    : celebrate ? `Next class unlocked. Ready, ${name}?` : `Hi ${name}! Your next class is ready.`}
+                </p>
+                {!home.all_done && <button type="button" className="kids-btn" onClick={start}>Play</button>}
+              </div>
+            </section>
+          )}
+        </main>
       </div>
     </div>
   );
