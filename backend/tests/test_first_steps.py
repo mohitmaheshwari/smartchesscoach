@@ -135,6 +135,29 @@ def test_stars_fewest_and_longer_routes():
     assert wall["kind"] == "jumped"
 
 
+def test_the_targets_are_black_pawns_that_vanish_when_captured():
+    item = _item("rook-stars-1")
+    assert fs.public_item(item)["fen"].split()[0] == "8/8/p4p2/8/8/8/5p2/R7"
+    out = fs.grade(item, {"square": "a6"})
+    assert fs.public_item(item, out["state"])["fen"].split()[0] == "8/8/R4p2/8/8/8/5p2/8"
+    blocked = fs.grade(item, {"square": "a7"})      # past the pawn on a6
+    assert blocked["kind"] == "jumped"
+
+
+def test_a_king_can_capture_a_target_pawn_next_to_it():
+    item = _item("king-stars")
+    state = None
+    for sq in ("b2", "c3"):
+        out = fs.grade(item, {"square": sq}, state)
+        state = out["state"]
+    assert "c3" not in state["left"]
+
+
+def test_a_right_move_returns_the_position_after_it():
+    out = fs.grade(_item("mate-test"), {"move": "h1h8"})
+    assert out["fen_after"].split()[0] == "k6R/8/1K6/8/8/8/8/8"
+
+
 @pytest.mark.parametrize("item_id", ["pawn-race", "queen-race", "mate-game"])
 def test_games_always_end(item_id):
     item = _item(item_id)

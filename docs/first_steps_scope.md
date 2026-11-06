@@ -171,6 +171,12 @@ Not success: classes opened, stars given, minutes spent.
 
 - 2026-11-06 — drafted. Awaiting Mohit.
 - Mockup (playable first class, the rook): https://claude.ai/artifact/7A1SVPguLVSmcaU5iRPvzV
+- 2026-11-06 — design changed by Mohit: "i don't want it kiddy... like chess.com or
+  lichess but with a premium UX", then "use the chess board that we are using".
+  The storybook look and its code are gone. Classes and family pages use the
+  lesson room (`components/room`) around the app's `LichessBoard`, one design for
+  every age; https://claude.ai/artifact/3XxWwaNhtQEqA5wyyw9FwQ. "Collect the stars"
+  became "capture the pawns". Sections 1 and 3 still say stars where they mean this.
 - 2026-11-06 — signed off ("okay, go ahead"). Built the same day: placement and
   all eight classes as content (`backend/data/first_steps_classes.json`), every
   authored answer checked against the rules engine in

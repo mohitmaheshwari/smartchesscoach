@@ -161,6 +161,22 @@ const chessgroundLostSquareShape = (square) => ({
   customSvg: { html: LOST_PIECE_SQUARE_SVG, center: "orig" },
 });
 
+// Lesson marks, passed as highlights: [{ square, kind }]. A dot like a legal-move
+// dot for a square found, a filled square for a piece picked up.
+const SQUARE_MARK_SVG = {
+  found: '<circle cx="50" cy="50" r="15" fill="#14281c" opacity="0.62" />',
+  answer: '<circle cx="50" cy="50" r="17" fill="#1f7a4d" opacity="0.95" />',
+  picked: '<rect width="100" height="100" fill="#d8a72c" opacity="0.6" />',
+  target: '<rect x="5" y="5" width="90" height="90" rx="6" fill="none" stroke="#1558d6" stroke-width="7" />',
+};
+
+const chessgroundMarkShape = (mark) => {
+  const square = typeof mark === "string" ? mark : mark && mark.square;
+  if (!square) return null;
+  const html = SQUARE_MARK_SVG[mark.kind];
+  return html ? { orig: square, customSvg: { html, center: "orig" } } : chessgroundLostSquareShape(square);
+};
+
 const chessgroundShapeFor = ([from, to, color, label], vivid = false) => {
   const token = String(color || "").toLowerCase();
   const brush = vivid && VIVID_BRUSH_BY_TOKEN[token]
@@ -171,6 +187,12 @@ const chessgroundShapeFor = ([from, to, color, label], vivid = false) => {
     shape.label = { text: String(label) };
   }
   return shape;
+};
+
+// chess.js refuses a position with no kings. Rules lessons need them (a lone
+// rook on an empty board); those boards are tapped, never moved on by chess.js.
+const chessFor = (fen) => {
+  try { return new Chess(fen); } catch { return new Chess(fen, { skipValidation: true }); }
 };
 
 const LichessBoard = forwardRef(({
@@ -204,7 +226,7 @@ const LichessBoard = forwardRef(({
   
   const boardRef = useRef(null);
   const groundRef = useRef(null);
-  const chessRef = useRef(new Chess(fen));
+  const chessRef = useRef(chessFor(fen));
   // v78.3 — in-flight variation playback timer ref. Used by
   // playVariation/cancelVariation in the imperative handle below.
   const variationTimerRef = useRef(null);
@@ -222,7 +244,7 @@ const LichessBoard = forwardRef(({
   useImperativeHandle(ref, () => ({
     setPosition: (newFen) => {
       if (groundRef.current) {
-        chessRef.current = new Chess(newFen);
+        chessRef.current = chessFor(newFen);
         groundRef.current.set({
           fen: newFen,
           turnColor: getTurnColor(newFen),
@@ -446,7 +468,7 @@ const LichessBoard = forwardRef(({
     }
     
     if (boardRef.current) {
-      chessRef.current = new Chess(fen);
+      chessRef.current = chessFor(fen);
       
       // Calculate movable destinations based on mode
       let dests = new Map();
@@ -646,7 +668,7 @@ const LichessBoard = forwardRef(({
       if (fenChanged) {
         try {
           if (fen) {
-            chessRef.current = new Chess(fen);
+            chessRef.current = chessFor(fen);
           }
         } catch (e) {
           console.warn("Could not sync chess instance:", e);
@@ -751,10 +773,7 @@ const LichessBoard = forwardRef(({
       // `highlights` has been accepted as a prop and silently dropped since
       // this component was written -- declared, never read, so every
       // caption_highlight_squares value computed upstream went nowhere.
-      const lostShapes = (highlights || [])
-        .map((h) => (typeof h === "string" ? h : h && h.square))
-        .filter(Boolean)
-        .map(chessgroundLostSquareShape);
+      const lostShapes = (highlights || []).map(chessgroundMarkShape).filter(Boolean);
       // Circles are chessground shapes with no `dest` — they draw as a ring on the square.
       const circleShapes = (circles || []).map(([square, color]) => ({
         orig: square,

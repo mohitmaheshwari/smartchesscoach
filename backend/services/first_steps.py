@@ -11,7 +11,8 @@ A class is a list of items. Item kinds:
   tap_take    tap the piece the piece on `from` can take
   choose      answer a yes/no question decided by the rules (is it check?)
   move_goal   make a move that does something (check, checkmate, promote...)
-  stars       move one piece onto every star in as few moves as possible
+  stars       capture every black pawn with one piece, in as few moves as
+              possible (the pawns stand still; "stars" is the historic name)
   game        a small game against the computer (pawn race, capture race,
               queen mate); the computer's moves come from simple fixed rules
 
@@ -57,9 +58,9 @@ MISTAKE_WORDS = {
     "wrong_piece": "That's the {tapped}. {look}",
     "own_piece": "That's your own piece. The {p} can't land on it.",
     "jumped": "Something is in the way there. The {p} can't jump over pieces.",
-    "like_bishop": "That's a diagonal. The {p} can't go that way. That's how the bishop moves!",
+    "like_bishop": "That's a diagonal. The {p} can't go that way. That is how the bishop moves.",
     "like_rook": "That's a straight line. The {p} can't go that way. That's how the rook moves!",
-    "like_knight": "That's a knight's jump! The {p} can't do that.",
+    "like_knight": "That is a knight's jump. The {p} can't do that.",
     "too_far": "The king only goes one square at a time.",
     "into_check": "That square is attacked. The king can never move into check.",
     "pawn_backward": "Pawns never go backwards.",
@@ -75,11 +76,11 @@ MISTAKE_WORDS = {
     "wrong_choice": "Not quite. Look again.",
     "no_check": "That move doesn't attack the king. Find a move that gives check.",
     "check_not_mate": "That's check, but the king can still escape. Find checkmate.",
-    "stalemate": "Careful! Now the king can't move, but it isn't in check. That's stalemate, a draw.",
+    "stalemate": "The king can't move, but it isn't in check. That is stalemate, a draw.",
     "not_goal": "That move is allowed, but it doesn't do what we need. Try another.",
     "leaves_check": "Your king is still in check after that. You must get out of check.",
     "illegal": "That move isn't allowed.",
-    "extra_moves": "You did it! It can be done in fewer moves. Want to try again?",
+    "extra_moves": "Done. It can be done in fewer moves.",
 }
 
 
@@ -135,11 +136,12 @@ def _empty_reach(piece_type: int, square: int, color: bool = chess.WHITE) -> Set
     return set(b.attacks(square))
 
 
-def reach(board: chess.Board, square: int) -> Set[int]:
+def reach(board: chess.Board, square: int, ignore_checks: bool = False) -> Set[int]:
     """Where the piece on `square` may move, by the rules, ignoring whose turn it is.
 
     A king never steps onto an attacked square. Other pieces ignore checks: the
-    rules classes for those pieces use boards without kings.
+    rules classes for those pieces use boards without kings. ignore_checks is
+    for the capture exercises, where the pawns are targets and attack nothing.
     """
     piece = board.piece_at(square)
     if piece is None:
@@ -162,7 +164,7 @@ def reach(board: chess.Board, square: int) -> Set[int]:
                 out.add(t)
         return out
     targets = {t for t in board.attacks(square) if not (chess.BB_SQUARES[t] & own)}
-    if piece.piece_type == chess.KING:
+    if piece.piece_type == chess.KING and not ignore_checks:
         without = board.copy(stack=False)
         without.remove_piece_at(square)
         targets = {t for t in targets if not without.is_attacked_by(not color, t)}
@@ -271,16 +273,19 @@ def _meets_goal(board: chess.Board, move: chess.Move, goal: str) -> bool:
 # ---------------------------------------------------------------------------
 # stars
 # ---------------------------------------------------------------------------
-def _stars_board(item: Mapping[str, Any], at: str) -> chess.Board:
+def _stars_board(item: Mapping[str, Any], at: str, left: Optional[Sequence[str]] = None) -> chess.Board:
+    """The exercise's position: walls are your own pawns, targets black pawns."""
     b = chess.Board(None)
     for w in item.get("walls", []):
         b.set_piece_at(_sq(w), chess.Piece(chess.PAWN, chess.WHITE))
+    for t in (item["stars"] if left is None else left):
+        b.set_piece_at(_sq(t), chess.Piece(chess.PAWN, chess.BLACK))
     b.set_piece_at(_sq(at), chess.Piece(TYPE_OF[item["piece"]], chess.WHITE))
     return b
 
 
 def stars_par(item: Mapping[str, Any]) -> Optional[int]:
-    """Fewest moves that land on every star, by breadth-first search."""
+    """Fewest moves that capture every pawn, by breadth-first search."""
     stars = list(item["stars"])
     index = {s: i for i, s in enumerate(stars)}
     full = (1 << len(stars)) - 1
@@ -293,7 +298,8 @@ def stars_par(item: Mapping[str, Any]) -> Optional[int]:
         for at, mask in frontier:
             if mask == full:
                 return depth
-            for t in _names(reach(_stars_board(item, at), _sq(at))):
+            left = [s for i, s in enumerate(stars) if not mask & (1 << i)]
+            for t in _names(reach(_stars_board(item, at, left), _sq(at), ignore_checks=True)):
                 m2 = mask | (1 << index[t]) if t in index else mask
                 if (t, m2) not in seen:
                     seen.add((t, m2))
@@ -505,11 +511,12 @@ def _grade_move_goal(item: Mapping[str, Any], uci: Any) -> Dict[str, Any]:
             k = classify_reach_tap(board, move.from_square, move.to_square)
         return {"outcome": "wrong", "kind": k, "say": item.get("hints", {}).get(k) or words(k, letter),
                 "state": {}}
-    if _meets_goal(board, move, item["goal"]):
-        return {"outcome": "right", "kind": None, "say": item.get("right"), "move": move.uci(),
-                "san": board.san(move), "state": {}}
+    san = board.san(move)
     after = board.copy(stack=False)
     after.push(move)
+    if _meets_goal(board, move, item["goal"]):
+        return {"outcome": "right", "kind": None, "say": item.get("right"), "move": move.uci(),
+                "san": san, "fen_after": after.fen(), "state": {}}
     goal = item["goal"]
     if goal == "checkmate":
         k = "stalemate" if after.is_stalemate() else ("check_not_mate" if after.is_check() else "no_check")
@@ -529,10 +536,10 @@ def _grade_stars(item: Mapping[str, Any], square: Any, state: Dict[str, Any]) ->
         to = _sq(str(square))
     except ValueError:
         return {"outcome": "ignored", "state": state}
-    board = _stars_board(item, at)
+    board = _stars_board(item, at, sorted(left))
     if to == _sq(at) or chess.square_name(to) in item.get("walls", []):
         return {"outcome": "ignored", "state": state}
-    if to not in reach(board, _sq(at)):
+    if to not in reach(board, _sq(at), ignore_checks=True):
         k = classify_reach_tap(board, _sq(at), to)
         return {"outcome": "wrong", "kind": k, "say": words(k, item["piece"]), "state": state}
     name = chess.square_name(to)
@@ -541,13 +548,13 @@ def _grade_stars(item: Mapping[str, Any], square: Any, state: Dict[str, Any]) ->
     state = {"at": name, "left": sorted(left), "moves": moves}
     par = stars_par(item)
     if left:
-        return {"outcome": "progress", "kind": None, "say": "Got it!" if name in item["stars"] else None,
+        return {"outcome": "progress", "kind": None, "say": "Captured." if name in item["stars"] else None,
                 "state": state, "par": par}
     if moves <= par:
-        return {"outcome": "right", "kind": None, "say": f"All the stars in {moves} moves. That's the fewest possible!",
+        return {"outcome": "right", "kind": None, "say": f"All the pawns in {moves} moves. That is the shortest route.",
                 "state": state, "par": par}
     return {"outcome": "done", "kind": "extra_moves",
-            "say": f"All the stars in {moves} moves! It can be done in {par}. Want to try again?",
+            "say": f"All the pawns in {moves} moves. It can be done in {par}.",
             "state": state, "par": par}
 
 
@@ -587,8 +594,8 @@ def _grade_game(item: Mapping[str, Any], uci: Any, state: Dict[str, Any]) -> Dic
     state = {"fen": board.fen(), "moves": moves}
     if status is None:
         return {"outcome": "progress", "kind": None, "say": None, "played": played, "state": state}
-    say = item.get("on_" + status) or {"won": "You won!", "lost": "They won this time. Try again!",
-                                       "draw": "It's a draw."}[status]
+    say = item.get("on_" + status) or {"won": "You won.", "lost": "They won this time.",
+                                       "draw": "It is a draw."}[status]
     if status == "draw" and board.is_stalemate():
         say = item.get("on_stalemate") or MISTAKE_WORDS["stalemate"]
     return {"outcome": "right" if status == "won" else "done", "kind": None if status == "won" else "game_" + status,
@@ -614,7 +621,7 @@ def public_item(item: Mapping[str, Any], state: Optional[Mapping[str, Any]] = No
     # "from" names the piece a task is about, so the page can light up its lines; it is not an answer.
     out = {k: item[k] for k in ("id", "part", "kind", "say", "sub", "test", "options", "flip", "marks", "from") if k in item}
     if item["kind"] == "stars":
-        out.update({"fen": _stars_board(item, state.get("at") or item["start"]).fen(),
+        out.update({"fen": _stars_board(item, state.get("at") or item["start"], state.get("left")).fen(),
                     "stars_left": state.get("left", item["stars"]), "moves": state.get("moves", 0),
                     "par": stars_par(item)})
     elif item["kind"] == "game":

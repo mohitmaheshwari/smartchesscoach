@@ -1,0 +1,89 @@
+/* The lesson room: ChessGuru's look for classes and family pages, for every age.
+   A quiet dark room around the app's real board. docs/first_steps_scope.md. */
+.room {
+  --room-ink: #0e1113; --room-panel: #161a1d; --room-raised: #1e2327; --room-line: #2a3034;
+  --room-text: #eff0ea; --room-muted: #9ba3a0; --room-faint: #6d7572;
+  --room-gold: #d8b26a; --room-good: #8ec07c; --room-bad: #e27d62;
+  min-height: 100vh; background: var(--room-ink); color: var(--room-text); color-scheme: dark;
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.55;
+}
+.room * { box-sizing: border-box; }
+.room h1, .room h2 { font-family: Fraunces, Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: -.015em; text-wrap: balance; margin: 0; }
+.room button:focus-visible { outline: 2px solid var(--room-gold); outline-offset: 2px; }
+.room-top { display: flex; align-items: center; gap: 14px; height: 56px; padding: 0 16px; border-bottom: 1px solid var(--room-line); }
+.room-mark { font: 600 18px Fraunces, Georgia, serif; }
+.room-where { color: var(--room-muted); font-size: 13px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.room-sound { margin-left: auto; background: none; border: 1px solid var(--room-line); border-radius: 6px; padding: 5px 10px; color: var(--room-muted); font-size: 12px; cursor: pointer; }
+.room-page { max-width: 1120px; margin: 0 auto; padding: 28px 16px 56px; }
+.room-btn { background: var(--room-text); color: var(--room-ink); border: 0; border-radius: 8px; padding: 11px 20px; font: 600 15px Inter, system-ui, sans-serif; cursor: pointer; transition: background .15s, transform .12s; }
+.room-btn:hover { background: #fff; }
+.room-btn:active { transform: translateY(1px); }
+.room-btn.quiet { background: transparent; color: var(--room-text); border: 1px solid var(--room-line); }
+.room-btn.quiet:hover { background: var(--room-raised); }
+.room-label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--room-gold); font-weight: 600; }
+.room-note { color: var(--room-muted); }
+
+/* path */
+.room-path { display: grid; gap: 34px; max-width: 760px; margin: 0 auto; }
+.room-path h1 { font-size: clamp(30px, 5vw, 42px); line-height: 1.08; margin-bottom: 6px; }
+.room-path p { margin: 0; }
+.room-next { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 20px; align-items: center; background: var(--room-panel); border: 1px solid var(--room-line); border-radius: 12px; padding: 16px; }
+.room-next h2 { font-size: 24px; line-height: 1.15; margin: 2px 0 6px; }
+.room-next p { color: var(--room-muted); margin-bottom: 14px; font-size: 14px; }
+.room-stage h3 { font: 500 13px Inter, system-ui, sans-serif; color: var(--room-muted); margin: 0 0 8px; }
+.room-rows { border: 1px solid var(--room-line); border-radius: 12px; overflow: hidden; }
+.room-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; text-align: left; color: inherit; font: inherit; background: var(--room-panel); border: 0; border-top: 1px solid var(--room-line); padding: 12px 14px; }
+.room-row:first-child { border-top: 0; }
+.room-row button { all: unset; }
+.room-row.open { cursor: pointer; }
+.room-row.open:hover { background: var(--room-raised); }
+.room-row b { font-weight: 500; display: block; }
+.room-row small { color: var(--room-muted); font-size: 12.5px; }
+.room-row .st { color: var(--room-faint); font-size: 12.5px; }
+.room-row.done .st { color: var(--room-good); }
+.room-row.cur .st { color: var(--room-gold); }
+.room-row.locked b, .room-row.locked .room-icon { opacity: .5; }
+.room-icon.cg-wrap { position: static; width: 30px; height: 30px; display: block; }
+.room-icon.cg-wrap piece { position: static; display: block; width: 30px; height: 30px; background-size: cover; visibility: visible; }
+
+/* the lesson */
+.room-lesson { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; align-items: start; }
+.room-boardbox { width: 100%; max-width: min(100%, calc(100vh - 150px)); margin: 0 auto; }
+.room-boardbox.nudge { animation: room-nudge .28s ease; }
+@keyframes room-nudge { 30% { transform: translateX(-4px); } 70% { transform: translateX(3px); } }
+.room-side { display: grid; gap: 16px; min-width: 0; }
+.room-progress { height: 3px; background: var(--room-line); border-radius: 2px; overflow: hidden; }
+.room-progress i { display: block; height: 100%; background: var(--room-gold); transition: width .4s ease; }
+.room-side h1 { font-size: 27px; line-height: 1.14; }
+.room-task { color: var(--room-muted); margin: 0; }
+.room-say { min-height: 62px; border-top: 1px solid var(--room-line); padding-top: 14px; }
+.room-who { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--room-faint); font-weight: 600; margin-bottom: 4px; }
+.room-say p { margin: 0; animation: room-rise .25s ease both; }
+.room-say p.good { color: var(--room-good); }
+.room-say p.bad { color: var(--room-bad); }
+@keyframes room-rise { from { opacity: 0; transform: translateY(4px); } }
+.room-tally { display: flex; justify-content: space-between; gap: 10px; color: var(--room-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.room-acts { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* finished */
+.room-done { max-width: 560px; margin: 8vh auto 0; display: grid; gap: 16px; animation: room-rise .4s ease both; }
+.room-done h1 { font-size: clamp(32px, 6vw, 46px); line-height: 1.06; }
+.room-done p { color: var(--room-muted); margin: 0; }
+.room-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--room-line); border-radius: 12px; overflow: hidden; }
+.room-facts div { padding: 14px; background: var(--room-panel); border-left: 1px solid var(--room-line); }
+.room-facts div:first-child { border-left: 0; }
+.room-facts b { display: block; font: 500 24px Fraunces, Georgia, serif; font-variant-numeric: tabular-nums; }
+.room-facts span { color: var(--room-muted); font-size: 12.5px; }
+.room-parent { border-top: 1px solid var(--room-line); padding-top: 12px; font-size: 14px; color: var(--room-muted); }
+
+/* family pages sit in the same room; their cards use the app's own dark tokens */
+.room-family { display: grid; gap: 16px; width: 100%; max-width: 520px; margin: 0 auto; padding: 24px 16px 48px; }
+
+@media (max-width: 860px) {
+  .room-lesson { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .room-boardbox { max-width: 100%; }
+  .room-page { padding: 16px 16px 40px; }
+  .room-side h1 { font-size: 23px; }
+}
+@media (max-width: 460px) { .room-next { grid-template-columns: 96px minmax(0, 1fr); gap: 14px; } .room-next h2 { font-size: 20px; } }
+@media (prefers-reduced-motion: reduce) { .room *, .room *::before, .room *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

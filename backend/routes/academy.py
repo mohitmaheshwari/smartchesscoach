@@ -1324,7 +1324,7 @@ async def _finish_class(student: Dict[str, Any], session: Dict[str, Any]) -> Dic
                                           {"$set": {"first_steps.level": level, "first_steps.placed_at": _now(),
                                                     "first_steps.placement": results}})
         first = fs.class_by_id(fs.LEVEL_START[level])
-        summary = {"say": f"Thank you, {name}! Your first class is ready: {first['title'].lower()}.",
+        summary = {"say": f"Your first lesson is {first['title'].lower()}.",
                    "next": first["title"], "level": level}
     else:
         cls = fs.class_by_id(session["class_id"])
@@ -1334,13 +1334,16 @@ async def _finish_class(student: Dict[str, Any], session: Dict[str, Any]) -> Dic
         later = [c for c in fs.classes() if c["order"] > cls["order"]]
         nxt = (later[0] if later else None) if passed else cls
         update["passed"] = passed
+        played = [r for r in session["items"] if r["item_id"] in states]
         if passed:
-            say = f"Well done, {name}! Today you learnt {cls['learnt']}."
+            say = f"{name} now knows {cls['learnt']}. The next lesson starts by checking it has stuck."
             parent = f"Today {name} learnt {cls['learnt']}."
         else:
-            say = f"Good work, {name}! Next time we'll practise {cls['title'].lower()} once more."
+            say = f"The check at the end did not go through. The next lesson repeats {cls['title'].lower()}."
             parent = f"Today {name} practised {cls['title'].lower()}. One more class on it, then the next one."
         summary = {"say": say, "parent": parent, "passed": passed,
+                   "steps": len(played),
+                   "first_try": sum(1 for r in played if (states.get(r["item_id"]) or {}).get("clean")),
                    "notes": fs.coach_notes(session.get("mistakes") or {}),
                    "next": nxt["title"] if nxt else None, "all_done": passed and not later}
     update["summary"] = summary
