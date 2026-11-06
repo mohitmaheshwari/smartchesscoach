@@ -9398,7 +9398,14 @@ def build_move_teaching_decision(
             _rg = caption_facts.get("reply_gap") or {}
             # The material sentence stands only on a mistake or worse; the
             # card's own rating-aware tier decides (see reply_gap_sentence).
-            _rg_sev = getattr(inputs, "severity_practical", None)
+            # The tier is this function's `practical`, not a field of
+            # MoveInputs: the first version of this line read
+            # inputs.severity_practical, which does not exist, so the tier
+            # was always None and the ledger sentence shipped on no card at
+            # all (347-game dry run, 2026-11-06: 309 old sentences removed,
+            # 0 ledger sentences in their place).
+            _rg_sev = (getattr(practical, "practical_tier", None)
+                       or caption_facts.get("severity_practical"))
             _rg_cap = (caption_payload.get("caption") or "").strip()
             # The sentence is about the PLAYED move. When the card already
             # named the better move, "That" would bind to it: name the
