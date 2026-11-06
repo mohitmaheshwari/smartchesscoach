@@ -14,6 +14,12 @@
  * board stays clean. Tune `minWidth` per call if a specific board wants a
  * different cutoff.
  *
+ * Iteration 6 (Mohit 2026-11-06): `tagged`, for boards a learner reads square
+ * names from. Lessons say "go to h7", so every label shows at every size, on
+ * a small tag in a deeper shade of its own square. The piece stays readable
+ * because the tag is small and in the corner; the label stays readable over
+ * any piece because the tag is solid. Text on tag is at least 4.5:1.
+ *
  * Orientation-aware — "c5" always names the actual c5 square; the label
  * just renders in the flipped visual position when the board is shown
  * from black's perspective.
@@ -24,18 +30,26 @@ const LIGHT_SQUARE_TEXT = "#000000";  // black on cream
 const DARK_SQUARE_TEXT = "#ffffff";   // white on tan
 const FILES = "abcdefgh";
 
+// Tag colours follow --cg-sq-light (#f0d9b5) and --cg-sq-dark (#b58863).
+export const SQUARE_TAG = {
+  light: { background: "#e3c8a0", color: "#5a3a20" },
+  dark: { background: "#8a6142", color: "#fdf3e3" },
+};
+
 // Below this rendered board width (px), per-square labels clutter the board —
 // so coordinates show only on bigger boards. ~52px/square at the cutoff.
 const MIN_WIDTH_PX = 420;
 
-const BoardCoordinates = ({ orientation = "white", minWidth = MIN_WIDTH_PX }) => {
+const BoardCoordinates = ({ orientation = "white", minWidth = MIN_WIDTH_PX, tagged = false }) => {
   const ref = useRef(null);
-  const [bigEnough, setBigEnough] = useState(false);
+  const [width, setWidth] = useState(0);
+  const bigEnough = tagged || width >= minWidth;
+  const tagFont = Math.min(11, Math.max(8, (width / 8) * 0.2));
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const measure = () => setBigEnough(el.offsetWidth >= minWidth);
+    const measure = () => setWidth(el.offsetWidth);
     measure();
     let ro;
     if (typeof ResizeObserver !== "undefined") {
@@ -65,7 +79,36 @@ const BoardCoordinates = ({ orientation = "white", minWidth = MIN_WIDTH_PX }) =>
       className="pointer-events-none absolute inset-0 z-30 select-none"
       data-testid="board-coordinates"
     >
-      {bigEnough &&
+      {tagged && squares.map((sq) => (
+        <span
+          key={sq.label}
+          className="absolute"
+          style={{
+            left: `${sq.visualX * 12.5}%`,
+            top: `${sq.visualY * 12.5}%`,
+            width: "12.5%",
+            padding: "2px",
+            lineHeight: 1,
+          }}
+        >
+          <span
+            data-testid={`square-tag-${sq.label}`}
+            style={{
+              ...(sq.isDark ? SQUARE_TAG.dark : SQUARE_TAG.light),
+              display: "inline-block",
+              padding: "1px 3px",
+              borderRadius: "3px",
+              fontSize: `${tagFont}px`,
+              fontWeight: 600,
+              lineHeight: 1.1,
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {sq.label}
+          </span>
+        </span>
+      ))}
+      {!tagged && bigEnough &&
         squares.map((sq) => (
           <span
             key={sq.label}

@@ -161,7 +161,7 @@ function Lesson({ token, view, setView, onDone }) {
     <div className="room-lesson">
       <div className="room-boardbox" ref={box}>
         <LichessBoard key={cur.id} fen={after || cur.fen} orientation={cur.flip ? "black" : "white"}
-          selectionOnly showDests={false} onSquareClick={onSquare} highlights={marks} lastMove={lastMove} />
+          selectionOnly showDests={false} onSquareClick={onSquare} highlights={marks} lastMove={lastMove} squareTags />
       </div>
       <aside className="room-side">
         <div className="room-progress" aria-hidden="true"><i style={{ width: `${(view.index / view.count) * 100}%` }} /></div>

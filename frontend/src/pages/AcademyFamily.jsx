@@ -280,6 +280,7 @@ export function FamilyClassGame() {
             movableColor={game.my_color}
             lastMove={game.last_move ? [game.last_move.slice(0, 2), game.last_move.slice(2, 4)] : null}
             onMove={onMove}
+            squareTags
           />
         </div>
         {game.status === "playing" ? (
@@ -383,6 +384,7 @@ export function FamilyHomework() {
             viewOnly={!playing}
             movableColor={page.color}
             onMove={onMove}
+            squareTags
           />
         </div>
         {thinking && <p className="text-muted-foreground">The other side is thinking…</p>}

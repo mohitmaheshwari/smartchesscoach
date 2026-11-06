@@ -213,6 +213,7 @@ const LichessBoard = forwardRef(({
   movableColor = null,
   moveClassification = null, // { square: "e4", type: "blunder" | "best" | "mistake" | ... }
   showCoordinates = true,    // file letters a-h + rank numbers 1-8 overlay (Parth req 2026-06-03)
+  squareTags = false,        // learner boards: every square named on a small tag, at every size
   // Hard kill-switch for arrows/circles — every caller (props, the imperative
   // drawArrows/highlightSquares handle, the initial chessground config) is
   // forced empty when true. This is the ONE place that guarantees no coaching
@@ -811,7 +812,7 @@ const LichessBoard = forwardRef(({
         ref={boardRef}
         className="w-full h-full rounded-lg overflow-hidden"
       />
-      {showCoordinates && <BoardCoordinates orientation={orientation} />}
+      {showCoordinates && <BoardCoordinates orientation={orientation} tagged={squareTags} />}
       {classIcon && iconStyle && (
         <div
           className="absolute pointer-events-none"
