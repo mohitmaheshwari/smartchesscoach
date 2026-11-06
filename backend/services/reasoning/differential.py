@@ -900,11 +900,40 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
             return True
         return False
 
-    order = (punished_answer, missed_answer) if result["family"] in ("punished", "mixed", "unmeasured", "terminal") \
-        else (missed_answer, punished_answer)
-    for attempt in order:
-        if attempt():
-            break
+    # CHECK FIRST runs before the material answers. When both moves take the
+    # same piece on the same square, "the better move wins that piece" is not
+    # the difference: 3628ebef m32, Rxe7 against Re6+, answered "Re6+ was the
+    # move: it leads to Rxe7, picking up their knight on e7 for free" about a
+    # knight the played move takes too. The difference is the king, which
+    # takes back after Rxe7 and has stepped away after the check. The
+    # measurement is kept whether or not it fires.
+    from .check_first import check_first_claim
+    check_first = check_first_claim(root, played_line, alt_line, mover_is_user=mover_is_user)
+    result["check_first"] = {k: v for k, v in check_first.items() if k not in ("text", "facts", "consequence")}
+    if check_first["fires"] and result["class"] not in ("mistake", "blunder"):
+        result["check_first"].update(fires=False, why_not="class")
+    if result["check_first"]["fires"]:
+        result.update(found=True, direction="missed", mechanism="CHECK_FIRST", text=check_first["text"],
+                      consequence=check_first["consequence"], check_first_facts=check_first["facts"])
+        line = [alt_san] + pv_alt_rest[:check_first["capture_ply"]]
+        result["line_san"] = line
+        result["arrows"] = _arrows(fen_before, line, limit=min(3, len(line)))
+    else:
+        # A capture the played move makes too is not what the better move
+        # "picks up": the missed-material sentence would name a piece both
+        # moves take (the same defect, where the family above stayed silent).
+        taken = root.piece_at(played.to_square)
+        if (gain is not None and not gain.get("series") and taken is not None and taken.color != root.turn
+                and gain.get("square") == chess.square_name(played.to_square)
+                and PIECE_NAME[taken.piece_type] in (gain.get("victim_pieces") or [gain.get("victim_piece")])):
+            result["shared_capture"] = {"square": gain["square"], "piece": PIECE_NAME[taken.piece_type],
+                                        "note": "the played move takes the same piece; not the difference"}
+            gain = None
+        order = (punished_answer, missed_answer) if result["family"] in ("punished", "mixed", "unmeasured", "terminal") \
+            else (missed_answer, punished_answer)
+        for attempt in order:
+            if attempt():
+                break
 
     # TEMPO runs last: when nothing material separates the lines and the move
     # is an inaccuracy or a mistake, the difference may be that the better
@@ -988,6 +1017,13 @@ def build_facts(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         facts["this_happens_after_the_move_played"] = False
         facts["the_move_that_does_it"] = result.get("better_move")
         facts.update(result.get("tempo_facts") or {})
+        return facts
+    if result.get("mechanism") == "CHECK_FIRST":
+        # Board facts read off both lines by the family module: the square,
+        # the king's recapture, the king's step, the capture after it.
+        facts["this_happens_after_the_move_played"] = False
+        facts["the_move_that_does_it"] = result.get("better_move")
+        facts.update(result.get("check_first_facts") or {})
         return facts
     consequence = result.get("consequence")
     causes = result.get("causes") or []
