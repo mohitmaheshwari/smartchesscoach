@@ -26,7 +26,7 @@ export default function TermsOfService() {
         </button>
 
         <h1 className="text-3xl font-heading mb-2">Terms of Service</h1>
-        <p className="text-sm text-gray-500 mb-10">Last updated: 12 May 2026</p>
+        <p className="text-sm text-gray-500 mb-10">Last updated: 6 November 2026</p>
 
         <div className="space-y-8 text-sm leading-relaxed">
           <section>
@@ -47,9 +47,12 @@ export default function TermsOfService() {
           <section>
             <h2 className="text-lg font-heading text-gray-100 mb-3">2. Eligibility</h2>
             <p>
-              You must be at least 13 years of age to use the Service. If you are
-              under 18, you must use the Service under the supervision of a
-              parent or legal guardian who agrees to these Terms on your behalf.
+              There is no minimum age to use the Service. If you are under 18, a
+              parent or legal guardian must agree to these Terms on your behalf,
+              and you must use the Service under their supervision. A parent, or
+              a chess academy with the parent's agreement, may set up the account
+              for you. The parent or guardian is responsible for how the account
+              is used.
             </p>
           </section>
 

@@ -26,7 +26,7 @@ export default function PrivacyPolicy() {
         </button>
 
         <h1 className="text-3xl font-heading mb-2">Privacy Policy</h1>
-        <p className="text-sm text-gray-500 mb-10">Last updated: 6 September 2026</p>
+        <p className="text-sm text-gray-500 mb-10">Last updated: 6 November 2026</p>
 
         <div className="space-y-8 text-sm leading-relaxed">
           <section>
@@ -165,10 +165,27 @@ export default function PrivacyPolicy() {
 
           <section>
             <h2 className="text-lg font-heading text-gray-100 mb-3">9. Children's privacy</h2>
+            <p className="mb-3">
+              Children of any age can use the Service. Anyone under 18 needs a
+              parent or legal guardian's agreement.
+            </p>
+            <p className="mb-3">
+              When a chess academy or a parent sets up a child, we read nothing
+              until the parent agrees on our consent page. We then keep the
+              child's first name, the chess account name, the parent's name and
+              phone number, and the games played on that chess account. The
+              child does not need an email address or a password.
+            </p>
+            <p className="mb-3">
+              A child's games and reports are seen by the child's own coach, the
+              parent, and our staff who check coaching quality. We do not show
+              them to other users, and no one can message a child through the
+              Service.
+            </p>
             <p>
-              The Service is not directed at children under 13. We do not
-              knowingly collect data from children under 13. If you believe
-              we have inadvertently collected such data, contact us and we
+              A parent can stop at any time from the weekly report, and we then
+              delete everything we hold about the child. If you believe we hold
+              a child's data without a parent's agreement, contact us and we
               will delete it.
             </p>
           </section>
