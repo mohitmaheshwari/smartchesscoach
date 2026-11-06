@@ -10813,6 +10813,48 @@ def _contested_target(
         return None
 
 
+def _check_first_facts(
+    board_before: chess.Board,
+    played_san: Optional[str],
+    best_san: Optional[str],
+    pv_after_played: Optional[Sequence[str]],
+    pv_after_best: Optional[Sequence[str]],
+    mover_is_user: Optional[bool],
+) -> Dict[str, Any]:
+    """Check first, take second, read off the two stored lines.
+
+    The same family the Why button runs (services.reasoning.check_first):
+    both moves take the same piece on the same square; after the played move
+    the opponent's king takes back there; the better move's check moves the
+    king first. Mohit 2026-11-06, 3628ebef m32, Rxe7 against Re6+, where the
+    card said "it also hits the knight on e7 ... attacks more things".
+
+    Returns {} unless the family fires, so every check_first_* fact is absent
+    on every other card.
+    """
+    if not (played_san and best_san and pv_after_played and pv_after_best):
+        return {}
+    try:
+        from services.reasoning.check_first import check_first_claim
+        claim = check_first_claim(
+            board_before,
+            [str(played_san)] + [str(m) for m in pv_after_played],
+            [str(best_san)] + [str(m) for m in pv_after_best],
+            mover_is_user=(mover_is_user is not False))
+    except Exception:
+        return {}
+    if not claim.get("fires"):
+        return {}
+    return {
+        "square": claim["square"],
+        "piece": claim["piece"],
+        "capture_san": claim["capture_san"],
+        "king_to": claim["king_to"],
+        "king_last": bool(claim["king_last"]),
+        "sacrificed": claim["sacrificed"],
+    }
+
+
 def _reply_gap(
     board_before: chess.Board,
     played_san: Optional[str],
@@ -12499,9 +12541,23 @@ def extract_facts(
         board_before, played_san, pv_after_played or [],
         abs(int((cp_loss if mover_is_user is not False else opp_cp_loss) or 0)))
 
+    # Check first, take second (fix 3 of docs/caption_line_reasoning_scope.md).
+    # Empty unless the family fires on the two stored lines.
+    _check_first = _check_first_facts(
+        board_before, played_san, best_move_san,
+        pv_after_played, pv_after_best, mover_is_user)
+
     # ── Build the facts dict ───────────────────────────────────────────
     facts: Dict[str, Any] = {
         **_abandoned_guard,
+        # Both moves take the same piece on the same square; the king takes
+        # back after the played move and has stepped away after the check.
+        "check_first_square": _check_first.get("square"),
+        "check_first_piece": _check_first.get("piece"),
+        "check_first_capture_san": _check_first.get("capture_san"),
+        "check_first_king_to": _check_first.get("king_to"),
+        "check_first_king_last": _check_first.get("king_last"),
+        "check_first_sacrificed": _check_first.get("sacrificed"),
         # ENGINE TRUTH (pass-through)
         "cp_loss": cp_loss,
         "developed_eyes_piece": developed_eyes_piece,

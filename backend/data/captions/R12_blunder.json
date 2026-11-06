@@ -152,7 +152,13 @@
     "abandoned_lost_square": "the square that man stands on",
     "abandoned_taker_piece": "the piece that collects it in the stored line",
     "abandoned_taken_san": "the SAN of the move that collects it",
-    "abandoned_guard_gives_check": "true when that capture arrives with check"
+    "abandoned_guard_gives_check": "true when that capture arrives with check",
+    "check_first_square": "2026-11-06 — check first, take second (docs/caption_line_reasoning_scope.md fix 3; services/reasoning/check_first.py). Square both the played move and the better line take on. Set only when the family fires on the two stored lines: the played move is a capture there, the better move is a check that is not a capture, the better line takes the same piece there with its very next move, the opponent's king takes back there in the played line and no longer attacks the square after the check.",
+    "check_first_piece": "Lowercase name of the piece both moves take on check_first_square.",
+    "check_first_capture_san": "SAN of the better line's capture on check_first_square, after the check and the king's move.",
+    "check_first_king_to": "Square the opponent's king goes to in reply to the check.",
+    "check_first_king_last": "True when the king's recapture in the played line comes after other captures on the square (it takes back last).",
+    "check_first_sacrificed": "Lowercase piece name when the king takes the checking piece (the check was a sacrifice); absent otherwise."
   },
   "requires": [
     "played_san"
@@ -274,6 +280,33 @@
         "missed_tactic_kind": "mate"
       },
       "variant": "why_user_missed_mate"
+    },
+    {
+      "when": {
+        "check_first_square": "present",
+        "check_first_sacrificed": "present",
+        "severity_practical": {
+          "in": [
+            "mistake",
+            "serious",
+            "blunder"
+          ]
+        }
+      },
+      "variant": "why_user_missed_check_first_sacrifice"
+    },
+    {
+      "when": {
+        "check_first_square": "present",
+        "severity_practical": {
+          "in": [
+            "mistake",
+            "serious",
+            "blunder"
+          ]
+        }
+      },
+      "variant": "why_user_missed_check_first"
     },
     {
       "when": {
@@ -555,6 +588,33 @@
     },
     {
       "when": {
+        "check_first_square": "present",
+        "check_first_king_last": true,
+        "severity_practical": {
+          "in": [
+            "mistake",
+            "serious",
+            "blunder"
+          ]
+        }
+      },
+      "variant": "failure_check_first_king_takes_back_last"
+    },
+    {
+      "when": {
+        "check_first_square": "present",
+        "severity_practical": {
+          "in": [
+            "mistake",
+            "serious",
+            "blunder"
+          ]
+        }
+      },
+      "variant": "failure_check_first_king_takes_back"
+    },
+    {
+      "when": {
         "opp_reply_san": "present",
         "opp_reply_creates_fork": true,
         "fork_target_1": "present",
@@ -754,7 +814,9 @@
     "back_rank_no_escape": "A king behind three of its own pawns needs an escape square made early, not found in a hurry",
     "failure_saved_instead_of_counter_attack": "When something of yours is attacked, look for your own attack before you move it",
     "failure_skewers_our_line": "When two of your pieces share a line, ask what happens if the front one must move",
-    "failure_abandoned_own_guard": "Before you move a piece, check what it is holding"
+    "failure_abandoned_own_guard": "Before you move a piece, check what it is holding",
+    "failure_check_first_king_takes_back": "Before you take, look for a check that moves their king away from the square",
+    "failure_check_first_king_takes_back_last": "Before you take, look for a check that moves their king away from the square"
   },
   "_failure_mode_promotion_note": "v100 (2026-06-02): the 'why played wrong' two-clause system. failure_mode_clauses_user is parallel to why_clauses_user — it produces a failure-mode clause (e.g. 'walks into Nb7 attacking the bishop') that the wrapper variants render BEFORE the alternative-promotion clause. When no concrete alternative-promotion fact fires but a failure clause did, teaching_principles supplies a universal teaching line instead of a naked '{best} was better.' See docs/why_played_wrong_spec.md for the design. Triggered by Mohit's 2026-06-01 feedback batch (fb_3efccdbbf15e / fb_3d530eea5dd9 / fb_1cd7562468d1 / fb_79c33cd39b67) where 'h4 was better — it attacks Bg3' was the WRONG caption because the played move Bb2 walked into Nb7. Earlier 2026-06-01 predicate reorder (commit 72f21dfe, reverted in b0694980) proved that reordering alone produces non-sequitur wrappings and doesn't cover failure modes whose victim differs from the played piece — hence the two-clause architecture.",
   "_user_engine_meta_dropped_note": "v94 (2026-05-25): why_user_missed_material ('it wins material in the resulting line') + why_user_reply ('Opponent's strongest reply: X') removed entirely. Mohit 2026-05-25 on Tier B Q2: 'stop pretending every move deserves a concrete caption. silence is NOT always worse. silence is better than fake explanation. V5's biggest strength is supposed to be: only speak when grounded. Don't betray that principle because you fear empty UI.' These two why-clauses were the last engine-speak fallbacks — they fired when no concrete detector had a reason to give, and surfaced engine moves without explaining WHY. Now: when no concrete why-clause fires on a user mistake, the why_clause stays empty and the variant selector falls to user_with_best ('X is a mistake. Y was better.') without engine-meta apologies. Result: ~30-40% more user-side mistake-tier moves render without a why-clause, but the ones that DO render are grounded.",
@@ -1250,7 +1312,12 @@
     "failure_skewers_our_line": "allows {opp_reply_san}, skewering your {own_alignment_front_piece} on {own_alignment_front_square} — when it moves, your {own_alignment_rear_piece} on {own_alignment_rear_square} goes too",
     "user_with_skewer_guard_and_principle": "{played_san} {failure_clause}. {best_move_san} covers {own_alignment_entry_square}. {teaching_principle}.",
     "user_with_skewer_and_principle": "{played_san} {failure_clause}. {best_move_san} was better. {teaching_principle}.",
-    "failure_abandoned_own_guard": "{abandoned_guard_verb} the {abandoned_guard_piece} that was guarding your {abandoned_lost_piece} on {abandoned_lost_square}, and {abandoned_taken_san} wins it"
+    "failure_abandoned_own_guard": "{abandoned_guard_verb} the {abandoned_guard_piece} that was guarding your {abandoned_lost_piece} on {abandoned_lost_square}, and {abandoned_taken_san} wins it",
+    "failure_check_first_king_takes_back": "lets their king take back on {check_first_square}",
+    "failure_check_first_king_takes_back_last": "ends with their king taking back on {check_first_square}",
+    "why_user_missed_check_first": "it makes their king step away first, and then {check_first_capture_san} wins the {check_first_piece} with nothing to take back. Check first, take second.",
+    "why_user_missed_check_first_sacrifice": "it gives up a {check_first_sacrificed} to pull their king away, and then {check_first_capture_san} wins the {check_first_piece} with nothing to take back."
   },
-  "_failure_mode_clauses_user_story_note": "2026-10-07 - the five clauses that ASSERT we lose material now require move_story == 'punishment'. Mohit: \"worry about the foundation, the logic, the core that keeps it working perfectly.\" move_story is the one verdict the arrows already answer to; it walks BOTH stored engine lines and says whether material moved and in which direction. These clauses were gated on single-move board geometry, which is true and not the same thing: on move 10 of 043d6b9c our knight captured a knight on d2 and was recaptured, an even trade, and 'leaves your knight on d2 undefended' plus 'you simply lose it for nothing' both fired because the knight standing on d2 has no defender. Geometry describes the square; the verdict describes the exchange."
+  "_failure_mode_clauses_user_story_note": "2026-10-07 - the five clauses that ASSERT we lose material now require move_story == 'punishment'. Mohit: \"worry about the foundation, the logic, the core that keeps it working perfectly.\" move_story is the one verdict the arrows already answer to; it walks BOTH stored engine lines and says whether material moved and in which direction. These clauses were gated on single-move board geometry, which is true and not the same thing: on move 10 of 043d6b9c our knight captured a knight on d2 and was recaptured, an even trade, and 'leaves your knight on d2 undefended' plus 'you simply lose it for nothing' both fired because the knight standing on d2 has no defender. Geometry describes the square; the verdict describes the exchange.",
+  "_check_first_note": "2026-11-06, Mohit on 3628ebef m32 (Rxe7 against Re6+): 'why is this a mistake?'. The card said 'it also hits the knight on e7 ... attacks more things'. Both moves take that knight; the difference is the king, which takes back after Rxe7 and has stepped away after the check. The two failure variants and the two why variants above read the check_first_* facts; they sit after mate and walks-into-check, and before same_piece_better_square."
 }

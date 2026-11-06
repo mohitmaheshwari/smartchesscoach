@@ -912,6 +912,10 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
     result["check_first"] = {k: v for k, v in check_first.items() if k not in ("text", "facts", "consequence")}
     if check_first["fires"] and result["class"] not in ("mistake", "blunder"):
         result["check_first"].update(fires=False, why_not="class")
+    # A forced mate on either line is the story, whatever is taken on the way
+    # (defaecab m56: the better line mates; the queen it picks up is scenery).
+    if check_first["fires"] and any(x is not None and x.mechanism == "MATE" for x in (missed, received)):
+        result["check_first"].update(fires=False, why_not="mate")
     if result["check_first"]["fires"]:
         result.update(found=True, direction="missed", mechanism="CHECK_FIRST", text=check_first["text"],
                       consequence=check_first["consequence"], check_first_facts=check_first["facts"])
