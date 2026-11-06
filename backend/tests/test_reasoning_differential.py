@@ -183,6 +183,52 @@ def test_ledger_shares_the_same_exchange_across_branches():
     assert loss["square"] == "h6"                 # e6 falls on both branches; h6 only after Kc8
 
 
+def test_an_exchange_names_every_piece_that_fell_on_the_square():
+    # Until 2026-11-06 a group named only its dearest piece, so "a knight for
+    # two pawns" read "a knight for a pawn".
+    from services.reasoning.differential import _pieces_phrase, exchange_sentence
+    assert _pieces_phrase(["pawn", "knight"]) == "a knight and a pawn"
+    assert _pieces_phrase(["pawn", "pawn"]) == "two pawns"
+    assert _pieces_phrase(["pawn", "rook", "pawn"], article=False) == "rook and two pawns"
+    assert _pieces_phrase([]) is None
+    g = {"square": "d5", "first_by_mover": True, "net_cp": -100, "open": False,
+         "plies": [{"ply": 0, "san": "Nxd5", "by_mover": True, "captured": "pawn"},
+                   {"ply": 1, "san": "exd5", "by_mover": False, "captured": "knight"},
+                   {"ply": 2, "san": "Qxd5", "by_mover": True, "captured": "pawn"}],
+         "mover_won": ["pawn", "pawn"], "mover_lost": ["knight"]}
+    said = exchange_sentence(g, played_san="Nxd5", reply_san="exd5", alt_san="Nf3", received=True, mover_is_user=True)
+    assert said["text"] == "After Nxd5, the exchange on d5 costs you a knight for two pawns."
+    assert said["victim_pieces"] == ["knight"] and said["gained_pieces"] == ["pawn", "pawn"]
+    won = exchange_sentence(dict(g, mover_won=["knight", "pawn"], mover_lost=["bishop"], net_cp=100),
+                            played_san="Nf3", reply_san="e6", alt_san="Nxd5", received=False, mover_is_user=True)
+    assert won["text"] == "Nxd5 was the move: the exchange on d5 wins their knight and pawn for a bishop."
+    # One piece reads exactly as before.
+    one = exchange_sentence(dict(g, mover_won=[], mover_lost=["knight"], net_cp=-300,
+                                 plies=[{"ply": 1, "san": "exd5", "by_mover": False, "captured": "knight"}]),
+                            played_san="Nd5", reply_san="exd5", alt_san="Nf3", received=True, mover_is_user=True)
+    assert one["text"] == "After Nd5, exd5 simply takes your knight on d5, and nothing can take back."
+
+
+def test_the_series_sentence_words_this_lines_net_not_the_edge_between_lines(monkeypatch):
+    # Until 2026-11-06 the series sentence worded the edge between the two
+    # lines: a line one pawn up against a line one pawn down read "two pawns up".
+    from services.reasoning import differential
+    from services.reasoning.differential import material_claim
+    monkeypatch.setattr(differential, "first_unshared_exchange", lambda *a, **k: None)
+    monkeypatch.setattr(differential, "closed_groups", lambda ledger_, plies: list(ledger_))
+    better = [{"square": "d4", "net_cp": 100, "plies": [{"san": "Qxd4", "by_mover": True, "ply": 2}],
+               "mover_won": ["pawn"], "mover_lost": [], "open": False}]
+    played = [{"square": "e5", "net_cp": -100, "plies": [{"san": "Nxe5", "by_mover": False, "ply": 1}],
+               "mover_won": [], "mover_lost": ["pawn"], "open": False}]
+    got = material_claim(played, better, played_plies=9, alt_plies=9, received=False, gap=200, move_class="mistake",
+                         played_san="Nc3", reply_san="Nxe5", alt_san="Re1", mover_is_user=True)
+    assert got["series"] is True and got["payoff_cp"] == 200
+    assert got["text"] == "Re1 was the move: after the exchanges you come out a pawn up."
+    lost = material_claim(played, better, played_plies=9, alt_plies=9, received=True, gap=200, move_class="mistake",
+                          played_san="Nc3", reply_san="Nxe5", alt_san="Re1", mover_is_user=True)
+    assert lost["text"] == "After Nc3, the exchanges that follow Nxe5 leave you a pawn down."
+
+
 def test_owner_words_follow_whose_move_it_is():
     board = chess.Board("8/1p1k1Q2/2p1p2p/p3P1p1/P7/2P3PK/1q6/8 b - - 3 38")
     p, a = board.parse_san("Kc8"), board.parse_san("Kd8")
