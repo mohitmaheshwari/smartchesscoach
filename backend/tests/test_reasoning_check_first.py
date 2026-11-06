@@ -83,6 +83,54 @@ def test_silent_when_something_else_takes_back_after_the_check():
     assert not out["fires"] and out["why_not"] == "still_recaptured"
 
 
+# ── what the first fire-rate pass and its hand grade changed ─────────────
+
+def test_a_pawn_given_up_to_pull_the_king_away_is_said_as_a_cost():
+    # f65a7b58 m28: e6+ Kxe6 Rxg8 wins a rook for a pawn; Rxg8 Kxg8 is a trade.
+    out = claim("6r1/pb3k2/1p6/2ppP3/6R1/2P5/P4PPP/5RK1 w - - 4 28",
+                ["Rxg8", "Kxg8", "Rb1", "Bc6", "f3"], ["e6+", "Kxe6", "Rxg8", "d4", "cxd4"])
+    assert out["fires"], out["why_not"]
+    assert out["sacrificed"] == "pawn"
+    assert out["text"] == (
+        "Both Rxg8 and e6+ go for the rook on g8. "
+        "After Rxg8, their king on f7 takes back. "
+        "e6+ gives up a pawn to pull their king away to e6. "
+        "Then Rxg8 takes the rook and the king cannot take back.")
+    assert out["consequence"]["payoff_cp"] == 400
+
+
+def test_a_rook_given_up_to_win_a_rook_is_no_gain():
+    # 6701f983 m24: Rh1+ Kxh1 Rxf1+ gives a rook on h1 for the rook on f1.
+    out = claim("5rk1/ppp3p1/3p4/1P2p2r/2P1P3/P1NP4/4R1P1/5RK1 b - - 0 24",
+                ["Rxf1+", "Kxf1", "Rh1+", "Kf2", "c6"], ["Rh1+", "Kxh1", "Rxf1+", "Kh2", "c6"])
+    assert out["shape"] is True
+    assert not out["fires"] and out["why_not"] == "no_gain_after_sacrifice"
+
+
+def test_a_check_that_takes_something_is_a_different_story():
+    # game_a84 m6: Qxd8+ Kxd8 Nxf7+ trades queens first.
+    out = claim("rnbqkb1r/ppp2ppp/8/4N3/4n3/8/PPP2PPP/RNBQKB1R w KQkq - 0 6",
+                ["Nxf7", "Qxd1+", "Kxd1", "Kxf7", "Bc4+"], ["Qxd8+", "Kxd8", "Nxf7+", "Ke8", "Nxh8"])
+    assert not out["fires"] and out["why_not"] == "check_is_a_capture"
+
+
+def test_a_capture_that_comes_after_a_second_check_is_not_this_family():
+    # 32f3573f m38: R7h6+ Kg7 Rg6+ Kf8 Rxe5 takes on the fifth move of the line.
+    out = claim("4B3/7R/5k2/1p2r2R/p7/P7/1PP5/1K6 w - - 2 38",
+                ["Rxe5", "Kxe5", "Rd7", "Kf4", "Rd3"], ["R7h6+", "Kg7", "Rg6+", "Kf8", "Rxe5"])
+    assert out["shape"] is False and out["why_not"] == "no_same_capture"
+
+
+def test_a_clean_step_away_reads_as_before():
+    # 02a77b98 m48: Qxf6+ Kxf6 loses the queen for a rook; f4+ Kg4 Qxf6 wins the rook.
+    out = claim("8/8/2Q2r2/5bk1/8/4P3/PP3P2/2R1K3 w - - 0 48",
+                ["Qxf6+", "Kxf6", "a4", "Be4", "a5"], ["f4+", "Kg4", "Qxf6", "Be4", "Rc3"])
+    assert out["fires"], out["why_not"]
+    assert out["sacrificed"] is None
+    assert "f4+ first makes their king step away to g4." in out["text"]
+    assert out["net_played_cp"] == -400 and out["net_better_cp"] == 500
+
+
 def test_silent_on_missing_or_unplayable_lines():
     assert claim(played=[])["why_not"] == "no_line"
     assert claim(better=["Zz9"])["why_not"] == "unplayable"

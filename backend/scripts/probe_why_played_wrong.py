@@ -241,6 +241,75 @@ CASES = [
             "opp_unsafe_resolution_kind": "one_target_moves_pawn_captures_other",
         },
     },
+
+    # CHECK FIRST, TAKE SECOND (2026-11-06, 3628ebef m32, Rxe7 against Re6+).
+    # Both moves take the knight on e7; the king takes back last after
+    # Rxe7 and has stepped away after the check.
+    #
+    # Expected:
+    #   "Rxe7 ends with their king taking back on e7. Re6+ was better — it
+    #    makes their king step away first, and then Rxe7 wins the knight with
+    #    nothing to take back. Check first, take second."
+    {
+        "name": "11_check_first_real_world_m32_Rxe7",
+        "facts": {
+            "mover_is_user": True,
+            "played_san": "Rxe7",
+            "best_move_san": "Re6+",
+            "best_move_san_differs": True,
+            "cp_loss": 507,
+            "severity_practical": "serious",
+            "check_first_square": "e7",
+            "check_first_piece": "knight",
+            "check_first_capture_san": "Rxe7",
+            "check_first_king_to": "g5",
+            "check_first_king_last": True,
+        },
+    },
+
+    # The same family where the king takes the checking pawn (f65a7b58 m28,
+    # Rxg8 against e6+): the cost of the check is said.
+    #
+    # Expected:
+    #   "Rxg8 lets their king take back on g8. e6+ was better — it gives up a
+    #    pawn to pull their king away, and then Rxg8 wins the rook with nothing
+    #    to take back."
+    {
+        "name": "12_check_first_sacrifice_m28_Rxg8",
+        "facts": {
+            "mover_is_user": True,
+            "played_san": "Rxg8",
+            "best_move_san": "e6+",
+            "best_move_san_differs": True,
+            "cp_loss": 233,
+            "severity_practical": "mistake",
+            "check_first_square": "g8",
+            "check_first_piece": "rook",
+            "check_first_capture_san": "Rxg8",
+            "check_first_king_to": "e6",
+            "check_first_king_last": False,
+            "check_first_sacrificed": "pawn",
+        },
+    },
+
+    # On an inaccuracy the family's clauses stay out (the card keeps its
+    # usual wording).
+    {
+        "name": "13_check_first_withheld_on_inaccuracy",
+        "facts": {
+            "mover_is_user": True,
+            "played_san": "dxc5+",
+            "best_move_san": "Ra6+",
+            "best_move_san_differs": True,
+            "cp_loss": 50,
+            "severity_practical": "inaccuracy",
+            "check_first_square": "c5",
+            "check_first_piece": "pawn",
+            "check_first_capture_san": "dxc5",
+            "check_first_king_to": "c7",
+            "check_first_king_last": False,
+        },
+    },
 ]
 
 

@@ -15,19 +15,30 @@ The family (docs/caption_line_reasoning_scope.md, fix 3) fires only when every
 one of these is read off the two lines:
 
   shape   the played move is a capture on S; the better move gives check and
-          is not that capture; the better line then takes the same piece on S
+          is not a capture; the better line takes the same piece on S with its
+          very next move (check, king move, take)
   played  in the played line the opponent's KING makes a capture on S
-  check   the reply to the check in the better line is a king move
+  check   the reply to the check in the better line is a king move. If the
+          king takes the checking piece, the check was a sacrifice and its
+          cost is counted and said ("gives up a pawn to pull their king away")
   after   when the better line takes on S the king no longer attacks S, and
           nothing of the opponent's captures on S for the rest of the line
   gain    the exchange on S ends at least a pawn better for the mover in the
-          better line than in the played line (the same ledger the material
-          family uses)
+          better line than in the played line, after the cost of a sacrificed
+          checking piece (the same ledger the material family uses)
 
 Anything else is silent, and the measurement says which condition stopped it,
 so a pass over many cards gives the fire-rate distribution. V1 covers the
 king's recapture only; a check that removes another defender is a later
 variant and stays silent here.
+
+The first fire-rate pass (20,257 games, 2026-11-06) and a hand grade of 14
+fired cards set three of those conditions. A capture that came two checks
+later was worded as if it came at once (32f3573f m38, fa38efa7 m67), so the
+capture must be the very next move. A rook given up on h1 to win a rook on
+f1 was worded as a clean gain (6701f983 m24), so a sacrificed checking piece
+is costed. A checking move that is itself a capture is a trade first and a
+different story (game_a84 m6), so it is silent.
 
 Engine-free: both lines are given. The Why button passes the lines its own
 search produced; the caption facts pass the stored lines.
@@ -43,10 +54,12 @@ from services.stored_line_verifier import parse_legal_move
 PIECE_NAME = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
               chess.ROOK: "rook", chess.QUEEN: "queen", chess.KING: "king"}
 
-# The better line has to take on the same square soon: its own second move in
-# the Rxe7 case (ply 2). Later than its third move (ply 4) the capture is a
-# different story from "check first, take second".
-CAPTURE_BY_PLY = 4
+# The better line has to take on the same square with its very next move:
+# check, king move, take (ply 2). A capture that comes after a second check
+# is a longer story than "check first, take second", and the sentence would
+# skip a move pair.
+CAPTURE_BY_PLY = 2
+_VALUE = {chess.PAWN: 100, chess.KNIGHT: 300, chess.BISHOP: 300, chess.ROOK: 500, chess.QUEEN: 900}
 # The rest of the better line is read this far for a recapture on the square,
 # the same window the exchange ledger reads.
 LINE_HORIZON = 12
@@ -58,7 +71,7 @@ def _measure() -> Dict[str, Any]:
     return {"shape": False, "fires": False, "why_not": None, "square": None, "piece": None,
             "capture_san": None, "capture_ply": None, "king_from": None, "king_to": None,
             "king_takes_back_ply": None, "king_last": None, "check_forces_king": None,
-            "net_played_cp": None, "net_better_cp": None,
+            "sacrificed": None, "net_played_cp": None, "net_better_cp": None,
             "text": None, "facts": None, "consequence": None}
 
 
@@ -95,15 +108,24 @@ def check_first_claim(root: chess.Board, played_line: Sequence[str], alt_line: S
     if alt.to_square == square:
         out["why_not"] = "better_is_the_capture"
         return out
+    if root.is_capture(alt):
+        # A check that takes something is a trade or a win first; whatever
+        # follows on S is a second story (game_a84 m6: Qxd8+ Kxd8 Nxf7+).
+        out["why_not"] = "check_is_a_capture"
+        return out
     out["square"] = chess.square_name(square)
     out["piece"] = PIECE_NAME[victim.piece_type]
 
     board = root.copy()
     board.push(alt)
+    # The piece that now stands where the checking move went: what the king
+    # takes if it takes there (a promoted piece counts as what it became).
+    checker_type = board.piece_type_at(alt.to_square)
     every_reply_is_king = all(board.piece_type_at(m.from_square) == chess.KING for m in board.legal_moves)
     capture_ply = None
     capture_san = None
     king_to = None
+    sacrificed = None
     for ply, san in enumerate(alt_line[1:CAPTURE_BY_PLY + 1], start=1):
         move = parse_legal_move(board, san)
         if move is None:
@@ -123,6 +145,13 @@ def check_first_claim(root: chess.Board, played_line: Sequence[str], alt_line: S
                 break
             if ply == 1 and board.piece_type_at(move.from_square) == chess.KING:
                 king_to = chess.square_name(move.to_square)
+                if board.is_capture(move):
+                    if move.to_square != alt.to_square:
+                        # The king takes something else on its way: a
+                        # different exchange, not this family's.
+                        out["why_not"] = "reply_takes_material"
+                        return out
+                    sacrificed = PIECE_NAME.get(checker_type)
             break_after = False
         if break_after:
             break
@@ -130,6 +159,7 @@ def check_first_claim(root: chess.Board, played_line: Sequence[str], alt_line: S
     if capture_ply is None:
         out["why_not"] = "no_same_capture"
         return out
+    out["sacrificed"] = sacrificed
     out["shape"] = True
     out["capture_san"], out["capture_ply"] = capture_san, capture_ply
     out["check_forces_king"] = every_reply_is_king
@@ -189,8 +219,10 @@ def check_first_claim(root: chess.Board, played_line: Sequence[str], alt_line: S
     net_played = next((g["net_cp"] for g in exchange_ledger(root, played_line, mover) if g["square"] == name), None)
     net_better = next((g["net_cp"] for g in exchange_ledger(root, alt_line, mover) if g["square"] == name), None)
     out["net_played_cp"], out["net_better_cp"] = net_played, net_better
-    if net_played is None or net_better is None or net_better - net_played < MIN_GAIN_CP:
-        out["why_not"] = "no_gain_on_square"
+    cost = _VALUE.get(checker_type, 0) if sacrificed else 0
+    if net_played is None or net_better is None or net_better - net_played - cost < MIN_GAIN_CP:
+        # 6701f983 m24: a rook given up on h1 to win a rook on f1 is no gain.
+        out["why_not"] = "no_gain_after_sacrifice" if sacrificed else "no_gain_on_square"
         return out
 
     out["fires"] = True
@@ -205,7 +237,10 @@ def check_first_claim(root: chess.Board, played_line: Sequence[str], alt_line: S
                         f"on {king_from} takes back last.")
     else:
         after_played = f"After {played_san}, {their} king on {king_from} takes back."
-    if every_reply_is_king:
+    if sacrificed:
+        # The king took the checking piece: say what the check cost.
+        the_check = f"{alt_san} gives up a {sacrificed} to pull {their} king away to {king_to}."
+    elif every_reply_is_king:
         the_check = f"{alt_san} first makes {their} king step away to {king_to}."
     else:
         the_check = f"After {alt_san} {their} king steps away to {king_to}."
@@ -219,13 +254,16 @@ def check_first_claim(root: chess.Board, played_line: Sequence[str], alt_line: S
         "the_piece_taken_there": _owned(their, piece),
         "after_the_move_played": f"{_owned(their, 'king')} on {king_from} takes back on {name}"
                                  + (", last" if out["king_last"] else ""),
-        "what_the_check_does": f"{_owned(their, 'king')} steps away to {king_to}"
-                               + (" because it has to" if every_reply_is_king else ""),
+        "what_the_check_does": (
+            f"it gives up a {sacrificed}, and {_owned(their, 'king')} takes it on {king_to}" if sacrificed
+            else f"{_owned(their, 'king')} steps away to {king_to}"
+                 + (" because it has to" if every_reply_is_king else "")),
         "after_the_better_move": f"{capture_san} takes the {piece} and the king cannot take back",
         "who_takes_after_the_check": you,
     }
     out["consequence"] = {"mechanism": "CHECK_FIRST", "direction": "missed", "agent_move": alt_san,
                           "square": name, "victim_piece": piece, "victim_square": name,
-                          "gained_piece": None, "payoff_cp": net_better - net_played,
+                          "gained_piece": None, "payoff_cp": net_better - net_played - cost,
+                          "sacrificed_piece": sacrificed,
                           "ply": capture_ply, "captures": [capture_san], "text": out["text"]}
     return out

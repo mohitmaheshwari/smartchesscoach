@@ -71,6 +71,7 @@ not a parallel caption source.
 | `is_exchange_losing` | "drops the exchange after {opp_reply_san}" |
 | `pieces_now_undefended_present` | "leaves your {piece_type} on {square} undefended" |
 | `opp_reply_removes_defender` (NEW) | "exposes your {exposed_piece} after {opp_reply_san} takes the defender" |
+| `check_first_square` (2026-11-06) | "lets their king take back on {check_first_square}" / "ends with their king taking back on {check_first_square}" when the king takes back last. Paired why clause: "it makes their king step away first, and then {check_first_capture_san} wins the {check_first_piece} with nothing to take back. Check first, take second." Mistake or worse only. Facts from `services/reasoning/check_first.py` on the two stored lines (docs/caption_line_reasoning_scope.md, fix 3). |
 
 ### Teaching principles (failure-mode-keyed)
 
@@ -85,6 +86,7 @@ Hand-authored; ~7 entries to start. Each is universal so it teaches the *next* p
 | `failure_exchange_losing` | "An exchange that loses material isn't 'trading' — count piece values first." |
 | `failure_hangs_piece` | "Every move, scan: is anything of mine left without a defender?" |
 | `failure_removes_defender` | "Before moving a defender, check what it was defending." |
+| `failure_check_first_king_takes_back` (and `_last`) | "Before you take, look for a check that moves their king away from the square" |
 
 ---
 
