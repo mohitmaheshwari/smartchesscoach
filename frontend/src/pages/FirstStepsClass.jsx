@@ -59,8 +59,8 @@ function Board({ fen, marks, stars, flip, onTap }) {
       const label = `${sq}${p ? ` ${p.white ? "white" : "black"} ${{ k: "king", q: "queen", r: "rook", b: "bishop", n: "knight", p: "pawn" }[p.type]}` : star ? " star" : ""}`;
       squares.push(
         <button key={sq} type="button" data-sq={sq} aria-label={label} onClick={() => onTap(sq)}
-          className="relative grid place-items-center focus-visible:outline focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-primary"
-          style={{ background: light ? "#efd9b4" : "#b58863", fontSize: "clamp(24px, 9vw, 40px)", lineHeight: 1,
+          className="relative grid min-h-0 min-w-0 place-items-center overflow-hidden p-0 focus-visible:outline focus-visible:outline-4 focus-visible:-outline-offset-4 focus-visible:outline-primary"
+          style={{ background: light ? "#efd9b4" : "#b58863", fontSize: "clamp(22px, 8vw, 38px)", lineHeight: 1,
                    fontFamily: '"Segoe UI Symbol","Noto Sans Symbols 2","DejaVu Sans",serif' }}>
           {p ? (
             <span style={p.white
@@ -74,7 +74,12 @@ function Board({ fen, marks, stars, flip, onTap }) {
       );
     }
   }
-  return <div className="grid aspect-square w-full select-none grid-cols-8 overflow-hidden rounded-lg" style={{ touchAction: "manipulation" }}>{squares}</div>;
+  return (
+    <div className="grid aspect-square w-full select-none overflow-hidden rounded-lg"
+      style={{ touchAction: "manipulation", gridTemplateColumns: "repeat(8, minmax(0, 1fr))", gridTemplateRows: "repeat(8, minmax(0, 1fr))" }}>
+      {squares}
+    </div>
+  );
 }
 
 const MARK_STYLE = {
