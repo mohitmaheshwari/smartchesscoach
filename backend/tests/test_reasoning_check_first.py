@@ -131,6 +131,23 @@ def test_a_clean_step_away_reads_as_before():
     assert out["net_played_cp"] == -400 and out["net_better_cp"] == 500
 
 
+def test_a_king_that_takes_the_piece_many_moves_later_is_not_taking_back():
+    # d4b52618 m42: cxd3 a1=Q+ Kh2 ... and the king reaches d3 much later.
+    out = claim("4Q3/3r4/3p2p1/2pkpp2/7r/2Pq3P/p1P3P1/6K1 w - - 0 42",
+                ["cxd3", "a1=Q+", "Kh2", "Rg7", "Qf8", "Rf4", "Qb8", "Kd4", "Qb6", "Kxd3"],
+                ["Qa8+", "Ke6", "cxd3", "Rh8", "Qxa2+", "Ke7"])
+    assert out["shape"] is True
+    assert not out["fires"] and out["why_not"] == "no_king_recapture"
+
+
+def test_a_checking_piece_that_is_lost_two_moves_later_is_not_a_clean_gain():
+    # bc7bb6bf m51: Nd8+ Kd5 Rxb7 Rxd8 -- the pawn is won and the knight goes.
+    out = claim("Rr6/1P4pp/2K1n3/4p3/5k2/5P2/7P/8 b - - 10 51",
+                ["Rxb7", "Kxb7", "Nd4", "Rf8+", "Ke3"], ["Nd8+", "Kd5", "Rxb7", "Rxd8", "Rf7"])
+    assert out["shape"] is True
+    assert not out["fires"] and out["why_not"] == "checker_lost_later"
+
+
 def test_silent_on_missing_or_unplayable_lines():
     assert claim(played=[])["why_not"] == "no_line"
     assert claim(better=["Zz9"])["why_not"] == "unplayable"
