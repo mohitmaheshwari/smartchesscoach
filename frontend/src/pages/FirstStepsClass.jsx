@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { API } from "@/App";
 import "@/components/kids/kids.css";
-import KidsBoard, { parseFen } from "@/components/kids/KidsBoard";
+import KidsBoard, { diffMoves, parseFen } from "@/components/kids/KidsBoard";
 import JourneyMap from "@/components/kids/JourneyMap";
 import { CLASS_ART, Medal, Owl, SpeakerIcon, Star, World } from "@/components/kids/KidsArt";
 import { burst, centerOf, confetti, flyStar, isMuted, setMuted, sfx } from "@/components/kids/kidsFx";
@@ -34,19 +34,6 @@ function speak(text) {
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(u);
   } catch { /* the browser has no voice; the words are on the screen */ }
-}
-
-/** Moves between two positions, by colour: [[from, to], ...]. */
-function diffMoves(before, after) {
-  const a = parseFen(before);
-  const b = parseFen(after);
-  const out = [];
-  for (const white of [true, false]) {
-    const gone = Object.keys(a).filter((s) => a[s].white === white && !(b[s] && b[s].white === white && b[s].type === a[s].type));
-    const came = Object.keys(b).filter((s) => b[s].white === white && !(a[s] && a[s].white === white && a[s].type === b[s].type));
-    if (gone.length === 1 && came.length === 1) out.push([gone[0], came[0]]);
-  }
-  return out;
 }
 
 function Words({ text }) {

@@ -22,6 +22,51 @@ export function parseFen(fen) {
   return pieces;
 }
 
+/** Moves between two positions, by colour: [[from, to], ...]. Used to slide pieces into place. */
+export function diffMoves(before, after) {
+  const a = parseFen(before);
+  const b = parseFen(after);
+  const out = [];
+  for (const white of [true, false]) {
+    const gone = Object.keys(a).filter((s) => a[s].white === white && !(b[s] && b[s].white === white && b[s].type === a[s].type));
+    const came = Object.keys(b).filter((s) => b[s].white === white && !(a[s] && a[s].white === white && a[s].type === b[s].type));
+    if (gone.length === 1 && came.length === 1) out.push([gone[0], came[0]]);
+  }
+  return out;
+}
+
+const ARROW = { red: "#e2543a", green: "#2f9e6d", blue: "#3f5f8f", gold: "#e69a12" };
+
+function Arrows({ arrows, circles, flip }) {
+  if (!arrows.length && !circles.length) return null;
+  const c = (sq) => { const p = place(sq, flip); return [p.col * 100 + 50, p.row * 100 + 50]; };
+  return (
+    <svg className="kids-arrows" viewBox="0 0 800 800" aria-hidden="true">
+      <defs>
+        {Object.entries(ARROW).map(([name, colour]) => (
+          <marker key={name} id={`kids-head-${name}`} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 Z" fill={colour} />
+          </marker>
+        ))}
+      </defs>
+      {circles.map(([sq, colour], i) => {
+        const [x, y] = c(sq);
+        return <circle key={`c${i}`} cx={x} cy={y} r="42" fill="none" stroke={ARROW[colour] || ARROW.red} strokeWidth="9" opacity=".9" />;
+      })}
+      {arrows.map(([from, to, colour], i) => {
+        const [x0, y0] = c(from);
+        const [x1, y1] = c(to);
+        const len = Math.hypot(x1 - x0, y1 - y0) || 1;
+        const x2 = x1 - ((x1 - x0) / len) * 26;
+        const y2 = y1 - ((y1 - y0) / len) * 26;
+        const name = ARROW[colour] ? colour : "red";
+        return <line key={`a${i}`} x1={x0} y1={y0} x2={x2} y2={y2} stroke={ARROW[name]} strokeWidth="16" strokeLinecap="round"
+          opacity=".88" markerEnd={`url(#kids-head-${name})`} />;
+      })}
+    </svg>
+  );
+}
+
 function place(sq, flip) {
   const f = FILES.indexOf(sq[0]);
   const r = Number(sq[1]) - 1;
@@ -35,7 +80,8 @@ function place(sq, flip) {
  * slides: [[from, to], ...] the moves just made, animated into place
  * effects: { hop, wiggle, flash, beams, shake, seq } one-shot effects; seq replays them
  */
-export default function KidsBoard({ fen, flip = false, marks = {}, stars = [], picked = null, slides = [], effects = {}, onTap }) {
+export default function KidsBoard({ fen, flip = false, marks = {}, stars = [], picked = null, slides = [], effects = {}, onTap,
+  arrows = [], circles = [], coordinates = true }) {
   const pieces = parseFen(fen);
   const seq = effects.seq || 0;
   const wrap = useRef(null);
@@ -61,8 +107,8 @@ export default function KidsBoard({ fen, flip = false, marks = {}, stars = [], p
         <button key={effects.flash === sq ? `${sq}-${seq}` : sq} type="button" className={cls.join(" ")} data-sq={sq} aria-label={label}
           onClick={(e) => onTap && onTap(sq, e.currentTarget)}>
           {(mark === "found" || mark === "show") && <span key={`${sq}-${mark}`} className={`kids-gem ${mark === "show" ? "show" : ""}`} />}
-          {row === 7 && <span className="co f">{FILES[file]}</span>}
-          {col === 0 && <span className="co r">{rank}</span>}
+          {coordinates && row === 7 && <span className="co f">{FILES[file]}</span>}
+          {coordinates && col === 0 && <span className="co r">{rank}</span>}
         </button>,
       );
     }
@@ -70,7 +116,7 @@ export default function KidsBoard({ fen, flip = false, marks = {}, stars = [], p
   const moved = Object.fromEntries(slides.filter(Boolean).map(([from, to]) => [to, from]));
   const beams = effects.beams ? place(effects.beams, flip) : null;
   return (
-    <div ref={wrap} className="kids-board-wrap">
+    <div ref={wrap} className="kids-board-wrap" data-testid="board" data-fen={fen} data-arrows={JSON.stringify(arrows)}>
       <div className="kids-board">
         {squares}
         {beams && (
@@ -105,6 +151,7 @@ export default function KidsBoard({ fen, flip = false, marks = {}, stars = [], p
             </div>
           );
         })}
+        <Arrows arrows={arrows} circles={circles} flip={flip} />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
    and the family pages. Everything is scoped under .kids so the adult app is untouched. */
 @import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap");
 
-.kids {
+.kids, .kids-vars {
   --k-sky-top: #7fd0e6; --k-sky-low: #dff4ef; --k-meadow: #8fd07c; --k-meadow-deep: #5fae63;
   --k-ink: #1f2a44; --k-ink-soft: #55607a; --k-paper: #fffaf0;
   --k-coral: #ff7a59; --k-coral-deep: #e2543a; --k-gold: #ffc23d; --k-gold-deep: #e69a12;
@@ -10,6 +10,8 @@
   --k-wood-light: #f3dcb2; --k-wood-dark: #c88d57; --k-frame-1: #8a5a33; --k-frame-2: #5e3b20;
   --k-display: "Fredoka", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
   --k-body: "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+.kids {
   position: relative; min-height: 100vh; color: var(--k-ink); font: 700 16px/1.45 var(--k-body);
   background: linear-gradient(180deg, var(--k-sky-top) 0%, var(--k-sky-low) 55%, var(--k-meadow) 55.2%, var(--k-meadow-deep) 100%);
   overflow-x: hidden; color-scheme: light;
@@ -181,6 +183,50 @@
 .kids-fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
 .kids-flystar { position: fixed; left: 0; top: 0; z-index: 60; width: 34px; height: 34px; pointer-events: none; }
 .kids-loading { display: grid; justify-items: center; gap: 10px; padding: 40px 0; font: 600 20px var(--k-display); }
+
+.kids-arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+/* family pages: forms, notes */
+.kids-field { display: grid; gap: 6px; width: 100%; text-align: left; }
+.kids-field span { font: 600 17px var(--k-display); }
+.kids-field input { font: 700 17px var(--k-body); color: var(--k-ink); background: #fff; border: 3px solid #efe5cf; border-radius: 16px; padding: 11px 14px; outline: none; }
+.kids-field input:focus { border-color: var(--k-coral); }
+.kids-check { display: flex; gap: 10px; align-items: flex-start; text-align: left; width: 100%; cursor: pointer; font-size: 16px; }
+.kids-check input { width: 24px; height: 24px; accent-color: var(--k-leaf); flex: none; margin-top: 1px; }
+.kids-points { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; width: 100%; text-align: left; }
+.kids-points li { display: flex; gap: 10px; align-items: flex-start; color: var(--k-ink); font-size: 15.5px; }
+.kids-points li::before { content: ""; flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%;
+  background: var(--k-leaf) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12.5l4 4 8-9'/%3E%3C/svg%3E") center / 15px no-repeat; }
+.kids-eyebrow { font: 800 12px var(--k-body); letter-spacing: .08em; text-transform: uppercase; color: var(--k-ink-soft); }
+.kids-error { color: var(--k-coral-deep); font-weight: 800; }
+.kids-danger { background: #fff1ec; border: 3px solid #ffd2c4; border-radius: 18px; padding: 12px 14px; display: grid; gap: 10px; width: 100%; text-align: left; }
+.kids-btn.red { background: #d94f3a; box-shadow: inset 0 -5px 0 #a93624; font-size: 17px; padding: 11px 18px; }
+.kids-link { background: none; border: 0; color: var(--k-ink-soft); font: 700 14px var(--k-body); text-decoration: underline; cursor: pointer; padding: 4px; }
+.kids-status { font: 600 20px var(--k-display); }
+
+/* the weekly parent report */
+.kr { display: grid; gap: 14px; width: 100%; color: var(--k-ink); font-family: var(--k-body); }
+.kr-head { display: flex; gap: 10px; align-items: center; }
+.kr-head h1 { margin: 0; font: 700 30px/1.1 var(--k-display); text-wrap: balance; }
+.kr-sec { position: relative; display: grid; gap: 10px; background: var(--k-paper); border: 4px solid #fff; border-radius: 26px; padding: 16px;
+  box-shadow: 0 6px 0 rgba(31, 42, 68, .1), 0 14px 30px rgba(31, 42, 68, .08); }
+.kr-sec.habit { background: #fff4e0; }
+.kr-sec.good { background: #e8f7ee; }
+.kr-sec.homework { background: #fff0ea; }
+.kr-sec.question { background: #eaf6fb; text-align: center; }
+.kr-sec h2 { margin: 0; font: 600 21px/1.25 var(--k-display); text-wrap: balance; }
+.kr-sec.question h2 { font-size: 24px; }
+.kr-sec p { margin: 0; font-size: 15.5px; }
+.kr-sec.week p:first-of-type { font: 600 19px var(--k-display); }
+.kr-sec.note p { font-style: italic; }
+.kr-key { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--k-ink-soft); }
+.kr-key i { display: inline-block; width: 22px; height: 6px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+.kr-board { display: grid; gap: 8px; }
+.kr-board .kids-board-wrap { padding: 8px; border-radius: 18px; }
+.kr-board figcaption { font-size: 15px; }
+.kr-foot { font-size: 13px; color: var(--k-ink-soft); text-align: center; }
+.kr-badge { position: absolute; top: -12px; right: 14px; background: var(--k-gold); color: var(--k-ink); font: 700 12px var(--k-body); letter-spacing: .06em;
+  text-transform: uppercase; padding: 4px 10px; border-radius: 999px; box-shadow: inset 0 -3px 0 var(--k-gold-deep); }
 
 @media (prefers-reduced-motion: reduce) {
   .kids *, .kids *::before, .kids *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
