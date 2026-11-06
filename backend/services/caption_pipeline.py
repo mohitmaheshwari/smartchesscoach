@@ -4090,18 +4090,33 @@ def weak_pawn_count_sentence(contested: Optional[Dict[str, Any]]) -> str:
     return ""
 
 
+# A material claim stands only on a mistake or worse: on an inaccuracy a pawn
+# claim contradicts the eval the card carries (the ledger's own rule, ho20 and
+# ho18 in the why-engine regression set). The card's rating-aware severity is
+# the one that decides.
+MATERIAL_CLAIM_SEVERITIES = ("mistake", "serious", "blunder")
+
+
 def reply_gap_sentence(gap: Optional[Dict[str, Any]],
                        mover_is_user: bool = True,
+                       severity: Optional[str] = None,
                        subject: Optional[str] = None) -> str:
-    """One sentence for facts["reply_gap"], or "" when there is none.
+    """The sentence(s) for facts["reply_gap"], or "" when there is none.
 
-    Derived per position from the board and both stored engine lines,
-    one ply deep. Measured over 8,880 flagged cards: when a check
-    separates the two replies it favours the engine's move 80.1% of the
-    time, a capture 69.7%. attacks_us (64.5%) and takes_centre (59.4%)
-    were measured and deliberately NOT used -- too close to a coin flip
-    to be worth a sentence, which is the mistake the end-of-line version
-    made at 52-62%.
+    CHECK is one ply deep, derived from the board and both stored lines.
+    Measured over 8,880 flagged cards: when a check separates the two
+    replies it favours the engine's move 80.1% of the time. attacks_us
+    (64.5%) and takes_centre (59.4%) were measured and deliberately NOT
+    used -- too close to a coin flip to be worth a sentence.
+
+    MATERIAL is the exchange ledger's sentence (services.reasoning.
+    differential.exchange_sentence / material_claim), already worded for
+    the mover, so the card and the Why button say the same thing about
+    the same exchange. It replaced the one-ply capture sentence on
+    2026-11-06: "That lets them take the rook on e7 with Qxe7" named the
+    first capture of an exchange the mover came out of two pawns up.
+    `severity` is the card's practical tier; without a mistake-or-worse
+    tier the material sentence is withheld.
 
     The percentage is not a truth rate: whether their reply gives check
     is checked on that board and is simply true. It is how often the
@@ -4112,8 +4127,6 @@ def reply_gap_sentence(gap: Optional[Dict[str, Any]],
     allows = gap.get("allows") or []
     if not reply or not allows:
         return ""
-    piece = gap.get("captured_piece")
-    square = gap.get("capture_square")
     # Whose reply this is depends on who moved. The sentence was written for
     # a USER card -- "you played X, that lets THEM answer" -- and hardcoded
     # "them". On an opponent card the mover is the opponent, so the same
@@ -4126,14 +4139,14 @@ def reply_gap_sentence(gap: Optional[Dict[str, Any]],
     # Qxe1 with check" read as the better move's consequence, which is
     # false: after Rxe7 their queen is gone (2026-11-12, 7286e2f5 m25/m26).
     lead = f"{subject} lets" if subject else "That lets"
-    if "check" in allows and "capture" in allows and piece and square:
-        return (f"{lead} {who} play {reply} with check, "
-                f"taking the {piece} on {square}.")
+    parts = []
     if "check" in allows:
-        return f"{lead} {who} play {reply} with check."
-    if piece and square:
-        return f"{lead} {who} take the {piece} on {square} with {reply}."
-    return f"{lead} {who} play {reply}."
+        parts.append(f"{lead} {who} play {reply} with check.")
+    material = gap.get("material") or {}
+    if ("material" in allows and (material.get("text") or "").strip()
+            and severity in MATERIAL_CLAIM_SEVERITIES):
+        parts.append(material["text"].strip())
+    return " ".join(parts)
 
 
 # A capture claim about the RECOMMENDED move belongs to the board that move is
@@ -9367,6 +9380,9 @@ def build_move_teaching_decision(
         # on a punishment clause that already names the same reply.
         try:
             _rg = caption_facts.get("reply_gap") or {}
+            # The material sentence stands only on a mistake or worse; the
+            # card's own rating-aware tier decides (see reply_gap_sentence).
+            _rg_sev = getattr(inputs, "severity_practical", None)
             _rg_cap = (caption_payload.get("caption") or "").strip()
             # The sentence is about the PLAYED move. When the card already
             # named the better move, "That" would bind to it: name the
@@ -9379,7 +9395,7 @@ def build_move_teaching_decision(
                 _rg_subject = (inputs.played_san or "").strip() or None
             _rg_line = reply_gap_sentence(
                 _rg, mover_is_user=bool(inputs.mover_is_user),
-                subject=_rg_subject)
+                severity=_rg_sev, subject=_rg_subject)
             _rg_reply = (_rg.get("their_reply") or "").strip()
             # The square matters as much as the move. Measured on real
             # cards: "Qd7 ... you moved your queen away from defending
@@ -9401,17 +9417,40 @@ def build_move_teaching_decision(
                 from services.caption_config import (
                     MAX_CAPTION_WORDS as _RG_CAP,
                 )
-                _rg_full = (
-                    _rg_cap
-                    + (" " if _rg_cap.endswith((".", "!", "?")) else ". ")
-                    + _rg_line)
-                if (len(_rg_full.split()) <= _RG_CAP
-                        and not _verify_final(_rg_full)):
-                    caption_payload["caption"] = _rg_full
+                # Check and material together do not always fit under the
+                # cap. The material sentence carries the loss, so it is
+                # tried on its own before the check is.
+                _rg_candidates = [_rg_line]
+                _rg_allows = list(_rg.get("allows") or [])
+                if len(_rg_allows) > 1:
+                    for _rg_one in ("material", "check"):
+                        if _rg_one in _rg_allows:
+                            _rg_candidates.append(reply_gap_sentence(
+                                dict(_rg, allows=[_rg_one]),
+                                mover_is_user=bool(inputs.mover_is_user),
+                                severity=_rg_sev))
+                _rg_join = " " if _rg_cap.endswith((".", "!", "?")) else ". "
+                _rg_shipped = False
+                for _rg_try in _rg_candidates:
+                    if not (_rg_try or "").strip():
+                        continue
+                    _rg_full = _rg_cap + _rg_join + _rg_try.strip()
+                    if (len(_rg_full.split()) <= _RG_CAP
+                            and not _verify_final(_rg_full)):
+                        caption_payload["caption"] = _rg_full
+                        caption_payload["rule_name"] = (
+                            (caption_payload.get("rule_name") or "")
+                            + "→REPLY_GAP")
+                        _board_explanation = _rg_full
+                        _rg_shipped = True
+                        break
+                if not _rg_shipped:
+                    # A sentence existed and nothing shipped: the cap or the
+                    # final verifier stopped every candidate. Marked, so the
+                    # gate can be counted instead of drifting unseen.
                     caption_payload["rule_name"] = (
                         (caption_payload.get("rule_name") or "")
-                        + "→REPLY_GAP")
-                    _board_explanation = _rg_full
+                        + "→GAP_SENTENCE_VETOED")
         except Exception as _rg_exc:
             logger.warning(
                 f"[reply_gap] m{inputs.full_move_number}: {_rg_exc!r}")

@@ -394,6 +394,32 @@ def _dearest(names: Sequence[str]) -> Optional[str]:
     return max(names, key=lambda n: _VALUE[by_name[n]]) if names else None
 
 
+_COUNT_WORDS = {2: "two", 3: "three", 4: "four", 5: "five"}
+
+
+def _pieces_phrase(names: Sequence[str], *, article: bool = True) -> Optional[str]:
+    """Every piece that changed hands on the square, dearest first: "a knight
+    and a pawn", "two pawns", "a rook and two pawns". Without the article the
+    phrase follows "your" / "their": "knight and pawn".
+
+    Before 2026-11-06 a group named only its dearest piece, so an exchange
+    that also cost a pawn on the same square read as if it had not."""
+    names = [str(n) for n in names if n]
+    if not names:
+        return None
+    by_name = {v: k for k, v in PIECE_NAME.items()}
+    parts = []
+    for name in sorted(set(names), key=lambda n: -_VALUE[by_name[n]]):
+        k = names.count(name)
+        if k == 1:
+            parts.append(f"a {name}" if article else name)
+        else:
+            parts.append(f"{_COUNT_WORDS.get(k, str(k))} {name}s")
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + " and " + parts[-1]
+
+
 def material_words(cp: int) -> str:
     """A net swing in words a 1200 player uses. Never a number."""
     cp = abs(int(cp))
@@ -424,31 +450,37 @@ def exchange_sentence(g: Dict[str, Any], *, played_san: str, reply_san: Optional
     captures = [p["san"] for p in g["plies"]]
     if received:
         lost, gained = _dearest(g["mover_lost"]), _dearest(g["mover_won"])
+        lost_all, gained_all = _pieces_phrase(g["mover_lost"], article=False), _pieces_phrase(g["mover_won"])
         hit = next(p for p in g["plies"] if not p["by_mover"])
         if gained is None:
             if hit["ply"] == 1:
-                text = f"After {played_san}, {hit['san']} simply takes {your} {lost} on {g['square']}" + \
+                text = f"After {played_san}, {hit['san']} simply takes {your} {lost_all} on {g['square']}" + \
                        (", and nothing can take back." if with_clause else ".")
             else:
                 text = (f"After {played_san}, {reply_san} starts a line that ends with {hit['san']} taking {your} "
-                        f"{lost} on {g['square']}" + (" for free." if with_clause else "."))
+                        f"{lost_all} on {g['square']}" + (" for free." if with_clause else "."))
         else:
-            text = f"After {played_san}, the exchange on {g['square']} costs {them} a {lost} for a {gained}."
+            text = (f"After {played_san}, the exchange on {g['square']} costs {them} "
+                    f"{_pieces_phrase(g['mover_lost'])} for {gained_all}.")
         return {"mechanism": "WINS_MATERIAL", "direction": "received", "agent_move": hit["san"], "square": g["square"],
-                "victim_piece": lost, "victim_square": g["square"], "gained_piece": gained, "payoff_cp": -g["net_cp"],
+                "victim_piece": lost, "victim_pieces": list(g["mover_lost"]), "victim_square": g["square"],
+                "gained_piece": gained, "gained_pieces": list(g["mover_won"]), "payoff_cp": -g["net_cp"],
                 "ply": hit["ply"], "captures": captures, "text": text}
     won, lost = _dearest(g["mover_won"]), _dearest(g["mover_lost"])
+    won_all = _pieces_phrase(g["mover_won"], article=False)
     hit = next(p for p in g["plies"] if p["by_mover"])
     if lost is None:
         if hit["ply"] == 0:
-            text = f"{alt_san} simply takes {their} {won} on {g['square']}" + (" for free." if with_clause else ".")
+            text = f"{alt_san} simply takes {their} {won_all} on {g['square']}" + (" for free." if with_clause else ".")
         else:
-            text = f"{alt_san} was the move: it leads to {hit['san']}, picking up {their} {won} on {g['square']}" + \
+            text = f"{alt_san} was the move: it leads to {hit['san']}, picking up {their} {won_all} on {g['square']}" + \
                    (" for free." if with_clause else ".")
     else:
-        text = f"{alt_san} was the move: the exchange on {g['square']} wins {their} {won} for a {lost}."
+        text = (f"{alt_san} was the move: the exchange on {g['square']} wins {their} {won_all} "
+                f"for {_pieces_phrase(g['mover_lost'])}.")
     return {"mechanism": "WINS_MATERIAL", "direction": "missed", "agent_move": hit["san"], "square": g["square"],
-            "victim_piece": won, "victim_square": g["square"], "gained_piece": lost, "payoff_cp": g["net_cp"],
+            "victim_piece": won, "victim_pieces": list(g["mover_won"]), "victim_square": g["square"],
+            "gained_piece": lost, "gained_pieces": list(g["mover_lost"]), "payoff_cp": g["net_cp"],
             "ply": hit["ply"], "captures": captures, "text": text}
 
 
@@ -503,7 +535,11 @@ def material_claim(ledger_played: Sequence[Dict[str, Any]], ledger_alt: Sequence
         return None
     you = "you" if mover_is_user else "they"        # subject: "they come out"
     them = "you" if mover_is_user else "them"       # object: "leave them"
-    amount = material_words(better_by)
+    # The sentence describes where THIS line ends ("a pawn up"), so it words
+    # the line's own net. The gate above is on the edge between the lines;
+    # until 2026-11-06 the edge was worded too, and a line that nets one pawn
+    # while the other loses one read "two pawns up".
+    amount = material_words(total_mine)
     if received:
         text = f"After {played_san}, the exchanges that follow {reply_san} leave {them} {amount} down."
         agent = reply_san

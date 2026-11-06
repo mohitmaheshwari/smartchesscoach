@@ -10819,19 +10819,35 @@ def _reply_gap(
     best_san: Optional[str],
     pv_after_played: Optional[Sequence[str]],
     pv_after_best: Optional[Sequence[str]],
+    *,
+    mover_cp_loss: Optional[int] = None,
+    mover_is_user: Optional[bool] = True,
 ) -> Optional[Dict[str, Any]]:
     """What the opponent gets to do after the played move, and not after
     the engine's.
 
-    One ply deep on purpose. Diffing the END of two long lines was tried
-    and measured at 52-62% directional accuracy -- a coin flip -- because
-    over sixteen plies the two positions diverge for reasons that have
-    nothing to do with the move. The opponent's FIRST reply is still
-    about the move that was played.
+    Two facts, read two different ways.
 
-    Returns the reply, what it does, and the engine-line reply that it is
-    being contrasted with. Returns None when the two replies are the same
-    move, when either is unplayable, or when nothing separates them.
+    CHECK is read one ply deep: whether their first reply gives check is a
+    fact of that board. Diffing the END of two long lines for arbitrary
+    differences was tried and measured at 52-62% directional accuracy -- a
+    coin flip -- because over sixteen plies the two positions diverge for
+    reasons that have nothing to do with the move.
+
+    MATERIAL is read along both stored lines with the exchange ledger
+    (services.reasoning.differential), square by square, so a recapture is
+    an exchange and an exchange the better move also allows is not the
+    difference. The one-ply capture it replaces (2026-11-06) named the first
+    capture of a sequence: "That lets them take the rook on e7 with Qxe7" on
+    3628ebef m32, where Qxe7 Rxe7 Kxe7 follows and the mover ends two pawns
+    UP on that square -- the loss was somewhere else. A capture is only the
+    story when the ledger's claim rules, the same ones the Why button uses,
+    say the material is the difference.
+
+    Returns the reply, what it allows, the ledger's material claim when
+    there is one, and the engine-line reply the played reply is contrasted
+    with. Returns None when the two replies are the same move, when either
+    is unplayable, or when nothing separates them.
     """
     if not (played_san and best_san and pv_after_played and pv_after_best):
         return None
@@ -10840,8 +10856,10 @@ def _reply_gap(
         reply_best = str(pv_after_best[0])
     except Exception:
         return None
-    if _normalize_san(reply_played) == _normalize_san(reply_best):
-        return None
+    # The same first reply to both moves cannot separate them by check, but
+    # the lines can still part later: Qxe6 answers both Kc8 and Kd8, and only
+    # after Kc8 does Qxh6 follow. The ledger reads the whole line.
+    same_reply = _normalize_san(reply_played) == _normalize_san(reply_best)
 
     def _after(first: str, reply: str):
         board = board_before.copy()
@@ -10855,36 +10873,55 @@ def _reply_gap(
     except Exception:
         return None
 
-    # Only the two facts that earned it. attacks_us (64.5%) and
+    # The check is the one-ply fact that earned its place (80.1% of the time
+    # it is the discriminating difference). attacks_us (64.5%) and
     # takes_centre (59.4%) are left out deliberately.
     played_check = b_played.gives_check(m_played)
-    played_capture = b_played.is_capture(m_played)
     best_check = b_best.gives_check(m_best)
-    best_capture = b_best.is_capture(m_best)
 
     allows = []
-    if played_check and not best_check:
+    if played_check and not best_check and not same_reply:
         allows.append("check")
-    if played_capture and not best_capture:
-        allows.append("capture")
+
+    # Material: both lines through the ledger. The class gate ("only on a
+    # mistake or worse") is applied by caption_pipeline on the card's own
+    # rating-aware severity, so the claim is read here as for a blunder and
+    # the pipeline drops it on an inaccuracy. `gap` is the mover's loss, so
+    # an exchange the eval confirms may be named even when the lines' nets
+    # alone would not carry it.
+    material = None
+    try:
+        from services.reasoning.differential import (
+            LEDGER_PLIES, exchange_ledger, material_claim)
+        played_line = [str(played_san)] + [str(m) for m in pv_after_played]
+        best_line = [str(best_san)] + [str(m) for m in pv_after_best]
+        ledger_played = exchange_ledger(board_before, played_line, board_before.turn)
+        ledger_best = exchange_ledger(board_before, best_line, board_before.turn)
+        material = material_claim(
+            ledger_played, ledger_best,
+            played_plies=min(len(played_line), LEDGER_PLIES),
+            alt_plies=min(len(best_line), LEDGER_PLIES),
+            received=True,
+            gap=(abs(int(mover_cp_loss)) if mover_cp_loss is not None else None),
+            move_class="blunder",
+            played_san=str(played_san), reply_san=str(reply_played),
+            alt_san=str(best_san), mover_is_user=(mover_is_user is not False))
+    except Exception:
+        material = None
+    if material and material.get("text"):
+        allows.append("material")
     if not allows:
         return None
 
-    captured = None
-    if "capture" in allows:
-        if b_played.is_en_passant(m_played):
-            captured = "pawn"
-        else:
-            victim = b_played.piece_at(m_played.to_square)
-            captured = (PIECE_TYPE_NAMES.get(victim.piece_type)
-                        if victim else None)
     return {
         "their_reply": _normalize_san(reply_played),
         "their_reply_after_best": _normalize_san(reply_best),
         "allows": allows,
-        "captured_piece": captured,
-        "capture_square": (chess.square_name(m_played.to_square)
-                           if "capture" in allows else None),
+        "material": material,
+        # The piece and square the claim is about, kept under the names the
+        # pipeline's duplicate check reads. None for a whole-line net.
+        "captured_piece": (material or {}).get("victim_piece"),
+        "capture_square": (material or {}).get("square"),
     }
 
 
@@ -12482,7 +12519,11 @@ def extract_facts(
         # and both stored lines, one ply deep.
         "reply_gap": _reply_gap(
             board_before, played_san, best_move_san,
-            pv_after_played, pv_after_best),
+            pv_after_played, pv_after_best,
+            mover_cp_loss=abs(int(
+                (cp_loss if mover_is_user is not False else opp_cp_loss)
+                or 0)),
+            mover_is_user=(mover_is_user is not False)),
         # How bad was THIS move, for whoever played it. cp_loss
         # means the USER's loss and is 0 on an opponent card;
         # caption_pipeline overwrites this with the real mover

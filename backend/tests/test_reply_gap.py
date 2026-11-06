@@ -1,30 +1,27 @@
-"""What your move lets them do, derived from the board.
+"""What your move lets them do, derived from the board and both engine lines.
 
 Mohit 2026-10-13: "why can't we build it deterministically, we already
-have all the chess facts and stockfish there". This is that -- the
-opponent's FIRST reply in each stored engine line, differenced, with the
-difference read off the board.
+have all the chess facts and stockfish there". This is that. Two facts:
 
-Why one ply and not the whole line: diffing the END of two 16-ply lines
-was built and measured first, and failed. On the cards that matter it
-scored 52-62% directional accuracy -- a coin flip dressed as a reason --
-because over sixteen plies the two positions diverge for reasons that
-have nothing to do with the move played.
+CHECK -- the opponent's FIRST reply in each stored engine line, differenced,
+read off the board one ply deep. Measured over 8,880 flagged cards before any
+wording existed: when a check separates the two replies it favours the
+engine's move 80.1% of the time (1,378 vs 343). attacks_us (64.5%) and
+takes_centre (59.4%) were measured and left out as filler.
 
-Measured over 8,880 flagged cards BEFORE any wording existed, for how
-often each fact favours the engine's move when it separates the replies:
+MATERIAL -- since 2026-11-06, the exchange ledger (services.reasoning.
+differential) read along BOTH stored lines, square by square, with the same
+claim rules the Why button uses. It replaced a one-ply capture sentence that
+was measured at 69.7% as a discriminator but named the wrong thing: on
+3628ebef m32 it said "That lets them take the rook on e7 with Qxe7" when the
+line runs Rxe7 Qxe7 Rxe7 Kxe7 and the mover ends two pawns UP on e7. The loss
+was elsewhere (the better move, Re6+, draws by perpetual check; fix 3 names
+that). The ledger says nothing about Rxe7, which is the right amount.
 
-    gives_check   80.1%   (1,378 vs   343)   used
-    captures      69.7%   (2,475 vs 1,076)   used
-    attacks_us    64.5%   (2,406 vs 1,323)   NOT used
-    takes_centre  59.4%   (1,187 vs   811)   NOT used
-
-The last two are near enough to a coin flip to be filler.
-
-That percentage is NOT a truth rate. Whether their reply gives check is
-checked on that board and is simply true or false. It is how often the
-fact is the DISCRIMINATING difference, so a miss means saying something
-true but secondary -- never something false.
+Neither percentage is a truth rate. Whether their reply gives check is checked
+on that board and is simply true or false. It is how often the fact is the
+DISCRIMINATING difference, so a miss means saying something true but
+secondary -- never something false.
 """
 import sys
 from pathlib import Path
@@ -39,14 +36,29 @@ from services.caption_pipeline import reply_gap_sentence  # noqa: E402
 # 1.d4 d5 2.c4 dxc4 3.Nc3 -- the QGA card that started this
 QGA = "rnbqkbnr/ppp1pppp/8/8/2pP4/2N5/PP2PPPP/R1BQKBNR b KQkq - 1 3"
 
+# Mohit v ChessKingsFather, 3628ebef move 32, White to move: Rxe7 played,
+# Re6+ was the move. Both stored lines, as the card holds them.
+RXE7 = "8/pp2n1q1/5k2/4R3/2PP2p1/1P4P1/n4P2/4R1K1 w - - 2 32"
+RXE7_PV_PLAYED = ["Qxe7", "Rxe7", "Kxe7", "Kf1", "a5", "Ke1", "Nc1", "b4", "Nd3+", "Ke2", "Nxb4", "d5"]
+RXE7_PV_BEST = ["Kg5", "Rxe7", "Qxd4", "R1e5+", "Kf6", "R7e6+", "Kf7", "Re7+", "Kg6", "R7e6+", "Kg7", "Re7+"]
 
-def gap(fen, played, best, pvp, pvb):
-    return _reply_gap(chess.Board(fen), played, best, pvp, pvb)
+# From the why-engine regression set: axb6 opens a7 and the rook is lost for
+# a bishop there; Nc3 was the move.
+AXB6 = "rn1q1rk1/b2b1ppp/1p1p1n2/PPp1pP2/4P3/3B1N1P/1B1P2P1/RN1QK2R w KQ - 0 14"
+AXB6_PV_PLAYED = ["Qxb6", "Nc3", "c4", "Rxa7", "Rxa7", "Bxc4", "Nc6", "g4", "d5"]
+AXB6_PV_BEST = ["bxa5", "Bc4", "Bc8", "d3", "Nbd7", "Bc1", "Bb7", "Bg5", "d5"]
+
+# 1.d4 d5 2.e4?? dxe4: a pawn given for nothing, nothing takes back.
+E4 = "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2"
+
+
+def gap(fen, played, best, pvp, pvb, **kw):
+    return _reply_gap(chess.Board(fen), played, best, pvp, pvb, **kw)
 
 
 # ── it stays silent when the difference is not one of the two ────────
 
-def test_silent_when_neither_reply_checks_or_captures():
+def test_silent_when_neither_reply_checks_and_no_material_changes_hands():
     """The QGA card: they answer e4 after Bf5 and e3 after a6. The real
     difference is the centre, which was measured at 59.4% and left out
     on purpose, so this correctly says nothing rather than reaching."""
@@ -64,83 +76,119 @@ def test_silent_on_missing_or_unplayable_input():
     assert gap(QGA, "Bf5", "a6", ["Zz9"], ["e3"]) is None
 
 
-# ── the capture case ─────────────────────────────────────────────────
+# ── material: the ledger, not the first capture ──────────────────────
 
-def test_capture_only_when_the_engine_line_does_not_also_capture():
-    """A capture that BOTH replies make does not separate them, so it is
-    not the reason. Seen live: Qd2 -> Qxf2 against Qxf5+ -> Rxf5, where
-    both reply with a capture and only the check discriminates."""
-    fen = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4"
-    board = chess.Board(fen)
-    # both replies capture -> capture must not be reported
-    out = _reply_gap(board, "Ng5", "d3", ["Nxe4"], ["Nxe4"])
-    assert out is None  # same move entirely
+def test_rxe7_gets_no_capture_sentence_because_the_exchange_is_not_the_loss():
+    """Rxe7 Qxe7 Rxe7 Kxe7 nets the mover two pawns on e7; the better line
+    takes the same knight and gives a pawn back on d4. The two lines are
+    level on material, so the ledger says nothing. The old one-ply sentence
+    said "That lets them take the rook on e7 with Qxe7" here."""
+    out = gap(RXE7, "Rxe7", "Re6+", RXE7_PV_PLAYED, RXE7_PV_BEST, mover_cp_loss=507)
+    assert out is None
 
 
-def test_reports_the_piece_and_square_taken():
-    """The sentence names what is lost, so the fact has to carry it."""
-    fen = "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2"
-    board = chess.Board(fen)
-    out = _reply_gap(board, "e4", "c4", ["dxe4"], ["e6"])
+def test_a_lost_exchange_is_named_as_the_exchange():
+    out = gap(AXB6, "axb6", "Nc3", AXB6_PV_PLAYED, AXB6_PV_BEST, mover_cp_loss=250)
     assert out is not None
-    assert "capture" in out["allows"]
-    assert out["captured_piece"] == "pawn"
-    assert out["capture_square"] == "e4"
+    assert out["allows"] == ["material"]
+    assert out["material"]["text"] == "After axb6, the exchange on a7 costs you a rook for a bishop."
+    assert out["capture_square"] == "a7" and out["captured_piece"] == "rook"
+    assert out["their_reply"] == "Qxb6"
+
+
+def test_an_unanswered_capture_one_ply_in_is_still_said_plainly():
+    out = gap(E4, "e4", "c4", ["dxe4"], ["e6"], mover_cp_loss=150)
+    assert out is not None and "material" in out["allows"]
+    assert out["material"]["text"] == "After e4, dxe4 simply takes your pawn on e4, and nothing can take back."
+    assert out["capture_square"] == "e4" and out["captured_piece"] == "pawn"
+
+
+def test_the_opponents_card_words_the_cost_as_theirs():
+    out = gap(AXB6, "axb6", "Nc3", AXB6_PV_PLAYED, AXB6_PV_BEST, mover_cp_loss=250, mover_is_user=False)
+    assert out["material"]["text"] == "After axb6, the exchange on a7 costs them a rook for a bishop."
+
+
+def test_a_capture_both_replies_make_is_not_the_difference():
+    """Qxe6 falls on both branches, after Kc8 and after Kd8; only h6 is new.
+    The same first reply cannot separate the moves by check, but the ledger
+    reads on, and its shared-exchange rule keeps e6 out of the sentence."""
+    fen = "8/1p1k1Q2/2p1p2p/p3P1p1/P7/2P3PK/1q6/8 b - - 3 38"
+    out = gap(fen, "Kc8", "Kd8", ["Qxe6+", "Kd8", "Qxh6"], ["Qxe6", "Qe2"], mover_cp_loss=400)
+    assert out is not None
+    assert out["allows"] == ["material"]
+    assert out["material"]["square"] == "h6"
+    assert out["material"]["text"] == ("After Kc8, Qxe6+ starts a line that ends with Qxh6 "
+                                       "taking your pawn on h6 for free.")
 
 
 # ── the sentence ─────────────────────────────────────────────────────
-
-def test_sentence_states_only_what_the_move_allows():
-    """It must NOT claim the better move leaves them with no answer --
-    the stored line shows one reply, not every reply, so that would
-    claim more than the data holds."""
-    s = reply_gap_sentence({
-        "their_reply": "Nxd4", "allows": ["capture"],
-        "captured_piece": "knight", "capture_square": "d4"})
-    assert s == "That lets them take the knight on d4 with Nxd4."
-    assert "no such answer" not in s
-    assert "nothing" not in s
-
 
 def test_sentence_for_check():
     s = reply_gap_sentence({"their_reply": "Qxf2", "allows": ["check"]})
     assert s == "That lets them play Qxf2 with check."
 
 
-def test_sentence_for_check_and_capture():
-    s = reply_gap_sentence({
-        "their_reply": "Qxd3", "allows": ["check", "capture"],
-        "captured_piece": "pawn", "capture_square": "d3"})
-    assert "with check" in s and "pawn on d3" in s
+def test_sentence_for_check_on_an_opponent_card():
+    s = reply_gap_sentence({"their_reply": "Qh5", "allows": ["check"]}, mover_is_user=False)
+    assert s == "That lets you play Qh5 with check."
+
+
+def test_material_sentence_is_the_ledgers_and_needs_a_mistake_or_worse():
+    g = {"their_reply": "Qxb6", "allows": ["material"],
+         "material": {"text": "After axb6, the exchange on a7 costs you a rook for a bishop.", "square": "a7"}}
+    assert reply_gap_sentence(g, severity="mistake") == "After axb6, the exchange on a7 costs you a rook for a bishop."
+    assert reply_gap_sentence(g, severity="serious") == g["material"]["text"]
+    assert reply_gap_sentence(g, severity="blunder") == g["material"]["text"]
+    # On an inaccuracy a pawn claim contradicts the eval the card carries.
+    assert reply_gap_sentence(g, severity="inaccuracy") == ""
+    assert reply_gap_sentence(g) == ""
+
+
+def test_check_and_material_together_say_the_check_first():
+    g = {"their_reply": "Qxf2", "allows": ["check", "material"],
+         "material": {"text": "After Nd5, the exchange on f2 costs you a rook for a knight.", "square": "f2"}}
+    s = reply_gap_sentence(g, severity="serious")
+    assert s == ("That lets them play Qxf2 with check. "
+                 "After Nd5, the exchange on f2 costs you a rook for a knight.")
+    # Without the tier the check still ships on its own.
+    assert reply_gap_sentence(g) == "That lets them play Qxf2 with check."
+
+
+def test_the_old_one_ply_capture_shape_is_gone():
+    """A fact dict that only knows a first capture produces no sentence; the
+    words "take the X on Y with Z" are no longer written anywhere."""
+    legacy = {"their_reply": "Qxe7", "allows": ["capture"], "captured_piece": "rook", "capture_square": "e7"}
+    assert reply_gap_sentence(legacy, severity="serious") == ""
+    assert reply_gap_sentence({"their_reply": "Nf6", "allows": []}) == ""
 
 
 def test_sentence_empty_on_empty_fact():
     assert reply_gap_sentence(None) == ""
     assert reply_gap_sentence({}) == ""
     assert reply_gap_sentence({"their_reply": "", "allows": ["check"]}) == ""
-    assert reply_gap_sentence({"their_reply": "Nf6", "allows": []}) == ""
 
 
-def test_sentence_is_short_enough_to_survive_the_cap():
-    """The word cap cuts at the LAST sentence boundary, so an append
-    that does not fit deletes itself silently."""
+def test_the_check_sentence_is_short_enough_to_survive_the_cap():
+    """The word cap cuts at the LAST sentence boundary, so an append that
+    does not fit deletes itself silently. The pipeline tries the material
+    sentence and the check on their own when both do not fit."""
     from services.caption_config import MAX_CAPTION_WORDS
 
-    longest = reply_gap_sentence({
-        "their_reply": "Qxd3", "allows": ["check", "capture"],
-        "captured_piece": "knight", "capture_square": "d3"})
-    assert len(longest.split()) <= 14
-    assert len(longest.split()) < MAX_CAPTION_WORDS // 3
+    s = reply_gap_sentence({"their_reply": "Qxd3", "allows": ["check"]})
+    assert len(s.split()) <= 8
+    assert len(s.split()) < MAX_CAPTION_WORDS // 3
 
 
 def test_facts_expose_it():
-    """It has to reach the facts dict or no surface can use it."""
+    """It has to reach the facts dict or no surface can use it, and the
+    mover's loss has to reach the ledger's claim rules."""
     from services.caption_facts import extract_facts
 
     f = extract_facts(
-        fen_before="rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2",
+        fen_before=E4,
         played_san="e4", best_move_san="c4", cp_loss=150,
         pv_after_played=["dxe4"], pv_after_best=["e6"],
         mover_is_user=True, full_move_number=2)
     assert "reply_gap" in f
     assert (f["reply_gap"] or {}).get("capture_square") == "e4"
+    assert "material" in (f["reply_gap"] or {}).get("allows", [])
