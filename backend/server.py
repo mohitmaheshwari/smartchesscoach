@@ -320,6 +320,21 @@ async def quick_sync_loop():
         await asyncio.sleep(QUICK_SYNC_INTERVAL_SECONDS)
 
 
+def analysis_queue_fallback_enabled() -> bool:
+    """Whether this web process may analyse games itself. Default OFF.
+
+    It was a safety net from before the dedicated workers, and it yields only
+    while a job shows as processing, so every worker crash invited it in. It
+    then ran Stockfish and the post-game steps inside the website: 18 games in
+    the 24 hours to 2026-11-07, at about twenty minutes each, and the same
+    memory fault that killed the workers killed the site six times that day.
+    Set ANALYSIS_QUEUE_FALLBACK_ENABLED=1 only on a machine with no workers.
+    """
+    return os.environ.get("ANALYSIS_QUEUE_FALLBACK_ENABLED", "").lower() in (
+        "1", "true", "yes", "on",
+    )
+
+
 def _run_analysis_queue_fallback_cycle():
     """Fallback queue processor — keeps queued games moving if dedicated worker is down."""
     from analysis_worker import claim_next_job, cleanup_stuck_jobs, ensure_stockfish_installed, get_database, process_job
@@ -447,7 +462,8 @@ async def lifespan(app: FastAPI):
     _quick_sync_task = asyncio.create_task(quick_sync_loop())
     logger.info("Quick sync started (5 minute interval)")
 
-    _analysis_queue_fallback_task = asyncio.create_task(analysis_queue_fallback_loop())
+    if analysis_queue_fallback_enabled():
+        _analysis_queue_fallback_task = asyncio.create_task(analysis_queue_fallback_loop())
     logger.info("Analysis queue fallback processor started")
 
     # 2026-07-03: Focus-outcome check runs every 6h to fire improved/regressed

@@ -30,6 +30,8 @@ import time
 import signal
 import logging
 import traceback
+import threading
+from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -117,6 +119,9 @@ FAILED_RETRY_BATCH = 25             # cap auto-retries per sweep (avoids thunder
 # Error substrings that mean the game will ALWAYS fail — never auto-retry these.
 PERMANENT_FAILURE_MARKERS = ("too few moves", "no pgn", "no moves", "retry_exhausted", "max retries")
 HEARTBEAT_INTERVAL = 30  # Seconds between heartbeat updates
+# A job still beating after this long is wedged, not slow. The beat stops so
+# the reaper can take it back. Games take 5-25 minutes on the shared box.
+JOB_HARD_LIMIT_MINUTES = 60
 
 # Graceful shutdown flag
 shutdown_requested = False
@@ -561,6 +566,40 @@ def update_job_heartbeat(db, game_id):
         )
         last_heartbeat = current_time
         logger.debug(f"Updated heartbeat for {game_id}")
+
+
+def _beat_until(db, game_id, stop: threading.Event) -> None:
+    deadline = time.time() + JOB_HARD_LIMIT_MINUTES * 60
+    while not stop.wait(HEARTBEAT_INTERVAL) and time.time() < deadline:
+        try:
+            now = datetime.now(timezone.utc)
+            db.analysis_queue.update_one(
+                {"game_id": game_id, "status": "processing", "worker_id": WORKER_ID},
+                {"$set": {"last_heartbeat": now, "updated_at": now}},
+            )
+        except Exception as exc:
+            logger.warning(f"Heartbeat for {game_id} failed: {exc}")
+
+
+@contextmanager
+def job_heartbeat(db, game_id):
+    """Beat for as long as this process is alive and working on the job.
+
+    The only other beats sat at four points inside process_job, none of them
+    during the Stockfish pass or the steps after it, so a healthy game over
+    ten minutes looked dead. The reaper handed it to a second worker while the
+    first carried on: 569611dc ran on two workers at once on 2026-11-07. With a
+    beat from its own thread, a silent job now means a dead process.
+    """
+    stop = threading.Event()
+    thread = threading.Thread(target=_beat_until, args=(db, game_id, stop),
+                              name=f"heartbeat-{game_id}", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        thread.join(timeout=5)
 
 
 def claim_next_job(db):
@@ -1132,6 +1171,12 @@ def mark_job_skipped(db, game_id, reason):
 
 
 def process_job(db, job):
+    """Process one job, keeping its queue row alive while it runs."""
+    with job_heartbeat(db, job.get("game_id")):
+        return _process_job(db, job)
+
+
+def _process_job(db, job):
     """
     Process a single analysis job.
     

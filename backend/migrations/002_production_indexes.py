@@ -71,6 +71,13 @@ INDEXES = [
     ("analysis_queue", [("status", 1), ("last_heartbeat", 1)], "aq_status_heartbeat", {}),
     # Game review looks analyses up by game_id; only user_id was indexed.
     ("game_analyses", [("game_id", 1)], "ga_game_id", {}),
+    # Written once per analysed game and read on every refresh, by user and
+    # game, with no index at all until 2026-11-07. Not unique: older rows may
+    # repeat a pair, and a failed build must not block the rest of this file.
+    ("thinking_scores", [("user_id", 1), ("game_id", 1)], "ts_user_game", {}),
+    # Swept by user_id whenever an account is deleted.
+    ("pwc_session_traces", [("user_id", 1)], "pwc_traces_user", {}),
+    ("llm_usage", [("user_id", 1)], "llm_usage_user", {}),
     # Detector and curriculum queries filter by subtype. Partial because only
     # 9.6% of rows carry one -- the rest do not belong in the index.
     # The filter MUST be $exists, not $type: see note 2 above.

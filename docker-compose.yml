@@ -336,8 +336,8 @@ services:
   # backend image (Stockfish baked in) and runs the existing worker loop
   # (analysis_worker.run_worker via __main__) which has NO single-job
   # throttle and claims atomically (find_one_and_update) — so multiple
-  # replicas are race-safe. The in-app fallback in server.py stays as a
-  # safety net (it self-throttles and yields whenever anything is processing).
+  # replicas are race-safe. The in-app fallback in server.py is OFF unless
+  # ANALYSIS_QUEUE_FALLBACK_ENABLED is set: it ran analysis inside the website.
   #
   # NO container_name — required so `docker compose up -d --scale
   # analysis-worker=N` can run N replicas. Default replica count set at

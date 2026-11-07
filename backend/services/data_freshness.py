@@ -17,10 +17,110 @@ When to call:
 """
 
 import logging
-from typing import Dict, List, Any
+from typing import Dict, Iterator, List, Any, Optional
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+# How many analyses are held in memory at once. An analysis averages 334 KB
+# (20,525 rows, 6.9 GB, measured 2026-11-07), so this is what keeps a refresh
+# flat however many games a player has.
+_ANALYSIS_BATCH = 100
+_SCORE_BATCH = 25
+
+# Only what refresh_player_identity reads. A full analysis carries the whole
+# per-move engine record and every caption; none of that is used here.
+_IDENTITY_FIELDS = {
+    "game_id": 1,
+    "analyzed_at": 1,
+    "stockfish_analysis.accuracy": 1,
+    "stockfish_analysis.brilliant_moves": 1,
+    "stockfish_analysis.sacrifices": 1,
+    "stockfish_analysis.move_evaluations.cp_loss": 1,
+    "stockfish_analysis.move_evaluations.move_number": 1,
+    "stockfish_analysis.move_evaluations.cognitive_gap": 1,
+    "stockfish_analysis.move_evaluations.move": 1,
+    "stockfish_analysis.move_evaluations.best_move": 1,
+    "stockfish_analysis.move_evaluations.fen_before": 1,
+    "stockfish_analysis.move_evaluations.is_opponent_move": 1,
+    "decryption_v5_data.fen_before": 1,
+    "decryption_v5_data.caption": 1,
+}
+_PROFILE_FIELDS = {
+    "game_id": 1,
+    "stockfish_analysis.accuracy": 1,
+    "stockfish_analysis.mistakes": 1,
+    "stockfish_analysis.blunders": 1,
+    "stockfish_analysis.inaccuracies": 1,
+    "stockfish_analysis.move_evaluations.cp_loss": 1,
+    "stockfish_analysis.move_evaluations.cognitive_gap": 1,
+}
+
+
+def _analyzed_order(value: Any) -> tuple:
+    """Sort key matching Mongo's order for a field holding mixed types.
+
+    `analyzed_at` is an ISO string on older rows and a date on newer ones.
+    Mongo sorts missing < strings < dates. A plain Python sort raises on the
+    mix, and a date with a timezone cannot be compared with one without.
+    """
+    if value is None:
+        return (0, "")
+    if isinstance(value, datetime):
+        aware = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return (2, aware.isoformat())
+    return (1, str(value))
+
+
+def _user_analysis_rows(db, user_id: str) -> List[Dict[str, Any]]:
+    """One small row per analysed game of this user, oldest analysis first.
+
+    This replaces a $lookup that started on game_analyses and filtered by user
+    afterwards, so it read all 6.9 GB of the collection three times for every
+    game analysed: 3 min 17 s on a small account, and a player with 1,650
+    games then pulled all of theirs into one Python list and hit the worker's
+    2 GB limit. Measured 2026-11-07: 22 of 22 worker kills in eight hours
+    followed the line just before this step, and a job that dies here is
+    retried and dies again.
+
+    The join is still from the `games` row, so an analysis counts for the
+    player whose game it is, exactly as before.
+    """
+    games = {
+        g["game_id"]: g
+        for g in db.games.find(
+            {"user_id": user_id},
+            {"_id": 0, "game_id": 1, "result": 1, "user_color": 1,
+             "white_player": 1, "black_player": 1},
+        )
+    }
+    if not games:
+        return []
+    rows: List[Dict[str, Any]] = []
+    ids = list(games)
+    for start in range(0, len(ids), 1000):
+        cursor = db.game_analyses.find(
+            {"game_id": {"$in": ids[start:start + 1000]}},
+            {"_id": 1, "game_id": 1, "analyzed_at": 1},
+        )
+        for doc in cursor:
+            rows.append({**games[doc["game_id"]], "_id": doc["_id"],
+                         "analyzed_at": doc.get("analyzed_at")})
+    rows.sort(key=lambda r: _analyzed_order(r.get("analyzed_at")))
+    return rows
+
+
+def _iter_analyses(db, rows: List[Dict[str, Any]], fields: Dict[str, int],
+                   batch: int = _ANALYSIS_BATCH) -> Iterator[Dict[str, Any]]:
+    """Yield each row merged with its analysis, in order, a batch at a time."""
+    for start in range(0, len(rows), batch):
+        chunk = rows[start:start + batch]
+        docs = {d["_id"]: d for d in db.game_analyses.find(
+            {"_id": {"$in": [r["_id"] for r in chunk]}}, fields)}
+        for row in chunk:
+            doc = docs.get(row["_id"])
+            if doc is not None:  # deleted between the two reads
+                yield {**row, **doc}
 
 # Shared cognitive_gap groupings for the tactical/positional axis — used by
 # both _compute_style_tendencies (tendency scores) and _determine_playing_style
@@ -42,8 +142,11 @@ def refresh_all_user_data(db, user_id: str) -> Dict[str, Any]:
     }
     
     try:
+        # One read of which games exist, shared by the three steps below.
+        rows = _user_analysis_rows(db, user_id)
+
         # 1. Refresh player identity (Memory tab, coaching context)
-        identity_result = refresh_player_identity(db, user_id)
+        identity_result = refresh_player_identity(db, user_id, rows)
         results["updates"]["player_identity"] = identity_result
         
         # 2. Refresh journey stats
@@ -51,11 +154,11 @@ def refresh_all_user_data(db, user_id: str) -> Dict[str, Any]:
         results["updates"]["journey"] = journey_result
         
         # 3. Refresh player profile (dashboard)
-        profile_result = refresh_player_profile(db, user_id)
+        profile_result = refresh_player_profile(db, user_id, rows)
         results["updates"]["player_profile"] = profile_result
         
         # 4. Refresh thinking scores if needed
-        thinking_result = ensure_thinking_scores(db, user_id)
+        thinking_result = ensure_thinking_scores(db, user_id, rows)
         results["updates"]["thinking_scores"] = thinking_result
         
         results["success"] = True
@@ -68,7 +171,8 @@ def refresh_all_user_data(db, user_id: str) -> Dict[str, Any]:
     return results
 
 
-def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
+def refresh_player_identity(db, user_id: str,
+                            rows: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """
     Recalculate player identity from all analyzed games.
     
@@ -89,37 +193,11 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
             db[COLLECTION].delete_one({"_id": dup["_id"]})
         logger.info(f"Removed {len(duplicates)-1} duplicate identity documents for {user_id}")
     
-    # Get ALL analyzed games for this user, ordered by analysis time
-    games_with_analysis = list(db.game_analyses.aggregate([
-        {"$lookup": {
-            "from": "games",
-            "localField": "game_id",
-            "foreignField": "game_id",
-            "as": "game_info"
-        }},
-        {"$unwind": "$game_info"},
-        {"$match": {"game_info.user_id": user_id}},
-        {"$sort": {"analyzed_at": 1}},  # Oldest first to replay in order
-        {"$project": {
-            "_id": 0,
-            "game_id": 1,
-            "result": "$game_info.result",
-            "user_color": "$game_info.user_color",
-            # 2026-08-03 fix: white_player/black_player were already being
-            # joined in by the $lookup above and then discarded right here,
-            # before the per-game loop ever saw them — the reason every
-            # pattern_history entry's "opponent" defaulted to "unknown"
-            # despite the real name being one join away. See
-            # docs/caption_pipeline_architecture_reference.md §7.
-            "white_player": "$game_info.white_player",
-            "black_player": "$game_info.black_player",
-            "stockfish_analysis": 1,
-            "decryption_v5_data": 1,
-            "analyzed_at": 1
-        }}
-    ]))
-    
-    if not games_with_analysis:
+    # Every analysed game for this user, oldest first to replay in order.
+    if rows is None:
+        rows = _user_analysis_rows(db, user_id)
+
+    if not rows:
         return {"status": "no_games", "games_processed": 0}
     
     # Recalculate from scratch
@@ -159,8 +237,11 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
         "updated_at": current_time.isoformat()
     }
     
+    style_tally = _new_style_tally()
+
     # Process each game in chronological order
-    for game in games_with_analysis:
+    for game in _iter_analyses(db, rows, _IDENTITY_FIELDS):
+        _tally_style(style_tally, game)
         result = game.get("result", "")
         user_color = game.get("user_color", "white")
         sf_analysis = game.get("stockfish_analysis", {})
@@ -270,7 +351,10 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
                     "date": analyzed_at if isinstance(analyzed_at, str) else analyzed_at.isoformat() if analyzed_at else current_time.isoformat()
                 }
                 identity["pattern_history"].append(pattern_entry)
-                
+                # Only the last 100 are kept, so never hold more than that.
+                if len(identity["pattern_history"]) > 100:
+                    del identity["pattern_history"][:-100]
+
                 # Also track recent blunders (last 20)
                 if len(identity["recent_blunders"]) < 20:
                     identity["recent_blunders"].append(pattern_entry)
@@ -298,9 +382,7 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
     # we have enough games to be meaningful (>=5).
     games_count = identity["games_analyzed"]
     if games_count >= 5:
-        identity["style_profile"].update(
-            _compute_style_tendencies(games_with_analysis)
-        )
+        identity["style_profile"].update(_style_from_tally(style_tally))
 
     # Calculate style profile with confidence based on games analyzed.
     # primary_style is derived FROM the tendencies above (not a separate
@@ -318,12 +400,8 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
         identity["style_profile"]["confidence"] = 0.1
         identity["style_profile"]["primary_style"] = "developing"
     
-    # Trim pattern_history to last 100 entries
-    if len(identity["pattern_history"]) > 100:
-        identity["pattern_history"] = identity["pattern_history"][-100:]
-    
     # Detect behavioral patterns
-    identity["behavioral_patterns"] = detect_behavioral_patterns(identity, games_with_analysis)
+    identity["behavioral_patterns"] = detect_behavioral_patterns(identity)
     
     identity["updated_at"] = current_time.isoformat()
     
@@ -336,7 +414,7 @@ def refresh_player_identity(db, user_id: str) -> Dict[str, Any]:
     
     return {
         "status": "refreshed",
-        "games_processed": len(games_with_analysis),
+        "games_processed": identity["games_analyzed"],
         "consecutive_wins": identity["consecutive_wins"],
         "consecutive_losses": identity["consecutive_losses"],
         "total_record": f"{identity['total_wins']}-{identity['total_losses']}-{identity['total_draws']}"
@@ -366,27 +444,37 @@ def _compute_style_tendencies(games: List[Dict]) -> Dict[str, float]:
         - 0.0 if rate is essentially zero
       The downstream cohort-aware service can override this with true ranks.
     """
-    aggressive_count = 0  # brilliant_moves + sacrifices (direct measures)
-    tactical_signals = 0  # weakness counts
-    positional_signals = 0
-    defensive_signals = 0
-    total_user_moves = 0
-
+    tally = _new_style_tally()
     for g in games:
-        sf = g.get("stockfish_analysis") or {}
-        aggressive_count += (sf.get("brilliant_moves", 0) or 0)
-        aggressive_count += (sf.get("sacrifices", 0) or 0)
-        for mv in (sf.get("move_evaluations") or []):
-            if mv.get("is_opponent_move"):
-                continue
-            total_user_moves += 1
-            gap = mv.get("cognitive_gap")
-            if gap in _TACTICAL_GAPS:
-                tactical_signals += 1
-            elif gap in _POSITIONAL_GAPS:
-                positional_signals += 1
-            if gap == "king_safety":
-                defensive_signals += 1
+        _tally_style(tally, g)
+    return _style_from_tally(tally)
+
+
+def _new_style_tally() -> Dict[str, int]:
+    return {"aggressive": 0, "tactical": 0, "positional": 0, "moves": 0}
+
+
+def _tally_style(tally: Dict[str, int], game: Dict[str, Any]) -> None:
+    """Add one game, so a refresh need not keep every game to the end."""
+    sf = game.get("stockfish_analysis") or {}
+    tally["aggressive"] += (sf.get("brilliant_moves", 0) or 0)
+    tally["aggressive"] += (sf.get("sacrifices", 0) or 0)
+    for mv in (sf.get("move_evaluations") or []):
+        if mv.get("is_opponent_move"):
+            continue
+        tally["moves"] += 1
+        gap = mv.get("cognitive_gap")
+        if gap in _TACTICAL_GAPS:
+            tally["tactical"] += 1
+        elif gap in _POSITIONAL_GAPS:
+            tally["positional"] += 1
+
+
+def _style_from_tally(tally: Dict[str, int]) -> Dict[str, float]:
+    aggressive_count = tally["aggressive"]
+    tactical_signals = tally["tactical"]
+    positional_signals = tally["positional"]
+    total_user_moves = tally["moves"]
 
     if total_user_moves == 0:
         return {
@@ -452,7 +540,7 @@ def _determine_playing_style(style_profile: Dict) -> str:
     return "tactical" if tac > 0.5 else "positional"
 
 
-def detect_behavioral_patterns(identity: Dict, games: List[Dict]) -> List[Dict]:
+def detect_behavioral_patterns(identity: Dict) -> List[Dict]:
     """
     Detect behavioral patterns from game history.
     """
@@ -549,7 +637,8 @@ def refresh_journey_stats(db, user_id: str) -> Dict[str, Any]:
     }
 
 
-def refresh_player_profile(db, user_id: str) -> Dict[str, Any]:
+def refresh_player_profile(db, user_id: str,
+                           rows: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """
     Recalculate player profile for the Dashboard.
     
@@ -560,25 +649,11 @@ def refresh_player_profile(db, user_id: str) -> Dict[str, Any]:
     """
     current_time = datetime.now(timezone.utc)
     
-    # Get recent analyzed games (last 20)
-    recent_analyses = list(db.game_analyses.aggregate([
-        {"$lookup": {
-            "from": "games",
-            "localField": "game_id",
-            "foreignField": "game_id",
-            "as": "game_info"
-        }},
-        {"$unwind": "$game_info"},
-        {"$match": {"game_info.user_id": user_id}},
-        {"$sort": {"analyzed_at": -1}},
-        {"$limit": 20},
-        {"$project": {
-            "_id": 0,
-            "game_id": 1,
-            "stockfish_analysis": 1
-        }}
-    ]))
-    
+    # Get recent analyzed games (last 20), newest first
+    if rows is None:
+        rows = _user_analysis_rows(db, user_id)
+    recent_analyses = list(_iter_analyses(db, list(reversed(rows[-20:])), _PROFILE_FIELDS))
+
     if not recent_analyses:
         return {"status": "no_data"}
     
@@ -658,30 +733,17 @@ def refresh_player_profile(db, user_id: str) -> Dict[str, Any]:
     }
 
 
-def ensure_thinking_scores(db, user_id: str) -> Dict[str, Any]:
+def ensure_thinking_scores(db, user_id: str,
+                           rows: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """
     Ensure all analyzed games have thinking scores calculated.
     """
     from services.thinking_score import calculate_game_thinking_scores
     
-    # Get games that have analysis but no thinking score
-    games_with_analysis = list(db.game_analyses.aggregate([
-        {"$lookup": {
-            "from": "games",
-            "localField": "game_id",
-            "foreignField": "game_id",
-            "as": "game_info"
-        }},
-        {"$unwind": "$game_info"},
-        {"$match": {"game_info.user_id": user_id}},
-        {"$project": {
-            "_id": 0,
-            "game_id": 1,
-            "user_color": "$game_info.user_color",
-            "stockfish_analysis": 1
-        }}
-    ]))
-    
+    # Games that have analysis, of which only those with no score are read.
+    if rows is None:
+        rows = _user_analysis_rows(db, user_id)
+
     # Get existing thinking scores
     existing_scores = set(
         doc["game_id"] for doc in db.thinking_scores.find(
@@ -692,33 +754,34 @@ def ensure_thinking_scores(db, user_id: str) -> Dict[str, Any]:
     
     # Calculate missing scores
     calculated = 0
-    for game in games_with_analysis:
+    missing = [r for r in rows if r.get("game_id") not in existing_scores]
+    for game in _iter_analyses(db, missing, {"game_id": 1, "stockfish_analysis.move_evaluations": 1},
+                               batch=_SCORE_BATCH):
         game_id = game.get("game_id")
-        if game_id not in existing_scores:
-            sf = game.get("stockfish_analysis", {})
-            move_evals = sf.get("move_evaluations", [])
-            user_color = game.get("user_color", "white")
-            
-            analysis_for_score = {
-                "game_id": game_id,
-                "move_evaluations": move_evals,
-                "critical_moments": []
-            }
-            
-            scores = calculate_game_thinking_scores(analysis_for_score, user_color)
-            scores["user_id"] = user_id
-            scores["game_id"] = game_id
-            
-            db.thinking_scores.update_one(
-                {"user_id": user_id, "game_id": game_id},
-                {"$set": scores},
-                upsert=True
-            )
-            calculated += 1
+        sf = game.get("stockfish_analysis", {})
+        move_evals = sf.get("move_evaluations", [])
+        user_color = game.get("user_color", "white")
+
+        analysis_for_score = {
+            "game_id": game_id,
+            "move_evaluations": move_evals,
+            "critical_moments": []
+        }
+
+        scores = calculate_game_thinking_scores(analysis_for_score, user_color)
+        scores["user_id"] = user_id
+        scores["game_id"] = game_id
+
+        db.thinking_scores.update_one(
+            {"user_id": user_id, "game_id": game_id},
+            {"$set": scores},
+            upsert=True
+        )
+        calculated += 1
     
     return {
         "status": "ensured",
-        "total_games": len(games_with_analysis),
+        "total_games": len(rows),
         "scores_calculated": calculated,
         "already_had_scores": len(existing_scores)
     }
