@@ -1,6 +1,6 @@
 # Sign-up paths — scope
 
-**Status:** DRAFT — awaiting Mohit's sign-off. No code until signed.
+**Status:** ON HOLD. On 2026-11-07 Mohit chose a coach link from the landing page over this flow (shipped). The full sign-up stays unbuilt unless he reopens it.
 **Author:** Claude, 2026-11-06, against `origin/working-code` at de61ae1d.
 **Mockup:** clickable, all three paths — linked in the sign-off record at the end.
 

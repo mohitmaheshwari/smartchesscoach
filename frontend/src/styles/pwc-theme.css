@@ -45,7 +45,7 @@
   /* Mobile bottom-sheet sizing. Peek is a small persistent coach bar so the
      BOARD owns the screen (in the real app you move on the board, not via
      candidate cards); tap the handle to expand and read/act. */
-  --pwc-sheet-peek: 120px;
+  --pwc-sheet-peek: min(190px, 23vh);
   --pwc-sheet-full: min(86dvh, calc(100dvh - 9rem));
   /* The Experience V1 mobile nav is 4rem tall, sits 0.75rem above the
      viewport edge, and needs a small breathing gap. Keep the coach sheet

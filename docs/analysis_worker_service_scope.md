@@ -10,7 +10,7 @@
 
 | What exists | Detail |
 |---|---|
-| Analysis execution | Runs as an **in-app fallback loop** inside the FastAPI backend (`server.py:analysis_queue_fallback_loop`). **Throttled to 1 concurrent** via `if processing_count > 0: return`. |
+| Analysis execution | (Written before the dedicated workers. Since 2026-11-07 this loop is OFF unless ANALYSIS_QUEUE_FALLBACK_ENABLED is set.) Runs as an **in-app fallback loop** inside the FastAPI backend (`server.py:analysis_queue_fallback_loop`). **Throttled to 1 concurrent** via `if processing_count > 0: return`. |
 | Job claim | `analysis_worker.claim_next_job` — **atomic** `find_one_and_update` (status pending→processing). Race-safe across processes. ✓ |
 | Job processing | `analysis_worker.process_job(db, job)` — sync, self-contained: Stockfish + traps + V5 gen + training extraction. One `StockfishEngine` per job (no shared engine state). |
 | Compose services | `mongodb`, `backend`, `frontend-builder`. **No worker service** — the codebase comments reference a "dedicated worker" but the file (`run_queue_worker.py`) was deleted; the in-app fallback replaced it. |
