@@ -328,6 +328,16 @@ describe("buildProgressView", () => {
     expect(view.body).toContain("does not mean you haven’t improved");
   });
 
+  test("a new player is told there is nothing to compare yet, not that something failed", () => {
+    const view = buildProgressView({
+      curriculum: { enabled: false },
+      journey: { enabled: false, paused: false },
+    });
+
+    expect(view.headline).toBe("Your progress will show here.");
+    expect(view.action.href).toBe("/import");
+  });
+
 });
 
 describe("Progress unavailable states", () => {

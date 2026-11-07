@@ -88,6 +88,19 @@ export const buildProgressView = ({ journey, curriculum }) => {
   if (!enabled) {
     const missingHistory = ["baseline_missing", "enrollment_provenance_missing"]
       .includes(journey?.reason);
+    // A new player has nothing to measure yet, which is not a fault.
+    if (!primary && !missingHistory) {
+      return {
+        tone: "waiting",
+        eyebrow: "Your progress",
+        headline: "Your progress will show here.",
+        body: "Connect your account and play a few games. Once there is enough to compare, I will show you what is changing.",
+        focusTitle,
+        watch: "Nothing is wrong. There is just nothing to compare yet.",
+        action: { label: "Connect my games", href: "/import" },
+        steps: {},
+      };
+    }
     return {
       tone: "waiting",
       eyebrow: "Progress tracking unavailable",
