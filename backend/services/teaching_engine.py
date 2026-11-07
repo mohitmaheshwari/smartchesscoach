@@ -1972,6 +1972,9 @@ async def _record_puzzle_solve(db, session, item, correct: bool) -> None:
                        puzzle_id, exc)
 
 
+# A lesson answer waits at most this long for the play-out line.
+CONTINUATION_TIMEOUT_SECONDS = 20
+
 async def process_personalized_move(
     db,
     session_id: str,
@@ -2560,8 +2563,14 @@ async def process_personalized_move(
         try:
             from services.lesson_continuation import build_continuation
 
-            walkthrough = build_continuation(
-                item["fen"], grade["answer_san"]
+            # In a thread, with a limit. It runs a blocking engine for several
+            # plies, and called directly it froze the whole website for every
+            # user until it finished: over a minute on 2026-11-07, when the
+            # deploy gate's lesson answer timed out and /api/health with it.
+            # Too slow means no play-out, never a stuck lesson.
+            walkthrough = await asyncio.wait_for(
+                asyncio.to_thread(build_continuation, item["fen"], grade["answer_san"]),
+                timeout=CONTINUATION_TIMEOUT_SECONDS,
             )
             # Only show it when it actually demonstrates the idea. On
             # lucena[2] the generated line ended with the defender capturing
@@ -2572,6 +2581,9 @@ async def process_personalized_move(
                 walkthrough.reached_promotion or walkthrough.reached_mate
             ):
                 result["continuation"] = walkthrough.public_dict()
+        except asyncio.TimeoutError:
+            logger.warning("continuation took over %ss; lesson goes on without it",
+                           CONTINUATION_TIMEOUT_SECONDS)
         except Exception as exc:
             logger.warning("continuation unavailable: %s", exc)
     if blind and complete:

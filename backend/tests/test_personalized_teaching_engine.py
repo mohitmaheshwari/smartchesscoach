@@ -1201,3 +1201,44 @@ def test_v2_unsupported_move_is_honestly_unmeasured_and_retryable(monkeypatch):
     assert result["retry_move"] is True
     assert result["awaiting_reason"] is False
     assert result["current_index"] == 0
+
+
+def test_a_slow_play_out_never_freezes_the_server(monkeypatch):
+    """The play-out ran a blocking engine on the event loop and froze the site.
+
+    A deliberately slow one must leave the loop free, and past the limit the
+    answer comes back without a play-out rather than waiting for it.
+    """
+    import time
+
+    import services.lesson_continuation as lc
+    import services.teaching_engine as te
+
+    def slow(*args, **kwargs):
+        time.sleep(1.0)
+        raise AssertionError("should have been abandoned")
+
+    monkeypatch.setattr(lc, "build_continuation", slow)
+    monkeypatch.setattr(te, "CONTINUATION_TIMEOUT_SECONDS", 0.3, raising=False)
+    _install(monkeypatch)
+    db = _DB()
+    _start(db)
+
+    async def answer_while_ticking():
+        ticks = 0
+
+        async def tick():
+            nonlocal ticks
+            while True:
+                await asyncio.sleep(0.05)
+                ticks += 1
+
+        ticker = asyncio.create_task(tick())
+        result = await te.process_personalized_move(db, "session-1", "e2f3",
+                                                    reason_choice="checked_landing_square")
+        ticker.cancel()
+        return result, ticks
+
+    result, ticks = asyncio.run(answer_while_ticking())
+    assert ticks >= 3            # the loop kept running while the engine was busy
+    assert result.get("continuation") is None
