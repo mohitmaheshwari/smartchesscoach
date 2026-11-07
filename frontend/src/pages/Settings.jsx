@@ -61,6 +61,109 @@ function Section({ title, desc, children }) {
   );
 }
 
+const accountField = "w-full rounded-md border border-border bg-background px-3 py-2 text-[13px] text-foreground";
+
+function PasswordForm({ onClose }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`${API}/auth/change-password`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: current, new_password: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.detail || "That did not work. Try again.");
+        return;
+      }
+      toast.success("Password changed");
+      onClose();
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="mt-6 grid max-w-sm gap-3" data-testid="change-password-form">
+      <input type="password" required autoComplete="current-password" placeholder="Current password"
+        aria-label="Current password" className={accountField} value={current}
+        onChange={(e) => setCurrent(e.target.value)} />
+      <input type="password" required minLength={8} autoComplete="new-password" placeholder="New password, at least 8 characters"
+        aria-label="New password" className={accountField} value={next}
+        onChange={(e) => setNext(e.target.value)} />
+      {error && <p className="text-[12.5px] text-red-500">{error}</p>}
+      <div className="flex gap-4 text-[12.5px]">
+        <button type="submit" disabled={busy} className="text-foreground underline disabled:opacity-50">
+          {busy ? "Saving…" : "Save new password"}
+        </button>
+        <button type="button" onClick={onClose} className="text-muted-foreground">Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+function DeleteAccountForm({ user, onClose, onDeleted }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`${API}/auth/delete-account`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm_email: email, password: password || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.detail || "That did not work. Try again.");
+        return;
+      }
+      onDeleted();
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="mt-6 grid max-w-sm gap-3" data-testid="delete-account-form">
+      <p className="text-[12.5px] text-foreground">
+        This deletes your account, your games and everything we have worked out from them. It cannot be undone.
+      </p>
+      <input type="email" required placeholder={`Type ${user?.email || "your email"} to confirm`}
+        aria-label="Type your email to confirm" className={accountField} value={email}
+        onChange={(e) => setEmail(e.target.value)} />
+      {user?.has_password && (
+        <input type="password" required autoComplete="current-password" placeholder="Your password"
+          aria-label="Your password" className={accountField} value={password}
+          onChange={(e) => setPassword(e.target.value)} />
+      )}
+      {error && <p className="text-[12.5px] text-red-500">{error}</p>}
+      <div className="flex gap-4 text-[12.5px]">
+        <button type="submit" disabled={busy} className="text-red-600 underline disabled:opacity-50"
+          data-testid="delete-account-confirm">
+          {busy ? "Deleting…" : "Delete my account"}
+        </button>
+        <button type="button" onClick={onClose} className="text-muted-foreground">Keep my account</button>
+      </div>
+    </form>
+  );
+}
+
 const Settings = ({ user }) => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -73,6 +176,7 @@ const Settings = ({ user }) => {
   const [loadingEmail, setLoadingEmail] = useState(true);
   const [savingEmail, setSavingEmail] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
+  const [accountForm, setAccountForm] = useState(null); // "password" | "delete"
 
   useEffect(() => {
     fetchEmailSettings();
@@ -162,6 +266,13 @@ const Settings = ({ user }) => {
     } finally {
       setLoggingOut(false);
     }
+  };
+
+  const handleDeleted = () => {
+    localStorage.removeItem("session_token");
+    localStorage.removeItem("authToken");
+    resetAnalyticsContext();
+    window.location.href = "/";
   };
 
   // The user's join date would ideally come from user.created_at but the auth
@@ -331,7 +442,31 @@ const Settings = ({ user }) => {
             >
               {loggingOut ? "Signing out…" : "Sign out"}
             </button>
+            {user?.has_password && (
+              <>
+                <span className="text-border">·</span>
+                <button
+                  onClick={() => setAccountForm("password")}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  data-testid="change-password-btn"
+                >
+                  Change password
+                </button>
+              </>
+            )}
+            <span className="text-border">·</span>
+            <button
+              onClick={() => setAccountForm("delete")}
+              className="text-muted-foreground hover:text-red-500 transition-colors"
+              data-testid="delete-account-btn"
+            >
+              Delete account
+            </button>
           </div>
+          {accountForm === "password" && <PasswordForm onClose={() => setAccountForm(null)} />}
+          {accountForm === "delete" && (
+            <DeleteAccountForm user={user} onClose={() => setAccountForm(null)} onDeleted={handleDeleted} />
+          )}
         </section>
       </div>
     </Layout>

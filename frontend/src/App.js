@@ -10,6 +10,7 @@ import "@/App.css";
 // Pages
 import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
+import ResetPassword from "@/pages/ResetPassword";
 import RequestInvite from "./pages/RequestInvite";
 import AdminWaitlist from "./pages/AdminWaitlist";
 import Pricing from "@/pages/Pricing";
@@ -107,7 +108,7 @@ const consumeStoredRedirectPath = () => {
 
 const getExperienceFamily = (pathname) => {
   if (["/terms", "/privacy", "/refund", "/contact"].includes(pathname)) return "legal";
-  if (pathname === "/" || pathname === "/login" || pathname === "/pricing" || pathname.startsWith("/learn/openings")) return "public";
+  if (pathname === "/" || pathname === "/login" || pathname === "/reset-password" || pathname === "/pricing" || pathname.startsWith("/learn/openings")) return "public";
   if (["/welcome", "/onboarding", "/diagnostic", "/import", "/settings"].some((path) => pathname === path || pathname.startsWith(`${path}/`))) return "setup";
   if (pathname.startsWith("/admin") || pathname.startsWith("/review/authoring")) return "admin";
   if (pathname.startsWith("/recover") || pathname.startsWith("/plateau-breaker") || pathname === "/reflect") return "recovery";
@@ -331,6 +332,7 @@ function AppRouter() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       {/* Invite-only pre-launch: landing CTAs and uninvited sign-ins land here. */}
       <Route path="/invite" element={<RequestInvite />} />
       <Route path="/pricing" element={<Pricing />} />

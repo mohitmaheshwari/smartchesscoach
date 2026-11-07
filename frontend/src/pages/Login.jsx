@@ -15,7 +15,11 @@ import { Browser } from "@capacitor/browser";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState("signin"); // "signin" | "signup"
+  const params = new URLSearchParams(window.location.search);
+  const forAcademy = params.get("redirect_to") === "/academy";
+  // "signin" | "signup" | "forgot"
+  const [mode, setMode] = useState(params.get("signup") ? "signup" : "signin");
+  const [sent, setSent] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -41,6 +45,19 @@ export default function Login() {
     setError("");
     setSubmitting(true);
     try {
+      if (mode === "forgot") {
+        const res = await fetch(`${API}/auth/forgot-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        if (!res.ok) {
+          setError("Something went wrong. Please try again.");
+          return;
+        }
+        setSent(true);
+        return;
+      }
       const url = mode === "signin" ? "/auth/login" : "/auth/register";
       const body = mode === "signin"
         ? { email, password }
@@ -70,7 +87,7 @@ export default function Login() {
       setError("");
       // Get the page user was trying to access (from URL or default to home)
       const redirectTo = new URLSearchParams(window.location.search).get('redirect_to') || window.location.pathname;
-      const safeRedirect = ['/', '/home', '/welcome', '/onboarding', '/diagnostic', '/login', '/play-with-coach', '/lab', '/training'].includes(redirectTo) ? redirectTo : '/home';
+      const safeRedirect = ['/', '/home', '/welcome', '/onboarding', '/diagnostic', '/login', '/play-with-coach', '/lab', '/training', '/academy'].includes(redirectTo) ? redirectTo : '/home';
       const isNative = Capacitor.isNativePlatform();
       const startUrl = `${API}/auth/google/login?redirect_to=${encodeURIComponent(safeRedirect)}`;
 
@@ -114,12 +131,16 @@ export default function Login() {
         </Link>
 
         <h1 className="text-3xl font-heading font-bold tracking-tight text-white mb-2">
-          {mode === "signin" ? "Welcome back" : "Create your account"}
+          {mode === "signin" ? "Welcome back" : mode === "forgot" ? "Reset your password" : "Create your account"}
         </h1>
         <p className="text-sm text-gray-400 mb-8">
           {mode === "signin"
             ? "Sign in to continue your training."
-            : "Start building your coaching profile."}
+            : mode === "forgot"
+              ? "Enter your email and we will send you a link."
+              : forAcademy
+                ? "Next you set up your child or your academy."
+                : "Start building your coaching profile."}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -151,7 +172,7 @@ export default function Login() {
             />
           </div>
 
-          <div>
+          {mode !== "forgot" && <div>
             <label className="text-xs text-gray-500 mb-1.5 block">Password</label>
             <input
               type="password"
@@ -164,7 +185,23 @@ export default function Login() {
               autoComplete={mode === "signin" ? "current-password" : "new-password"}
               data-testid="login-password"
             />
-          </div>
+            {mode === "signin" && (
+              <button
+                type="button"
+                onClick={() => { setMode("forgot"); setError(""); setSent(false); }}
+                className="mt-2 text-xs text-gray-400 hover:text-amber-300"
+                data-testid="login-forgot"
+              >
+                Forgot your password?
+              </button>
+            )}
+          </div>}
+
+          {sent && (
+            <div className="text-[13px] text-emerald-300 bg-emerald-500/[0.08] border border-emerald-500/20 rounded-lg px-3 py-2" data-testid="login-sent">
+              If that email has an account, a message is on its way.
+            </div>
+          )}
 
           {error && (
             <div className="text-[13px] text-red-400 bg-red-500/[0.08] border border-red-500/20 rounded-lg px-3 py-2">
@@ -174,7 +211,7 @@ export default function Login() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || sent}
             data-testid="login-submit"
             className="w-full px-5 py-3 text-sm font-semibold text-black rounded-lg bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 transition-all shadow-lg shadow-amber-500/20 disabled:opacity-60 flex items-center justify-center gap-2"
           >
@@ -182,7 +219,7 @@ export default function Login() {
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                {mode === "signin" ? "Sign in" : "Create account"}
+                {mode === "signin" ? "Sign in" : mode === "forgot" ? "Send the link" : "Create account"}
                 <ChevronRight className="w-4 h-4" />
               </>
             )}
@@ -214,6 +251,13 @@ export default function Login() {
                 Request an invite
               </button>
             </>
+          ) : mode === "forgot" ? (
+            <button
+              onClick={() => { setMode("signin"); setError(""); setSent(false); }}
+              className="text-amber-400 hover:text-amber-300"
+            >
+              Back to sign in
+            </button>
           ) : mode === "signin" ? (
             <>
               No account yet?{" "}

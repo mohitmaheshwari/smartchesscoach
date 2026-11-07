@@ -139,14 +139,10 @@ async def update_email_notification_settings(
 async def send_test_email(user: User = Depends(get_current_user)):
     """Send a test email to verify email configuration"""
     global db
-    from email_service import send_email, is_email_configured
-    
-    if not is_email_configured():
-        raise HTTPException(
-            status_code=503, 
-            detail="Email service not configured. Please add SENDGRID_API_KEY to environment."
-        )
-    
+    # SMTP is what sends mail in production; email_service is an unconfigured
+    # SendGrid stub, so this button always failed with a 503.
+    from services.digest_email_service import _send_smtp
+
     user_doc = await db.users.find_one(
         {"user_id": user.user_id},
         {"_id": 0, "email": 1, "name": 1}
@@ -176,7 +172,7 @@ async def send_test_email(user: User = Depends(get_current_user)):
     </html>
     """
     
-    success = await send_email(user_doc["email"], subject, html_content)
+    success = await _send_smtp(user_doc["email"], subject, html_content)
     
     if success:
         return {"message": "Test email sent successfully", "email": user_doc["email"]}

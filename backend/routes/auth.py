@@ -864,6 +864,165 @@ async def login(req: LoginRequest, response: Response):
     return _web_auth_payload(user)
 
 
+# ---- forgot, change and delete --------------------------------------------
+# A password account had no way back in and no way out: no reset, no change, and
+# a privacy page promising deletion with nothing to press. Found on 2026-11-07.
+
+PASSWORD_RESET_MINUTES = 60
+MAX_RESETS_PER_HOUR = 3
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class DeleteAccountRequest(BaseModel):
+    confirm_email: str
+    password: Optional[str] = None
+
+
+def _reset_hash(token: str) -> str:
+    """Only the hash is stored, so a database read cannot reset a password."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _site() -> str:
+    return (os.environ.get("FRONTEND_URL") or "https://chessguru.ai").rstrip("/")
+
+
+def _mail_page(*paragraphs: str) -> str:
+    body = "".join(f'<p style="margin:0 0 14px">{p}</p>' for p in paragraphs)
+    return ('<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#1c1c1c;'
+            f'max-width:520px">{body}</div>')
+
+
+async def _send_password_help(user: dict, email: str) -> None:
+    """Runs after the response, so the page answers the same either way."""
+    from services.digest_email_service import _send_smtp
+
+    now = datetime.now(timezone.utc)
+    if not user.get("password_hash"):
+        await _send_smtp(email, "Signing in to ChessGuru", _mail_page(
+            "You asked to reset your ChessGuru password.",
+            "This account has no password. It signs in with Google, so use "
+            f'<a href="{_site()}/login">Continue with Google</a> on the sign-in page.',
+            "If this was not you, you can ignore this email."))
+        return
+    recent = await db.password_resets.count_documents(
+        {"user_id": user["user_id"], "created_at": {"$gte": now - timedelta(hours=1)}})
+    if recent >= MAX_RESETS_PER_HOUR:
+        logger.info("password reset limit reached for %s", user["user_id"])
+        return
+    token = secrets.token_urlsafe(32)
+    await db.password_resets.insert_one({
+        "token_hash": _reset_hash(token), "user_id": user["user_id"], "created_at": now,
+        "expires_at": now + timedelta(minutes=PASSWORD_RESET_MINUTES), "used_at": None})
+    link = f"{_site()}/reset-password?token={token}"
+    await _send_smtp(email, "Reset your ChessGuru password", _mail_page(
+        "You asked to reset your ChessGuru password.",
+        f'<a href="{link}">Choose a new password</a>',
+        "The link works once, for one hour. If this was not you, you can ignore this email."))
+
+
+@router.post("/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, background: BackgroundTasks):
+    """The answer never says whether the email has an account."""
+    email = (req.email or "").strip().lower()
+    user = await db.users.find_one({"email": email},
+                                   {"_id": 0, "user_id": 1, "password_hash": 1}) if "@" in email else None
+    if user:
+        background.add_task(_send_password_help, user, email)
+    return {"ok": True}
+
+
+@router.post("/reset-password")
+async def reset_password(req: ResetPasswordRequest):
+    if len(req.password or "") < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    now = datetime.now(timezone.utc)
+    row = await db.password_resets.find_one({"token_hash": _reset_hash(req.token or "")})
+    expires = (row or {}).get("expires_at")
+    if expires is not None and expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)  # Motor hands back naive dates
+    if not row or row.get("used_at") or not expires or expires <= now:
+        raise HTTPException(status_code=400, detail="This link has expired. Ask for a new one.")
+    claimed = await db.password_resets.update_one(
+        {"token_hash": row["token_hash"], "used_at": None}, {"$set": {"used_at": now}})
+    if not getattr(claimed, "modified_count", 1):
+        raise HTTPException(status_code=400, detail="This link has expired. Ask for a new one.")
+    await db.users.update_one({"user_id": row["user_id"]},
+                              {"$set": {"password_hash": pwd_context.hash(req.password)}})
+    # Anyone who had the old password is signed out everywhere.
+    await db.user_sessions.delete_many({"user_id": row["user_id"]})
+    return {"ok": True}
+
+
+@router.post("/change-password")
+async def change_password(req: ChangePasswordRequest, response: Response,
+                          user: User = Depends(get_current_user)):
+    doc = await db.users.find_one({"user_id": user.user_id}, {"_id": 0, "password_hash": 1})
+    if not (doc or {}).get("password_hash"):
+        raise HTTPException(status_code=409, detail="You sign in with Google, so there is no password to change.")
+    if not pwd_context.verify(req.current_password or "", doc["password_hash"]):
+        raise HTTPException(status_code=400, detail="Your current password is not right.")
+    if len(req.new_password or "") < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    await db.users.update_one({"user_id": user.user_id},
+                              {"$set": {"password_hash": pwd_context.hash(req.new_password)}})
+    # A new session replaces every other one, so this browser stays signed in.
+    _issue_session_cookie(response, await _create_session(user.user_id))
+    return {"ok": True}
+
+
+@router.post("/delete-account")
+async def delete_account(req: DeleteAccountRequest, request: Request, response: Response,
+                         user: User = Depends(get_current_user)):
+    """Delete this person and everything they hold. Cannot be undone.
+
+    An academy owner must remove the children first: each child's data has its
+    own parent, and removing it says so to that family.
+    """
+    from services.account_deletion import delete_user_rows
+    from services.signup_gate import WAITLIST_COLLECTION
+
+    if getattr(request.state, "view_as", None):
+        raise HTTPException(status_code=403, detail="End the view-as session first.")
+    doc = await db.users.find_one({"user_id": user.user_id},
+                                  {"_id": 0, "email": 1, "password_hash": 1, "role": 1})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    if doc.get("role") == "admin":
+        raise HTTPException(status_code=409, detail="An admin account cannot be deleted here.")
+    email = (doc.get("email") or "").strip().lower()
+    if (req.confirm_email or "").strip().lower() != email:
+        raise HTTPException(status_code=400, detail="Type your email to confirm.")
+    if doc.get("password_hash") and not pwd_context.verify(req.password or "", doc["password_hash"]):
+        raise HTTPException(status_code=400, detail="That password is not right.")
+    owned = [r["academy_id"] async for r in db.academy_staff.find(
+        {"user_id": user.user_id, "role": "owner"}, {"_id": 0, "academy_id": 1})]
+    if owned and await db.academy_students.count_documents(
+            {"academy_id": {"$in": owned}, "deleted_at": None}):
+        raise HTTPException(status_code=409,
+                            detail="Your academy still has children. Remove them first, so each family's data goes too.")
+    for name in ("academy_batches", "academy_staff", "academies"):
+        await db[name].delete_many({"academy_id": {"$in": owned}})
+    await delete_user_rows(db, user.user_id, keep={"payment_intents"})  # tax records, see the privacy page
+    await db[WAITLIST_COLLECTION].delete_many({"email": email})
+    response.delete_cookie(key="session_token", path="/")
+    logger.info("account deleted by its owner: %s", user.user_id)
+    return {"ok": True}
+
+
 @router.get("/status")
 async def auth_status():
     """Check if DEV_MODE is enabled"""
@@ -879,6 +1038,9 @@ async def get_me(request: Request, user: User = Depends(get_current_user)):
     looking at somebody else's pages without the page saying whose.
     """
     payload = user.model_dump()
+    # Settings offers a password change only to someone who has a password.
+    pw = await db.users.find_one({"user_id": user.user_id, "password_hash": {"$exists": True}}, {"_id": 1})
+    payload["has_password"] = pw is not None
     session = getattr(request.state, "view_as", None)
     if session:
         payload["viewing_as"] = session

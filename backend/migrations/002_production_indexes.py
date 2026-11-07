@@ -78,6 +78,9 @@ INDEXES = [
     # Swept by user_id whenever an account is deleted.
     ("pwc_session_traces", [("user_id", 1)], "pwc_traces_user", {}),
     ("llm_usage", [("user_id", 1)], "llm_usage_user", {}),
+    # Password resets: looked up by the hash, gone an hour after they expire.
+    ("password_resets", [("token_hash", 1)], "pr_token_hash", {"unique": True}),
+    ("password_resets", [("expires_at", 1)], "pr_expiry", {"expireAfterSeconds": 3600}),
     # Detector and curriculum queries filter by subtype. Partial because only
     # 9.6% of rows carry one -- the rest do not belong in the index.
     # The filter MUST be $exists, not $type: see note 2 above.
