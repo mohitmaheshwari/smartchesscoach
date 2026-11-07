@@ -296,3 +296,9 @@ def test_unread_games_with_a_lesson_can_still_be_reported():
     assert svc.report_blocked({"games": {"count": 2, "analysed": 0},
                                "classes": {"learnt": ["how the rook moves"]}}) is None
     assert svc.report_blocked({"games": {"count": 0}}) is None
+
+
+def test_a_lessons_only_report_does_not_say_games_in_its_footer():
+    week = {"games": {"count": 0}, "classes": {"learnt": ["how the rook moves"]}}
+    assert "class" in svc.render_report(week, child_name="Asha")["footer"]
+    assert "games" in svc.render_report({"games": {"count": 2, "analysed": 2}}, child_name="Asha")["footer"]

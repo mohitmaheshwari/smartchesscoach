@@ -567,7 +567,9 @@ export function AcademyStudent() {
               <Eyebrow>Links for the family</Eyebrow>
               <div className="flex flex-wrap gap-2">
                 <CopyButton text={view.links.report} label="Copy report link" />
-                <CopyButton text={view.links.homework} label="Copy homework link" />
+                {(view.preview?.sections || []).some((sec) => sec.kind === "homework") && (
+                  <CopyButton text={view.links.homework} label="Copy homework link" />
+                )}
               </div>
               {!confirmRemove ? (
                 <button type="button" className="w-fit text-sm text-red-700 underline" onClick={() => setConfirmRemove(true)}>

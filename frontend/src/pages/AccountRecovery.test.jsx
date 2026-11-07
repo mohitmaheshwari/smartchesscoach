@@ -53,7 +53,7 @@ test("the coach link opens straight on sign-up with the academy words", async ()
 });
 
 test("a reset link saves the new password with its token", async () => {
-  window.history.pushState({}, "", "/reset-password?token=abc");
+  window.history.pushState({}, "", "/reset-password?code=abc");
   global.fetch = jest.fn(() => reply({ ok: true }));
   await act(async () => { root.render(<ResetPassword />); });
   await act(async () => { setValue(container.querySelector("[data-testid=reset-password]"), "new-password"); });
@@ -63,7 +63,7 @@ test("a reset link saves the new password with its token", async () => {
 });
 
 test("an expired link says so and how to go back", async () => {
-  window.history.pushState({}, "", "/reset-password?token=old");
+  window.history.pushState({}, "", "/reset-password?code=old");
   global.fetch = jest.fn(() => reply({ detail: "This link has expired. Ask for a new one." }, false));
   await act(async () => { root.render(<ResetPassword />); });
   await act(async () => { setValue(container.querySelector("[data-testid=reset-password]"), "new-password"); });

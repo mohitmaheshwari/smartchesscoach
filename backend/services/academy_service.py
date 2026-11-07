@@ -644,7 +644,8 @@ def render_report(week: Mapping[str, Any], *, child_name: str, batch_name: str =
         out["sections"].append({"kind": "note",
                                 "eyebrow": f"From {coach_name}" if coach_name else "From the coach",
                                 "lines": [note]})
-    out["footer"] = "This report shows habits we can see in the games. It is not a score or a test."
+    out["footer"] = ("This report shows what we saw in class. It is not a score or a test." if count == 0 and in_class
+                     else "This report shows habits we can see in the games. It is not a score or a test.")
     return out
 
 

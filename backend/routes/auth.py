@@ -927,7 +927,8 @@ async def _send_password_help(user: dict, email: str) -> None:
     await db.password_resets.insert_one({
         "token_hash": _reset_hash(token), "user_id": user["user_id"], "created_at": now,
         "expires_at": now + timedelta(minutes=PASSWORD_RESET_MINUTES), "used_at": None})
-    link = f"{_site()}/reset-password?token={token}"
+    # "code", not "token": the app strips ?token= from every URL on load.
+    link = f"{_site()}/reset-password?code={token}"
     await _send_smtp(email, "Reset your ChessGuru password", _mail_page(
         "You asked to reset your ChessGuru password.",
         f'<a href="{link}">Choose a new password</a>',

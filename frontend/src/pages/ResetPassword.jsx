@@ -8,7 +8,9 @@ import { ChevronRight, Loader2 } from "lucide-react";
 import { API } from "@/App";
 
 export default function ResetPassword() {
-  const token = new URLSearchParams(window.location.search).get("token") || "";
+  // "code", not "token": App.js strips any ?token= from every URL, so a reset
+  // link named that way lost its token on the first render. Read once on open.
+  const [token] = useState(() => new URLSearchParams(window.location.search).get("code") || "");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(token ? "" : "This link has expired. Ask for a new one.");

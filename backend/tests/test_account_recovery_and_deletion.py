@@ -60,7 +60,7 @@ def mail(monkeypatch):
 
 def _token_from(mail):
     html = mail[-1][2]
-    return html.split("token=")[1].split('"')[0]
+    return html.split("code=")[1].split('"')[0]
 
 
 def test_the_answer_is_the_same_for_an_unknown_email(db, mail):
@@ -119,7 +119,7 @@ def test_a_google_account_is_pointed_to_google(db, mail):
     run(db.users.insert_one({"user_id": "u1", "email": "g@example.com"}))
     user = run(db.users.find_one({"user_id": "u1"}))
     run(auth._send_password_help(user, "g@example.com"))
-    assert "Google" in mail[0][2] and "token=" not in mail[0][2]
+    assert "Google" in mail[0][2] and "code=" not in mail[0][2]
     assert run(db.password_resets.count_documents({})) == 0
 
 
