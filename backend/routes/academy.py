@@ -30,6 +30,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from routes.auth import User, get_current_user
 from services import academy_service as svc
+from services.account_deletion import delete_user_rows
 from services import first_steps as fs
 
 logger = logging.getLogger(__name__)
@@ -139,8 +140,8 @@ def _links(student: Dict[str, Any]) -> Dict[str, str]:
 
 
 def _consent_message(student: Dict[str, Any], academy: Dict[str, Any]) -> str:
-    return (f"Hello {student.get('parent_name') or ''}. {academy['name']} uses ChessGuru to "
-            f"follow {student['display_name']}'s online chess games and send you a short weekly "
+    return (f"Hello {student.get('parent_name') or ''}. {academy['name']} uses ChessGuru for "
+            f"{student['display_name']}'s chess lessons and games, and to send you a short weekly "
             f"report. Please read and agree here: {_links(student)['consent']}").replace("  ", " ")
 
 
@@ -150,10 +151,10 @@ def _class_message(student: Dict[str, Any]) -> str:
             f"{_links(student).get('class', '')}").replace("  ", " ")
 
 
-def _report_message(student: Dict[str, Any], academy: Dict[str, Any]) -> str:
+def _report_message(student: Dict[str, Any], academy: Dict[str, Any], has_homework: bool = True) -> str:
     links = _links(student)
-    return (f"{student['display_name']}'s chess week from {academy['name']}: {links['report']} "
-            f"This week's homework: {links['homework']}")
+    text = f"{student['display_name']}'s chess week from {academy['name']}: {links['report']}"
+    return f"{text} This week's homework: {links['homework']}" if has_homework else text
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +208,29 @@ async def _better_moves(habit: Optional[Dict[str, Any]]) -> Dict[str, str]:
     return out
 
 
+def _class_week(sessions: List[Dict[str, Any]], start, all_done: bool) -> Dict[str, Any]:
+    """What this child did in class in the given IST week."""
+    begin, end = svc.week_bounds_utc(start)
+    learnt: List[str] = []
+    practised: List[str] = []
+    for s in sessions:
+        if s.get("kind") != "class" or not s.get("finished_at"):
+            continue
+        when = datetime.fromisoformat(s["finished_at"]).astimezone(timezone.utc).replace(tzinfo=None)
+        if not begin <= when < end:
+            continue
+        cls = fs.class_by_id(s["class_id"])
+        title = cls["title"].lower()
+        if s.get("passed") and not s.get("practice"):
+            if cls["learnt"] not in learnt:
+                learnt.append(cls["learnt"])
+            if title in practised:
+                practised.remove(title)
+        elif title not in practised and cls["learnt"] not in learnt:
+            practised.append(title)
+    return {"learnt": learnt, "practised": practised, "all_done": all_done}
+
+
 async def build_week(student: Dict[str, Any], start=None) -> Optional[Dict[str, Any]]:
     """Rebuild one child's week and store it. Returns the stored row."""
     if (student.get("consent") or {}).get("status") != "given" or not student.get("child_user_id"):
@@ -224,6 +248,8 @@ async def build_week(student: Dict[str, Any], start=None) -> Optional[Dict[str, 
         prev = svc.summarise_week(prev_games, prev_obs)
     week = svc.summarise_week(games, obs, prev)
     week["better_moves"] = await _better_moves(week.get("habit"))
+    sessions = await _sessions(student["student_id"])
+    week["classes"] = _class_week(sessions, start, _overview(student, sessions)["all_done"])
     # A coach's confirmation survives the rebuild when the good moment is the
     # same move; a different move is a new moment and starts unconfirmed.
     old = await db[svc.WEEKS].find_one({"student_id": student["student_id"],
@@ -440,7 +466,8 @@ def _row_for_table(student, week, homework_status) -> Dict[str, Any]:
     if habit_id in svc.HABIT_WORDS:
         habit_words = svc.HABIT_WORDS[habit_id]["short"]
     elif not games:
-        habit_words = "No games this week"
+        classes = (week or {}).get("classes") or {}
+        habit_words = "In lessons" if classes.get("learnt") or classes.get("practised") else "No games this week"
     elif not analysed:
         habit_words = "Games still being read"
     else:
@@ -501,6 +528,7 @@ async def student_view(student_id: str, user: User = Depends(get_current_user)):
                                     batch_name=(batch or {}).get("name", ""),
                                     coach_name=(batch or {}).get("coach_name", ""),
                                     better_moves=week.get("better_moves"))
+        preview["blocked"] = svc.report_blocked(week)
     academy = student["academy"]
     await _class_token(student)
     first_steps = None
@@ -540,6 +568,9 @@ async def approve_report(student_id: str, payload: Dict[str, Any] = Body(default
     week = await db[svc.WEEKS].find_one({"student_id": student_id, "week_start": start}, {"_id": 0})
     if not week:
         raise HTTPException(409, "This week has not been read yet. Press Refresh first.")
+    blocked = svc.report_blocked(week)
+    if blocked:
+        raise HTTPException(409, blocked)
     note = _clean(payload.get("coach_note"), 400)
     rendered = svc.render_report(week, child_name=student["display_name"],
                                  batch_name=batch.get("name", ""),
@@ -551,7 +582,8 @@ async def approve_report(student_id: str, payload: Dict[str, Any] = Body(default
     await db[svc.REPORTS].insert_one(dict(report))
     return {"ok": True, "report_id": report["report_id"], "link": _links(student)["report"],
             "whatsapp": svc.whatsapp_link(student["parent_phone"],
-                                          _report_message(student, student["academy"]))}
+                                          _report_message(student, student["academy"],
+                                                          bool(week.get("homework"))))}
 
 
 EVIDENCE = "academy_coach_evidence"
@@ -636,7 +668,7 @@ async def consent_page(token: str):
     student = await _student_by("consent_token", token)
     academy = await db[svc.ACADEMIES].find_one({"academy_id": student["academy_id"]}, {"_id": 0}) or {}
     if student.get("deleted_at"):
-        return {"status": "deleted", "academy": academy.get("name"), "child_name": student["display_name"]}
+        return {"status": "deleted", "academy": academy.get("name")}
     return {"status": (student.get("consent") or {}).get("status"), "academy": academy.get("name"),
             "child_name": student["display_name"],
             "accounts": [x for x in (student.get("lichess_username") and f"Lichess: {student['lichess_username']}",
@@ -671,13 +703,17 @@ async def give_consent(token: str, request: Request, payload: Dict[str, Any] = B
                                  tzinfo=svc.IST)
         update["last_game_sync"] = start.astimezone(timezone.utc).isoformat()
         await db.users.update_one({"user_id": student["child_user_id"]}, {"$set": update})
-        task = asyncio.create_task(_first_sync(student["child_user_id"]))
-        _BACKGROUND.add(task)  # the loop keeps only a weak reference to a task
-        task.add_done_callback(_BACKGROUND.discard)
+        _in_background(_first_sync(student["child_user_id"]))
     return {"ok": True, "status": "given"}
 
 
 _BACKGROUND: set = set()
+
+
+def _in_background(coro) -> None:
+    task = asyncio.create_task(coro)
+    _BACKGROUND.add(task)  # the loop keeps only a weak reference to a task
+    task.add_done_callback(_BACKGROUND.discard)
 
 
 async def _first_sync(user_id: str) -> None:
@@ -694,32 +730,17 @@ async def _first_sync(user_id: str) -> None:
 
 
 async def _delete_child_data(student: Dict[str, Any], *, reason: str, by: str) -> None:
-    """Everything keyed to the child's account goes, not only the games.
+    """Everything keyed to the child goes, not only the games.
 
     The consent page promises deletion. Profiles, pattern rows, scores and
     notifications are all derived from the games and all carry the child's
     user_id, which belongs to this child alone (made here, never shared), so
-    every collection is swept for it. A withdrawal is rare; the sweep is fine.
+    every collection is swept for it. What stays is a row with no personal
+    detail, so a link that is opened later can say the child has gone.
     """
     uid = student.get("child_user_id")
     if uid:
-        game_ids = [g["game_id"] for g in await db.games.find({"user_id": uid}, {"_id": 0, "game_id": 1}).to_list(10000)]
-        await db.users.update_one({"user_id": uid},
-                                  {"$unset": {"lichess_username": "", "chess_com_username": "",
-                                              "chesscom_username": ""},
-                                   "$set": {"deleted_at": _now()}})
-        if game_ids:
-            await db.game_analyses.delete_many({"game_id": {"$in": game_ids}})
-            await db.analysis_queue.delete_many({"game_id": {"$in": game_ids}})
-        keep = {"users"} | {c for c in (svc.ACADEMIES, svc.STAFF, svc.BATCHES, svc.STUDENTS)}
-        for name in await db.list_collection_names():
-            if name.startswith("system.") or name in keep:
-                continue
-            try:
-                await db[name].delete_many({"user_id": uid})
-            except Exception as exc:  # a view or capped collection must not stop the rest
-                logger.warning("child data sweep skipped %s: %s", name, exc)
-        await db.users.delete_one({"user_id": uid})
+        await delete_user_rows(db, uid, keep={svc.ACADEMIES, svc.STAFF, svc.BATCHES, svc.STUDENTS})
     for coll in (svc.WEEKS, svc.REPORTS, svc.ATTEMPTS, EVIDENCE, fs.SESSIONS):
         await db[coll].delete_many({"student_id": student["student_id"]})
     for side in ("white_student_id", "black_student_id"):
@@ -727,8 +748,9 @@ async def _delete_child_data(student: Dict[str, Any], *, reason: str, by: str) -
     await db[svc.STUDENTS].update_one(
         {"student_id": student["student_id"]},
         {"$set": {"deleted_at": _now(), "deleted_reason": reason, "deleted_by": by,
-                  "consent.status": "withdrawn", "lichess_username": None,
-                  "chesscom_username": None, "parent_phone": None, "parent_name": None}})
+                  "consent.status": "withdrawn", "display_name": "", "lichess_username": None,
+                  "chesscom_username": None, "parent_phone": None, "parent_name": None},
+         "$unset": {"first_steps": "", "consent.given_by_name": "", "consent.user_agent": ""}})
 
 
 @router.post("/consent/{token}/withdraw")
@@ -752,13 +774,22 @@ async def report_page(token: str):
     academy = await db[svc.ACADEMIES].find_one({"academy_id": student["academy_id"]},
                                                {"_id": 0, "name": 1}) or {}
     if not report:
-        return {"status": "none", "child_name": student["display_name"], "academy": academy.get("name")}
+        return {"status": "none", "child_name": student["display_name"], "academy": academy.get("name"),
+                "stop_link": f"{_site()}/consent/{student['consent_token']}"}
     await db[svc.REPORTS].update_one({"report_id": report["report_id"]},
                                      {"$inc": {"opens": 1}, "$set": {"last_opened_at": _now()},
                                       "$min": {"first_opened_at": _now()}})
     return {"status": "ready", "academy": academy.get("name"), "week_start": report["week_start"],
-            "report": report["payload"], "homework_link": _links(student)["homework"],
+            "report": report["payload"],
+            "homework_link": _links(student)["homework"] if await _has_homework(student, report) else None,
             "stop_link": f"{_site()}/consent/{student['consent_token']}"}
+
+
+async def _has_homework(student: Dict[str, Any], report: Dict[str, Any]) -> bool:
+    week = await db[svc.WEEKS].find_one({"student_id": student["student_id"],
+                                         "week_start": report.get("week_start")},
+                                        {"_id": 0, "homework": 1})
+    return bool((week or {}).get("homework"))
 
 
 # ---------------------------------------------------------------------------
@@ -999,6 +1030,7 @@ async def _store_class_game(game: Dict[str, Any]) -> None:
             "game_id": game_id, "user_id": uid, "pgn": pgn, "user_color": color, "status": "pending",
             "priority": ACADEMY_QUEUE_PRIORITY + 1, "auto_synced": True,
             "source": "academy_class_game", "queued_at": played.isoformat()}}, upsert=True)
+        _in_background(_rebuild_week(student["student_id"]))
 
 
 @router.get("/play/{token}")
@@ -1196,13 +1228,36 @@ async def class_start(token: str):
         refs += [{"owner": cls["id"], "item_id": i["id"], "part": i["part"]}
                  for i in cls["items"] if not i.get("recall_only")]
         kind, class_id, title = "class", cls["id"], cls["title"]
+    return await _new_session(student, kind, class_id, title, refs)
+
+
+async def _new_session(student: Dict[str, Any], kind: str, class_id: Optional[str], title: str,
+                       refs: List[Dict[str, Any]], **extra: Any) -> Dict[str, Any]:
     session = {"session_id": svc.new_id("cls"), "student_id": student["student_id"],
                "user_id": student["child_user_id"], "academy_id": student["academy_id"],
                "kind": kind, "class_id": class_id, "title": title, "items": refs, "index": 0,
                "item_state": {}, "mistakes": {}, "stars": 0, "started_at": _now(),
-               "content_version": fs.load_content().get("schema_version")}
+               "content_version": fs.load_content().get("schema_version"), **extra}
     await db[fs.SESSIONS].insert_one(dict(session))
     return _session_view(session)
+
+
+@router.post("/class/{token}/practise")
+async def class_practise(token: str, payload: Dict[str, Any] = Body(...)):
+    """Do a finished lesson again. Lesson 8 used to end on a page with no button,
+    so a child who had finished everything had nothing left to do here."""
+    student = await _class_child(token)
+    sessions = await _sessions(student["student_id"])
+    open_ = next((s for s in reversed(sessions) if not s.get("finished_at")), None)
+    if open_:
+        return _session_view(open_)
+    row = next((c for c in _overview(student, sessions)["classes"] if c["id"] == payload.get("class_id")), None)
+    if not row or not (row["passed"] or row["skipped"]):
+        raise HTTPException(409, "Finish this lesson first.")
+    cls = fs.class_by_id(row["id"])
+    refs = [{"owner": cls["id"], "item_id": i["id"], "part": i["part"]}
+            for i in cls["items"] if not i.get("recall_only")]
+    return await _new_session(student, "class", cls["id"], cls["title"], refs, practice=True)
 
 
 async def _open_session(student: Dict[str, Any], session_id: Any) -> Dict[str, Any]:
@@ -1335,7 +1390,15 @@ async def _finish_class(student: Dict[str, Any], session: Dict[str, Any]) -> Dic
         nxt = (later[0] if later else None) if passed else cls
         update["passed"] = passed
         played = [r for r in session["items"] if r["item_id"] in states]
-        if passed:
+        practice = bool(session.get("practice"))
+        if practice:
+            say = (f"Well done. {name} still knows {cls['learnt']}." if passed
+                   else f"That one is worth another go. {name} can practise {cls['title'].lower()} again.")
+            parent = None
+        elif passed and not later:
+            say = f"{name} now knows {cls['learnt']}. That was the last lesson. Real games come next."
+            parent = f"Today {name} learnt {cls['learnt']}."
+        elif passed:
             say = f"{name} now knows {cls['learnt']}. The next lesson starts by checking it has stuck."
             parent = f"Today {name} learnt {cls['learnt']}."
         else:
@@ -1345,11 +1408,25 @@ async def _finish_class(student: Dict[str, Any], session: Dict[str, Any]) -> Dic
                    "steps": len(played),
                    "first_try": sum(1 for r in played if (states.get(r["item_id"]) or {}).get("clean")),
                    "notes": fs.coach_notes(session.get("mistakes") or {}),
-                   "next": nxt["title"] if nxt else None, "all_done": passed and not later}
+                   "next": None if practice else (nxt["title"] if nxt else None),
+                   "all_done": passed and not later and not practice}
     update["summary"] = summary
     await db[fs.SESSIONS].update_one({"session_id": session["session_id"]}, {"$set": update})
     session.update(update)
+    if session["kind"] != "placement":
+        _in_background(_rebuild_week(student["student_id"]))
     return _session_view(session)
+
+
+async def _rebuild_week(student_id: str) -> None:
+    """A finished lesson is report material, so the coach and the parent's
+    report should not wait for the two-hourly loop."""
+    try:
+        student = await db[svc.STUDENTS].find_one({"student_id": student_id}, {"_id": 0})
+        if student and not student.get("deleted_at"):
+            await build_week(student)
+    except Exception as exc:
+        logger.error("week rebuild after a lesson failed for %s: %s", student_id, exc)
 
 
 async def first_steps_for_staff(student: Dict[str, Any]) -> Dict[str, Any]:

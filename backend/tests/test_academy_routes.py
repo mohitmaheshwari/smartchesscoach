@@ -106,7 +106,11 @@ class _Coll:
                     target = target.setdefault(part, {})
                 target[parts[-1]] = value
             for key in (update.get("$unset") or {}):
-                row.pop(key, None)
+                target = row
+                parts = key.split(".")
+                for part in parts[:-1]:
+                    target = target.get(part) or {}
+                target.pop(parts[-1], None)
             for key, value in (update.get("$inc") or {}).items():
                 target = row
                 parts = key.split(".")
@@ -681,3 +685,143 @@ def test_removing_a_child_removes_their_class_answers(db):
     assert db["academy_class_sessions"].rows == []
     with pytest.raises(HTTPException):
         run(routes.class_home(token))
+
+
+# ---------------------------------------------------------------------------
+# found in the end-to-end walk of 2026-11-07
+# ---------------------------------------------------------------------------
+def _this_week():
+    return svc.week_start().isoformat()
+
+
+def test_a_deleted_child_leaves_no_name_behind(db):
+    student = _class_child(db)
+    run(routes.withdraw_consent(student["consent_token"]))
+    row = db[svc.STUDENTS].rows[0]
+    assert row["display_name"] == "" and "first_steps" not in row
+    assert "given_by_name" not in row["consent"] and "user_agent" not in row["consent"]
+    page = run(routes.consent_page(student["consent_token"]))
+    assert page["status"] == "deleted" and "child_name" not in page
+
+
+def test_deleting_a_child_empties_the_shared_pools_too(db):
+    student = _class_child(db)
+    uid = student["child_user_id"]
+    db.games.rows.append({"user_id": uid, "game_id": "g1"})
+    db.community_training_positions.rows.extend([
+        {"source_user_id": uid, "source_user_name": "Rohan", "source_game_id": "g1"},
+        {"source_user_id": "other", "source_user_name": "Ravi", "source_game_id": "g9"}])
+    db.community_puzzles.rows.extend([{"shared_by": uid, "source_game_id": "g1"},
+                                      {"shared_by": "other", "source_game_id": "g9"}])
+    run(routes.withdraw_consent(student["consent_token"]))
+    assert [r["source_user_name"] for r in db.community_training_positions.rows] == ["Ravi"]
+    assert [r["shared_by"] for r in db.community_puzzles.rows] == ["other"]
+
+
+def test_the_public_puzzle_corpus_is_not_swept(db):
+    student = _class_child(db)
+    db.lichess_puzzles.rows.append({"user_id": student["child_user_id"]})
+    run(routes.withdraw_consent(student["consent_token"]))
+    assert db.lichess_puzzles.rows    # left alone on purpose: 4.1M rows, none a user's
+
+
+def test_a_child_with_only_lessons_gets_a_report_about_the_lessons(db):
+    student = _class_child(db)
+    token = student["class_token"]
+    db[svc.STUDENTS].rows[0]["first_steps"] = {"level": 0}
+    _play_rook_class(db, token)
+    run(routes.refresh_student(student["student_id"], user=COACH))
+    staff = run(routes.student_view(student["student_id"], user=COACH))
+    sections = {s["kind"]: s for s in staff["preview"]["sections"]}
+    assert sections["classes"]["headline"] == "Rohan learnt how the rook moves."
+    assert "habit" not in sections
+    assert sections["week"]["lines"] == ["Rohan had lessons this week."]
+    assert staff["preview"]["blocked"] is None
+    assert staff["row"]["habit"] == "In lessons" and staff["row"]["needs_you"] is None
+    out = run(routes.approve_report(student["student_id"], {}, user=COACH))
+    assert out["ok"] and "homework" not in out["whatsapp"].lower()
+    page = run(routes.report_page(student["report_token"]))
+    assert page["homework_link"] is None
+
+
+def test_a_failed_class_then_a_pass_reads_as_learnt_only(db):
+    student = _class_child(db)
+    token = student["class_token"]
+    db[svc.STUDENTS].rows[0]["first_steps"] = {"level": 0}
+    _play_rook_class(db, token, fail_check=True)
+    run(routes.refresh_student(student["student_id"], user=COACH))
+    week = db[svc.WEEKS].rows[0]
+    assert week["classes"]["learnt"] == [] and week["classes"]["practised"] == ["the rook"]
+    _play_rook_class(db, token)
+    run(routes.refresh_student(student["student_id"], user=COACH))
+    week = db[svc.WEEKS].rows[0]
+    assert week["classes"]["learnt"] == ["how the rook moves"] and week["classes"]["practised"] == []
+
+
+def test_a_report_of_only_unread_games_cannot_be_approved(db):
+    _, _, _, student = _setup(db)
+    run(routes.give_consent(student["consent_token"], _Req(),
+                            {"agree": True, "parent_name": "Meena", "is_parent": True}))
+    db[svc.WEEKS].rows.append({"student_id": student["student_id"], "week_start": _this_week(),
+                               "games": {"count": 3, "analysed": 0, "days": 1}})
+    staff = run(routes.student_view(student["student_id"], user=COACH))
+    assert staff["preview"]["blocked"]
+    with pytest.raises(HTTPException) as e:
+        run(routes.approve_report(student["student_id"], {}, user=COACH))
+    assert e.value.status_code == 409
+
+
+def test_the_report_on_its_way_page_has_the_stop_link(db):
+    _, _, _, student = _setup(db)
+    page = run(routes.report_page(student["report_token"]))
+    assert page["status"] == "none" and page["stop_link"].endswith(student["consent_token"])
+
+
+def test_a_child_can_practise_a_finished_lesson_but_not_a_locked_one(db):
+    student = _class_child(db)
+    token = student["class_token"]
+    db[svc.STUDENTS].rows[0]["first_steps"] = {"level": 0}
+    with pytest.raises(HTTPException):
+        run(routes.class_practise(token, {"class_id": "rook"}))
+    _play_rook_class(db, token)
+    with pytest.raises(HTTPException):
+        run(routes.class_practise(token, {"class_id": "queen"}))
+    view = run(routes.class_practise(token, {"class_id": "rook"}))
+    assert view["class_id"] == "rook" and view["current"]["id"] == "rook-meet"
+    home = run(routes.class_home(token))
+    assert home["open"]["session_id"] == view["session_id"]
+
+
+def test_the_last_lesson_says_what_comes_next_and_the_coach_is_told(db):
+    student = _class_child(db)
+    token = student["class_token"]
+    db[svc.STUDENTS].rows[0]["first_steps"] = {"level": 2}
+    view = run(routes.class_start(token))
+    from services import first_steps as fs
+    sid = view["session_id"]
+    while view["current"] is not None:
+        cur = view["current"]
+        item = fs.item_by_id(fs.class_by_id("checkmate"), cur["id"])
+        if cur["kind"] == "game":
+            run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"], "answer": {"move": "a1a7"}}))
+            state = db["academy_class_sessions"].rows[-1]["item_state"][cur["id"]]
+            state["finished"] = True
+        else:
+            key = "choice" if item["kind"] == "choose" else "move"
+            run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"],
+                                            "answer": {key: sorted(fs.answers(item))[0]}}))
+        view = run(routes.class_next(token, {"session_id": sid}))
+    assert view["summary"]["passed"] is True and view["summary"]["all_done"] is True
+    assert "last lesson" in view["summary"]["say"] and "next lesson" not in view["summary"]["say"]
+    run(routes.refresh_student(student["student_id"], user=COACH))
+    staff = run(routes.student_view(student["student_id"], user=COACH))
+    assert staff["row"]["needs_you"] == "Finished the lessons. Set up a class game"
+    sections = {s["kind"]: s for s in staff["preview"]["sections"]}
+    assert "finished the first lessons" in " ".join(sections["classes"]["lines"])
+
+
+def test_the_consent_message_is_not_only_about_online_games(db):
+    _, _, added, _ = _setup(db)
+    from urllib.parse import unquote
+    text = unquote(added["whatsapp"])
+    assert "lessons and games" in text and "online chess games" not in text

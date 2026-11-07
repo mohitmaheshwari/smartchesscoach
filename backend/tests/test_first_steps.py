@@ -231,5 +231,11 @@ def test_warm_up_uses_recall_then_the_top_mistake():
 
 
 def test_coach_notes_are_words():
-    assert fs.coach_notes({"jumped": 2, "like_bishop": 1}) == [
+    assert fs.coach_notes({"jumped": 3, "like_bishop": 2}) == [
         "tries to move through pieces", "moves pieces diagonally when they can't"]
+
+
+def test_one_slip_is_not_a_note_about_the_child():
+    key = next(iter(fs.NOTICE_WORDS))
+    assert fs.coach_notes({key: 1}) == []
+    assert fs.coach_notes({key: 2}) == [fs.NOTICE_WORDS[key]]

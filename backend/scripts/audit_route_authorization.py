@@ -132,6 +132,9 @@ PUBLIC_ROUTES: dict[str, str] = {
     "POST /api/academy/class/{token}/answer": "family class link; one answer, judged on the server",
     "POST /api/academy/class/{token}/retry": "family class link; plays a game item again",
     "POST /api/academy/class/{token}/next": "family class link; moves to the next item",
+    "POST /api/academy/class/{token}/practise": "family class link; repeats a lesson that child has finished",
+    "POST /api/auth/forgot-password": "no session by definition; same answer for every email, mail limited per hour",
+    "POST /api/auth/reset-password": "no session by definition; needs a one-time token from the email",
 }
 
 

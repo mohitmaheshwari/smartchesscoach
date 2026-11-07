@@ -412,6 +412,12 @@ async def extract_puzzles_from_game(
     blunder worth extracting. An 800 player's 80cp inaccuracy isn't
     puzzle-worthy; their 300cp blunder is.
     """
+    # These puzzles are served to other players. A parent is told we do not
+    # show their child to other people, so an academy child's game stays out.
+    owner = await db.users.find_one({"user_id": user_id}, {"_id": 0, "managed_by_academy": 1})
+    if (owner or {}).get("managed_by_academy"):
+        return []
+
     analysis = await db.game_analyses.find_one(
         {"game_id": game_id, "user_id": user_id},
         {"_id": 0},

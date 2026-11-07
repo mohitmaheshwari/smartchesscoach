@@ -195,7 +195,7 @@ def test_family_sentences_stay_short_and_plain():
 
 def test_an_empty_week_says_so_plainly():
     out = svc.render_report(svc.summarise_week([], []), child_name="Rohan")
-    assert out["sections"][0]["lines"] == ["Rohan did not play online this week."]
+    assert out["sections"][0]["lines"] == ["Rohan did not play this week."]
     assert out["sections"][1]["headline"] == "No habit stood out this week."
 
 
@@ -257,3 +257,42 @@ def test_imported_but_unread_games_are_not_called_clean():
     assert out["sections"][1]["headline"] == "The games are still being read."
     given = {"consent": {"status": "given"}, "lichess_username": "x"}
     assert svc.needs_coach(given, week, "none") is None
+
+
+@pytest.mark.parametrize("games, line", [
+    ({"count": 1, "days": 1, "wins": 0, "losses": 1}, "The game was a loss. That is normal while learning."),
+    ({"count": 1, "days": 1, "wins": 1, "losses": 0}, "The game was a win."),
+    ({"count": 1, "days": 1, "wins": 0, "losses": 0}, "The game was a draw."),
+    ({"count": 2, "days": 1, "wins": 1, "losses": 1}, "Wins and losses were about even."),
+])
+def test_the_week_line_is_true_of_the_games_played(games, line):
+    out = svc.render_report({"games": games}, child_name="Asha")
+    assert out["sections"][0]["lines"][1] == line
+
+
+def test_class_words_have_no_digits_and_name_what_was_learnt():
+    week = {"games": {"count": 0}, "classes": {
+        "learnt": ["how the rook moves", "how the bishop moves"], "practised": ["the queen"], "all_done": True}}
+    out = svc.render_report(week, child_name="Asha")
+    text = " ".join(" ".join([s.get("headline", "")] + s.get("lines", [])) for s in out["sections"])
+    assert not re.search(r"\d", text)
+    assert "Asha learnt how the rook moves and how the bishop moves." in text
+    assert out["sections"][-1]["headline"] == "Can you show me what you learnt in class?"
+
+
+def test_a_child_with_lessons_and_no_account_does_not_need_the_coach():
+    student = {"consent": {"status": "given"}}
+    assert svc.needs_coach(student, {"games": {"count": 0}}, "none") == "No lessons this week"
+    assert svc.needs_coach(student, None, "none") == "No lessons this week"
+    busy = {"games": {"count": 0}, "classes": {"learnt": ["how the rook moves"]}}
+    assert svc.needs_coach(student, busy, "none") is None
+    done = {"games": {"count": 0}, "classes": {"all_done": True}}
+    assert svc.needs_coach(student, done, "none") == "Finished the lessons. Set up a class game"
+
+
+def test_unread_games_with_a_lesson_can_still_be_reported():
+    assert svc.report_blocked({"games": {"count": 2, "analysed": 0}})
+    assert svc.report_blocked({"games": {"count": 2, "analysed": 1}}) is None
+    assert svc.report_blocked({"games": {"count": 2, "analysed": 0},
+                               "classes": {"learnt": ["how the rook moves"]}}) is None
+    assert svc.report_blocked({"games": {"count": 0}}) is None

@@ -342,9 +342,10 @@ export function AcademyBatch() {
           <table className="w-full min-w-[680px] border-collapse text-[15px]">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="p-3">Child</th><th className="p-3">Habit seen this week</th>
+                <th className="p-3">Child</th><th className="p-3">Needs you?</th>
+                <th className="p-3">Habit seen this week</th>
                 <th className="p-3">Compared with last week</th><th className="p-3">Games</th>
-                <th className="p-3">Homework</th><th className="p-3">Needs you?</th>
+                <th className="p-3">Homework</th>
               </tr>
             </thead>
             <tbody>
@@ -352,13 +353,13 @@ export function AcademyBatch() {
                 <tr key={r.student_id} className="cursor-pointer border-t hover:bg-muted/50"
                   onClick={() => navigate(`/academy/student/${r.student_id}`)}>
                   <td className="p-3 font-bold underline">{r.name}</td>
+                  <td className={`p-3 ${r.needs_you ? "font-bold text-amber-700 dark:text-amber-400" : ""}`}>
+                    {r.needs_you ? `Yes. ${r.needs_you}` : "No"}
+                  </td>
                   <td className="p-3">{r.consent === "given" ? r.habit : "—"}</td>
                   <td className="p-3">{r.consent === "given" ? <Pill tone={TREND_TONE[r.trend]}>{r.trend_words}</Pill> : "—"}</td>
                   <td className="p-3">{r.consent === "given" ? r.games_words : "—"}</td>
                   <td className="p-3">{r.consent === "given" ? <Pill tone={HOMEWORK_TONE[r.homework]}>{r.homework_words}</Pill> : "—"}</td>
-                  <td className={`p-3 ${r.needs_you ? "font-bold text-amber-700 dark:text-amber-400" : ""}`}>
-                    {r.needs_you ? `Yes. ${r.needs_you}` : "No"}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -506,7 +507,13 @@ export function AcademyStudent() {
                   {busy === "refresh" ? "Reading games…" : "Refresh from games"}
                 </button>
               </div>
-              {!view.week_built_at && <p className="text-sm">The first games are being imported. Press Refresh in a few minutes.</p>}
+              {!view.week_built_at && (
+                <p className="text-sm">
+                  {s.lichess_username || s.chesscom_username
+                    ? "The first games are being imported. Press Refresh in a few minutes."
+                    : `This week fills in when ${s.display_name} finishes a lesson or plays a class game.`}
+                </p>
+              )}
             </Card>
             {(view.preview?.sections || []).some((sec) => sec.kind === "good") && (
               <Card>
@@ -530,7 +537,7 @@ export function AcademyStudent() {
                 placeholder={`One or two sentences about ${s.display_name}. Words only.`}
                 onChange={(e) => setNote(e.target.value)} />
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={primary} disabled={!!busy || !view.preview}
+                <button type="button" className={primary} disabled={!!busy || !view.preview || !!view.preview?.blocked}
                   onClick={() => act("approve", async () => {
                     setSent(await call(`/academy/student/${studentId}/report`, { method: "POST", body: { coach_note: note } }));
                     await reload();
@@ -538,6 +545,7 @@ export function AcademyStudent() {
                   Approve this week's report
                 </button>
               </div>
+              {view.preview?.blocked && <p className="text-sm">{view.preview.blocked}</p>}
               {sent && (
                 <div className="grid gap-2 rounded-xl border border-emerald-300 p-3">
                   <p>Approved. The parent's link now shows this report.</p>
@@ -568,12 +576,13 @@ export function AcademyStudent() {
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
                   <span>This cannot be undone.</span>
-                  <button type="button" className="rounded-full bg-red-600 px-4 py-2 font-semibold text-white"
+                  <button type="button" disabled={!!busy}
+                    className="rounded-full bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-60"
                     onClick={() => act("remove", async () => {
                       await call(`/academy/student/${studentId}`, { method: "DELETE" });
                       navigate(`/academy/batch/${view.batch.batch_id}`);
                     })}>
-                    Remove
+                    {busy === "remove" ? "Removing…" : "Remove"}
                   </button>
                   <button type="button" className={secondary} onClick={() => setConfirmRemove(false)}>Keep</button>
                 </div>
@@ -582,7 +591,7 @@ export function AcademyStudent() {
           </div>
           <div className="grid content-start gap-2">
             <Eyebrow>What the parent will see</Eyebrow>
-            {view.preview ? <ParentReport report={view.preview} /> : <p>No games read yet this week.</p>}
+            {view.preview ? <ParentReport report={view.preview} /> : <p>Nothing to report yet this week.</p>}
           </div>
         </div>
       )}

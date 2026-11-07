@@ -496,6 +496,43 @@ def _board(event: Mapping[str, Any], good_uci: Optional[str] = None) -> Dict[str
             "orientation": "black" if flip else "white", "caption": _caption(event)}
 
 
+def _say_list(items: Sequence[str]) -> str:
+    items = list(items)
+    if len(items) < 2:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} and {items[-1]}"
+
+
+def _class_section(name: str, classes: Mapping[str, Any]) -> Dict[str, Any]:
+    learnt, practised = list(classes.get("learnt") or []), list(classes.get("practised") or [])
+    lines: List[str] = []
+    if learnt:
+        headline = f"{name} learnt {_say_list(learnt)}."
+        if practised:
+            lines.append(f"{name} also practised {_say_list(practised)}.")
+    else:
+        headline = f"{name} practised {_say_list(practised)}."
+        lines.append("One more lesson on it comes first, then the next one.")
+    if classes.get("all_done"):
+        lines.append(f"{name} has finished the first lessons. Real games come next.")
+    return {"kind": "classes", "eyebrow": "In class this week", "headline": headline, "lines": lines,
+            "boards": []}
+
+
+def report_blocked(week: Mapping[str, Any]) -> Optional[str]:
+    """Why this week cannot go to a parent yet, in words, or None.
+
+    Every game is still unread and there is no class to report, so the report
+    would say only that it is not ready.
+    """
+    games = week.get("games") or {}
+    classes = week.get("classes") or {}
+    if int(games.get("count") or 0) and not int(games.get("analysed") or 0) and \
+            not (classes.get("learnt") or classes.get("practised")):
+        return "The games are still being read. Approve the report once they are."
+    return None
+
+
 def render_report(week: Mapping[str, Any], *, child_name: str, batch_name: str = "",
                   coach_name: str = "", coach_note: str = "",
                   better_moves: Optional[Mapping[str, str]] = None) -> Dict[str, Any]:
@@ -507,8 +544,10 @@ def render_report(week: Mapping[str, Any], *, child_name: str, batch_name: str =
                            "coach_name": coach_name, "sections": []}
 
     count, days = int(games.get("count") or 0), int(games.get("days") or 0)
+    classes = week.get("classes") or {}
+    in_class = bool(classes.get("learnt") or classes.get("practised"))
     if count == 0:
-        lines = [f"{name} did not play online this week."]
+        lines = [f"{name} had lessons this week." if in_class else f"{name} did not play this week."]
     else:
         if days >= 5:
             lines = [f"{name} played most days this week."]
@@ -517,7 +556,13 @@ def render_report(week: Mapping[str, Any], *, child_name: str, batch_name: str =
         else:
             lines = [f"{name} played on one day this week."]
         wins, losses = int(games.get("wins") or 0), int(games.get("losses") or 0)
-        if wins > losses * 1.5 and wins >= 2:
+        if count == 1:
+            # "About even" was the fallback here, so a child who lost their
+            # only game was told the week was even.
+            lines.append("The game was a win." if wins
+                         else "The game was a loss. That is normal while learning." if losses
+                         else "The game was a draw.")
+        elif wins > losses * 1.5 and wins >= 2:
             lines.append("There were more wins than losses.")
         elif losses > wins * 1.5 and losses >= 2:
             lines.append("There were more losses than wins. That is normal while learning.")
@@ -525,8 +570,14 @@ def render_report(week: Mapping[str, Any], *, child_name: str, batch_name: str =
             lines.append("Wins and losses were about even.")
     out["sections"].append({"kind": "week", "lines": lines})
 
+    if in_class:
+        out["sections"].append(_class_section(name, classes))
+
     habit = week.get("habit")
-    if habit and habit.get("id") in HABIT_WORDS:
+    if count == 0 and in_class:
+        # Nothing was played, so there is nothing to say about habits yet.
+        question = "Can you show me what you learnt in class?"
+    elif habit and habit.get("id") in HABIT_WORDS:
         words = HABIT_WORDS[habit["id"]]
         often = ("It happened in several games this week." if int(habit.get("games") or 0) >= 4
                  else "It happened in more than one game this week.")
@@ -544,7 +595,7 @@ def render_report(week: Mapping[str, Any], *, child_name: str, batch_name: str =
         out["sections"].append({
             "kind": "habit", "eyebrow": "The habit we saw this week",
             "headline": "The games are still being read.",
-            "lines": ["The coach sends the report once they are."],
+            "lines": ["They will be in the next report."],
             "boards": [],
         })
         question = "Before you move, can that piece be taken?"
@@ -603,9 +654,14 @@ def needs_coach(student: Mapping[str, Any], week: Optional[Mapping[str, Any]],
     consent = (student.get("consent") or {}).get("status")
     if consent != "given":
         return "Waiting for the parent to agree"
-    if not student.get("lichess_username") and not student.get("chesscom_username"):
-        return "No online account added"
+    classes = (week or {}).get("classes") or {}
     if not week or not (week.get("games") or {}).get("count"):
+        if classes.get("all_done"):
+            return "Finished the lessons. Set up a class game"
+        if classes.get("learnt") or classes.get("practised"):
+            return None  # in class this week; that is what a child with no games should be doing
+        if not student.get("lichess_username") and not student.get("chesscom_username"):
+            return "No lessons this week"
         return "No games to read"
     if not (week.get("games") or {}).get("analysed"):
         return None  # imported, still being read; nothing to act on yet

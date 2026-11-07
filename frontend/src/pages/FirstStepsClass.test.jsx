@@ -118,3 +118,55 @@ test("a class link before consent says a parent must agree", async () => {
   await flush();
   expect(container.textContent).toContain("A parent needs to agree first.");
 });
+
+const ALL_DONE = {
+  child_name: "Aarav", placed: true, open: null, next: null, all_done: true,
+  classes: [{ id: "rook", title: "The rook", passed: true }, { id: "bishop", title: "The bishop", skipped: true }],
+};
+
+test("after the last lesson the page says what comes next and offers practice", async () => {
+  mockParams = { token: "tok" };
+  global.fetch = jest.fn(() => reply(ALL_DONE));
+  await act(async () => { root.render(<FirstStepsClass />); });
+  await flush();
+  expect(container.textContent).toContain("Your first real game comes next.");
+  expect(container.textContent).toContain("Ask your coach or parent");
+  expect(container.querySelectorAll("button.room-row.done")).toHaveLength(2);
+});
+
+test("tapping a finished lesson practises it", async () => {
+  mockParams = { token: "tok" };
+  global.fetch = jest.fn()
+    .mockImplementationOnce(() => reply(ALL_DONE))
+    .mockImplementationOnce(() => reply(SESSION));
+  await act(async () => { root.render(<FirstStepsClass />); });
+  await flush();
+  await act(async () => { container.querySelector("button.room-row.done").click(); });
+  await flush();
+  const [url, init] = global.fetch.mock.calls[1];
+  expect(url).toBe("http://test/api/academy/class/tok/practise");
+  expect(JSON.parse(init.body)).toEqual({ class_id: "rook" });
+  expect(container.textContent).toContain("The rook goes in straight lines.");
+});
+
+test("a locked lesson stays locked", async () => {
+  mockParams = { token: "tok" };
+  global.fetch = jest.fn(() => reply({ child_name: "Aarav", placed: true, open: null, next: { id: "bishop", title: "The bishop" },
+    classes: [{ id: "bishop", title: "The bishop" }, { id: "queen", title: "The queen" }] }));
+  await act(async () => { root.render(<FirstStepsClass />); });
+  await flush();
+  expect(container.querySelectorAll("button.room-row.done")).toHaveLength(0);
+  expect(container.querySelectorAll("div.room-row.locked")).toHaveLength(1);
+});
+
+test("tapping an empty square in a move item says what to do", async () => {
+  mockParams = { token: "tok" };
+  const move = { ...SESSION, current: { id: "m1", part: "Practice", kind: "move_goal", fen: "8/8/8/8/8/8/8/7R w - - 0 1",
+    say: "Take it.", sub: "", finished: false } };
+  global.fetch = jest.fn(() => reply({ child_name: "Aarav", placed: true, open: move, classes: [] }));
+  await act(async () => { root.render(<FirstStepsClass />); });
+  await flush();
+  await act(async () => { container.querySelector("[data-sq=e5]").click(); });
+  expect(container.textContent).toContain("Tap one of your pieces first.");
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+});

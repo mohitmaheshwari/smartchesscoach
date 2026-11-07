@@ -78,7 +78,7 @@ export function FamilyConsent() {
     return (
       <Shell>
         <Message title="Stopped">
-          <p>Everything about {page.child_name} has been deleted from ChessGuru. Nothing more will be read.</p>
+          <p>Everything about your child has been deleted from ChessGuru. Nothing more will be read.</p>
         </Message>
       </Shell>
     );
@@ -137,8 +137,8 @@ export function FamilyConsent() {
               <p>This deletes everything we hold about {page.child_name}. It cannot be undone.</p>
               <div className="flex flex-wrap gap-2">
                 <button type="button" disabled={busy} onClick={stop}
-                  className="rounded-full bg-red-600 px-4 py-2 font-semibold text-white">
-                  Yes, stop and delete
+                  className="rounded-full bg-red-600 px-4 py-2 font-semibold text-white disabled:opacity-60">
+                  {busy ? "Deleting…" : "Yes, stop and delete"}
                 </button>
                 <button type="button" onClick={() => setConfirmStop(false)}
                   className="rounded-full border px-4 py-2">Keep it</button>
@@ -190,8 +190,11 @@ export function FamilyReport() {
     return (
       <Shell>
         <Message title={`${page.child_name}'s report is on its way`}>
-          <p>The coach sends the first report after a week of games.</p>
+          <p>The coach sends the first report after a week of lessons or games.</p>
         </Message>
+        <a href={page.stop_link} className="text-sm text-muted-foreground underline">
+          Stop the reports and delete the data
+        </a>
       </Shell>
     );
   }

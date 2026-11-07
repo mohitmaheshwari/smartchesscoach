@@ -132,7 +132,8 @@ function Lesson({ token, view, setView, onDone }) {
     if (!cur || cur.finished) return;
     if (!moves) { send({ square: sq }, sq); return; }
     if (white[sq] === true) { woodClick(); setPick(sq); return; }
-    if (pick) { const from = pick; setPick(null); send({ move: from + sq }, sq); }
+    if (pick) { const from = pick; setPick(null); send({ move: from + sq }, sq); return; }
+    setSay(["", "Tap one of your pieces first."]);
   };
 
   const next = async () => {
@@ -217,7 +218,7 @@ function PieceIcon({ type }) {
   return <span className="room-icon cg-wrap" aria-hidden="true"><piece className={`${type} white`} /></span>;
 }
 
-function Path({ home, onStart }) {
+function Path({ home, onStart, onPractise }) {
   const next = home.next;
   return (
     <div className="room-path">
@@ -237,7 +238,12 @@ function Path({ home, onStart }) {
         </section>
       ) : (
         <section className="room-next" style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
-          <div><span className="room-label">Complete</span><h2>Every lesson is done</h2><p>Time to play real games.</p></div>
+          <div>
+            <span className="room-label">Complete</span>
+            <h2>Every lesson is done</h2>
+            <p>Your first real game comes next. Ask your coach or parent to set it up.</p>
+            <p>Until then, tap any lesson below to practise it.</p>
+          </div>
         </section>
       )}
       <section className="room-stage">
@@ -253,9 +259,16 @@ function Path({ home, onStart }) {
                 <span className="st">{words}</span>
               </>
             );
-            return state === "cur"
-              ? <button key={c.id} type="button" className="room-row cur open" onClick={onStart}>{body}</button>
-              : <div key={c.id} className={`room-row ${state}`}>{body}</div>;
+            if (state === "cur") {
+              return <button key={c.id} type="button" className="room-row cur open" onClick={onStart}>{body}</button>;
+            }
+            if (state === "done") {
+              return (
+                <button key={c.id} type="button" className="room-row done open" onClick={() => onPractise(c.id)}
+                  aria-label={`Practise ${c.title}`}>{body}</button>
+              );
+            }
+            return <div key={c.id} className={`room-row ${state}`}>{body}</div>;
           })}
         </div>
       </section>
@@ -283,6 +296,10 @@ export default function FirstStepsClass() {
     try { setDone(null); setView(await call(`${token}/start`, {})); }
     catch (e) { setError(e.message); }
   };
+  const practise = async (classId) => {
+    try { setDone(null); setView(await call(`${token}/practise`, { class_id: classId })); }
+    catch (e) { setError(e.message); }
+  };
   const back = async () => { setDone(null); setView(null); await load(); };
 
   const name = home?.child_name || "";
@@ -304,7 +321,7 @@ export default function FirstStepsClass() {
             <div className="room-acts"><button type="button" className="room-btn" onClick={start}>Begin</button></div>
           </div>
         )}
-        {!done && !view && home && home.placed && <Path home={home} onStart={start} />}
+        {!done && !view && home && home.placed && <Path home={home} onStart={start} onPractise={practise} />}
       </div>
     </div>
   );

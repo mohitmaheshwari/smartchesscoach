@@ -176,6 +176,13 @@ async def extract_training_positions(
     
     Returns list of extracted positions.
     """
+    # This pool is shown to other players, and it stores the source's first
+    # name. The consent page tells a parent we do not show their child to
+    # other people, so an academy child's game never enters it.
+    owner = await db.users.find_one({"user_id": user_id}, {"_id": 0, "managed_by_academy": 1})
+    if (owner or {}).get("managed_by_academy"):
+        return []
+
     # Get the game analysis
     analysis = await db.game_analyses.find_one(
         {"game_id": game_id, "user_id": user_id},

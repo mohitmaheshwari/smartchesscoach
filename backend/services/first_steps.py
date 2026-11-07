@@ -716,6 +716,10 @@ NOTICE_WORDS = {
 
 
 def coach_notes(mistakes: Mapping[str, int]) -> List[str]:
-    """Plain sentences for the coach about what the taps showed."""
+    """Plain sentences for the coach about what the taps showed.
+
+    Twice at least: one tap is a slip, and these read as a statement about the
+    child ("misses moves that give check").
+    """
     return [NOTICE_WORDS[k] for k, n in sorted(mistakes.items(), key=lambda kv: -kv[1])
-            if n and k in NOTICE_WORDS][:3]
+            if n >= 2 and k in NOTICE_WORDS][:3]
