@@ -666,8 +666,10 @@ function AppRouter() {
           {({ user }) => <Challenge user={user} />}
         </ProtectedRoute>
       } />
+      {/* Reachable before onboarding: a new account must be able to delete
+          itself or change its password without importing games first. */}
       <Route path="/settings" element={
-        <ProtectedRoute>
+        <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <Settings user={user} />}
         </ProtectedRoute>
       } />
