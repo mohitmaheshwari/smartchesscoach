@@ -44,7 +44,7 @@ describe("outcome-led Landing", () => {
     mockNavigate.mockReset();
     mockTrack.mockReset();
     window.sessionStorage.clear();
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ dev_mode: false }) });
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ dev_mode: false, signups_open: true }) });
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -92,5 +92,36 @@ describe("outcome-led Landing", () => {
     );
     expect(mockNavigate).toHaveBeenCalledWith("/login?redirect_to=%2Fwelcome");
     expect(mockTrack).toHaveBeenCalledWith("funnel_landing_cta_clicked", { source: "hero" });
+  });
+
+  test("speaks to parents and coaches, states the belief and promises nothing", async () => {
+    await renderLanding();
+    const section = container.querySelector("#families");
+    expect(section.textContent).toContain("Many parents choose chess for their child\u2019s brain development.");
+    expect(section.textContent).toContain("the thinking habits behind it, week by week");
+    expect(section.textContent.toLowerCase()).not.toMatch(/improves|boosts|guarantee|iq\b/);
+  });
+
+  test.each([
+    ["families-parent-button", "families_parent"],
+    ["families-coach-button", "families_coach"],
+  ])("%s goes to sign-up and then to the academy page", async (testId, source) => {
+    await renderLanding();
+    await act(async () => {
+      container.querySelector(`[data-testid="${testId}"]`).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(window.sessionStorage.getItem("post_auth_redirect")).toBe("/academy");
+    expect(mockNavigate).toHaveBeenCalledWith("/login?signup=1&redirect_to=%2Facademy");
+    expect(mockTrack).toHaveBeenCalledWith("funnel_landing_cta_clicked", { source });
+  });
+
+  test("the family buttons ask for an invite while sign-ups are closed", async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ signups_open: false }) });
+    await renderLanding();
+    await act(async () => {
+      container.querySelector('[data-testid="families-coach-button"]').dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(mockNavigate).toHaveBeenCalledWith("/invite?from=families_coach");
+    expect(window.sessionStorage.getItem("post_auth_redirect")).toBeNull();
   });
 });

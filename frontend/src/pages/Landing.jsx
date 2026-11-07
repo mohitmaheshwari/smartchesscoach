@@ -129,6 +129,17 @@ function LearningCard() {
   );
 }
 
+function FamilyCard({ label, title, body, cta, onClick, testId }) {
+  return (
+    <div className="flex h-full flex-col rounded-[24px] border border-[#071411]/10 bg-white/60 p-6 sm:p-7">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#28745D]">{label}</p>
+      <h3 className="mt-3 font-heading text-2xl font-semibold leading-tight">{title}</h3>
+      <p className="mt-3 flex-1 text-sm leading-6 text-[#39564C]">{body}</p>
+      <button type="button" onClick={onClick} data-testid={testId} className="mt-6 inline-flex min-h-12 w-fit items-center gap-2 rounded-full bg-[#071411] px-6 py-3 text-sm font-bold text-white transition-transform hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#28745D] focus-visible:ring-offset-2">{cta}<ArrowRight className="h-4 w-4" /></button>
+    </div>
+  );
+}
+
 function ProofCard() {
   return (
     <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#10271F] p-6 sm:p-8">
@@ -166,6 +177,7 @@ const FAQS = [
   ["How is this different from a game review?", "A game review explains one game. ChessGuru remembers what keeps happening, chooses the habit hurting you most, teaches it in different positions, and checks whether it returns when you play again."],
   ["Will I only get puzzles from my own games?", "Your games are the starting point, not the limit. ChessGuru can combine your positions with verified openings, traps, endgames, tactical geometry, and related positions selected for the same underlying skill."],
   ["Who is ChessGuru for?", "It is designed for 600–1500-rated players who are playing regularly, feel stuck, and want a clear answer to what they should learn next instead of another large content catalogue."],
+  ["Is ChessGuru for children?", "Yes. A child can start from zero with step-by-step lessons on a real board, with no past games. A parent or coach follows along through a short weekly report. We show the thinking habits in a child’s chess. We do not promise a result."],
 ];
 
 const STRUCTURED_DATA = {
@@ -236,6 +248,18 @@ export default function Landing() {
     navigate(`/login?redirect_to=${encodeURIComponent("/welcome")}`);
   };
 
+  // /academy skips the adult onboarding, so a parent or coach lands there
+  // straight after creating an account.
+  const startAcademy = (source) => {
+    track(ANALYTICS_EVENTS.FUNNEL_LANDING_CTA_CLICKED, { source });
+    if (!signupsOpen) {
+      navigate(`/invite?from=${encodeURIComponent(source)}`);
+      return;
+    }
+    window.sessionStorage.setItem("post_auth_redirect", "/academy");
+    navigate(`/login?signup=1&redirect_to=${encodeURIComponent("/academy")}`);
+  };
+
   const handleDevLogin = async () => {
     setDevLoading(true);
     window.sessionStorage.setItem("post_auth_redirect", "/welcome");
@@ -255,7 +279,7 @@ export default function Landing() {
             <img src="/chessguru-logo.svg" alt="" className="h-8 w-8" /><span className="font-heading text-[17px] font-bold tracking-tight">ChessGuru</span>
           </button>
           <nav aria-label="Main navigation" className="hidden items-center gap-7 lg:flex">
-            {[["How it works", "how-it-works"], ["The plan", "personal-plan"], ["Proof", "proof"]].map(([label, id]) => <button key={id} type="button" onClick={() => scrollToId(id)} className="text-sm text-white/55 transition-colors hover:text-white focus:outline-none focus-visible:text-[#7FB069]">{label}</button>)}
+            {[["For parents and academies", "families"], ["How it works", "how-it-works"], ["The plan", "personal-plan"], ["Proof", "proof"]].map(([label, id]) => <button key={id} type="button" onClick={() => scrollToId(id)} className="text-sm text-white/55 transition-colors hover:text-white focus:outline-none focus-visible:text-[#7FB069]">{label}</button>)}
             <button type="button" onClick={() => navigate("/pricing")} className="text-sm text-white/55 transition-colors hover:text-white">Pricing</button>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -282,6 +306,7 @@ export default function Landing() {
                 <PrimaryButton onClick={() => startPlan("hero")} testId="hero-cta-button" className="sm:px-7">Build my improvement plan</PrimaryButton>
                 <button type="button" onClick={() => scrollToId("personal-plan")} data-testid="learn-more-button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 py-3.5 text-sm font-semibold text-white/75 transition-colors hover:border-white/30 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60">See a real example <ChevronRight className="h-4 w-4" /></button>
               </motion.div>
+              <button type="button" onClick={() => scrollToId("families")} data-testid="hero-families-link" className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#9DF0D3] underline decoration-[#9DF0D3]/40 underline-offset-4 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7FB069]">For a child, or for your academy <ChevronRight className="h-4 w-4" /></button>
               <motion.div initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.48, duration: 0.8 }} className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-xs text-white/45">
                 <span className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#7EE7C2]" /> Chess.com + Lichess</span><span className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#7EE7C2]" /> Free to start</span><span className="flex items-center gap-2"><LockKeyhole className="h-3.5 w-3.5 text-[#7EE7C2]" /> No credit card</span>
               </motion.div>
@@ -293,6 +318,20 @@ export default function Landing() {
         <section className="border-y border-white/10 bg-[#0A1B16] py-6">
           <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-center gap-x-9 gap-y-4 px-5 text-[10px] font-bold uppercase tracking-[0.17em] text-white/40 sm:px-8">
             <span className="text-[#7FB069]">Not another analysis tool</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>One personal focus</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>Knowledge selected for you</span><span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" /><span>Measured in future games</span>
+          </div>
+        </section>
+
+        <section id="families" className="scroll-mt-20 bg-[#DDE9DF] py-20 text-[#071411] sm:py-28">
+          <div className="mx-auto max-w-[1240px] px-5 sm:px-8">
+            <Reveal className="max-w-3xl">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#28745D]">For parents and academies</p>
+              <h2 className="mt-4 font-heading text-[clamp(2.4rem,4.6vw,4.6rem)] font-semibold leading-[0.97] tracking-[-0.04em]">Many parents choose chess for their child’s brain development.</h2>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-[#39564C] sm:text-lg">ChessGuru shows you the thinking habits behind it, week by week.</p>
+            </Reveal>
+            <div className="mt-10 grid gap-4 md:grid-cols-2">
+              <Reveal><FamilyCard label="For parents" title="Your child can start from zero." body="Step-by-step lessons on a real chessboard, from how each piece moves to checkmate. No past games needed. You get a short report each week." cta="Set up my child" onClick={() => startAcademy("families_parent")} testId="families-parent-button" /></Reveal>
+              <Reveal delay={0.06}><FamilyCard label="For coaches and academies" title="Run your batches from one page." body="Add your children, see each one’s habits, and approve a short weekly report for every parent." cta="I’m a coach or academy" onClick={() => startAcademy("families_coach")} testId="families-coach-button" /></Reveal>
+            </div>
           </div>
         </section>
 
