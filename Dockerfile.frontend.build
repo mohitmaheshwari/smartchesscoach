@@ -15,7 +15,9 @@ COPY frontend/package.json frontend/yarn.lock ./
 # tooling that never runs here -- the web bundle only imports
 # @capacitor/core, /app and /browser. Bumping this image to Node 22 would
 # change the production web build for no benefit.
-RUN yarn install --frozen-lockfile --ignore-engines --non-interactive
+# --network-timeout: the default 30 seconds failed on one tarball on 2026-11-07,
+# at the end of a full rebuild on the shared box.
+RUN yarn install --frozen-lockfile --ignore-engines --non-interactive --network-timeout 600000
 
 # Copy frontend source
 COPY frontend/ ./
