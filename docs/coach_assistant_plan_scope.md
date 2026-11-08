@@ -262,22 +262,22 @@ Not success: plans generated, pages viewed, puzzles served.
 
 | Question | Why unresolved | Unblocking step |
 |---|---|---|
-| Where does an approved plan live? The improvement-cycle scope says "no rival program collection", but an approval and its edits must be stored somewhere. | Architecture choice that touches a signed rule | Proposal: store it on the existing academy week row; the self-coach door reads it from the focus without storing. Mohit decides. |
-| Lichess puzzles for children: yes or no? `coaching_puzzle_service.py` says Lichess was removed on 2026-04-21 so every drill comes from real games; `topic_practice_themes.py` brought themes back in October where our own positions cannot be proven. | Two written rules disagree | Mohit decides. |
+| Where does an approved plan live? The improvement-cycle scope says "no rival program collection", but an approval and its edits must be stored somewhere. | Mohit said "you recommend" (to the Game Review session, 2026-11-08) | **Recommended, awaiting Mohit's confirmation:** on the existing week row (`academy_student_weeks`, unique on student + week, `academy.py:74`), so no new collection. Store the draft as generated, the coach's changes, `opened_at`, `approved_by`, `approved_at` — measures 1 and 4 need them, and parent reports already keep who approved and when (`academy.py:579-581`). The week rebuild writes with `$set` (`academy.py:262-266`), so the plan must be carried over the way a good moment is (`academy.py:253-261`): the approval survives only when the focus is unchanged; a new focus starts a new, unapproved draft. Self-coach door: read from the focus, nothing stored in V1. |
+| ~~Lichess puzzles for children: yes or no?~~ | **Answered: YES** — Mohit to the Game Review session, 2026-11-08 (relayed, not said in this session). | The October theme route (`topic_practice_themes.py`) is the rule for children; the 2026-04-21 note in `coaching_puzzle_service.py` no longer governs the plan. |
 | The rating used for the puzzle window. Mohit's live focus says `rating_used: 912`, band "beginner". Not checked why. | Not investigated | Trace `resolve_coaching_rating` for his account before puzzles are picked by rating. |
 | Mohit also has a focus row from 2026-07-02 marked `status: active` ("Low blunder rate", type strength) beside the November king-safety one. Not checked whether that is intended. | Not investigated | Read `primary_weakness_picker` for how strength rows are kept. |
 | What approval share, on how many plans, makes an idea safe for the self-coach door? | Needs pilot data | `/lock-via-data` after the first weeks of coach approvals. |
 | One theme or several? `topic_practice_themes` maps a broad weakness to several themes (missed tactic gives fork, pin, skewer and discovered attack). A coach would pick the one motif the student actually missed. | Granularity not decided | Decide whether the plan narrows to the single missed motif when the focus evidence names one. |
 | Filter puzzles by the student's own openings ("forks from your Italian games")? | `opening_tags` is not indexed; a count on it ran over 10 minutes (Game Review session) | Decide if wanted; if yes, add the index after a deploy, then measure. |
 | How many puzzles a week for a child? | Taste and completion data | Start at Mohit's number; adjust from success measure 2. |
-| Who is the first coach: Mohit himself, or a real academy coach? | Not ours to choose | Mohit names them. |
+| ~~Who is the first coach?~~ | **Answered: a real academy coach, not Mohit** — Mohit to the Game Review session, 2026-11-08 (relayed). | Mohit names the academy and the coach before the pilot week. |
 | `docs/ai_personal_class_scope.md`: its status line says signed, its sign-off record says "Awaiting Mohit". | The document contradicts itself | Mohit says which is true. |
 
 ## 7. Pre-code requirements
 
 - Mohit signs off this document.
-- The first two open questions (where the plan lives, Lichess for children) are
-  answered.
+- Mohit confirms the recommended storage (the week row). Lichess for children is
+  answered (yes).
 - The rating used for the puzzle window is traced and correct for at least
   Mohit's account and the test child.
 - The focus picker is run read-only on the academy test children and returns a
@@ -297,3 +297,7 @@ Not success: plans generated, pages viewed, puzzles served.
 - 2026-11-08 — supply, usage, theme granularity, opening filter and traps folded
   in from the Game Review session's measurements; the counts quoted in Section 0
   were re-run and matched.
+- 2026-11-08 — three answers from Mohit, given to the Game Review session and
+  relayed here: Lichess puzzles for children YES; first coach is a real academy
+  coach; storage "you recommend" (recommendation recorded, awaiting his
+  confirmation). The document itself is NOT signed off.
