@@ -35,6 +35,18 @@ Read in code on 2026-11-08 unless marked *inference*. Live flags read from
 | `GET /training/weekly-plan` (`training.py:1139`) | A Monday–Sunday list from `top_weaknesses` | Dead: no caller |
 | `user_coaching_prescriptions` / `training_plans` + "Start This Plan" cards | Accept-a-plan flow with tracking | Backend live; the cards are imported nowhere |
 
+### Puzzle supply and use (measured on prod 2026-11-08, read-only)
+
+- `lichess_puzzles`: 4,110,434 rows. Rated 600–1400: fork 338,729, pin 92,270,
+  hanging piece 72,657, skewer 60,286. Supply for the proven ideas is large.
+- `puzzle_attempts`: 693 attempts on 412 puzzles by 21 players, ever. The
+  supply exists and is barely reaching anyone. A plan is the delivery missing.
+- Each of those counts took 7–17 seconds on the live database, so plans must be
+  built in the background, never while a page loads.
+- 857,292 puzzles also carry an opening tag (figure from the Game Review
+  session, not re-counted here). `opening_tags` has **no index** (checked), so
+  nothing may filter on it yet.
+
 ### Overlap
 
 **Mode 2 (student on their own) mostly exists already.** The Personal
@@ -205,6 +217,9 @@ it is today.
   the focus is on the proven list.
 - **Plans build in the background** with the existing two-hourly week rebuild;
   opening a page never runs the engine on a request.
+- **No plan line is read from game-review captions.** "What we saw" comes from
+  the focus record; the study position's reason is built from the board. A
+  caption the verifier emptied must never leave a plan item without a reason.
 
 ## 4. Explicitly out of scope (V1)
 
@@ -223,6 +238,8 @@ it is today.
 - **Payments and plan pricing.**
 - **Redesigning the adult Home** beyond adding the plan block.
 - **Reminders, streaks, badges.**
+- **Opening traps from Lichess.** Lichess themes are tactics, not traps; traps
+  stay in our own 18-trap library.
 
 ## 5. Success criteria
 
@@ -250,6 +267,8 @@ Not success: plans generated, pages viewed, puzzles served.
 | The rating used for the puzzle window. Mohit's live focus says `rating_used: 912`, band "beginner". Not checked why. | Not investigated | Trace `resolve_coaching_rating` for his account before puzzles are picked by rating. |
 | Mohit also has a focus row from 2026-07-02 marked `status: active` ("Low blunder rate", type strength) beside the November king-safety one. Not checked whether that is intended. | Not investigated | Read `primary_weakness_picker` for how strength rows are kept. |
 | What approval share, on how many plans, makes an idea safe for the self-coach door? | Needs pilot data | `/lock-via-data` after the first weeks of coach approvals. |
+| One theme or several? `topic_practice_themes` maps a broad weakness to several themes (missed tactic gives fork, pin, skewer and discovered attack). A coach would pick the one motif the student actually missed. | Granularity not decided | Decide whether the plan narrows to the single missed motif when the focus evidence names one. |
+| Filter puzzles by the student's own openings ("forks from your Italian games")? | `opening_tags` is not indexed; a count on it ran over 10 minutes (Game Review session) | Decide if wanted; if yes, add the index after a deploy, then measure. |
 | How many puzzles a week for a child? | Taste and completion data | Start at Mohit's number; adjust from success measure 2. |
 | Who is the first coach: Mohit himself, or a real academy coach? | Not ours to choose | Mohit names them. |
 | `docs/ai_personal_class_scope.md`: its status line says signed, its sign-off record says "Awaiting Mohit". | The document contradicts itself | Mohit says which is true. |
@@ -275,3 +294,6 @@ Not success: plans generated, pages viewed, puzzles served.
 
 - 2026-11-08 — Section 0 path EXTEND agreed by Mohit ("go ahead").
 - 2026-11-08 — sections 1–7 drafted. Awaiting Mohit.
+- 2026-11-08 — supply, usage, theme granularity, opening filter and traps folded
+  in from the Game Review session's measurements; the counts quoted in Section 0
+  were re-run and matched.
