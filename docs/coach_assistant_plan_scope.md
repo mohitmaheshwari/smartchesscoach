@@ -1,6 +1,7 @@
 # Coach's assistant and self-coach plan — scope
 
-**Status:** DRAFT — awaiting Mohit's sign-off. No code until signed.
+**Status:** SIGNED by Mohit 2026-11-09 ("so, go ahead"), storage on the week row
+confirmed. Section 7 pre-code steps in progress; no feature code until they pass.
 Section 0 path (EXTEND) agreed by Mohit 2026-11-08: "go ahead".
 **Author:** Claude, 2026-11-08, against `origin/working-code` at f3fae891.
 
@@ -262,7 +263,7 @@ Not success: plans generated, pages viewed, puzzles served.
 
 | Question | Why unresolved | Unblocking step |
 |---|---|---|
-| Where does an approved plan live? The improvement-cycle scope says "no rival program collection", but an approval and its edits must be stored somewhere. | Mohit said "you recommend" (to the Game Review session, 2026-11-08) | **Recommended, awaiting Mohit's confirmation:** on the existing week row (`academy_student_weeks`, unique on student + week, `academy.py:74`), so no new collection. Store the draft as generated, the coach's changes, `opened_at`, `approved_by`, `approved_at` — measures 1 and 4 need them, and parent reports already keep who approved and when (`academy.py:579-581`). The week rebuild writes with `$set` (`academy.py:262-266`), so the plan must be carried over the way a good moment is (`academy.py:253-261`): the approval survives only when the focus is unchanged; a new focus starts a new, unapproved draft. Self-coach door: read from the focus, nothing stored in V1. |
+| ~~Where does an approved plan live?~~ The improvement-cycle scope says "no rival program collection", but an approval and its edits must be stored somewhere. | **Answered 2026-11-09: the week row** (Mohit, "so, go ahead") | **Confirmed:** on the existing week row (`academy_student_weeks`, unique on student + week, `academy.py:74`), so no new collection. Store the draft as generated, the coach's changes, `opened_at`, `approved_by`, `approved_at` — measures 1 and 4 need them, and parent reports already keep who approved and when (`academy.py:579-581`). The week rebuild writes with `$set` (`academy.py:262-266`), so the plan must be carried over the way a good moment is (`academy.py:253-261`): the approval survives only when the focus is unchanged; a new focus starts a new, unapproved draft. Self-coach door: read from the focus, nothing stored in V1. |
 | ~~Lichess puzzles for children: yes or no?~~ | **Answered: YES** — Mohit to the Game Review session, 2026-11-08 (relayed, not said in this session). | The October theme route (`topic_practice_themes.py`) is the rule for children; the 2026-04-21 note in `coaching_puzzle_service.py` no longer governs the plan. |
 | The rating used for the puzzle window. Mohit's live focus says `rating_used: 912`, band "beginner". Not checked why. | Not investigated | Trace `resolve_coaching_rating` for his account before puzzles are picked by rating. |
 | Mohit also has a focus row from 2026-07-02 marked `status: active` ("Low blunder rate", type strength) beside the November king-safety one. Not checked whether that is intended. | Not investigated | Read `primary_weakness_picker` for how strength rows are kept. |
@@ -275,9 +276,9 @@ Not success: plans generated, pages viewed, puzzles served.
 
 ## 7. Pre-code requirements
 
-- Mohit signs off this document.
-- Mohit confirms the recommended storage (the week row). Lichess for children is
-  answered (yes).
+- ~~Mohit signs off this document.~~ Done 2026-11-09.
+- ~~Mohit confirms the recommended storage (the week row).~~ Done 2026-11-09.
+  Lichess for children is answered (yes).
 - The rating used for the puzzle window is traced and correct for at least
   Mohit's account and the test child.
 - The focus picker is run read-only on the academy test children and returns a
@@ -301,3 +302,7 @@ Not success: plans generated, pages viewed, puzzles served.
   relayed here: Lichess puzzles for children YES; first coach is a real academy
   coach; storage "you recommend" (recommendation recorded, awaiting his
   confirmation). The document itself is NOT signed off.
+- 2026-11-09 — Mohit, in this session, after being told the remaining items were
+  his sign-off and a yes on week-row storage: "so, go ahead". Recorded as sign-off
+  of the document and confirmation of the week-row storage. Still unanswered: the
+  `ai_personal_class_scope.md` contradiction (not blocking this scope).
