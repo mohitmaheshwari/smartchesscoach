@@ -27,6 +27,32 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
+# The worker's "just finished, the player is waiting" priority. The worker
+# sorts priority DESC, so this outranks routine syncs (5..9) and bulk
+# re-analysis (0 / missing), and stays below a first sync (20..30).
+LIVE_GAME_PRIORITY = 10
+
+# How recently a synced game must have STARTED to count as live. Measured
+# 2026-11-09 over 22,164 auto-synced games: 18,267 were imported within 30
+# minutes of their start and 19,567 within 3 hours; the rest are backlog
+# (2,291 more than a day late). Three hours also covers a long classical game,
+# whose start is well before its end.
+FRESH_GAME_WINDOW = timedelta(hours=3)
+
+
+def is_fresh_game(played_at: Any, now: Optional[datetime] = None) -> bool:
+    """True when a game started within FRESH_GAME_WINDOW of now.
+
+    A missing or non-datetime value is not fresh, so a game with no typed
+    start time keeps the routine priority instead of jumping the queue.
+    """
+    if not isinstance(played_at, datetime):
+        return False
+    if played_at.tzinfo is None:
+        played_at = played_at.replace(tzinfo=timezone.utc)
+    now = now or datetime.now(timezone.utc)
+    return timedelta(0) <= now - played_at <= FRESH_GAME_WINDOW
+
 # Configuration (from config.py)
 MAX_GAMES_PER_DAY = DAILY_SYNC_MAX_GAMES
 INITIAL_GAMES_TO_ANALYZE = FIRST_SYNC_MAX_GAMES
@@ -1467,13 +1493,23 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
                     else:
                         _base_priority, _max_boost = 5, 4
                     _recency_boost = max(0, _max_boost - _queue_index)
+                    _priority = _base_priority + _recency_boost
+                    # A game the player finished on lichess or chess.com a few
+                    # minutes ago is a live game too: it is the one they open
+                    # the app to see. It used to sit at 5..9 behind every
+                    # priority-10 job; on 2026-11-09 Mohit's just-finished game
+                    # had 46 jobs ahead of it, about five hours at the worker
+                    # rate that day. A routine sync still stays at 5..9 for
+                    # anything older.
+                    if not is_first_sync and is_fresh_game(game_doc.get("played_at_utc")):
+                        _priority = max(_priority, LIVE_GAME_PRIORITY)
                     queue_item = {
                         "game_id": game_doc['game_id'],
                         "user_id": user_id,
                         "pgn": game_doc.get("pgn", ""),
                         "user_color": game_doc.get("user_color", "white"),
                         "status": "pending",
-                        "priority": _base_priority + _recency_boost,
+                        "priority": _priority,
                         "queued_at": datetime.now(timezone.utc).isoformat(),
                         "auto_synced": True
                     }

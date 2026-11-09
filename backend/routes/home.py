@@ -23,6 +23,11 @@ from db_filters import ACTIVE_GAMES_FILTER
 
 logger = logging.getLogger(__name__)
 
+# Newest game first by when it was PLAYED. MongoDB sorts a missing value as
+# null, which comes last under DESC, so the few games with no typed start time
+# fall behind dated ones and are ordered among themselves by import time.
+LAST_PLAYED_SORT = [("played_at_utc", -1), ("imported_at", -1)]
+
 # Create router for home/dashboard endpoints
 router = APIRouter(tags=["Home & Dashboard"])
 
@@ -627,11 +632,15 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
     }
 
     try:
-        # Get last analyzed game
+        # Get last analyzed game: the one PLAYED last. Import time is not play
+        # time: a re-fetch or a backfill imports old games late, and one sync
+        # imports several games in the same instant, so sorting by imported_at
+        # showed an older game on 2026-11-09. imported_at only breaks ties and
+        # orders the few games with no typed start time.
         last_game = await db.games.find_one(
             {"user_id": user.user_id, "is_analyzed": True},
             {"_id": 0}
-        , sort=[("imported_at", -1)])
+        , sort=LAST_PLAYED_SORT)
 
         if not last_game:
             result["context_action"] = {"type": "import", "label": "Import your first game", "href": "/import"}
@@ -816,7 +825,7 @@ async def get_home_dashboard_v2(user: User = Depends(get_current_user)):
         recent_games = await db.games.find(
             {"user_id": user.user_id, "is_analyzed": True, **ACTIVE_GAMES_FILTER},
             {"_id": 0, "result": 1, "user_color": 1}
-        ).sort("imported_at", -1).limit(20).to_list(20)
+        ).sort(LAST_PLAYED_SORT).limit(20).to_list(20)
 
         streak_type = None
         streak_count = 0
