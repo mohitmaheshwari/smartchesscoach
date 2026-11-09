@@ -158,6 +158,7 @@ async def main(
     dry_run: bool,
     path: str | None = None,
     only_new: bool = False,
+    skip_rows: int = 0,
 ) -> None:
     mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
     db_name = os.environ.get("DB_NAME", "chess_coach")
@@ -196,6 +197,8 @@ async def main(
 
     for raw_line in line_iter:
         seen_rows += 1
+        if seen_rows <= skip_rows:
+            continue  # resuming: these rows were handled by an earlier run
         if not raw_line.strip():
             continue
 
@@ -268,9 +271,12 @@ if __name__ == "__main__":
                         help="Read a downloaded lichess_db_puzzle.csv.zst instead of streaming it.")
     parser.add_argument("--only-new", action="store_true",
                         help="Insert puzzles not already stored; leave existing rows as they are.")
+    parser.add_argument("--skip-rows", type=int, default=0,
+                        help="Resume: skip this many CSV rows (a container restart ends a long run).")
     args = parser.parse_args()
 
     asyncio.run(main(
+        skip_rows=args.skip_rows,
         rating_min=args.rating_min,
         rating_max=args.rating_max,
         min_popularity=args.min_popularity,
