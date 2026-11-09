@@ -303,6 +303,15 @@ export function AcademyBatch() {
   const [kid, setKid] = useState(blank);
   const [added, setAdded] = useState(null);
   const [error, setError] = useState("");
+  const [planBusy, setPlanBusy] = useState("");
+  const [planError, setPlanError] = useState("");
+
+  const planAct = async (label, path) => {
+    setPlanBusy(label); setPlanError("");
+    try { await call(path, { method: "POST", body: {} }); await reload(); }
+    catch (err) { setPlanError(err.message); }
+    finally { setPlanBusy(""); }
+  };
 
   if (state.loading) return <Page><p>Loading…</p></Page>;
   if (state.error) return <Page><p className="text-red-600">{state.error}</p></Page>;
@@ -337,15 +346,26 @@ export function AcademyBatch() {
         </Card>
       )}
 
+      {view.rows.some((r) => r.plan?.status === "draft") && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" className={primary} disabled={!!planBusy}
+            onClick={() => planAct("all", `/academy/batch/${batchId}/plans/approve-all`)}>
+            {planBusy === "all" ? "Approving…" : "Approve all drafts"}
+          </button>
+          <span className="text-sm text-muted-foreground">Each child sees the plan on their class link once it is approved.</span>
+        </div>
+      )}
+      {planError && <p className="text-red-600">{planError}</p>}
+
       {view.rows.length > 0 && (
         <div className="overflow-x-auto rounded-2xl border bg-card">
-          <table className="w-full min-w-[680px] border-collapse text-[15px]">
+          <table className="w-full min-w-[840px] border-collapse text-[15px]">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="p-3">Child</th><th className="p-3">Needs you?</th>
                 <th className="p-3">Habit seen this week</th>
                 <th className="p-3">Compared with last week</th><th className="p-3">Games</th>
-                <th className="p-3">Homework</th>
+                <th className="p-3">Homework</th><th className="p-3">Coach plan</th>
               </tr>
             </thead>
             <tbody>
@@ -360,6 +380,23 @@ export function AcademyBatch() {
                   <td className="p-3">{r.consent === "given" ? <Pill tone={TREND_TONE[r.trend]}>{r.trend_words}</Pill> : "—"}</td>
                   <td className="p-3">{r.consent === "given" ? r.games_words : "—"}</td>
                   <td className="p-3">{r.consent === "given" ? <Pill tone={HOMEWORK_TONE[r.homework]}>{r.homework_words}</Pill> : "—"}</td>
+                  <td className="p-3" data-testid="plan-cell">
+                    {r.consent !== "given" || !r.plan || r.plan.status === "none" ? "—" : (
+                      <div className="grid gap-1">
+                        <span className="font-semibold">{r.plan.problem_label}</span>
+                        {r.plan.cause_words && <span className="text-sm text-muted-foreground">{r.plan.cause_words}</span>}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Pill tone={PLAN_TONE[r.plan.status]}>{PLAN_WORDS[r.plan.status] || r.plan.status}</Pill>
+                          {r.plan.status === "draft" && (
+                            <button type="button" className="rounded-full border px-3 py-1 text-sm font-semibold" disabled={!!planBusy}
+                              onClick={(e) => { e.stopPropagation(); planAct(r.student_id, `/academy/student/${r.student_id}/plan/approve`); }}>
+                              {planBusy === r.student_id ? "Approving…" : "Approve"}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -407,6 +444,132 @@ export function AcademyBatch() {
         {error && <p className="text-red-600">{error}</p>}
       </Card>
     </Page>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// coach plan (docs/coach_assistant_plan_scope.md, 2a and 2b)
+// ---------------------------------------------------------------------------
+const PLAN_TONE = {
+  draft: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300",
+  approved: TREND_TONE.less,
+  skipped: "bg-muted text-muted-foreground",
+};
+const PLAN_WORDS = { draft: "Ready to approve", approved: "Approved", skipped: "Skipped this week", none: "No plan" };
+const SEEN_WORDS = { no: "didn't see it", ok: "saw it, thought it was fine", unsure: "not sure" };
+
+function CoachPlanCard({ plan, studentId, name, onChange }) {
+  const [ruleId, setRuleId] = useState(plan?.rule?.id || "");
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => { setRuleId(plan?.rule?.id || ""); }, [plan?.rule?.id]);
+  if (!plan) return null;
+
+  const act = async (label, path, body) => {
+    setBusy(label); setError("");
+    try { await call(path, { method: "POST", body }); await onChange(); }
+    catch (err) { setError(err.message); }
+    finally { setBusy(""); }
+  };
+
+  if (plan.status === "none") {
+    return (
+      <Card>
+        <Eyebrow>Coach plan</Eyebrow>
+        <p>{plan.reason || `No plan for ${name} this week yet.`}</p>
+      </Card>
+    );
+  }
+  const p = plan.problem || {};
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Eyebrow>Coach plan</Eyebrow>
+        <Pill tone={PLAN_TONE[plan.status]}>{PLAN_WORDS[plan.status] || plan.status}</Pill>
+      </div>
+
+      <div className="grid gap-1">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Costliest problem</p>
+        <p className="text-lg font-semibold">{p.label}</p>
+        <p className="text-sm text-muted-foreground">
+          Lost {p.games_lost} {p.games_lost === 1 ? "game" : "games"} that were level or better, across {p.games} {p.games === 1 ? "game" : "games"} ({p.moments} {p.moments === 1 ? "moment" : "moments"}).
+        </p>
+        {(plan.runners_up || []).length > 0 && (
+          <p className="text-sm text-muted-foreground">
+            Also seen: {plan.runners_up.map((r) => `${r.label} (${r.games_lost} lost, ${r.moments} ${r.moments === 1 ? "moment" : "moments"})`).join(" · ")}
+          </p>
+        )}
+      </div>
+
+      <div className="grid gap-2">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">What {name}'s reflections say</p>
+        {(plan.moments || []).length === 0 && <p className="text-sm">No moments picked yet.</p>}
+        <ul className="grid gap-2">
+          {(plan.moments || []).map((mo) => (
+            <li key={mo.key} className="rounded-xl border p-3 text-sm" data-testid="plan-moment">
+              <p className="font-semibold">{mo.san}{mo.date ? <span className="font-normal text-muted-foreground"> · {mo.date}</span> : null}
+                {mo.pattern ? <span className="font-normal text-muted-foreground"> · {mo.pattern}</span> : null}</p>
+              {mo.taker_words && <p className="text-muted-foreground">{mo.taker_words}</p>}
+              {mo.answers ? (
+                <p>
+                  Wanted: {(mo.answers.wanted || []).length ? mo.answers.wanted.join(", ") : "not sure"} ·
+                  {" "}Found it when asked: {mo.answers.found_when_asked ? "yes" : "no"} ·
+                  {" "}In the game: {SEEN_WORDS[mo.answers.seen_in_game] || "not asked"}
+                </p>
+              ) : (
+                <p className="text-muted-foreground">{mo.done ? "Reflected." : "Not reflected yet."}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+        {plan.cause?.words && <p><b>Cause:</b> {plan.cause.words}</p>}
+      </div>
+
+      {plan.warning_sign?.text && (
+        <div className="grid gap-1">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Warning sign</p>
+          <p>{plan.warning_sign.title ? <b>{plan.warning_sign.title}: </b> : null}{plan.warning_sign.text}</p>
+        </div>
+      )}
+
+      <div className="grid gap-1">
+        <label htmlFor={`plan-rule-${studentId}`} className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Rule for real games this week</label>
+        {(plan.rule_options || []).length > 1 && plan.status !== "approved" ? (
+          <select id={`plan-rule-${studentId}`} className={field} value={ruleId} onChange={(e) => setRuleId(e.target.value)}>
+            {plan.rule_options.map((o) => <option key={o.id} value={o.id}>{o.text}</option>)}
+          </select>
+        ) : (
+          <p id={`plan-rule-${studentId}`}>{plan.rule?.text}</p>
+        )}
+      </div>
+
+      {plan.last_check?.words && (
+        <div className="grid gap-1">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Last week's check</p>
+          <p>{plan.last_check.words}</p>
+        </div>
+      )}
+
+      {plan.status === "approved" ? (
+        <p className="text-sm text-muted-foreground">
+          Approved{plan.approved_by_name ? ` by ${plan.approved_by_name}` : ""}. {name} sees it on the class link.
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={primary} disabled={!!busy}
+            onClick={() => act("approve", `/academy/student/${studentId}/plan/approve`, { rule_id: ruleId || undefined })}>
+            {busy === "approve" ? "Approving…" : "Approve and send"}
+          </button>
+          {plan.status !== "skipped" && (
+            <button type="button" className={secondary} disabled={!!busy}
+              onClick={() => act("skip", `/academy/student/${studentId}/plan/skip`, {})}>
+              Skip this week
+            </button>
+          )}
+        </div>
+      )}
+      {error && <p className="text-red-600">{error}</p>}
+    </Card>
   );
 }
 
@@ -515,6 +678,7 @@ export function AcademyStudent() {
                 </p>
               )}
             </Card>
+            <CoachPlanCard plan={view.plan} studentId={studentId} name={s.display_name} onChange={reload} />
             {(view.preview?.sections || []).some((sec) => sec.kind === "good") && (
               <Card>
                 <Eyebrow>A good moment</Eyebrow>

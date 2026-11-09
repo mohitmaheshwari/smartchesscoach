@@ -760,6 +760,10 @@ app.include_router(admin_lesson_evidence_routes.router, prefix="/api")
 from routes import academy as academy_routes  # noqa: E402
 academy_routes.set_db(db)
 app.include_router(academy_routes.router, prefix="/api")
+# The coach plan: costliest problem, the child's tap reflection, one rule.
+# docs/coach_assistant_plan_scope.md (signed 2026-11-09).
+from routes import academy_coach_plan as academy_plan_routes  # noqa: E402
+app.include_router(academy_plan_routes.router, prefix="/api")
 # Stockfish's move beside the move a human of that rating would actually
 # play. Read-only: Maia2 runs on Mohit's machine and writes the collection,
 # because the model needs ~800 MB resident and this box has none to spare

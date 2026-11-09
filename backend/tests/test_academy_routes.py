@@ -119,6 +119,12 @@ class _Coll:
                 target[parts[-1]] = target.get(parts[-1], 0) + value
             for key, value in (update.get("$min") or {}).items():
                 row[key] = min(row[key], value) if key in row else value
+            for key, value in (update.get("$push") or {}).items():
+                target = row
+                parts = key.split(".")
+                for part in parts[:-1]:
+                    target = target.setdefault(part, {})
+                target.setdefault(parts[-1], []).append(value)
 
     async def delete_many(self, query):
         self.rows = [r for r in self.rows if not _matches(r, query)]

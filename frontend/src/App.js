@@ -62,6 +62,7 @@ import AdminLlmCost from "@/pages/AdminLlmCost";
 import { AcademyHome, AcademyBatch, AcademyStudent } from "@/pages/Academy";
 import { FamilyConsent, FamilyReport, FamilyHomework, FamilyClassGame } from "@/pages/AcademyFamily";
 import FirstStepsClass from "@/pages/FirstStepsClass";
+import ClassReflect from "@/pages/ClassReflect";
 import CalculationTest from "@/pages/CalculationTest";
 import MotifFindDrill from "@/pages/MotifFindDrill";
 import AdminDetectorReview from "@/pages/AdminDetectorReview";
@@ -355,6 +356,7 @@ function AppRouter() {
       <Route path="/homework/:token" element={<FamilyHomework />} />
       <Route path="/play/:token" element={<FamilyClassGame />} />
       <Route path="/class/:token" element={<FirstStepsClass />} />
+      <Route path="/class/:token/reflect" element={<ClassReflect />} />
 
       <Route path="/welcome" element={
         <ProtectedRoute skipOnboardingCheck={true}>

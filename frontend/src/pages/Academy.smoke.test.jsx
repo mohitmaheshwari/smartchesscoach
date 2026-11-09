@@ -113,6 +113,57 @@ test("a child waiting for consent shows the WhatsApp consent button, not a repor
   expect(container.querySelector("[data-testid=parent-report]")).toBeNull();
 });
 
+test("the class view shows each child's coach plan and approves a draft", async () => {
+  await render({ batchId: "b1" }, <AcademyBatch />, {
+    batch: { batch_id: "b1", name: "Saturday batch" }, academy: { academy_id: "a1", name: "Sunrise Chess" },
+    summary: "", topic: null,
+    rows: [
+      { student_id: "k1", name: "Rohan", consent: "given", habit: "-", trend_words: "-", games_words: "-",
+        homework_words: "-", plan: { status: "draft", problem_label: "Leaving a piece where it can be taken",
+          cause_words: "Not looking: finds it when asked" } },
+    ],
+  });
+  expect(container.textContent).toContain("Leaving a piece where it can be taken");
+  expect(container.textContent).toContain("Approve all drafts");
+  const approve = [...container.querySelectorAll("[data-testid=plan-cell] button")].find((b) => b.textContent === "Approve");
+  await act(async () => { approve.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+  const call = global.fetch.mock.calls.find((c) => String(c[0]).endsWith("/academy/student/k1/plan/approve"));
+  expect(call[1].method).toBe("POST");
+});
+
+test("one child's coach plan shows the problem, reflections, cause, sign and rule", async () => {
+  await render({ studentId: "k1" }, <AcademyStudent />, {
+    student: { student_id: "k1", display_name: "Rohan", consent: { status: "given" } },
+    batch: { batch_id: "b1", name: "Saturday batch" }, academy: { academy_id: "a1", name: "Sunrise Chess", kind: "academy" },
+    row: { habit: "-", trend_words: "-", homework_words: "-" }, preview: null, week_built_at: "x",
+    links: { consent: "c", report: "r", homework: "h", class: "k" },
+    plan: {
+      status: "draft",
+      problem: { quality_id: "gap:piece_safety:destination_safety_exact", label: "Leaving a piece where it can be taken", games_lost: 2, games: 6, moments: 4 },
+      runners_up: [{ label: "Missed forks", games_lost: 1, moments: 2 }],
+      moments: [
+        { key: "m1", san: "Qf3", date: "2026-11-05", kind: "landing", taker_words: "His knight on e5, a knight jump", done: true,
+          answers: { wanted: ["bring my queen into play"], found_when_asked: true, seen_in_game: "no" } },
+        { key: "m2", san: "Rc7", date: "2026-10-31", kind: "landing", taker_words: "His bishop on h2, a long line", done: false },
+      ],
+      cause: { kind: "not_looking", words: "Mostly not looking: finds the piece when asked." },
+      warning_sign: { title: "The three looks", text: "Before any piece lands: pieces close by, knight jumps, long lines to the edge." },
+      rule: { id: "three_looks", text: "Do the three looks before every move." },
+      rule_options: [{ id: "three_looks", text: "Do the three looks before every move." }, { id: "knight_look", text: "Look for knight jumps first." }],
+      last_check: null,
+    },
+  });
+  const text = container.textContent;
+  expect(text).toContain("Costliest problem");
+  expect(text).toContain("Lost 2 games that were level or better");
+  expect(text).toContain("Found it when asked: yes");
+  expect(text).toContain("In the game: didn't see it");
+  expect(text).toContain("Not reflected yet.");
+  expect(text).toContain("Mostly not looking");
+  expect(container.querySelector("select#plan-rule-k1")).not.toBeNull();
+  expect(text).toContain("Approve and send");
+});
+
 test("a class game shows whose move it is and lets the child resign", async () => {
   await render({ token: "tok" }, <FamilyClassGame />, {
     class_game_id: "cg1", fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",

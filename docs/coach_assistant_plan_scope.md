@@ -1,6 +1,9 @@
 # Coach's assistant and self-coach plan — scope
 
-**Status:** REVISED DRAFT 2026-11-09, **awaiting Mohit's sign-off.** The signed
+**Status:** SIGNED by Mohit 2026-11-09 in this session: "signed off, no start
+with all detectors, you have everything built, so do everything together". V1
+therefore covers every move-level PLAN detector, not piece safety alone (the
+proposed narrowing is rejected). Build under way. The previously signed
 version (puzzle-led plan, signed 2026-11-09 "so, go ahead") is superseded: Mohit
 rejected its mock as "very basic … anybody who uses simply game analysis can know
 this" and asked for a coach that teaches *what to look at* so the child sees the
@@ -345,6 +348,25 @@ Not success: reflections started, pages viewed, puzzles served.
 - `/lock-via-data`: the results-lost cut, the warning-sign bar, the
   next-week check, and what Mohit sets (approval bar, coach-time target);
   then `/audit-pre-code` passes.
+
+### Build record (2026-11-09, after sign-off)
+
+- **Results-lost cut LOCKED:** mover-relative eval before the moment >= -100
+  and the game lost or drawn; a problem's cost counts games. Measured on 53
+  players with 20+ analysed games plus the academy children: no cliff between
+  -100 and 0 (piece safety 271 vs 232 events); ranking by results lost picked a
+  different top problem than frequency for 20 of 53 players.
+- **Detectors in V1:** the six move-level PLAN ids (piece safety, ignored king
+  attack, missed fork / pin / skewer / mate). The three time-management PLAN
+  ids write no per-move record (0 events), so there is no moment to reflect
+  on; they stay with the existing focus.
+- **Warning sign:** the general sign per problem only. A child's own sign
+  waits for the baseline bar, which needs more reflections than exist; the
+  plan stores `own: false`.
+- **Not mocked separately:** the coach screens were built straight from the
+  2a/2b sketches under Mohit's "do everything together" while he was away;
+  his review of the live screens replaces the mock review.
+- **Self-coach door (2e):** not built in this pass.
 
 ### Found while running the pre-code checks (2026-11-09), for the build
 

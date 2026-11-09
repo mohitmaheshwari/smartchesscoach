@@ -7,7 +7,7 @@
  * evidence for the next lesson.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { API } from "@/App";
 import LichessBoard from "@/components/LichessBoard";
 import "@/components/room/room.css";
@@ -290,6 +290,9 @@ export default function FirstStepsClass() {
       setView(h.open);
     } catch (e) { setError(e.message); }
   }, [token]);
+  // The coach's weekly reflection rides on the class home payload
+  // (`reflect: {available, all_done}`), so no second request on this page.
+  const reflect = home?.reflect;
   useEffect(() => { load(); }, [load]);
 
   const start = async () => {
@@ -319,6 +322,18 @@ export default function FirstStepsClass() {
             <h1>Hello {name}.</h1>
             <p>Three quick questions first, so your lessons start in the right place.</p>
             <div className="room-acts"><button type="button" className="room-btn" onClick={start}>Begin</button></div>
+          </div>
+        )}
+        {!done && !view && home && reflect?.available && (
+          <div className="room-next" style={{ maxWidth: 760, margin: "0 auto 28px", gridTemplateColumns: "minmax(0,1fr) auto" }}>
+            <div>
+              <span className="room-label">This week with your coach</span>
+              <h2>Look back at your own moves</h2>
+              <p>A few moments from your games. You answer on the board.</p>
+            </div>
+            <Link className="room-btn" to={`/class/${token}/reflect`}>
+              {reflect.all_done ? "Go over them" : "Open"}
+            </Link>
           </div>
         )}
         {!done && !view && home && home.placed && <Path home={home} onStart={start} onPractise={practise} />}

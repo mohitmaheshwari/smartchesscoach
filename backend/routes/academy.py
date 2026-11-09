@@ -231,8 +231,13 @@ def _class_week(sessions: List[Dict[str, Any]], start, all_done: bool) -> Dict[s
     return {"learnt": learnt, "practised": practised, "all_done": all_done}
 
 
-async def build_week(student: Dict[str, Any], start=None) -> Optional[Dict[str, Any]]:
-    """Rebuild one child's week and store it. Returns the stored row."""
+async def build_week(student: Dict[str, Any], start=None, with_plan: bool = True) -> Optional[Dict[str, Any]]:
+    """Rebuild one child's week and store it. Returns the stored row.
+
+    `with_plan=False` keeps the stored coach plan as it is: the plan runs the
+    engine (about a minute and a half for one child on the shared server,
+    measured 2026-11-09), so a coach's Refresh rebuilds the week at once and
+    leaves the plan to a background task."""
     if (student.get("consent") or {}).get("status") != "given" or not student.get("child_user_id"):
         return None
     start = start or svc.week_start()
@@ -253,12 +258,33 @@ async def build_week(student: Dict[str, Any], start=None) -> Optional[Dict[str, 
     # A coach's confirmation survives the rebuild when the good moment is the
     # same move; a different move is a new moment and starts unconfirmed.
     old = await db[svc.WEEKS].find_one({"student_id": student["student_id"],
-                                        "week_start": start.isoformat()}, {"_id": 0, "good_moment": 1})
+                                        "week_start": start.isoformat()},
+                                       {"_id": 0, "good_moment": 1, "coach_plan": 1})
+    # The coach plan (docs/coach_assistant_plan_scope.md). A failure here must
+    # not stop the week the coach already relies on, so it keeps the old plan.
+    try:
+        from routes.academy_coach_plan import build_plan
+        if with_plan:
+            week["coach_plan"] = await build_plan(student, start, old, games)
+        elif (old or {}).get("coach_plan"):
+            week["coach_plan"] = old["coach_plan"]
+    except Exception as exc:
+        logger.error("coach plan build failed for %s: %s", student.get("student_id"), exc)
+        if (old or {}).get("coach_plan"):
+            week["coach_plan"] = old["coach_plan"]
     old_good, new_good = (old or {}).get("good_moment") or {}, week.get("good_moment")
     if new_good and old_good.get("confirmed_by_name") and \
             (old_good.get("fen"), old_good.get("move_uci")) == (new_good["fen"], new_good["move_uci"]):
         for key in ("confirmed_by_name", "confirmed_by", "confirmed_at"):
             new_good[key] = old_good.get(key)
+    # A coach may approve while the engine was working; an approval stored in
+    # the meantime wins over the draft computed before it.
+    if (week.get("coach_plan") or {}).get("status") in ("draft", "none"):
+        now_row = await db[svc.WEEKS].find_one({"student_id": student["student_id"],
+                                                "week_start": start.isoformat()},
+                                               {"_id": 0, "coach_plan": 1})
+        if ((now_row or {}).get("coach_plan") or {}).get("status") in ("approved", "skipped"):
+            week["coach_plan"] = now_row["coach_plan"]
     row = {**week, "student_id": student["student_id"], "week_start": start.isoformat(),
            "built_at": _now()}
     await db[svc.WEEKS].update_one({"student_id": student["student_id"],
@@ -483,7 +509,13 @@ def _row_for_table(student, week, homework_status) -> Dict[str, Any]:
         "homework": homework_status,
         "homework_words": svc.HOMEWORK_WORDS.get(homework_status, homework_status),
         "needs_you": svc.needs_coach(student, week, homework_status),
+        "plan": _plan_summary(week),
     }
+
+
+def _plan_summary(week) -> Dict[str, Any]:
+    from routes.academy_coach_plan import plan_summary
+    return plan_summary(week)
 
 
 @router.get("/batch/{batch_id}")
@@ -495,7 +527,7 @@ async def batch_view(batch_id: str, user: User = Depends(get_current_user)):
     rows, weeks = [], []
     for s in students:
         week = await db[svc.WEEKS].find_one({"student_id": s["student_id"], "week_start": start},
-                                            {"_id": 0, "better_moves": 0})
+                                            {"_id": 0, "better_moves": 0, "coach_plan.moments": 0})
         weeks.append(week)
         status = await _homework_status(s["student_id"], start, bool((week or {}).get("homework")))
         rows.append(_row_for_table(s, week, status))
@@ -534,7 +566,9 @@ async def student_view(student_id: str, user: User = Depends(get_current_user)):
     first_steps = None
     if (student.get("consent") or {}).get("status") == "given":
         first_steps = await first_steps_for_staff(student)
+    from routes.academy_coach_plan import coach_view
     return {
+        "plan": await coach_view(student, week, start),
         "first_steps": first_steps,
         "whatsapp_class": svc.whatsapp_link(student["parent_phone"], _class_message(student)),
         "student": {k: student.get(k) for k in ("student_id", "display_name", "lichess_username",
@@ -555,8 +589,9 @@ async def refresh_student(student_id: str, user: User = Depends(get_current_user
     student = await _student_for(user, student_id)
     if (student.get("consent") or {}).get("status") != "given":
         raise HTTPException(409, "The parent has not agreed yet, so there is nothing to read.")
-    row = await build_week(student)
-    return {"ok": True, "built_at": (row or {}).get("built_at")}
+    row = await build_week(student, with_plan=False)
+    _in_background(build_week(student))  # the coach plan needs the engine
+    return {"ok": True, "built_at": (row or {}).get("built_at"), "plan_building": True}
 
 
 @router.post("/student/{student_id}/report")
@@ -1198,7 +1233,9 @@ async def class_home(token: str):
     student = await _class_child(token)
     sessions = await _sessions(student["student_id"])
     open_ = next((s for s in reversed(sessions) if not s.get("finished_at")), None)
-    return {**_overview(student, sessions), "open": _session_view(open_) if open_ else None}
+    from routes.academy_coach_plan import class_home_reflect
+    return {**_overview(student, sessions), "open": _session_view(open_) if open_ else None,
+            "reflect": await class_home_reflect(student)}
 
 
 @router.post("/class/{token}/start")
