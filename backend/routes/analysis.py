@@ -163,7 +163,11 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
         async with httpx.AsyncClient(timeout=30.0) as client_http:
             resp = await client_http.get(
                 f"https://lichess.org/api/games/user/{username}",
-                params={"max": 30, "pgnInJson": False},
+                # clocks: Lichess leaves [%clk] out unless asked (verified
+                # 2026-11-09 on one game: 0 tags without, 52 with). Onboarding
+                # imports through here, so without it a new player's first
+                # games had no think-time; 577 lichess games were stored so.
+                params={"max": 30, "pgnInJson": False, "clocks": "true"},
                 # Lichess answers this endpoint with 404 when there is no
                 # User-Agent (verified 2026-10-28: same request, 404 without,
                 # 200 with). The background sync always sent one.
