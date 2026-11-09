@@ -136,6 +136,33 @@ def test_silent_checkpoint_is_recorded_separately_from_organic_transfer(
     )
 
 
+def test_the_game_pgn_clocks_reach_the_observation():
+    # The worker passes the full games row. Before 2026-11-09 its PGN was not
+    # handed to the deriver, so every worker-written observation had no time.
+    game = dict(_game(), pgn=(
+        '[Event "t"]\n[TimeControl "180+0"]\n\n'
+        '1. Ng5 { [%clk 0:02:51] } 1... h5 { [%clk 0:02:58] } *'
+    ))
+    prepared = _prepare(
+        user_id="user-1",
+        game=game,
+        analysis=_analysis(),
+        context=external_game_context(),
+    )
+    obs = prepared["observations"][0]
+    # Move 1 has a clock left but no time spent (no earlier reading), by
+    # design in pgn_clock_parser.time_spent_at_halfmove.
+    assert obs["time_left_seconds"] == 171
+
+    without = _prepare(
+        user_id="user-1",
+        game=_game(),
+        analysis=_analysis(),
+        context=external_game_context(),
+    )["observations"][0]
+    assert without["time_left_seconds"] is None
+
+
 def test_external_completion_keeps_existing_organic_event_identity(monkeypatch):
     monkeypatch.setattr(
         "services.analysis_completion_evidence.complete_coaching_system_enabled",

@@ -145,6 +145,10 @@ def _prepare(
         user_color=user_color,
         decryption_v5_data=analysis.get("decryption_v5_data"),
         opening_deviation=analysis.get("opening_deviation"),
+        # The clocks are read from the PGN. Without it every observation the
+        # worker wrote had time_spent_seconds / time_left_seconds / time_flag
+        # empty; only the backfill script passed it (found 2026-11-09).
+        pgn=game.get("pgn"),
     )
     results = application_results_from_observations(
         game_id=game_id,
