@@ -296,6 +296,9 @@ services:
       - DIGEST_SEND_HOUR_UTC=${DIGEST_SEND_HOUR_UTC:-2}
       - LICHESS_CLIENT_ID=chessguru-app
       - LICHESS_REDIRECT_URI=https://chessguru.ai/api/oauth/lichess/callback
+      # Personal token (no scopes) for explorer.lichess.ovh, which refuses
+      # anonymous requests. From the project-root .env; empty = not sent.
+      - LICHESS_API_TOKEN=${LICHESS_API_TOKEN:-}
       - FRONTEND_URL=https://chessguru.ai
       # SMTP (Zoho) — values come from the project-root .env (see setup_smtp.sh)
       - SMTP_HOST=${SMTP_HOST}
