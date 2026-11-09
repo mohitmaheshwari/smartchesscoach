@@ -1,7 +1,11 @@
 # Coach's assistant and self-coach plan — scope
 
-**Status:** SIGNED by Mohit 2026-11-09 ("so, go ahead"), storage on the week row
-confirmed. Section 7 pre-code steps in progress; no feature code until they pass.
+**Status:** REVISED DRAFT 2026-11-09, **awaiting Mohit's sign-off.** The signed
+version (puzzle-led plan, signed 2026-11-09 "so, go ahead") is superseded: Mohit
+rejected its mock as "very basic … anybody who uses simply game analysis can know
+this" and asked for a coach that teaches *what to look at* so the child sees the
+problem next time. Sections 1–7 below are rewritten for that. Storage on the week
+row (confirmed 2026-11-09) still stands. No feature code until this is signed.
 Section 0 path (EXTEND) agreed by Mohit 2026-11-08: "go ahead".
 **Author:** Claude, 2026-11-08, against `origin/working-code` at f3fae891.
 
@@ -89,180 +93,201 @@ coach-selected review → Focus Game / Win it back → focus outcome`
 Not PARALLEL: a separate "coach plan" product would sit beside the cycle and
 diverge from it.
 
+### Added 2026-11-09 for the cause-first direction
+
+Read in code and on prod (read-only) on 2026-11-09.
+
+| Existing owner | What it does today | Live? |
+|---|---|---|
+| Reflect V1 (`routes/reflect.py` `/v1/quick-tags`, `/v1/submit`; `reflect_constants.py`; `Reflect.jsx` at `/reflect`) | Asks the player, per mistake, for an intent from a fixed list (Attack, Defend, Develop / Improve piece, Avoid a threat, Not sure … `reflect_constants.py:63-93`), a confidence (Very sure / Somewhat sure / Guessing), and quick tags from board predicates; computes an "awareness gap" type; a tap budget per rating band | Routed. **Used by almost nobody:** `reflection_sessions` 10 rows from 1 user ever, latest 2026-11-06; `reflections` 0 rows |
+| `two_layer_diagnosis.py` (signed 2026-09-28, `docs/two_layer_coaching_scope.md`) | "You do not know this pattern yet" vs "you know it and are not looking", inferred from population statistics (knowledge rate; thinks-long tempo). Called from `routes/home.py`, `motif_drill_service.py`, `opportunity_gate.py` | Yes. Whether its output reaches a screen today: not checked |
+| `grade_destination_safety_candidate` / `destination_safety_exact` (PLAN grade in `detector_quality.py`) | Says, from the board, whether a piece landed where it can be taken | Yes |
+
+**Decision (proposed):** EXTEND Reflect V1 rather than build a new reflection.
+Keep its storage (`reflection_sessions`) and its intent ids; replace the
+generic text chips with board taps whose options the board computes; add two
+answers it does not collect today: *found the taker when asked* (a tap test)
+and *saw it in the game* (a self-report). Those two give
+`two_layer_diagnosis` direct evidence per moment instead of only a population
+inference. The tap flow is the child's screen; the coach reads the results.
+
 ---
 
 ## 1. What it is
 
-Every week, ChessGuru reads each student's games, finds the one thing that is
-costing them most, and writes that student a short plan: puzzles to solve, one
-position from their own game to study, a game to play, and a game to look at
-again, each with a one-line reason. A coach opens the student, reads the plan,
-changes anything they disagree with, and approves it; only then does the
-student (and, for a child, the parent) see it. A player without a coach gets
-the same plan from the same engine, sent straight to them, but only for
-problems the engine can prove on the board. Next week the plan is checked
-against the student's new games, and every change a coach makes is recorded,
-so we learn which kinds of plan are good enough to run without a coach.
+Every week, ChessGuru finds the one problem that cost each student the most
+results, not the one that happened most often. It then works out the cause
+with the student: on two or three of their own moments, the student answers
+by tapping the board what the move was for, which enemy piece could take it,
+and whether they saw that piece in the game. From those answers the coach
+sees whether the student does not know the pattern, knows it and did not look,
+or saw it and misjudged the trade. The plan then teaches a warning sign — one
+question to ask before moving — and sets one rule for real games. Puzzles and
+replays practise that question; they are not the plan. Next week the rule is
+checked against the student's new games. A head coach approves each student's
+plan from one batch page; a player without a coach gets the same plan with no
+approval step, only for problems the engine can prove on the board.
 
 ## 2. What the user sees
 
-All names, games and counts below are illustrative. Before code, screen 2b is
-rebuilt as a clickable mock from real games (section 7).
+The child's screen is built as a clickable mock on three real moments from the
+test child's games: https://claude.ai/artifact/78PJ9nfnTgWPSjKZ6Ha8Jr (version 3,
+2026-11-09). The coach screens below are text sketches; their clickable mock
+is a pre-code requirement (section 7). Names and counts below are illustrative.
 
-### 2a. Coach — the batch page gains a plan column
-
-```
-Saturday batch                                       This week (9–15 Nov)
-┌──────────┬──────────────────────────────┬───────────────┬──────────────┐
-│ Child    │ What we saw                  │ Plan          │ Needs you?   │
-├──────────┼──────────────────────────────┼───────────────┼──────────────┤
-│ Asha     │ Leaves pieces where they can │ Ready to      │ Approve plan │
-│          │ be taken                     │ approve       │              │
-│ Kabir    │ Not enough games yet         │ Lessons only  │ —            │
-│ Meera    │ Misses forks                 │ Approved      │ —            │
-└──────────┴──────────────────────────────┴───────────────┴──────────────┘
-```
-
-### 2b. Coach — one student's plan (the core screen)
+### 2a. Coach — batch page, approve every student's plan
 
 ```
-Asha · plan for 9–15 Nov                                   Draft, not sent
-────────────────────────────────────────────────────────────────────────────
-WHAT WE SAW (6 games since last Saturday)
-  She leaves a piece where it can be taken — in 4 of the 6 games.
-  [ See the 3 clearest moments ]
-
-LAST WEEK'S PLAN
-  Done: 7 of 10 puzzles, Win it back.  Not done: review.
-  The habit: 4 games of 6 this week, 5 of 6 the week before — about the same.
-
-THIS WEEK'S PLAN
-  1  PUZZLES   10 positions: "Something here is loose. Find the move."
-               6 from her own games, 4 from Lichess (hanging piece, near her
-               level).                                   [ Change ] [ Remove ]
-  2  STUDY     Her game vs Rohan, move 14. Her bishop on b5 was attacked by
-               the knight and she moved the other bishop.   [ Pick another ]
-  3  PLAY      Win it back: vs Rohan from move 18, she was winning.
-                                                         [ Pick another ]
-  4  REVIEW    Her loss vs Dev (24 moves): the clearest example this week.
-                                                         [ Pick another ]
-
-  Why this plan: the same slip in 4 games; nothing else came close.
-  Change the focus: [ Piece safety ▾ ]   (also seen: misses forks, 2 games)
-
-  Note to Asha (optional): [ __________________________________ ]
-
-  [ Approve and send ]      [ Skip this week ]
+Saturday batch                                         This week (9–15 Nov)
+┌────────┬────────────────────────────┬──────────────────────┬──────────────┐
+│ Child  │ Costliest problem          │ Cause (from her taps)│ Needs you?   │
+├────────┼────────────────────────────┼──────────────────────┼──────────────┤
+│ Asha   │ Pieces left where they can │ Not looking: finds   │ Approve      │
+│        │ be taken (lost 2 good      │ the taker when asked,│ [ Approve ]  │
+│        │ positions)                 │ didn't see it in game│              │
+│ Kabir  │ Not enough games yet       │ —                    │ —            │
+│ Meera  │ Pieces left where they can │ Doesn't see knight   │ Approve      │
+│        │ be taken                   │ jumps yet            │ [ Approve ]  │
+└────────┴────────────────────────────┴──────────────────────┴──────────────┘
+[ Approve all unchanged ]
 ```
 
-Every "Pick another" offers two or three alternatives the engine already
-checked. The coach chooses; they do not type chess.
-
-### 2c. Student / child — the plan they receive
-
-On the child's class page (academy) or the player's Home (self-coach):
+### 2b. Coach — one student
 
 ```
-This week with your coach
-  ○ Puzzles: find the loose piece          ●●●●○○○○○○
-  ○ Look at one moment from your game      [ Open ]
-  ○ Win it back vs Rohan                   [ Play ]
-  ○ Look again at your game vs Dev         [ Open ]
-  Coach says: "Ask: is anything of mine attacked?"
+Asha · 9–15 Nov                                          Draft, not sent
+──────────────────────────────────────────────────────────────────────────
+COSTLIEST PROBLEM
+  Leaving a piece where it can be taken. Lost 2 positions that were level
+  or better, in 6 games.                         [ See the moments ]
+
+WHAT HER REFLECTIONS SAY (3 moments)
+  Qf3  wanted: bring the queen out · taker: knight e5 (knight jump)
+       found it when asked: yes · in the game: didn't see it
+  Rc7  wanted: attack the knight on e7 · taker: bishop h2 (long diagonal)
+       found it when asked: no · in the game: didn't see it
+  ...
+  Cause: mostly NOT LOOKING (she finds the piece when she looks).
+
+WARNING SIGN
+  General check: "Before any piece lands: pieces close by, knight jumps,
+  long lines to the edge."     (No sign of her own beats her baseline yet.)
+
+RULE FOR REAL GAMES THIS WEEK
+  Do the three looks before every move that puts a piece on a new square.
+                                                           [ Change ▾ ]
+
+PRACTICE (practises the sign)
+  Her 2 other moments in the tap flow · 6 positions: "can it be taken here?"
+
+LAST WEEK'S CHECK
+  The problem: 4 games of 6 → 2 games of 5.  Slower at those moments: yes.
+
+  [ Approve and send ]   [ Skip this week ]
 ```
 
-No numbers about the child's play and no score: only what to do and how far
-through it they are.
+### 2c. Child — the reflection, then the rule
 
-### 2d. Parent — one extra line in the existing weekly report
+The tap flow in the mock: what was it for (tap the ringed pieces it attacks or
+guards, or "Bring it into play" / "Not sure" / "Something else") → which of
+his pieces can take it (tap them) → "in the game, did you see it?" (three
+buttons) → what happened → your turn (tap a square, the board does the check
+aloud) → "Your reflection" card and this week's rule. No typing anywhere.
+Every reply comes from the board or the engine; none is written by an AI.
+
+### 2d. Parent — one line in the existing weekly report
 
 ```
-This week Asha's coach set her four short tasks on keeping her pieces safe.
-She finished most of them.
+This week Asha looked back at three moments from her games and has one
+thing to check before she moves. Her coach will see how it goes.
 ```
 
-### 2e. Self-coach player — same plan, no approval step
+### 2e. Self-coach player — same flow, no approval
 
-The same block as 2c on Home, titled "Your plan this week". Offered only when
-the player's focus is on the proven list (section 3). Otherwise Home stays as
-it is today.
+The same reflection flow and rule on Home, only for problems on the proven
+list (section 3).
 
 ## 3. In scope (V1)
 
-- **One diagnosis for both doors.** Academy children are read by the same focus
-  picker as every other player (`user_active_focus`), not by the academy's own
-  count. A child with too few games gets "Not enough games yet" and a
-  lessons-only plan.
-- **A weekly plan with four kinds of item**, each with a one-line reason built
-  from board facts (never written by the AI):
-  - puzzles: the student's own verified positions first, then Lichess puzzles
-    by theme (`topic_practice_themes`) near their rating, never one already
-    solved;
-  - one study position: the clearest moment from their week's games;
-  - one game to play: Win it back (existing) or a class game (existing);
-  - one game to review: the existing coach-selected review pick.
-- **Proven ideas only** in V1: piece safety and the tactic themes already mapped
-  (hanging piece, fork, pin, skewer, discovered attack). Any other focus shows
-  the coach the diagnosis but no puzzle block, with "No checked puzzles for
-  this yet".
-- **Coach screen (2b):** approve, skip, remove an item, pick another from
-  engine-checked alternatives, change the focus to a runner-up, add a note.
-- **Every coach action is recorded** per item and per idea: approved unchanged,
-  swapped, removed, focus changed, skipped.
-- **Student view (2c)** on the class page. Each item opens the existing puzzle,
-  review or Win it back page, and is ticked when done.
-- **Last week's plan** shown to the coach: what was done, and the habit this
-  week against the week before, using the existing academy trend rule.
-- **Parent line (2d)** in the existing weekly report, no numbers.
-- **Self-coach door (2e):** the same plan on Home with no approval, only when
-  the focus is on the proven list.
-- **Plans build in the background** with the existing two-hourly week rebuild;
-  opening a page never runs the engine on a request.
-- **No plan line is read from game-review captions.** "What we saw" comes from
-  the focus record; the study position's reason is built from the board. A
-  caption the verifier emptied must never leave a plan item without a reason.
+- **Rank problems by results lost, not frequency.** A moment counts when the
+  position was level or better before it and the game was then lost or drawn.
+  The exact cut is locked with data (section 7).
+- **One proven problem in V1: a piece left where it can be taken**
+  (`destination_safety_exact`, PLAN grade). It is the only problem with both a
+  trusted detector and a tap test already mocked. *Proposed narrowing — the
+  signed version also listed fork, pin, skewer and discovered attack; Mohit
+  decides.*
+- **The child's reflection flow (2c)** on two or three of the week's moments,
+  chosen by results lost. Options on the board are computed from the board:
+  pieces the move attacks, own pieces it guards that were under attack, and
+  "bring it into play" checked against the piece's starting square.
+- **Three recorded answers per moment:** what the move was for (Reflect V1
+  intent ids), found the taker when asked (tap test), saw it in the game
+  (self-report). Stored in `reflection_sessions`.
+- **Cause per student**, from those answers, in three kinds: not looking,
+  doesn't know the pattern yet (named by the taker's kind: knight jump, long
+  line, piece close by), misjudged the trade. Fed to `two_layer_diagnosis` as
+  direct evidence.
+- **Warning sign:** the general three-look check by default. A sign specific
+  to the child (for example "long diagonals") is shown only when it beats that
+  child's own baseline by the bar locked in section 7; never shown as fact
+  otherwise.
+- **One rule for real games per week**, and **next week's check**: did the
+  problem happen less in the new games, and did the child take longer on the
+  moves where a piece could be taken. Think-time is read from
+  `move_observations` (clock fields filled 2026-11-09).
+- **Practice that drills the sign:** the child's other moments in the tap
+  flow, and positions asking "can it be taken here?" from their own games.
+  Lichess puzzles only where they train the same side of the habit (see the
+  note on "hanging piece" below).
+- **Coach screens (2a, 2b):** approve all unchanged, approve one, change the
+  rule, skip. Every coach action recorded.
+- **Parent line (2d)**, no numbers. **Self-coach door (2e)**, proven list only.
+- **Background build** with the two-hourly week rebuild; no engine work on a
+  page load; never scan `game_analyses` on a request.
 
 ## 4. Explicitly out of scope (V1)
 
-- **Coaches writing their own puzzles or typing chess content.** They choose
-  among engine-checked options only.
-- **Ideas beyond the proven list:** positional ideas (all 36 are still in
-  shadow on `/admin/detector-review`), king safety, endgames, openings.
-- **The 15-minute AI personal class** (`docs/ai_personal_class_scope.md`). It
-  can later become an item in the plan; it is not built here.
-- **A plan for a whole batch at once.** The existing "suggested class topic"
-  stays as it is.
-- **Sending automatically.** WhatsApp stays the coach's own tap, as today.
-- **Showing the "did it work" verdict to children or parents.** Coach only in V1.
-- **A new mastery verdict.** The plan writes evidence; `concept_mastery_service`
-  stays the only owner of "learnt".
-- **Payments and plan pricing.**
-- **Redesigning the adult Home** beyond adding the plan block.
-- **Reminders, streaks, badges.**
-- **Opening traps from Lichess.** Lichess themes are tactics, not traps; traps
-  stay in our own 18-trap library.
+- **Typing, free text and AI-written replies** to the child. Every answer is a
+  tap; every reply comes from the board or the engine.
+- **Problems beyond piece safety** in V1 (if Mohit accepts the narrowing):
+  missed tactics, positional ideas (all 36 in shadow), king safety, endgames,
+  openings. The coach still sees them named as runners-up.
+- **Showing the cause or the check result to children or parents** as a
+  verdict. The child sees their own reflection card only.
+- **A new mastery verdict.** `concept_mastery_service` stays the owner of
+  "learnt".
+- **The 15-minute AI personal class**, automatic sending, payments, reminders,
+  streaks, badges, opening traps from Lichess.
+- **A new collection.** Reflections go in `reflection_sessions`, the week's
+  plan on the week row.
 
 ## 5. Success criteria
 
-1. **Coaches trust it.** Share of plans approved with at most one change, per
-   idea. The bar is set by Mohit before the pilot starts. This is the "90%
-   automation" claim, measured instead of assumed.
-2. **Students do it.** Share of approved plan items finished within the week.
-3. **It reaches real games.** For children who finish three weekly plans on one
-   idea, the habit's rate in their own games compared with their weeks before
-   the first plan. Reported to coaches only through the existing trend rule.
-4. **Coach time.** Minutes from opening a student's plan to approving it,
-   median per coach. The target is set by Mohit.
-5. **The self-coach door is earned, not assumed.** An idea is offered there
-   only after its coach-approval share passes the bar in (1) on enough plans;
-   that count is locked with data, not chosen now.
+1. **The problem happens less in real games.** For children who did two weekly
+   rules on piece safety, the rate in their own games against their weeks
+   before the first rule. Reported to coaches through the existing trend rule.
+2. **They look longer where it matters.** Think-time on moves that land a
+   piece where it can be taken, against the child's own baseline.
+3. **Children finish the reflection.** Share of assigned moments reflected on
+   within the week.
+4. **Coaches trust it.** Share of plans approved with at most one change; the
+   bar set by Mohit. **Coach time:** median minutes per batch.
+5. **The self-coach door is earned:** offered only after (4) passes on enough
+   plans; the count locked with data.
 
-Not success: plans generated, pages viewed, puzzles served.
+Not success: reflections started, pages viewed, puzzles served.
 
 ## 6. Open questions
 
 | Question | Why unresolved | Unblocking step |
 |---|---|---|
+| V1 limited to piece safety? | Proposed narrowing of the signed scope | Mohit decides. |
+| How "results lost" is cut (level-or-better before, lost or drawn after; which eval band) | Not measured for this use | `/lock-via-data` on the pilot children's games. |
+| The bar a child-specific warning sign must clear | The diagonal sign the Game Review session tested scored 5/16 vs 1/21 (knight) and 3/59 (near piece), but the split was chosen after looking, across four comparisons (relayed, not re-run here) | `/lock-via-data`: fix the comparison before looking, then measure. |
+| Is the "saw it in the game" self-report honest? | A child may tap "didn't see it" by default | Measure agreement with the tap test on the pilot weeks; if the two never disagree, the question adds nothing. |
+| How many moments a week to reflect on | Taste and completion data | Start at 3; adjust from success measure 3. |
+| Reflect V1's latest `reflection_sessions` row has none of the V1 intent fields | Its writer is not found yet | Find the writer before calling it a bug. |
 | ~~Where does an approved plan live?~~ The improvement-cycle scope says "no rival program collection", but an approval and its edits must be stored somewhere. | **Answered 2026-11-09: the week row** (Mohit, "so, go ahead") | **Confirmed:** on the existing week row (`academy_student_weeks`, unique on student + week, `academy.py:74`), so no new collection. Store the draft as generated, the coach's changes, `opened_at`, `approved_by`, `approved_at` — measures 1 and 4 need them, and parent reports already keep who approved and when (`academy.py:579-581`). The week rebuild writes with `$set` (`academy.py:262-266`), so the plan must be carried over the way a good moment is (`academy.py:253-261`): the approval survives only when the focus is unchanged; a new focus starts a new, unapproved draft. Self-coach door: read from the focus, nothing stored in V1. |
 | ~~Lichess puzzles for children: yes or no?~~ | **Answered: YES** — Mohit to the Game Review session, 2026-11-08 (relayed, not said in this session). | The October theme route (`topic_practice_themes.py`) is the rule for children; the 2026-04-21 note in `coaching_puzzle_service.py` no longer governs the plan. |
 | ~~The rating used for the puzzle window.~~ **Traced 2026-11-09** (prod, read-only). | Mohit's 912 is the median of his last three chess.com games (`rating_source: chess.com`; chess.com rapid 920, 912, 904; last chess.com game 2026-09-24). He now plays on Lichess (blitz about 1340, rapid about 1436). `resolve_coaching_rating` keeps the named source even when it has gone quiet (`rating_resolver.py:157-174`). The test child has no named source, so it gets 1432 from Lichess (`sample_games: 3`, blitz and rapid mixed). | Children: correct. Adults with a quiet named source: the puzzle window would be wrong. Changing the resolver touches every rating-aware surface, so it is a separate decision for Mohit, not part of this build. |
@@ -301,12 +326,25 @@ Not success: plans generated, pages viewed, puzzles served.
   every rating point measured (700 to 1900), and fork is 100,338 or more. A
   child will not repeat a puzzle within a month at any number per week under
   2,000.
-- A clickable mock of screen 2b, built from real games, is reviewed by Mohit
-  before the first file (card is the product). **Built 2026-11-09:**
-  https://claude.ai/artifact/GjGUF5uDipvQ7nTZe2bZbV (test child, week 2–8 Nov,
-  every position and board fact from prod). Awaiting Mohit's review.
-- `/lock-via-data` for what Mohit sets (approval bar, coach-time target,
-  puzzles per week), then `/audit-pre-code` passes.
+- ~~A clickable mock of the puzzle-led screen 2b~~ (GjGUF5uDipvQ7nTZe2bZbV).
+  Reviewed and **rejected** by Mohit as basic; superseded.
+- **Mohit signs off this revised document.**
+- **Child's tap flow mock** (2c): https://claude.ai/artifact/78PJ9nfnTgWPSjKZ6Ha8Jr.
+  Mohit's review so far fixed two things (more than one pick; "bring it into
+  play" and "did you see it in the game"). Every board fact in it was computed
+  with python-chess and depth-16 Stockfish on prod; not yet clicked through
+  end to end by anyone but Mohit.
+- **Coach screens mock** (2a, 2b) from the test child's real reflections.
+- **Find the writer** of the `reflection_sessions` row without V1 intent
+  fields, and check what `Reflect.jsx` renders today, before extending it.
+- **Check whether `two_layer_diagnosis` reaches any screen today**, so its new
+  evidence lands somewhere.
+- **Re-run the Game Review session's child think-time figures** after the
+  2026-11-09 clock backfill: before it, worker-written `move_observations` had
+  no clock fields.
+- `/lock-via-data`: the results-lost cut, the warning-sign bar, the
+  next-week check, and what Mohit sets (approval bar, coach-time target);
+  then `/audit-pre-code` passes.
 
 ### Found while running the pre-code checks (2026-11-09), for the build
 
@@ -361,3 +399,10 @@ Not success: plans generated, pages viewed, puzzles served.
   relayed by the Game Review session, added to the "one theme or several"
   question. Detector grades re-checked on origin and matched. The record-every-miss
   proposal is still waiting for Mohit.
+- 2026-11-09 — Mohit rejected the puzzle-led mock (relayed by the Game Review
+  session) and, per that session, approved its cause-first recommendation there
+  ("go ahead, do what you recommend"). In this session he asked for a tap-only
+  board ("i don't want typing, how can we make board interactable"), reviewed
+  the tap mock twice, and answered "okay". Sections 1–7 rewritten for the
+  cause-first direction; Section 0 gained Reflect V1 and two-layer diagnosis.
+  **Not signed:** the rewrite itself awaits Mohit's explicit sign-off.
