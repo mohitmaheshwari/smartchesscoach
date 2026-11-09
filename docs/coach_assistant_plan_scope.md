@@ -265,8 +265,8 @@ Not success: plans generated, pages viewed, puzzles served.
 |---|---|---|
 | ~~Where does an approved plan live?~~ The improvement-cycle scope says "no rival program collection", but an approval and its edits must be stored somewhere. | **Answered 2026-11-09: the week row** (Mohit, "so, go ahead") | **Confirmed:** on the existing week row (`academy_student_weeks`, unique on student + week, `academy.py:74`), so no new collection. Store the draft as generated, the coach's changes, `opened_at`, `approved_by`, `approved_at` — measures 1 and 4 need them, and parent reports already keep who approved and when (`academy.py:579-581`). The week rebuild writes with `$set` (`academy.py:262-266`), so the plan must be carried over the way a good moment is (`academy.py:253-261`): the approval survives only when the focus is unchanged; a new focus starts a new, unapproved draft. Self-coach door: read from the focus, nothing stored in V1. |
 | ~~Lichess puzzles for children: yes or no?~~ | **Answered: YES** — Mohit to the Game Review session, 2026-11-08 (relayed, not said in this session). | The October theme route (`topic_practice_themes.py`) is the rule for children; the 2026-04-21 note in `coaching_puzzle_service.py` no longer governs the plan. |
-| The rating used for the puzzle window. Mohit's live focus says `rating_used: 912`, band "beginner". Not checked why. | Not investigated | Trace `resolve_coaching_rating` for his account before puzzles are picked by rating. |
-| Mohit also has a focus row from 2026-07-02 marked `status: active` ("Low blunder rate", type strength) beside the November king-safety one. Not checked whether that is intended. | Not investigated | Read `primary_weakness_picker` for how strength rows are kept. |
+| ~~The rating used for the puzzle window.~~ **Traced 2026-11-09** (prod, read-only). | Mohit's 912 is the median of his last three chess.com games (`rating_source: chess.com`; chess.com rapid 920, 912, 904; last chess.com game 2026-09-24). He now plays on Lichess (blitz about 1340, rapid about 1436). `resolve_coaching_rating` keeps the named source even when it has gone quiet (`rating_resolver.py:157-174`). The test child has no named source, so it gets 1432 from Lichess (`sample_games: 3`, blitz and rapid mixed). | Children: correct. Adults with a quiet named source: the puzzle window would be wrong. Changing the resolver touches every rating-aware surface, so it is a separate decision for Mohit, not part of this build. |
+| ~~Mohit's July strength row still `status: active`.~~ **Answered 2026-11-09:** intended. | Strength rows (`type: strength`) are one per player, overwritten in place (`primary_strength_picker.py:262-266`), and skipped by the weakness picker (`primary_weakness_picker.py:503-511`). They are written only by a manual script (`scripts/assign_strengths.py:7`), so the row stays from July. | None for this scope. |
 | What approval share, on how many plans, makes an idea safe for the self-coach door? | Needs pilot data | `/lock-via-data` after the first weeks of coach approvals. |
 | One theme or several? `topic_practice_themes` maps a broad weakness to several themes (missed tactic gives fork, pin, skewer and discovered attack). A coach would pick the one motif the student actually missed. | Granularity not decided | Decide whether the plan narrows to the single missed motif when the focus evidence names one. |
 | Filter puzzles by the student's own openings ("forks from your Italian games")? | `opening_tags` is not indexed; a count on it ran over 10 minutes (Game Review session) | Decide if wanted; if yes, add the index after a deploy, then measure. |
@@ -279,15 +279,56 @@ Not success: plans generated, pages viewed, puzzles served.
 - ~~Mohit signs off this document.~~ Done 2026-11-09.
 - ~~Mohit confirms the recommended storage (the week row).~~ Done 2026-11-09.
   Lichess for children is answered (yes).
-- The rating used for the puzzle window is traced and correct for at least
-  Mohit's account and the test child.
-- The focus picker is run read-only on the academy test children and returns a
-  sensible result or "not enough games", never an error.
-- Puzzle supply is counted for each proven idea at each rating band: enough
-  unsolved puzzles that a child does not repeat one within a month.
+- ~~The rating used for the puzzle window is traced.~~ Done 2026-11-09. Correct
+  for the test child (1432, Lichess). Mohit's 912 comes from a chess.com source
+  that went quiet in September (section 6); fixing that is a separate decision.
+- ~~The focus picker is run read-only on the academy test children.~~ Done
+  2026-11-09 by calling `pick_next_focus`, which writes nothing, with the
+  active-focus check stubbed out in memory. Results:
+  - Child 1 (Lichess linked, 64 analysed games): the stored active focus is
+    piece safety, and it stays until closed. A fresh pick today would choose
+    time management (36 games lost on time), with king safety, missed tactic and
+    piece safety as runners-up.
+  - Child 2 (no online account, one class game): no focus, because the picker
+    needs 10 analysed games. This is the "Not enough games yet" path, not an
+    error.
+  - The improvement-cycle query is off for role `student` (`pic_enabled:
+    false`), so children are read with the older evidence query and admins with
+    the newer one.
+- ~~Puzzle supply is counted.~~ Done 2026-11-09 with the plan's own query
+  (`topic_practice_themes.mongo_query`: theme, from 150 below to 250 above the
+  rating). Smallest: pin near 700, 9,242. Hanging piece is 28,215–40,763 at
+  every rating point measured (700 to 1900), and fork is 100,338 or more. A
+  child will not repeat a puzzle within a month at any number per week under
+  2,000.
 - A clickable mock of screen 2b, built from real games, is reviewed by Mohit
-  before the first file (card is the product).
-- `/audit-pre-code` passes.
+  before the first file (card is the product). **Built 2026-11-09:**
+  https://claude.ai/artifact/GjGUF5uDipvQ7nTZe2bZbV (test child, week 2–8 Nov,
+  every position and board fact from prod). Awaiting Mohit's review.
+- `/lock-via-data` for what Mohit sets (approval bar, coach-time target,
+  puzzles per week), then `/audit-pre-code` passes.
+
+### Found while running the pre-code checks (2026-11-09), for the build
+
+- **The academy's own count and the focus detector disagree** on the same week.
+  The academy counted 5 of 19 games (examples Ne4 and Qd3). The focus detector
+  (`destination_safety_exact`, the only subtype the quality gate authorises)
+  counted 6 of 19 games, at seven moves that include neither example. The plan
+  takes its moments from the focus detector, as section 3 says.
+- **Lichess "hanging piece" puzzles train the other side of this habit**: they
+  ask the child to take a loose piece, while the habit is leaving one's own
+  piece loose. The mock says so to the coach. Puzzles from the child's own
+  games train the habit itself.
+- **One position can be both the study item and a puzzle** (the Rf7 moment vs
+  AboutToBlunder is also own-game puzzle `fb48ae2c_m32`). The build removes the
+  duplicate.
+- **The existing review chooser writes when asked** (`get_recommendation`
+  creates a prescription row). The plan must use the read-only candidate loader
+  (`_load_candidates`), run it in the background, and never scan
+  `game_analyses` on a page load.
+- Seen, not checked: the existing `/training/prescribed` payload labels Lichess
+  hanging-piece puzzles with `themes: ["calculation_depth"]`, while the puzzles
+  themselves carry `hangingPiece`. Not checked whether any page shows that label.
 
 ---
 
@@ -306,3 +347,5 @@ Not success: plans generated, pages viewed, puzzles served.
   his sign-off and a yes on week-row storage: "so, go ahead". Recorded as sign-off
   of the document and confirmation of the week-row storage. Still unanswered: the
   `ai_personal_class_scope.md` contradiction (not blocking this scope).
+- 2026-11-09 — Section 7 run: rating traced, picker run read-only, supply
+  counted, mock built. Waiting on Mohit's review of the mock and on his numbers.
