@@ -78,10 +78,17 @@ DEFAULT_MIN_POPULARITY = 80   # Lichess scale: 80 = 80%+ of solvers liked it
 BATCH_SIZE = 1000
 
 
-def _stream_decompressed_lines(url: str) -> Iterator[str]:
-    """Stream-download the zstd-compressed CSV and yield decoded text
-    lines without holding the full file in memory.
+def _stream_decompressed_lines(url: str, path: str | None = None) -> Iterator[str]:
+    """Stream the zstd-compressed CSV (from `path` when given, else from the
+    URL) and yield decoded text lines without holding the file in memory.
     """
+    dctx = zstandard.ZstdDecompressor()
+    if path:
+        logger.info(f"Reading local file: {path}")
+        stream_reader = dctx.stream_reader(open(path, "rb"))
+        for line in io.TextIOWrapper(stream_reader, encoding="utf-8", newline=""):
+            yield line
+        return
     logger.info(f"Streaming download: {url}")
     response = requests.get(url, stream=True, timeout=300)
     response.raise_for_status()
@@ -89,7 +96,6 @@ def _stream_decompressed_lines(url: str) -> Iterator[str]:
     total_bytes = int(response.headers.get("content-length", 0))
     logger.info(f"Compressed size: {total_bytes / 1024 / 1024:.1f} MB")
 
-    dctx = zstandard.ZstdDecompressor()
     stream_reader = dctx.stream_reader(response.raw)
     text_stream = io.TextIOWrapper(stream_reader, encoding="utf-8", newline="")
     for line in text_stream:
@@ -139,6 +145,9 @@ async def _ensure_indexes(db) -> None:
     await coll.create_index([("themes", ASCENDING)])
     await coll.create_index([("rating", ASCENDING)])
     await coll.create_index([("popularity", ASCENDING)])
+    # Opening tags were stored but never indexed, so nothing could filter on
+    # them: a count over them ran past ten minutes (2026-11-08).
+    await coll.create_index([("opening_tags", ASCENDING)])
 
 
 async def main(
@@ -147,6 +156,8 @@ async def main(
     min_popularity: int,
     limit: int | None,
     dry_run: bool,
+    path: str | None = None,
+    only_new: bool = False,
 ) -> None:
     mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
     db_name = os.environ.get("DB_NAME", "chess_coach")
@@ -172,7 +183,10 @@ async def main(
     written = 0
     batch: List[UpdateOne] = []
 
-    line_iter = _stream_decompressed_lines(LICHESS_PUZZLE_URL)
+    line_iter = _stream_decompressed_lines(LICHESS_PUZZLE_URL, path)
+    if only_new:
+        print("Only new puzzles: existing rows are not touched. Undo: delete rows whose "
+              f"imported_at >= {datetime.now(timezone.utc).isoformat()}")
 
     # First line is the CSV header.
     header_line = next(line_iter)
@@ -205,7 +219,7 @@ async def main(
         if not dry_run:
             batch.append(UpdateOne(
                 {"puzzle_id": doc["puzzle_id"]},
-                {"$set": doc},
+                {"$setOnInsert": doc} if only_new else {"$set": doc},
                 upsert=True,
             ))
 
@@ -250,6 +264,10 @@ if __name__ == "__main__":
                         help="Cap on number of imported puzzles (after filtering).")
     parser.add_argument("--dry-run", action="store_true",
                         help="Don't write — just count rows passing filters.")
+    parser.add_argument("--file", default=None,
+                        help="Read a downloaded lichess_db_puzzle.csv.zst instead of streaming it.")
+    parser.add_argument("--only-new", action="store_true",
+                        help="Insert puzzles not already stored; leave existing rows as they are.")
     args = parser.parse_args()
 
     asyncio.run(main(
@@ -258,4 +276,6 @@ if __name__ == "__main__":
         min_popularity=args.min_popularity,
         limit=args.limit,
         dry_run=args.dry_run,
+        path=args.file,
+        only_new=args.only_new,
     ))
