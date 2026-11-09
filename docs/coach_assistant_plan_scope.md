@@ -347,6 +347,14 @@ Not success: plans generated, pages viewed, puzzles served.
   his sign-off and a yes on week-row storage: "so, go ahead". Recorded as sign-off
   of the document and confirmation of the week-row storage. Still unanswered: the
   `ai_personal_class_scope.md` contradiction (not blocking this scope).
+- 2026-11-09 — Mohit also said "go ahead" in the Game Review session (relayed
+  by that session). It came after he described the product as two doors (an
+  assistant to a head coach, and a coach for players who have none). He had been
+  told the scope already has both doors, coach door first with the self-coach
+  door earned from it (success measure 5), and that his sign-off and the
+  week-row storage were the open items. This is the same reading as the entry
+  above: sign-off plus storage. It does not decide the record-every-miss
+  proposal, which stays discussed, not decided.
 - 2026-11-09 — Section 7 run: rating traced, picker run read-only, supply
   counted, mock built. Waiting on Mohit's review of the mock and on his numbers.
 - 2026-11-09 — Mohit's "track precisely what each child misses" direction,
