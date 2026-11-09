@@ -482,16 +482,38 @@ def cleanup_stuck_jobs(db):
     requeued = 0
     # Cooldown is filtered in the Mongo query (Mongo compares datetimes tz-safely,
     # avoiding naive-vs-aware errors); a missing failed_at counts as old enough.
-    for job in db.analysis_queue.find({
+    #
+    # The cap is on retries MADE, not on rows READ. This was
+    # `.find(...).limit(FAILED_RETRY_BATCH)`, and the skip rules below need the
+    # game, which the query cannot see. Production on 2026-11-09 had 449 failed
+    # rows; the first 25 in scan order all belonged to games another job had
+    # since analysed, so every pass read those same 25, skipped them all, and
+    # the 396 unanalysed games behind them -- 367 from one outage on
+    # 2026-08-28/29 -- were never retried.
+    candidates = list(db.analysis_queue.find({
         "status": "failed",
         "retry_count": {"$lt": MAX_RETRIES},
         "$or": [{"failed_at": {"$lt": retry_cutoff}}, {"failed_at": {"$exists": False}}],
-    }).limit(FAILED_RETRY_BATCH):
+    }, {"_id": 1, "game_id": 1, "retry_count": 1, "error": 1, "failure_reason": 1}))
+    game_ids = list({j.get("game_id") for j in candidates if j.get("game_id")})
+    games_by_id = {}
+    if game_ids:
+        # One read for every candidate, and the PGN reduced to "has one" so
+        # a sweep does not pull every failed game's full text each minute.
+        for g in db.games.aggregate([
+            {"$match": {"game_id": {"$in": game_ids}}},
+            {"$project": {"_id": 0, "game_id": 1, "is_analyzed": 1, "analysis_error": 1,
+                          "pgn": {"$gt": [{"$strLenCP": {"$ifNull": ["$pgn", ""]}}, 0]}}},
+        ]):
+            games_by_id[g["game_id"]] = g
+    for job in candidates:
+        if requeued >= FAILED_RETRY_BATCH:
+            break
         game_id = job.get("game_id")
         if not game_id:
             continue
         # Only retry if the game still needs analysis and has a PGN to work from.
-        g = db.games.find_one({"game_id": game_id}, {"_id": 0, "is_analyzed": 1, "pgn": 1, "analysis_error": 1})
+        g = games_by_id.get(game_id)
         if not g or g.get("is_analyzed") or not g.get("pgn"):
             continue
         err_l = (str(g.get("analysis_error") or "") + " " + str(job.get("error") or job.get("failure_reason") or "")).lower()
@@ -3135,8 +3157,18 @@ def _process_job(db, job):
         
     except Exception as e:
         logger.exception(f"[EXCEPTION] Error processing game {game_id}: {e}")
-        mark_job_failed(db, game_id, str(e)[:500])
+        mark_job_failed(db, game_id, _error_text(e)[:500])
         return False
+
+
+def _error_text(exc: BaseException) -> str:
+    """The exception's message, or its type when the message is empty.
+
+    str(TimeoutError()) is "". 396 failed jobs on production carried an empty
+    last_error and analysis_error -- 367 of them from 2026-08-28/29 -- so the
+    cause of that outage was recorded nowhere (found 2026-11-09).
+    """
+    return str(exc) or type(exc).__name__
 
 
 def mark_job_failed(db, game_id, error_message):
