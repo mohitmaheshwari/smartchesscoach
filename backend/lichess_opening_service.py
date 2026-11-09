@@ -111,17 +111,22 @@ async def fetch_lichess_opening(
     if cache_key in _opening_cache:
         return _opening_cache[cache_key]
     
+    from services.lichess_openings_local import explorer_headers
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.get(url, params=params)
-            
+            response = await client.get(url, params=params, headers=explorer_headers())
+
             if response.status_code == 200:
                 data = response.json()
-                
+
                 # Cache the result
                 _opening_cache[cache_key] = data
-                
+
                 return data
+            elif response.status_code == 401:
+                logger.warning("Lichess opening explorer refused the request (401): it needs "
+                               "LICHESS_API_TOKEN, a personal token without scopes")
+                return None
             else:
                 logger.warning(f"Lichess API returned {response.status_code}")
                 return None

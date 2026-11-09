@@ -562,21 +562,30 @@ class CoachCommentary:
         board = chess.Board(fen)
         if board.fullmove_number > 15:
             return None, None
-        
+
+        # Lichess's own opening list first: no network, no token, and the
+        # explorer below answers 401 without a token (2026-11-09).
+        from services.lichess_openings_local import name_for_fen
+        local = name_for_fen(fen)
+        if local:
+            self._opening_cache[fen] = local
+            return local
+
         # Rate limiting
         now = time.time()
         if now - self._last_api_call < self._api_cooldown:
             await asyncio.sleep(self._api_cooldown - (now - self._last_api_call))
         
+        from services.lichess_openings_local import explorer_headers
         try:
             # URL encode the FEN
             encoded_fen = urllib.parse.quote(fen)
             url = f"{LICHESS_OPENING_EXPLORER}?fen={encoded_fen}"
-            
+
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     url,
-                    headers={"Accept": "application/json"},
+                    headers=explorer_headers(),
                     timeout=5.0
                 )
                 

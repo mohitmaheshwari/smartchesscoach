@@ -20,8 +20,11 @@ only: nothing in the product reads these files yet.
   2026-11-09), so `lichess_opening_service.py` gets nothing today.
 - **Explorer statistics** (move frequencies and results by rating and speed,
   and the masters database): same token.
-- **Puzzle refresh.** Lichess's puzzle file was updated 2026-11-01; ours is
-  from 2026-04-27. `opening_tags` on `lichess_puzzles` has no index.
+- ~~Puzzle refresh.~~ **Done 2026-11-09:** `lichess_puzzles` 4,110,434 →
+  4,423,645 (313,211 new, same filters: rating 600–2200, popularity ≥ 80;
+  existing rows untouched, `scripts/import_lichess_puzzles.py --only-new`).
+  `opening_tags` is now indexed. Undo: delete rows with `imported_at` on
+  2026-11-09.
 - **Endgames beyond pawn and rook endings.** Lichess Practice has no bishop,
   knight or queen endgame studies; those come from puzzle themes
   (`bishopEndgame`, `knightEndgame`, …) instead.
