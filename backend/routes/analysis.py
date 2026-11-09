@@ -210,6 +210,9 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
         if platform_game_id:
             doc['platform_game_id'] = platform_game_id
             doc['url'] = game_url
+        # Same fields the background sync fills (journey_service).
+        from services.game_context_enricher import fill_missing_context
+        fill_missing_context(doc)
         try:
             await db.games.insert_one(doc)
         except DuplicateKeyError:

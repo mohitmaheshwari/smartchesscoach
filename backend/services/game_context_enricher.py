@@ -118,6 +118,31 @@ def derive_context_fields(game_doc: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+# user_rating is left to services.rating_resolver, which also records where
+# the number came from; this module would set it without a source.
+_FILL_FIELDS = ("time_control_category", "white_rating", "black_rating",
+                "opponent_rating", "rating_gap")
+
+
+def fill_missing_context(game_doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Set, on game_doc, the derived fields it does not already carry.
+
+    Returns what was set. A value already on the document is never replaced:
+    chess.com's own time class and the API ratings stay as they came.
+
+    Called at import. Before 2026-11-09 only scripts/backfill_game_context.py
+    called derive_context_fields, so every game imported after its last run
+    had neither field: 13,311 games without opponent_rating and 13,339 without
+    time_control_category, and the academy backfill's bullet skip
+    (routes/academy.py SKIP_SPEEDS) never fired on a fresh import.
+    """
+    derived = derive_context_fields(game_doc)
+    added = {k: derived[k] for k in _FILL_FIELDS
+             if k in derived and game_doc.get(k) is None}
+    game_doc.update(added)
+    return added
+
+
 def opponent_strength_label(rating_gap: int) -> str:
     """Human label for the rating gap (used in coaching messages)."""
     if rating_gap >= 200: return "much weaker"

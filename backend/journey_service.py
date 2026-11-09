@@ -1401,7 +1401,13 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
             
             if opening_info.get("opening"):
                 logger.info(f"Extracted opening: {opening_info.get('opening')} (ECO: {opening_info.get('eco')})")
-            
+
+            # time_control_category / opponent_rating, written at import for
+            # the same reason as played_at_utc above: only a backfill wrote
+            # them, so every later import had neither.
+            from services.game_context_enricher import fill_missing_context
+            fill_missing_context(game_doc)
+
             # The existence check above is check-then-act: two concurrent syncs
             # both pass it before either insert lands. The unique index is what
             # actually stops the duplicate, so a rejection here is the expected
