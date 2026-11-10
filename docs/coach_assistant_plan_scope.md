@@ -428,3 +428,69 @@ Not success: reflections started, pages viewed, puzzles served.
   the tap mock twice, and answered "okay". Sections 1–7 rewritten for the
   cause-first direction; Section 0 gained Reflect V1 and two-layer diagnosis.
   **Not signed:** the rewrite itself awaits Mohit's explicit sign-off.
+
+## Amendment A — the knowledge axis (proposed 2026-11-10, independent mode)
+
+Mohit 2026-11-10 asked for the coach to know not only what a child does not
+see and how they behave, but what they *do not know*. Measured first
+(`docs/player_causes_findings_2026_11_10.md`):
+
+- Basic tactics are known by every player (found about half the time, no
+  stable per-player difference, no player who never found a fork). The plan
+  keeps treating them as **not looking**; nothing changes there.
+- **Developing pieces in the opening** is the most stable per-player trait
+  found (split-half r 0.89; the bottom players follow it 26–39% of the time,
+  the median player 88%). Their misses are textbook: the queen goes raiding
+  at moves 7–11 with the b1 knight and c1 bishop still home.
+
+### What the coach sees (2b, new row type)
+
+```
+COSTLIEST PROBLEM
+  Attacking before her pieces are out. In 5 of her last 12 games the queen
+  went hunting while two pieces were still at home.     [ See the moments ]
+CAUSE
+  Doesn't know it yet: this happens every game, not now and then, and
+  with time on the clock. Teach the idea, then test it.
+RULE FOR REAL GAMES THIS WEEK
+  Before move 10, every move brings a new piece out unless something is
+  attacked.
+```
+
+Child: the existing tap flow; "what was it for" already offers *Bring it into
+play*, and "your turn" asks them to tap the piece that should come out.
+Parent line (no numbers): "This week Asha is learning to bring all her pieces
+into the game before she attacks."
+
+### In scope (A)
+
+- `development_decision` stored on every move row (done, 9dce9d29) and
+  back-filled.
+- A problem `knowledge:development` in the plan, ranked with the others by
+  results lost, for a child whose development rate is below a cut-off locked
+  from the stored data (`/lock-via-data`), with a minimum number of chances.
+- A miss counts only when the same row has no piece-safety, king-safety or
+  tactic label (those own the cause), and every chosen moment is re-checked
+  at depth 18 when the plan is built (the detector's miss half held 53/60 at
+  depth 18, so it may not speak unchecked).
+- Cause shown as **doesn't know it yet** from the game data alone; the child's
+  reflection answers still override it (found when asked = not looking).
+
+### Out of scope (A)
+
+- Tactics as a knowledge gap (refuted by the data).
+- Endgame king activity, passed pawns, castling as per-player diagnoses
+  (r 0.19–0.34: teach when they happen, do not label a child).
+- Endgame theory positions (about 2% of losses; a separate per-moment lesson).
+
+### Success (A)
+
+The child's development rate in games played after the week starts, against
+their own rate before; a coach-visible line, the same week check as other
+problems.
+
+### Pre-code (A)
+
+1. Deploy 9dce9d29 and back-fill `development_decision`.
+2. Lock the cut-off and the minimum chances from the stored field.
+3. Precision of the gated miss (precedence + depth-18 re-check) on a sample.
