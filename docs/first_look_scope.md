@@ -113,10 +113,29 @@ Update on what I noticed
    I've dropped this one.
 ```
 
-**Imported history.** A player who imported past games before their first
-analysis already has history. Their impressions are checked straight away
-against those games, and the summary says *"I checked this against your
-earlier games: you do this often."* or drops the impression before showing it.
+**Two starting points.**
+
+- *Username given (Lichess or Chess.com)* — the main path. Pull the last five
+  games in the player's main time control (wins and losses), give them a quick
+  first-pass analysis so the first look is ready in minutes, and keep pulling and
+  fully analysing older games in the background. The newest game gets the full
+  conversation ("what were you going for?" + "find a better move"); older games
+  get "find a better move" only, because nobody remembers what they were thinking
+  a week ago. Impressions are then confirmed or dropped **against the history as
+  it arrives**, usually within a day, without waiting for new games. The update
+  reads *"I checked this against your earlier games: you do this often."* or
+  *"Your earlier games don't show this, so I've dropped it."*
+- *No username* (plays on the site, or a child in a class) — one game, and
+  confirmation comes from the next games they play, as in the mock above.
+
+Why five games: one game names the right top weakness 34.4% of the time, five
+games 49.8%, twenty 71.3%. Five is still a guess, so the wording stays the same;
+the history makes the guess checkable fast.
+
+Live throughput, 2026-11-10 (prod `analysis_queue`): 221 games analysed in 24 h,
+median 11.1 min per game (p90 20.8), two at a time, 900 pending. Five full
+analyses at the front of the queue take about half an hour; behind the backlog,
+days. Hence the quick first pass and the queue priority below.
 
 Text rules: simple English, no numbers, no engine scores, mature tone (like
 Chess.com or Lichess, not childish). The LLM may only rephrase English. Every
@@ -137,7 +156,10 @@ chess claim comes from the board, the engine or a graded detector.
 - An impression record per player: open → confirmed or dropped, updated on each
   new analysed game, games two to five.
 - The update card on reviews of games two to five.
-- The imported-history check.
+- Username path: pull the last five games in the main time control, put them at
+  the front of the analysis queue, give them a quick first pass, and keep pulling
+  and analysing the history in the background.
+- Confirm or drop impressions against the history as it is analysed.
 - For academy students: a confirmed impression is offered to the coach as the
   first weekly-plan problem (still coach-approved).
 - Events: moment answered, impression shown, impression confirmed or dropped,
@@ -178,8 +200,13 @@ Not success: the number of people who open the card.
 2. **Confirm and drop rule.** For example "seen again in two of the next four
    games". Unresolved: needs the per-problem repeat rate. Unblock: measure, per
    PLAN problem, how often a problem seen in game one recurs in games two to five.
-3. **Which game is "first" for importers.** Their newest loss (today's first-aha
-   choice) or their newest game? Unblock: Mohit's call.
+3. **Is a quick first pass good enough?** Does a shallow analysis find the same
+   moments (turning point, missed chance) as the full one? Unresolved: not
+   measured. Unblock: run both depths on a few hundred stored games and compare
+   the picked moments.
+3b. **Does the five-game import jump the 900-game backlog today?** The fresh-game
+   priority (`claude/fresh-game-first`) covers a just-finished synced game; not
+   verified for a first import. Unblock: read `journey_service.py` queue priority.
 4. **The accuracy target number.** Unblock: one month of first looks.
 5. **The personalized-review flag.** Should the first look show to everyone, or
    only behind the same flag at first? Unblock: Mohit's call.
