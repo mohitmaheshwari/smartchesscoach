@@ -525,3 +525,40 @@ def test_adapter_has_no_board_engine_database_network_or_llm_dependency():
         "anthropic",
     )
     assert all(token not in source for token in forbidden)
+
+
+# docs/review_tap_reflection_scope.md, amendment 2. Mohit's Qf3 (2026-11-10):
+# the queen hung, the cause was proven, but a wrong claim in the FREE caption
+# ("defended by your queen on d1", checked on the wrong board) silenced the
+# whole moment and the review jumped to the next move.
+def test_a_failed_free_caption_does_not_silence_a_proven_quality_v2_cause():
+    event = adapt_move_teaching_decision(
+        _decision(cause=_bh6_cause(), verified=False),
+        _context(san="Bh6", concept_id="piece_safety.simple_hang", quality_v2_requested=True),
+    )
+    payload = event.contract_dict()
+    assert event.player_authorized is True
+    assert payload["evidence"]["final_verified"] is True
+    # The words come from the proven cause, not from the failed free caption.
+    assert "Bh6 left your rook on a1 available" in payload["teaching"]["caption"]
+    assert "Nxa1" in payload["teaching"]["caption"]
+
+
+def test_without_a_cause_a_failed_caption_still_silences_the_moment():
+    event = adapt_move_teaching_decision(
+        _decision(verified=False), _context(quality_v2_requested=True)
+    )
+    assert event.player_authorized is False
+    assert event.contract_dict()["evidence"]["final_verified"] is False
+
+
+def test_a_cause_does_not_rescue_a_moment_outside_quality_v2_or_a_skipped_one():
+    off = adapt_move_teaching_decision(
+        _decision(cause=_bh6_cause(), verified=False), _context()
+    )
+    assert off.player_authorized is False
+    skipped = adapt_move_teaching_decision(
+        _decision(cause=_bh6_cause(), verified=True, skip=True),
+        _context(quality_v2_requested=True),
+    )
+    assert skipped.player_authorized is False

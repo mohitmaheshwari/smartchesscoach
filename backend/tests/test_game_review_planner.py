@@ -400,3 +400,56 @@ def test_planner_has_no_engine_database_network_or_llm_dependency():
         "anthropic",
     )
     assert all(token not in source for token in forbidden)
+
+
+# docs/review_tap_reflection_scope.md, amendment 2: one story, not three
+# chapters. Mohit's game: Qf3 left the queen en prise; Ne2 and exd5 only left
+# it there. The later moments are evidence for Qf3, not chapters of their own.
+def test_a_continuation_is_dropped_when_its_origin_can_be_shown():
+    qf3, ne2, exd5, other = (_event("qf3", 15), _event("ne2", 17), _event("exd5", 19), _event("other", 31))
+    events = (qf3, ne2, exd5, other)
+    result = build_shadow_game_teaching_plan(
+        game_id="g", events=events, features={e.event_id: _feature(e) for e in events},
+        generated_at=NOW, formula_id=QUALITY_V2_FORMULA,
+        continuation_of={"ne2": "qf3", "exd5": "qf3"},
+    )
+    assert result.selected_event_ids == ("qf3", "other")
+    assert {"ne2", "exd5"} <= set(result.rejected_event_ids)
+
+
+def test_a_continuation_stays_a_chapter_when_its_origin_cannot_be_shown():
+    silent_origin = _event("qf3", 15, caption=False, principle=False)
+    ne2 = _event("ne2", 17)
+    events = (silent_origin, ne2)
+    result = build_shadow_game_teaching_plan(
+        game_id="g", events=events, features={e.event_id: _feature(e) for e in events},
+        generated_at=NOW, formula_id=QUALITY_V2_FORMULA,
+        continuation_of={"ne2": "qf3"},
+    )
+    assert result.selected_event_ids == ("ne2",)
+
+
+def test_the_old_formula_id_still_ranks_for_old_scripts():
+    e = _event("a", 3)
+    result = build_shadow_game_teaching_plan(
+        game_id="g", events=(e,), features={"a": _feature(e)}, generated_at=NOW,
+        formula_id="E_transition_then_teaching",
+    )
+    assert result.selected_event_ids == ("a",)
+
+
+def test_piece_story_continuations_follow_the_same_piece_and_square():
+    from types import SimpleNamespace
+    from services.caption_facts import LegalMaterialLossCause, PieceOnSquare
+    from services.game_review_shadow_runtime import piece_story_continuations
+
+    def ev(event_id, ply, piece="queen", square="f3"):
+        cause = LegalMaterialLossCause(
+            affected=PieceOnSquare(piece, square), attacker=PieceOnSquare("knight", "e5"),
+            punishment_san="Nxf3+", material_loss_cp=600, best_move_san="Qg3",
+            best_move_purpose=None, best_move_from="f3", best_move_to="g3")
+        return SimpleNamespace(event_id=event_id, move=SimpleNamespace(ply=ply), cause=cause)
+
+    events = [ev("qf3", 15), ev("ne2", 17), ev("exd5", 19), ev("bishop", 21, "bishop", "c4"),
+              ev("much_later", 41)]
+    assert piece_story_continuations(events) == {"ne2": "qf3", "exd5": "qf3"}

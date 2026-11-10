@@ -474,8 +474,20 @@ def adapt_move_teaching_decision(
         or decision.teaching_meta.principle_cue
         or ""
     ).strip()
-    final_verified = bool(explanation.final_verified and not decision.should_skip)
-    usable = bool(caption or principle or decision.visual.arrows or decision.visual.highlight_squares)
+    # Quality V2 teaches from the typed cause (a proof object), not from the
+    # free caption. A failed claim in the free caption used to silence the
+    # whole moment, proven cause included: Mohit's Qf3 (2026-11-10) hung the
+    # queen, the free text's "defended by your queen on d1" was checked on the
+    # wrong board, and the review jumped to the next move instead.
+    # docs/review_tap_reflection_scope.md, amendment 2.
+    cause_built = bool(context.quality_v2_requested and decision.cause is not None)
+    final_verified = bool(
+        (explanation.final_verified or cause_built) and not decision.should_skip
+    )
+    usable = bool(
+        cause_built
+        or caption or principle or decision.visual.arrows or decision.visual.highlight_squares
+    )
 
     evidence = EventEvidence(
         quality_id=context.quality_id,

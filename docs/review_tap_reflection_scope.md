@@ -62,6 +62,63 @@ his answers".
   of that game has Ne2 (move 9) as the chapter, which is the case above. The
   tests use both positions.
 
+## Amendment 2: walk through it the way a coach would (signed 2026-11-10, "do it")
+
+**Why.** Mohit, on his Qf3: "it never tells about queen hanging". Then: "first
+think how a human coach would take us through that position ... how player
+thinks really".
+
+**What happened in that game.** Checked with python-chess and depth-18
+Stockfish on prod.
+- Black's knight on f6 attacked e4. The only guard was the knight on c3, pinned
+  by the bishop on b4.
+- Qf3 guarded e4 and hit f6. But the knight on e5 hits f3.
+- Black castled. White played Ne2, then exd5, with the queen still on f3. Only
+  then did Black play Nxf3+.
+- The review was silent on Qf3, because a wrong claim in the free caption hid
+  the proven cause. It taught Ne2 and exd5 as separate chapters instead.
+
+**What changes.**
+1. **Gate.** In quality V2 a proven typed cause is shown even when the free
+   caption failed its check (`game_review_event_adapter`). Without a cause,
+   nothing changes.
+2. **One story.** A later moment that only leaves the same piece on the same
+   square en prise is evidence for the first moment, not a chapter of its own.
+   This holds when the first moment can be shown, and within six plies of the
+   previous one (`piece_story_continuations`, planner `continuation_of`). The
+   formula id becomes `E_transition_then_teaching.origin_story_v1`, so stored
+   plans regenerate when a flagged user next opens the game.
+3. **The flow for a piece-left-en-prise moment.**
+   - When the player had a problem of their own before the move, the flow
+     starts there: "Before Qf3, what were you worried about?". They tap e4.
+     The coach answers: "Right. His knight on f6 was attacking it, and your
+     knight on c3 couldn't help: his bishop on b4 pins it to your king."
+   - Credit: "Qf3 guards it, and it also attacks his knight on f6. Good idea."
+   - The landing check: which of his pieces could take the queen.
+   - The story, from the stored game: "He didn't take it. He played O-O. Then
+     you played Ne2, he played d5, and you played exd5. Your queen was still on
+     f3. Then he took it with Nxf3+ ..."
+   - The cause, read from the game: if the piece stayed there on a later move,
+     "did you see it?" isn't asked. The answer is "no", and the server enforces
+     that.
+   - "How else could you look after your pawn on e4?" The player taps a move,
+     graded by one engine look (depth 12, multipv 4). A good answer gets words
+     built from the board, such as "Bd2 breaks the pin, so your knight on c3
+     guards e4 again." "Show me" reveals one.
+   - Keep line: "When you answer a threat, check the new square too: knight
+     jumps first."
+4. **Wording rules found in the prod dry run.**
+   - The move that rescues the piece is never told as "still there".
+   - More than two of the player's moves are summarised in one phrase.
+   - "Guarding wasn't enough" says why: a cheaper attacker, or more attackers
+     than guards.
+
+**Dry run on prod, last 30 days (read-only).**
+- 218 piece-left-en-prise tap moments.
+- 43 start from the player's own problem.
+- 67 tell a story.
+- In 34 the game answers "did you see it?".
+
 ---
 
 ## 0. Existing surfaces audit
@@ -133,7 +190,9 @@ child's answers are kept, so the coach plan and later reviews can use them.
 ## 2. What the user sees
 
 Real moment: Mohit's game of 2026-11-05 (test account), move 8 as White, **Qf3**.
-Black replied Nxf3+ with the knight from e5. The stored best move was Nf3. The facts
+The knight on e5 could take the queen with Nxf3+. **Correction, 2026-11-10:** an
+earlier version said Black replied Nxf3+. Black actually castled, and took the
+queen only two moves later (see amendment 2). The stored best move was Nf3. The facts
 come from python-chess on the stored position. Not checked yet: whether game review
 makes this move a chapter today (a pre-code item). Lines marked *[only if …]* appear
 for that answer only.

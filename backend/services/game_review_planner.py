@@ -27,7 +27,11 @@ from services.game_review_contracts import (
 
 PLANNER_VERSION = "personalized_game_review_planner.v2"
 SHADOW_FORMULA = "D_teaching_then_critical"
-QUALITY_V2_FORMULA = "E_transition_then_teaching"
+# ".origin_story_v1" (2026-11-10): a later move that only leaves the same piece
+# where it already could be taken is part of the first move's story, not a
+# chapter of its own. The new id makes stored plans regenerate on view.
+QUALITY_V2_FORMULA = "E_transition_then_teaching.origin_story_v1"
+_QUALITY_V2_RANK_IDS = frozenset({QUALITY_V2_FORMULA, "E_transition_then_teaching"})
 SHADOW_MOMENT_CAP = 3
 SHADOW_REFLECTION_QUESTION_BUDGET = 1
 
@@ -112,7 +116,7 @@ def _rank_key(
             float(features.cp_loss),
             float(-event.move.ply),
         )
-    if formula_id == QUALITY_V2_FORMULA:
+    if formula_id in _QUALITY_V2_RANK_IDS:
         return (
             float(features.decisiveness_changed),
             float(not features.stayed_winning),
@@ -165,6 +169,7 @@ def build_shadow_game_teaching_plan(
     next_actions: Optional[Mapping[str, ReviewNextAction]] = None,
     recurring_event_ids: Sequence[str] = (),
     formula_id: str = SHADOW_FORMULA,
+    continuation_of: Optional[Mapping[str, str]] = None,
 ) -> ShadowPlannerResult:
     """Build the measured shadow candidate without inventing causality."""
     if not isinstance(game_id, str) or not game_id.strip():
@@ -198,6 +203,19 @@ def build_shadow_game_teaching_plan(
             rejected.append(event.event_id)
             continue
         eligible.append((event, feature))
+
+    # One story, not several chapters: a move that only leaves the same piece
+    # where an earlier move already put it en prise is evidence for the
+    # earlier moment. Only when that earlier moment can itself be shown.
+    eligible_ids = {event.event_id for event, _ in eligible}
+    origin_of = dict(continuation_of or {})
+    kept = []
+    for event, feature in eligible:
+        if origin_of.get(event.event_id) in eligible_ids:
+            rejected.append(event.event_id)
+            continue
+        kept.append((event, feature))
+    eligible = kept
 
     ranked = sorted(
         eligible,

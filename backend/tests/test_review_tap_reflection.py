@@ -176,7 +176,8 @@ def test_clean_answers_drops_anything_the_page_should_not_decide():
     out = rt.clean_answers(m, {"picks": [{"kind": "attack", "sq": "f6"}, {"kind": "hack"}],
                                "tapped": ["e5", "x" * 40], "seen_in_game": "maybe",
                                "found_when_asked": True})
-    assert out == {"picks": [{"kind": "attack", "sq": "f6"}], "tapped": ["e5"], "seen_in_game": "unsure"}
+    assert out == {"picks": [{"kind": "attack", "sq": "f6"}], "tapped": ["e5"], "seen_in_game": "unsure",
+                   "better": [], "seen_from_game": False}
 
 
 def test_attach_only_builds_for_eligible_events_in_the_response():
@@ -195,3 +196,100 @@ def test_find_stored_moment_refuses_an_event_that_cannot_take_reflection():
     rows[0]["teachable_event"] = _event("a")
     ev, m = rt.find_stored_moment(rows, "a")
     assert ev["event_id"] == "a" and m["target"]["sq"] == "f3"
+
+
+# ---------------------------------------------------------------------------
+# Amendment 2 (2026-11-10): walk through Qf3 the way a coach would.
+# ---------------------------------------------------------------------------
+def _qf3_rows():
+    import chess
+    b = chess.Board(QF3_BEFORE)
+    rows = []
+    for san in ["Qf3", "O-O", "Ne2", "d5", "exd5", "Nxf3+", "gxf3"]:
+        rows.append({"fen_before": b.fen(), "move_san": san})
+        b.push_san(san)
+    return rows
+
+
+QF3_EVENT = _event(cause={"kind": "legal_material_loss", "affected": {"piece": "queen", "square": "f3"}})
+
+
+def test_his_own_problem_before_qf3_is_e4_with_a_pinned_guard():
+    rows = _qf3_rows()
+    m = rt.build_tap_moment(QF3_EVENT, rows[0], rows[1], rows[1:])
+    p = m["problem"]
+    assert (p["sq"], p["piece"], p["issue"], p["solved"], p["how"]) == ("e4", "pawn", "pinned", True, "guards")
+    assert p["attackers"] == [{"sq": "f6", "piece": "knight"}]
+    assert p["guards"][0]["pinned_by"] == {"sq": "b4", "piece": "bishop"}
+
+
+def test_the_story_counts_the_moves_he_left_the_queen_there():
+    rows = _qf3_rows()
+    m = rt.build_tap_moment(QF3_EVENT, rows[0], rows[1], rows[1:])
+    st = m["story"]
+    assert [s["san"] for s in st["steps"]] == ["O-O", "Ne2", "d5", "exd5"]
+    assert st["left_there"] == 2
+    assert st["end"] == {"kind": "taken", "san": "Nxf3+", "lost": "queen", "won": "knight", "can_recapture": True}
+    assert st["lines"] == [
+        "He didn't take it. He played O-O.",
+        "Then you played Ne2, he played d5, and you played exd5. Your queen was still on f3.",
+        "Then he took it with Nxf3+. You can take back, but that's your queen for his knight.",
+    ]
+    assert m["seen_from_game"] == "no"
+
+
+def test_an_immediate_capture_needs_no_story_and_the_question_is_still_asked():
+    m = rt.build_tap_moment(
+        QF3_EVENT, {"fen_before": QF3_BEFORE, "move_san": "Qf3"},
+        {"fen_before": QF3_AFTER, "move_san": "Nxf3+"},
+        [{"fen_before": QF3_AFTER, "move_san": "Nxf3+"}])
+    assert "story" not in m and m.get("seen_from_game") is None
+
+
+def test_the_game_overrules_the_page_on_did_you_see_it():
+    rows = _qf3_rows()
+    m = rt.build_tap_moment(QF3_EVENT, rows[0], rows[1], rows[1:])
+    out = rt.clean_answers(m, {"tapped": ["e5"], "seen_in_game": "ok", "better": ["c1d2"]})
+    assert out["seen_in_game"] == "no" and out["seen_from_game"] is True and out["better"] == ["c1d2"]
+
+
+def test_answering_a_threat_gets_its_own_keep_line_and_summary():
+    rows = _qf3_rows()
+    m = rt.build_tap_moment(QF3_EVENT, rows[0], rows[1], rows[1:])
+    assert rt.keep_line(m, "not_looking") == "When you answer a threat, check the new square too: knight jumps first."
+    answers = rt.clean_answers(m, {"tapped": ["e5"]})
+    answers["found_when_asked"] = True
+    assert rt.summary(m, answers) == [
+        "Qf3 looked after your pawn on e4.",
+        "You found his knight on e5 when you looked.",
+        "In the game your queen stayed on f3 for two more moves, so you didn't see it.",
+    ]
+
+
+def test_better_way_words_come_from_the_board():
+    import chess
+    b = chess.Board(QF3_BEFORE)
+    prob = rt.own_problem(b, b.parse_san("Qf3"))
+    words = {san: rt.better_words(rt.move_facts(b, b.parse_san(san), prob), prob) for san in ("Bd2", "f3", "Qd3")}
+    assert words["Bd2"] == "Bd2 breaks the pin, so your knight on c3 guards e4 again. It also brings a piece into play."
+    assert words["f3"] == "f3 guards your pawn on e4, from a square he can't hit."
+    # Qd3 lands where the e5 knight hits it: never called safe
+    assert words["Qd3"] == "Qd3 guards your pawn on e4."
+    assert rt.move_facts(b, b.parse_san("Qd3"), prob)["lands_hanging"] is True
+
+
+def test_the_move_that_rescues_the_piece_is_not_told_as_still_there():
+    import chess
+    # White rook e4 attacked by the knight on d6? Build a simple line instead:
+    # after Re4 he plays a quiet move and White moves the rook away.
+    b = chess.Board("4k3/8/3n4/8/3R4/8/8/4K3 w - - 0 1")
+    rows = []
+    for san in ["Re4+", "Kd7", "Ra4"]:
+        rows.append({"fen_before": b.fen(), "move_san": san})
+        b.push_san(san)
+    ev = _event(cause={"kind": "legal_material_loss", "affected": {"piece": "rook", "square": "e4"}})
+    m = rt.build_tap_moment(ev, rows[0], rows[1], rows[1:])
+    assert m["story"]["left_there"] == 0
+    assert m["story"]["end"] == {"kind": "moved", "san": "Ra4"}
+    assert m["story"]["lines"] == ["He didn't take it. He played Kd7.", "Then you played Ra4, and it got away."]
+    assert m.get("seen_from_game") is None  # rescued at once: ask, don't assume

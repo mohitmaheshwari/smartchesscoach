@@ -542,7 +542,7 @@ def test_quality_v2_storage_uses_the_practical_candidate_formula_only_when_enabl
         },
     )
     assert base["formula_id"] == "D_teaching_then_critical"
-    assert v2["formula_id"] == "E_transition_then_teaching"
+    assert v2["formula_id"] == "E_transition_then_teaching.origin_story_v1"
 
 
 def test_derivation_reuses_canonical_observation_authority(monkeypatch):

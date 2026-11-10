@@ -164,6 +164,7 @@ export default function PersonalizedReviewCoach({
         picks: answers.picks || [],
         tapped: answers.tapped || [],
         seen_in_game: answers.seen_in_game,
+        better: answers.better || [],
       }),
     });
     if (!response.ok) throw new Error("tap reflection was not saved");
@@ -188,6 +189,17 @@ export default function PersonalizedReviewCoach({
     if (!response.ok) return false;
     const result = await response.json();
     return Boolean(result.ok);
+  };
+
+  const checkTapBetter = async (event, uci) => {
+    const response = await fetch(`${API}/reflect/v2/game-review-tap/better`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ game_id: gameId, event_id: event.event_id, uci }),
+    });
+    if (!response.ok) return null;
+    return response.json();
   };
 
   if (activeIndex === -1) {
@@ -342,6 +354,7 @@ export default function PersonalizedReviewCoach({
               moment={tapMoment}
               onSubmit={(tapAnswersForMoment) => submitTap(event, tapAnswersForMoment)}
               checkMove={(uci) => checkTapMove(event, uci)}
+              checkBetter={(uci) => checkTapBetter(event, uci)}
               closeLabel="See the explanation"
               onClose={() => {
                 const receipt = pendingTap.current[event.event_id];

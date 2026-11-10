@@ -154,12 +154,19 @@ class GameReviewTapRequest(BaseModel):
     picks: List[dict] = []
     tapped: List[str] = []
     seen_in_game: Optional[str] = None
+    better: List[str] = []
 
 
 class GameReviewTapTryRequest(BaseModel):
     game_id: str
     event_id: str
     uci: str
+
+
+class GameReviewTapBetterRequest(BaseModel):
+    game_id: str
+    event_id: str
+    uci: Optional[str] = None
 
 
 # ==================== CORE ENDPOINTS ====================
@@ -684,6 +691,25 @@ async def try_game_review_tap_move(
         logger.warning("[review-tap] engine check failed: %s", exc)
         good = []
     return {"ok": data.uci in good}
+
+
+@router.post("/v2/game-review-tap/better")
+async def better_game_review_tap_move(
+    data: GameReviewTapBetterRequest,
+    user: User = Depends(get_current_user),
+):
+    """"How else could you look after it?" One engine look at one position."""
+    import asyncio
+    from services.review_tap_reflection import better_way
+
+    _, moment = await _review_tap_moment(user, data.game_id, data.event_id)
+    if not moment.get("problem"):
+        raise HTTPException(status_code=422, detail="This moment has no problem to solve")
+    try:
+        return await asyncio.to_thread(better_way, moment, data.uci)
+    except Exception as exc:
+        logger.warning("[review-tap] better-way check failed: %s", exc)
+        raise HTTPException(status_code=503, detail="The check is busy. Try again.")
 
 
 @router.post("/v2/game-review-tap")

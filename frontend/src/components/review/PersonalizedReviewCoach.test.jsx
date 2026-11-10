@@ -338,7 +338,7 @@ describe("PersonalizedReviewCoach — tap reflection", () => {
     const [url, init] = global.fetch.mock.calls[0];
     expect(url).toBe("/api/reflect/v2/game-review-tap");
     expect(JSON.parse(init.body)).toEqual({
-      game_id: "game", event_id: EVENT_ID, picks: [], tapped: ["e5"], seen_in_game: "no",
+      game_id: "game", event_id: EVENT_ID, picks: [], tapped: ["e5"], seen_in_game: "no", better: [],
     });
     click(btn("See the explanation"));
     expect(container.querySelector('[data-testid="personalized-tap-summary"]').textContent)

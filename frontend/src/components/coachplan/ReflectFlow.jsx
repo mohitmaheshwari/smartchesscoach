@@ -134,7 +134,7 @@ function Board({ color, pos, marks, arrows, live }) {
 // ---------------------------------------------------------------------------
 // the flow
 // ---------------------------------------------------------------------------
-export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClose, mode = "plan", checkMove, closeLabel }) {
+export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClose, mode = "plan", checkMove, checkBetter, closeLabel }) {
   const m = moment;
   const review = mode === "review";
   // The piece the landing test is about. On the class page it is always the piece that moved.
@@ -142,7 +142,12 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
   const movedIsTarget = T.sq === m.to;
   const [busy, setBusy] = useState(false);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | failed
-  const [stage, setStage] = useState("intent");
+  // Review + a problem of his own before the move: start from that problem,
+  // the way a coach would ("what were you worried about here?").
+  const P = review ? m.problem : null;
+  const [stage, setStage] = useState(P ? "problem" : "intent");
+  const [better, setBetter] = useState([]);       // "how else" taps
+  const [betterBest, setBetterBest] = useState(null);
   const [log, setLog] = useState([]);
   const [picks, setPicks] = useState([]);
   const [taps, setTaps] = useState([]);           // tap_pieces test
@@ -180,6 +185,14 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     const options = (m.intents || []).some((x) => x.kind === "defend")
       ? "Red rings: his pieces it now attacks. Green rings: your pieces it now guards."
       : (m.intents || []).length ? "Red rings: his pieces it now attacks." : "";
+    if (P) {
+      setLog([
+        { who: "coach", text: `You played ${m.san}.${pace}` },
+        { who: "ask", text: `Before ${m.san}, what were you worried about? Tap the piece you wanted to look after.`,
+          small: "Or press a button below." },
+      ]);
+      return;
+    }
     setLog([
       { who: "coach", text: review ? `You played ${m.san}.${pace}` : `Your game from ${dateWords}. You had ${m.color}, and you played ${m.san}.${pace}` },
       { who: "ask", text: `What was ${m.san} for? Tap everything it was about, then press Done.`,
@@ -191,6 +204,37 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
   const escapeOpt = useMemo(() => ({ kind: "escape", sq: m.from }), [m.from]);
   const intentOptions = () => [...(m.intents || []), ...(m.escape ? [escapeOpt] : [])];
   const togglePick = (it) => setPicks((ps) => (ps.includes(it) ? ps.filter((x) => x !== it) : [...ps, it]));
+
+  // ---------- 0. the player's own problem (review) ----------
+  function problemWhy() {
+    const a = (P.attackers || [])[0];
+    const by = a ? cap(his(a.piece, a.sq)) : "He";
+    if (P.issue === "pinned") {
+      const g = (P.guards || []).find((x) => x.pinned && x.pinned_by);
+      if (g) return `${by} was attacking it, and your ${g.piece} on ${g.sq} couldn't help: ${his(g.pinned_by.piece, g.pinned_by.sq)} pins it to your king.`;
+    }
+    if (P.issue === "no_guard") return `${by} was attacking it, and nothing guarded it.`;
+    if (P.issue === "outnumbered") return `${by} was attacking it, and it had more attackers than guards.`;
+    return `${by} was attacking it, and guarding wasn't enough: it's worth less than your ${P.piece}.`;
+  }
+  function problemCredit() {
+    if (!P.solved) return `But ${m.san} didn't help it.`;
+    if (P.how === "moved") return `${m.san} moves it away. Good idea.`;
+    if (P.how === "breaks_pin") return `${m.san} frees your guard. Good idea.`;
+    const att = (m.intents || []).find((it) => it.kind === "attack");
+    return `${m.san} guards it${att ? `, and it also attacks ${his(att.piece, att.sq)}` : ""}. Good idea.`;
+  }
+  function answerProblem(sq, label) {
+    const pos = parseFen(m.fen_before);
+    const items = [{ who: "child", text: sq ? `My ${NAME[(pos[sq] || "p").toLowerCase()]} on ${sq}.` : label }];
+    items.push({ who: "coach", text: `${sq === P.sq ? "Right." : `Look at your ${P.piece} on ${P.sq}.`} ${problemWhy()}` });
+    items.push({ who: "coach", text: problemCredit() });
+    items.push({ who: "coach", text: "Whatever the plan, there is one check that comes first." });
+    items.push(testAsk());
+    setPicks(sq ? [{ kind: "worried", sq }] : []);
+    sayAll(items);
+    setStage("test");
+  }
 
   // ---------- 1. what was it for ----------
   function pickWords(it) {
@@ -277,9 +321,76 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
       items.push({ who: "coach", text: "When several squares next to your king are under fire, the next move should help the king first." });
     }
     setFound(ok); setTapped(taps.slice()); setGraded(true);
+    const story = review ? (m.story?.lines || []) : [];
+    story.forEach((t) => items.push({ who: "coach", text: t }));
+    if (review && m.seen_from_game) {
+      // He left it there on his next move(s): the game already answers
+      // "did you see it?", so the coach says it instead of asking.
+      setSeen("no");
+      items.push({ who: "coach", text: seenFromGameText(ok) });
+      sayAll(items);
+      afterSeen();
+      return;
+    }
     items.push(seenAsk());
     sayAll(items);
     setStage("seen");
+  }
+  function seenFromGameText(foundIt) {
+    const left = m.story?.left_there || 0;
+    const more = left === 1 ? "one more move" : `${left === 2 ? "two" : "three"} more moves`;
+    const t = `In the game you left your ${T.piece} there for ${more}, so you didn't see it.`;
+    if (foundIt) return `${t} But you found it just now when you looked. So the job isn't learning something new, it's doing the look every time.`;
+    return `${t} It's ${takerKindWords((m.test.answer || [])[0]?.kind)}, and that's what we'll practise.`;
+  }
+  function afterSeen() {
+    if (P && checkBetter) { startBetter(); return; }
+    finish();
+  }
+
+  // ---------- 2c. how else could you look after it (review) ----------
+  function startBetter() {
+    say(`Your turn. Back to the position before ${m.san}. How else could you look after your ${P.piece} on ${P.sq}?`, "ask",
+      { small: "Tap a piece, then where it goes. Or press Show me." });
+    setSel(null);
+    setStage("better");
+  }
+  async function tryBetter(uci) {
+    if (busy) return;
+    setSel(null);
+    setBusy(true);
+    let r = null;
+    try { r = await checkBetter(uci); } catch { r = null; }
+    setBusy(false);
+    const san = m.practice?.moves?.[uci]?.san || uci;
+    const n = better.length + 1;
+    setBetter((b) => [...b, uci]);
+    if (!r || r.words == null) { sayAll([{ who: "child", text: san }, { who: "coach", text: "I couldn't check that just now." }]); finish(); return; }
+    const items = [{ who: "child", text: san }, { who: "coach", text: r.words }];
+    if (r.ok) {
+      if (r.best && r.best.uci !== uci) items.push({ who: "coach", text: `Another good way: ${r.best.words}` });
+      setBetterBest(r.ok ? uci : r.best?.uci);
+      sayAll(items); finish(); return;
+    }
+    if (n >= 2 && r.best) {
+      items.push({ who: "coach", text: `Here's one: ${r.best.words}` });
+      setBetterBest(r.best.uci);
+      sayAll(items); finish(); return;
+    }
+    items.push({ who: "coach", text: "Have another look." });
+    sayAll(items);
+  }
+  async function showBetter() {
+    if (busy) return;
+    setBusy(true);
+    let r = null;
+    try { r = await checkBetter(null); } catch { r = null; }
+    setBusy(false);
+    const items = [{ who: "child", text: "Show me." }];
+    if (r?.best) { items.push({ who: "coach", text: `Here's one: ${r.best.words}` }); setBetterBest(r.best.uci); }
+    else items.push({ who: "coach", text: "I couldn't check that just now." });
+    sayAll(items);
+    finish();
   }
   function explainBest() {
     const ex = m.test?.explain || {};
@@ -325,6 +436,10 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
 
   // ---------- 2b. did you see it in the game ----------
   function seenAsk() {
+    if (review && m.story?.lines?.length && m.kind === "landing") {
+      const l = (m.test.answer || [])[0];
+      return { who: "ask", text: `One honest question. When you played ${m.san}, did you see ${l ? his(l.piece, l.sq) : "the piece that could take it"}?`, small: "There is no wrong answer here. It tells us what to practise." };
+    }
     let what;
     if (m.kind === "landing") { const l = (m.test.answer || [])[0]; what = l ? his(l.piece, l.sq) : "the piece that could take it"; }
     else if (m.kind === "king_attack") what = "his pieces gathering near your king";
@@ -351,7 +466,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     } else t = "That's fine. Most players don't remember. The look we practise covers it either way.";
     const items = [{ who: "child", text: label }, { who: "coach", text: t }];
     if (findKind) { sayAll(items); finish(); return; }
-    if (review) { sayAll([...items, ...replyLines()]); finish(); return; }
+    if (review) { sayAll([...items, ...(m.story?.lines?.length ? [] : replyLines())]); afterSeen(); return; }
     sayAll([...items, ...replyLines()]);
     setStage("reply");
   }
@@ -445,6 +560,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
       tapped,
       seen_in_game: seen,
       practice,
+      better,
     };
     if (review) {
       if (onSubmit) save(answers);
@@ -466,7 +582,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
   }
   const lastAnswers = () => ({
     picks: picks.map((it) => (it.sq ? { kind: it.kind, sq: it.sq } : { kind: it.kind })),
-    found_when_asked: !!found, tapped, seen_in_game: seen, practice,
+    found_when_asked: !!found, tapped, seen_in_game: seen, practice, better,
   });
 
   function cardLines(a) {
@@ -489,7 +605,25 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     const marks = {}; const arrows = []; const live = {};
     const mark = (sq, c) => { (marks[sq] = marks[sq] || []).push(c); };
     let fen = m.fen_after; let pos;
-    if (stage === "intent") {
+    if (stage === "problem") {
+      fen = m.fen_before; pos = parseFen(fen);
+      Object.entries(pos).forEach(([sq, p]) => { if (mine(p)) live[sq] = () => answerProblem(sq); });
+    } else if (stage === "better") {
+      fen = m.fen_before; pos = parseFen(fen);
+      if (!busy) Object.entries(pos).forEach(([sq, p]) => { if (mine(p)) live[sq] = () => setSel(sq === sel ? null : sq); });
+      if (P) mark(P.sq, "path");
+      if (sel && !busy) {
+        mark(sel, "r-sel");
+        Object.keys(m.practice?.moves || {}).filter((u) => u.slice(0, 2) === sel).forEach((u) => {
+          const to = u.slice(2, 4); mark(to, "dest"); if (pos[to]) mark(to, "occ"); live[to] = () => tryBetter(u);
+        });
+      }
+    } else if (stage === "done" && review && betterBest) {
+      fen = m.fen_before; pos = parseFen(fen);
+      const from = betterBest.slice(0, 2), to = betterBest.slice(2, 4);
+      pos = { ...pos }; pos[to] = pos[from]; delete pos[from];
+      mark(from, "last"); mark(to, "last"); arrows.push([from, to, "G"]);
+    } else if (stage === "intent") {
       mark(m.from, "last"); mark(m.to, "last");
       intentOptions().forEach((it) => {
         mark(it.sq, it.kind === "attack" ? "r-attack" : "r-guard");
@@ -581,7 +715,21 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
 
   // ---------- buttons under the conversation ----------
   let bar = null;
-  if (stage === "intent") {
+  if (stage === "problem") {
+    bar = (
+      <>
+        <button type="button" className="cp-chip" onClick={() => answerProblem(null, "Nothing, I had a plan.")}>Nothing, I had a plan</button>
+        <button type="button" className="cp-chip" onClick={() => answerProblem(null, "Not sure.")}>Not sure</button>
+      </>
+    );
+  } else if (stage === "better") {
+    bar = (
+      <>
+        <span className="cp-hint">{busy ? "Checking..." : sel ? "Now tap where it goes." : "Tap one of your pieces."}</span>
+        <button type="button" className="cp-chip" disabled={busy} onClick={showBetter}>Show me</button>
+      </>
+    );
+  } else if (stage === "intent") {
     bar = (
       <>
         <button type="button" className="cp-chip" aria-pressed={picks.includes(DEVELOP)} onClick={() => togglePick(DEVELOP)}>Bring it into play</button>

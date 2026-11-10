@@ -591,6 +591,38 @@ def adapt_review_event(
     return verified or simple
 
 
+# A piece left en prise stays a story for up to three of the player's own
+# moves (six plies). Mohit's game 2026-11-10: Qf3 put the queen where the e5
+# knight takes it; Ne2 and exd5 left it there; only then Nxf3+.
+STORY_WINDOW_PLIES = 6
+
+
+def piece_story_continuations(events: Sequence[TeachableEvent]) -> Dict[str, str]:
+    """event_id -> the earlier event that first left the same piece en prise.
+
+    Matches the proven material-loss cause's affected piece and square on the
+    player's own moves within STORY_WINDOW_PLIES of the first one.
+    """
+    rows = []
+    for event in events:
+        cause = getattr(event, "cause", None)
+        if isinstance(cause, LegalMaterialLossCause):
+            rows.append((event.move.ply, event.event_id,
+                         cause.affected.piece, cause.affected.square))
+    rows.sort()
+    origin: Dict[str, str] = {}
+    first_seen: Dict[tuple, tuple] = {}   # (piece, square) -> (origin ply, origin id, last ply)
+    for ply, event_id, piece, square in rows:
+        key = (piece, square)
+        prev = first_seen.get(key)
+        if prev is not None and ply - prev[2] <= STORY_WINDOW_PLIES:
+            origin[event_id] = prev[1]
+            first_seen[key] = (prev[0], prev[1], ply)
+        else:
+            first_seen[key] = (ply, event_id, ply)
+    return origin
+
+
 def build_shadow_storage_payload(
     *,
     game_id: str,
@@ -612,6 +644,7 @@ def build_shadow_storage_payload(
             if personalized_review_quality_v2_enabled(env)
             else SHADOW_FORMULA
         ),
+        continuation_of=piece_story_continuations(events),
     )
     return {
         "schema_version": "personalized_game_review.shadow_plan.v1",

@@ -4,6 +4,7 @@ import ReflectFlow from "./ReflectFlow";
 import qf3Moment from "./__fixtures__/qf3Moment";
 import { ne2Moment, nxe5Moment } from "./__fixtures__/reviewMoments";
 import developmentMoment from "./__fixtures__/developmentMoment";
+import { qf3StoryMoment } from "./__fixtures__/reviewQf3Story";
 
 const sign = { title: "The three looks", text: "Before any piece lands: pieces close by, knight jumps, long lines to the edge." };
 const rule = { id: "three_looks", text: "Do the three looks before every move that puts a piece on a new square." };
@@ -83,6 +84,60 @@ describe("ReflectFlow — piece safety moment (Qf3)", () => {
     click(button("Done"));
     expect(text()).toContain("The piece that can take it is his knight on e5.");
     expect(text()).toContain("Knights jump.");
+  });
+});
+
+// docs/review_tap_reflection_scope.md, amendment 2: walk through Qf3 the way a
+// coach would — his problem first, credit, the check, the story, the cause
+// read from the game, then another way to solve his problem.
+describe("ReflectFlow — review mode, Qf3 as a coach would take it", () => {
+  const flush = () => act(async () => { await Promise.resolve(); });
+
+  test("starts from his problem, credits the idea, tells the story, and asks for another way", async () => {
+    const onSubmit = jest.fn(() => Promise.resolve({}));
+    const checkBetter = jest.fn(() => Promise.resolve({
+      ok: true, san: "Bd2",
+      words: "Yes. Bd2 breaks the pin, so your knight on c3 guards e4 again. It also brings a piece into play.",
+      best: { uci: "c1d2", san: "Bd2", words: "Bd2 breaks the pin, so your knight on c3 guards e4 again." },
+    }));
+    render(<ReflectFlow mode="review" moment={qf3StoryMoment} onSubmit={onSubmit} checkBetter={checkBetter} onClose={() => {}} />);
+    expect(text()).toContain("Before Qf3, what were you worried about?");
+    expect(text()).not.toContain("What was Qf3 for?");
+    click(square("e4 white pawn"));
+    expect(text()).toContain("Right. His knight on f6 was attacking it, and your knight on c3 couldn't help: his bishop on b4 pins it to your king.");
+    expect(text()).toContain("Qf3 guards it, and it also attacks his knight on f6. Good idea.");
+    expect(text()).toContain("which of his pieces could take it?");
+    click(square("e5 black knight"));
+    click(button("Done"));
+    expect(text()).toContain("He didn't take it. He played O-O.");
+    expect(text()).toContain("Then you played Ne2, he played d5, and you played exd5. Your queen was still on f3.");
+    expect(text()).toContain("Then he took it with Nxf3+.");
+    // the game already answered "did you see it?" — no question
+    expect(text()).not.toContain("One honest question");
+    expect(text()).toContain("In the game you left your queen there for two more moves, so you didn't see it.");
+    expect(text()).toContain("How else could you look after your pawn on e4?");
+    click(square("c1 white bishop"));
+    click(square("d2"));
+    await flush();
+    expect(checkBetter).toHaveBeenCalledWith("c1d2");
+    expect(text()).toContain("Yes. Bd2 breaks the pin");
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      picks: [{ kind: "worried", sq: "e4" }], tapped: ["e5"], seen_in_game: "no", better: ["c1d2"],
+    }));
+  });
+
+  test("a wrong first worry still gets the real problem explained, and Show me reveals a better way", async () => {
+    const checkBetter = jest.fn(() => Promise.resolve({ best: { uci: "c1d2", san: "Bd2", words: "Bd2 breaks the pin, so your knight on c3 guards e4 again." } }));
+    render(<ReflectFlow mode="review" moment={qf3StoryMoment} onSubmit={() => Promise.resolve({})} checkBetter={checkBetter} />);
+    click(button("Nothing, I had a plan"));
+    expect(text()).toContain("Look at your pawn on e4. His knight on f6 was attacking it");
+    click(button("Done"));
+    expect(text()).toContain("The piece that can take it is his knight on e5.");
+    expect(text()).toContain("It's a knight jump, and that's what we'll practise.");
+    click(button("Show me"));
+    await flush();
+    expect(checkBetter).toHaveBeenCalledWith(null);
+    expect(text()).toContain("Here's one: Bd2 breaks the pin");
   });
 });
 
