@@ -656,6 +656,36 @@ def _time_flag_severity(flag: Optional[str], mv: Dict[str, Any]) -> Optional[str
     return ["minor", "moderate", "critical"][idx]
 
 
+def _development_decision(mv: Dict[str, Any], user_color: str) -> Optional[str]:
+    """Run the existing concept:coached_development detector on one move.
+
+    Measured 2026-11-10 (docs/player_causes_findings_2026_11_10.md): whether a
+    player develops a knight or bishop when that is the engine's move is the
+    most stable per-player trait found (split-half r 0.89), so it is stored.
+    """
+    fen, uci = mv.get("fen_before"), mv.get("move_uci")
+    if not fen or not uci:
+        return None
+    try:
+        import chess as _chess
+        from services.cognitive_gap_subtypes import _best_move_uci
+        from services.concept_detectors.coach_principles import (
+            detect_coached_development_application,
+        )
+        board = _chess.Board(fen)
+        return detect_coached_development_application(
+            board, _chess.Move.from_uci(uci),
+            _chess.WHITE if user_color == "white" else _chess.BLACK,
+            move_number=mv.get("move_number"),
+            best_move_san=mv.get("best_move"),
+            best_move_uci=_best_move_uci(mv),
+            cp_loss=mv.get("cp_loss"),
+            mate_info=mv.get("mate_info"),
+        )
+    except Exception:
+        return None
+
+
 def derive_observations_for_game(
     stockfish_analysis: Dict[str, Any],
     game_id: str,
@@ -879,6 +909,8 @@ def derive_observations_for_game(
             subtype = "destination_safety_exact"
             severity = "critical"
 
+        development_decision = _development_decision(mv, user_color)
+
         obs = {
             "user_id": user_id,
             "game_id": game_id,
@@ -929,6 +961,12 @@ def derive_observations_for_game(
             "responded_to_threat": responded_to_threat,
             "punished_opponent_blunder": punished_opponent_blunder,
             "found_best_in_critical": found_best_in_critical,
+            # "applied" / "missed" / None from concept:coached_development, so
+            # a player's development habit can be read without re-running the
+            # detector. Consumers must let a piece-safety or tactic label on
+            # the same row own a "missed" (the engine's developing move is
+            # often also the move that saves the piece).
+            "development_decision": development_decision,
 
             # Gap observations
             "missed_pattern": missed_pattern,

@@ -35,7 +35,7 @@ from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
 from pymongo import UpdateOne  # noqa: E402
 from services.move_observation_deriver import derive_observations_for_game  # noqa: E402
 
-FIELDS = ("missed_pattern", "subtype", "severity")
+FIELDS = ("missed_pattern", "subtype", "severity", "development_decision")
 BATCH = 50
 
 
