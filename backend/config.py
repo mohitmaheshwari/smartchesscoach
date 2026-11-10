@@ -46,7 +46,45 @@ if _env_sf_path and os.path.exists(_env_sf_path):
 else:
     STOCKFISH_PATH = shutil.which("stockfish") or shutil.which("stockfish.exe") or "/usr/games/stockfish"
 
-STOCKFISH_DEPTH = 18              # Main analysis depth (15-20 recommended)
+
+# Game analysis uses the official AVX2 build of the SAME Stockfish version.
+# The Debian package is compiled for generic x86-64 (SSE2 only). Measured
+# 2026-11-10 in the worker image, one core each: 148,411 vs 403,896 nodes/s,
+# and `bench 16 1 13` searches 2,030,154 nodes in both, so the evaluation and
+# search are identical and only the speed differs. Analysis only: Play with
+# Coach limits its engine by TIME, and a faster binary there would quietly make
+# the coach opponent stronger, so STOCKFISH_PATH is left alone.
+STOCKFISH_AVX2_PATH = "/usr/local/bin/stockfish-avx2"
+
+
+def _cpu_runs_avx2_build() -> bool:
+    try:
+        with open("/proc/cpuinfo") as fh:
+            for line in fh:
+                if line.startswith("flags"):
+                    flags = set(line.split(":", 1)[1].split())
+                    return {"avx2", "popcnt", "sse4_1"} <= flags
+    except OSError:
+        pass
+    return False
+
+
+def _analysis_stockfish_path() -> str:
+    override = os.getenv("ANALYSIS_STOCKFISH_PATH")
+    if override and os.path.exists(override):
+        return override
+    if os.path.exists(STOCKFISH_AVX2_PATH) and _cpu_runs_avx2_build():
+        return STOCKFISH_AVX2_PATH
+    return STOCKFISH_PATH
+
+
+ANALYSIS_STOCKFISH_PATH = _analysis_stockfish_path()
+
+# Positions of one game searched at once by separate engine processes, before
+# the per-move loop reads them. 1 = the old one-engine path, unchanged.
+STOCKFISH_PREFETCH_WORKERS = max(1, int(os.getenv("STOCKFISH_PREFETCH_WORKERS", "1") or 1))
+
+STOCKFISH_DEPTH = 18             # Main analysis depth (15-20 recommended)
 STOCKFISH_QUICK_DEPTH = 12        # Quick analysis depth
 STOCKFISH_PV_DEPTH = 12           # Depth for principal variation
 STOCKFISH_PV_LENGTH = 5           # Number of moves in PV line

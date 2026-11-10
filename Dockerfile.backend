@@ -13,6 +13,18 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Official Stockfish 17.1 AVX2 build for GAME ANALYSIS (config.ANALYSIS_STOCKFISH_PATH).
+# Same version as the Debian package above, 2.7x faster, identical search
+# (bench node counts match). Pinned by checksum; a CPU without AVX2 falls back
+# to /usr/games/stockfish at runtime.
+ARG STOCKFISH_AVX2_URL=https://github.com/official-stockfish/Stockfish/releases/download/sf_17.1/stockfish-ubuntu-x86-64-avx2.tar
+ARG STOCKFISH_AVX2_SHA256=09e953222dbe80aaea5c33dab265413b295cb8376418445c877708c61e31987d
+RUN curl -fsSL -o /tmp/sf.tar "$STOCKFISH_AVX2_URL" \
+    && echo "$STOCKFISH_AVX2_SHA256  /tmp/sf.tar" | sha256sum -c - \
+    && tar -xf /tmp/sf.tar -C /tmp \
+    && install -m 0755 /tmp/stockfish/stockfish-ubuntu-x86-64-avx2 /usr/local/bin/stockfish-avx2 \
+    && rm -rf /tmp/sf.tar /tmp/stockfish
+
 WORKDIR /app
 
 # Copy and install Python dependencies

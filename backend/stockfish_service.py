@@ -16,12 +16,14 @@ import chess.pgn
 import chess.engine
 import io
 import logging
+import time
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
 # Import centralized config
 from config import STOCKFISH_PATH, STOCKFISH_DEPTH, CP_THRESHOLDS as CONFIG_CP_THRESHOLDS
+from config import ANALYSIS_STOCKFISH_PATH, STOCKFISH_PREFETCH_WORKERS
 
 logger = logging.getLogger(__name__)
 
@@ -765,7 +767,250 @@ def calculate_accuracy(cp_losses: List[int], classifications: List[str] = None) 
     return round(min(100, max(0, accuracy)), 1)
 
 
-def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", depth: int = DEFAULT_DEPTH) -> Dict[str, Any]:
+def _mate_cp(mate_in: int) -> int:
+    cp_value = 10000 - abs(mate_in) * 10
+    return -cp_value if mate_in < 0 else cp_value
+
+
+class _PrefetchedEngine:
+    """Answers the per-move loop's searches from a table filled in parallel.
+
+    The loop searches the same position twice in a row (best move before the
+    move, eval + line after the previous one), and for a faulted move runs up
+    to five more searches one after another. _prefetch_positions does them up
+    front, split over several engine processes, keyed by (fen, depth, multipv).
+    Anything not in the table goes to the real engine exactly as before, so a
+    miss costs time, never correctness.
+
+    Each method returns what the StockfishEngine method of the same name
+    returns, including its own mate convention: get_best_move uses +-10000,
+    the evaluate_* methods use 10000 - 10*|mate|.
+    """
+
+    def __init__(self, engine: "StockfishEngine", table: Dict[tuple, Any]):
+        self._engine = engine
+        self._table = table
+        self.hits = 0
+        self.misses = 0
+
+    def __getattr__(self, name):
+        return getattr(self._engine, name)
+
+    def _get(self, board: chess.Board, depth: int, multipv: int = 1):
+        value = self._table.get((board.fen(), depth, multipv))
+        if value is None:
+            self.misses += 1
+        else:
+            self.hits += 1
+        return value
+
+    def evaluate_position(self, board: chess.Board, depth: int = DEFAULT_DEPTH):
+        info = self._get(board, depth)
+        if info is None:
+            return self._engine.evaluate_position(board, depth)
+        score = info["score"].white()
+        if score.is_mate():
+            return _mate_cp(score.mate()), score.mate()
+        return score.score(), None
+
+    def evaluate_position_with_line(self, board: chess.Board, depth: int = DEFAULT_DEPTH, pv_length: int = 12):
+        info = self._get(board, depth)
+        if info is None:
+            return self._engine.evaluate_position_with_line(board, depth, pv_length)
+        score = info["score"].white()
+        pv_san: List[str] = []
+        tb = board.copy()
+        for mv in (info.get("pv") or [])[:pv_length]:
+            try:
+                pv_san.append(tb.san(mv))
+                tb.push(mv)
+            except Exception:
+                break
+        if score.is_mate():
+            return _mate_cp(score.mate()), score.mate(), pv_san
+        return score.score(), None, pv_san
+
+    def get_best_move(self, board: chess.Board, depth: int = DEFAULT_DEPTH):
+        info = self._get(board, depth)
+        pv = (info or {}).get("pv") or []
+        if info is None or not pv:
+            return self._engine.get_best_move(board, depth)
+        score = info["score"].white()
+        if score.is_mate():
+            return pv[0], 10000 if score.mate() > 0 else -10000, score.mate()
+        return pv[0], score.score(), None
+
+    def get_principal_variation(self, board: chess.Board, depth: int = DEFAULT_DEPTH, pv_length: int = 5):
+        info = self._get(board, depth)
+        if info is None:
+            return self._engine.get_principal_variation(board, depth, pv_length)
+        try:
+            pv_san = []
+            temp_board = board.copy()
+            for move in (info.get("pv") or [])[:pv_length]:
+                pv_san.append(temp_board.san(move))
+                temp_board.push(move)
+            return pv_san
+        except Exception as e:
+            logger.error(f"Failed to get PV: {e}")
+            return []
+
+    def get_threat(self, board: chess.Board, depth: int = DEFAULT_DEPTH):
+        info = self._get(board, depth)
+        if info is None:
+            return self._engine.get_threat(board, depth)
+        try:
+            pv = info.get("pv") or []
+            return board.san(pv[0]) if pv else None
+        except Exception as e:
+            logger.error(f"Failed to get threat: {e}")
+            return None
+
+    def get_top_replies(self, board: chess.Board, num: int = 3, depth: int = PUNISHMENT_DEPTH):
+        infos = self._get(board, depth, num)
+        if infos is None:
+            return self._engine.get_top_replies(board, num, depth)
+        try:
+            out: List[Dict[str, Any]] = []
+            for info in infos:
+                pv = info.get("pv") or []
+                if not pv:
+                    continue
+                score = info.get("score")
+                cp = score.relative.score(mate_score=100000) if score is not None else None
+                out.append({"move_san": board.san(pv[0]), "move_uci": pv[0].uci(), "eval_cp": cp})
+            return out
+        except Exception as e:
+            logger.error(f"Failed to get top replies: {e}")
+            return []
+
+    def get_candidate_lines(self, board: chess.Board, num: int = 8, depth: int = PUNISHMENT_DEPTH,
+                            pv_length: int = PUNISHMENT_PV_PLIES):
+        infos = self._get(board, depth, num)
+        if infos is None:
+            return self._engine.get_candidate_lines(board, num, depth, pv_length)
+        try:
+            mover = board.turn
+            out: List[Dict[str, Any]] = []
+            for info in infos:
+                pv = info.get("pv") or []
+                if not pv:
+                    continue
+                walker = board.copy(stack=False)
+                line_san: List[str] = []
+                for mv in pv[:pv_length]:
+                    try:
+                        line_san.append(walker.san(mv))
+                        walker.push(mv)
+                    except (ValueError, AssertionError, KeyError):
+                        break
+                if not line_san:
+                    continue
+                score = info.get("score")
+                cp = score.pov(mover).score(mate_score=100000) if score is not None else None
+                out.append({"move_san": line_san[0], "move_uci": pv[0].uci(), "eval_cp": cp,
+                            "line_san": line_san})
+            return out
+        except Exception as e:
+            logger.error(f"Failed to get candidate lines: {e}")
+            return []
+
+
+def _run_searches(jobs: List[tuple], workers: int, path: str) -> Dict[tuple, Any]:
+    """Run (fen, depth, multipv) searches over `workers` engine processes.
+
+    Contiguous slices keep consecutive positions on one engine, as the single
+    engine had them. A search that fails is left out of the table.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    jobs = list(dict.fromkeys(jobs))
+    if not jobs:
+        return {}
+    size = max(1, -(-len(jobs) // workers))
+    slices = [jobs[i:i + size] for i in range(0, len(jobs), size)]
+
+    def run(chunk):
+        out = {}
+        eng = StockfishEngine(path=path)
+        try:
+            eng.start()
+            for fen, d, mpv in chunk:
+                try:
+                    board = chess.Board(fen)
+                    if mpv == 1:
+                        info = eng.engine.analyse(board, chess.engine.Limit(depth=d))
+                        if "score" in info:
+                            out[(fen, d, 1)] = {"score": info["score"], "pv": list(info.get("pv") or [])}
+                    else:
+                        infos = eng.engine.analyse(board, chess.engine.Limit(depth=d), multipv=mpv)
+                        if isinstance(infos, dict):
+                            infos = [infos]
+                        out[(fen, d, mpv)] = [{"score": i.get("score"), "pv": list(i.get("pv") or [])}
+                                              for i in infos]
+                except Exception as exc:
+                    logger.debug("[prefetch] %s d%s m%s failed: %r", fen, d, mpv, exc)
+        finally:
+            eng.stop()
+        return out
+
+    table: Dict[tuple, Any] = {}
+    with ThreadPoolExecutor(max_workers=len(slices)) as pool:
+        for part in pool.map(run, slices):
+            table.update(part)
+    return table
+
+
+def _prefetch_positions(game, depth: int, workers: int, path: str, user_color: str) -> Dict[tuple, Any]:
+    """Pass 1: every position of the game once. Pass 2: the extra searches the
+    loop runs for the player's costly moves and big swings, judged from pass 1
+    with the loop's own arithmetic. A superset is harmless (unused entries are
+    never read); a move pass 2 skipped simply asks the real engine."""
+    board = game.board()
+    plies = []
+    for node in game.mainline():
+        before = board.fen()
+        is_white = board.turn == chess.WHITE
+        board.push(node.move)
+        plies.append((before, board.fen(), node.move, is_white, board.is_checkmate()))
+    positions = [game.board().fen()] + [after for _, after, _, _, _ in plies]
+    table = _run_searches([(f, depth, 1) for f in positions], workers, path)
+
+    def white_eval(fen, best_convention):
+        info = table.get((fen, depth, 1))
+        if info is None:
+            return None
+        sc = info["score"].white()
+        if sc.is_mate():
+            return (10000 if sc.mate() > 0 else -10000) if best_convention else _mate_cp(sc.mate())
+        return sc.score()
+
+    extra = []
+    for before, after, move, is_white, mate in plies:
+        if (user_color == "white") != is_white:
+            continue
+        info = table.get((before, depth, 1))
+        best_eval, cur, prev = white_eval(before, True), white_eval(after, False), white_eval(before, False)
+        if info is None or best_eval is None or cur is None or prev is None or not info.get("pv"):
+            continue
+        best = info["pv"][0]
+        cp_loss = 0
+        if best != move and not mate:
+            bm = best_eval if is_white else -best_eval
+            am = cur if is_white else -cur
+            cp_loss = max(0, _clamp_eval(bm) - _clamp_eval(am))
+        if cp_loss > CP_THRESHOLDS["excellent"] or abs(cur - prev) >= 120:
+            bb = chess.Board(before)
+            if bb.is_legal(best):
+                bb.push(best)
+                extra.append((bb.fen(), PUNISHMENT_DEPTH, 1))
+            extra += [(before, PUNISHMENT_DEPTH, 3), (after, PUNISHMENT_DEPTH, 3), (after, PUNISHMENT_DEPTH, 1)]
+    table.update(_run_searches([j for j in extra if j not in table], workers, path))
+    return table
+
+
+def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", depth: int = DEFAULT_DEPTH,
+                                prefetch_workers: Optional[int] = None) -> Dict[str, Any]:
     """
     Analyze a complete game using Stockfish.
     
@@ -804,7 +1049,15 @@ def analyze_game_with_stockfish(pgn_string: str, user_color: str = "white", dept
         best_moves = 0
         excellent_moves = 0
         
-        with StockfishEngine() as engine:
+        workers = STOCKFISH_PREFETCH_WORKERS if prefetch_workers is None else max(1, int(prefetch_workers))
+        with StockfishEngine(path=ANALYSIS_STOCKFISH_PATH) as engine:
+            if workers > 1:
+                _t0 = time.perf_counter()
+                engine = _PrefetchedEngine(
+                    engine, _prefetch_positions(game, depth, workers, ANALYSIS_STOCKFISH_PATH, user_color))
+                logger.info("[prefetch] %d searches in %.1fs with %d engines (%s)",
+                            len(engine._table), time.perf_counter() - _t0, workers,
+                            ANALYSIS_STOCKFISH_PATH)
             board = game.board()
             prev_eval = 0
             prev_mate = None
