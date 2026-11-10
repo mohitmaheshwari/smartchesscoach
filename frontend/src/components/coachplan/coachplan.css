@@ -62,3 +62,19 @@
 .cp-chip[aria-pressed="true"] { background: var(--cp-gold); border-color: var(--cp-gold); color: var(--cp-ink); }
 .cp-chip:focus-visible { outline: 2px solid var(--cp-gold); outline-offset: 2px; }
 .cp-hint { font-size: 13px; color: var(--cp-muted); }
+
+/* Inside a Game Review chapter (docs/review_tap_reflection_scope.md): the
+   review page is light and the column is narrow, so the board sits above the
+   conversation and the tokens follow the review card. */
+.cp.cp-review {
+  --cp-ink: #ffffff; --cp-panel: #f8fafc; --cp-raised: #eef2f6; --cp-line: #dfe5ea;
+  --cp-text: #0f172a; --cp-muted: #64748b; --cp-gold: #b7862f; --cp-good: #3f8f5a; --cp-bad: #c4553c;
+  --cp-danger: rgba(196, 85, 60, .45); --cp-path: rgba(196, 85, 60, .16);
+  grid-template-columns: minmax(0, 1fr); gap: 14px;
+}
+.cp.cp-review .cp-boardcol { position: static; justify-items: center; }
+.cp.cp-review .cp-boardbox { max-width: 380px; }
+.cp.cp-review .cp-talk { min-height: 0; }
+.cp.cp-review .cp-msg.child { background: #1f5f46; }
+.cp.cp-review .cp-chip { min-height: 44px; }
+.cp.cp-review .cp-chip:disabled { opacity: .55; cursor: wait; }

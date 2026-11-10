@@ -173,6 +173,8 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   const [teachableEvents, setTeachableEvents] = useState([]);
   const [reflectionPrompts, setReflectionPrompts] = useState([]);
   const [reflectionResponses, setReflectionResponses] = useState([]);
+  const [tapMoments, setTapMoments] = useState([]);
+  const [tapResponses, setTapResponses] = useState([]);
   const [reviewValidation, setReviewValidation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -358,6 +360,8 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
     setTeachableEvents([]);
     setReflectionPrompts([]);
     setReflectionResponses([]);
+    setTapMoments([]);
+    setTapResponses([]);
     setReviewValidation(null);
     setHabitsReport(null);
     setFactsByMove({});
@@ -661,6 +665,8 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
       setTeachableEvents(data.teachable_events || []);
       setReflectionPrompts(data.reflection_prompts || []);
       setReflectionResponses(data.reflection_responses || []);
+      setTapMoments(data.tap_moments || []);
+      setTapResponses(data.tap_responses || []);
       setReviewValidation(data.review_validation || null);
 
       // Authoring mode: pull raw per-move facts when ?show_facts=1 is set.
@@ -1540,6 +1546,8 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             events={teachableEvents}
             prompts={reflectionPrompts}
             reflectionResponses={reflectionResponses}
+            tapMoments={tapMoments}
+            tapResponses={tapResponses}
             onChapterSelect={(event) => {
               const moveIndex = Number(event?.move?.ply) - 1;
               if (Number.isInteger(moveIndex)) goToMove(moveIndex);

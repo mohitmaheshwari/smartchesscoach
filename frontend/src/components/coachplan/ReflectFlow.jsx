@@ -13,6 +13,12 @@
  * Every option on the board is computed by the server from the board, and every
  * line below is built from those facts. There is no typing and no AI-written
  * text anywhere in this flow. No numbers in what the child reads.
+ *
+ * mode="review" (docs/review_tap_reflection_scope.md) runs the same flow inside
+ * a Game Review chapter: no date line, no "your turn" practice step, no weekly
+ * card. The piece that can be taken may not be the piece that moved
+ * (`moment.target`). Moves other than the stored best are checked by the
+ * server (`checkMove`). The server grades every answer again on submit.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./coachplan.css";
@@ -128,8 +134,14 @@ function Board({ color, pos, marks, arrows, live }) {
 // ---------------------------------------------------------------------------
 // the flow
 // ---------------------------------------------------------------------------
-export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClose }) {
+export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClose, mode = "plan", checkMove, closeLabel }) {
   const m = moment;
+  const review = mode === "review";
+  // The piece the landing test is about. On the class page it is always the piece that moved.
+  const T = m.target || { sq: m.to, piece: m.moved };
+  const movedIsTarget = T.sq === m.to;
+  const [busy, setBusy] = useState(false);
+  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | failed
   const [stage, setStage] = useState("intent");
   const [log, setLog] = useState([]);
   const [picks, setPicks] = useState([]);
@@ -165,7 +177,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
       ? "Red rings: his pieces it now attacks. Green rings: your pieces it now guards."
       : (m.intents || []).length ? "Red rings: his pieces it now attacks." : "";
     setLog([
-      { who: "coach", text: `Your game from ${dateWords}. You had ${m.color}, and you played ${m.san}.${pace}` },
+      { who: "coach", text: review ? `You played ${m.san}.${pace}` : `Your game from ${dateWords}. You had ${m.color}, and you played ${m.san}.${pace}` },
       { who: "ask", text: `What was ${m.san} for? Tap everything it was about, then press Done.`,
         small: `${options}${options ? " " : ""}Or pick "Bring it into play" below. Tap again to take a pick back.` },
     ]);
@@ -228,7 +240,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
 
   // ---------- 2. the check ----------
   function testAsk() {
-    if (m.kind === "landing") return { who: "ask", text: `Now the check. With your ${m.moved} on ${m.to}, which of his pieces could take it?`, small: "Tap every piece you think can reach it, then press Done. If none can, just press Done." };
+    if (m.kind === "landing") return { who: "ask", text: movedIsTarget ? `Now the check. With your ${m.moved} on ${m.to}, which of his pieces could take it?` : `Now the check. After ${m.san}, which of his pieces could take your ${T.piece} on ${T.sq}?`, small: "Tap every piece you think can reach it, then press Done. If none can, just press Done." };
     if (m.kind === "king_attack") return { who: "ask", text: "Back to the position before your move. Which of his pieces were aiming at the squares around your king?", small: "Tap them, then press Done." };
     return { who: "ask", text: "Back to the position before your move. There was a move here that wins something. Find it.", small: "Tap the piece, then where it goes." };
   }
@@ -244,12 +256,12 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     if (m.kind === "landing") {
       const missed = answer.filter((a) => !taps.includes(a.sq));
       ok = missed.length === 0;
-      if (ok) items.push({ who: "coach", text: `Yes, ${andList(answer.map((a) => his(a.piece, a.sq)))}. You saw it.${wrong.length ? ` (The ${andList(wrong.map(nm))} can't reach ${m.to}.)` : ""}` });
+      if (ok) items.push({ who: "coach", text: `Yes, ${andList(answer.map((a) => his(a.piece, a.sq)))}. You saw it.${wrong.length ? ` (The ${andList(wrong.map(nm))} can't reach ${T.sq}.)` : ""}` });
       else {
         const l = missed[0];
-        items.push({ who: "coach", text: `${wrong.length ? `Not ${andList(wrong.map(nm))}: ${wrong.length > 1 ? "they" : "it"} can't reach ${m.to}. ` : ""}The piece that can take it is ${his(l.piece, l.sq)}.` });
-        items.push({ who: "coach", text: kindWords(l, m.to) });
-        const both = (m.intents || []).find((it) => it.kind === "attack" && it.sq === l.sq);
+        items.push({ who: "coach", text: `${wrong.length ? `Not ${andList(wrong.map(nm))}: ${wrong.length > 1 ? "they" : "it"} can't reach ${T.sq}. ` : ""}The piece that can take it is ${his(l.piece, l.sq)}.` });
+        items.push({ who: "coach", text: kindWords(l, T.sq) });
+        const both = movedIsTarget && (m.intents || []).find((it) => it.kind === "attack" && it.sq === l.sq);
         if (both) items.push({ who: "coach", text: `And look: your ${m.moved} was attacking that ${l.piece}. A line works both ways. If your ${m.moved} can see ${l.sq}, the ${l.piece} on ${l.sq} can see ${m.to}.` });
       }
     } else {
@@ -269,15 +281,24 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     if (ex.mate || m.pattern === "mate") return "It leads to checkmate.";
     if (m.pattern === "fork" && t.length >= 2) return `It attacks ${andList(t.map((x) => his(x.piece, x.sq)))} at once.`;
     if ((m.pattern === "pin" || m.pattern === "skewer") && t.length >= 2) return `It lines up ${his(t[0].piece, t[0].sq)} and ${his(t[1].piece, t[1].sq)}.`;
+    if (ex.wins?.piece && ex.wins?.sq) return ex.wins.first ? `It takes ${his(ex.wins.piece, ex.wins.sq)}.` : `Keep going after it, and you take ${his(ex.wins.piece, ex.wins.sq)}.`;
     return "It wins something for you.";
   }
-  function tryFind(uci) {
+  async function tryFind(uci) {
+    if (busy) return;
     const best = m.test.best;
     const san = m.practice?.moves?.[uci]?.san || uci;
     setSel(null);
-    if ((m.test.accept || []).includes(uci)) {
+    let good = (m.test.accept || []).includes(uci);
+    if (!good && checkMove) {
+      setBusy(true);
+      try { good = !!(await checkMove(uci)); } catch { good = false; }
+      setBusy(false);
+    }
+    if (good) {
+      const isBest = uci === best.uci;
       setFound(true); setTapped((t) => [...t, uci]); setGraded(true);
-      sayAll([{ who: "child", text: san }, { who: "coach", text: `Yes, ${san}. ${explainBest()}` }, seenAsk()]);
+      sayAll([{ who: "child", text: san }, { who: "coach", text: isBest ? `Yes, ${san}. ${explainBest()}` : `Yes, ${san} works too. The engine's first choice was ${best.san}. ${explainBest()}` }, seenAsk()]);
       setStage("seen");
       return;
     }
@@ -316,6 +337,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     } else t = "That's fine. Most players don't remember. The look we practise covers it either way.";
     const items = [{ who: "child", text: label }, { who: "coach", text: t }];
     if (m.kind === "missed_tactic") { sayAll(items); finish(); return; }
+    if (review) { sayAll([...items, ...replyLines()]); finish(); return; }
     sayAll([...items, ...replyLines()]);
     setStage("reply");
   }
@@ -344,6 +366,11 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     }
     say(ask.text, "ask", { small: ask.small });
     setStage("practice");
+  }
+  function showMe() {
+    setFound(false); setGraded(true); setSel(null);
+    sayAll([{ who: "child", text: "Show me." }, { who: "coach", text: `Here it is: ${m.test.best.san}. ${explainBest()}` }, seenAsk()]);
+    setStage("seen");
   }
   function tryPractice(uci) {
     const v = m.practice.moves[uci];
@@ -405,6 +432,10 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
       seen_in_game: seen,
       practice,
     };
+    if (review) {
+      if (onSubmit) save(answers);
+      return;
+    }
     const R = cardLines(answers);
     const items = [{ who: "card", title: "Your reflection", text: R.join("\n") }];
     if (warningSign?.text) items.push({ who: "card", title: warningSign.title || "Before you move", text: warningSign.text });
@@ -414,6 +445,15 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     if (onSubmit) Promise.resolve(onSubmit(answers)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
+
+  function save(answers) {
+    setSaveState("saving");
+    Promise.resolve(onSubmit(answers)).then(() => setSaveState("saved")).catch(() => setSaveState("failed"));
+  }
+  const lastAnswers = () => ({
+    picks: picks.map((it) => (it.sq ? { kind: it.kind, sq: it.sq } : { kind: it.kind })),
+    found_when_asked: !!found, tapped, seen_in_game: seen, practice,
+  });
 
   function cardLines(a) {
     const wanted = picks.filter((it) => ["attack", "defend", "escape", "develop"].includes(it.kind)).map(pickWords);
@@ -449,7 +489,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
         if (m.reply_from) mark(m.reply_from, "last");
         if (dest) mark(dest, "last");
       } else if (!graded) {
-        if (m.kind === "landing") { mark(m.from, "last"); mark(m.to, "last"); }
+        if (m.kind === "landing") { mark(m.from, "last"); mark(m.to, "last"); if (!movedIsTarget) mark(T.sq, "last"); }
         Object.entries(pos).forEach(([sq, p]) => {
           if (mine(p)) return;
           if (taps.includes(sq)) mark(sq, "r-tap");
@@ -458,7 +498,8 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
       } else {
         if (m.kind === "landing") {
           mark(m.from, "last"); mark(m.to, "last");
-          (m.test.answer || []).forEach((l) => { mark(l.sq, "danger"); (l.path || []).forEach((p) => mark(p, "path")); arrows.push([l.sq, m.to, "A"]); });
+          if (!movedIsTarget) mark(T.sq, "last");
+          (m.test.answer || []).forEach((l) => { mark(l.sq, "danger"); (l.path || []).forEach((p) => mark(p, "path")); arrows.push([l.sq, T.sq, "A"]); });
         } else {
           (m.test.ring || []).forEach((sq) => mark(sq, "path"));
           if (m.test.king) mark(m.test.king, "last");
@@ -537,7 +578,12 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
   } else if (stage === "test" && tapTest) {
     bar = <button type="button" className="cp-chip go" onClick={gradeTaps}>Done</button>;
   } else if (stage === "test") {
-    bar = <span className="cp-hint">{sel ? "Now tap where it goes." : "Tap one of your pieces."}</span>;
+    bar = (
+      <>
+        <span className="cp-hint">{busy ? "Checking..." : sel ? "Now tap where it goes." : "Tap one of your pieces."}</span>
+        {review && <button type="button" className="cp-chip" disabled={busy} onClick={showMe}>Show me</button>}
+      </>
+    );
   } else if (stage === "seen") {
     bar = (
       <>
@@ -555,14 +601,23 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
         <button type="button" className="cp-chip" onClick={reveal}>Show me</button>
       </>
     );
+  } else if (stage === "done" && review) {
+    bar = saveState === "failed"
+      ? (
+        <>
+          <span className="cp-hint" role="alert">I couldn't save that.</span>
+          <button type="button" className="cp-chip go" onClick={() => save(lastAnswers())}>Try again</button>
+        </>
+      )
+      : <button type="button" className="cp-chip go" disabled={saveState !== "saved"} onClick={onClose}>{saveState === "saved" ? (closeLabel || "Continue") : "Saving..."}</button>;
   } else if (stage === "done" && onClose) {
     bar = <button type="button" className="cp-chip go" onClick={onClose}>Back to this week</button>;
   }
 
   return (
-    <div className="cp" data-stage={stage}>
+    <div className={review ? "cp cp-review" : "cp"} data-stage={stage}>
       <div className="cp-boardcol">
-        <div className="cp-meta"><span>{dateWords} · you had {m.color}</span><span>you played {m.san}</span></div>
+        <div className="cp-meta"><span>{review ? `You had ${m.color}` : `${dateWords} · you had ${m.color}`}</span><span>you played {m.san}</span></div>
         <Board color={m.color} {...board} />
         {key.length > 0 && (
           <div className="cp-key">

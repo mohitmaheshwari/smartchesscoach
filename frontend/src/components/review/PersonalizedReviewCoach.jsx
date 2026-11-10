@@ -13,6 +13,7 @@ import {
 import { API } from "../../App";
 import { ANALYTICS_EVENTS, track } from "../../lib/analytics";
 import CandidateComparisonCard from "./CandidateComparisonCard";
+import ReflectFlow from "../coachplan/ReflectFlow";
 
 
 const ROLE_LABELS = Object.freeze({
@@ -53,6 +54,8 @@ export default function PersonalizedReviewCoach({
   events,
   prompts,
   reflectionResponses,
+  tapMoments,
+  tapResponses,
   onChapterSelect,
   onShowVisual,
   onNavigate,
@@ -66,6 +69,16 @@ export default function PersonalizedReviewCoach({
     () => new Map((prompts || []).map((prompt) => [prompt.event_id, prompt])),
     [prompts]
   );
+  // docs/review_tap_reflection_scope.md: a moment the board can grade is
+  // answered by tapping, and the reply depends on why it happened.
+  const tapByEvent = useMemo(
+    () => new Map((tapMoments || []).map((moment) => [moment.key, moment])),
+    [tapMoments]
+  );
+  const [tapAnswers, setTapAnswers] = useState(() => Object.fromEntries(
+    (tapResponses || []).map((item) => [item.event_id, item])
+  ));
+  const pendingTap = useRef({});
   const [activeIndex, setActiveIndex] = useState(-1);
   const [answers, setAnswers] = useState(() => Object.fromEntries(
     (reflectionResponses || []).map((item) => [item.event_id, item])
@@ -80,6 +93,12 @@ export default function PersonalizedReviewCoach({
       (reflectionResponses || []).map((item) => [item.event_id, item])
     ));
   }, [reflectionResponses]);
+
+  useEffect(() => {
+    setTapAnswers(Object.fromEntries(
+      (tapResponses || []).map((item) => [item.event_id, item])
+    ));
+  }, [tapResponses]);
 
   if (!plan || !chapters.length) return null;
 
@@ -132,6 +151,43 @@ export default function PersonalizedReviewCoach({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const submitTap = async (event, answers) => {
+    const response = await fetch(`${API}/reflect/v2/game-review-tap`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        game_id: gameId,
+        event_id: event.event_id,
+        picks: answers.picks || [],
+        tapped: answers.tapped || [],
+        seen_in_game: answers.seen_in_game,
+      }),
+    });
+    if (!response.ok) throw new Error("tap reflection was not saved");
+    const receipt = await response.json();
+    pendingTap.current[event.event_id] = receipt;
+    track(ANALYTICS_EVENTS.REVIEW_COACH_REFLECTION_SUBMITTED, {
+      chapter_role: chapters[activeIndex]?.role,
+      chapter_index: activeIndex,
+      reflection_mode: "tap",
+      cause: receipt.cause || "none",
+    });
+    return receipt;
+  };
+
+  const checkTapMove = async (event, uci) => {
+    const response = await fetch(`${API}/reflect/v2/game-review-tap/try`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ game_id: gameId, event_id: event.event_id, uci }),
+    });
+    if (!response.ok) return false;
+    const result = await response.json();
+    return Boolean(result.ok);
   };
 
   if (activeIndex === -1) {
@@ -236,10 +292,13 @@ export default function PersonalizedReviewCoach({
   if (!event) return null;
   const prompt = promptsByEvent.get(event.event_id);
   const answer = answers[event.event_id];
+  const tapMoment = tapByEvent.get(event.event_id);
+  const tapAnswer = tapAnswers[event.event_id];
   const selectedLabel = prompt?.options?.find(
     (option) => option.id === answer?.selected_option_id
   )?.label;
-  const canReveal = !prompt || Boolean(answer);
+  const canReveal = tapMoment ? Boolean(tapAnswer) : (!prompt || Boolean(answer));
+  const keepLine = (tapAnswer?.keep_line || event.teaching?.principle || "").trim();
   const visual = event.teaching?.visual || {};
   const moveRecord = (moves || [])[Number(event.move?.ply) - 1] || {};
   const candidateComparison = moveRecord.candidate_comparison || null;
@@ -269,7 +328,30 @@ export default function PersonalizedReviewCoach({
       </div>
 
       <AnimatePresence mode="wait">
-        {!canReveal ? (
+        {!canReveal && tapMoment ? (
+          <motion.div
+            key={`tap-${event.event_id}`}
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            data-testid="personalized-tap-reflection"
+          >
+            <ReflectFlow
+              key={event.event_id}
+              mode="review"
+              moment={tapMoment}
+              onSubmit={(tapAnswersForMoment) => submitTap(event, tapAnswersForMoment)}
+              checkMove={(uci) => checkTapMove(event, uci)}
+              closeLabel="See the explanation"
+              onClose={() => {
+                const receipt = pendingTap.current[event.event_id];
+                if (receipt) {
+                  setTapAnswers((current) => ({ ...current, [event.event_id]: receipt }));
+                }
+              }}
+            />
+          </motion.div>
+        ) : !canReveal ? (
           <motion.div
             key="reflection"
             initial={{ opacity: 0, x: 8 }}
@@ -337,7 +419,20 @@ export default function PersonalizedReviewCoach({
                 )}
               </div>
             )}
-            {selectedLabel && (
+            {tapAnswer?.summary?.length > 0 && (
+              <div
+                className="mb-5 rounded-2xl border border-violet-100 bg-violet-50/70 px-4 py-3"
+                data-testid="personalized-tap-summary"
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
+                  What you told me
+                </p>
+                {tapAnswer.summary.map((line) => (
+                  <p key={line} className="mt-1 text-sm text-violet-950">{line}</p>
+                ))}
+              </div>
+            )}
+            {!tapAnswer && selectedLabel && (
               <div className="mb-5 rounded-2xl border border-violet-100 bg-violet-50/70 px-4 py-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">
                   What you told me
@@ -351,13 +446,16 @@ export default function PersonalizedReviewCoach({
             <p className="mt-3 text-[17px] leading-8 text-slate-800">
               {event.teaching.caption}
             </p>
-            {event.teaching.principle && event.teaching.principle !== event.teaching.caption && (
-              <div className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-4">
+            {keepLine && keepLine !== event.teaching.caption && (
+              <div
+                className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-4"
+                data-testid="personalized-keep-line"
+              >
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-800">
                   Keep this with you
                 </p>
                 <p className="mt-1.5 text-sm leading-6 text-emerald-950">
-                  {event.teaching.principle}
+                  {keepLine}
                 </p>
               </div>
             )}

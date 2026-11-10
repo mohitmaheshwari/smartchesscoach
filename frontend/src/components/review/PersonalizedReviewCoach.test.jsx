@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import PersonalizedReviewCoach, {
   boardArrowsForReviewVisual,
 } from "./PersonalizedReviewCoach";
+import { ne2Moment } from "../coachplan/__fixtures__/reviewMoments";
 
 
 jest.mock("framer-motion", () => {
@@ -286,5 +287,75 @@ describe("PersonalizedReviewCoach", () => {
       "couldn't save"
     );
     expect(container.textContent).not.toContain("Your bishop could be taken");
+  });
+});
+
+// docs/review_tap_reflection_scope.md
+describe("PersonalizedReviewCoach — tap reflection", () => {
+  const tapMoment = { ...ne2Moment, key: EVENT_ID };
+  let container;
+  let root;
+  beforeEach(() => {
+    global.IS_REACT_ACT_ENVIRONMENT = true;
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    global.fetch = jest.fn();
+  });
+  afterEach(() => { act(() => root.unmount()); container.remove(); });
+  const btn = (name) => [...container.querySelectorAll("button")].find((b) => b.textContent.trim() === name);
+  const sq = (label) => container.querySelector(`button[aria-label="${label}"]`);
+  const click = (el) => act(() => { el.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+  const renderCoach = (tapResponses = []) => act(() => root.render(
+    <PersonalizedReviewCoach gameId="game" plan={plan} events={[event]} prompts={[prompt]}
+      reflectionResponses={[]} tapMoments={[tapMoment]} tapResponses={tapResponses} />
+  ));
+
+  test("a moment the board can grade shows the tap flow instead of the option buttons", () => {
+    renderCoach();
+    click(container.querySelector('[data-testid="personalized-review-start"]'));
+    expect(container.querySelector('[data-testid="personalized-tap-reflection"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="personalized-reflection-option-not_sure"]')).toBeNull();
+    expect(container.textContent).toContain("What was Ne2 for?");
+  });
+
+  test("answers go to the server, and the reveal shows the summary and the cause's line", async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true, event_id: EVENT_ID, cause: "not_looking",
+        keep_line: "Before any piece lands, look from that square: pieces close by, knight jumps, and long lines.",
+        summary: ["You found his knight on e5 when you looked.", "In the game you didn't see it."],
+      }),
+    });
+    renderCoach();
+    click(container.querySelector('[data-testid="personalized-review-start"]'));
+    click(btn("Not sure"));
+    click(sq("e5 black knight"));
+    click(btn("Done"));
+    click(btn("No, I didn't see it"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    const [url, init] = global.fetch.mock.calls[0];
+    expect(url).toBe("/api/reflect/v2/game-review-tap");
+    expect(JSON.parse(init.body)).toEqual({
+      game_id: "game", event_id: EVENT_ID, picks: [], tapped: ["e5"], seen_in_game: "no",
+    });
+    click(btn("See the explanation"));
+    expect(container.querySelector('[data-testid="personalized-tap-summary"]').textContent)
+      .toContain("You found his knight on e5 when you looked.");
+    expect(container.querySelector('[data-testid="personalized-keep-line"]').textContent)
+      .toContain("Before any piece lands, look from that square");
+    expect(container.textContent).toContain(event.teaching.caption);
+  });
+
+  test("an earlier tap answer goes straight to the reveal, and an unclear answer keeps the principle", () => {
+    renderCoach([{
+      event_id: EVENT_ID, cause: null, keep_line: null,
+      summary: ["When you looked, you didn't find his knight on e5.", "You weren't sure if you saw it in the game."],
+    }]);
+    click(container.querySelector('[data-testid="personalized-review-start"]'));
+    expect(container.querySelector('[data-testid="personalized-tap-reflection"]')).toBeNull();
+    expect(container.querySelector('[data-testid="personalized-keep-line"]').textContent)
+      .toContain(event.teaching.principle);
   });
 });

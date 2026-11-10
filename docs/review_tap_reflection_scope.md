@@ -1,8 +1,66 @@
 # Game review: the coach takes up the child's reflection — scope
 
-Status: **awaiting Mohit's sign-off. No code yet.**
+Status: **signed by Mohit 2026-11-10 and built.**
 Asked for: Mohit, 2026-11-10 ("go with your recommendation"), after we found
 that game review asks a reflection question but the answer changes nothing.
+
+## Sign-off and decisions (2026-11-10)
+
+Mohit: "do what you recommend and we will take from there, just one thing, user
+shouldn't write free text, interface should be very very easy for him to submit
+his answers".
+
+- Open question 2: option (a). The stored best move is accepted. Any other
+  tapped move gets one short engine look (depth 12) on the server.
+- Open question 3: the draft lines ship as written in `KEEP` in
+  `services/review_tap_reflection.py`.
+- Open question 4: the "what was it for" step stays. It's the step where the
+  coach answers the child's own thinking.
+- "Very easy": every step is a board tap or one button. Find-the-move has a
+  one-tap "Show me". A failed save offers one "Try again" button. No typing
+  anywhere.
+
+**Open question 1, measured on prod 2026-11-10 (read-only).**
+- Who sees the personalized review: rollout `validation`, 49 users have the flag.
+- Last 30 days: 614 reflection-eligible moments.
+  - Exchange sequence: 223
+  - Missed material: 137
+  - Simple hang with no typed cause: 123. These get **no question today**, because
+    the button builder needs a typed cause.
+  - Material loss: 72
+  - Allowed mate: 48
+  - Missed mate: 11
+- A dry run of the builder over all 614 gives the tap flow to **363 (59%)**,
+  across 221 games:
+
+  | Kind | Tap flow |
+  |---|---|
+  | Missed material | 136 of 137 |
+  | Simple hang | 114 of 123 |
+  | Material loss | 72 of 72 |
+  | Exchange sequence | 30 of 223 |
+  | Missed mate | 11 of 11 |
+
+**Changes from the signed text, found while building:**
+- The piece that can be taken is often not the piece that moved: 145 of the
+  first dry run's moments. Example: Ne2 left the queen on f3 to the knight on
+  e5. So the question names the piece that can be taken ("After Ne2, which of
+  his pieces could take your queen on f3?"). Takers are legal captures only, so
+  a pinned piece is never offered.
+- Exchange-sequence moments are now in V1. They use the same "which piece could
+  take it" test, but only when his actual reply took the piece. Without that
+  rule, the first dry run asked about pieces he never took.
+- "What happened next" states a cost only when taking back still leaves the
+  child behind. An even trade no longer reads as a loss.
+- Answers are stored as reflection kind `game_review_tap`, not
+  `game_review_event`, so the option-answer readers (learning adapter,
+  accepted causes) never see a shape they don't expect.
+- **Deferred:** the coach plan counting game review answers. Academy children
+  reach their reflection through the class link, not game review, so there is
+  nothing to share yet.
+- The section-2 Qf3 move isn't a review chapter on prod. Your main-account copy
+  of that game has Ne2 (move 9) as the chapter, which is the case above. The
+  tests use both positions.
 
 ---
 

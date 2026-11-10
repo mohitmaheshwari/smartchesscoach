@@ -1129,6 +1129,22 @@ async def get_game_decryption_v5(
                 personalized_response["decryption_data"] = (
                     personalized_enriched_data
                 )
+                # docs/review_tap_reflection_scope.md: moments the board can
+                # grade get the tap reflection. Board facts only, from this
+                # game's stored rows; a failure keeps the button question.
+                try:
+                    from services.review_tap_reflection import (
+                        attach_tap_moments,
+                    )
+                    attach_tap_moments(
+                        personalized_response,
+                        tuple(analysis.get("decryption_v5_data") or []),
+                    )
+                except Exception as tap_exc:
+                    logger.warning(
+                        "[review-tap] attach failed for %s: %s", game_id, tap_exc
+                    )
+                    personalized_response["tap_moments"] = []
             response = (
                 personalized_response
                 if presentation_mode == ReviewPresentationMode.PERSONALIZED
@@ -1156,6 +1172,19 @@ async def get_game_decryption_v5(
                     response["reflection_responses"] = (
                         public_reflection_history(reflection_documents)
                     )
+                    from services.review_tap_reflection import (
+                        KIND as TAP_KIND,
+                        public_tap_history,
+                    )
+                    tap_documents = await db.reflection_sessions.find(
+                        {
+                            "user_id": user.user_id,
+                            "game_id": game_id,
+                            "reflection_kind": TAP_KIND,
+                        },
+                        {"_id": 0, "event.event_id": 1, "response": 1},
+                    ).to_list(length=None)
+                    response["tap_responses"] = public_tap_history(tap_documents)
                 except Exception as reflection_history_exc:
                     logger.warning(
                         "[personalized-review] reflection history failed: %s",

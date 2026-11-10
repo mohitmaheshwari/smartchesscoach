@@ -147,6 +147,21 @@ class GameReviewEventReflectionRequest(BaseModel):
     answered_before_reveal: bool = True
 
 
+class GameReviewTapRequest(BaseModel):
+    """Board-tap answers for one Game Review moment. The server grades them."""
+    game_id: str
+    event_id: str
+    picks: List[dict] = []
+    tapped: List[str] = []
+    seen_in_game: Optional[str] = None
+
+
+class GameReviewTapTryRequest(BaseModel):
+    game_id: str
+    event_id: str
+    uci: str
+
+
 # ==================== CORE ENDPOINTS ====================
 
 @router.get("/pending")
@@ -617,6 +632,89 @@ async def submit_game_review_event_reflection(
             _accepted_cause_exc,
         )
     return public_reflection_receipt(stored)
+
+
+async def _review_tap_moment(user: User, game_id: str, event_id: str):
+    """The stored event and its tap moment, rebuilt from the owned game's
+    stored rows. docs/review_tap_reflection_scope.md."""
+    from services.game_review_contracts import personalized_game_review_access
+    from services.review_tap_reflection import find_stored_moment
+
+    review_user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "feature_flags.personalized_game_review_coach": 1},
+    ) or {}
+    if not personalized_game_review_access(review_user_doc).enabled:
+        raise HTTPException(status_code=404, detail="Not found")
+    owned_game = await db.games.find_one(
+        {"game_id": game_id, **user_scope_filter(user)},
+        {"_id": 0, "game_id": 1},
+    )
+    if not owned_game:
+        raise HTTPException(status_code=404, detail="Game not found")
+    analysis = await db.game_analyses.find_one(
+        {"game_id": game_id},
+        {"_id": 0, "decryption_v5_data": 1},
+    )
+    event, moment = find_stored_moment(
+        (analysis or {}).get("decryption_v5_data") or [], event_id
+    )
+    if event is None or moment is None:
+        raise HTTPException(status_code=404, detail="Moment not found")
+    return event, moment
+
+
+@router.post("/v2/game-review-tap/try")
+async def try_game_review_tap_move(
+    data: GameReviewTapTryRequest,
+    user: User = Depends(get_current_user),
+):
+    """Is a tapped move (not the stored best) also good? One short engine look."""
+    import asyncio
+    from services.review_tap_reflection import also_good_moves
+
+    _, moment = await _review_tap_moment(user, data.game_id, data.event_id)
+    if (moment.get("test") or {}).get("kind") != "find_move":
+        raise HTTPException(status_code=422, detail="This moment has no move to find")
+    if data.uci in (moment["test"].get("accept") or []):
+        return {"ok": True}
+    try:
+        good = await asyncio.to_thread(also_good_moves, moment, [data.uci])
+    except Exception as exc:
+        logger.warning("[review-tap] engine check failed: %s", exc)
+        good = []
+    return {"ok": data.uci in good}
+
+
+@router.post("/v2/game-review-tap")
+async def submit_game_review_tap(
+    data: GameReviewTapRequest,
+    user: User = Depends(get_current_user),
+):
+    """Store the child's tap answers; reply with the cause and its line."""
+    import asyncio
+    from services import review_tap_reflection as rt
+    from services.review_reflection_service import store_event_reflection
+
+    event, moment = await _review_tap_moment(user, data.game_id, data.event_id)
+    answers = rt.clean_answers(moment, data.dict())
+    also_good: List[str] = []
+    if (moment.get("test") or {}).get("kind") == "find_move":
+        try:
+            also_good = await asyncio.to_thread(
+                rt.also_good_moves, moment, answers["tapped"]
+            )
+        except Exception as exc:
+            logger.warning("[review-tap] engine check failed: %s", exc)
+    answers["found_when_asked"] = rt.found_when_asked(
+        moment, answers["tapped"], also_good
+    )
+    document = rt.build_document(
+        user_id=user.user_id, game_id=data.game_id, event=event, m=moment,
+        answers=answers,
+    )
+    stored = await store_event_reflection(db.reflection_sessions, document)
+    return {"success": True, **rt.public_tap_history([stored])[0]}
 
 
 @router.get("/v1/post-loss/{game_id}")
