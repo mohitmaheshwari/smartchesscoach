@@ -95,9 +95,15 @@ severity` on stored `move_observations` where the current classifiers disagree.
 It carries 5374d0f6 (Black evals) and three earlier precision fixes that never
 reached stored rows (2a6b0c1b passed pawn, eee855f0 mate in two, b4ca0ade
 fork vs deep mate) — the White negative control showed them as drift (83 label
-changes in 300 White games). About 0.8% of rows change. Undo files:
-`/app/backend/rederive_undo_{black,white}_2026_11_10.jsonl` in
-chess-coach-backend.
+changes in 300 White games). 4,580 rows changed in all (2,612 Black, 1,968
+White).
+
+**The undo files for that run were lost.** They were written inside the
+backend container, which has no source mount, and the next deploys recreated
+it. Every changed row carries `labels_rederived_at`; the old labels can only be
+rebuilt by re-running the classifier code from before these fixes on the
+stored analyses. Undo files for later runs are copied to the host
+(`/root/backfill_undo/`).
 
 ## Built the same day (coach plan amendment A)
 
