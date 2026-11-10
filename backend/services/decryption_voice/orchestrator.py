@@ -19,6 +19,7 @@ None when the user won, no decisive move exists, or generation failed.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Dict, List, Optional, Tuple
 
@@ -302,7 +303,14 @@ async def generate_post_game_voice(
                     # Empty list = fall through to static prose card.
                     try:
                         from .candidate_builder import build_candidates
-                        m_candidates = build_candidates(
+                        # build_candidates runs a blocking Stockfish multi-PV
+                        # search. Called inline it held the web process's
+                        # event loop: measured 2026-11-10 on game 8bf001ce,
+                        # 22.6 s with no request answered, and in prod the
+                        # deploy gate's Game Review poll read-timed out while
+                        # every other user's request queued behind it.
+                        m_candidates = await asyncio.to_thread(
+                            build_candidates,
                             fen_before=full_m["fen_before"],
                             move_uci=_uci,
                             move_san=ms,
