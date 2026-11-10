@@ -12,6 +12,16 @@ only: nothing in the product reads these files yet.
 
 | `lichess_endgame_puzzles.json` | Endgame positions by type (Lichess's own definition: only that piece kind plus kings and pawns), 25 most-played kept per type | Available at rating 600–1600, popularity ≥ 80: rook 141,599 · pawn 63,537 · queen 31,030 · bishop 26,050 · queen and rook 22,131 · knight 15,893 | our `lichess_puzzles` table | CC0 |
 
+| `lichess_study_lines.json` | Lines from 848 Lichess studies (most-liked list plus searches for traps, gambits and each endgame type): moves and positions only | 7,127 unique lines: 1,920 opening lines (all named), 2,182 endgame lines (pawn 521, rook 478, bishop 270, knight 242, queen 207, mixed 464), 1,542 trap lines of which 790 engine-verified; **61 unique traps both engine-verified and real at 1100–1800** (`real_traps_ranked`, by how often players at that level play the losing move) | lichess.org studies, `/api/study/{id}.pgn`, comments not exported | Moves and positions are chess facts; the authors' text is licensed to Lichess and was not exported |
+
+Trap method: the victim move is the line's biggest Stockfish drop (depth 10)
+for the side that played it; engine-verified means that drop is at least
+200 cp and the punishing side is still at least +200 at the end of the line.
+"Real at 1100–1800" uses our own explorer counts from 3,488,310 Lichess games
+of October 2026 (blitz and rapid, both players 1100–1800; built from the CC0
+dump by `/root/research/explorer_count.py`): at least 30 games reach the
+position and at least 5% of them play the victim move.
+
 ## What is still missing
 
 - **Traps proper.** Lichess publishes no trap list. A trap at a given level is a
