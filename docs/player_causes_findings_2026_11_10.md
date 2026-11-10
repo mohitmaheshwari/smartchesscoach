@@ -105,6 +105,22 @@ rebuilt by re-running the classifier code from before these fixes on the
 stored analyses. Undo files for later runs are copied to the host
 (`/root/backfill_undo/`).
 
+## Opponent moves stored as the child's (found by the development backfill)
+
+The development backfill changed 465 labels in Play-with-Coach games, all to
+empty. Cause, older than this work: 257 coach analyses (April–September 2026)
+list both sides' moves in `move_evaluations` with no `is_opponent_move` flag.
+The deriver treated every unflagged move as the child's, and rows are keyed by
+(game, move number), so each row held whichever side's move came last — for a
+White child, the opponent's move. 3,003 stored rows across 21 players described
+the opponent's move (dry run, 2026-11-10).
+
+Fix: `is_users_move` reads the side to move from `fen_before`, which agrees with
+the flag on all 505,097 flagged moves in production. `scripts/repair_two_sided_observations.py`
+rebuilds only those games' rows; its undo (full old rows) is written to the host.
+`rederive_gap_labels.py` compared both sides' derived moves with one stored row
+in these games, so its label writes there were noise; the repair overwrites them.
+
 ## Built the same day (coach plan amendment A)
 
 - `development_decision` stored per move (9dce9d29).
