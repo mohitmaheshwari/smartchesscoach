@@ -74,6 +74,10 @@ def test_caption_surface_admits_only_evidence_backed_ids():
         "tactic:forced_mate_exact",
         "review:verified_single_game_cause",
         "review:exact_endgame_result_change",
+        # Plan grade 2026-11-10 (coach plan scope amendment A): gated
+        # coached_development miss, per-child rate lock A1, board re-check per
+        # moment; depth-18 adjudication in docs/player_causes_findings_2026_11_10.md.
+        "knowledge:development",
         # Promoted 2026-09-26 on Mohit's explicit instruction, each with its
         # own measurement rather than on volume. Plan grade includes Caption
         # by contract, which is why they appear on this list at all.

@@ -608,6 +608,20 @@ def render_report(week: Mapping[str, Any], *, child_name: str, batch_name: str =
         })
         question = "Before you move, can that piece be taken?"
 
+    # The coach's plan, once the coach has approved it (scope 2d and
+    # amendment A). One sentence; no digit, no detector name, no promise.
+    plan = week.get("coach_plan") or {}
+    if plan.get("status") == "approved":
+        knowledge = (plan.get("problem") or {}).get("kind") == "development"
+        out["sections"].append({
+            "kind": "plan", "eyebrow": "What we are working on",
+            "headline": (f"{name} is learning to bring all the pieces into the game before attacking."
+                         if knowledge else
+                         f"{name} looked back at a few moments from recent games and has one thing to check before moving."),
+            "lines": ["The coach will see how it goes in the next games."],
+            "boards": [],
+        })
+
     good = week.get("good_moment")
     if good:
         lines = [f"The {good['piece']} was under attack. {name} kept it safe."]

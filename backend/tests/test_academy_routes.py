@@ -34,6 +34,10 @@ def _get(doc, key):
 
 def _matches(doc, query):
     for key, cond in (query or {}).items():
+        if key == "$or":
+            if not any(_matches(doc, q) for q in cond):
+                return False
+            continue
         value = _get(doc, key)
         if isinstance(cond, dict) and any(k.startswith("$") for k in cond):
             for op, arg in cond.items():
@@ -56,6 +60,10 @@ class _Cursor:
 
     def sort(self, key, direction=1):
         self.rows.sort(key=lambda r: (_get(r, key) is None, _get(r, key)), reverse=direction < 0)
+        return self
+
+    def limit(self, n):
+        self.rows = self.rows[:n]
         return self
 
     async def to_list(self, length=None):

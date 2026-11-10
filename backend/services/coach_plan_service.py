@@ -34,6 +34,8 @@ from services import detector_quality as dq
 # quality id -> (kind, pattern, coach label). Only move-level detectors: the
 # three time-management PLAN ids write no per-move record (0 events across 56
 # players on 2026-11-09), so there is no moment for a child to reflect on.
+DEVELOPMENT_QID = "knowledge:development"
+
 PROBLEMS: Dict[str, tuple] = {
     "gap:piece_safety:destination_safety_exact": ("landing", None, "Leaving a piece where it can be taken"),
     "gap:king_safety:ignored_king_attack": ("king_attack", None, "Not answering an attack on the king"),
@@ -41,7 +43,39 @@ PROBLEMS: Dict[str, tuple] = {
     "gap:missed_tactic:missed_pin": ("missed_tactic", "pin", "Missing pins"),
     "gap:missed_tactic:missed_skewer": ("missed_tactic", "skewer", "Missing skewers"),
     "gap:missed_tactic:missed_mate": ("missed_tactic", "mate", "Missing checkmates"),
+    # The knowledge axis (scope amendment A, 2026-11-10). Not a missed_pattern
+    # label: a move where concept:coached_development says "missed" and no
+    # piece-safety / king-safety / tactic label owns the cause, offered only
+    # to a child whose development rate is under the locked cut-off.
+    DEVELOPMENT_QID: ("development", None, "Attacking before the pieces are out"),
 }
+
+# Lock A1 (docs/coach_assistant_plan_scope.md): rate below 0.75 with at least
+# 20 chances over the last 80 analysed games flags 5 of 55 players, the tail
+# that sits apart from the dense cluster at 0.86+.
+DEVELOPMENT_CUTOFF = 0.75
+DEVELOPMENT_MIN_CHANCES = 20
+DEVELOPMENT_GAMES = 80
+# A miss with one of these labels on the same row belongs to that label: the
+# engine's developing move is often also the move that saves a piece.
+CAUSE_OWNERS = frozenset({"piece_safety", "king_safety", "missed_tactic", "tactical_oversight"})
+DEVELOPMENT_MARGIN = 50  # the best developing move must beat the played move by this, on the board
+
+
+def development_rate(rows: Iterable[Mapping[str, Any]]) -> Dict[str, Any]:
+    """Applied vs gated missed development decisions -> rate and eligibility."""
+    applied = missed = 0
+    for r in rows:
+        d = r.get("development_decision")
+        if d == "applied":
+            applied += 1
+        elif d == "missed" and r.get("missed_pattern") not in CAUSE_OWNERS:
+            missed += 1
+    chances = applied + missed
+    rate = applied / chances if chances else None
+    return {"applied": applied, "missed": missed, "chances": chances, "rate": rate,
+            "eligible": bool(rate is not None and chances >= DEVELOPMENT_MIN_CHANCES
+                             and rate < DEVELOPMENT_CUTOFF)}
 
 # LOCKED 2026-11-09 (/lock-via-data, 53 players with 20+ analysed games and the
 # academy children): a moment costs a result when the position was within a
@@ -65,12 +99,17 @@ ORIGIN_FILES = {chess.QUEEN: "d", chess.KING: "e", chess.ROOK: "ah", chess.BISHO
 
 def quality_id(obs: Mapping[str, Any]) -> Optional[str]:
     pattern = obs.get("missed_pattern")
-    if not pattern:
-        return None
-    qid = dq.gap_quality_id(str(pattern), obs.get("subtype"))
-    if qid not in PROBLEMS or not dq.can_influence(qid, dq.QualitySurface.PLAN):
-        return None
-    return qid
+    if pattern:
+        qid = dq.gap_quality_id(str(pattern), obs.get("subtype"))
+        if qid in PROBLEMS and dq.can_influence(qid, dq.QualitySurface.PLAN):
+            return qid
+    # `_development_eligible` is set by the caller only for a child whose
+    # rate passed development_rate(); a single miss never makes a problem.
+    if (obs.get("_development_eligible") and obs.get("development_decision") == "missed"
+            and pattern not in CAUSE_OWNERS
+            and dq.can_influence(DEVELOPMENT_QID, dq.QualitySurface.PLAN)):
+        return DEVELOPMENT_QID
+    return None
 
 
 def mover_eval(cp: Any, color: str) -> Optional[int]:
@@ -375,6 +414,35 @@ def build_moment(obs: Mapping[str, Any], game: Mapping[str, Any], engine) -> Opt
         m["practice"] = {"from": None, "moves": moves}
         if not attackers:
             return None
+    elif kind == "development":
+        # The claim is "a knight or bishop should have come out here". It is
+        # checked on this board, now: the best developing move must beat the
+        # played move by DEVELOPMENT_MARGIN, or the moment is not asked. The
+        # detector's miss half held 53/60 at depth 18 on its own, so it never
+        # speaks unchecked.
+        from services.concept_detectors.coach_principles import _is_development
+        dev = {u: v for u, v in moves.items()
+               if _is_development(before, chess.Move.from_uci(u), me)}
+        played_loss = (moves.get(move.uci()) or {}).get("loss")
+        if not dev or played_loss is None:
+            return None
+        best_dev_uci = min(dev, key=lambda u: dev[u]["loss"])
+        if played_loss - dev[best_dev_uci]["loss"] < DEVELOPMENT_MARGIN:
+            return None
+        accept = [u for u, v in dev.items() if v["loss"] <= ACCEPT_LOSS]
+        if not accept:
+            return None
+        home_files = {chess.KNIGHT: "bg", chess.BISHOP: "cf"}
+        back = 0 if me == chess.WHITE else 7
+        home = [{"sq": chess.square_name(s), "piece": _name(before, s)}
+                for s in chess.SQUARES
+                if chess.square_rank(s) == back and before.color_at(s) == me
+                and before.piece_type_at(s) in home_files
+                and chess.FILE_NAMES[chess.square_file(s)] in home_files[before.piece_type_at(s)]]
+        m["test"] = {"kind": "find_move", "accept": accept,
+                     "best": {"uci": best_dev_uci, "san": dev[best_dev_uci]["san"]},
+                     "explain": {"targets": [], "mate": False, "home": home}}
+        m["practice"] = {"from": None, "moves": moves}
     else:  # missed tactic: the test is to find the move
         accept = [u for u, v in moves.items() if v["loss"] <= ACCEPT_LOSS]
         explain: Dict[str, Any] = {"targets": [], "mate": bool(best.get("mate"))}
@@ -420,12 +488,22 @@ def cause_of(answer: Mapping[str, Any]) -> Optional[str]:
     return None
 
 
-def cause_from(answers: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
+KNOWLEDGE_PRIOR_WORDS = ("Not reflected yet. From the games alone this looks like something not learned "
+                         "yet: it happens game after game, not now and then. Teach the idea, then test it.")
+
+
+def cause_from(answers: Sequence[Mapping[str, Any]], qid: Optional[str] = None) -> Dict[str, Any]:
     counts: Dict[str, int] = defaultdict(int)
     for a in answers:
         c = cause_of(a)
         if c:
             counts[c] += 1
+    if not answers and qid == DEVELOPMENT_QID:
+        # The game data already says "knowledge" for this problem: the rate
+        # gate only admits a child who breaks it as a stable habit
+        # (split-half r 0.79). The child's own answers replace this.
+        return {"kind": "not_yet", "counts": {}, "answered": 0, "words": KNOWLEDGE_PRIOR_WORDS,
+                "prior": "unknown_pattern"}
     if not answers:
         kind = "not_yet"
     elif not counts:
@@ -450,6 +528,8 @@ SIGNS = {
     "pin": ("Pieces on one line", "When two of his pieces stand on one line, look for a piece of yours that can hit that line."),
     "skewer": ("Pieces on one line", "When two of his pieces stand on one line, look for a piece of yours that can hit that line."),
     "mate": ("Every check", "Before every move, look at every check you can give."),
+    "development": ("Pieces still at home",
+                    "In the opening, look at your back row. A knight or bishop still at home is a piece that is not playing yet."),
 }
 RULES = {
     "landing": [("three_looks_every_move", "Do the three looks before every move that puts a piece on a new square."),
@@ -465,6 +545,8 @@ RULES = {
                ("checks_captures_attacks", "Before every move: checks, captures, then attacks.")],
     "mate": [("every_check", "Before every move, look at every check you can give."),
              ("checks_captures_attacks", "Before every move: checks, captures, then attacks.")],
+    "development": [("new_piece_each_move", "Before move 10, every move brings a new piece out, unless something is attacked."),
+                    ("queen_waits", "Don't move your queen twice until your knights and bishops are out.")],
 }
 
 

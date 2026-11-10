@@ -58,11 +58,31 @@ async def _recent_games(uid: str, start) -> Dict[str, Dict[str, Any]]:
 async def _plan_observations(uid: str, game_ids: List[str]) -> List[Dict[str, Any]]:
     if not game_ids:
         return []
-    return await _db().move_observations.find(
-        {"user_id": uid, "game_id": {"$in": game_ids}, "missed_pattern": {"$ne": None}},
+    rows = await _db().move_observations.find(
+        {"user_id": uid, "game_id": {"$in": game_ids},
+         "$or": [{"missed_pattern": {"$ne": None}}, {"development_decision": "missed"}]},
         {"_id": 0, "game_id": 1, "ply": 1, "move_number": 1, "fen_before": 1, "move_uci": 1,
-         "missed_pattern": 1, "subtype": 1, "eval_before": 1, "time_spent_seconds": 1},
+         "missed_pattern": 1, "subtype": 1, "eval_before": 1, "time_spent_seconds": 1,
+         "development_decision": 1},
     ).to_list(5000)
+    if await _development_eligible(uid):
+        for r in rows:
+            r["_development_eligible"] = True
+    return rows
+
+
+async def _development_eligible(uid: str) -> bool:
+    """Lock A1: the child's development rate over the last 80 analysed games.
+    Reads only move_observations rows that carry a development decision."""
+    recent = await _db().games.find({"user_id": uid, "is_analyzed": True}, {"_id": 0, "game_id": 1}
+                                    ).sort("played_at_utc", -1).limit(cp.DEVELOPMENT_GAMES).to_list(cp.DEVELOPMENT_GAMES)
+    if not recent:
+        return False
+    rows = await _db().move_observations.find(
+        {"user_id": uid, "game_id": {"$in": [g["game_id"] for g in recent]},
+         "development_decision": {"$in": ["applied", "missed"]}},
+        {"_id": 0, "development_decision": 1, "missed_pattern": 1}).to_list(4000)
+    return cp.development_rate(rows)["eligible"]
 
 
 def _engine_moments(chosen, games, pgns, cached):
@@ -106,6 +126,11 @@ async def build_plan(student: Dict[str, Any], start, week_row_old: Optional[Dict
         week_ids = {g["game_id"] for g in week_games if g.get("game_id") in games}
         week_games_map = {gid: games[gid] for gid in week_ids}
         week_obs = [o for o in obs if o["game_id"] in week_ids]
+        if prev_plan["problem"]["quality_id"] == cp.DEVELOPMENT_QID:
+            # Last week's development plan is checked even if the child has
+            # since moved above the cut-off; otherwise the check reads 0 and
+            # says "fewer". A copy, so this week's ranking is not affected.
+            week_obs = [{**o, "_development_eligible": True} for o in week_obs]
         last_check = cp.week_check(prev_plan["problem"]["quality_id"], week_games_map, week_obs,
                                    prev_plan.get("baseline"))
 
@@ -146,7 +171,7 @@ async def build_plan(student: Dict[str, Any], start, week_row_old: Optional[Dict
         "rule": rule, "rule_options": options,
         "baseline": cp.baseline_for(top, games),
         "last_check": last_check,
-        "cause": cp.cause_from([]),
+        "cause": cp.cause_from([], top["quality_id"]),
         "built_at": A._now(),
         "actions": (old or {}).get("actions") or [],
     }
@@ -186,7 +211,8 @@ async def coach_view(student: Dict[str, Any], week: Optional[Dict[str, Any]], st
     return {k: p.get(k) for k in ("status", "reason", "problem", "runners_up", "warning_sign", "rule",
                                   "rule_options", "last_check", "approved_by_name", "approved_at",
                                   "skipped_at")} | {
-        "moments": moments, "cause": cp.cause_from(list(answers.values()))}
+        "moments": moments,
+        "cause": cp.cause_from(list(answers.values()), (p.get("problem") or {}).get("quality_id"))}
 
 
 # ---------------------------------------------------------------------------
@@ -333,5 +359,6 @@ async def child_answer(token: str, key: str, payload: Dict[str, Any] = Body(...)
     await store_event_reflection(_db().reflection_sessions, doc)
     all_answers = await _answers(student["student_id"], start)
     await _db()[svc.WEEKS].update_one({"student_id": student["student_id"], "week_start": start},
-                                      {"$set": {"coach_plan.cause": cp.cause_from(list(all_answers.values()))}})
+                                      {"$set": {"coach_plan.cause": cp.cause_from(list(all_answers.values()),
+                                                                          (p.get("problem") or {}).get("quality_id"))}})
     return {"ok": True, "card": cp.answer_card(m, answers)}

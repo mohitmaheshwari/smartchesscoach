@@ -1008,6 +1008,32 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "The repaired exact-defense candidate still needs blind review.",
         ),
     ),
+    "knowledge:development": Authorization(
+        # The coach plan's knowledge problem (scope amendment A, 2026-11-10).
+        # Built on concept:coached_development's miss half, which alone held
+        # 53/60 at depth 18 and so is Caption grade. What makes this Plan
+        # grade is the gating around it, measured as a whole.
+        grade=QualityGrade.PLAN,
+        evidence_ref="docs/player_causes_findings_2026_11_10.md; /root/research/dev_precision.log",
+        rationale=(
+            "Three gates. (1) Cause precedence: a miss counts only when no "
+            "piece-safety, king-safety or tactic label sits on the same row. "
+            "(2) Per-child habit: development rate below 0.75 with 20+ "
+            "chances over the last 80 games (lock A1; gated split-half r "
+            "0.79, flags 5 of 55 players). (3) Every moment shown is re-checked "
+            "on the board at build time: the best developing move must beat "
+            "the played move by 50 cp, or it is not asked. Depth-18 "
+            "adjudication of gate (1) alone, one miss per random game: "
+            "60 of 60 held (Wilson lower bound 0.940, just under the 0.95 bar on "
+            "its own; gate (3) closes it for every moment actually shown). 41 more "
+            "sampled misses were owned by another label, so precedence matters."
+        ),
+        limitations=(
+            "Knights and bishops leaving the back rank in the first 15 moves only.",
+            "The 'not learned yet' reading is from game data; the child's own "
+            "reflection answers replace it.",
+        ),
+    ),
     "concept:coached_development": Authorization(
         grade=QualityGrade.CAPTION,
         evidence_ref="docs/detectors_speak_scope.md",

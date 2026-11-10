@@ -3,6 +3,7 @@ import { act } from "react";
 import ReflectFlow from "./ReflectFlow";
 import qf3Moment from "./__fixtures__/qf3Moment";
 import { ne2Moment, nxe5Moment } from "./__fixtures__/reviewMoments";
+import developmentMoment from "./__fixtures__/developmentMoment";
 
 const sign = { title: "The three looks", text: "Before any piece lands: pieces close by, knight jumps, long lines to the edge." };
 const rule = { id: "three_looks", text: "Do the three looks before every move that puts a piece on a new square." };
@@ -144,5 +145,36 @@ describe("ReflectFlow — review mode", () => {
     await flush();
     expect(checkMove).toHaveBeenCalledWith("d2d4");
     expect(text()).toContain("Yes, d4 works too. The engine's first choice was Nxe5.");
+  });
+});
+
+describe("ReflectFlow — development moment (scope amendment A)", () => {
+  const devSign = { title: "Pieces still at home", text: "In the opening, look at your back row." };
+  const devRule = { id: "new_piece_each_move", text: "Before move 10, every move brings a new piece out, unless something is attacked." };
+  const flush = () => act(async () => { await Promise.resolve(); });
+
+  test("names the pieces still at home and asks which should come out", () => {
+    render(<ReflectFlow moment={developmentMoment} warningSign={devSign} rule={devRule} />);
+    click(button("Not sure"));
+    expect(text()).toContain("your knight on b1, bishop on c1, bishop on f1 and knight on g1 were still at home");
+    expect(text()).toContain("Which piece should come out, and where?");
+  });
+
+  test("a developing answer is accepted and explained; a non-developing one is never sent to the server", async () => {
+    const checkMove = jest.fn(() => Promise.resolve(true));
+    const onSubmit = jest.fn();
+    render(<ReflectFlow moment={developmentMoment} warningSign={devSign} rule={devRule} checkMove={checkMove} onSubmit={onSubmit} />);
+    click(button("Not sure"));
+    click(square("g1 white knight"));
+    click(square("f3"));
+    await flush();
+    expect(checkMove).not.toHaveBeenCalled();
+    expect(text()).toContain("Not that one. Have another look.");
+    click(square("b1 white knight"));
+    click(square("c3"));
+    expect(text()).toContain("Yes, Nc3. It brings your knight into the game.");
+    expect(text()).toContain("did you see that your knight on b1");
+    click(button("No, I didn't see it"));
+    expect(text()).toContain("Still at home: knight on b1");
   });
 });

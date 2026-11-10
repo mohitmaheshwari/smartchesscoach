@@ -98,3 +98,16 @@ fork vs deep mate) — the White negative control showed them as drift (83 label
 changes in 300 White games). About 0.8% of rows change. Undo files:
 `/app/backend/rederive_undo_{black,white}_2026_11_10.jsonl` in
 chess-coach-backend.
+
+## Built the same day (coach plan amendment A)
+
+- `development_decision` stored per move (9dce9d29).
+- Cut-off lock A1: rate below 0.75 with 20+ chances; flags 5 of 55 players
+  (gated split-half r 0.79).
+- Precision of the gated miss at depth 18, one per random game: **60 of 60**
+  (Wilson lower bound 0.940); 41 further misses were owned by a piece-safety,
+  king-safety or tactic label. Every moment shown is re-checked on the board
+  when the plan is built (best developing move must beat the played move by
+  50 cp).
+- `knowledge:development` in the coach plan, the child's reflection flow, and
+  one parent line once the coach approves.

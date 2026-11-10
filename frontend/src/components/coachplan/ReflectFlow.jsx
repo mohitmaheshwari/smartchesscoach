@@ -168,7 +168,11 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     catch { return m.date; }
   }, [m.date]);
   const tapTest = m.test?.kind === "tap_pieces";
-  const testFen = m.kind === "king_attack" || m.kind === "missed_tactic" ? m.fen_before : m.fen_after;
+  // "development" (scope amendment A) is a find-the-move moment like a missed tactic.
+  const findKind = m.kind === "missed_tactic" || m.kind === "development";
+  const homePieces = (m.test?.explain?.home || []);
+  const homeWords = andList(homePieces.map((h) => `${h.piece} on ${h.sq}`));
+  const testFen = m.kind === "king_attack" || findKind ? m.fen_before : m.fen_after;
 
   // ---------- opening ----------
   useEffect(() => {
@@ -196,7 +200,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     return "get it out of danger";
   }
   function intentReply(it) {
-    if (!it || it.kind === "other") return "Okay. Whatever the plan, there is one check that comes first.";
+    if (!it || it.kind === "other") return m.kind === "development" ? "Okay." : "Okay. Whatever the plan, there is one check that comes first.";
     if (it.kind === "escape") return "Yes, it was under attack where it stood, so moving it made sense.";
     if (it.kind === "develop") {
       if (!(m.develops ?? develops(m.color, m.moved, m.from))) return `Your ${m.moved} was already in play before this move, so this one wasn't about bringing it out.`;
@@ -230,8 +234,9 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     else if (real.length) items.push({ who: "child", text: `To ${andList(real.map(pickWords))}.` });
     else items.push({ who: "child", text: "None of these." });
     (real.length ? real : [chosen && chosen[0]]).forEach((it) => items.push({ who: "coach", text: intentReply(it) }));
-    if (real.length && m.kind !== "missed_tactic") items.push({ who: "coach", text: "Whatever the plan, there is one check that comes first." });
+    if (real.length && !findKind) items.push({ who: "coach", text: "Whatever the plan, there is one check that comes first." });
     if (m.kind === "missed_tactic") items.push({ who: "coach", text: "There was something better on the board, though." });
+    if (m.kind === "development") items.push({ who: "coach", text: `There was a better plan, though. Look at your back row: your ${homeWords} ${homePieces.length > 1 ? "were" : "was"} still at home.` });
     items.push(testAsk());
     setPicks(real.length ? real : (chosen || []));
     sayAll(items);
@@ -242,6 +247,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
   function testAsk() {
     if (m.kind === "landing") return { who: "ask", text: movedIsTarget ? `Now the check. With your ${m.moved} on ${m.to}, which of his pieces could take it?` : `Now the check. After ${m.san}, which of his pieces could take your ${T.piece} on ${T.sq}?`, small: "Tap every piece you think can reach it, then press Done. If none can, just press Done." };
     if (m.kind === "king_attack") return { who: "ask", text: "Back to the position before your move. Which of his pieces were aiming at the squares around your king?", small: "Tap them, then press Done." };
+    if (m.kind === "development") return { who: "ask", text: "Back to the position before your move. Which piece should come out, and where?", small: "Tap the piece, then where it goes." };
     return { who: "ask", text: "Back to the position before your move. There was a move here that wins something. Find it.", small: "Tap the piece, then where it goes." };
   }
   function gradeTaps() {
@@ -278,6 +284,10 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
   function explainBest() {
     const ex = m.test?.explain || {};
     const t = ex.targets || [];
+    if (m.kind === "development") {
+      const p = homePieces.find((h) => h.sq === (m.test.best.uci || "").slice(0, 2));
+      return `It brings your ${p ? p.piece : "piece"} into the game. A piece at home can't attack or defend anything.`;
+    }
     if (ex.mate || m.pattern === "mate") return "It leads to checkmate.";
     if (m.pattern === "fork" && t.length >= 2) return `It attacks ${andList(t.map((x) => his(x.piece, x.sq)))} at once.`;
     if ((m.pattern === "pin" || m.pattern === "skewer") && t.length >= 2) return `It lines up ${his(t[0].piece, t[0].sq)} and ${his(t[1].piece, t[1].sq)}.`;
@@ -290,7 +300,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     const san = m.practice?.moves?.[uci]?.san || uci;
     setSel(null);
     let good = (m.test.accept || []).includes(uci);
-    if (!good && checkMove) {
+    if (!good && checkMove && m.kind !== "development") {
       setBusy(true);
       try { good = !!(await checkMove(uci)); } catch { good = false; }
       setBusy(false);
@@ -318,6 +328,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     let what;
     if (m.kind === "landing") { const l = (m.test.answer || [])[0]; what = l ? his(l.piece, l.sq) : "the piece that could take it"; }
     else if (m.kind === "king_attack") what = "his pieces gathering near your king";
+    else if (m.kind === "development") what = `that your ${homeWords} ${homePieces.length > 1 ? "were" : "was"} still at home`;
     else what = m.test.best.san;
     return { who: "ask", text: `One honest question. In the game, before you played ${m.san}, did you see ${what}?`, small: "There is no wrong answer here. It tells us what to practise." };
   }
@@ -329,14 +340,17 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
       if (found) t = "That's useful. You found it just now when you looked for it. So the job isn't learning something new, it's doing the look every time.";
       else if (m.kind === "landing") t = `That's the most common reason, and it can be trained. It's ${takerKindWords((m.test.answer || [])[0]?.kind)}, and that's what we'll practise.`;
       else if (m.kind === "king_attack") t = "That's what we'll practise: before each move, a look at the squares around your king.";
+      else if (m.kind === "development") t = "That's what we'll learn: in the opening, each move brings a new piece out.";
       else t = `That's what we'll practise: spotting ${PATTERN_WORDS[m.pattern] || "moves that win something"}.`;
     } else if (v === "ok") {
-      t = m.kind === "missed_tactic"
+      t = m.kind === "development"
+        ? "Then the idea to learn: in the opening, bringing a new piece out is usually worth more than moving one that is already out."
+        : m.kind === "missed_tactic"
         ? "Then the habit to build is trusting what you see: when you spot a move like that, look at it properly before playing something else."
         : "Then the gap is the next question: if he takes, is that okay for me? Let's see what happened.";
     } else t = "That's fine. Most players don't remember. The look we practise covers it either way.";
     const items = [{ who: "child", text: label }, { who: "coach", text: t }];
-    if (m.kind === "missed_tactic") { sayAll(items); finish(); return; }
+    if (findKind) { sayAll(items); finish(); return; }
     if (review) { sayAll([...items, ...replyLines()]); finish(); return; }
     sayAll([...items, ...replyLines()]);
     setStage("reply");
@@ -460,6 +474,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
     let missed;
     if (m.kind === "landing") { const l = (m.test.answer || [])[0]; missed = l ? `Could be taken by: ${his(l.piece, l.sq)}, ${takerKindWords(l.kind)}.` : ""; }
     else if (m.kind === "king_attack") missed = `Pieces near your king: ${andList((m.test.answer || []).map((x) => his(x.piece, x.sq)))}.`;
+    else if (m.kind === "development") missed = `The better move: ${m.test.best.san}, bringing a piece out. Still at home: ${homeWords}.`;
     else missed = `The better move: ${m.test.best.san}, ${PATTERN_WORDS[m.pattern] || "a move that wins something"}.`;
     return [
       `Wanted: ${wanted.length ? andList(wanted) : "not sure"}.`,
@@ -550,7 +565,7 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
         mark(from, "last"); mark(to, "last");
         if (revealView.freed) revealView.freed.now_guards.forEach((g) => arrows.push([revealView.freed.sq, g, "G"]));
         else if (revealView.sameJob) arrows.push([to, revealView.sameJob.sq, "A"]);
-      } else if (m.kind === "missed_tactic") {
+      } else if (findKind) {
         fen = m.fen_before; const bu = m.test.best.uci; mark(bu.slice(0, 2), "last"); mark(bu.slice(2, 4), "last");
         arrows.push([bu.slice(0, 2), bu.slice(2, 4), "G"]);
       } else { fen = m.fen_reply || m.fen_after; }
