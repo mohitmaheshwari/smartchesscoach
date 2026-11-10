@@ -468,7 +468,9 @@ def _classify_piece_safety_severity(
     idx = _SEVERITY_LEVELS.index(sev)
 
     cp_loss = mv.get("cp_loss") or 0
-    eval_before = mv.get("eval_before")
+    # Stored white-relative: "not already hopeless" is from the mover's side.
+    from services.cognitive_gap_subtypes import mover_cp
+    eval_before = mover_cp(mv, mv.get("eval_before"))
     if eval_before is None:
         eval_before = 0
 

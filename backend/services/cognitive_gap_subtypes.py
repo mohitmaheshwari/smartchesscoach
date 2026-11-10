@@ -28,11 +28,30 @@ def _san_forcing(san: str) -> bool:
     return "x" in san or san.endswith("+") or san.endswith("#")
 
 
+def mover_cp(mv: Dict[str, Any], cp: Any) -> Optional[int]:
+    """A stored eval from the point of view of the side that made this move.
+
+    move_evaluations store eval_before / eval_after from WHITE's side
+    (stockfish_service flips only for cp_loss), so every "already hopeless"
+    or "it got worse" test must flip for Black. Before 2026-11-10 three tests
+    here compared the raw value: for Black they skipped the positions Black
+    was winning and kept the ones Black had already lost.
+    """
+    if cp is None:
+        return None
+    try:
+        value = int(cp)
+    except (TypeError, ValueError):
+        return None
+    parts = str(mv.get("fen_before") or "").split(" ")
+    return -value if len(parts) > 1 and parts[1] == "b" else value
+
+
 def _promote_severity(base: str, mv: Dict[str, Any]) -> str:
     """Same promotion rules as piece_safety: blunder | material-loss | high-cp-not-hopeless."""
     idx = _SEVERITY_LEVELS.index(base) if base in _SEVERITY_LEVELS else 0
     cp = mv.get("cp_loss") or 0
-    eb = mv.get("eval_before") or 0
+    eb = mover_cp(mv, mv.get("eval_before")) or 0
     promote = False
     if mv.get("evaluation") == "blunder":
         promote = True
@@ -115,7 +134,7 @@ def classify_king_safety(mv, opponent_previous, opp_next) -> Tuple[Optional[str]
     # ── Gate: skip already-hopeless positions (eval_before < -300).
     # A "king safety mistake" when you were already down a queen is not
     # a coaching moment. This is noise, not signal.
-    eval_before = mv.get("eval_before")
+    eval_before = mover_cp(mv, mv.get("eval_before"))
     if eval_before is not None and eval_before < -300:
         return (None, None)
 
@@ -534,8 +553,10 @@ def classify_tactical_oversight(mv, opponent_previous, opp_next) -> Tuple[Option
         if _san_forcing(next_san):
             # Opp's cp_loss for their move being NEGATIVE means they gained material
             opp_cp_loss = opp_next.get("cp_loss") or 0
-            eval_after_user = mv.get("eval_after")
-            eval_after_opp = opp_next.get("eval_after")
+            # Both evals from the user's side: the drop is "it got worse for
+            # the user", which for Black is the white-relative value RISING.
+            eval_after_user = mover_cp(mv, mv.get("eval_after"))
+            eval_after_opp = mover_cp(mv, opp_next.get("eval_after"))
             if (eval_after_user is not None and eval_after_opp is not None
                 and (eval_after_user - eval_after_opp) >= 300):
                 return ("overlooked_immediate_reply", _promote_severity("critical", mv))
