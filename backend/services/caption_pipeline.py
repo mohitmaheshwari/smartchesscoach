@@ -818,7 +818,13 @@ def build_candidate_comparison(
                 f"{inputs.played_san} leaves your {affected} on "
                 f"{cause.affected.square} open to {cause.punishment_san}."
             )
-        stronger = cause.avoidable_with_san or cause.best_move_san
+        # A purpose is proven for the engine's move, so it names that move;
+        # pairing it with the avoidable move printed "Bxe6 moves it away".
+        stronger = (
+            cause.best_move_san
+            if cause.best_move_purpose
+            else cause.avoidable_with_san or cause.best_move_san
+        )
         purpose = {
             "moves_affected_piece": f"{stronger} moves it away.",
             "removes_attacker": f"{stronger} removes the attacker.",

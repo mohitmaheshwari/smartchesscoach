@@ -188,6 +188,14 @@ class LegalMaterialLossCause:
     # the loss was avoidable (clause 2 of services/concept_attribution.py), and
     # a verified remedy to name instead of asserting an unchecked "safer move".
     avoidable_with_san: Optional[str] = None
+    # Where the affected piece stands after avoidable_with_san is played, and
+    # where it stood before the played move when the played move is what put
+    # it in danger (Qf3 walking the queen from d1 into a knight's reach). The
+    # card's remedy sentence must name the square the piece is really kept on:
+    # "Bxe6 would have kept the queen on f3" was printed for a queen that was
+    # on d1 until Qf3 moved it. Outside the contract, so no fingerprint moves.
+    avoidable_keeps_on: Optional[str] = None
+    affected_from: Optional[str] = None
     proof_authority: str = "caption_facts.legally_hanging_pieces"
     proof_version: str = LEGAL_MATERIAL_LOSS_CAUSE_VERSION
 
@@ -1504,8 +1512,11 @@ def _material_loss_avoidable_with(
     origin_square: int,
     target_piece_type: int,
     minimum_gain_cp: int,
-) -> Optional[str]:
-    """Return SAN of a legal move that keeps this piece, or None if none does.
+    prefer: Optional[chess.Move] = None,
+) -> Optional[Tuple[str, str]]:
+    """Return (SAN, square kept on) of a legal move that keeps this piece.
+
+    None when no legal move keeps it.
 
     This is clause 2 of the attribution contract in
     services/concept_attribution.py, applied to material loss: a move is only
@@ -1515,11 +1526,18 @@ def _material_loss_avoidable_with(
     A move only counts as saving the piece when the piece survives AND nothing
     of equal or greater value is left winnable -- otherwise "Rg1 would have
     kept the rook" is true only because it hands over the queen instead.
+
+    Which saving move is named matters, because the card prints it as the
+    remedy. The engine's move is tried first; failing that, the first move
+    that leaves nothing hanging at all; only then any move that keeps the
+    piece. The first-legal-move rule this replaces named Bxe6 for Qf3 on
+    r1bqk2r/pp1p1ppp/4pn2/4n3/1b2P3/1BN5/PPP2PPP/R1BQK1NR w -- a bishop given
+    for a pawn -- when the engine's Bd2 also kept the queen.
     """
     target_value = PIECE_VALUE_CP.get(target_piece_type, 0)
-    for index, alternative in enumerate(before.legal_moves):
-        if index >= MAX_SAVING_ALTERNATIVES:
-            return None
+
+    def _kept(alternative: chess.Move) -> Optional[Tuple[str, bool]]:
+        """(square kept on, nothing else hanging) when the piece is kept."""
         after_alt = before.copy(stack=False)
         after_alt.push(alternative)
         # Where the piece stands once the alternative is played.
@@ -1534,24 +1552,43 @@ def _material_loss_avoidable_with(
             or survivor.color != owner
             or survivor.piece_type != target_piece_type
         ):
-            continue
+            return None
         still_hanging = legally_hanging_pieces(after_alt, owner, minimum_gain_cp)
         square_after_name = chess.square_name(square_after)
-        keeps_the_piece = True
         for item in still_hanging:
             item_square = str(item.get("square") or "")
             if item_square == square_after_name:
-                keeps_the_piece = False
-                break
+                return None
             # Saving it by giving up something at least as valuable is not a save.
             if int(item.get("material_loss_cp") or 0) >= target_value:
-                keeps_the_piece = False
-                break
-        if keeps_the_piece:
-            try:
-                return before.san(alternative)
-            except (ValueError, AssertionError):
                 return None
+        return square_after_name, not still_hanging
+
+    def _named(alternative: chess.Move, square: str) -> Optional[Tuple[str, str]]:
+        try:
+            return before.san(alternative), square
+        except (ValueError, AssertionError):
+            return None
+
+    if prefer is not None and prefer in before.legal_moves:
+        kept = _kept(prefer)
+        if kept is not None:
+            return _named(prefer, kept[0])
+    fallback: Optional[Tuple[chess.Move, str]] = None
+    for index, alternative in enumerate(before.legal_moves):
+        if index >= MAX_SAVING_ALTERNATIVES:
+            break
+        if alternative == prefer:
+            continue
+        kept = _kept(alternative)
+        if kept is None:
+            continue
+        if kept[1]:
+            return _named(alternative, kept[0])
+        if fallback is None:
+            fallback = (alternative, kept[0])
+    if fallback is not None:
+        return _named(*fallback)
     return None
 
 
@@ -1690,15 +1727,17 @@ def build_legal_material_loss_cause(
     # alternatives at all and would call every capture-into-a-loss
     # "unavoidable". affected_origin_before is the existing answer to
     # "where was the affected piece before this move".
-    avoidable_with_san = _material_loss_avoidable_with(
+    avoidable = _material_loss_avoidable_with(
         before=before,
         owner=owner,
         origin_square=affected_origin_before,
         target_piece_type=target.piece_type,
         minimum_gain_cp=minimum_gain_cp,
+        prefer=best,
     )
-    if avoidable_with_san is None:
+    if avoidable is None:
         return None
+    avoidable_with_san, avoidable_keeps_on = avoidable
     target_after_best = after_best.piece_at(target_square)
     affected_remains_on_target = (
         affected_origin_before == target_square
@@ -1742,6 +1781,12 @@ def build_legal_material_loss_cause(
         best_move_from=chess.square_name(best.from_square),
         best_move_to=chess.square_name(best.to_square),
         avoidable_with_san=avoidable_with_san,
+        avoidable_keeps_on=avoidable_keeps_on,
+        affected_from=(
+            chess.square_name(affected_origin_before)
+            if affected_origin_before != target_square
+            else None
+        ),
         played_capture=played_capture,
         played_purposes=verified_move_purposes(
             fen_before=fen_before, played_san=played_san

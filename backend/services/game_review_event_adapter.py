@@ -253,10 +253,30 @@ def _material_cause_teaching(
         # defend it, so calling it "safer" was an unchecked claim -- and where
         # the piece was doomed it was a false one. Name the move that is proven
         # to keep the piece instead.
-        best = (
-            f"{cause.avoidable_with_san} would have kept the "
-            f"{affected.piece} on {affected.square}."
-        )
+        #
+        # Name the square the piece is really kept on. When the played move
+        # walked the piece into danger, every other move "keeps" it -- on the
+        # square it came from, not the one it was taken on: Qf3 printed
+        # "Bxe6 would have kept the queen on f3" for a queen that stood on d1.
+        keeps_on = cause.avoidable_keeps_on
+        if keeps_on is None and cause.affected_from is None:
+            keeps_on = affected.square  # causes built before the field existed
+        if keeps_on == affected.square:
+            best = (
+                f"{cause.avoidable_with_san} would have kept the "
+                f"{affected.piece} on {affected.square}."
+            )
+        elif cause.affected_from is not None and keeps_on == cause.affected_from:
+            best = (
+                f"Before {san}, your {affected.piece} was safe on "
+                f"{cause.affected_from}. {cause.avoidable_with_san} would "
+                f"have kept it there."
+            )
+        else:
+            best = (
+                f"{cause.avoidable_with_san} would have kept your "
+                f"{affected.piece} safe."
+            )
     else:
         best = f"{cause.best_move_san} was the safer move."
     principle = (

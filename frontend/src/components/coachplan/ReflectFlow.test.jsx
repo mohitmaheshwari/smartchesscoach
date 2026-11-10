@@ -111,7 +111,7 @@ describe("ReflectFlow — review mode, Qf3 as a coach would take it", () => {
     click(button("Done"));
     expect(text()).toContain("He didn't take it. He played O-O.");
     expect(text()).toContain("Then you played Ne2, he played d5, and you played exd5. Your queen was still on f3.");
-    expect(text()).toContain("Then he took it with Nxf3+.");
+    expect(text()).toContain("Then you played Qg3, and it got away.");
     // the game already answered "did you see it?" — no question
     expect(text()).not.toContain("One honest question");
     expect(text()).toContain("In the game you left your queen there for two more moves, so you didn't see it.");

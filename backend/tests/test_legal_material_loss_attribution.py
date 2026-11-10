@@ -161,3 +161,52 @@ def test_the_same_shape_still_fires_when_the_capture_is_not_mate():
     assert cause is not None, "a genuine loose-rook card must survive the gate"
     assert cause.affected.square == "d1"
     assert cause.punishment_san == "Qxd1+"
+
+
+# --- the remedy names the square the piece is really kept on -----------------
+# Mohit's game 8bf001ce, move 8 (2026-11-10). Qf3 walks the queen from d1 into
+# the e5 knight's reach (Nxf3+). The card read:
+#   "Qf3 left your queen on f3 available. Their knight on e5 could win it with
+#    Nxf3+. Bxe6 would have kept the queen on f3."
+# Two faults: the queen was on d1, not f3, before Qf3 -- every other move
+# "keeps" it there -- and Bxe6 was simply the first legal move tried, a bishop
+# given for a pawn, while the engine's Bd2 (+29 at depth 18) keeps it too.
+QF3_FEN = "r1bqk2r/pp1p1ppp/4pn2/4n3/1b2P3/1BN5/PPP2PPP/R1BQK1NR w KQkq - 7 8"
+
+
+def _qf3_cause():
+    return build_legal_material_loss_cause(
+        fen_before=QF3_FEN, played_san="Qf3", best_move_san="Bd2", minimum_gain_cp=FLOOR,
+    )
+
+
+def test_the_saving_move_is_the_engines_move_when_it_keeps_the_piece():
+    cause = _qf3_cause()
+    assert cause is not None
+    assert cause.affected.square == "f3" and cause.punishment_san == "Nxf3+"
+    assert cause.avoidable_with_san == "Bd2"
+    assert cause.affected_from == "d1"
+    assert cause.avoidable_keeps_on == "d1"
+
+
+def test_the_card_says_the_piece_was_safe_where_it_came_from():
+    from types import SimpleNamespace
+    from services.game_review_event_adapter import _material_cause_teaching
+
+    frame = SimpleNamespace(headline="h", lead="l")
+    caption = _material_cause_teaching(SimpleNamespace(cause=_qf3_cause()), "Qf3", frame).caption
+    assert "Before Qf3, your queen was safe on d1. Bd2 would have kept it there." in caption
+    assert "kept the queen on f3" not in caption
+    assert "Bxe6" not in caption
+
+
+def test_a_piece_that_stayed_put_is_still_kept_on_its_square():
+    # The rook on g3 never moved; Rh3 is the engine move and moves it, so the
+    # purpose sentence owns the remedy and nothing claims "kept on g3".
+    cause = build_legal_material_loss_cause(
+        fen_before="3r1r2/2p3pk/3b3p/3P1q2/4p2P/P2P2R1/1Pn1QPP1/2B2K2 w - - 0 25",
+        played_san="Qxc2", best_move_san="Rh3", minimum_gain_cp=FLOOR,
+    )
+    assert cause is not None
+    assert cause.affected_from is None
+    assert cause.avoidable_with_san == "Rh3" and cause.avoidable_keeps_on == "h3"
