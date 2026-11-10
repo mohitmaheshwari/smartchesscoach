@@ -494,3 +494,19 @@ problems.
 1. Deploy 9dce9d29 and back-fill `development_decision`.
 2. Lock the cut-off and the minimum chances from the stored field.
 3. Precision of the gated miss (precedence + depth-18 re-check) on a sample.
+
+### Lock A1 — development cut-off (2026-11-10, /lock-via-data)
+
+DECISION LOCKED: a child gets `knowledge:development` when their gated
+development rate is below **0.75** with at least **20** chances.
+
+EVIDENCE (55 players with 20+ analysed games, last 80 games, gated miss =
+no piece-safety / king-safety / tactic label on the row; `/root/research/dev_cutoff.log`):
+- Split-half r of the gated rate 0.79 (54 players): still a stable trait.
+- Sorted rates: 0.37, 0.52, 0.65, 0.69, 0.74 | 0.78, 0.79, 0.79, 0.81 |
+  0.86 and a dense cluster above. The cut sits in the gap after the tail.
+- Flags 5 of 55 (9%). The minimum does not matter: 10, 20 and 30 chances
+  flag the same 5.
+
+REJECTED: < 0.85 (9 flagged, reaches into the dense cluster); < 0.6 (2
+flagged, drops three players whose boards show the same queen-first habit).
