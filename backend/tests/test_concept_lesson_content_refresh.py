@@ -33,7 +33,9 @@ import services.teaching_engine as teaching_engine  # noqa: E402
 def test_concept_sessions_are_resolved_for_refresh():
     """Defect 1. The refresh is gated on a resolved descriptor, so concept has
     to be in the set that resolves one."""
-    source = inspect.getsource(teaching_engine.start_personalized_lesson)
+    # The body lives in _start_personalized_lesson; the public name is a
+    # timing wrapper since 2026-11-11.
+    source = inspect.getsource(teaching_engine._start_personalized_lesson)
     match = re.search(r"if content_kind in \(([^)]*)\)", source)
     assert match, "no content_kind membership test found; refresh gate changed shape"
     kinds = match.group(1)
@@ -44,7 +46,7 @@ def test_concept_sessions_are_resolved_for_refresh():
 def test_the_review_reshape_stays_endgame_only():
     """That reshape keeps the last item and relabels it, which is meaningless
     for a concept lesson whose items are separate positions from real games."""
-    source = inspect.getsource(teaching_engine.start_personalized_lesson)
+    source = inspect.getsource(teaching_engine._start_personalized_lesson)
     assert 'content_kind == "endgame" and bool((params or {}).get("review"))' in source
 
 

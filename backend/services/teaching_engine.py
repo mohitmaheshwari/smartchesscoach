@@ -1229,6 +1229,38 @@ async def start_personalized_lesson(
     user_id: str,
     params: Dict[str, Any],
 ) -> Dict[str, Any]:
+    # One timing line per start, so a slow start shows which step took the
+    # time. The deploy gate's lesson start timed out at 15 s on 2026-11-11
+    # (nginx 499) while the same call measured 2-3 s minutes later, and
+    # nothing in the logs said where the 15 s went.
+    import time
+
+    marks: list = []
+    t0 = time.perf_counter()
+    outcome = "error"
+    try:
+        result = await _start_personalized_lesson(
+            db, session_id, user_id, params,
+            mark=lambda step: marks.append((step, time.perf_counter() - t0)),
+        )
+        outcome = "error" if result.get("error") else "ok"
+        return result
+    finally:
+        logger.info(
+            "personalized lesson start timing: outcome=%s total=%.2fs steps=%s",
+            outcome,
+            time.perf_counter() - t0,
+            " ".join(f"{step}@{at:.2f}" for step, at in marks) or "-",
+        )
+
+
+async def _start_personalized_lesson(
+    db,
+    session_id: str,
+    user_id: str,
+    params: Dict[str, Any],
+    mark=lambda step: None,
+) -> Dict[str, Any]:
     content_kind = str((params or {}).get("content_kind") or "")
     content_id = str((params or {}).get("content_id") or "")
     delivery_mode = str((params or {}).get("mode") or "lesson")
@@ -1245,6 +1277,7 @@ async def start_personalized_lesson(
     if delivery_mode == "blind_diagnostic":
         existing_query["delivery_mode"] = delivery_mode
     existing = await db.learning_sessions.find_one(existing_query)
+    mark("existing_lookup")
     if existing:
         # Concept lessons are re-resolved here too, and that is the whole
         # point of this block. The refresh below compares content_version and
@@ -1274,6 +1307,7 @@ async def start_personalized_lesson(
                 )
             except LessonUnavailable as exc:
                 return {"error": str(exc)}
+            mark("resolve_existing")
             # The review reshape below is endgame-only: it keeps the last item
             # and relabels it, which is meaningless for a concept lesson whose
             # items are separate positions from the player's own games.
@@ -1339,10 +1373,12 @@ async def start_personalized_lesson(
                 },
             )
             existing["status"] = "active"
-        return _public_personalized_session(
-            existing,
-            eligible=await candidate_experience_allowed(db, user_id, LESSON_FLAG),
-        )
+        mark("existing_updates")
+        eligible = await candidate_experience_allowed(db, user_id, LESSON_FLAG)
+        mark("eligibility")
+        public = _public_personalized_session(existing, eligible=eligible)
+        mark("public_view")
+        return public
 
     from services.personalized_lesson_adapter import (
         LessonUnavailable,
@@ -1358,6 +1394,7 @@ async def start_personalized_lesson(
         )
     except LessonUnavailable as exc:
         return {"error": str(exc)}
+    mark("resolve_new")
     if bool((params or {}).get("review")):
         review_item = dict(descriptor["items"][-1])
         review_item["stage"] = "retain"
@@ -1382,6 +1419,7 @@ async def start_personalized_lesson(
         skill_id=descriptor["skill_id"],
         canonical_lesson=identity,
     )
+    mark("teaching_profile")
     now = datetime.now(timezone.utc)
     session = {
         "schema_version": PERSONALIZED_SESSION_SCHEMA_VERSION,
@@ -1417,10 +1455,12 @@ async def start_personalized_lesson(
         "updated_at": now,
     }
     await db.learning_sessions.insert_one(session)
-    return _public_personalized_session(
-        session,
-        eligible=await candidate_experience_allowed(db, user_id, LESSON_FLAG),
-    )
+    mark("insert")
+    eligible = await candidate_experience_allowed(db, user_id, LESSON_FLAG)
+    mark("eligibility")
+    public = _public_personalized_session(session, eligible=eligible)
+    mark("public_view")
+    return public
 
 
 def _item_help_events(

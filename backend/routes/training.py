@@ -305,7 +305,12 @@ async def start_personalized_training_session(
     request: PersonalizedLessonStartRequest,
     user: User = Depends(get_current_user),
 ):
+    # Timing per step; the lesson engine logs its own inner steps. Added
+    # 2026-11-11 after the deploy gate's lesson start timed out at 15 s.
+    import time
+    t0 = time.perf_counter()
     await _require_personalized_teaching_user(user)
+    t_access = time.perf_counter()
     from services.teaching_engine import PERSONALIZED_LESSON_TYPE, start_lesson
 
     result = await start_lesson(
@@ -315,6 +320,7 @@ async def start_personalized_training_session(
         PERSONALIZED_LESSON_TYPE,
         request.model_dump(exclude_none=True),
     )
+    t_start = time.perf_counter()
     result = _raise_pic_lesson_error(result)
     from services.phase8_release_evidence import record_phase8_reach_event
     await record_phase8_reach_event(
@@ -322,6 +328,12 @@ async def start_personalized_training_session(
         user.user_id,
         step="lesson_opened",
         source_id=str(result.get("session_id") or "unknown"),
+    )
+    t_end = time.perf_counter()
+    logger.info(
+        "personalized session/start route timing: access=%.2fs start_lesson=%.2fs "
+        "reach_event=%.2fs total=%.2fs",
+        t_access - t0, t_start - t_access, t_end - t_start, t_end - t0,
     )
     return result
 
