@@ -469,12 +469,34 @@ Used for: Game decryption narratives, coaching messages, opening explanations.
 
 ## Stockfish Integration
 
-Binary at `/usr/games/stockfish`. Wrapped by `stockfish_service.py`.
+Two binaries of the same Stockfish version (corrected 2026-11-11):
+- Game analysis: the official AVX2 build at `/usr/local/bin/stockfish-avx2`, about 2.7x faster,
+  identical search (`config.py` `STOCKFISH_AVX2_PATH` / `_analysis_stockfish_path`).
+- Play with Coach: `STOCKFISH_PATH` (Debian build, `/usr/games/stockfish`). Left alone on purpose:
+  the coach opponent is limited by time, so a faster binary would make it stronger.
+Wrapped by `stockfish_service.py`.
 
 Used for:
 - Move evaluation during Play with Coach
 - Game analysis (analysis_worker.py processes queue)
 - Position assessment
+
+---
+
+## Analysis Capacity (decision 2026-11-11, until revenue)
+
+No paid analysis server until ChessGuru has revenue (a dedicated-CPU box at ~$168/month was
+over budget). Analysis runs on two sets of workers that share one queue:
+
+- **Mohit's PC (main capacity):** two worker containers write to prod over an ssh tunnel with
+  their own Mongo login. A watchdog task rebuilds them when the live commit changes. Measured
+  2026-11-11: 44 games per 40 min here vs 13 on the server.
+- **The two server workers stay on as the fallback.** Never stop them to "save" capacity: when
+  the PC is off they are the only analysis running.
+
+Move analysis to a paid machine when (1) the first paying family or academy arrives, or
+(2) real users wait on reviews while the PC is off. Do not propose a bigger server before then;
+propose ways to make the existing capacity go further.
 
 ---
 
