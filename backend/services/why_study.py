@@ -94,8 +94,19 @@ def replay(fen: str, sans: Sequence[str]) -> chess.Board:
 
 
 def _san_only(text: str) -> List[str]:
-    """SAN tokens in a line written as 'Qg6 7. Bb5+ Nc6', move numbers dropped."""
-    return [t for t in str(text or "").split() if not re.fullmatch(r"\d+\.(\.\.)?", t)]
+    """SAN tokens in a line written as 'Qg6 7. Bb5+ Nc6', move numbers dropped.
+
+    Also the glued forms the engine lines carry: '6...d6' -> 'd6',
+    '7.cxd4' -> 'cxd4'. Until 2026-11-11 a glued first token stopped the
+    packet's material ledger at move one, so every study was told material
+    did not change along either line (6.c3 of 2d86e1f9 wins a pawn back).
+    """
+    out = []
+    for t in str(text or "").split():
+        t = re.sub(r"^\d+\.(\.\.)?", "", t)
+        if t:
+            out.append(t)
+    return out
 
 
 def piece_name(board: chess.Board, square: str) -> Optional[str]:
@@ -154,6 +165,48 @@ def material(board: chess.Board) -> Dict[str, int]:
     w = sum(VALUES.get(p.piece_type, 0) for p in board.piece_map().values() if p.color == chess.WHITE)
     b = sum(VALUES.get(p.piece_type, 0) for p in board.piece_map().values() if p.color == chess.BLACK)
     return {"white": w, "black": b}
+
+
+def material_balance(board: chess.Board, side: str) -> int:
+    """That side's material minus the other side's, in centipawns."""
+    m = material(board)
+    other = "black" if side == "white" else "white"
+    return m[side] - m[other]
+
+
+def material_now(board: chess.Board, mover: chess.Color) -> Dict[str, Any]:
+    """Who is ahead in material before the move, in words the model can repeat."""
+    side = "white" if mover == chess.WHITE else "black"
+    bal = material_balance(board, side)
+    pawns = abs(bal) // 100
+    if bal == 0:
+        plain = "material is level"
+    else:
+        amount = f"{pawns} pawn" + ("s" if pawns != 1 else "") if bal % 100 == 0 else f"{abs(bal)} cp"
+        plain = f"the mover is {amount} {'up' if bal > 0 else 'down'}"
+    return {"mover_minus_opponent_cp": bal, "plain": plain}
+
+
+def material_along(base: chess.Board, line: Sequence[str], mine: str, theirs: str) -> Dict[str, Any]:
+    """Material change for `mine` along an engine line, replayed move by move.
+
+    Records how many moves actually replayed, so a line that stops early can
+    never again pass as "no change" (the 2026-11-11 bug: zero moves replayed,
+    zero change reported, on every study).
+    """
+    sans = _san_only(" ".join(str(x) for x in (line or [])))
+    b = base.copy()
+    start = material(b)
+    replayed = 0
+    for san in sans:
+        try:
+            b.push_san(san)
+        except Exception:                               # noqa: BLE001
+            break
+        replayed += 1
+    end = material(b)
+    return {"mover_material_change_cp": (end[mine] - start[mine]) - (end[theirs] - start[theirs]),
+            "replayed_moves": replayed, "line_moves": len(sans), "line": list(line or [])}
 
 
 def board_facts(board: chess.Board, mover: chess.Color) -> Dict[str, Any]:
@@ -260,21 +313,17 @@ def build_packet(fen_before: str, played_san: str, *, better_san: Optional[str] 
         reply = after_played[0]["san"] if after_played else None
 
         ledger = {}
+        mine = "white" if mover == chess.WHITE else "black"
+        theirs = "black" if mine == "white" else "white"
         for label, base, ls in (("after_played", played, after_played), ("after_better", better, after_better)):
             if not ls:
                 continue
-            b = base.copy()
-            start = material(b)
-            for san in ls[0]["line"]:
-                try:
-                    b.push_san(san)
-                except Exception:                       # noqa: BLE001
-                    break
-            end = material(b)
-            mine = "white" if mover == chess.WHITE else "black"
-            theirs = "black" if mine == "white" else "white"
-            ledger[label] = {"mover_material_change_cp": (end[mine] - start[mine]) - (end[theirs] - start[theirs]),
-                             "line": ls[0]["line"]}
+            ledger[label] = material_along(base, ls[0]["line"], mine, theirs)
+            # Counted from the position BEFORE the move, so a capture made by
+            # the move itself is in the number too.
+            ledger[label]["mover_material_change_from_before_the_move_cp"] = (
+                material_balance(base, mine) - material_balance(root, mine)
+                + ledger[label]["mover_material_change_cp"])
 
     reply_board = played.copy()
     if reply:
@@ -291,6 +340,7 @@ def build_packet(fen_before: str, played_san: str, *, better_san: Optional[str] 
         "better_san": better_san,
         "stored_class": stored_class,
         "reader_rating": rating,
+        "material_now": material_now(root, mover),
         "root_candidates_cp_for_mover": root_lines,
         "after_played": {"fen": played.fen(), "best_replies_cp_for_mover": after_played},
         "after_better": {"fen": better.fen(), "best_replies_cp_for_mover": after_better},
@@ -326,7 +376,9 @@ How to write it. The reader is ten years old, or reading English as a second lan
 - When the facts list several squares or pieces, name ONE as the example and drop the rest. A list is not teaching.
 - The reader must finish knowing what to do differently next game. If the honest lesson cannot be said plainly, say the simplest true part and stop.
 - Every piece you mention must be the `subject` or `target` of one of your claims, with its square, on the board where you mean it (set `after` to the moves that reach that board). A move name counts for its own piece and destination square. A piece you cannot tie to a claim is a piece you may not mention.
-- The `shared_threat_probes` section is where the mechanism usually hides: a threat that both moves allow but that only the better move answers well. Prefer a claim about that over a bare "the better line is better".
+- Read material FIRST. `material_now` says who is ahead before the move. `material_along_best_lines` says how material changes along each engine line, counted from before the move (`mover_material_change_from_before_the_move_cp`). If the better move wins material back or the move played loses some, that IS the lesson: say which pawn or piece, and how the better move gets it.
+- A threat in `shared_threat_probes` is a lesson only when it survives: look at `mover_answers_with`. If that answer takes the attacking piece or moves the target away for free, the threat does not land and must not be your mechanism. When one does survive, it is where a mechanism often hides: a threat both moves allow that only the better move answers well.
+- Any threat you claim must still work after the other side's best reply. The gate replays the engine's best reply and holds a reason whose threat never lands.
 - If the packet shows no mechanism, only that the position is a little worse with nothing concrete, set `no_lesson` true and say why in one line. That is a real and useful answer. Do not invent a lesson.
 - `live_engine_said` is what the quick engine on the site answered when the player asked. Its `reason` `no_gap` means it measured no real difference between the two moves; `engine_choice` means the move played was its own first choice. The card still called the move a fault. If the lines here agree with the quick engine, set `no_lesson` true and say so in one line; if they show a real difference the quick engine missed, that difference is the lesson.
 - Do not read a threat off a line without checking it in the facts or probes: a move in a line is not a threat until the board says what it attacks.

@@ -93,7 +93,17 @@ reason = PAYLOAD["reason"]
 queue_status = PAYLOAD["queue_status"]
 key = reason["key"]
 reason["written_at"] = now()
-db.why_reasons.update_one({"key": key}, {"$set": reason, "$setOnInsert": {"created_at": now()}}, upsert=True)
+# A re-study keeps the study it replaces, with its ruling, and starts the new
+# one unruled: a person's Agree belongs to the text they read (2026-11-11).
+old = db.why_reasons.find_one({"key": key}, {"_id": 0, "packet": 0, "previous_studies": 0})
+update = {"$set": reason, "$setOnInsert": {"created_at": now()}}
+if old:
+    update["$push"] = {"previous_studies": old}
+    clear = {k: "" for k in ("ruling", "ruled_by", "ruled_at", "ruling_note", "published_at")
+             if k not in reason}
+    if clear:
+        update["$unset"] = clear
+db.why_reasons.update_one({"key": key}, update, upsert=True)
 db.why_queue.update_one({"key": key}, {"$set": {"status": queue_status, "finished_at": now(), "lease_until": None}})
 emit({"ok": True, "key": key, "status": reason.get("status"), "queue_status": queue_status})
 '''

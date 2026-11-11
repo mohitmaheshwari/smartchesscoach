@@ -69,3 +69,26 @@ def test_descriptions_of_the_current_position_are_left_alone():
     eng = _Eng(["a3"])
     assert ws.threat_lands(_claim([], "c4", "f7"), E5_FEN, eng=eng) == (True, None)
     assert ws.threat_lands({"kind": "gives_check", "after": ["Bxf7+"]}, E5_FEN, eng=eng) == (True, None)
+
+
+# --- the packet's material facts (2026-11-11) --------------------------------
+# The ledger replayed engine lines with push_san, and the first token of every
+# line was a numbered move ("6...d6", "7."), so it stopped at move one and
+# reported "no material change" on every study. 6.c3 of 2d86e1f9 wins a pawn.
+
+def test_numbered_moves_are_stripped_in_every_form():
+    assert ws._san_only("6...d6 7. cxd4 Bb6 8.Nc3") == ["d6", "cxd4", "Bb6", "Nc3"]
+
+
+def test_the_ledger_replays_the_whole_line_and_counts_the_pawn_won_back():
+    after_c3 = chess.Board(E5_FEN)
+    after_c3.push_san("c3")
+    led = ws.material_along(after_c3, ["6...d6", "7.", "cxd4", "Bb6", "8.", "Nc3"], "white", "black")
+    assert led["replayed_moves"] == led["line_moves"] == 4
+    assert led["mover_material_change_cp"] == 100
+
+
+def test_material_now_says_who_is_ahead():
+    assert ws.material_now(chess.Board(E5_FEN), chess.WHITE) == {
+        "mover_minus_opponent_cp": -100, "plain": "the mover is 1 pawn down"}
+    assert ws.material_now(chess.Board(), chess.WHITE)["plain"] == "material is level"
