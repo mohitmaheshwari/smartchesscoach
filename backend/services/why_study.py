@@ -28,12 +28,15 @@ be empty). Squares are "g2"-style. Everything else is refused.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import chess
 import chess.engine
+
+logger = logging.getLogger(__name__)
 
 VALUES = {chess.PAWN: 100, chess.KNIGHT: 300, chess.BISHOP: 300, chess.ROOK: 500, chess.QUEEN: 900}
 PIECE_WORD = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop",
@@ -667,6 +670,69 @@ def owner_on_square(text: str, claims: List[Dict[str, Any]], fen_before: str, *,
     return out
 
 
+THREAT_PLIES = 4
+
+
+def threat_lands(claim: Dict[str, Any], fen_before: str, *, eng, depth: int = 16) -> Tuple[bool, Optional[str]]:
+    """A threat must survive the threatened side's best reply.
+
+    `check_claim` proves the attack is on the board. It cannot see that the
+    other side simply answers it. 2026-11-11, two of the first four studies
+    passed this way and were wrong: 6.e5 "you answer d5, attacking their
+    bishop" (7.exd6 en passant removes the pawn) and 6.b3 "Qg6 hits g2 and
+    their queen cannot help" (7.Bb5+ Nc6 8.Qe2 guards it).
+
+    Applies to `attacks` / `undefended` claims made after a line, when the
+    threatened side is to move and an enemy piece really hits the target.
+    The threat lands when, in the engine's best line from there, within
+    THREAT_PLIES half-moves, the attacking side takes on the target square,
+    or the target steps away while the attacker still stands (a real tempo).
+    Anything else is a threat the reply answers: (False, why).
+    """
+    if claim.get("kind") not in ("attacks", "undefended") or not (claim.get("after") or []):
+        return True, None
+    try:
+        board = replay(fen_before, claim.get("after") or [])
+        t = chess.parse_square(str(claim.get("target") or claim.get("subject") or ""))
+    except ValueError:
+        return True, None                               # check_claim already judged the shape
+    target = board.piece_at(t)
+    if target is None or board.turn != target.color:
+        return True, None                               # not a threat the other side must answer
+    attacker_color = not target.color
+    if not board.attackers(attacker_color, t):
+        return True, None
+    attacker_sq = None
+    if claim.get("kind") == "attacks":
+        try:
+            attacker_sq = chess.parse_square(str(claim.get("subject") or ""))
+        except ValueError:
+            attacker_sq = None
+    info = eng.analyse(board, chess.engine.Limit(depth=depth))
+    pv = list(info.get("pv") or [])[:THREAT_PLIES]
+    if not pv:
+        return True, None
+    b = board.copy()
+    reply_san = b.san(pv[0])
+    for i, mv in enumerate(pv):
+        mover = b.turn
+        if mover == attacker_color and mv.to_square == t and b.is_capture(mv):
+            return True, None
+        if (i == 0 and mover == target.color and mv.from_square == t
+                and target.piece_type != chess.PAWN):
+            # A PIECE had to move: a tempo, if the attacker is still there. A
+            # pawn stepping out of an attack answers it for nothing -- after
+            # 6.b3 Qg6 the gate's own engine plays 7.g3 and g2 is simply gone
+            # from the queen's line.
+            after = b.copy()
+            after.push(mv)
+            if attacker_sq is None or after.piece_at(attacker_sq) is not None:
+                return True, None
+        b.push(mv)
+    line = board.variation_san(pv)
+    return False, f"the threat on {chess.square_name(t)} never lands: best reply {reply_san} ({line})"
+
+
 def run_gate(answer: Dict[str, Any], *, fen_before: str, played_san: str, better_san: Optional[str],
              mover_is_user: bool, engine_path: Optional[str] = None, depth: int = 16) -> Dict[str, Any]:
     """Replay every claim, then check the words. Returns the gate record and the
@@ -678,11 +744,28 @@ def run_gate(answer: Dict[str, Any], *, fen_before: str, played_san: str, better
                 "readability": readability(str(answer.get("no_lesson_why") or "")), "notes": []}
     if not claims:
         failures.append("a reason with no claims")
-    needs_engine = any(c.get("kind") in ("capture_loses", "line_better") for c in claims)
-    eng = open_engine(engine_path) if needs_engine else None
+    needs_engine = any(
+        c.get("kind") in ("capture_loses", "line_better")
+        or (c.get("kind") in ("attacks", "undefended") and (c.get("after") or []))
+        for c in claims)
+    eng = None
+    if needs_engine:
+        try:
+            eng = open_engine(engine_path)
+        except Exception:                               # noqa: BLE001
+            # Fail closed: every engine-backed claim is held below.
+            logger.warning("why gate: no engine at %r", engine_path)
+            eng = None
     try:
         for c in claims:
             ok, why = check_claim(c, fen_before, eng=eng, depth=depth)
+            if ok and c.get("kind") in ("attacks", "undefended") and (c.get("after") or []):
+                # True on the board is not enough: the threat must survive the
+                # threatened side's best reply (threat_lands).
+                if eng is None:
+                    ok, why = False, "no engine to check the threat survives the reply"
+                else:
+                    ok, why = threat_lands(c, fen_before, eng=eng, depth=depth)
             c["verified"] = bool(ok)
             c["failure"] = why
             if not ok:

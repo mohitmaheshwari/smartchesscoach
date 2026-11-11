@@ -116,6 +116,23 @@ GOOD = ("After b3, Qg6 attacks the pawn on g2 and nothing guards it. The queen o
         "d4 opens the queen's road: after d4, taking on g2 with Qxg2 loses the queen to Bb5+.")
 
 
+KE7_FEN = "4kbnr/p2r1ppp/1pB1p3/1Q6/8/2N5/PPP2P1P/R3K2R b KQk - 1 14"
+KE7_REASON = ("Ke7 puts their king next to their bishop on f8. Now that bishop cannot move. "
+              "Your bishop takes the rook on d7. Then your queen checks from b4 and takes their bishop. "
+              "Bd6 moves the bishop out first.")
+KE7_CLAIMS = [
+    {"kind": "no_legal_moves", "label": "their bishop on f8 cannot move after Ke7", "after": ["Ke7"], "subject": "f8"},
+    {"kind": "attacks", "label": "your bishop on c6 attacks their rook on d7 after Ke7", "after": ["Ke7"],
+     "subject": "c6", "target": "d7"},
+    {"kind": "gives_check", "label": "your queen on b4 gives check", "after": ["Ke7", "Bxd7", "g5", "Qb4+"],
+     "side": "white", "subject": "b4", "target": "e7"},
+    {"kind": "attacks", "label": "your queen on b4 attacks their bishop on f8",
+     "after": ["Ke7", "Bxd7", "g5", "Qb4+", "Kf6"], "subject": "b4", "target": "f8"},
+    {"kind": "undefended", "label": "nothing is guarding their bishop on f8",
+     "after": ["Ke7", "Bxd7", "g5", "Qb4+", "Kf6"], "subject": "f8", "side": "black"},
+]
+
+
 def _text_failures(text, claims=CLAIMS, mover_is_user=False):
     return ws.gate_text(text, claims, fen_before=FEN, played_san="b3", better_san="d4", mover_is_user=mover_is_user)
 
@@ -180,7 +197,15 @@ class TestReadability:
         example = ws.SYSTEM_PROMPT[start:ws.SYSTEM_PROMPT.index('"', start)]
         assert ws.readability(example)["notes"] == []
 
-    def test_the_gate_carries_notes_without_failing(self):
+    def test_the_gate_carries_notes_without_failing(self, monkeypatch):
+        # About the WORDS only. The b3 threat claims now need an engine
+        # (threat_lands, which has its own tests and holds this reason), so
+        # the engine and that check are stood down here on purpose.
+        class _NoEngine:
+            def quit(self):
+                pass
+        monkeypatch.setattr(ws, "open_engine", lambda *a, **k: _NoEngine())
+        monkeypatch.setattr(ws, "threat_lands", lambda *a, **k: (True, None))
         text = GOOD.replace("nothing guards it", "it is undefended")
         gate = ws.run_gate({"no_lesson": False, "reason": text, "claims": CLAIMS},
                            fen_before=FEN, played_san="b3", better_san="d4", mover_is_user=False)
@@ -214,8 +239,23 @@ class TestTheGate:
         assert gate["claims"][-1]["verified"] is False
         assert any("does not attack" in f for f in gate["failures"])
 
-    def test_the_good_reason_passes_the_gate(self):
+    @needs_engine
+    def test_the_b3_reason_is_held_because_its_threat_never_lands(self):
+        # This was the gate's "good reason" until 2026-11-11, when Mohit's
+        # ruling and Stockfish both refuted it: after b3 Qg6 White answers
+        # g3 (or Bb5+ ... Qe2) and g2 is never taken. threat_lands holds it.
         gate = ws.run_gate({"no_lesson": False, "reason": GOOD, "claims": CLAIMS},
-                           fen_before=FEN, played_san="b3", better_san="d4", mover_is_user=False)
+                           fen_before=FEN, played_san="b3", better_san="d4", mover_is_user=False,
+                           engine_path=ENGINE)
+        assert not gate["passed"]
+        assert any("never lands" in f for f in gate["failures"])
+
+    @needs_engine
+    def test_the_good_reason_passes_the_gate(self):
+        # Ke7 of 5e68fc88: published by ruling 2026-11-11, and Stockfish plays
+        # 15.Bxd7 ... 16.Qb4+ Kf6 17.Qxf8 exactly as it says.
+        gate = ws.run_gate({"no_lesson": False, "reason": KE7_REASON, "claims": KE7_CLAIMS},
+                           fen_before=KE7_FEN, played_san="Ke7", better_san="Bd6", mover_is_user=False,
+                           engine_path=ENGINE)
         assert gate["passed"], gate["failures"]
         assert all(c["verified"] for c in gate["claims"])
