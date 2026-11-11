@@ -168,6 +168,12 @@ const SQUARE_MARK_SVG = {
   answer: '<circle cx="50" cy="50" r="17" fill="#1f7a4d" opacity="0.95" />',
   picked: '<rect width="100" height="100" fill="#d8a72c" opacity="0.6" />',
   target: '<rect x="5" y="5" width="90" height="90" rx="6" fill="none" stroke="#1558d6" stroke-width="7" />',
+  // Tap reflection (coachplan/ReflectFlow): the move being talked about, a
+  // square on the line a piece travels, and a square a piece can land on that
+  // holds a piece (lichess draws that as a corner ring, not a dot).
+  last: '<rect width="100" height="100" fill="#9bc700" opacity="0.41" />',
+  path: '<rect width="100" height="100" fill="#e0a526" opacity="0.32" />',
+  occ: '<circle cx="50" cy="50" r="44" fill="none" stroke="#14281c" stroke-width="9" opacity="0.5" />',
 };
 
 const chessgroundMarkShape = (mark) => {

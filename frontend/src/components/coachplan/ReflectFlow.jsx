@@ -20,11 +20,11 @@
  * (`moment.target`). Moves other than the stored best are checked by the
  * server (`checkMove`). The server grades every answer again on submit.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import LichessBoard from "@/components/LichessBoard";
 import "./coachplan.css";
 
 const FILES = "abcdefgh";
-const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟︎" };
 const NAME = { k: "king", q: "queen", r: "rook", b: "bishop", n: "knight", p: "pawn" };
 const VALUE = { pawn: 1, knight: 3, bishop: 3, rook: 5, queen: 9, king: 100 };
 const PATTERN_WORDS = {
@@ -82,51 +82,54 @@ function moveDiff(fenA, fenB) {
 // ---------------------------------------------------------------------------
 // board
 // ---------------------------------------------------------------------------
-function Board({ color, pos, marks, arrows, live }) {
-  const flip = color === "black";
-  const xy = (sq) => {
-    const f = FILES.indexOf(sq[0]), r = Number(sq[1]);
-    const col = flip ? 7 - f : f, row = flip ? r - 1 : 8 - r;
-    return [col * 12.5 + 6.25, row * 12.5 + 6.25];
-  };
-  const squares = [];
-  for (let row = 0; row < 8; row += 1) {
-    for (let col = 0; col < 8; col += 1) {
-      const f = flip ? 7 - col : col, r = flip ? row + 1 : 8 - row, sq = FILES[f] + r;
-      const p = pos[sq];
-      const act = live[sq];
-      const cls = ["cp-sq", (f + r) % 2 === 0 ? "dk" : "", ...(marks[sq] || []), act ? "live" : ""].filter(Boolean).join(" ");
-      squares.push(
-        <button key={sq} type="button" className={cls} tabIndex={act ? 0 : -1} onClick={act || undefined}
-          aria-label={`${sq}${p ? ` ${isWhitePiece(p) ? "white" : "black"} ${NAME[p.toLowerCase()]}` : ""}`}>
-          {p && <span className={`cp-pc ${isWhitePiece(p) ? "w" : "b"}`}>{GLYPH[p.toLowerCase()]}</span>}
-          {row === 7 && <span className="cp-coord f">{FILES[f]}</span>}
-          {col === 0 && <span className="cp-coord r">{r}</span>}
-        </button>,
-      );
+/** FEN placement for a { square: piece } map (pieces moved on a step board included). */
+export function placementOf(pos) {
+  const rows = [];
+  for (let r = 8; r >= 1; r -= 1) {
+    let row = ""; let empty = 0;
+    for (const f of FILES) {
+      const p = pos[f + r];
+      if (p) { if (empty) { row += empty; empty = 0; } row += p; } else empty += 1;
     }
+    rows.push(row + (empty || ""));
   }
-  const color_ = { A: "var(--cp-bad)", G: "var(--cp-good)", T: "var(--cp-tap)" };
+  return rows.join("/");
+}
+
+// Mohit 2026-11-11 on the review card: "i want the same playground board, that's
+// clean and makes more clarity". The flow keeps its own step logic (pos, marks,
+// arrows, which squares answer a tap); the board itself is the app's LichessBoard.
+// Rings: his piece it attacks (red), your piece it guards (green). Gold fill:
+// your picks. Dot / corner ring: where a piece can go. Red square: can take it.
+const ARROW_BRUSH = { A: "red", G: "green", T: "blue" };
+
+function Board({ color, pos, marks, arrows, live }) {
+  const liveRef = useRef(live);
+  liveRef.current = live;
+  const onSquareClick = useCallback((sq) => { const act = liveRef.current[sq]; if (act) act(); }, []);
+  const highlights = []; const circles = [];
+  Object.entries(marks).forEach(([sq, list]) => {
+    const has = (c) => list.includes(c);
+    if (has("last")) highlights.push({ square: sq, kind: "last" });
+    if (has("path")) highlights.push({ square: sq, kind: "path" });
+    if (has("danger")) highlights.push({ square: sq, kind: "danger" });
+    if (has("r-tap") || has("r-sel")) highlights.push({ square: sq, kind: "picked" });
+    if (has("dest")) highlights.push({ square: sq, kind: has("occ") ? "occ" : "found" });
+    if (has("r-attack")) circles.push([sq, "red"]);
+    if (has("r-guard")) circles.push([sq, "green"]);
+  });
   return (
     <div className="cp-boardbox">
-      <div className="cp-board" aria-label="Chess board">{squares}</div>
-      <svg className="cp-arrows" viewBox="0 0 100 100" aria-hidden="true">
-        <defs>
-          {Object.entries(color_).map(([k, c]) => (
-            <marker key={k} id={`cp-h${k}`} viewBox="0 0 10 10" refX="6" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto">
-              <path d="M0,0 L10,5 L0,10 z" fill={c} />
-            </marker>
-          ))}
-        </defs>
-        {arrows.map(([a, z, k], i) => {
-          const [x1, y1] = xy(a), [x2, y2] = xy(z);
-          const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
-          return (
-            <line key={`${a}${z}${i}`} x1={x1 + (dx / L) * 3} y1={y1 + (dy / L) * 3} x2={x2 - (dx / L) * 4.5} y2={y2 - (dy / L) * 4.5}
-              stroke={color_[k]} strokeWidth="2.1" strokeLinecap="round" opacity=".9" markerEnd={`url(#cp-h${k})`} />
-          );
-        })}
-      </svg>
+      <LichessBoard
+        fen={`${placementOf(pos)} w - - 0 1`}
+        orientation={color === "black" ? "black" : "white"}
+        selectionOnly
+        showDests={false}
+        onSquareClick={onSquareClick}
+        arrows={arrows.map(([a, z, k]) => [a, z, ARROW_BRUSH[k] || "blue"])}
+        circles={circles}
+        highlights={highlights}
+      />
     </div>
   );
 }
@@ -708,10 +711,11 @@ export default function ReflectFlow({ moment, warningSign, rule, onSubmit, onClo
   })();
 
   const key = stage === "intent"
-    ? [["box-shadow:inset 0 0 0 3px var(--cp-bad)", "his piece it attacks"], ["box-shadow:inset 0 0 0 3px var(--cp-good)", "your piece it guards"], ["box-shadow:inset 0 0 0 3px var(--cp-tap);border-radius:3px", "your picks"]]
+    // Same paint as the board (LichessBoard brushes and square marks).
+    ? [["box-shadow:inset 0 0 0 3px #882020;border-radius:50%", "his piece it attacks"], ["box-shadow:inset 0 0 0 3px #15781B;border-radius:50%", "your piece it guards"], ["background:rgba(216,167,44,.6);border-radius:3px", "your picks"]]
     : stage === "practice" || (stage === "test" && !tapTest)
-      ? [["background:radial-gradient(circle,var(--cp-dot) 0 35%,transparent 36%)", "squares it can go to"]]
-      : graded && tapTest && stage !== "reply" ? [["background:var(--cp-danger);border-radius:3px", m.kind === "landing" ? "can take it" : "aiming at your king"]] : [];
+      ? [["background:radial-gradient(circle,rgba(20,40,28,.62) 0 35%,transparent 36%)", "squares it can go to"]]
+      : graded && tapTest && stage !== "reply" ? [["background:rgba(192,38,45,.42);border-radius:3px", m.kind === "landing" ? "can take it" : "aiming at your king"]] : [];
 
   // ---------- buttons under the conversation ----------
   let bar = null;

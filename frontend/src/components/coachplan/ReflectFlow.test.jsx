@@ -6,6 +6,9 @@ import { ne2Moment, nxe5Moment } from "./__fixtures__/reviewMoments";
 import developmentMoment from "./__fixtures__/developmentMoment";
 import { qf3StoryMoment } from "./__fixtures__/reviewQf3Story";
 
+// The board is the app's LichessBoard; jsdom cannot click chessground squares.
+jest.mock("@/components/LichessBoard", () => require("./__fixtures__/fakeLichessBoard"));
+
 const sign = { title: "The three looks", text: "Before any piece lands: pieces close by, knight jumps, long lines to the edge." };
 const rule = { id: "three_looks", text: "Do the three looks before every move that puts a piece on a new square." };
 
@@ -28,8 +31,11 @@ describe("ReflectFlow — piece safety moment (Qf3)", () => {
     expect(text()).toContain("What was Qf3 for?");
     expect(button("Bring it into play")).toBeTruthy();
     expect(container.querySelector("textarea, input")).toBeNull();
-    // the board's own options are tappable: two guards and one attack
-    ["c3 white knight", "e4 white pawn", "f6 black knight"].forEach((l) => expect(square(l).className).toContain("live"));
+    // the board's own options are ringed: two guards (green) and one attack (red)
+    expect(square("c3 white knight").className).toContain("ring-green");
+    expect(square("e4 white pawn").className).toContain("ring-green");
+    expect(square("f6 black knight").className).toContain("ring-red");
+    expect(container.querySelector("[data-testid='lichess-board']")).toBeTruthy();
   });
 
   test("two taps on ringed pieces, then Done, keeps both picks", () => {

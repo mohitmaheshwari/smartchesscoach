@@ -23,6 +23,7 @@ jest.mock("framer-motion", () => {
   };
 });
 jest.mock("../../App", () => ({ API: "/api" }));
+jest.mock("@/components/LichessBoard", () => require("../coachplan/__fixtures__/fakeLichessBoard"));
 jest.mock("../../lib/analytics", () => ({
   ANALYTICS_EVENTS: {
     REVIEW_COACH_STARTED: "review_coach_started",
