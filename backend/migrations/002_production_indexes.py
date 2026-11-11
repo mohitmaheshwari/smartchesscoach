@@ -103,6 +103,16 @@ INDEXES = [
     ("coaching_summaries", [("game_id", 1), ("user_id", 1)], "cs_game_user", {}),
     # Profile read and update by user_id: few rows, but large ones, 16 scans.
     ("player_profiles", [("user_id", 1)], "pp_user_id", {}),
+    # 2026-11-11, the home page (/api/home/session took 49 s for Mohit). Its
+    # board and practice-link reads each walked a whole pool:
+    # coach_today_position reads a player's own puzzles by shared_by (78k scanned),
+    # and their own coach positions by source_user_id alone, which the existing
+    # (pattern_type, source_user_id) index cannot serve (57k scanned, 12.4 s).
+    ("community_puzzles", [("shared_by", 1), ("issue_type", 1)], "cp_shared_by_issue", {}),
+    ("community_training_positions", [("source_user_id", 1)], "ctp_source_user", {}),
+    # The practice-link supply check filters by issue_type first; king_safety is
+    # 150 of 78k rows and was found by a full scan.
+    ("community_puzzles", [("issue_type", 1), ("approved", 1)], "cp_issue_approved", {}),
 ]
 
 # Created during diagnosis, then measured as unused: schema_version is not
