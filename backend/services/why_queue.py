@@ -272,6 +272,93 @@ async def on_nothing_found(db, out: Dict[str, Any], *, fen_before: str, played_s
         return out
 
 
+# --- the list page: /admin/why-queue (docs/why_queue_admin_page_scope.md) ----
+
+STATUS_WORDS = {
+    QUEUED: "To be processed",
+    RUNNING: "Being processed",
+    HELD_FOR_REVIEW: "Waiting for your review",
+    HELD: "Failed the check",
+    PUBLISHED: "Published",
+    REJECTED: "Rejected",
+    NO_LESSON: "No single lesson",
+    DONE: "Processed, no study saved",
+    FAILED: "Failed",
+}
+
+
+def _uci_squares(fen: Optional[str], san: Optional[str]) -> Optional[Dict[str, str]]:
+    """From/to squares of a SAN in this position, for a board arrow."""
+    if not fen or not san:
+        return None
+    try:
+        import chess
+        mv = chess.Board(fen).parse_san(san)
+        return {"from": chess.square_name(mv.from_square), "to": chess.square_name(mv.to_square)}
+    except Exception:                                   # noqa: BLE001
+        return None
+
+
+def admin_list_row(queue: Dict[str, Any], reason: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """One queued position as the list page draws it.
+
+    The study's status wins over the queue's: a `done` queue row with a study
+    reads as what the study says. No user ids leave the server; the page needs
+    the games, not who asked.
+    """
+    reason = reason or {}
+    fen = queue.get("fen_before") or reason.get("fen_before")
+    played = queue.get("played_san") or reason.get("played_san")
+    better = (reason.get("better_san")
+              or (queue.get("differential") or {}).get("better_move")
+              or queue.get("stored_best"))
+    status = reason.get("status") or queue.get("status") or QUEUED
+    requests = sorted(queue.get("requests") or reason.get("requests") or [],
+                      key=lambda r: str(r.get("requested_at") or ""))
+    games: list = []
+    for r in requests:
+        g = {"game_id": r.get("game_id"), "move_number": r.get("move_number"), "side": r.get("side")}
+        if g not in games:
+            games.append(g)
+    gate = reason.get("gate") or {}
+    return {
+        "key": queue.get("key") or reason.get("key"),
+        "fen_before": fen,
+        "side_to_move": "white" if " w " in f" {fen or ''} " else "black",
+        "played_san": played,
+        "played_squares": _uci_squares(fen, played),
+        "better_san": better,
+        "better_squares": _uci_squares(fen, better),
+        "stored_class": queue.get("stored_class") or reason.get("stored_class"),
+        "side": (requests[-1].get("side") if requests else reason.get("side")),
+        "status": status,
+        "status_words": STATUS_WORDS.get(status, status),
+        "processed": bool(reason),
+        "games": games,
+        "times_asked": len(requests),
+        "first_asked_at": requests[0].get("requested_at") if requests else queue.get("created_at"),
+        "last_asked_at": queue.get("last_requested_at") or (requests[-1].get("requested_at") if requests else None),
+        "claude_text": reason.get("reason"),
+        "no_lesson_why": reason.get("no_lesson_why"),
+        "gate_passed": gate.get("passed") if reason else None,
+        "gate_failures": list(gate.get("failures") or []),
+        "cost_usd": reason.get("cost_usd"),
+        "model": reason.get("model"),
+        "studied_at": reason.get("studied_at") or reason.get("created_at"),
+        "published_at": reason.get("published_at"),
+    }
+
+
+async def admin_list(db, limit: int = 500) -> List[Dict[str, Any]]:
+    """Every queued position with its study, newest ask first."""
+    queue_rows = await db[QUEUE_COLLECTION].find({}, {"_id": 0}).sort(
+        "last_requested_at", -1).limit(limit).to_list(length=limit)
+    keys = [q.get("key") for q in queue_rows if q.get("key")]
+    reasons = {r["key"]: r for r in await db[REASONS_COLLECTION].find(
+        {"key": {"$in": keys}}, {"_id": 0, "packet": 0}).to_list(length=None) if r.get("key")}
+    return [admin_list_row(q, reasons.get(q.get("key"))) for q in queue_rows]
+
+
 # --- the review side: the admin tab reads and rules on these -----------------
 
 def review_row(reason: Dict[str, Any]) -> Dict[str, Any]:

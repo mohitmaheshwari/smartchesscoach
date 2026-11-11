@@ -31,7 +31,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
-from routes.admin import require_geometry_reviewer
+from routes.admin import require_admin, require_geometry_reviewer
 from routes.auth import User
 
 router = APIRouter(tags=["Admin"])
@@ -196,3 +196,15 @@ async def claude_reason_results(user: User = Depends(require_geometry_reviewer))
             if r.get("judge_overall") == "confirmed" and r.get("verdict") == "disagree"
         ],
     }
+
+
+@router.get("/admin/why-queue/positions")
+async def why_queue_positions(user: User = Depends(require_admin)):
+    """Every position the Why button sent to be studied, with Claude's text when
+    a study exists and "To be processed" when not. Read-only; ruling stays on
+    /admin/geometry-gaps. Owner admins only. docs/why_queue_admin_page_scope.md
+    """
+    _require_db()
+    from services.why_queue import admin_list
+    rows = await admin_list(db)
+    return {"count": len(rows), "positions": rows}

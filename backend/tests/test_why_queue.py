@@ -346,3 +346,37 @@ class TestAQueuedPositionSkipsTheEngine:
             def __getitem__(self, name):
                 raise RuntimeError("mongo down")
         assert _known(_Broken()) is None
+
+
+class TestTheListPage:
+    """/admin/why-queue (docs/why_queue_admin_page_scope.md)."""
+
+    def test_an_unprocessed_position_reads_to_be_processed(self):
+        db = _DB()
+        _ask(db, _nothing())
+        rows = _run(wq.admin_list(db))
+        assert len(rows) == 1
+        r = rows[0]
+        assert r["status_words"] == "To be processed" and r["processed"] is False
+        assert r["claude_text"] is None
+        assert r["played_squares"] == {"from": "b2", "to": "b3"}
+        assert r["better_squares"] == {"from": "d2", "to": "d4"}
+        assert r["games"] == [{"game_id": "g1", "move_number": 6, "side": "opponent"}]
+        assert "user_id" not in str(r)                   # who asked never leaves
+
+    def test_a_studied_position_carries_claudes_text_and_the_study_status_wins(self):
+        db = _DB()
+        _ask(db, _nothing())
+        db.why_queue.rows[0]["status"] = wq.DONE
+        db.why_reasons.rows.append(_reason(wq.HELD_FOR_REVIEW, cost_usd=0.12, model="m"))
+        r = _run(wq.admin_list(db))[0]
+        assert r["status_words"] == "Waiting for your review" and r["processed"] is True
+        assert r["claude_text"].startswith("After b3, Qg6")
+        assert r["gate_passed"] is True and r["cost_usd"] == 0.12
+
+    def test_repeat_asks_from_one_game_list_the_game_once(self):
+        db = _DB()
+        _ask(db, _nothing())
+        db.why_queue.rows[0]["requests"].append(dict(db.why_queue.rows[0]["requests"][0], requested_at="later"))
+        r = _run(wq.admin_list(db))[0]
+        assert r["times_asked"] == 2 and len(r["games"]) == 1

@@ -59,6 +59,7 @@ import AdminPositionalReasons from "@/pages/AdminPositionalReasons";
 import AdminReasonJudge from "@/pages/AdminReasonJudge";
 import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
 import AdminLlmCost from "@/pages/AdminLlmCost";
+import AdminWhyQueue from "@/pages/AdminWhyQueue";
 import { AcademyHome, AcademyBatch, AcademyStudent } from "@/pages/Academy";
 import { FamilyConsent, FamilyReport, FamilyHomework, FamilyClassGame } from "@/pages/AcademyFamily";
 import FirstStepsClass from "@/pages/FirstStepsClass";
@@ -611,6 +612,14 @@ function AppRouter() {
       <Route path="/admin/llm-cost" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {({ user }) => <AdminLlmCost user={user} />}
+        </ProtectedRoute>
+      } />
+      {/* Every position the Why button sent to Claude: board, games, and
+          Claude's text or "To be processed". Read-only; rulings stay on
+          /admin/geometry-gaps. docs/why_queue_admin_page_scope.md */}
+      <Route path="/admin/why-queue" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {() => <AdminWhyQueue />}
         </ProtectedRoute>
       } />
       {/* Read what a shadow detector would say, and rule on it. Pre-launch,
