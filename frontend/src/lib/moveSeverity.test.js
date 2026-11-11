@@ -13,7 +13,28 @@ import {
   isFaultedCard,
   isFaultedSeverity,
   namesMoveInText,
+  whyButtonLabel,
 } from "./moveSeverity";
+
+describe("the why button's words follow the badge", () => {
+  // 2d86e1f9 move 4...Bc5: badge Good, engine grade inaccuracy.
+  const bc5 = { severity: "good", severity_canonical: "inaccuracy", best_move_san: "Nf6" };
+
+  test("a Good card asks about the better move, never 'bad'", () => {
+    expect(isFaultedCard(bc5)).toBe(true);           // the button still shows
+    expect(whyButtonLabel(bc5)).toBe("Why is Nf6 better?");
+  });
+
+  test("a real mistake keeps 'Why was this bad?'", () => {
+    expect(whyButtonLabel({ ...bc5, severity: "mistake" })).toBe("Why was this bad?");
+    expect(whyButtonLabel({ ...bc5, severity: "inaccuracy" })).toBe("Why was this bad?");
+  });
+
+  test("opponent cards and cards with no better move are unchanged", () => {
+    expect(whyButtonLabel(bc5, true)).toBe("Why was this bad?");
+    expect(whyButtonLabel({ ...bc5, best_move_san: "" })).toBe("Why was this bad?");
+  });
+});
 
 describe("the engine's severity tiers", () => {
   // backend/services/severity.py:73 TIER_ORDER

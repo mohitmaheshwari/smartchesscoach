@@ -13,7 +13,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } fr
 import { motion } from "framer-motion";
 import { resolveBadgeTier } from "../lib/moveBadge";
 import { shouldTranscribeLine } from "../lib/coachLine";
-import { FAULTED_SEVERITIES, isFaultedCard, namesMoveInText }
+import { FAULTED_SEVERITIES, isFaultedCard, namesMoveInText, whyButtonLabel }
   from "../lib/moveSeverity";
 import { buildLineFrames } from "../lib/bestLineFrames";
 import { shouldAnimateCard } from "../lib/animationSchedule";
@@ -2230,7 +2230,7 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
           data-testid="why-btn"
         >
           <Lightbulb className="w-4 h-4" />
-          Why was this bad?
+          {whyButtonLabel(move, opponent)}
         </button>
       </div>
     );

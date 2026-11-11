@@ -72,6 +72,23 @@ export const gradeOf = (card) => {
 export const isFaultedCard = (card) => isFaultedSeverity(gradeOf(card));
 
 /**
+ * The why button's words.
+ *
+ * A card of ours whose lead grade is good still gets the button when the
+ * engine's real grade is an inaccuracy (gradeOf above), and on that card
+ * "Why was this bad?" contradicts the Good badge beside it. Mohit
+ * 2026-11-11 on 4...Bc5 of 2d86e1f9 ("it's not a bad move"): ask about the
+ * better move instead -- "Why is Nf6 better?".
+ */
+export const whyButtonLabel = (card, opponent = false) => {
+  const best = String(card?.best_move_san || "").trim();
+  if (!opponent && best && !isFaultedSeverity(card?.severity)) {
+    return `Why is ${best} better?`;
+  }
+  return "Why was this bad?";
+};
+
+/**
  * Does this text name this move?
  *
  * Word-bounded, or the better move `d5` is found inside "Nd5" and the board
