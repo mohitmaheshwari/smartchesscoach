@@ -143,12 +143,14 @@ async def build_session(db, user_id: str) -> Dict[str, Any]:
         {"_id": 0})
 
     has_practice = False
+    focus_link = None
     if focus:
         # The supply check is not optional: king_safety has 151 community
         # puzzles and 341 coach positions and none that pass verification, so a
         # focus can exist with nowhere to practise it.
-        has_practice = bool(await practice_link(
-            db, user_id, str(focus.get("topic_key") or "")))
+        focus_link = await practice_link(
+            db, user_id, str(focus.get("topic_key") or ""))
+        has_practice = bool(focus_link)
 
     good_move = cached.get("good_move")
     if good_move is None and "good_move" not in cached:
@@ -163,10 +165,9 @@ async def build_session(db, user_id: str) -> Dict[str, Any]:
     # Each block gets a destination that EXISTS. There is no session runner, so
     # there is no "start today's session" button -- inventing one would be the
     # dead-button problem this codebase already has twelve instances of.
-    practice_href = None
-    if focus and has_practice:
-        link = await practice_link(db, user_id, str(focus.get("topic_key") or ""))
-        practice_href = (link or {}).get("href")
+    # The link found by the supply check above; asking again ran the same
+    # whole-pool queries a second time on every load.
+    practice_href = (focus_link or {}).get("href") if has_practice else None
     focus_label = clean_label(
         (focus or {}).get("topic_label"), (focus or {}).get("topic_key"))
     for block in blocks:
@@ -326,14 +327,26 @@ async def _finding_for(db, user_id: str) -> Optional[Dict[str, Any]]:
         {"_id": 0, "game_id": 1, "result": 1, "user_color": 1}).to_list(3000)
     lost_ids = [g["game_id"] for g in timeouts if user_lost(g)]
     if lost_ids:
-        async for doc in db.game_analyses.find(
-            {"game_id": {"$in": lost_ids}},
-            {"_id": 0, "stockfish_analysis.move_evaluations": 1},
-        ):
-            own = [m for m in ((doc.get("stockfish_analysis") or {}).get(
-                "move_evaluations") or []) if not m.get("is_opponent_move")]
-            evals = [m.get("eval_after") for m in own
-                     if isinstance(m.get("eval_after"), (int, float))]
+        # Only the player's LAST scored move is needed, so the database picks it
+        # and returns one number per game. Fetching every move_evaluation moved
+        # 18 MB for one player on every home load (2026-11-11, part of a 49 s
+        # /api/home/session).
+        moves = {"$cond": [
+            {"$isArray": "$stockfish_analysis.move_evaluations"},
+            "$stockfish_analysis.move_evaluations", []]}
+        async for doc in db.game_analyses.aggregate([
+            {"$match": {"game_id": {"$in": lost_ids}}},
+            {"$project": {"_id": 0, "last": {"$arrayElemAt": [{"$filter": {
+                "input": moves, "as": "m",
+                "cond": {"$and": [
+                    {"$not": [{"$ifNull": ["$$m.is_opponent_move", False]}]},
+                    {"$isNumber": "$$m.eval_after"},
+                ]},
+            }}, -1]}}},
+        ]):
+            last = doc.get("last") or {}
+            evals = [last["eval_after"]] if isinstance(
+                last.get("eval_after"), (int, float)) else []
             if not evals:
                 continue
             analysed += 1
