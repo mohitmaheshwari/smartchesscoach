@@ -358,6 +358,33 @@ def build_packet(fen_before: str, played_san: str, *, better_san: Optional[str] 
     }
 
 
+def settled_before_the_model(packet: Dict[str, Any], rating: Optional[int] = None) -> Optional[str]:
+    """Why there is no lesson, when the packet's own engine lines already say so; else None.
+
+    A question the engine already answers is not asked of a model: when the
+    better move is no real improvement at the packet's depth, there is no
+    mechanism to find, and a model asked for one may invent it (2026-11-11,
+    13...e6: Opus 5.5 wrote a false "Kd8 was better"). The gap is graded by the
+    live Why button's own table (differential.classify_gap), so the two never
+    disagree on what counts as no real difference.
+
+    Not a rule here: "lost after either move". Tried 2026-11-11 at ten pawns,
+    it also silenced 14...Ke7 (-1307 vs -1607), a true and published lesson:
+    a lost side can still lose a whole extra bishop.
+    """
+    after_played = (packet.get("after_played") or {}).get("best_replies_cp_for_mover") or []
+    after_better = (packet.get("after_better") or {}).get("best_replies_cp_for_mover") or []
+    if not after_played or not after_better:
+        return None
+    played_cp, better_cp = int(after_played[0]["cp"]), int(after_better[0]["cp"])
+    played, better = packet.get("played_san"), packet.get("better_san")
+    from services.reasoning.differential import classify_gap
+    if classify_gap(better_cp - played_cp, rating) == "good":
+        return (f"{better} is no real improvement on {played}: {better_cp} against {played_cp} "
+                f"for the side to move at the packet's depth.")
+    return None
+
+
 # --- the model's contract -----------------------------------------------------
 
 SYSTEM_PROMPT = """You are a chess coach's analyst. You are given one position where a player made a move the engine dislikes, the better move, engine lines, and board facts. Your job is to find the MECHANISM: the concrete thing on the board that makes the move played worse than the better move. Then write it for a player rated 600 to 1500.

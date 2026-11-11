@@ -23,7 +23,7 @@ Env (all optional):
   WHY_QUEUE_CONTAINER   chess-coach-backend
   STOCKFISH_PATH        local engine binary
   CLAUDE_BIN            claude
-  CLAUDE_MODEL          model for the study (default: the CLI's default)
+  CLAUDE_MODEL          model for the study (default: DEFAULT_MODEL, never the CLI's default)
   WHY_QUEUE_AUTO_PUBLISH  "1" to publish gate-passed studies without a human
   WHY_QUEUE_LOG_DIR     where the log and the lock live
 """
@@ -49,7 +49,11 @@ sys.path.insert(0, str(BACKEND))
 SSH = os.environ.get("WHY_QUEUE_SSH", "root@72.60.204.176")
 CONTAINER = os.environ.get("WHY_QUEUE_CONTAINER", "chess-coach-backend")
 CLAUDE_BIN = os.environ.get("CLAUDE_BIN", "claude")
-CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL") or None
+# Named, never the CLI's default: on 2026-11-11 the default moved from Fable 5.1
+# to Opus 5.5 between two runs with nobody choosing it. Same e6 packet: Fable
+# said no lesson (right), Opus wrote a false "Kd8 was better". One run each.
+DEFAULT_MODEL = "claude-fable-5-1"
+CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL") or DEFAULT_MODEL
 AUTO_PUBLISH = os.environ.get("WHY_QUEUE_AUTO_PUBLISH", "0") == "1"
 LOG_DIR = Path(os.environ.get("WHY_QUEUE_LOG_DIR") or (Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "ChessGuru" / "why_queue"))
 LEASE_MINUTES = 30
@@ -204,6 +208,23 @@ def study(row: Dict[str, Any], *, depth: int, engine_path: Optional[str], scratc
     better = packet["better_san"]
     packet_s = time.time() - t0
     log.info("packet for %s in %.1fs (better %s)", row["key"], packet_s, better)
+
+    settled = why_study.settled_before_the_model(packet, row.get("rating"))
+    if settled:
+        log.info("no lesson for %s before the model: %s", row["key"], settled)
+        return {
+            "key": row["key"], "fen_before": fen, "played_san": played, "better_san": better,
+            "side": side, "stored_class": row.get("stored_class"), "rating": row.get("rating"),
+            "class": (row.get("differential") or {}).get("class"), "gap_cp": (row.get("differential") or {}).get("gap_cp"),
+            "requests": requests, "status": "no_lesson", "reason": None, "no_lesson_why": settled,
+            "mechanism_label": None, "claims": [], "gate": {"passed": True, "failures": []},
+            "readability": None, "notes": [], "attempts": 0,
+            "packet": {k: packet.get(k) for k in ("pv_after_played", "pv_after_best", "root_candidates_cp_for_mover",
+                                                   "shared_threat_probes", "material_along_best_lines")},
+            "model": None, "settled_by": "engine", "cost_usd": 0.0,
+            "seconds": {"packet": round(packet_s, 1), "model": 0.0},
+            "worker_host": platform.node(), "studied_at": _now(),
+        }
 
     t1 = time.time()
     model_out = run_claude(why_study.SYSTEM_PROMPT, why_study.user_prompt(packet), why_study.CLAIM_SCHEMA, cwd=scratch)
