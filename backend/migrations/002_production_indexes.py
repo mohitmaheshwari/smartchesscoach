@@ -90,6 +90,19 @@ INDEXES = [
         "mo_subtype_schema",
         {"partialFilterExpression": {"subtype": {"$exists": True}}},
     ),
+    # 2026-11-11, from the mongod slow-query log over two hours of analysis.
+    # Each was a COLLSCAN on every analysed game. Not unique: existing rows may
+    # repeat a key, and a failed build must not block the rest of this file.
+    # Puzzle extraction checks for a duplicate (fen, best_move_san) per blunder:
+    # 362 scans of 75.8k puzzles, ~1.3 s each.
+    ("community_puzzles", [("fen", 1), ("best_move_san", 1)], "cp_fen_best_move", {}),
+    # Training-position extraction looks each position up by position_id:
+    # 103 scans of 56.5k rows.
+    ("community_training_positions", [("position_id", 1)], "ctp_position_id", {}),
+    # Coaching summary upsert by game and user: 13 scans of 11.8k rows.
+    ("coaching_summaries", [("game_id", 1), ("user_id", 1)], "cs_game_user", {}),
+    # Profile read and update by user_id: few rows, but large ones, 16 scans.
+    ("player_profiles", [("user_id", 1)], "pp_user_id", {}),
 ]
 
 # Created during diagnosis, then measured as unused: schema_version is not
