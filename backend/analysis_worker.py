@@ -1536,6 +1536,44 @@ def _process_job(db, job):
                                 "besides the faults", game_id,
                                 len(_plans))
 
+                # Grade each move the way the review card will, BEFORE
+                # writing. Until 2026-11-11 every 40cp+ move got a fault
+                # sentence while the card graded by the player's level
+                # filter, so a card badged Good read "Bc5 misses that
+                # chance" (574 of 10,557 user cards in 300 reviews). The
+                # card re-checks at render (framework.decide), since the
+                # rating can move between now and then; this keeps the
+                # writer from spending a call on the wrong sentence.
+                from services.severity import (
+                    classify_severity, is_fault_grade, level_softened,
+                    min_cp_explain_for_rating)
+                try:
+                    _prof = db.player_profiles.find_one(
+                        {"user_id": user_id},
+                        {"_id": 0, "estimated_elo": 1, "current_rating": 1}) or {}
+                    _min_cp_explain = min_cp_explain_for_rating(
+                        _prof.get("estimated_elo") or _prof.get("current_rating")
+                        or 1200)
+                except Exception:
+                    _min_cp_explain = 100
+
+                def _card_grade(mv, is_user):
+                    cp = int(mv.get("cp_loss") or 0)
+                    _sign = 1 if user_color == "white" else -1
+                    _ea, _eb = mv.get("eval_after"), mv.get("eval_before")
+                    tier = classify_severity(
+                        cp, mover_is_user=bool(is_user),
+                        user_post_eval_cp=(_ea * _sign if is_user and _ea is not None else None),
+                        user_pre_eval_cp=(_eb * _sign if is_user and _eb is not None else None),
+                    ).user_facing_tier
+                    _best = str(mv.get("best_move") or "").strip().rstrip("!?+#")
+                    _played = str(mv.get("move") or "").strip().rstrip("!?+#")
+                    if _best and _best == _played:
+                        return "good" if is_user else "context"
+                    if is_user:
+                        tier = level_softened(tier, cp, _min_cp_explain)
+                    return tier
+
                 async def _write_all():
                     # Bounded: a long game has ~20 faulted moves and an
                     # unbounded fan-out would open twenty sockets at once.
@@ -1555,6 +1593,7 @@ def _process_job(db, job):
                             mv["llm_caption"] = res.get("caption")
                             mv["llm_caption_refused"] = res.get("refused")
                             mv["llm_caption_facts"] = pp
+                            mv["llm_caption_kind"] = "plan"
 
                     async def _one(pair):
                         mv, is_user = pair
@@ -1585,6 +1624,29 @@ def _process_job(db, job):
                                 return
                             # The same one face as the good moves above.
                             ps = _fw.facts_for_move(mv).all
+                            grade = _card_grade(mv, is_user)
+                            mv["llm_caption_grade"] = grade
+                            if not is_fault_grade(grade):
+                                if not is_user:
+                                    # A fine opponent move: no "they
+                                    # missed" sentence and no call.
+                                    return
+                                # A good move with a slightly better one:
+                                # say it is fine, then what the better
+                                # move does. Never a fault sentence.
+                                facts = build_facts(
+                                    str(mv.get("move") or ""),
+                                    str(mv.get("best_move") or ""), ps,
+                                    mover_is_user=True,
+                                    move_was_good=True)
+                                res = await write_caption(
+                                    facts, rating=user_rating)
+                                mv["llm_caption"] = res.get("caption")
+                                mv["llm_caption_refused"] = res.get("refused")
+                                mv["llm_caption_facts"] = ps
+                                mv["llm_caption_kind"] = "good_alt"
+                                return
+                            mv["llm_caption_kind"] = "fault"
                             facts = build_facts(
                                 str(mv.get("move") or ""),
                                 str(mv.get("best_move") or ""), ps,

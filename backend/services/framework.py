@@ -251,7 +251,31 @@ def decide(
         row = (eval_lookup or {}).get(key) or {}
         llm = (row.get("llm_caption") or "").strip() or None
     except Exception:
+        row = {}
         llm = None
+
+    # The stored sentence must agree with THIS card's grade. It was written
+    # at analysis time, and the card grades at render time with the player's
+    # current rating (the level filter can call a 48cp inaccuracy "good"), so
+    # the two can disagree. 2026-11-11: a card badged Good on 4...Bc5 read
+    # "Bc5 misses that chance". A mismatched sentence is dropped and the
+    # card's own text stands -- for a good move that is the silence the
+    # level filter intended, never a mistake sentence.
+    if llm:
+        from services.severity import is_fault_grade
+        kind = row.get("llm_caption_kind") or (
+            # Rows written before the kind was stored: the worker wrote a
+            # fault sentence for every move at 40cp+ with a best move.
+            "fault" if (row.get("best_move")
+                        and int(row.get("cp_loss") or 0) >= 40) else "plan")
+        grade = (cascade_kwargs.get("severity_override")
+                 or getattr(decision.teaching_meta, "severity", None))
+        fault_card = is_fault_grade(grade)
+        if (kind == "fault" and not fault_card) or (
+                kind == "good_alt" and fault_card):
+            logger.info("[framework] stored %s caption dropped on a %s card",
+                        kind, grade)
+            llm = None
 
     if llm:
         decision.text.caption = llm

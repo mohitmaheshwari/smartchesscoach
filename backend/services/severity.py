@@ -72,6 +72,55 @@ CATASTROPHIC_CP_LOSS_FLOOR = 1000
 # Canonical tier list (lowest severity → highest).
 TIER_ORDER = ["good", "inaccuracy", "mistake", "serious", "blunder"]
 
+# The tiers that call a move a fault, for either side ("opp_mistake" too).
+FAULT_TIERS = ("inaccuracy", "mistake", "serious", "blunder")
+
+
+def is_fault_grade(tier: Optional[str]) -> bool:
+    """True when a card's grade calls the move a fault.
+
+    One answer for every place that decides whether a move may be described
+    as a mistake. On 2026-11-11 a review card graded 4...Bc5 "good" (badge)
+    while its caption, written at analysis time from raw centipawns, said
+    "Bc5 misses that chance" -- 574 of 10,557 user cards in 300 recent
+    reviews had that contradiction.
+    """
+    t = str(tier or "").lower()
+    return any(f in t for f in FAULT_TIERS)
+
+
+def min_cp_explain_for_rating(rating) -> int:
+    """The player's explain threshold: smaller inaccuracies read as fine.
+
+    The rating comes from player_profiles (estimated_elo, else
+    current_rating, else 1200). Used by the review card's adaptive config
+    and by the analysis worker's caption writer, so both grade alike.
+    """
+    try:
+        r = float(rating or 1200)
+    except (TypeError, ValueError):
+        r = 1200.0
+    if r < 1200:
+        return 100   # only mistakes and blunders
+    if r < 1400:
+        return 70    # include bigger inaccuracies
+    if r < 1600:
+        return 50    # include most inaccuracies
+    return 30        # full detail
+
+
+def level_softened(tier: str, cp_loss: int, min_cp_explain: int) -> str:
+    """The rating filter the review card applies to the player's own moves.
+
+    An inaccuracy smaller than the player's explain threshold (100/70/50/30
+    cp by rating band, game_decryption_v5_service._get_adaptive_config) is
+    shown as a good move. Shared so the caption writer at analysis time and
+    the card at render time grade the same move the same way.
+    """
+    if tier == "inaccuracy" and int(cp_loss or 0) < int(min_cp_explain):
+        return "good"
+    return tier
+
 
 @dataclass(frozen=True)
 class SeverityClassification:

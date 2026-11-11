@@ -126,6 +126,12 @@ _COMMON = (
     "move was FINE and it prepares something. Never call it a mistake, "
     "never offer a better move, and say what is coming and what to do "
     "about it.\n"
+    "- `your_move_was_good` means the reader's move was a GOOD move and "
+    "the card says so. Never call it a mistake, never say it missed, lost "
+    "or allowed anything. First say their move is fine. Then say "
+    "`better_move` was a little better, and why, from the facts -- the way "
+    "a coach says it: \"That is a fine move. <better move> was a little "
+    "better, because it <what it does>.\"\n"
     "- `about_this_player` is what the coach knows about the READER. Use "
     "it to say WHY the move happened, which the move alone cannot:\n"
     "    `quick_for_this_player` with `seconds_on_this_move` -> they did "
@@ -179,7 +185,8 @@ SYSTEM = (
     "You write one or two short sentences for a chess player rated 600 "
     "to 1500, about one move in their game.\n"
     "- `mover` says WHOSE move it is. When it is the reader's, explain "
-    "why their move was worse than the better one. When it is their "
+    "why their move was worse than the better one -- unless "
+    "`your_move_was_good` is set. When it is their "
     "opponent's, explain what makes the opponent's move weak and what "
     "it means for the reader -- a threat that did not come, a piece "
     "left loose, a free move gained -- and never tell the reader what "
@@ -244,8 +251,13 @@ def build_facts(
     opp_reply_is_clear: Optional[bool] = None,
     best_is_only_move: Optional[bool] = None,
     reader: Optional[Dict[str, Any]] = None,
+    move_was_good: bool = False,
 ) -> Dict[str, Any]:
     """The fact bundle handed to the model. Engine output only.
+
+    `move_was_good`: the review card grades this move good (it lost a
+    little, under the player's level filter), so the sentence must say the
+    move is fine and the better move was a little better -- never a fault.
 
     No evaluations and no centipawns: they are not teachable and the model
     turns them into "you lost 4.4 pawns", which this repo has a commit hook
@@ -273,6 +285,8 @@ def build_facts(
     }
     if best_san:
         facts["better_move"] = best_san
+        if move_was_good and mover_is_user:
+            facts["your_move_was_good"] = True
     elif str(severity or "").lower() not in _BAD_MOVE:
         # Not knowing a better move is NOT the same as the move being
         # good. A derived opponent record carries a cp_loss but no
