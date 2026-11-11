@@ -2240,7 +2240,7 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
     return (
       <div className="mt-3 flex items-center gap-2 text-sm text-gray-700" data-testid="why-loading">
         <Loader2 className="w-4 h-4 animate-spin text-sky-700" />
-        <span>Checking the position with the engine, about ten seconds&hellip;</span>
+        <span>Checking the position with the engine. This can take up to a minute&hellip;</span>
       </div>
     );
   }

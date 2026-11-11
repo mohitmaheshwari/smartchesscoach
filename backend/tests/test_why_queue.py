@@ -296,3 +296,53 @@ class TestTheReviewTab:
         out = _run(admin.rule_claude_reason({"key": "seed:1", "verdict": "agree"}, user=_User()))
         assert "study_status" not in out
         assert db.claude_reason_rulings.rows[0]["source"] == "seeded"
+
+
+def _known(db, **over):
+    kw = dict(fen_before=FEN, played_san="b3", game_id="g9", move_number=6, opponent=True, user_id="u_m")
+    kw.update(over)
+    return _run(wq.known_answer(db, **kw))
+
+
+class TestAQueuedPositionSkipsTheEngine:
+    """2026-11-10/11, 6.e5 of 2d86e1f9: the live engine took 93.5 s, nginx cut
+    /api at 60 s, and all four of Mohit's clicks came back 504 while the study
+    sat finished in the review tab. A queued position answers from the store."""
+
+    def test_never_seen_runs_the_engine(self):
+        assert _known(_DB()) is None
+
+    def test_a_waiting_study_answers_at_once_and_records_the_click(self):
+        db = _DB()
+        _ask(db, _nothing())
+        db.why_queue.rows[0]["status"] = wq.DONE
+        db.why_reasons.rows.append(_reason(wq.HELD_FOR_REVIEW))
+        out = _known(db)
+        assert out["found"] is False and out["from_queue"] is True
+        assert out["study"] == {"state": "studying", "text": wq.STUDYING_LINE}
+        assert out["better_move"] == "d4"
+        assert "Qg6" not in str(out)                     # review-first: no held text
+        assert [r["game_id"] for r in db.why_queue.rows[0]["requests"]] == ["g1", "g9"]
+
+    def test_a_published_study_is_the_answer(self):
+        db = _DB()
+        _ask(db, _nothing())
+        db.why_reasons.rows.append(_reason(wq.PUBLISHED))
+        out = _known(db)
+        assert out["found"] is True and out["engine"] == "studied"
+
+    def test_no_lesson_and_rejected_answer_without_the_engine(self):
+        db = _DB()
+        _ask(db, _nothing())
+        db.why_queue.rows[0]["status"] = wq.DONE
+        db.why_reasons.rows.append(_reason(wq.NO_LESSON, reason=None))
+        assert _known(db)["study"]["state"] == "no_lesson"
+        db.why_reasons.rows[0]["status"] = wq.REJECTED
+        out = _known(db)
+        assert out["found"] is False and "study" not in out
+
+    def test_a_store_failure_falls_back_to_the_engine(self):
+        class _Broken(_DB):
+            def __getitem__(self, name):
+                raise RuntimeError("mongo down")
+        assert _known(_Broken()) is None

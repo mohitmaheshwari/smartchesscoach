@@ -185,6 +185,58 @@ def study_state(reason: Optional[Dict[str, Any]], queue_status: Optional[str]) -
     return None
 
 
+async def known_answer(db, *, fen_before: str, played_san: str, game_id: str, move_number: int,
+                       opponent: bool, user_id: str) -> Optional[Dict[str, Any]]:
+    """The answer for a position the queue already holds, WITHOUT the live engine.
+
+    A position is only in the queue because the live engine found nothing for
+    it, so running that engine again on the next click repeats the same search
+    to the same end. On 2026-11-10/11 that search took 93.5 s on 6.e5 of
+    2d86e1f9; nginx gives /api 60 s, so all four of Mohit's clicks came back 504
+    and the card said "We can't show a clear reason" while a finished study
+    sat in the review tab. The route asks here first.
+
+    Returns None when the queue has never seen the position (the live engine
+    runs as before) or when the store cannot be read (never break the button).
+    The click is still recorded as an asker.
+    """
+    try:
+        key = position_key(fen_before, played_san)
+        queue = await db[QUEUE_COLLECTION].find_one(
+            {"key": key},
+            {"_id": 0, "status": 1, "live_reason": 1, "differential": 1, "stored_best": 1})
+        reason = await db[REASONS_COLLECTION].find_one({"key": key}, {"_id": 0})
+        if queue is None and reason is None:
+            return None
+        if queue is not None:
+            await db[QUEUE_COLLECTION].update_one(
+                {"key": key},
+                {"$set": {"last_requested_at": _now()},
+                 "$addToSet": {"requests": {
+                     "game_id": game_id, "move_number": int(move_number),
+                     "side": "opponent" if opponent else "user", "user_id": user_id,
+                     "requested_at": _now()}}})
+        if reason and reason.get("status") == PUBLISHED:
+            return studied_response(reason, move_number=move_number, played_san=played_san,
+                                    fen_before=fen_before)
+        queue = queue or {}
+        out: Dict[str, Any] = {
+            "found": False,
+            "reason": queue.get("live_reason") or "no_mechanism",
+            "better_move": ((queue.get("differential") or {}).get("better_move")
+                            or queue.get("stored_best") or (reason or {}).get("better_san")),
+            "move_number": move_number, "played_san": played_san, "fen_before": fen_before,
+            "from_queue": True,
+        }
+        state = study_state(reason, queue.get("status"))
+        if state:
+            out["study"] = state
+        return out
+    except Exception:                                   # noqa: BLE001
+        logger.exception("why queue lookup failed for %s move %s", game_id, move_number)
+        return None
+
+
 async def on_nothing_found(db, out: Dict[str, Any], *, fen_before: str, played_san: str,
                            game_id: str, move_number: int, opponent: bool, user_id: str,
                            stored_best: Optional[str], stored_class: Optional[str],

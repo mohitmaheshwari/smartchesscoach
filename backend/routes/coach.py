@@ -1563,6 +1563,16 @@ async def get_move_why(
     # branches, explains a punished move backwards from the located reply and a
     # missed one from the better move's line. Default off; when it finds
     # nothing the path below runs exactly as before, so nothing is silenced.
+    # A position already in the why queue is answered from the store: the live
+    # engine found nothing for it before and would only repeat that (93.5 s on
+    # 6.e5 of 2d86e1f9, past nginx's limit, so every click there was a 504).
+    from services.why_queue import known_answer as _known_answer
+    _known = await _known_answer(
+        db, fen_before=fen_before, played_san=played_san, game_id=game_id,
+        move_number=move_number, opponent=opponent, user_id=user.user_id)
+    if _known is not None:
+        return _known
+
     from services.why_differential import (
         NO_FALLBACK_REASONS,
         WHY_DIFFERENTIAL_ENABLED,
