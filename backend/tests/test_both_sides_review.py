@@ -272,3 +272,65 @@ def test_the_measured_block_is_present_for_review_but_separate_from_the_copy():
 
 def test_the_blunder_threshold_is_named_not_scattered():
     assert BLUNDER_CP == 200
+
+
+# --- warm_latest_game_sync: the worker caches the newest game's review -------
+
+class _SyncColl:
+    def __init__(self, rows=None):
+        self.rows = list(rows or [])
+        self.upserts = []
+
+    def find_one(self, query, projection=None, sort=None):
+        rows = [r for r in self.rows
+                if all(r.get(k) == v for k, v in query.items() if not isinstance(v, dict))]
+        if sort:
+            key, direction = sort[0]
+            rows.sort(key=lambda r: r.get(key) or "", reverse=direction < 0)
+        return dict(rows[0]) if rows else None
+
+    def update_one(self, query, update, upsert=False):
+        self.upserts.append(update["$set"])
+        self.rows.append(update["$set"])
+
+
+class _SyncDb(dict):
+    def __getattr__(self, name):
+        return self[name]
+
+
+def _sync_db(games, cached=()):
+    return _SyncDb(games=_SyncColl(games), game_both_sides=_SyncColl(cached))
+
+
+OLD = dict(GAME, game_id="old", played_at_utc="2026-10-01", user_id="u1")
+NEW = dict(GAME, game_id="new", played_at_utc="2026-10-20", user_id="u1")
+
+
+def test_the_worker_warms_the_newest_game(monkeypatch):
+    import services.both_sides_review as mod
+    monkeypatch.setattr(mod, "review_both_sides", lambda *_a, **_k: _review(37, 74))
+    db = _sync_db([OLD, NEW])
+    assert mod.warm_latest_game_sync(db, "u1", "new") is True
+    row = db.game_both_sides.upserts[0]
+    assert row["game_id"] == "new" and row["schema_version"] == SCHEMA_VERSION
+    assert row["review"]["his_mean_cp"] == 37
+
+
+def test_an_older_game_in_a_backlog_costs_no_engine_time(monkeypatch):
+    import services.both_sides_review as mod
+
+    def _must_not_run(*_a, **_k):
+        raise AssertionError("reviewed a game the home card will not show")
+    monkeypatch.setattr(mod, "review_both_sides", _must_not_run)
+    db = _sync_db([OLD, NEW])
+    assert mod.warm_latest_game_sync(db, "u1", "old") is False
+    assert db.game_both_sides.upserts == []
+
+
+def test_an_already_cached_newest_game_is_not_reviewed_again(monkeypatch):
+    import services.both_sides_review as mod
+    monkeypatch.setattr(mod, "review_both_sides",
+                        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("recomputed")))
+    db = _sync_db([NEW], cached=[{"game_id": "new", "schema_version": SCHEMA_VERSION}])
+    assert mod.warm_latest_game_sync(db, "u1", "new") is False

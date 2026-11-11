@@ -393,6 +393,12 @@ services:
     deploy:
       resources:
         limits:
+          # One core each. 2026-11-11: uncapped, the two workers took ~3.7 of
+          # the box's 4 (shared, ~60% steal) cores and /api/home/session took
+          # 49 s. Most analysis runs on Mohit's PC until revenue (AGENTS.md,
+          # "Analysis Capacity"); these are the fallback, and the website
+          # comes first.
+          cpus: "1"
           memory: 2G
         reservations:
           memory: 256M

@@ -107,8 +107,13 @@ def review_both_sides(pgn: str, user_color: str) -> Optional[Dict[str, Any]]:
     moves = moves[:MAX_PLIES]
     colour = chess.WHITE if str(user_color) == "white" else chess.BLACK
 
+    # The analysis build of the same Stockfish: depth-limited, so the result is
+    # identical (compared on 6 recent games, 2026-11-11) and it is 1.1-2.2x
+    # faster. Falls back to STOCKFISH_PATH on a CPU without AVX2.
+    from config import ANALYSIS_STOCKFISH_PATH
+
     evals = []
-    with StockfishEngine() as engine:
+    with StockfishEngine(path=ANALYSIS_STOCKFISH_PATH) as engine:
         board = game.board()
         for move in [None] + moves:
             if move is not None:
@@ -513,6 +518,47 @@ def _plan_card_fields(plan, review, user_is_white: bool) -> Dict[str, Any]:
     }
 
 
+def _cache_fields(game_id: str, user_id: str, review: Mapping[str, Any]) -> Dict[str, Any]:
+    """The cached review row. One writer shape for the page and the worker."""
+    return {
+        "game_id": game_id,
+        "user_id": user_id,
+        "schema_version": SCHEMA_VERSION,
+        "review": review,
+        "computed_at": datetime.now(timezone.utc),
+    }
+
+
+def warm_latest_game_sync(db, user_id: str, game_id: str) -> bool:
+    """Cache the review for this game when it is the player's newest one.
+
+    For the analysis worker (sync pymongo). The home card reviews the newest
+    game on the request when nothing is cached: 6-30 s of Stockfish on the web
+    box, measured 2026-11-11, paid by the player on the first home load after
+    every game. Only the newest game is warmed, so a backlog of old imports
+    costs nothing here. Returns True when a review was written.
+    """
+    newest = db.games.find_one(
+        {"user_id": user_id, **_HOME_GAME_FILTER},
+        _HOME_GAME_PROJECTION,
+        sort=[("played_at_utc", -1)],
+    )
+    if not newest or newest.get("game_id") != game_id:
+        return False
+    cache = db[CACHE_COLLECTION]
+    if cache.find_one({"game_id": game_id, "schema_version": SCHEMA_VERSION}, {"_id": 1}):
+        return False
+    review = review_both_sides(newest.get("pgn"), str(newest.get("user_color")))
+    if review is None:
+        return False
+    cache.update_one(
+        {"game_id": game_id},
+        {"$set": _cache_fields(game_id, user_id, review)},
+        upsert=True,
+    )
+    return True
+
+
 async def last_game_card(db, user_id: str) -> Optional[Dict[str, Any]]:
     """The home card: the coach's review pick, or his last finished game."""
     game, chosen_by, review_url = await _home_game(db, user_id)
@@ -542,15 +588,7 @@ async def last_game_card(db, user_id: str) -> Optional[Dict[str, Any]]:
             try:
                 await cache.update_one(
                     {"game_id": game["game_id"]},
-                    {
-                        "$set": {
-                            "game_id": game["game_id"],
-                            "user_id": user_id,
-                            "schema_version": SCHEMA_VERSION,
-                            "review": review,
-                            "computed_at": datetime.now(timezone.utc),
-                        }
-                    },
+                    {"$set": _cache_fields(game["game_id"], user_id, review)},
                     upsert=True,
                 )
             except Exception:

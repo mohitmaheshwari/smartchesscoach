@@ -2576,6 +2576,16 @@ def _process_job(db, job):
                 "[GAME-STORY] build failed (non-fatal): %s", story_err,
             )
 
+        # The home card's both-sides review, for the player's newest game only.
+        # Built here so the first home load after a game reads a cached row
+        # instead of running 6-30 s of Stockfish on the web box (2026-11-11).
+        try:
+            from services.both_sides_review import warm_latest_game_sync
+            if warm_latest_game_sync(db, user_id, game_id):
+                logger.info("[HOME-CARD] cached both-sides review for %s", game_id)
+        except Exception as card_err:
+            logger.warning("[HOME-CARD] warm failed (non-fatal): %s", card_err)
+
         # =========================================================================
         # PHASE 3.3b: UPDATE STRENGTH PROFILE
         # Tracks what user is GOOD at (tactics, calculation, positional, etc.)
