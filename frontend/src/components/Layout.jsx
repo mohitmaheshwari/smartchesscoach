@@ -27,6 +27,7 @@ import {
   ChevronRight,
   BookOpen,
   Flag,
+  Target,
   Users
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -184,6 +185,11 @@ const Layout = ({ children, user, fullBleed = false }) => {
     ...(personalCurriculumEnabled
       ? [{ name: 'Game Review', href: CURRICULUM_ROUTES.gameReview, icon: FlaskConical }]
       : []),
+    // Pattern Training is a fully built, routed page (/training/prescribed,
+    // App.js) that NOTHING in the frontend linked to - deep link only. Taken
+    // from Meghanshu's New-Updation branch, which surfaced it top-level.
+    // Ungated on purpose: the page does not depend on personalCurriculum.
+    { name: 'Pattern Training', href: '/training/prescribed', icon: Target },
     { name: 'Progress', href: '/progress', icon: TrendingUp },
     // Academy staff only. Set by the academy page itself after the server
     // lists an academy for this account, so Layout makes no extra request.
