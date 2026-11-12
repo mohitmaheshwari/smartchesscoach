@@ -1,6 +1,6 @@
 # Captions explain what the moves do, never list them
 
-Status: DRAFT 2026-11-12, awaiting Mohit's sign-off. Mohit, same day: "it should not just turn up
+Status: SIGNED 2026-11-12 (Mohit: "yes, go ahead"). Pre-code checks under way. Mohit, same day: "it should not just turn up
 the opportunity, understand the moves on the board and then convert ... naming the moves is very
 very bad"; "you should know who is winning, losing ... what items are down ... what is relevant and
 what piece is not relevant on the caption".
