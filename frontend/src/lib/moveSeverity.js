@@ -80,6 +80,16 @@ export const isFaultedCard = (card) => isFaultedSeverity(gradeOf(card));
  * 2026-11-11 on 4...Bc5 of 2d86e1f9 ("it's not a bad move"): ask about the
  * better move instead -- "Why is Nf6 better?".
  */
+/**
+ * Did a published coach study write this card's caption?
+ *
+ * Then the card says so ("Studied by the coach", the Why box's own words) and
+ * shows no Why button: its answer would repeat the caption word for word.
+ * docs/why_study_on_card_scope.md, 2026-11-12.
+ */
+export const COACH_STUDY_LABEL = "Studied by the coach";
+export const isCoachStudyCard = (card) => card?.caption_source === "coach_study";
+
 export const whyButtonLabel = (card, opponent = false) => {
   const best = String(card?.best_move_san || "").trim();
   if (!opponent && best && !isFaultedSeverity(card?.severity)) {

@@ -13,7 +13,7 @@ import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } fr
 import { motion } from "framer-motion";
 import { resolveBadgeTier } from "../lib/moveBadge";
 import { shouldTranscribeLine } from "../lib/coachLine";
-import { FAULTED_SEVERITIES, isFaultedCard, namesMoveInText, whyButtonLabel }
+import { COACH_STUDY_LABEL, FAULTED_SEVERITIES, isCoachStudyCard, isFaultedCard, namesMoveInText, whyButtonLabel }
   from "../lib/moveSeverity";
 import { buildLineFrames } from "../lib/bestLineFrames";
 import { shouldAnimateCard } from "../lib/animationSchedule";
@@ -2578,6 +2578,14 @@ const MoveCoachingCardV5 = ({
                 ))}
               </div>
             )}
+            {isCoachStudyCard(move) && !goldCaption && (
+              <div
+                className="text-[11px] uppercase tracking-wide text-sky-700 font-semibold mb-1"
+                data-testid="coach-study-label"
+              >
+                {COACH_STUDY_LABEL}
+              </div>
+            )}
             <ClickableCaption
               text={move.narrative}
               fen={move.fen_before}
@@ -2731,7 +2739,7 @@ const MoveCoachingCardV5 = ({
             entirely, our `serious` tier (250-399cp, 0.7 a game), and our
             inaccuracies, which the practical tier files under `good` with
             the real grade in severity_canonical (5 a game). */}
-        {isFaultedCard(move) && (
+        {isFaultedCard(move) && !isCoachStudyCard(move) && (
           <WhyThisWasBad
             gameId={gameId}
             move={move}

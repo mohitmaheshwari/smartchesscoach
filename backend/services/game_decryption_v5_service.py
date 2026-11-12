@@ -3471,6 +3471,15 @@ async def generate_game_decryption_v5(
         # {"best_san": str, "principle": str, "count": int} | None
         _missed_opp = None
 
+        # Published coach studies (why queue), by position: a card for one of
+        # these positions shows the study as its caption, labelled as the
+        # coach's (docs/why_study_on_card_scope.md, 2026-11-12). One small read.
+        try:
+            from services.why_queue import published_studies_by_key as _published_studies_by_key
+            _published_studies = await _published_studies_by_key(db)
+        except Exception:
+            _published_studies = {}
+
         # ── Teaching-layer suppression state ──────────────────────────
         # Catalog declares per-principle suppression semantics:
         #   once_per_move        — default; no game-state filter
@@ -5048,6 +5057,39 @@ async def generate_game_decryption_v5(
             except Exception:
                 pass
 
+            # A published coach study for this position replaces the
+            # explanation, last of all, so no later rewrite can undo it. Only
+            # on a card that calls the move a fault (the study answers "why was
+            # this bad?") and only for the side the study was written for.
+            _caption_source = None
+            try:
+                if _published_studies:
+                    from services.why_queue import (
+                        COACH_STUDY_SOURCE as _COACH_STUDY,
+                        card_arrows_from_study as _study_arrows,
+                        card_caption_from_study as _study_caption,
+                        position_key as _why_key,
+                        study_fits_viewer as _study_fits,
+                    )
+                    from services.severity import is_fault_grade as _is_fault_grade_s
+                    _study = _published_studies.get(_why_key(fen_before, move_san))
+                    _grade = str(severity or "").replace("opp_", "", 1)
+                    if (_study and _is_fault_grade_s(_grade)
+                            and _study_fits(_study, opponent=not is_user)):
+                        _studied_cap = _study_caption(
+                            caption_payload.get("caption"), _study["reason"], move_san,
+                            mover_is_user=is_user)
+                        caption_payload["caption"] = _studied_cap
+                        caption_llm_polished = _studied_cap
+                        caption_payload["rule_name"] = (
+                            (caption_payload.get("rule_name") or "") + "→COACH_STUDY")
+                        _arr = _study_arrows(_study)
+                        if _arr:
+                            caption_payload["arrows"] = _arr
+                        _caption_source = _COACH_STUDY
+            except Exception as _study_err:
+                logger.warning(f"[coach_study] m{full_move_number} {move_san} skipped: {_study_err}")
+
             # v100 FINAL: _caption_tier set inside central call above
             # from _decision.teaching_meta.caption_tier.
 
@@ -5223,6 +5265,9 @@ async def generate_game_decryption_v5(
                 "caption_llm": caption_llm_polished,
                 "rule_name": caption_payload["rule_name"],
                 "caption_arrows": caption_payload["arrows"],
+                # "coach_study" when a published why-queue study wrote the
+                # caption; the card labels it and hides the Why button.
+                "caption_source": _caption_source,
                 # The verdict, stored so it can be read on the card rather
                 # than only inside a render. Mohit 2026-10-07: "give me the
                 # stockfish paths for the mistakes, somewhere there on the UI,

@@ -151,6 +151,39 @@ describe("GameDecryptionV5 request and navigation ownership", () => {
     expect(container.textContent).not.toContain("OLD NARRATIVE");
   });
 
+  // docs/why_study_on_card_scope.md, 2026-11-12: a published coach study is the
+  // caption; the card says so and has no Why button (its answer would repeat).
+  const studiedReview = async (captionSource) => {
+    const body = payload("STUDIED", { severity: "mistake" });
+    body.decryption_data[0].caption_source = captionSource;
+    global.fetch = jest.fn((url) => {
+      if (url.includes("/coach/decryption/v5/g-study")) return Promise.resolve(response(body));
+      if (url.includes("/coach/decryption/gold/")) return Promise.resolve(response({ gold: {}, prefs: {} }));
+      if (url.includes("/focus-badges")) return Promise.resolve(response({ badges: {} }));
+      if (url.includes("/coach/decryption/per-move/")) return Promise.resolve(response({ captions: [] }));
+      if (url.includes("/thoughts")) return Promise.resolve(response({ thoughts: [] }));
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    await renderReview("g-study");
+    await flush();
+    act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+    await flush();
+    expect(container.textContent).toContain("STUDIED NARRATIVE");
+  };
+
+  test("a coach-studied card is labelled and has no Why button", async () => {
+    await studiedReview("coach_study");
+    expect(container.querySelector("[data-testid='coach-study-label']")?.textContent)
+      .toBe("Studied by the coach");
+    expect(container.textContent).not.toContain("Why was this bad?");
+  });
+
+  test("the same mistake card without a study keeps its Why button and no label", async () => {
+    await studiedReview(null);
+    expect(container.querySelector("[data-testid='coach-study-label']")).toBeNull();
+    expect(container.textContent).toContain("Why was this bad?");
+  });
+
   test("a generating review stays loading and its retry is cancelled on game change", async () => {
     jest.useFakeTimers();
     global.fetch = jest.fn((url) => {

@@ -8,8 +8,10 @@
  * because neither was visible from reading the component.
  */
 import {
+  COACH_STUDY_LABEL,
   FAULTED_SEVERITIES,
   gradeOf,
+  isCoachStudyCard,
   isFaultedCard,
   isFaultedSeverity,
   namesMoveInText,
@@ -176,5 +178,19 @@ describe("faulted moves on either side", () => {
     expect(isFaultedCard({ severity: "good", caption_severity_word: "good" })).toBe(false);
     expect(isFaultedCard({ severity: "good", caption_severity_word: null })).toBe(false);
     expect(gradeOf({ severity: "good", caption_severity_word: "best" })).toBe("good");
+  });
+});
+
+describe("a card written by a coach study", () => {
+  // docs/why_study_on_card_scope.md, 2026-11-12: e5 of 2d86e1f9.
+  test("is labelled in the Why box's own words", () => {
+    expect(COACH_STUDY_LABEL).toBe("Studied by the coach");
+    expect(isCoachStudyCard({ caption_source: "coach_study" })).toBe(true);
+  });
+
+  test("any other caption is not", () => {
+    expect(isCoachStudyCard({ caption_source: null })).toBe(false);
+    expect(isCoachStudyCard({})).toBe(false);
+    expect(isCoachStudyCard(null)).toBe(false);
   });
 });

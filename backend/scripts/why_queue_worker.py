@@ -109,7 +109,17 @@ if old:
         update["$unset"] = clear
 db.why_reasons.update_one({"key": key}, update, upsert=True)
 db.why_queue.update_one({"key": key}, {"$set": {"status": queue_status, "finished_at": now(), "lease_until": None}})
-emit({"ok": True, "key": key, "status": reason.get("status"), "queue_status": queue_status})
+# A published study is a card caption (docs/why_study_on_card_scope.md): when one
+# appears or is replaced, the reviews that asked re-render on their next open.
+stale = 0
+if reason.get("status") == "published" or (old or {}).get("status") == "published":
+    q = db.why_queue.find_one({"key": key}, {"_id": 0, "requests.game_id": 1}) or {}
+    ids = sorted({r.get("game_id") for r in q.get("requests") or [] if r.get("game_id")})
+    if ids:
+        stale = db.game_analyses.update_many({"game_id": {"$in": ids}},
+                                             {"$set": {"decryption_v5_version": 0}}).modified_count
+emit({"ok": True, "key": key, "status": reason.get("status"), "queue_status": queue_status,
+      "reviews_marked_stale": stale})
 '''
 
 _REMOTE_RELEASE = _REMOTE_PRELUDE + r'''

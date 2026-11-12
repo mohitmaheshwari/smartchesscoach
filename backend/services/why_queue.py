@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -136,6 +137,81 @@ def _arrows(claims: List[Dict[str, Any]], limit: int = 4) -> List[Dict[str, str]
     return out
 
 
+def study_fits_viewer(reason: Optional[Dict[str, Any]], *, opponent: bool) -> bool:
+    """Is the viewer on the side this study was written for?
+
+    A study is keyed by position, but its "you" and "their" belong to the
+    first asker (`side`: "user" = the asker made the move, "opponent" = the
+    asker faced it). The same position seen from the other side would read
+    backwards, so it is used only when the viewer's side matches (2026-11-12).
+    """
+    side = str((reason or {}).get("side") or "user")
+    return (side == "opponent") == bool(opponent)
+
+
+# The card's caption came from a published study: the frontend labels it
+# "Studied by the coach" and hides the Why button (its answer would repeat it).
+COACH_STUDY_SOURCE = "coach_study"
+
+
+def card_caption_from_study(existing: Optional[str], study_text: str, played_san: str,
+                            *, mover_is_user: bool) -> str:
+    """The card's caption with its explanation replaced by the study.
+
+    The grade line the card already wrote stays ("Rf7 was a mistake." /
+    "Your opponent played e5. That was a mistake."); everything after it is
+    the study. No grade line found: the study alone (it names the move).
+    """
+    text = (existing or "").strip()
+    san = re.escape(str(played_san or "").strip())
+    lead_re = (rf"^{san} (?:was|is) [^.]*\." if mover_is_user
+               else rf"^Your opponent played {san}\. That [^.]*\.")
+    m = re.match(lead_re, text)
+    study_text = (study_text or "").strip()
+    return f"{m.group(0)} {study_text}" if m else study_text
+
+
+async def published_studies_by_key(db) -> Dict[str, Dict[str, Any]]:
+    """Every published study with text, by position key. One small read per review render."""
+    if db is None:
+        return {}
+    try:
+        rows = await db[REASONS_COLLECTION].find(
+            {"status": PUBLISHED},
+            {"_id": 0, "key": 1, "side": 1, "reason": 1, "claims": 1, "better_san": 1},
+        ).to_list(length=5000)
+    except Exception:                                   # noqa: BLE001
+        logger.exception("published why studies could not be read")
+        return {}
+    return {r["key"]: r for r in rows if r.get("key") and str(r.get("reason") or "").strip()}
+
+
+def card_arrows_from_study(reason: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The study's arrows in the card's caption_arrows shape (the Why box draws the same ones)."""
+    return [{**a, "color": "blue", "teach": True} for a in _arrows(reason.get("claims") or [])]
+
+
+async def mark_asking_games_stale(db, key: str) -> int:
+    """Re-render the reviews of every game that asked about this position.
+
+    Clearing the stored version sends the next open of each review through
+    the existing regeneration path (routes/coach.py), which is where a newly
+    published study reaches the caption, or a withdrawn one leaves it.
+    Returns the number of reviews marked.
+    """
+    try:
+        queue = await db[QUEUE_COLLECTION].find_one({"key": key}, {"_id": 0, "requests.game_id": 1})
+        ids = sorted({r.get("game_id") for r in (queue or {}).get("requests") or [] if r.get("game_id")})
+        if not ids:
+            return 0
+        res = await db.game_analyses.update_many({"game_id": {"$in": ids}},
+                                                 {"$set": {"decryption_v5_version": 0}})
+        return int(res.modified_count)
+    except Exception:                                   # noqa: BLE001
+        logger.exception("could not mark reviews stale for %s", key)
+        return 0
+
+
 def studied_response(reason: Dict[str, Any], *, move_number: int, played_san: str,
                      fen_before: str) -> Dict[str, Any]:
     """A published study, in the Why endpoint's existing contract."""
@@ -217,6 +293,8 @@ async def known_answer(db, *, fen_before: str, played_san: str, game_id: str, mo
                      "side": "opponent" if opponent else "user", "user_id": user_id,
                      "requested_at": _now()}}})
         if reason and reason.get("status") == PUBLISHED:
+            if not study_fits_viewer(reason, opponent=opponent):
+                return None   # written for the other side: the live engine answers as before
             return studied_response(reason, move_number=move_number, played_san=played_san,
                                     fen_before=fen_before)
         queue = queue or {}
@@ -253,6 +331,8 @@ async def on_nothing_found(db, out: Dict[str, Any], *, fen_before: str, played_s
         known = await lookup(db, fen_before, played_san)
         reason = known.get("reason")
         if reason and reason.get("status") == PUBLISHED:
+            if not study_fits_viewer(reason, opponent=opponent):
+                return out    # written for the other side: say nothing rather than "studying" forever
             return studied_response(reason, move_number=move_number, played_san=played_san,
                                     fen_before=fen_before)
         queue_status = known.get("queue_status")
@@ -433,6 +513,9 @@ async def apply_ruling(db, key: str, verdict: str, *, ruled_by: str, note: str =
     if new_status == PUBLISHED:
         update["published_at"] = _now()
     await db[REASONS_COLLECTION].update_one({"key": key}, {"$set": update})
+    if new_status == PUBLISHED or row.get("status") == PUBLISHED:
+        # The study reaches (or leaves) the card caption on the next render.
+        await mark_asking_games_stale(db, key)
     return new_status
 
 
