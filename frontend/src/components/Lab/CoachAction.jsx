@@ -76,7 +76,7 @@ const DrillPosition = ({ position, index, onSolved }) => {
         <span className="text-xs font-mono text-muted-foreground">Position {index + 1}</span>
         <div className="flex items-center gap-2">
           {position.source === "your_game" && (
-            <Badge variant="outline" className="text-[10px]">From your game</Badge>
+            <Badge variant="outline" className="text-meta">From your game</Badge>
           )}
           {state === "correct" && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
           {state === "wrong" && <XCircle className="w-4 h-4 text-red-500" />}
@@ -177,7 +177,7 @@ const CoachAction = ({ gameId, onMoveClick }) => {
           <div className="p-5">
             <div className="flex items-center gap-2 mb-1">
               <AlertTriangle className="w-4 h-4 opacity-70" strokeWidth={1.5} />
-              <span className="text-[10px] font-bold uppercase tracking-[0.15em] opacity-60">Diagnosis</span>
+              <span className="text-meta font-bold uppercase tracking-[0.15em] opacity-60">Diagnosis</span>
             </div>
             <p className="text-xl font-bold tracking-tight mb-1.5">{diagnosis.label}</p>
             <p className="text-sm opacity-80 leading-relaxed">{diagnosis.short}</p>
@@ -189,16 +189,16 @@ const CoachAction = ({ gameId, onMoveClick }) => {
               {game_stats.accuracy != null && (
                 <div className="flex-1 text-center py-2.5">
                   <span className="font-bold text-sm font-mono">{game_stats.accuracy.toFixed(0)}%</span>
-                  <span className="block text-[10px] opacity-50 mt-0.5">Accuracy</span>
+                  <span className="block text-meta opacity-50 mt-0.5">Accuracy</span>
                 </div>
               )}
               <div className="flex-1 text-center py-2.5">
                 <span className="font-bold text-sm text-red-500 font-mono">{game_stats.blunders || 0}</span>
-                <span className="block text-[10px] opacity-50 mt-0.5">Blunders</span>
+                <span className="block text-meta opacity-50 mt-0.5">Blunders</span>
               </div>
               <div className="flex-1 text-center py-2.5">
                 <span className="font-bold text-sm text-amber-500 font-mono">{game_stats.mistakes || 0}</span>
-                <span className="block text-[10px] opacity-50 mt-0.5">Mistakes</span>
+                <span className="block text-meta opacity-50 mt-0.5">Mistakes</span>
               </div>
             </div>
           )}
@@ -241,9 +241,9 @@ const CoachAction = ({ gameId, onMoveClick }) => {
       >
         <div className="flex items-center gap-2 mb-3">
           <Target className="w-4 h-4 text-primary" strokeWidth={1.5} />
-          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Fix It Now</span>
+          <span className="text-meta font-bold uppercase tracking-[0.15em] text-muted-foreground">Fix It Now</span>
           {drill.count > 0 && drillsSolved > 0 && (
-            <Badge variant="outline" className="text-[10px] ml-auto">
+            <Badge variant="outline" className="text-meta ml-auto">
               {drillsSolved}/{drill.count} solved
             </Badge>
           )}
@@ -288,7 +288,7 @@ const CoachAction = ({ gameId, onMoveClick }) => {
       >
         <div className="flex items-center gap-2 mb-3">
           <Lightbulb className="w-4 h-4 text-amber-500" strokeWidth={1.5} />
-          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Before Next Game</span>
+          <span className="text-meta font-bold uppercase tracking-[0.15em] text-muted-foreground">Before Next Game</span>
         </div>
 
         <div className="relative bg-amber-500/5 border border-amber-500/20 rounded-lg p-5">
@@ -306,7 +306,7 @@ const CoachAction = ({ gameId, onMoveClick }) => {
         >
           <div className="flex items-center gap-2 mb-3">
             <Brain className="w-4 h-4 text-purple-500" strokeWidth={1.5} />
-            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Your Brain Says</span>
+            <span className="text-meta font-bold uppercase tracking-[0.15em] text-muted-foreground">Your Brain Says</span>
           </div>
           <div className="bg-purple-500/5 border border-purple-500/15 rounded-lg p-4">
             <p className="text-sm text-foreground leading-relaxed">{brain.focus_message}</p>
@@ -328,7 +328,7 @@ const CoachAction = ({ gameId, onMoveClick }) => {
           ) : (
             <Minus className="w-4 h-4 text-muted-foreground" strokeWidth={1.5} />
           )}
-          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Your Trend</span>
+          <span className="text-meta font-bold uppercase tracking-[0.15em] text-muted-foreground">Your Trend</span>
         </div>
 
         <p className="text-sm text-muted-foreground">{trend.message}</p>

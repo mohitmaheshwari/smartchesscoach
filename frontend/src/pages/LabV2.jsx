@@ -215,7 +215,7 @@ const ReviewCompleteOverlay = ({ summary, nextGame, navigate, returnTo = "/lab" 
         {(lesson || lesson_label) && (
           <div className="bg-card border border-border rounded-lg p-5 mb-4">
             {lesson_label && (
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-400 block mb-1.5">
+              <span className="text-meta font-bold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-400 block mb-1.5">
                 {lesson_label}
               </span>
             )}
@@ -234,13 +234,13 @@ const ReviewCompleteOverlay = ({ summary, nextGame, navigate, returnTo = "/lab" 
             {concepts_learned > 0 && (
               <div className="flex-1 bg-muted/40 rounded-lg py-3 text-center">
                 <p className="text-lg font-bold text-foreground font-mono">{concepts_learned}</p>
-                <p className="text-[10px] text-muted-foreground">concepts learned</p>
+                <p className="text-meta text-muted-foreground">concepts learned</p>
               </div>
             )}
             {drills_solved > 0 && (
               <div className="flex-1 bg-muted/40 rounded-lg py-3 text-center">
                 <p className="text-lg font-bold text-foreground font-mono">{drills_solved}</p>
-                <p className="text-[10px] text-muted-foreground">drills solved</p>
+                <p className="text-meta text-muted-foreground">drills solved</p>
               </div>
             )}
           </div>
@@ -322,7 +322,7 @@ const TerminationTag = ({ termination, result, userColor }) => {
   const userLost = !isWin && !isDraw;
   if (userLost && isTimeout) {
     return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border text-orange-500 dark:text-orange-400 bg-orange-500/10 border-orange-500/20">
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-meta font-medium rounded border text-orange-500 dark:text-orange-400 bg-orange-500/10 border-orange-500/20">
         <Clock className="w-2.5 h-2.5" strokeWidth={2} />
         {label}
       </span>
@@ -330,7 +330,7 @@ const TerminationTag = ({ termination, result, userColor }) => {
   }
   if (userLost && isAbandoned) {
     return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border text-gray-500 dark:text-gray-400 bg-gray-500/10 border-gray-500/20">
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-meta font-medium rounded border text-gray-500 dark:text-gray-400 bg-gray-500/10 border-gray-500/20">
         <XCircle className="w-2.5 h-2.5" strokeWidth={2} />
         {label}
       </span>
@@ -338,7 +338,7 @@ const TerminationTag = ({ termination, result, userColor }) => {
   }
 
   return (
-    <span className="px-1.5 py-0.5 text-[10px] text-muted-foreground border border-border/50 rounded">
+    <span className="px-1.5 py-0.5 text-meta text-muted-foreground border border-border/50 rounded">
       {label}
     </span>
   );
@@ -1329,7 +1329,7 @@ const LabV2 = ({ user }) => {
                     <span className="cg-eyebrow !mb-0">
                       Let’s look at this together
                     </span>
-                    <span className="font-serif text-[15px] text-foreground/90">
+                    <span className="font-serif text-body text-foreground/90">
                       vs {game?.opponent_name || "Opponent"}
                     </span>
                     <ResultBadge result={result} userColor={userColor} />
@@ -1337,7 +1337,7 @@ const LabV2 = ({ user }) => {
                       <TerminationTag termination={game.termination} result={result} userColor={userColor} />
                     )}
                   </div>
-                  <p className="text-[12px] text-muted-foreground/80 mt-0.5 truncate">
+                  <p className="text-meta text-muted-foreground/80 mt-0.5 truncate">
                     {game?.opening_name || game?.opening || "I found the moment that shaped this game."}
                   </p>
                 </div>
@@ -1391,7 +1391,7 @@ const LabV2 = ({ user }) => {
           {coachSummary?.key_observation && (
             <div className="px-5 pb-4 pt-1">
               <p
-                className="experience-coach-copy font-serif text-[16px] md:text-[19px] leading-[1.3] tracking-[-0.01em] text-foreground/90 max-w-[780px]"
+                className="experience-coach-copy font-serif text-body md:text-lead leading-[1.3] tracking-[-0.01em] text-foreground/90 max-w-[780px]"
                 data-testid="coach-narrative-strip"
               >
                 {coachSummary.key_observation}
@@ -1693,10 +1693,10 @@ const LabV2 = ({ user }) => {
                      concept-first picking; this section flips that. */}
                   {coachReview?.story?.principles?.length > 0 && (
                     <div className="rounded-xl border border-border bg-card/30 p-5 mb-2">
-                      <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-amber-700 dark:text-amber-300/90 mb-2">
+                      <p className="text-meta uppercase tracking-[0.22em] font-semibold text-amber-700 dark:text-amber-300/90 mb-2">
                         Coach review
                       </p>
-                      <p className="font-serif text-[15.5px] leading-snug text-foreground mb-4">
+                      <p className="font-serif text-body leading-snug text-foreground mb-4">
                         {coachReview.story.opener}
                       </p>
 
@@ -1724,22 +1724,22 @@ const LabV2 = ({ user }) => {
                                 className="p-3 cursor-pointer"
                               >
                                 <div className="flex items-baseline gap-2 mb-1 flex-wrap">
-                                  <span className="text-[10px] font-bold text-muted-foreground tabular-nums">
+                                  <span className="text-meta font-bold text-muted-foreground tabular-nums">
                                     {p.n}.
                                   </span>
-                                  <span className="text-[13px] font-semibold text-foreground">
+                                  <span className="text-note font-semibold text-foreground">
                                     {p.title}
                                   </span>
                                   <span className="ml-auto inline-flex items-center gap-1.5">
-                                    <span className="text-[10.5px] font-mono tabular-nums text-muted-foreground">
+                                    <span className="text-meta font-mono tabular-nums text-muted-foreground">
                                       m{p.move_number}
                                     </span>
-                                    <span className="font-mono text-[10.5px] tabular-nums">
+                                    <span className="font-mono text-meta tabular-nums">
                                       <span className="text-rose-500/80">{p.san_played}</span>
                                       <span className="text-muted-foreground/40 mx-1">→</span>
                                       <span className="text-emerald-600/80 dark:text-emerald-300/80">{p.san_best}</span>
                                     </span>
-                                    <span className={`text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded ${
+                                    <span className={`text-meta font-mono tabular-nums px-1.5 py-0.5 rounded ${
                                       p.cp_loss >= 1000
                                         ? "bg-rose-500/15 text-rose-500"
                                         : p.cp_loss >= 300
@@ -1750,7 +1750,7 @@ const LabV2 = ({ user }) => {
                                     </span>
                                   </span>
                                 </div>
-                                <p className="text-[12.5px] text-muted-foreground leading-snug">
+                                <p className="text-note text-muted-foreground leading-snug">
                                   <span className="text-foreground/80">{p.diagnosis}</span>{" "}
                                   {p.principle}
                                 </p>
@@ -1767,7 +1767,7 @@ const LabV2 = ({ user }) => {
                                         move_number: p.move_number,
                                       });
                                     }}
-                                    className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary hover:text-primary/80 transition-colors"
+                                    className="text-meta font-semibold uppercase tracking-[0.18em] text-primary hover:text-primary/80 transition-colors"
                                     data-testid={`principle-replay-${p.n}`}
                                   >
                                     Replay the better move →
@@ -1782,10 +1782,10 @@ const LabV2 = ({ user }) => {
                       {/* Good moves credit */}
                       {coachReview.story.good_moves?.length > 0 && (
                         <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-3 mb-4">
-                          <p className="text-[10px] uppercase tracking-widest font-bold text-emerald-600 dark:text-emerald-400/80 mb-1">
+                          <p className="text-meta uppercase tracking-widest font-bold text-emerald-600 dark:text-emerald-400/80 mb-1">
                             What you did well
                           </p>
-                          <p className="text-[12.5px] text-foreground/85">
+                          <p className="text-note text-foreground/85">
                             {coachReview.story.good_moves.map((m, i) => (
                               <span key={i}>
                                 <span className="font-mono">{m.san}</span> on move {m.move_number}
@@ -1800,11 +1800,11 @@ const LabV2 = ({ user }) => {
                       {/* Summary table */}
                       {coachReview.story.summary_table?.length > 0 && (
                         <div className="mb-4">
-                          <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/70 mb-2">
+                          <p className="text-meta uppercase tracking-widest font-bold text-muted-foreground/70 mb-2">
                             Recap
                           </p>
                           <div className="rounded-lg border border-border/40 overflow-hidden">
-                            <div className="grid grid-cols-[auto_1fr] text-[11.5px]">
+                            <div className="grid grid-cols-[auto_1fr] text-meta">
                               {coachReview.story.summary_table.map((row, i) => (
                                 <div key={i} className="contents">
                                   <div className={`p-2 font-mono tabular-nums border-r border-border/40 ${i > 0 ? "border-t" : ""}`}>
@@ -1823,12 +1823,12 @@ const LabV2 = ({ user }) => {
                       {/* Homework */}
                       {coachReview.story.homework?.length > 0 && (
                         <div className="mb-4">
-                          <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground/70 mb-2">
+                          <p className="text-meta uppercase tracking-widest font-bold text-muted-foreground/70 mb-2">
                             This week
                           </p>
                           <ul className="space-y-1">
                             {coachReview.story.homework.map((h, i) => (
-                              <li key={i} className="text-[12.5px] text-muted-foreground flex gap-2">
+                              <li key={i} className="text-note text-muted-foreground flex gap-2">
                                 <span className="text-muted-foreground/40">·</span>
                                 <span>{h}</span>
                               </li>
@@ -1839,7 +1839,7 @@ const LabV2 = ({ user }) => {
 
                       {/* Closing */}
                       {coachReview.story.closing && (
-                        <p className="text-[12.5px] text-foreground/70 italic leading-snug border-t border-border/40 pt-3">
+                        <p className="text-note text-foreground/70 italic leading-snug border-t border-border/40 pt-3">
                           {coachReview.story.closing}
                         </p>
                       )}
@@ -1852,7 +1852,7 @@ const LabV2 = ({ user }) => {
                       becomes a single-line annotation beneath the ribbon. */}
                   {coachReview?.phases && (
                     <div>
-                      <p className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-3">
+                      <p className="text-meta uppercase tracking-[0.22em] font-semibold text-muted-foreground mb-3">
                         How the game flowed
                       </p>
 
@@ -1903,15 +1903,15 @@ const LabV2 = ({ user }) => {
                                 return (
                                   <div key={k} className="min-w-0">
                                     <div className="flex items-baseline gap-1.5">
-                                      <span className="text-[11px] text-foreground font-medium capitalize">
+                                      <span className="text-meta text-foreground font-medium capitalize">
                                         {p.name || k}
                                       </span>
-                                      <span className="text-[10.5px] font-mono tabular-nums text-muted-foreground">
+                                      <span className="text-meta font-mono tabular-nums text-muted-foreground">
                                         {p.accuracy}%
                                       </span>
                                     </div>
                                     {p.verdict && (
-                                      <p className="text-[11px] text-muted-foreground/80 leading-snug mt-0.5">
+                                      <p className="text-meta text-muted-foreground/80 leading-snug mt-0.5">
                                         {p.verdict}
                                       </p>
                                     )}
@@ -1930,7 +1930,7 @@ const LabV2 = ({ user }) => {
                     <div className="rounded-xl border border-border p-3">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold text-primary/60 uppercase tracking-widest">Opening</span>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-meta text-muted-foreground">
                           {coachReview.opening_analysis.moves_in_theory}/{coachReview.opening_analysis.total_theory_moves} theory
                         </span>
                       </div>
@@ -1948,9 +1948,9 @@ const LabV2 = ({ user }) => {
                         }`}>
                           <div className="flex items-center gap-1.5">
                             <Zap className="w-3 h-3 text-amber-500" strokeWidth={2.5} />
-                            <span className="text-[10px] font-bold text-amber-400">{t.name}</span>
+                            <span className="text-meta font-bold text-amber-400">{t.name}</span>
                           </div>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{t.story || t.explanation}</p>
+                          <p className="text-meta text-muted-foreground mt-0.5">{t.story || t.explanation}</p>
                         </div>
                       ))}
                     </div>

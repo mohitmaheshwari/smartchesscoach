@@ -150,11 +150,11 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
               {/* What's being flagged */}
               <div className="bg-red-950/30 border border-red-900/30 rounded-lg p-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] text-red-400/70 uppercase tracking-wider font-medium">
+                  <span className="text-meta text-red-400/70 uppercase tracking-wider font-medium">
                     Flagging: {section}
                   </span>
                   {context.severity && (
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                    <span className={`text-meta px-1.5 py-0.5 rounded font-medium ${
                       context.severity === 'good' ? 'bg-emerald-500/20 text-emerald-400' :
                       context.severity === 'inaccuracy' ? 'bg-amber-500/20 text-amber-400' :
                       context.severity === 'mistake' ? 'bg-orange-500/20 text-orange-400' :
@@ -190,14 +190,14 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
                 </div>
                 {context.fen && (
                   <div className="flex items-center gap-2 mt-1">
-                    <div className="font-mono text-[10px] text-zinc-500 flex-1 break-all select-all bg-black/20 rounded px-2 py-1">
+                    <div className="font-mono text-meta text-zinc-500 flex-1 break-all select-all bg-black/20 rounded px-2 py-1">
                       {context.fen}
                     </div>
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(context.fen);
                       }}
-                      className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 shrink-0"
+                      className="text-meta text-muted-foreground hover:text-foreground flex items-center gap-0.5 shrink-0"
                       title="Copy FEN"
                     >
                       <Copy className="w-3 h-3" /> Copy
@@ -213,7 +213,7 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
                   const full = `Flagged: ${section}\nText: ${flaggedText}\n${debug}`;
                   navigator.clipboard.writeText(full);
                 }}
-                className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+                className="text-meta text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
               >
                 <Copy className="w-3 h-3" /> Copy all debug info
               </button>
@@ -221,7 +221,7 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
               {/* Full context accordion */}
               {contextItems.length > 0 && (
                 <button
-                  className="text-[10px] text-muted-foreground hover:text-muted-foreground flex items-center gap-1 transition-colors"
+                  className="text-meta text-muted-foreground hover:text-muted-foreground flex items-center gap-1 transition-colors"
                   onClick={() => setShowContext(!showContext)}
                 >
                   {showContext ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -229,7 +229,7 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
                 </button>
               )}
               {showContext && (
-                <div className="text-[10px] bg-muted/30 rounded p-2 space-y-0.5 max-h-40 overflow-y-auto border border-border">
+                <div className="text-meta bg-muted/30 rounded p-2 space-y-0.5 max-h-40 overflow-y-auto border border-border">
                   {contextItems.map((item, i) => (
                     <div key={i} className="flex">
                       <span className="text-muted-foreground w-28 flex-shrink-0">{item.label}:</span>
@@ -254,7 +254,7 @@ export const InlineFlag = ({ section, flaggedText, context = {} }) => {
                   SHOULD say, paste it here. Submitting with this field
                   filled in marks the flag as an authoring submission. */}
               <div className="space-y-1">
-                <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                <label className="text-meta uppercase tracking-wider text-muted-foreground font-medium">
                   Authoring (optional)
                 </label>
                 <Textarea

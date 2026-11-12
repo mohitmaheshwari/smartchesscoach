@@ -320,7 +320,7 @@ const CoachMovePanel = ({
             {/* Moment counter */}
             {totalMoments > 0 && (
               <div className="flex items-center justify-between mb-4">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <p className="text-meta font-bold uppercase tracking-wider text-muted-foreground">
                   Moment {currentMomentNumber} of {totalMoments}
                 </p>
                 <div className="flex gap-1">
@@ -408,7 +408,7 @@ const CoachMovePanel = ({
       {/* Moment counter */}
       {totalMoments > 0 && (
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <p className="text-meta font-bold uppercase tracking-wider text-muted-foreground">
             Moment {currentMomentNumber} of {totalMoments}
           </p>
           <div className="flex gap-1">
@@ -577,7 +577,7 @@ const CoachMovePanel = ({
                       : "border-border bg-card"
                   }`}>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                      <span className={`text-meta font-bold uppercase tracking-wider ${
                         ideaType === "immediate" ? "text-emerald-500"
                         : ideaType === "setup" ? "text-primary"
                         : "text-muted-foreground"
@@ -699,7 +699,7 @@ const CoachMovePanel = ({
                           {m.san}
                         </span>
                         {branchMove.impact && (
-                          <span className="text-[10px] text-amber-500 font-bold">← {branchMove.impact}</span>
+                          <span className="text-meta text-amber-500 font-bold">← {branchMove.impact}</span>
                         )}
                       </div>
                     );
@@ -763,7 +763,7 @@ const CoachMovePanel = ({
                   }}
                 >
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                    <span className={`text-meta font-bold uppercase tracking-wider ${
                       branch.is_main_line ? "text-emerald-500" : "text-primary"
                     }`}>
                       {branch.is_main_line ? "Main line" : "But what if...?"}
@@ -800,7 +800,7 @@ const CoachMovePanel = ({
           {/* ── 6. GOLDEN RULE ── */}
           {currentEval?.golden_rule && (
             <div className="p-4 rounded-xl bg-amber-500/[0.05] border border-amber-500/15 group">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Remember this</p>
+              <p className="text-meta font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Remember this</p>
               <p className="text-sm text-foreground font-medium inline">{currentEval.golden_rule}</p>
               <InlineFlag
                 section="golden_rule"
@@ -884,9 +884,9 @@ const CandidatePlans = ({ evalData, fen, gameId, moveIndex }) => {
           plan.isBest ? "border-emerald-500/20 bg-emerald-500/[0.03]" : "border-border bg-card"
         }`}>
           <div className="flex items-center gap-2 mb-1">
-            {plan.isBest && <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-500">Best</span>}
+            {plan.isBest && <span className="text-meta font-bold uppercase tracking-wider text-emerald-500">Best</span>}
             {plan.type && plan.type !== "engine_choice" && plan.type !== "best" && (
-              <span className="text-[9px] text-muted-foreground/50 uppercase">{plan.type.replace(/_/g, " ")}</span>
+              <span className="text-meta text-muted-foreground/50 uppercase">{plan.type.replace(/_/g, " ")}</span>
             )}
           </div>
 

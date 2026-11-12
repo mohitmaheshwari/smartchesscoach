@@ -1770,7 +1770,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                 transition={{ duration: 0.25, delay: lineKey === "best" ? 0.08 : 0 }}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+                  <p className="text-meta uppercase tracking-wider text-zinc-500">
                     {label}
                     {hint ? <span className="normal-case tracking-normal"> — {hint}</span> : null}
                   </p>
@@ -1778,7 +1778,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                     <button
                       type="button"
                       onClick={() => (live ? stopLinePlayback() : runLine(lineKey, all))}
-                      className="text-[10px] px-1.5 rounded border border-zinc-700 text-zinc-300 hover:border-amber-400 hover:text-amber-200 transition-colors"
+                      className="text-meta px-1.5 rounded border border-zinc-700 text-zinc-300 hover:border-amber-400 hover:text-amber-200 transition-colors"
                       title={live ? "Stop" : "Play this line out on the board"}
                       data-testid={`play-line-${lineKey}`}
                     >
@@ -1799,7 +1799,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                           animate={isNow ? { x: [0, 3, 0] } : { x: 0 }}
                           transition={{ duration: 0.3 }}
                           className={
-                            "flex gap-2 items-baseline text-[12px] leading-snug " +
+                            "flex gap-2 items-baseline text-meta leading-snug " +
                             "cursor-pointer rounded px-1 -mx-1 transition-colors " +
                             (isNow
                               ? "bg-amber-400/15 text-amber-100"
@@ -1808,7 +1808,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                               : "text-zinc-300 hover:bg-white/5")
                           }
                         >
-                          <span className="font-mono text-[11px] text-zinc-500 w-12 shrink-0">
+                          {/* w-14, not w-12: at the old 10px size a 7-character SAN measured
+    42px and fit a 48px box; at the 12px `meta` step it measures 50.4px
+    (JetBrains Mono, measured in-browser), so Qxd8=Q+ and exd8=Q# would
+    have overflowed. */}
+                          <span className="font-mono text-meta text-zinc-500 w-14 shrink-0">
                             {st.san}
                           </span>
                           <span>{st.text}</span>
@@ -1817,7 +1821,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                     })}
                   </ol>
                 ) : all.length ? (
-                  <p className="text-[12px] font-mono text-zinc-200 break-words leading-relaxed">
+                  <p className="text-meta font-mono text-zinc-200 break-words leading-relaxed">
                     {all.map((san, i) => (
                       <button
                         key={`${lineKey}-${i}-${san}`}
@@ -1830,7 +1834,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
                     ))}
                   </p>
                 ) : (
-                  <p className="text-[12px] font-mono text-zinc-600">not stored</p>
+                  <p className="text-meta font-mono text-zinc-600">not stored</p>
                 )}
               </motion.div>
             );
@@ -1842,10 +1846,10 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               data-testid="engine-paths-panel"
             >
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] uppercase tracking-wider text-zinc-400">
+                <p className="text-meta uppercase tracking-wider text-zinc-400">
                   engine paths · move {rec.move_number} {rec.move_san} ({mover})
                 </p>
-                <p className="text-[11px] font-mono">
+                <p className="text-meta font-mono">
                   <span className="text-zinc-500">cp_loss </span>
                   <span className="text-zinc-200">{rec.cp_loss ?? "—"}</span>
                   <span className="text-zinc-500"> · {rec.severity || "—"}</span>
@@ -1853,11 +1857,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
               </div>
 
               <div className="mb-3 pb-2 border-b border-zinc-800">
-                <p className="text-[10px] uppercase tracking-wider text-zinc-500">verdict</p>
-                <p className={`text-[13px] font-semibold ${tone}`}>
+                <p className="text-meta uppercase tracking-wider text-zinc-500">verdict</p>
+                <p className={`text-note font-semibold ${tone}`}>
                   {story || "not stored — re-render this game"}
                 </p>
-                <p className="text-[11px] font-mono text-zinc-500">
+                <p className="text-meta font-mono text-zinc-500">
                   material over the played line {swing(detail.played_material_swing)}
                   {"  ·  over the best line "}{swing(detail.best_material_swing)}
                   {"  ·  short range "}
@@ -1928,14 +1932,14 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
 
           const Header = (
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] uppercase tracking-wider text-zinc-400">
+              <p className="text-meta uppercase tracking-wider text-zinc-400">
                 {rec
                   ? `authoring · facts (move ${rec.move_number} ${rec.move_san})`
                   : "authoring · facts"}
               </p>
               <button
                 onClick={handleExport}
-                className="text-[10px] uppercase tracking-[0.18em] font-semibold text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500 rounded px-2 py-1 transition-colors"
+                className="text-meta uppercase tracking-[0.18em] font-semibold text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500 rounded px-2 py-1 transition-colors"
                 data-testid="export-session-bundle"
                 title="Download full session debug bundle as JSON"
               >
@@ -1955,7 +1959,7 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
           return (
             <div className="mt-3 p-3 rounded border border-zinc-700 bg-zinc-900/50">
               {Header}
-              <pre className="text-[11px] text-zinc-300 whitespace-pre-wrap break-all max-h-[420px] overflow-y-auto font-mono">
+              <pre className="text-meta text-zinc-300 whitespace-pre-wrap break-all max-h-[420px] overflow-y-auto font-mono">
                 {JSON.stringify(rec, null, 2)}
               </pre>
             </div>
@@ -2012,7 +2016,7 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlinds
       {(storyHook || lessonLabel) && (
         <div className="rounded-lg border border-border bg-muted/30 p-5">
           {lessonLabel && (
-            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-amber-600 dark:text-amber-400 mb-2 block">
+            <span className="text-meta font-bold uppercase tracking-[0.15em] text-amber-600 dark:text-amber-400 mb-2 block">
               {lessonLabel}
             </span>
           )}
@@ -2044,7 +2048,7 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlinds
           className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-4"
           data-testid="motif-blindspot"
         >
-          <p className="text-[10px] uppercase tracking-wider text-violet-500 dark:text-violet-400 font-semibold mb-1.5">
+          <p className="text-meta uppercase tracking-wider text-violet-500 dark:text-violet-400 font-semibold mb-1.5">
             What I've noticed
           </p>
           <p className="text-sm text-violet-800 dark:text-violet-300 leading-relaxed">
@@ -2057,22 +2061,22 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlinds
       <div className="flex items-stretch gap-3">
         {openingName && (
           <div className="flex-1 rounded-lg bg-emerald-500/8 border border-emerald-500/15 p-3.5">
-            <p className="text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">Opening</p>
+            <p className="text-meta uppercase tracking-wider text-emerald-600 dark:text-emerald-400 font-semibold mb-0.5">Opening</p>
             <p className="text-sm font-medium text-foreground">{openingName}</p>
           </div>
         )}
         <div className="flex gap-2">
           <div className="w-16 rounded-lg bg-muted/50 border border-border p-3 text-center">
             <p className="text-lg font-bold text-foreground font-mono">{userMoves.length}</p>
-            <p className="text-[10px] text-muted-foreground">Moves</p>
+            <p className="text-meta text-muted-foreground">Moves</p>
           </div>
           <div className="w-16 rounded-lg bg-emerald-500/8 border border-emerald-500/15 p-3 text-center">
             <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400 font-mono">{bestMoves}</p>
-            <p className="text-[10px] text-muted-foreground">Best</p>
+            <p className="text-meta text-muted-foreground">Best</p>
           </div>
           <div className="w-16 rounded-lg bg-red-500/8 border border-red-500/15 p-3 text-center">
             <p className="text-lg font-bold text-red-500 font-mono">{mistakes}</p>
-            <p className="text-[10px] text-muted-foreground">Errors</p>
+            <p className="text-meta text-muted-foreground">Errors</p>
           </div>
         </div>
       </div>
@@ -2108,7 +2112,7 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlinds
             <h3 className="text-sm font-medium text-foreground">
               Where the game turned
             </h3>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-meta text-muted-foreground">
               {moveScoreboard.moments.length} moment
               {moveScoreboard.moments.length === 1 ? "" : "s"}
             </span>
@@ -2132,7 +2136,7 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlinds
                     {m.move_san}
                   </span>
                   <span
-                    className={`px-1.5 rounded text-[10px] uppercase tracking-wide shrink-0 ${
+                    className={`px-1.5 rounded text-meta uppercase tracking-wide shrink-0 ${
                       yours
                         ? m.severity === "blunder"
                           ? "bg-red-500/15 text-red-500"
@@ -2163,7 +2167,7 @@ const GameStartCard = ({ decryptionData, habitsReport, cctNarrative, motifBlinds
       </button>
       
       {/* Keyboard hint */}
-      <p className="text-[10px] text-muted-foreground/60 text-center">
+      <p className="text-meta text-muted-foreground/60 text-center">
         or press the right arrow key
       </p>
     </div>
@@ -2284,7 +2288,7 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
       className="mt-3 rounded-lg border border-sky-200 bg-white/80 p-3 space-y-2"
       data-testid="why-found"
     >
-      <div className="text-[11px] uppercase tracking-wide text-sky-700 font-semibold">
+      <div className="text-meta uppercase tracking-wide text-sky-700 font-semibold">
         Why
         {result.engine === "studied" && (
           <span className="ml-2 normal-case tracking-normal font-normal text-gray-500" data-testid="why-studied">
@@ -2292,7 +2296,7 @@ const WhyThisWasBad = ({ gameId, move, opponent, onArrows }) => {
           </span>
         )}
       </div>
-      <p className="text-[15px] text-gray-900 leading-relaxed">{result.text}</p>
+      <p className="text-body text-gray-900 leading-relaxed">{result.text}</p>
       {result.better_move && result.direction === "received" && (
         <div className="text-sm text-gray-700" data-testid="why-better">
           Better was{" "}
@@ -2340,7 +2344,7 @@ const ArrowNarration = ({ move }) => {
       {told.map(({ arrow, step }, i) => (
         <li
           key={`${arrow.from}${arrow.to}${i}`}
-          className={`text-[13px] leading-snug ${NARRATION_INK[arrow.color] || "text-zinc-600"}`}
+          className={`text-note leading-snug ${NARRATION_INK[arrow.color] || "text-zinc-600"}`}
         >
           {step.text}
         </li>
@@ -2494,7 +2498,7 @@ const MoveCoachingCardV5 = ({
         {move.narrative && (
           <div className="leading-relaxed group" data-testid="move-narrative">
             {goldCaption && (
-              <div className="text-[11px] uppercase tracking-wide text-emerald-600 font-semibold mb-1">
+              <div className="text-meta uppercase tracking-wide text-emerald-600 font-semibold mb-1">
                 ChessGuru
               </div>
             )}
@@ -2512,7 +2516,7 @@ const MoveCoachingCardV5 = ({
                   return (
                     <span
                       key={i}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${bg}`}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-meta font-medium ${bg}`}
                       title={`${b.label} — ${b.subtype_short}${b.cp_loss ? ` (${b.cp_loss}cp lost)` : ""}`}
                     >
                       <span>{b.emoji}</span>
@@ -2540,19 +2544,19 @@ const MoveCoachingCardV5 = ({
                   : "bg-amber-50 border-amber-300 text-amber-800";
               return (
                 <div className={`mb-2 rounded-lg border px-3 py-2 ${tone}`} data-testid="geometry-moment">
-                  <div className="text-[10px] font-bold uppercase tracking-wide opacity-80">
+                  <div className="text-meta font-bold uppercase tracking-wide opacity-80">
                     {g.eyebrow}
                   </div>
                   {g.explanation && (
-                    <p className="mt-1 text-[12px] leading-relaxed">{g.explanation}</p>
+                    <p className="mt-1 text-meta leading-relaxed">{g.explanation}</p>
                   )}
                   {g.lesson && (
-                    <p className="mt-1 text-[12px] italic opacity-90">{g.lesson}</p>
+                    <p className="mt-1 text-meta italic opacity-90">{g.lesson}</p>
                   )}
                   {g.module_id && (
                     <a
                       href={`/training/geometry/${g.module_id}`}
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-current/30 px-2.5 py-1 text-[11px] font-medium hover:opacity-80"
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-current/30 px-2.5 py-1 text-meta font-medium hover:opacity-80"
                     >
                       <GraduationCap className="w-3.5 h-3.5" />
                       <span>Practise this shape</span>
@@ -2569,7 +2573,7 @@ const MoveCoachingCardV5 = ({
                   <a
                     key={i}
                     href={`/training/prescribed?plan=${plan.plan_id}`}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer text-[11px] font-medium"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 transition-colors cursor-pointer text-meta font-medium"
                     title={plan.description || `Related to your ${plan.plan_name} training`}
                   >
                     <GraduationCap className="w-3.5 h-3.5" />
@@ -2580,7 +2584,7 @@ const MoveCoachingCardV5 = ({
             )}
             {isCoachStudyCard(move) && !goldCaption && (
               <div
-                className="text-[11px] uppercase tracking-wide text-sky-700 font-semibold mb-1"
+                className="text-meta uppercase tracking-wide text-sky-700 font-semibold mb-1"
                 data-testid="coach-study-label"
               >
                 {COACH_STUDY_LABEL}
@@ -2696,7 +2700,7 @@ const MoveCoachingCardV5 = ({
             renders on gold-baked moves (goldCaption empty otherwise). */}
         {goldCaption && (
           <div className="mt-2 pt-3 border-t border-amber-300/50" data-testid="move-gold-caption">
-            <div className="text-[11px] uppercase tracking-wide text-amber-600 font-semibold mb-1">
+            <div className="text-meta uppercase tracking-wide text-amber-600 font-semibold mb-1">
               Claude gold (tester)
             </div>
             <p className="text-sm text-amber-900/90 leading-relaxed whitespace-pre-line">
@@ -2709,7 +2713,7 @@ const MoveCoachingCardV5 = ({
         {/* Static class strings only — Tailwind purges dynamically-built names. */}
         {goldCaption && onPrefer && (
           <div className="mt-3 pt-3 border-t border-border flex items-center gap-2 flex-wrap" data-testid="caption-prefer">
-            <span className="text-[11px] text-muted-foreground">Which is better for a 1000 player?</span>
+            <span className="text-meta text-muted-foreground">Which is better for a 1000 player?</span>
             {[
               { key: "system", label: "ChessGuru", on: "bg-emerald-500 text-white border-transparent", off: "bg-transparent text-emerald-600 border-emerald-400/50 hover:bg-emerald-500/10" },
               { key: "gold", label: "Claude gold", on: "bg-amber-500 text-white border-transparent", off: "bg-transparent text-amber-600 border-amber-400/50 hover:bg-amber-500/10" },
@@ -2718,7 +2722,7 @@ const MoveCoachingCardV5 = ({
               <button
                 key={opt.key}
                 onClick={() => onPrefer(opt.key)}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${captionPref === opt.key ? opt.on : opt.off}`}
+                className={`px-2 py-0.5 rounded text-meta font-medium border transition-colors ${captionPref === opt.key ? opt.on : opt.off}`}
               >
                 {captionPref === opt.key ? "✓ " : ""}{opt.label}
               </button>
@@ -2813,7 +2817,7 @@ const MoveCoachingCardV5 = ({
                     </span>
                     <button
                       onClick={() => onCancelCoachLine && onCancelCoachLine(move.fen_after)}
-                      className="text-[10px] text-gray-500 hover:text-gray-300"
+                      className="text-meta text-gray-500 hover:text-gray-300"
                     >
                       Back to game
                     </button>
@@ -3424,7 +3428,7 @@ const FeedbackPanel = ({ move, ruleName, feedbackText, setFeedbackText, onSubmit
         <div>
           <p className="text-sm font-medium text-gray-900">What is wrong with this explanation?</p>
           {ruleName && (
-            <p className="text-[11px] text-gray-500 mt-0.5">
+            <p className="text-meta text-gray-500 mt-0.5">
               Flagging: <span className="font-mono text-red-500">{ruleName}</span>
             </p>
           )}
@@ -3435,7 +3439,7 @@ const FeedbackPanel = ({ move, ruleName, feedbackText, setFeedbackText, onSubmit
       </div>
       {move?.narrative && (
         <div className="bg-white rounded border border-red-100 px-3 py-2">
-          <p className="text-[11px] text-gray-400 mb-0.5">Narrative shown</p>
+          <p className="text-meta text-gray-400 mb-0.5">Narrative shown</p>
           <p className="text-xs text-gray-700 leading-relaxed">{move.narrative}</p>
         </div>
       )}

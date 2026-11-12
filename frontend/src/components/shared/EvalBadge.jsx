@@ -40,7 +40,7 @@ const EvalBadge = ({ evalLabel, size = "sm", showDescription = false }) => {
   // Small badge (inline)
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded border ${style}`}
+      className={`inline-flex items-center px-2 py-0.5 text-meta font-semibold rounded border ${style}`}
       title={description || label}
     >
       {label}

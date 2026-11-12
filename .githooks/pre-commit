@@ -166,14 +166,14 @@ mapfile -t STAGED_FE < <(
 )
 if [[ ${#STAGED_FE[@]} -gt 0 ]]; then
     if ! ( cd frontend && node scripts/palette_report.js \
-             --max-hex=209 --max-arbitrary-text=40 --max-text-literals=1174 >/dev/null ); then
+             --max-hex=209 --max-arbitrary-text=40 --max-text-literals=1064 >/dev/null ); then
         echo '[design-system] ceiling exceeded. Use the named scale:'
         echo '  type   text-meta|note|body|lead|title|display   (not text-[13px])'
         echo '  radius rounded-control|card|panel'
         echo '  depth  shadow-e1|e2|e3'
         echo '  colour bg-card / text-muted-foreground / bg-primary (not a raw hex)'
         ( cd frontend && node scripts/palette_report.js \
-            --max-hex=209 --max-arbitrary-text=40 --max-text-literals=1174 2>&1 | tail -4 )
+            --max-hex=209 --max-arbitrary-text=40 --max-text-literals=1064 2>&1 | tail -4 )
         exit 1
     fi
 fi

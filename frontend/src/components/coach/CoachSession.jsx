@@ -124,7 +124,7 @@ const CoachSession = ({ review, onComplete, gameId }) => {
                       {icon}
                       <span className="text-xs font-medium text-foreground">{p.name}</span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">{p.verdict}</p>
+                    <p className="text-meta text-muted-foreground">{p.verdict}</p>
                   </div>
                 );
               })}
@@ -300,22 +300,22 @@ const CoachSession = ({ review, onComplete, gameId }) => {
                     </p>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <p className="text-[9px] uppercase tracking-widest font-bold text-red-400/60 mb-1">Then</p>
+                        <p className="text-meta uppercase tracking-widest font-bold text-red-400/60 mb-1">Then</p>
                         <div className="rounded-lg overflow-hidden border-2 border-red-500/20">
                           <LichessBoard fen={proofData.before_after[0].old_fen} viewOnly={true} width={170} />
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">
+                        <p className="text-meta text-muted-foreground mt-1">
                           Move {proofData.before_after[0].old_move_number}:
                           <span className="font-mono text-red-400 ml-1">{proofData.before_after[0].old_move}</span>
                           <span className="text-red-400/40 ml-1">mistake</span>
                         </p>
                       </div>
                       <div>
-                        <p className="text-[9px] uppercase tracking-widest font-bold text-emerald-400/60 mb-1">Now</p>
+                        <p className="text-meta uppercase tracking-widest font-bold text-emerald-400/60 mb-1">Now</p>
                         <div className="rounded-lg overflow-hidden border-2 border-emerald-500/20">
                           <LichessBoard fen={proofData.before_after[0].new_fen} viewOnly={true} width={170} />
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-1">
+                        <p className="text-meta text-muted-foreground mt-1">
                           Move {proofData.before_after[0].new_move_number}:
                           <span className="font-mono text-emerald-400 ml-1">{proofData.before_after[0].new_move}</span>
                           <span className="text-emerald-400/40 ml-1">clean</span>
@@ -375,7 +375,7 @@ const CoachSession = ({ review, onComplete, gameId }) => {
 
             {/* The rule */}
             <div className="p-5 rounded-xl bg-amber-500/[0.04] border-2 border-amber-500/15">
-              <p className="text-[10px] uppercase tracking-widest font-bold text-amber-500/60 mb-2">
+              <p className="text-meta uppercase tracking-widest font-bold text-amber-500/60 mb-2">
                 {s.rule_name || "Your rule"}
               </p>
               <p className="text-base text-foreground font-medium leading-snug">
