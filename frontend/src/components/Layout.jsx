@@ -180,8 +180,8 @@ const Layout = ({ children, user, fullBleed = false }) => {
   };
 
   const navigation = [
-    { name: 'Home', href: '/home', icon: Home },
-    { name: 'Learn', href: personalCurriculumEnabled ? '/learn' : '/lab', icon: BookOpen },
+    { name: 'Home', href: '/home', icon: Home, bar: 'Home' },
+    { name: 'Learn', href: personalCurriculumEnabled ? '/learn' : '/lab', icon: BookOpen, bar: 'Learn' },
     ...(personalCurriculumEnabled
       ? [{ name: 'Game Review', href: CURRICULUM_ROUTES.gameReview, icon: FlaskConical }]
       : []),
@@ -189,8 +189,8 @@ const Layout = ({ children, user, fullBleed = false }) => {
     // App.js) that NOTHING in the frontend linked to - deep link only. Taken
     // from Meghanshu's New-Updation branch, which surfaced it top-level.
     // Ungated on purpose: the page does not depend on personalCurriculum.
-    { name: 'Pattern Training', href: '/training/prescribed', icon: Target },
-    { name: 'Progress', href: '/progress', icon: TrendingUp },
+    { name: 'Pattern Training', href: '/training/prescribed', icon: Target, bar: 'Train' },
+    { name: 'Progress', href: '/progress', icon: TrendingUp, bar: 'Progress' },
     // Academy staff only. Set by the academy page itself after the server
     // lists an academy for this account, so Layout makes no extra request.
     ...(isAcademyStaff() ? [{ name: 'Academy', href: '/academy', icon: Users }] : []),
@@ -282,7 +282,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-3 space-y-1">
-          {navigation.map((item) => {
+          {navigation.filter((item) => item.bar).map((item) => {
             const IconComponent = item.icon;
             const active = isActive(item.href);
             return (
@@ -554,7 +554,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
                 aria-current={active ? "page" : undefined}
               >
                 <IconComponent aria-hidden="true" />
-                <span>{item.name}</span>
+                <span>{item.bar}</span>
               </Link>
             );
           })}

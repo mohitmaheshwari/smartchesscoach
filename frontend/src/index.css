@@ -691,7 +691,11 @@
   right: 0.75rem;
   bottom: max(0.75rem, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Auto-flow, not a hard-coded column count: the bar must not break when an
+     item is added. It was repeat(4) while the nav array could render five
+     (Pattern Training) to seven (curriculum + academy staff) items. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   min-height: 4rem;
   padding: 0.4rem;
   border: 1px solid hsl(var(--border) / 0.88);
@@ -711,7 +715,9 @@
   gap: 0.2rem;
   border-radius: 0.9rem;
   color: hsl(var(--muted-foreground));
-  font-size: 0.64rem;
+  /* 12px floor - 0.64rem resolved to 10.24px, the smallest rendered text in
+     the app and below the design system's meta step. */
+  font-size: 0.75rem;
   font-weight: 650;
 }
 
@@ -1291,7 +1297,11 @@
 }
 
 .experience-v1 .experience-mobile-nav {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* The column count is NOT restated here: the base rule's auto-flow sizes
+     the bar to however many items it is given. This said repeat(5) while the
+     base rule said repeat(4), so the real track count depended on which rule
+     won - and both were wrong for an academy or curriculum account, whose nav
+     array renders six or seven items. */
   border-color: rgb(255 255 255 / 0.10);
   background: rgb(7 20 17 / 0.94);
   box-shadow: 0 24px 65px rgb(7 20 17 / 0.28);
