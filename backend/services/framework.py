@@ -283,14 +283,17 @@ def decide(
     if llm:
         try:
             from services.caption_side_check import stored_caption_problem
-            from services.severity import is_fault_grade
             grade = (cascade_kwargs.get("severity_override")
                      or getattr(decision.teaching_meta, "severity", None))
             problem = stored_caption_problem(
                 llm, fen_before=inputs.fen_before or "",
                 played_san=inputs.played_san or "",
                 mover_is_user=bool(inputs.mover_is_user),
-                fault_card=is_fault_grade(str(grade or "").replace("opp_", "")))
+                # "is fine" is consistent with an inaccuracy badge (18...a6 of
+                # 7286e2f5 lost a true "your knight is trapped" caption when it
+                # counted); only a mistake or worse is contradicted by it.
+                fault_card=str(grade or "").replace("opp_", "") in (
+                    "mistake", "serious", "blunder"))
         except Exception as exc:                        # noqa: BLE001
             logger.warning("[framework] side check failed: %r", exc)
             problem = None
