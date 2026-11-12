@@ -209,6 +209,143 @@ def material_along(base: chess.Board, line: Sequence[str], mine: str, theirs: st
             "replayed_moves": replayed, "line_moves": len(sans), "line": list(line or [])}
 
 
+# --- reading a line: the situation, the deciding event, what is relevant -------
+# Mohit 2026-11-12: "you should know somehow who is winning, losing ... what
+# items are down ... the opportunity line gives you what stockfish suggests,
+# but you should also see what is relevant and what piece is not relevant on
+# the caption". A line is a list of moves; the caption needs what they DO.
+
+def standing_words(points: int) -> str:
+    """Material for the reader, in words (points: pawn 1, minor 3, rook 5, queen 9)."""
+    if points == 0:
+        return "material is even"
+    size = {1: "a pawn", 2: "two pawns", 3: "a piece", 4: "a piece and a pawn", 5: "a rook",
+            6: "a rook and a pawn"}.get(abs(points), "a lot of material")
+    return f"you are {size} up" if points > 0 else f"you are {size} down"
+
+
+def eval_words(cp_for_reader: Optional[int], mate_for_reader: Optional[int] = None) -> str:
+    """Who is winning, for the reader, in words."""
+    if mate_for_reader is not None:
+        return "you can force mate" if mate_for_reader > 0 else "you get mated by force"
+    if cp_for_reader is None:
+        return "unknown"
+    c = cp_for_reader
+    if c >= 500: return "you are clearly winning"
+    if c >= 150: return "you are better"
+    if c >= 50: return "you are a little better"
+    if c > -50: return "about equal"
+    if c > -150: return "you are a little worse"
+    if c > -500: return "you are worse"
+    return "you are clearly losing"
+
+
+def _points(board: chess.Board, color: chess.Color) -> int:
+    v = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9}
+    return sum(n * (len(board.pieces(p, color)) - len(board.pieces(p, not color))) for p, n in v.items())
+
+
+def read_line(fen_before: str, line: Sequence[str], reader: chess.Color,
+              for_side: Optional[chess.Color] = None) -> Dict[str, Any]:
+    """What a line does, move by move, for the reader, and which moves matter.
+
+    `line` starts from `fen_before` (the move played or the better move first).
+    `for_side` is the side the line is good for (the mover for the better
+    move's line, the punisher for the played move's line; default: the side
+    to move). The deciding event is a mate, or else the first QUIET moment (no
+    capture next, nobody in check) where that side's material is at its best
+    over the quiet moments of the line: mid-trade counts are never used, and
+    the trades an engine line keeps making afterwards are not the point
+    (6.c3 of 2d86e1f9: the pawn is won back at Qxc3; e5 dxe5 later is not
+    the lesson). Moves after it
+    are not relevant to a caption; before it, a move is relevant when it
+    captures, is captured, gives check, attacks two pieces at once, or moves a
+    piece that later captures or is captured inside the window.
+    """
+    b = chess.Board(fen_before)
+    sans = _san_only(" ".join(str(x) for x in (line or [])))
+    start = _points(b, reader)
+    steps: List[Dict[str, Any]] = []
+    for san in sans:
+        try:
+            move = b.parse_san(san)
+        except Exception:                               # noqa: BLE001
+            break
+        piece = b.piece_at(move.from_square)
+        captured = b.piece_at(move.to_square)
+        if b.is_en_passant(move):
+            captured = chess.Piece(chess.PAWN, not b.turn)
+        who = "you" if b.turn == reader else "the opponent"
+        b.push(move)
+        targets = []
+        moved = b.piece_at(move.to_square)
+        if moved:
+            for sq in b.attacks(move.to_square):
+                t = b.piece_at(sq)
+                if t and t.color != moved.color and (t.piece_type == chess.KING or VALUES.get(t.piece_type, 0) >= 300):
+                    targets.append(f"{PIECE_WORD.get(t.piece_type, 'king') if t.piece_type != chess.KING else 'king'} on {chess.square_name(sq)}")
+        steps.append({
+            "who": who, "move": san,
+            "piece": f"{PIECE_WORD.get(piece.piece_type, 'king') if piece.piece_type != chess.KING else 'king'}",
+            "from": chess.square_name(move.from_square), "to": chess.square_name(move.to_square),
+            "takes": (PIECE_WORD.get(captured.piece_type) if captured else None),
+            "check": b.is_check(), "mate": b.is_checkmate(),
+            "attacks_two_at_once": targets if len(targets) >= 2 else [],
+            "standing_after": standing_words(_points(b, reader)),
+            "_points": _points(b, reader),
+        })
+    if not steps:
+        return {"replayed": 0, "steps": []}
+    side = chess.Board(fen_before).turn if for_side is None else for_side
+    sign = 1 if side == reader else -1                  # side's material = sign * reader's
+    mate_at = next((i for i, s in enumerate(steps) if s["mate"]), None)
+    if mate_at is not None:
+        settle = mate_at
+    else:
+        quiet = [i for i, s in enumerate(steps)
+                 if not s["check"] and (i + 1 >= len(steps) or not steps[i + 1]["takes"])]
+        best = max((sign * steps[i]["_points"] for i in quiet), default=sign * start)
+        if best <= sign * start:
+            settle = -1                                 # the side gains nothing in this line
+        else:
+            settle = next(i for i in quiet if sign * steps[i]["_points"] == best)
+    stops_mid_trade = bool(steps[-1]["takes"]) and mate_at is None
+    # Follow each piece by square through the window: a piece that captures or
+    # is captured inside it takes part, and so does every earlier move of it.
+    involved = set()
+    for i in range(max(settle, -1), -1, -1):
+        s = steps[i]
+        if s["takes"] or s["check"] or s["mate"] or s["attacks_two_at_once"] or s["to"] in involved:
+            s["relevant"] = True
+            involved.add(s["from"])
+            if s["takes"]:
+                involved.add(s["to"])
+        else:
+            s["relevant"] = False
+    for i, s in enumerate(steps):
+        if i > settle:
+            s["relevant"] = False
+            s["note"] = "after the deciding moment: not relevant to the caption"
+        s.pop("_points", None)
+    deciding = None
+    if mate_at is not None:
+        deciding = f"mate by {steps[mate_at]['who']}"
+    elif settle >= 0:
+        deciding = (f"{'you win' if side == reader else 'the opponent wins'} material: "
+                    f"{steps[settle]['standing_after']} (it was: {standing_words(start)})")
+    return {
+        "replayed": len(steps), "line_moves": len(sans),
+        "standing_before": standing_words(start),
+        "standing_at_the_end": steps[-1]["standing_after"],
+        "good_for": "you" if side == reader else "the opponent",
+        "deciding_moment": deciding or "the side this line is good for wins no material in it",
+        "deciding_move_index": settle if settle >= 0 else None,
+        "stops_in_the_middle_of_a_trade": stops_mid_trade,
+        "relevant_moves": [s["move"] for s in steps if s.get("relevant")],
+        "steps": steps,
+    }
+
+
 def board_facts(board: chess.Board, mover: chess.Color) -> Dict[str, Any]:
     opp = not mover
     return {
@@ -361,7 +498,49 @@ def build_packet(fen_before: str, played_san: str, *, better_san: Optional[str] 
         "pv_after_played": after_played[0]["line"] if after_played else [],
         "pv_after_best": after_better[0]["line"] if after_better else [],
         "lines_shown_on_the_card": shown_lines(card_lines, played_san),
+        "situation": situation(root, mover, mover_is_user, root_lines, after_played, after_better),
+        "line_readings": line_readings(fen_before, played_san, better_san, mover, mover_is_user,
+                                       after_played, after_better, shown_lines(card_lines, played_san)),
     }
+
+
+def _reader_words(cp_for_mover: Optional[int], mover_is_user: bool) -> str:
+    if cp_for_mover is None:
+        return "unknown"
+    cp = int(cp_for_mover) if mover_is_user else -int(cp_for_mover)
+    if abs(cp) >= MATE - 1000:
+        return eval_words(None, 1 if cp > 0 else -1)
+    return eval_words(cp)
+
+
+def situation(root: chess.Board, mover: chess.Color, mover_is_user: bool, root_lines, after_played,
+              after_better) -> Dict[str, Any]:
+    """Who is winning and what is up or down, for the reader, in words."""
+    reader = mover if mover_is_user else (not mover)
+    return {
+        "material_before_the_move": standing_words(_points(root, reader)),
+        "before_the_move": _reader_words(root_lines[0]["cp"] if root_lines else None, mover_is_user),
+        "after_the_move_played": _reader_words(after_played[0]["cp"] if after_played else None, mover_is_user),
+        "after_the_better_move": _reader_words(after_better[0]["cp"] if after_better else None, mover_is_user),
+    }
+
+
+def line_readings(fen_before: str, played_san: str, better_san: str, mover: chess.Color, mover_is_user: bool,
+                  after_played, after_better, shown: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """read_line on every line the writer may talk about: the engine's and the card's."""
+    reader = mover if mover_is_user else (not mover)
+    out: Dict[str, Any] = {}
+    if after_played:
+        out["engine_line_after_the_move_played"] = read_line(
+            fen_before, [played_san] + _san_only(" ".join(after_played[0]["line"])), reader, for_side=not mover)
+    if after_better:
+        out["engine_line_after_the_better_move"] = read_line(
+            fen_before, [better_san] + _san_only(" ".join(after_better[0]["line"])), reader, for_side=mover)
+    if shown and shown.get("played_line"):
+        out["card_line_after_the_move_played"] = read_line(fen_before, shown["played_line"], reader, for_side=not mover)
+    if shown and shown.get("better_line"):
+        out["card_line_after_the_better_move"] = read_line(fen_before, shown["better_line"], reader, for_side=mover)
+    return out
 
 
 def shown_lines(card_lines: Optional[Dict[str, Any]], played_san: str) -> Optional[Dict[str, Any]]:
@@ -436,7 +615,11 @@ How to write it. The reader is ten years old, or reading English as a second lan
 - If the packet shows no mechanism, only that the position is a little worse with nothing concrete, set `no_lesson` true and say why in one line. That is a real and useful answer. Do not invent a lesson.
 - `live_engine_said` is what the quick engine on the site answered when the player asked. Its `reason` `no_gap` means it measured no real difference between the two moves; `engine_choice` means the move played was its own first choice. The card still called the move a fault. If the lines here agree with the quick engine, set `no_lesson` true and say so in one line; if they show a real difference the quick engine missed, that difference is the lesson.
 - Do not read a threat off a line without checking it in the facts or probes: a move in a line is not a threat until the board says what it attacks.
-- `lines_shown_on_the_card` (when present) are the two lines the player watches beside your words. Your reason must agree with them. If the better line shown holds a tactic (a check, a fork, a piece given up to win more), that is what the player will see: explain it. When the card's better line is not the other side's best reply, say both in plain words, the best reply first and then the card's line as "if they take": "c3 attacks your pawn on d4. If you take with dxc3, Bxf7+ and Qd5+ check your king and win your bishop on c5." Never describe a move that is in neither shown line as the main point.
+- EXPLAIN, NEVER LIST MOVES (Mohit 2026-11-12: "naming the moves is very very bad"). Name at most ONE move in the reason: the better move. Every other move is described by what it does on the board: "their bishop gives itself up on f7 to pull your king out", "their queen checks your king and hits your bishop at the same time". Never write a move in notation other than the move played or the better move, and never a chain of moves. The reader must understand without replaying anything.
+- START FROM THE SITUATION. `situation` says who is winning and what is up or down, before the move and after each move. Your reason must agree with it, and should say it when it matters ("You are a pawn up", "you keep your extra pawn").
+- ONLY WHAT IS RELEVANT. `line_readings` reads every line move by move: `deciding_moment` is what the line wins or loses, `relevant_moves` are the moves that take part in it, and every step has `relevant` true or false. Talk only about pieces that take part in the deciding moment. A move marked not relevant, and anything after the deciding moment, stays out of the reason. If a line wins nothing for the side it is good for, say so in plain words ("they never win the pawn back").
+- `lines_shown_on_the_card` (when present) are the two lines the player watches beside your words; `line_readings` has them read as `card_line_...`. Your reason must agree with them. If the card's better line holds the deciding trick (a piece given up to win more, a check that also hits a second piece), explain that trick in words. When it is not the other side's best reply, say the main idea first and the trick as "if you take".
+  Example, 6.e5 with c3 better, the opponent's move: "Their e5 lets you keep your extra pawn. The better plan was c3, attacking that pawn. If you take it, their bishop gives itself up on f7 to pull your king out. Then their queen checks your king and hits your bishop at once, and wins it back."
 - `attacks` needs a piece on the target square. For an empty square use `controls`. For "the better line is better" use `line_better` with `worse_line` = the moves of the move played's line and `better_line` = the moves of the better move's line, both starting from the position before the move played.
 
 Example. Black played 4...b6 in a Scandinavian; the better move was Nf6; it is the reader's own move, so Black is "you".
@@ -741,7 +924,24 @@ def gate_text(text: str, claims: List[Dict[str, Any]], *, fen_before: str, playe
     if swapped:
         failures.append(swapped)
     failures.extend(owner_on_square(text, claims, fen_before, mover_is_user=mover_is_user))
+    listed = moves_named(text, played_san, better_san)
+    if listed:
+        failures.append(f"names moves instead of explaining them: {listed}; say what each one does")
     return failures
+
+
+# A move in notation that a square name alone is not: a piece move, a capture,
+# castling, or anything carrying + or #. A bare pawn push ("c3") reads as a
+# square and is allowed; "your pawn on d4" must stay sayable.
+_MOVE_TOKEN = re.compile(
+    r"(?<![A-Za-z0-9])(?:O-O(?:-O)?[+#]?|[KQRBN][a-h]?[1-8]?x?[a-h][1-8][+#]?|[a-h]x[a-h][1-8](?:=[QRBN])?[+#]?"
+    r"|[a-h][1-8](?:=[QRBN])?[+#])(?![A-Za-z0-9])")
+
+
+def moves_named(text: str, played_san: Optional[str], better_san: Optional[str]) -> List[str]:
+    """Moves written in notation other than the move played and the better move."""
+    allowed = {str(m or "").rstrip("+#!?") for m in (played_san, better_san) if m}
+    return sorted({t for t in _MOVE_TOKEN.findall(text or "") if t.rstrip("+#") not in allowed})
 
 
 _OWNED_ON = re.compile(
@@ -930,6 +1130,8 @@ Work in this order.
    - It does not say the better move wins or saves something that the better move's line shows it does not.
    - "You/your" and "the opponent/their" match the packet's `pronouns` field.
    - When the packet has `lines_shown_on_the_card`, the study agrees with them, and if the better line shown holds a tactic (a check, a fork, a piece given up to win more), the study explains it. A study that talks about a different branch and leaves the shown tactic unexplained is a disagree: the player watches that line beside the words.
+   - It explains, it does not list moves: it names no move in notation except the move played and the better move. A study that strings moves together ("Bxf7+ and Qd5+ check your king") is a disagree.
+   - It agrees with `situation` (who is winning, what is up or down) and talks only about pieces that take part in the deciding moment in `line_readings`. A piece or move that is not relevant there, in the study, is a disagree.
    - A player could act on it next game.
 3. If you are unsure, the verdict is disagree. A wrong explanation shown to a player does more harm than a good one held back for a person to read.
 
