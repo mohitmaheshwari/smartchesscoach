@@ -4091,7 +4091,8 @@ def weak_pawn_count_sentence(contested: Optional[Dict[str, Any]]) -> str:
 
 
 def reply_gap_sentence(gap: Optional[Dict[str, Any]],
-                       mover_is_user: bool = True) -> str:
+                       mover_is_user: bool = True,
+                       subject: Optional[str] = None) -> str:
     """One sentence for facts["reply_gap"], or "" when there is none.
 
     Derived per position from the board and both stored engine lines,
@@ -4120,14 +4121,19 @@ def reply_gap_sentence(gap: Optional[Dict[str, Any]],
     # "Opponent's Bd6 is a serious mistake ... That lets them play Qh5 with
     # check", where Qh5+ is HIS move and the whole point of the card.
     who = "them" if mover_is_user else "you"
+    # `subject` names the played move when "That" would point at the wrong
+    # one. Appended after "Rxe7 was better here.", "That lets them play
+    # Qxe1 with check" read as the better move's consequence, which is
+    # false: after Rxe7 their queen is gone (2026-11-12, 7286e2f5 m25/m26).
+    lead = f"{subject} lets" if subject else "That lets"
     if "check" in allows and "capture" in allows and piece and square:
-        return (f"That lets {who} play {reply} with check, "
+        return (f"{lead} {who} play {reply} with check, "
                 f"taking the {piece} on {square}.")
     if "check" in allows:
-        return f"That lets {who} play {reply} with check."
+        return f"{lead} {who} play {reply} with check."
     if piece and square:
-        return f"That lets {who} take the {piece} on {square} with {reply}."
-    return f"That lets {who} play {reply}."
+        return f"{lead} {who} take the {piece} on {square} with {reply}."
+    return f"{lead} {who} play {reply}."
 
 
 # A capture claim about the RECOMMENDED move belongs to the board that move is
@@ -9308,9 +9314,19 @@ def build_move_teaching_decision(
         # on a punishment clause that already names the same reply.
         try:
             _rg = caption_facts.get("reply_gap") or {}
-            _rg_line = reply_gap_sentence(
-                _rg, mover_is_user=bool(inputs.mover_is_user))
             _rg_cap = (caption_payload.get("caption") or "").strip()
+            # The sentence is about the PLAYED move. When the card already
+            # named the better move, "That" would bind to it: name the
+            # played move instead.
+            _rg_best = (inputs.best_move_san or "").rstrip("+#")
+            _rg_subject = None
+            if _rg_best and _re_pb.search(
+                    r"(?<![A-Za-z0-9])" + _re_pb.escape(_rg_best)
+                    + r"(?![A-Za-z0-9])", _rg_cap):
+                _rg_subject = (inputs.played_san or "").strip() or None
+            _rg_line = reply_gap_sentence(
+                _rg, mover_is_user=bool(inputs.mover_is_user),
+                subject=_rg_subject)
             _rg_reply = (_rg.get("their_reply") or "").strip()
             # The square matters as much as the move. Measured on real
             # cards: "Qd7 ... you moved your queen away from defending

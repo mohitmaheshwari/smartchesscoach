@@ -277,6 +277,27 @@ def decide(
                         kind, grade)
             llm = None
 
+    # The stored sentence must also be true on this card's board: whose piece
+    # is on a square, whether the move really left it unguarded, and never a
+    # "fine" under a fault badge (services/caption_side_check.py, 2026-11-12).
+    if llm:
+        try:
+            from services.caption_side_check import stored_caption_problem
+            from services.severity import is_fault_grade
+            grade = (cascade_kwargs.get("severity_override")
+                     or getattr(decision.teaching_meta, "severity", None))
+            problem = stored_caption_problem(
+                llm, fen_before=inputs.fen_before or "",
+                played_san=inputs.played_san or "",
+                mover_is_user=bool(inputs.mover_is_user),
+                fault_card=is_fault_grade(str(grade or "").replace("opp_", "")))
+        except Exception as exc:                        # noqa: BLE001
+            logger.warning("[framework] side check failed: %r", exc)
+            problem = None
+        if problem:
+            logger.info("[framework] stored caption dropped: %s", problem)
+            llm = None
+
     if llm:
         decision.text.caption = llm
         decision.text.rule_name = (

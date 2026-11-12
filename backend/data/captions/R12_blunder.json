@@ -1143,7 +1143,7 @@
     "user_with_best_em_dash_with_lead": "{played_san} {severity_phrase} — {lost_defender_lead_clause}. {best_move_san} was better — {why_clause}",
     "user_with_best_and_why_with_lead": "{played_san} {severity_phrase} — {lost_defender_lead_clause}. {best_move_san} was better. {why_clause}",
     "user_with_best_with_lead_only": "{played_san} {severity_phrase} — {lost_defender_lead_clause}. {best_move_san} was better.",
-    "user_winning_position": "{played_san} is fine — you're still winning. {best_move_san} would have made things harder for your opponent.",
+    "user_winning_position": "{played_san} keeps you winning, but it was not the best move. {best_move_san} would have made things harder for your opponent.",
     "user_losing_position": "{played_san} doesn't change much here. {best_move_san} would have made things harder for your opponent.",
     "user_smaller_win": "{played_san} {severity_phrase}. {best_move_san} was better — {smaller_win_best_target_square} has no defender, so you win a free {smaller_win_best_target_piece}. {played_san} wins a {played_smaller_win_captured_piece} too, but {opp_reply_san} takes a pawn back.",
     "user_no_best": "{played_san} {severity_phrase}.",
