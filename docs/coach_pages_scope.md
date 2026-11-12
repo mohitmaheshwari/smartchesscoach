@@ -8,7 +8,7 @@ level"*, *"we will buy better servers, so performance is not the issue"*.
 
 Mission unchanged: **the academy head coach's assistant, and a coach for the player.**
 
-Status: **DRAFT — awaiting Mohit's sign-off. No code until signed.**
+Status: **Mohit, 2026-11-12: "go ahead". Pre-code requirements (section 7) under way. No code until the clickable mock and the section-6 measurements are reviewed.**
 
 ---
 
