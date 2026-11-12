@@ -240,3 +240,32 @@ def test_build_file_and_payload_carry_no_digits_in_player_text(scholars):
             assert not re.search(r"\d", node), (key, node)
 
     walk(out)
+
+
+# --------------------------------------------------------------------------
+# Home never says the coach is unprepared (Mohit, 2026-11-12)
+# --------------------------------------------------------------------------
+def test_prepared_focus_order_habit_then_opening_then_last_game():
+    from routes.home import prepared_focus
+
+    read = {"source": {"analysed_games_read": 30}}
+    habit = {"label": "Leaving a piece where it can be taken", "rule": "Look first.",
+             "warning_sign": {"title": "The three looks", "text": "Look from the square."},
+             "moments": [{"game_id": "g1", "move_number": 14}]}
+    opening = {"headline": "As Black, you keep playing this move early, and it keeps costing you.",
+               "detail": "Here is the clearest time.", "review_url": "/game/g2?move=4"}
+    last = {"clean": False, "headline": "One move decided your last game.", "review_url": "/game/g3?move=20"}
+
+    a = prepared_focus({**read, "habit": habit, "openings": [opening], "last_game": last})
+    assert a["kind"] == "habit" and a["see_url"] == "/game/g1?move=14" and a["rule"] == "Look first."
+    b = prepared_focus({**read, "habit": None, "openings": [opening], "last_game": last})
+    assert b["kind"] == "opening" and b["see_url"] == "/game/g2?move=4"
+    c = prepared_focus({**read, "habit": None, "openings": [], "last_game": last})
+    assert c["kind"] == "last_game" and c["see_url"] == "/game/g3?move=20"
+    d = prepared_focus({**read, "habit": None, "openings": [], "last_game": {"clean": True}})
+    assert d["kind"] == "clean"
+    e = prepared_focus({"source": {"analysed_games_read": 0}})
+    assert e["kind"] == "reading"
+    for x in (a, b, c, d, e):
+        text = " ".join(str(x.get(k) or "") for k in ("title", "detail", "rule"))
+        assert "not settled" not in text and not re.search(r"\d", text), text

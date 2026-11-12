@@ -479,6 +479,60 @@ async def get_between_games(request: Request, user: User = Depends(get_current_u
     return await get_coach_file(request, user)
 
 
+@router.get("/home/prepared-focus")
+async def get_prepared_focus(user: User = Depends(get_current_user)):
+    """What the coach works on with a player who has no active focus yet.
+
+    Mohit, 2026-11-12, on Home's "I have not settled on the one pattern"
+    line: "this should never show, coach should be very well prepared". 20 of
+    78 players with analysed games had no active focus and saw it. The player
+    file always has an answer from their games, in this order:
+      1. the habit a PLAN-trusted detector proves (coach plan engine);
+      2. otherwise their costliest opening habit;
+      3. otherwise the move that decided their last game.
+    For every player, not only the coach-pages flag: this replaces a line on
+    an existing page. Reads the file; a missing one is built in the background.
+    """
+    out = await coach_file_for(user.user_id)
+    if out.get("state") != "ready":
+        return {"state": "building"}
+    return prepared_focus(out)
+
+
+def prepared_focus(out: Dict[str, Any]) -> Dict[str, Any]:
+    """The coach's answer from a ready player-file payload (pure, tested)."""
+    if not (out.get("source") or {}).get("analysed_games_read"):
+        return {"state": "ready", "kind": "reading",
+                "title": "Your games are being analysed now.",
+                "detail": "When the first ones are read, this is where your coach says what you work on first.",
+                "see_url": None}
+    habit = out.get("habit")
+    if habit:
+        first = next((m for m in (habit.get("moments") or []) if m.get("game_id")), None)
+        return {
+            "state": "ready", "kind": "habit",
+            "title": habit["label"],
+            "sign": habit.get("warning_sign"),
+            "rule": habit.get("rule"),
+            "see_url": (f"/game/{first['game_id']}" + (f"?move={first['move_number']}" if first.get("move_number") else ""))
+                       if first else None,
+        }
+    openings = out.get("openings") or []
+    if openings:
+        h = openings[0]
+        return {"state": "ready", "kind": "opening", "title": h["headline"], "detail": h["detail"],
+                "see_url": h.get("review_url")}
+    last = out.get("last_game") or {}
+    if last and not last.get("clean"):
+        return {"state": "ready", "kind": "last_game", "title": last.get("headline"),
+                "detail": "Start there: see what changed, and what was better.",
+                "see_url": last.get("review_url")}
+    return {"state": "ready", "kind": "clean",
+            "title": "Your recent games had no single losing habit.",
+            "detail": "Keep playing. The next game that goes wrong shows us where to start.",
+            "see_url": None}
+
+
 @router.post("/home/today/answer")
 async def answer_todays_question(
     request: Dict[str, Any],

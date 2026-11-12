@@ -19,6 +19,7 @@ import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/l
 import Layout from "@/components/Layout";
 import LastGameCard from "@/components/Home/LastGameCard";
 import BetweenGamesPanel from "@/components/Home/BetweenGamesPanel";
+import PreparedFocus from "@/components/Home/PreparedFocus";
 import HomeLoadingSkeleton from "@/components/HomeLoadingSkeleton";
 import CanonicalFocusRail from "@/components/experience/CanonicalFocusRail";
 import CurriculumHome from "@/components/curriculum/CurriculumHome";
@@ -691,9 +692,11 @@ export default function HomePageNew({ user }) {
               </button>}
             </motion.section>
           ) : (
-            // No active focus assigned yet — real edge case (games exist,
-            // but the coach hasn't settled on a headline pattern). Keep
-            // this minimal rather than falling back to the old stack.
+            // No coaching context and no conversation. The coaching context
+            // is rolled out to admin roles only, so on 2026-11-12 this branch
+            // could reach 75 of 78 players with analysed games, 58 of whom had
+            // a focus. The player file still knows what to work on:
+            // PreparedFocus below. Keep this minimal.
             <>
               {(() => {
                 const shouldShow = diagnosticStatus && diagnosticStatus.status !== "complete" && diagnosticStatus.status !== "superseded";
@@ -724,30 +727,38 @@ export default function HomePageNew({ user }) {
               {/* No conversation can mean two very different things, and
                   saying the wrong one is how a player with 52 analysed games
                   got told to go and play a game or two. `hasGames` separates
-                  them: if we have their games, we have seen them play, and
-                  the honest gap is that we have not settled on the one
-                  pattern to work on yet. Their games are still worth opening
-                  in the meantime, so that is where the button goes. */}
+                  them. */}
+              {/* Mohit, 2026-11-12: "I have not settled on the one pattern"
+                  "should never show, coach should be very well prepared".
+                  With games, the coach says what it works on, from the
+                  player file (PreparedFocus). A coach-pages player already
+                  reads the same file in BetweenGamesPanel above. */}
+              {hasGames ? (
+                !user?.coach_pages && (
+                  <motion.section variants={fadeInUp} className="mb-12 md:mb-16 max-w-[620px]">
+                    <PreparedFocus />
+                  </motion.section>
+                )
+              ) : (
               <motion.section variants={fadeInUp} className="mb-12 md:mb-16 max-w-[620px]">
                 <p className="text-body leading-relaxed text-foreground mb-5">
-                  {hasGames
-                    ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
-                    : "I'm still learning how you play. Play a game or two and I'll start noticing your habits."}
+                  I'm still learning how you play. Play a game or two and I'll start noticing your habits.
                 </p>
                 <button
                   onClick={() => {
                     track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, {
-                      cta: hasGames ? "review_games" : "play_with_coach",
+                      cta: "play_with_coach",
                       has_conversation: false,
                     });
-                    navigate(hasGames ? "/lab" : "/play-with-coach");
+                    navigate("/play-with-coach");
                   }}
                   className="cg-primary-action"
                 >
-                  {hasGames ? "Review your games" : "Play with Coach"}
+                  Play with Coach
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />
                 </button>
               </motion.section>
+              )}
             </>
           )}
 
