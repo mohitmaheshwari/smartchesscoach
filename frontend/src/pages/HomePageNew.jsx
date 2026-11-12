@@ -31,7 +31,6 @@ import {
   BookOpen,
   Import,
   ArrowRight,
-  Zap,
 } from "lucide-react";
 
 const timeOfDayGreeting = () => {
@@ -324,10 +323,10 @@ export default function HomePageNew({ user }) {
         <div className="cg-page" data-testid="home-page">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
             <div className="flex items-baseline justify-between">
-              <p className="text-muted-foreground text-[13px]">
+              <p className="text-muted-foreground text-note">
                 {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
               </p>
-              <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
+              <p className="text-muted-foreground/60 text-meta uppercase tracking-[0.22em]">{formatWhen()}</p>
             </div>
 
             {/* ─── DIAGNOSTIC CTA (ONBOARDING) ─── */}
@@ -339,21 +338,20 @@ export default function HomePageNew({ user }) {
                 <div className="cg-coach-card">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="text-[20px] font-heading font-semibold text-foreground mb-2">Let me learn how you see the board.</h3>
-                      <p className="text-[13px] text-foreground/85 mb-4">
+                      <h3 className="text-lead font-heading font-semibold text-foreground mb-2">Let me learn how you see the board.</h3>
+                      <p className="text-note text-foreground/85 mb-4">
                         {diagnosticStatus.status === "in_progress"
                           ? "We have already started. Let’s pick up where you left off."
                           : "A short set of positions will help me choose the right first lesson for you."}
                       </p>
                       <button
                         onClick={() => navigate("/diagnostic")}
-                        className="cg-primary-action"
+                        className="cg-secondary-action"
                       >
                         {diagnosticStatus.status === "in_progress" ? "Continue with me" : "Show me how I think"}
                         <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
                       </button>
                     </div>
-                    <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
                   </div>
                 </div>
               </section>
@@ -383,15 +381,15 @@ export default function HomePageNew({ user }) {
             </section>
 
             <section className="pt-8 border-t border-border/60">
-              <p className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
+              <p className="text-meta uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-3">
                 Already play elsewhere?
               </p>
-              <p className="text-[13.5px] text-muted-foreground mb-5 leading-relaxed max-w-[480px]">
+              <p className="text-note text-muted-foreground mb-5 leading-relaxed max-w-[480px]">
                 Connect your Chess.com or Lichess account and I'll analyze your existing games.
               </p>
               <button
                 onClick={() => navigate("/import")}
-                className="text-[13px] text-foreground hover:underline transition-colors inline-flex items-center gap-1.5"
+                className="text-note text-foreground hover:underline transition-colors inline-flex items-center gap-1.5"
               >
                 <Import className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Connect Chess.com or Lichess
@@ -416,10 +414,10 @@ export default function HomePageNew({ user }) {
         <motion.div variants={staggerContainer} initial="initial" animate="animate">
           {/* ─── GREETING ─── */}
           <motion.div variants={fadeInUp} className="flex items-baseline justify-between mb-10 md:mb-12">
-            <p className="text-muted-foreground text-[13px]">
+            <p className="text-muted-foreground text-note">
               {displayName ? `${timeOfDayGreeting()}, ${displayName}.` : `${timeOfDayGreeting()}.`}
             </p>
-            <p className="text-muted-foreground/60 text-[11px] uppercase tracking-[0.22em]">{formatWhen()}</p>
+            <p className="text-muted-foreground/60 text-meta uppercase tracking-[0.22em]">{formatWhen()}</p>
           </motion.div>
 
           {/* ─── YOUR LAST GAME ───
@@ -478,18 +476,18 @@ export default function HomePageNew({ user }) {
           <CoachMovements assessment={<ChancesCard />} />
           {lastSession?.story && (
             <motion.section ref={mirrorRef} variants={fadeInUp} className="mb-12 md:mb-16">
-              <div className="text-[10.5px] uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
+              <div className="text-meta uppercase tracking-[0.22em] text-muted-foreground font-semibold mb-4">
                 Since you last played
               </div>
               <div className="cg-panel p-6">
-                <p className="text-[14px] leading-relaxed text-foreground">{lastSession.story}</p>
+                <p className="text-note leading-relaxed text-foreground">{lastSession.story}</p>
                 {(lastSession.game_id || lastSession.game_ids?.[0]) && (
                   <button
                     onClick={() => {
                       track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "review_this_game" });
                       navigate(`/game/${lastSession.game_id || lastSession.game_ids[0]}`);
                     }}
-                    className="experience-link mt-4 text-[12.5px] text-violet-600 dark:text-violet-400 hover:underline inline-flex items-center gap-1"
+                    className="cg-link mt-4 text-note"
                   >
                     Review this game
                     <ChevronRight className="h-3 w-3" strokeWidth={2} />
@@ -511,16 +509,16 @@ export default function HomePageNew({ user }) {
           {coachConversation?.has_conversation || canonicalContext ? (
             <motion.section variants={fadeInUp} className="cg-coach-card mb-16 md:mb-20 max-w-[720px]">
               {coachConversation?.thinking_signature && (
-                <p className="text-[15px] leading-relaxed text-foreground mb-5">
+                <p className="text-body leading-relaxed text-foreground mb-5">
                   {coachConversation.thinking_signature}
                 </p>
               )}
               {coachConversation?.narrative && (
                 <>
-                  <p className="text-[15px] leading-relaxed text-foreground mb-5">
+                  <p className="text-body leading-relaxed text-foreground mb-5">
                     {coachConversation.narrative.stage_opener}
                   </p>
-                  <p className="text-[15px] leading-relaxed text-foreground mb-5">
+                  <p className="text-body leading-relaxed text-foreground mb-5">
                     {coachConversation.narrative.continuity}{" "}
                     {coachConversation.narrative.belief}
                   </p>
@@ -551,18 +549,18 @@ export default function HomePageNew({ user }) {
                   />
                 </div>
               ) : pic ? (
-                <div ref={curriculumDecisionElementRef} className="experience-focus-rail border-l-2 border-violet-400/50 pl-4 mb-7 max-w-[600px]">
-                  <p className="experience-eyebrow text-[10px] uppercase tracking-[0.2em] text-violet-600 dark:text-violet-400 font-semibold mb-2">
+                <div ref={curriculumDecisionElementRef} className="experience-focus-rail border-l-2 border-[rgb(var(--cg-accent-rgb)/0.5)] pl-4 mb-7 max-w-[600px]">
+                  <p className="cg-eyebrow mb-2">
                     {pic.learner_state?.label || "Learning"}
                     {pic.learner_state?.refresh_needed ? " · Refresh needed" : ""}
                   </p>
-                  <p className="text-[17px] font-medium text-foreground mb-2">
+                  <p className="text-lead font-medium text-foreground mb-2">
                     {pic.focus_label}
                   </p>
-                  <p className="text-[14px] leading-relaxed text-foreground mb-2">
+                  <p className="text-note leading-relaxed text-foreground mb-2">
                     {pic.instruction_text || "Before you move, check whether the piece will be safe on its new square."}
                   </p>
-                  <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+                  <p className="text-note leading-relaxed text-muted-foreground">
                     I have seen this same decision in more than one of your games. We’ll stay with it until your response begins to change over the board.
                   </p>
                   {/* What else the games show. The picker already ranks these
@@ -587,11 +585,11 @@ export default function HomePageNew({ user }) {
                       <Link
                         to={activeFocus.tactic_practice.href}
                         data-testid="tactic-practice-link"
-                        className="inline-flex items-center text-[13px] font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
+                        className="inline-flex items-center text-note font-medium text-emerald-700 dark:text-emerald-400 hover:underline"
                       >
                         {activeFocus.tactic_practice.label} &rarr;
                       </Link>
-                      <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                      <p className="mt-1 text-meta leading-relaxed text-muted-foreground">
                         {activeFocus.tactic_practice.because}
                       </p>
                     </div>
@@ -610,7 +608,7 @@ export default function HomePageNew({ user }) {
                         }
                         navigate("/training/pattern/piece_safety");
                       }}
-                      className="experience-primary h-9 px-4 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[13px] transition-colors"
+                      className="cg-primary-action"
                     >
                       Practise this
                     </button>
@@ -618,32 +616,32 @@ export default function HomePageNew({ user }) {
                       <button
                         disabled={focusGameBusy}
                         onClick={() => updateFocusGame("commit")}
-                        className="h-9 px-4 rounded-lg border border-border text-[13px] font-medium hover:bg-muted/50 disabled:opacity-50"
+                        className="h-9 px-4 rounded-lg border border-border text-note font-medium hover:bg-muted/50 disabled:opacity-50"
                       >
                         Make my next game a Focus Game
                       </button>
                     ) : pic.focus_game.status === "waiting" ? (
                       <>
-                        <span className="h-9 px-3 inline-flex items-center text-[12.5px] text-muted-foreground">
+                        <span className="h-9 px-3 inline-flex items-center text-note text-muted-foreground">
                           Committed — play on Chess.com or Lichess, then sync.
                         </span>
                         <button
                           disabled={focusGameBusy}
                           onClick={() => updateFocusGame("cancel")}
-                          className="h-9 px-3 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          className="h-9 px-3 text-meta text-muted-foreground hover:text-foreground disabled:opacity-50"
                         >
                           Cancel
                         </button>
                       </>
                     ) : pic.focus_game.status === "claimed" ? (
                       <>
-                        <span className="h-9 px-3 inline-flex items-center text-[12.5px] text-muted-foreground">
+                        <span className="h-9 px-3 inline-flex items-center text-note text-muted-foreground">
                           I found the game. I’ll use it to see whether the new habit appeared.
                         </span>
                         <button
                           disabled={focusGameBusy}
                           onClick={() => updateFocusGame("correct", { game_id: pic.focus_game.game_id })}
-                          className="h-9 px-3 text-[12px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          className="h-9 px-3 text-meta text-muted-foreground hover:text-foreground disabled:opacity-50"
                         >
                           That was not my Focus Game
                         </button>
@@ -652,7 +650,7 @@ export default function HomePageNew({ user }) {
                   </div>
                 </div>
               ) : (
-                <p className="text-[15px] leading-relaxed text-foreground font-medium mb-6">
+                <p className="text-body leading-relaxed text-foreground font-medium mb-6">
                   {coachConversation.one_action}
                 </p>
               )}
@@ -663,7 +661,7 @@ export default function HomePageNew({ user }) {
                   Deliberately carries no numbers -- the rate chooses the
                   sentence and never appears in it. */}
               {coachConversation?.punish_line?.text && (
-                <p className="text-[13px] leading-relaxed text-muted-foreground mb-4">
+                <p className="text-note leading-relaxed text-muted-foreground mb-4">
                   {coachConversation.punish_line.headline}{" "}
                   <span className="text-foreground">
                     {coachConversation.punish_line.habit}
@@ -671,12 +669,12 @@ export default function HomePageNew({ user }) {
                 </p>
               )}
               {coachConversation?.encouragement && (
-                <p className="text-[13px] text-muted-foreground mb-2">
+                <p className="text-note text-muted-foreground mb-2">
                   {coachConversation.encouragement}
                 </p>
               )}
               {coachConversation?.closing_line && (
-                <p className="text-[13px] text-muted-foreground mb-8">
+                <p className="text-note text-muted-foreground mb-8">
                   {coachConversation.closing_line}
                 </p>
               )}
@@ -686,7 +684,7 @@ export default function HomePageNew({ user }) {
                   track(ANALYTICS_EVENTS.FUNNEL_HOME_CTA_CLICKED, { cta: "play_with_coach", has_conversation: true });
                   navigate("/play-with-coach");
                 }}
-                className="experience-primary h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+                className="cg-primary-action"
               >
                 Play with Coach
                 <ArrowRight className="h-4 w-4" strokeWidth={2} />
@@ -705,21 +703,20 @@ export default function HomePageNew({ user }) {
                   <div className="cg-coach-card">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="text-[20px] font-heading font-semibold text-foreground mb-2">Let me learn how you see the board.</h3>
-                        <p className="text-[13px] text-foreground/85 mb-4">
+                        <h3 className="text-lead font-heading font-semibold text-foreground mb-2">Let me learn how you see the board.</h3>
+                        <p className="text-note text-foreground/85 mb-4">
                           {diagnosticStatus.status === "in_progress"
                             ? "We have already started. Let’s pick up where you left off."
                             : "A short set of positions will help me choose the right first lesson for you."}
                         </p>
                         <button
                           onClick={() => navigate("/diagnostic")}
-                          className="cg-primary-action"
+                          className="cg-secondary-action"
                         >
                           {diagnosticStatus.status === "in_progress" ? "Continue with me" : "Show me how I think"}
                           <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
                         </button>
                       </div>
-                      <Zap className="h-5 w-5 text-purple-600 dark:text-purple-400 flex-shrink-0 mt-0.5" />
                     </div>
                   </div>
                 </motion.section>
@@ -732,7 +729,7 @@ export default function HomePageNew({ user }) {
                   pattern to work on yet. Their games are still worth opening
                   in the meantime, so that is where the button goes. */}
               <motion.section variants={fadeInUp} className="mb-12 md:mb-16 max-w-[620px]">
-                <p className="text-[15px] leading-relaxed text-foreground mb-5">
+                <p className="text-body leading-relaxed text-foreground mb-5">
                   {hasGames
                     ? "I have been through your games. I have not settled on the one pattern to work on with you yet — in the meantime, your last game is worth a look."
                     : "I'm still learning how you play. Play a game or two and I'll start noticing your habits."}
@@ -745,7 +742,7 @@ export default function HomePageNew({ user }) {
                     });
                     navigate(hasGames ? "/lab" : "/play-with-coach");
                   }}
-                  className="experience-primary h-11 px-6 rounded-lg bg-violet-500 hover:bg-violet-400 text-white font-medium text-[14px] transition-colors inline-flex items-center gap-2"
+                  className="cg-primary-action"
                 >
                   {hasGames ? "Review your games" : "Play with Coach"}
                   <ArrowRight className="h-4 w-4" strokeWidth={2} />
@@ -771,7 +768,7 @@ export default function HomePageNew({ user }) {
               2026-07-31 §7: "Now I'm back inside software... I'd fade
               those into the background." */}
           <motion.section variants={fadeInUp} className="mt-20 pt-10 border-t border-border/30 opacity-70 hover:opacity-100 transition-opacity">
-            <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/70 font-medium mb-4">
+            <p className="text-meta uppercase tracking-[0.22em] text-muted-foreground/70 font-medium mb-4">
               Other ways to improve
             </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -787,8 +784,8 @@ export default function HomePageNew({ user }) {
                     className="experience-utility group p-3 rounded-xl border border-border/40 hover:border-border/70 bg-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors text-left"
                   >
                     <Icon className="w-4 h-4 text-muted-foreground/70 group-hover:text-foreground mb-2 transition-colors" strokeWidth={1.5} />
-                    <p className="text-[11.5px] font-medium text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</p>
-                    <p className="text-[9.5px] text-muted-foreground/60 mt-0.5">{item.sub}</p>
+                    <p className="text-meta font-medium text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</p>
+                    <p className="text-meta text-muted-foreground/60 mt-0.5">{item.sub}</p>
                   </button>
                 );
               })}

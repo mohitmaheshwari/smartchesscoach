@@ -84,12 +84,15 @@ mapfile -t STAGED < <(
         || true
 )
 
-if [[ ${#STAGED[@]} -eq 0 ]]; then
-    exit 0
-fi
-
+# NOT `exit 0` when STAGED is empty. That early exit made every check below
+# unreachable for any commit that stages no .py/caption .json - which is every
+# frontend-only commit, i.e. exactly the ones the design-system ratchet at the
+# bottom of this file exists to guard. Shipped dead in e3825974 and caught on
+# 2026-11-12 only by running the hook itself, not the script it calls:
+# proving the gate's script fails is not proving the GATE fails.
+# The ${arr[@]+"${arr[@]}"} form keeps an empty array safe under `set -u`.
 violations=0
-for f in "${STAGED[@]}"; do
+for f in ${STAGED[@]+"${STAGED[@]}"}; do
     # Skip if file no longer exists (e.g. deleted in same commit).
     [[ -f "$f" ]] || continue
     # Scan the STAGED content of the file (not the working tree), so a
@@ -163,14 +166,14 @@ mapfile -t STAGED_FE < <(
 )
 if [[ ${#STAGED_FE[@]} -gt 0 ]]; then
     if ! ( cd frontend && node scripts/palette_report.js \
-             --max-hex=209 --max-arbitrary-text=40 >/dev/null ); then
+             --max-hex=209 --max-arbitrary-text=40 --max-text-literals=1174 >/dev/null ); then
         echo '[design-system] ceiling exceeded. Use the named scale:'
         echo '  type   text-meta|note|body|lead|title|display   (not text-[13px])'
         echo '  radius rounded-control|card|panel'
         echo '  depth  shadow-e1|e2|e3'
         echo '  colour bg-card / text-muted-foreground / bg-primary (not a raw hex)'
         ( cd frontend && node scripts/palette_report.js \
-            --max-hex=209 --max-arbitrary-text=40 2>&1 | tail -4 )
+            --max-hex=209 --max-arbitrary-text=40 --max-text-literals=1174 2>&1 | tail -4 )
         exit 1
     fi
 fi

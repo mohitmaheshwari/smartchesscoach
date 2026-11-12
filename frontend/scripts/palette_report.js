@@ -93,4 +93,8 @@ function ratchet(flag, actual, label) {
 console.log('');
 ratchet('--max-hex', hexSet.size, 'distinct hex values');
 ratchet('--max-arbitrary-text', txtSet.size, 'distinct arbitrary type sizes');
+// The distinct counts do not move when one screen migrates: a size is only
+// retired when its LAST user goes. The literal count drops on every screen,
+// so this is the ceiling that actually ratchets as the migration proceeds.
+ratchet('--max-text-literals', txtTotal, 'arbitrary type literals');
 if (failed) process.exit(1);

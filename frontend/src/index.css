@@ -1357,7 +1357,8 @@
 
 .cg-eyebrow {
   color: #287a61;
-  font-size: 0.68rem;
+  /* 0.68rem resolved to 10.88px, under the `meta` floor. */
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.20em;
   text-transform: uppercase;
@@ -1441,6 +1442,18 @@
   background: var(--cg-accent-hi);
   box-shadow: 0 8px 20px rgb(0 0 0 / 0.36);
 }
+
+.cg-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #287a61;
+  font-weight: 650;
+}
+
+.cg-link:hover { text-decoration: underline; }
+
+.dark .experience-v1 .cg-link { color: #7ee7c2; }
 
 .cg-secondary-action {
   display: inline-flex;
