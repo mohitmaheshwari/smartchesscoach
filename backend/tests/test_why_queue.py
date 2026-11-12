@@ -44,6 +44,8 @@ class _Collection:
 
     def _match(self, query):
         def one(r, k, v):
+            if k == "$or":
+                return any(all(one(r, k2, v2) for k2, v2 in sub.items()) for sub in v)
             if isinstance(v, dict) and "$in" in v:
                 return r.get(k) in v["$in"]
             return r.get(k) == v
@@ -248,6 +250,18 @@ class TestTheReviewTab:
         assert row["judge_overall"] == "confirmed" and row["best_san"] == "d4"
         assert row["probes"][0]["verdict"] == "passed"
         assert row["bucket"].startswith("why queue")
+
+    def test_a_checker_published_study_is_served_first_until_a_person_rules(self, db):
+        db.why_reasons.rows.append(_reason(wq.HELD_FOR_REVIEW, key="held"))
+        db.why_reasons.rows.append(_reason(wq.PUBLISHED, key="live", ruled_by="checker",
+                                           check={"verdict": "agree", "problem": "", "own_reading": "x"}))
+        db.why_reasons.rows.append(_reason(wq.PUBLISHED, key="human", ruled_by="u1"))
+        row = _run(admin.next_claude_reason(judge=None, bucket=None, user=_User()))
+        assert row["key"] == "live" and "published by the checker" in row["bucket"]
+        out = _run(admin.rule_claude_reason({"key": "live", "verdict": "disagree"}, user=_User()))
+        assert out["study_status"] == wq.REJECTED
+        row = _run(admin.next_claude_reason(judge=None, bucket=None, user=_User()))
+        assert row["key"] == "held"  # the person-published one never comes back
 
     def test_the_reviewer_sees_how_it_reads(self, db):
         db.why_reasons.rows.append(_reason(

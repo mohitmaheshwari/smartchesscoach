@@ -78,14 +78,18 @@ async def next_claude_reason(
     # The live Why queue's studies come first (services/why_queue.py, 2026-11-02):
     # they are waiting to reach a card, the seeded set is not. Review-first
     # means a gate-passed study sits here until someone presses Agree.
-    from services.why_queue import HELD, HELD_FOR_REVIEW, review_row
-    live_query: Dict[str, Any] = {"status": {"$in": [HELD_FOR_REVIEW, HELD]}}
+    from services.why_queue import HELD, HELD_FOR_REVIEW, PUBLISHED, review_row
+    # A study the checker published (docs/why_queue_checker_scope.md) is already
+    # on cards; it stays here until a person rules, and comes first.
+    checker_live = {"status": PUBLISHED, "ruled_by": "checker"}
+    live_query: Dict[str, Any] = {"$or": [{"status": {"$in": [HELD_FOR_REVIEW, HELD]}}, checker_live]}
     if judge == "confirmed":
-        live_query["status"] = HELD_FOR_REVIEW
+        live_query = {"$or": [{"status": HELD_FOR_REVIEW}, checker_live]}
     elif judge:
-        live_query["status"] = HELD if judge == "refuted" else "__none__"
+        live_query = {"status": HELD if judge == "refuted" else "__none__"}
     live = [review_row(r) for r in await db.why_reasons.find(live_query, {"_id": 0}).to_list(length=None)]
-    live.sort(key=lambda r: (0 if r.get("judge_overall") == "confirmed" else 1, str(r.get("created_at") or "")))
+    live.sort(key=lambda r: (0 if r.get("status") == PUBLISHED else 1,
+                             0 if r.get("judge_overall") == "confirmed" else 1, str(r.get("created_at") or "")))
     query: Dict[str, Any] = {}
     if judge:
         query["judge_overall"] = judge

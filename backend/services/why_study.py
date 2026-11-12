@@ -860,6 +860,56 @@ def run_gate(answer: Dict[str, Any], *, fen_before: str, played_san: str, better
             "readability": read, "notes": list(read["notes"])}
 
 
+# --- the checker: a second agent reads the study before it goes live ------------
+
+CHECK_SYSTEM_PROMPT = """You are a senior chess coach checking a colleague's explanation before a player reads it. The player is rated 600 to 1500 and will trust it.
+
+You get the same packet the colleague had (the position, the move played, the better move, engine lines, board facts, material along each line) and the colleague's study: a short reason and the claims behind it. A machine has already replayed every claim on the board, so each claim on its own is true. Your job is the part the machine cannot do: is this the REAL reason the better move is better?
+
+Work in this order.
+1. Before reading the study, read the packet yourself. Compare the line after the move played with the line after the better move, and the material change along each. Write in `own_reading` one sentence: the main concrete difference between the two moves. If the lines show no real difference, say that.
+2. Now read the study. Agree only if ALL of these hold:
+   - It names the same main difference you found, or a true and equally central one. A true side fact that is not why the move is worse is a disagree.
+   - Every sentence is true on the board and in the lines. A sentence that suggests something false is a disagree, even if each word could be defended.
+   - It does not say the better move wins or saves something that the better move's line shows it does not.
+   - "You/your" and "the opponent/their" match the packet's `pronouns` field.
+   - A player could act on it next game.
+3. If you are unsure, the verdict is disagree. A wrong explanation shown to a player does more harm than a good one held back for a person to read.
+
+`problem`: empty when you agree; otherwise one or two plain sentences naming exactly what is wrong."""
+
+CHECK_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["own_reading", "verdict", "problem"],
+    "properties": {
+        "own_reading": {"type": "string", "description": "the main difference between the two moves, from the packet alone"},
+        "verdict": {"type": "string", "enum": ["agree", "disagree"]},
+        "problem": {"type": "string"},
+    },
+}
+
+
+def check_prompt(packet: Dict[str, Any], study: Dict[str, Any]) -> str:
+    """The checker's message: the packet first, then the study to judge."""
+    shown = {"reason": study.get("reason"), "mechanism": study.get("mechanism_label") or study.get("mechanism"),
+             "claims": [{k: c.get(k) for k in ("kind", "label", "after", "subject", "target", "side",
+                                                "worse_line", "better_line", "capture_san")
+                         if c.get(k) not in (None, [], "")}
+                        for c in (study.get("claims") or [])]}
+    return ("The packet:\n" + json.dumps(packet, indent=1, default=str)
+            + "\n\nThe colleague's study, to judge after you have written your own reading:\n"
+            + json.dumps(shown, indent=1, default=str))
+
+
+def check_verdict(answer: Dict[str, Any]) -> Dict[str, Any]:
+    """The checker's answer, normalised. Anything but a clean "agree" is a disagree."""
+    verdict = str((answer or {}).get("verdict") or "").strip().lower()
+    return {"verdict": "agree" if verdict == "agree" else "disagree",
+            "problem": str((answer or {}).get("problem") or "").strip(),
+            "own_reading": str((answer or {}).get("own_reading") or "").strip()}
+
+
 def user_prompt(packet: Dict[str, Any], *, previous: Optional[Dict[str, Any]] = None,
                 fixes: Optional[Sequence[str]] = None) -> str:
     """The packet as the model's message; with `previous` and `fixes`, the rewrite request."""
@@ -876,6 +926,7 @@ def user_prompt(packet: Dict[str, Any], *, previous: Optional[Dict[str, Any]] = 
     return text
 
 
-__all__ = ["CLAIM_KINDS", "CLAIM_SCHEMA", "HARD_WORDS", "SENTENCE_WORD_LIMIT", "SYSTEM_PROMPT", "board_facts",
+__all__ = ["CHECK_SCHEMA", "CHECK_SYSTEM_PROMPT", "check_prompt", "check_verdict",
+           "CLAIM_KINDS", "CLAIM_SCHEMA", "HARD_WORDS", "SENTENCE_WORD_LIMIT", "SYSTEM_PROMPT", "board_facts",
            "build_packet", "check_claim", "facts_from_claims", "gate_text", "open_engine", "owner_on_square",
            "readability", "replay", "run_gate", "user_prompt"]

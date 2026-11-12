@@ -4,7 +4,8 @@
     python backend/scripts/why_queue_worker.py --key K    # one position, by key
     python backend/scripts/why_queue_worker.py --dry-run  # study, print, write nothing
 
-Scheduled by Windows Task Scheduler every 15 minutes (see docs/why_queue_claude_scope.md).
+Scheduled by Windows Task Scheduler every 10 minutes (see docs/why_queue_claude_scope.md,
+docs/why_queue_checker_scope.md).
 
 One pass:
   1. claim up to N queued rows on prod (ssh + docker exec; the row is marked
@@ -12,11 +13,13 @@ One pass:
   2. for each: build the fact packet with the LOCAL Stockfish (services/why_study.py)
   3. run Claude Code headless (`claude -p`) with the packet and the claim schema
   4. the gate replays every claim; words are checked against the claims
-  5. write the result to prod: why_reasons row + why_queue status
+  5. a gate-passed study is read by a second agent, the checker (another model)
+  6. write the result to prod: why_reasons row + why_queue status
 
-Nothing here reaches a player directly. A gate-passed study is
-`held_for_review` until a human agrees in the admin tab (review-first), unless
-WHY_QUEUE_AUTO_PUBLISH=1 on the worker.
+A gate-passed study is `held_for_review` until a human agrees in the admin tab,
+unless the checker agreed and --checker-publish / WHY_QUEUE_CHECKER_PUBLISH=1 is
+on (then it is published, and stays on the admin tab until a person rules), or
+WHY_QUEUE_AUTO_PUBLISH=1 (no checker needed; off).
 
 Env (all optional):
   WHY_QUEUE_SSH         root@72.60.204.176
@@ -24,6 +27,8 @@ Env (all optional):
   STOCKFISH_PATH        local engine binary
   CLAUDE_BIN            claude
   CLAUDE_MODEL          model for the study (default: DEFAULT_MODEL, never the CLI's default)
+  WHY_CHECKER_MODEL     model for the checker (default: DEFAULT_CHECKER_MODEL)
+  WHY_QUEUE_CHECKER_PUBLISH  "1" to publish when the gate passed and the checker agreed
   WHY_QUEUE_AUTO_PUBLISH  "1" to publish gate-passed studies without a human
   WHY_QUEUE_LOG_DIR     where the log and the lock live
 """
@@ -50,11 +55,18 @@ SSH = os.environ.get("WHY_QUEUE_SSH", "root@72.60.204.176")
 CONTAINER = os.environ.get("WHY_QUEUE_CONTAINER", "chess-coach-backend")
 CLAUDE_BIN = os.environ.get("CLAUDE_BIN", "claude")
 # Named, never the CLI's default: on 2026-11-11 the default moved from Fable 5.1
-# to Opus 5.5 between two runs with nobody choosing it. Same e6 packet: Fable
-# said no lesson (right), Opus wrote a false "Kd8 was better". One run each.
-DEFAULT_MODEL = "claude-fable-5-1"
+# to Opus 5.5 between two runs with nobody choosing it. Since 2026-11-12 the
+# writer is Opus 5.5 on purpose: it wrote all three studies Mohit agreed (Rf7,
+# Ke7, e5); its one known miss (e6, a false "Kd8 was better") is what the
+# checker below must catch (docs/why_queue_checker_scope.md).
+DEFAULT_MODEL = "claude-opus-5-5"
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL") or DEFAULT_MODEL
+# The checker is a different model from the writer, so the two do not share blind spots.
+DEFAULT_CHECKER_MODEL = "claude-fable-5-1"
+CHECKER_MODEL = os.environ.get("WHY_CHECKER_MODEL") or DEFAULT_CHECKER_MODEL
 AUTO_PUBLISH = os.environ.get("WHY_QUEUE_AUTO_PUBLISH", "0") == "1"
+# Publish without a person only when the gate passed AND the checker agreed.
+CHECKER_PUBLISH = os.environ.get("WHY_QUEUE_CHECKER_PUBLISH", "0") == "1"
 LOG_DIR = Path(os.environ.get("WHY_QUEUE_LOG_DIR") or (Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "ChessGuru" / "why_queue"))
 LEASE_MINUTES = 30
 
@@ -161,13 +173,15 @@ def claude_binary() -> str:
     return found
 
 
-def run_claude(system_prompt: str, user_text: str, schema: Dict[str, Any], *, cwd: Path) -> Dict[str, Any]:
+def run_claude(system_prompt: str, user_text: str, schema: Dict[str, Any], *, cwd: Path,
+               model: Optional[str] = None) -> Dict[str, Any]:
     """One headless Claude Code call. Returns {answer, raw, cost_usd, duration_ms, model}."""
+    model = model or CLAUDE_MODEL
     cmd = [claude_binary(), "-p", "--output-format", "json", "--max-turns", "1",
            "--tools", "", "--no-session-persistence",
            "--system-prompt", system_prompt, "--json-schema", json.dumps(schema)]
-    if CLAUDE_MODEL:
-        cmd += ["--model", CLAUDE_MODEL]
+    if model:
+        cmd += ["--model", model]
     # A worker started from inside a Claude Code session must not look like a child of it.
     env = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE")}
     proc = subprocess.run(cmd, input=user_text, text=True, encoding="utf-8", capture_output=True,
@@ -197,7 +211,37 @@ def run_claude(system_prompt: str, user_text: str, schema: Dict[str, Any], *, cw
         raise RuntimeError("claude's answer is not an object")
     return {"answer": answer, "raw": envelope, "cost_usd": envelope.get("total_cost_usd"),
             "duration_ms": envelope.get("duration_ms") or envelope.get("duration_api_ms"),
-            "model": (envelope.get("modelUsage") and next(iter(envelope["modelUsage"]), None)) or CLAUDE_MODEL}
+            "model": (envelope.get("modelUsage") and next(iter(envelope["modelUsage"]), None)) or model}
+
+
+def run_checker(packet: Dict[str, Any], study: Dict[str, Any], *, cwd: Path) -> Dict[str, Any]:
+    """The second agent's verdict on a gate-passed study. Never raises: a checker
+    that cannot answer is a disagree, so the study waits for a person."""
+    from services import why_study
+    t0 = time.time()
+    try:
+        out = run_claude(why_study.CHECK_SYSTEM_PROMPT, why_study.check_prompt(packet, study),
+                         why_study.CHECK_SCHEMA, cwd=cwd, model=CHECKER_MODEL)
+    except Exception as exc:                            # noqa: BLE001
+        log.warning("checker failed: %s", exc)
+        return {"verdict": "disagree", "problem": f"the checker did not answer: {type(exc).__name__}",
+                "own_reading": "", "model": CHECKER_MODEL, "cost_usd": 0.0,
+                "seconds": round(time.time() - t0, 1), "error": str(exc)[:500]}
+    return {**why_study.check_verdict(out["answer"]), "model": out.get("model"),
+            "cost_usd": round(float(out.get("cost_usd") or 0), 4), "seconds": round(time.time() - t0, 1)}
+
+
+def decide_status(gate: Dict[str, Any], check: Optional[Dict[str, Any]]) -> str:
+    """no_lesson / held (gate failed) / published / held_for_review."""
+    if gate["no_lesson"]:
+        return "no_lesson"
+    if not gate["passed"]:
+        return "held"
+    if AUTO_PUBLISH:
+        return "published"
+    if CHECKER_PUBLISH and (check or {}).get("verdict") == "agree":
+        return "published"
+    return "held_for_review"
 
 
 # --- one position -----------------------------------------------------------------
@@ -267,12 +311,12 @@ def study(row: Dict[str, Any], *, depth: int, engine_path: Optional[str], scratc
         if better_second:
             answer, gate, model_out = second["answer"], gate2, {**model_out, "model": second.get("model") or model_out.get("model")}
 
-    if gate["no_lesson"]:
-        status = "no_lesson"
-    elif gate["passed"]:
-        status = "published" if AUTO_PUBLISH else "held_for_review"
-    else:
-        status = "held"
+    check = None
+    if gate["passed"] and not gate["no_lesson"]:
+        check = run_checker(packet, {**answer, "claims": gate["claims"]}, cwd=scratch)
+        cost += float(check.get("cost_usd") or 0)
+        log.info("checker on %s: %s %s", row["key"], check["verdict"], check.get("problem") or "")
+    status = decide_status(gate, check)
     reason = {
         "key": row["key"], "fen_before": fen, "played_san": played, "better_san": better,
         "side": side, "stored_class": row.get("stored_class"), "rating": row.get("rating"),
@@ -286,12 +330,14 @@ def study(row: Dict[str, Any], *, depth: int, engine_path: Optional[str], scratc
         "packet": {k: packet.get(k) for k in ("pv_after_played", "pv_after_best", "root_candidates_cp_for_mover",
                                                "shared_threat_probes", "material_along_best_lines")},
         "model": model_out.get("model"), "cost_usd": round(cost, 4),
+        "check": check,
         "seconds": {"packet": round(packet_s, 1), "model": round(time.time() - t1, 1)},
         "worker_host": platform.node(),
         "studied_at": _now(),
     }
     if status == "published":
         reason["published_at"] = _now()
+        reason["ruled_by"] = "checker" if not AUTO_PUBLISH else "auto"
     return reason
 
 
@@ -307,7 +353,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--local-side", choices=("user", "opponent"), default="user",
                     help="with --local: whose move it is, for the pronouns")
     ap.add_argument("--local-best", default=None, help="with --local: the stored better move, if any")
+    ap.add_argument("--checker-publish", action="store_true",
+                    help="publish a gate-passed study when the checker agrees (same as WHY_QUEUE_CHECKER_PUBLISH=1)")
     args = ap.parse_args(argv)
+    if args.checker_publish:
+        global CHECKER_PUBLISH
+        CHECKER_PUBLISH = True
 
     if args.local:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

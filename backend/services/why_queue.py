@@ -462,9 +462,21 @@ def review_row(reason: Dict[str, Any]) -> Dict[str, Any]:
             "verdict": (f"longest sentence {read.get('longest_sentence_words', '?')} words · "
                         f"{read.get('words', '?')} words in all · hard words: {hard}"),
         })
+    check = reason.get("check") or {}
+    if check:
+        # The second agent's verdict (docs/why_queue_checker_scope.md).
+        probes.append({
+            "label": "checker (" + str(check.get("model") or "?") + ")",
+            "kind": "checker",
+            "verdict": (str(check.get("verdict") or "?")
+                        + (": " + str(check.get("problem")) if check.get("problem") else "")
+                        + (" · its own reading: " + str(check.get("own_reading")) if check.get("own_reading") else "")),
+        })
     status = reason.get("status")
     if status == NO_LESSON:
         bucket = "why queue · no lesson"
+    elif status == PUBLISHED and reason.get("ruled_by") == "checker":
+        bucket = "why queue · LIVE, published by the checker: agree to keep, disagree to withdraw"
     elif passed:
         bucket = "why queue · awaiting your ruling"
     else:
