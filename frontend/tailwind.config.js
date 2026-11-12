@@ -16,10 +16,39 @@ module.exports = {
                 letterSpacing: {
                         tighter: '-0.02em',
                 },
+                // ─── Type scale (2026-11-12) ────────────────────────────
+                // There was no fontSize scale here at all, which is why src
+                // carries 38 distinct arbitrary sizes including text-[10.5px]
+                // (72 uses) and text-[12.5px] (53). A half-pixel size is not a
+                // decision, it is someone nudging until one component looked
+                // right; do that 38 times and nothing aligns, which reads as
+                // cheap even when no single screen looks wrong.
+                //
+                // Six steps, each with its line height. The floor is 12px on
+                // purpose: 10-11px body text is admin-tool density and was the
+                // biggest single reason the product did not feel premium.
+                fontSize: {
+                        meta: ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.06em' }],   // 12 — eyebrows, labels
+                        // NOT named sm/base: those are Tailwind defaults and
+                        // src already uses text-sm 1,468 times and text-base
+                        // 112 times. Overriding them would silently reflow the
+                        // whole app with no visual regression cover. The scale
+                        // is additive; existing classes keep their meaning.
+                        note: ['0.875rem', { lineHeight: '1.375rem' }],                        // 14 — secondary
+                        body: ['1rem', { lineHeight: '1.625rem' }],                            // 16 — body
+                        lead: ['1.25rem', { lineHeight: '1.875rem' }],                         // 20 — lead paragraph
+                        title: ['1.75rem', { lineHeight: '2.125rem', letterSpacing: '-0.02em' }], // 28 — section
+                        display: ['2.5rem', { lineHeight: '2.75rem', letterSpacing: '-0.03em' }], // 40 — page title
+                },
+                // Three radii. rounded-full stays available for pills: that is
+                // a shape, not a step on this scale.
                 borderRadius: {
                         lg: 'var(--radius)',
                         md: 'calc(var(--radius) - 2px)',
-                        sm: 'calc(var(--radius) - 4px)'
+                        sm: 'calc(var(--radius) - 4px)',
+                        control: '0.5rem',   // 8  — buttons, inputs, chips
+                        card: '0.875rem',    // 14 — cards, list rows
+                        panel: '1.5rem',     // 24 — hero panels, sheets
                 },
                 colors: {
                         background: 'hsl(var(--background))',
@@ -92,6 +121,13 @@ module.exports = {
                         "rose-700": "#BE123C",
                 },
                 boxShadow: {
+                        // Three neutral elevations. The only shadows defined
+                        // here were four COLOURED glows, so plain depth had no
+                        // name and src reached for shadow-sm/md/lg/2xl plus
+                        // four one-off arbitrary values.
+                        e1: '0 1px 2px rgb(0 0 0 / 0.16)',
+                        e2: '0 6px 20px -6px rgb(0 0 0 / 0.34)',
+                        e3: '0 24px 60px -24px rgb(0 0 0 / 0.55)',
                         // Glow effects for premium feel (premium UX redesign 2026-06-12)
                         "glow-amber": "0 0 20px rgba(251, 191, 36, 0.5)",
                         "glow-teal": "0 0 20px rgba(20, 184, 166, 0.4)",

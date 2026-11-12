@@ -36,9 +36,14 @@ const files = [];
 const famRe = new RegExp(`(?:bg|text|border|from|via|to|ring|fill|stroke)-(${FAMILIES.join('|')})-\\d{2,3}`, 'g');
 const hexRe = /#[0-9a-fA-F]{3,8}\b/g;
 const arbRe = /(?:bg|text|border|ring)-\[#[0-9a-fA-F]{3,8}\]/g;
+// Arbitrary PIXEL TYPE. tailwind.config.js had no fontSize scale at all
+// until 2026-11-12, so src accumulated 38 distinct sizes including
+// text-[10.5px] (72 uses). A half-pixel size is not a decision. Named steps
+// now exist (meta/note/body/lead/title/display); this counts the bypasses.
+const txtRe = /text-\[[0-9.]+(?:px|rem)\]/g;
 
-const famCount = {}, hexSet = new Set();
-let hexTotal = 0, arbTotal = 0, filesWithHex = 0;
+const famCount = {}, hexSet = new Set(), txtSet = new Set();
+let hexTotal = 0, arbTotal = 0, filesWithHex = 0, txtTotal = 0;
 
 for (const f of files) {
   const src = fs.readFileSync(f, 'utf8');
@@ -48,6 +53,9 @@ for (const f of files) {
   hexTotal += hexes.length;
   hexes.forEach(h => hexSet.add(h.toLowerCase()));
   arbTotal += (src.match(arbRe) || []).length;
+  const txts = src.match(txtRe) || [];
+  txtTotal += txts.length;
+  txts.forEach(t => txtSet.add(t));
 }
 
 const sorted = Object.entries(famCount).sort((a, b) => b[1] - a[1]);
@@ -57,17 +65,32 @@ console.log('files scanned              :', files.length);
 console.log('colour families in use     :', sorted.length, '(target: semantic tokens, so this trends down)');
 console.log('distinct hardcoded hex     :', hexSet.size, `(${hexTotal} literals across ${filesWithHex} files)`);
 console.log('arbitrary colour classes   :', arbTotal, '(bg-[#…] and friends)');
+console.log('arbitrary pixel type       :', txtTotal, `literals, ${txtSet.size} distinct (text-[13px] and friends)`);
 console.log('\ngrey families  :', GREYS.filter(g => famCount[g]).map(g => `${g} ${famCount[g]}`).join('  ') || 'none', `  total ${sum(GREYS)}`);
 console.log('green families :', GREENS.filter(g => famCount[g]).map(g => `${g} ${famCount[g]}`).join('  ') || 'none', `  total ${sum(GREENS)}`);
 console.log('\nall families, most used first:');
 for (const [f, n] of sorted) console.log(`  ${f.padEnd(9)} ${n}`);
 
-const arg = process.argv.find(a => a.startsWith('--max-hex='));
-if (arg) {
+// Ratchets, not absolutes. On a tree with 209 hex values and 38 arbitrary
+// type sizes, "fail on any" blocks every commit and gets switched off within
+// a day. Freeze today's number and require it to go DOWN. The 2026-09-28
+// counter had no gate at all and the hex count drifted 164 -> 209 in six
+// weeks with the measurement sitting right there in the repo.
+let failed = false;
+function ratchet(flag, actual, label) {
+  const arg = process.argv.find(a => a.startsWith(flag + '='));
+  if (!arg) return;
   const max = Number(arg.split('=')[1]);
-  if (hexSet.size > max) {
-    console.error(`\nFAIL: ${hexSet.size} distinct hex values exceeds --max-hex=${max}`);
-    process.exit(1);
+  if (actual > max) {
+    console.error(`FAIL: ${actual} ${label} exceeds ${flag}=${max}. Use the named`
+      + ` scale, or lower the ceiling if you removed some.`);
+    failed = true;
+  } else {
+    console.log(`OK: ${actual} ${label} within ${flag}=${max}`
+      + (actual < max ? ` - lower the ceiling to ${actual}.` : ''));
   }
-  console.log(`\nOK: ${hexSet.size} distinct hex values is within --max-hex=${max}`);
 }
+console.log('');
+ratchet('--max-hex', hexSet.size, 'distinct hex values');
+ratchet('--max-arbitrary-text', txtSet.size, 'distinct arbitrary type sizes');
+if (failed) process.exit(1);

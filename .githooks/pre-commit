@@ -150,4 +150,29 @@ if [[ ${#STAGED_PY[@]} -gt 0 ]]; then
     "$PY" backend/scripts/check_caption_sources.py "${STAGED_PY[@]}" || true
 fi
 
+# ─── Design-system ratchet (2026-11-12) ───────────────────────────────
+# tailwind.config.js had NO fontSize scale, so src grew 40 distinct
+# arbitrary pixel sizes incl. text-[10.5px]; and a palette counter shipped
+# 2026-09-28 with no gate watched hex drift 164 -> 209 in six weeks.
+# Measurement without enforcement does not hold. These are ratchets: the
+# numbers may go DOWN, never up. Lower the ceilings as you migrate screens.
+# Only runs when frontend source is staged.
+mapfile -t STAGED_FE < <(
+    git diff --cached --name-only --diff-filter=ACMR \
+      | grep -E '^frontend/src/.*\.(jsx?|tsx?|css)$' || true
+)
+if [[ ${#STAGED_FE[@]} -gt 0 ]]; then
+    if ! ( cd frontend && node scripts/palette_report.js \
+             --max-hex=209 --max-arbitrary-text=40 >/dev/null ); then
+        echo '[design-system] ceiling exceeded. Use the named scale:'
+        echo '  type   text-meta|note|body|lead|title|display   (not text-[13px])'
+        echo '  radius rounded-control|card|panel'
+        echo '  depth  shadow-e1|e2|e3'
+        echo '  colour bg-card / text-muted-foreground / bg-primary (not a raw hex)'
+        ( cd frontend && node scripts/palette_report.js \
+            --max-hex=209 --max-arbitrary-text=40 2>&1 | tail -4 )
+        exit 1
+    fi
+fi
+
 exit 0

@@ -30,7 +30,7 @@ function ReportBoard({ board }) {
           showCoordinates={false}
         />
       </div>
-      {board.caption && <figcaption className="text-[15px]">{board.caption}</figcaption>}
+      {board.caption && <figcaption className="text-note text-muted-foreground">{board.caption}</figcaption>}
     </figure>
   );
 }
@@ -41,33 +41,33 @@ export default function ParentReport({ report, homeworkLink }) {
   return (
     <article className="mx-auto grid w-full max-w-[460px] gap-3.5" data-testid="parent-report">
       <header>
-        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <p className="text-meta font-bold uppercase text-muted-foreground">
           Weekly chess report{report.batch_name ? ` · ${report.batch_name}` : ""}
         </p>
-        <h1 className="text-3xl font-extrabold leading-tight">{title}</h1>
+        <h1 className="text-display font-extrabold">{title}</h1>
       </header>
       {report.sections.map((section, i) => (
         <section
           key={`${section.kind}-${i}`}
-          className={`grid gap-3 rounded-2xl border p-[18px] ${TONE[section.kind] || "bg-card"}`}
+          className={`grid gap-3 rounded-panel border p-5 shadow-e1 ${TONE[section.kind] || "bg-card"}`}
         >
           {section.eyebrow && (
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-meta font-bold uppercase text-muted-foreground">
               {section.eyebrow}
             </p>
           )}
           {section.headline && (
-            <h2 className={section.kind === "question" ? "text-2xl font-semibold" : "text-xl font-semibold"}>
+            <h2 className={section.kind === "question" ? "text-title font-semibold" : "text-lead font-semibold"}>
               {section.kind === "question" ? `“${section.headline}”` : section.headline}
             </h2>
           )}
           {(section.lines || []).map((line, j) => (
-            <p key={j} className={section.kind === "week" ? "text-lg" : section.kind === "note" ? "italic" : ""}>
+            <p key={j} className={`text-body ${section.kind === "week" ? "text-lead" : ""} ${section.kind === "note" ? "italic" : ""}`}>
               {line}
             </p>
           ))}
           {section.key && section.boards?.length > 0 && (
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-4 text-note text-muted-foreground">
               {section.key.map(([colour, label]) => (
                 <span key={label} className="inline-flex items-center gap-1.5">
                   <span className={`inline-block h-1 w-5 rounded ${KEY_COLOUR[colour]}`} />
@@ -82,14 +82,14 @@ export default function ParentReport({ report, homeworkLink }) {
           {section.kind === "homework" && homeworkLink && (
             <a
               href={homeworkLink}
-              className="inline-flex w-fit items-center rounded-full bg-foreground px-4 py-2 font-semibold text-background"
+              className="inline-flex w-fit items-center rounded-full bg-foreground px-5 py-2.5 text-body font-semibold text-background shadow-e1"
             >
               Play the homework
             </a>
           )}
         </section>
       ))}
-      {report.footer && <p className="text-sm text-muted-foreground">{report.footer}</p>}
+      {report.footer && <p className="text-note text-muted-foreground">{report.footer}</p>}
     </article>
   );
 }
