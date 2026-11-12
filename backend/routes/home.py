@@ -425,6 +425,43 @@ async def get_home_session(user: User = Depends(get_current_user)):
     return session
 
 
+_coach_file_builds: set = set()
+
+
+@router.get("/home/between-games")
+async def get_between_games(user: User = Depends(get_current_user)):
+    """The between-games panel: his opening habits and the sitting line.
+
+    docs/coach_pages_scope.md. Reads the player file only; nothing heavy runs
+    on this request. Behind BETWEEN_GAMES_USERS (a comma list of user ids, or
+    "*"). The first visit of a flagged player starts the build in the
+    background and answers "building"; the analysis worker keeps the file
+    current after every game from then on.
+    """
+    import asyncio
+    from services import player_coach_file as pcf
+
+    if not pcf.is_enabled_for(user.user_id):
+        return {"enabled": False}
+    doc = await db[pcf.COLLECTION].find_one({"user_id": user.user_id}, {"_id": 0})
+    if not doc or doc.get("schema_version") != pcf.SCHEMA_VERSION:
+        if user.user_id not in _coach_file_builds:
+            _coach_file_builds.add(user.user_id)
+
+            async def _build(uid: str) -> None:
+                try:
+                    await pcf.build_and_store(db, uid)
+                except Exception:
+                    logger.exception("player file build failed for %s", uid)
+                finally:
+                    _coach_file_builds.discard(uid)
+
+            asyncio.create_task(_build(user.user_id))
+        return {"enabled": True, "state": "building"}
+    recent = await pcf.recent_starts(db, user.user_id)
+    return pcf.payload(doc, recent)
+
+
 @router.post("/home/today/answer")
 async def answer_todays_question(
     request: Dict[str, Any],

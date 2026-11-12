@@ -18,6 +18,7 @@ import { ANALYTICS_EVENTS, track, trackCurriculum } from "@/lib/analytics";
 import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/lib/motion";
 import Layout from "@/components/Layout";
 import LastGameCard from "@/components/Home/LastGameCard";
+import BetweenGamesPanel from "@/components/Home/BetweenGamesPanel";
 import HomeLoadingSkeleton from "@/components/HomeLoadingSkeleton";
 import CanonicalFocusRail from "@/components/experience/CanonicalFocusRail";
 import CurriculumHome from "@/components/curriculum/CurriculumHome";
@@ -439,6 +440,13 @@ export default function HomePageNew({ user }) {
               audience does not take, and the comment below already said so. */}
           <motion.div variants={fadeInUp} className="mb-12 md:mb-16">
             <LastGameCard />
+            {/* ─── BETWEEN GAMES ───
+                docs/coach_pages_scope.md. His costliest opening habits and,
+                only when his own games prove it, the sitting line. Behind
+                BETWEEN_GAMES_USERS on the server: renders nothing for anyone
+                not on it. Mounted in this branch, the one a player with games
+                actually reaches. */}
+            <BetweenGamesPanel />
           </motion.div>
 
           {/* ─── THE COACHING SESSION ───

@@ -2648,6 +2648,16 @@ def _process_job(db, job):
         except Exception as card_err:
             logger.warning("[HOME-CARD] warm failed (non-fatal): %s", card_err)
 
+        # The player file the coach pages read (docs/coach_pages_scope.md).
+        # Rebuilt only for players who already have one, so the cost lands
+        # where the page is used.
+        try:
+            from services.player_coach_file import refresh_if_present_sync
+            if refresh_if_present_sync(db, user_id):
+                logger.info("[COACH-FILE] refreshed player file for %s", user_id)
+        except Exception as file_err:
+            logger.warning("[COACH-FILE] refresh failed (non-fatal): %s", file_err)
+
         # =========================================================================
         # PHASE 3.3b: UPDATE STRENGTH PROFILE
         # Tracks what user is GOOD at (tactics, calculation, positional, etc.)

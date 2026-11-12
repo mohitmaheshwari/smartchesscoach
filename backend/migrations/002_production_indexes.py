@@ -113,6 +113,9 @@ INDEXES = [
     # The practice-link supply check filters by issue_type first; king_safety is
     # 150 of 78k rows and was found by a full scan.
     ("community_puzzles", [("issue_type", 1), ("approved", 1)], "cp_issue_approved", {}),
+    # 2026-11-12, the player file the coach pages read (docs/coach_pages_scope.md):
+    # one document per player, read by user_id on every Home load.
+    ("player_coach_files", [("user_id", 1)], "pcf_user_id", {"unique": True}),
 ]
 
 # Created during diagnosis, then measured as unused: schema_version is not
