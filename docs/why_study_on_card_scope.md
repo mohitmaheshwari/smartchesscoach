@@ -1,6 +1,6 @@
 # A published coach study becomes the card's caption, marked as the coach's
 
-Status: DRAFT, awaiting Mohit's sign-off (2026-11-12).
+Status: SIGNED 2026-11-12 ("go", with the three recommended answers: "Studied by the coach", Why button hidden, re-render on withdraw). Built and deployed 28eddea9.
 
 ## 0. Existing surfaces audit
 
