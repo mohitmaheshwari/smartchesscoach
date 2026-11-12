@@ -42,9 +42,10 @@ its own pages. A coach does not have 57 conversations.
 
 ### Machinery to reuse
 
-- **Per-game habit check:** `update_focus_lock_compliance` in `analysis_worker.py` scores
-  every new game against the active lesson (`coach_states.focus_lock`: games done,
-  compliance trend, deep-session trigger).
+- **Per-game habit check: in code, but never live.** `update_focus_lock_compliance` in
+  `analysis_worker.py` scores every new game against the active lesson, but it reads
+  `coach_states.focus_lock`, and **`coach_states` has 0 documents in prod** (counted
+  2026-11-12). It has never run for anyone. V1 must give it real state, or replace it.
 - **Resolution states:** `pattern_decay_service` (ACTIVE → DECLINING → FADING, recovery
   credit per clean game). This is the RESOLVE beat.
 - **Repeat across games:** `user_pattern_events`.
@@ -66,16 +67,24 @@ addresses, including ours. Product analytics go to PostHog, which is not readabl
 server. ChessGuru is not live. **Keep, fold and retire decisions are product decisions,
 not usage decisions**, and Mohit signs each one in section 3.
 
-### Speed today (measured, newest 400 completed analysis jobs)
+### Speed today (measured 2026-11-12, newest 284 jobs for just-finished games)
 
-| Step | Median | 90th percentile |
+A fast lane already exists (`journey_service.py:1466-1505`):
+- a game finished minutes ago is queued at priority 10, ahead of background work;
+- a new user's first import gets 20–30.
+
+| Step, for a just-finished game | Median | 90th percentile |
 |---|---|---|
-| game start → imported | 17 min (about the game's own length) | 5.3 h |
-| queued → started | 14 min | 45 h (backfill backlog) |
-| started → completed | 6.5 min | 15.6 min |
+| game ends → our sync queues it | 3.5 min | 6.2 min |
+| waits in the queue | 3.7 min | 119 min |
+| analysis job (208 of 284 ran on the 1-CPU server workers) | 6.6 min | 16.4 min |
+| **game ends → analysis done** | **11.5 min** | **105 min** |
 
-From a game ending to its read being ready, a player waits **roughly half an hour or
-more** today. The queue already has a `priority` field.
+End times come from the PGN `EndTime` tag, present on 232 of 284 games.
+
+Players start their next game a median of **10–16 minutes** after the previous one
+started (all bands, below), so the gap between games is only a few minutes. To be read
+between games, the read must be ready in about 2 minutes, not 11.
 
 ### What players need: measured on 53 players across every level
 
@@ -252,9 +261,11 @@ moment. The class view lists students by what needs the coach's attention this w
     his own positions, for every player.
   - The library below.
   - It extends `/learn`; the curriculum flag goes away.
-- **Progress:** each habit's state from his games (`focus_lock` compliance +
-  `pattern_decay_service`), the kept shelf, where you started → where you are. It
-  extends `/progress`.
+- **Progress:** each habit's state from his games, the kept shelf, where you started →
+  where you are. It extends `/progress`.
+  - The per-game check comes from the `focus_lock` code, given real state for the first
+    time (it has never run; see section 0), or replaced.
+  - The resolve states come from `pattern_decay_service`.
 - **Play:** sparring from his own positions via `starting_fen`.
 
 **Every level**
@@ -331,27 +342,90 @@ moment. The class view lists students by what needs the coach's attention this w
 
 ## 6. Open questions
 
-1. **Where does the player file live?** Extend `coach_states` (already per-user, already
-   written by the worker) or a new read-model collection? *Unresolved because:* both
-   work; extending risks mixing state with cache. *Unblocking:* read every writer of
-   `coach_states`, then decide with Mohit.
-2. **Habit-level opening leaks.** Matching the same idea across positions (his ...Bg4 in 18
-   games vs 3 exact repeats) should need far fewer games. *Unresolved:* not measured.
-   *Unblocking:* run the definition on the same 53 players, all four bands, with
-   precision checked by hand on a sample.
-3. **What counts as a sitting, and when to say stop?** The research used a 45-minute gap.
-   *Unblocking:* look at the distribution of gaps and of score by game number across all
-   players, per band, then lock.
-4. **"Same idea as before" — how far back, and by what match?** *Unblocking:* measure how
-   often a game's deciding mistake matches one from the previous N games, using
-   `user_pattern_events`, per band.
+Questions 1–4 were measured on 2026-11-12. Scripts are in the session scratchpad:
+`q234.py`, `latency2.py`, `howmany.py`.
+
+1. **Where does the player file live? → Recommendation: a new read-model collection.**
+   - `coach_states` is empty in prod (0 documents). Its writers expect `focus_lock`
+     semantics; it is state, not cache.
+   - The player file is a cache rebuilt from canonical collections, so it gets its own
+     collection, with one writer (the worker) and an index on the player id.
+   - *Still open:* Mohit's OK on the name and on retiring the never-live `focus_lock` path,
+     versus reviving it.
+
+2. **Habit-level opening leaks → much faster, needs a precision rule.**
+   - The habit is the same move idea (same piece to the same square) in the same opening
+     family, in 3+ games and at least 2 different positions, with an average loss of 50+.
+
+   | Players with a leak, newest 20 games | Exact position | Habit |
+   |---|---|---|
+   | under 1000 | 9/26 | 21/26 |
+   | 1000–1399 | 3/11 | 8/11 |
+   | 1400–1799 | 0/9 | 7/9 |
+   | 1800+ | 4/7 | 7/7 |
+
+   - Habits show up from about 10–20 games, at every band. The test player's own top two are
+     ...Bg4 (17 games, 16 positions) and ...Re8 (6 games) in his Modern.
+   - **Too loose as written:** at 60 games the median player has 10–20 "leaks".
+   - Under 1000, the costly "habit" is often castling, Ng5 or Re1 with a large average loss.
+     That is a piece left loose while making a normal move, which is a safety habit, not
+     opening knowledge.
+   - **V1 rule (to lock with `/lock-via-data`):**
+     - show the top one to three by total cost;
+     - check a hand-labelled sample;
+     - send safety-shaped leaks to the safety habit instead of the opening file.
+   - Average loss of habit keys seen in 3+ games:
+
+     | Band | Median | 90th percentile |
+     |---|---|---|
+     | under 1000 | 31 | 140 |
+     | 1800+ | 19 | 64 |
+
+     So one cut for every band would be wrong; the cut is per band.
+
+3. **Sittings → the stop signal must be personal, never a general rule.**
+   - Across all 53 players, the score barely changes with the game's number in the sitting,
+     for every gap definition from 20 to 90 minutes:
+     - games 1–3: 0.50–0.54;
+     - games 4–6: 0.51–0.56;
+     - game 7 onwards: 0.47–0.52.
+   - After a loss: 0.48–0.51, against 0.53–0.54 after a win.
+   - The test player's drop (0.45 from game 7 onwards) is his own, not a law of chess.
+   - **V1 rule:** say "good place to stop" only when the player's own history shows the drop
+     with enough games behind it (the count to be locked). Otherwise say nothing.
+   - *Caveat:* rating-based pairing pulls every score toward 0.5. Move quality by game
+     number would be a sharper test and is the next measurement.
+
+4. **"Same idea as before" → the obvious definition fails the control.**
+   - A game's 100+ pattern miss (`user_pattern_events`, 23 pattern ids) is found in the
+     player's own previous games no more often than in a random same-band player's:
+
+     | Band | N=5, own | N=5, another player | N=10, own | N=10, another player |
+     |---|---|---|---|---|
+     | under 1000 | 0.86 | 0.87 | 0.94 | 0.95 |
+     | 1800+ | 0.85 | 0.81 | 0.94 | 0.93 |
+
+   - Pattern ids are so common that "same as before" would be true for anyone, so it says
+     nothing about him. **It must not be shown on pattern ids.**
+   - **V1:** "same as before" needs a narrower key that beats this control before it ships:
+     - the habit key from Q2 (same idea, same opening family, same side); or
+     - the same piece and square relation in the same phase.
+   - *Check needed (inference):* the "earlier game" sentence already shipped on review cards
+     (fd75da5b) is built on `user_pattern_events`. Its sentences are true, but by this
+     measurement they may not be distinctive. That needs its own check against this control.
 5. **Fold or retire:** `/daily-fix/drill`, `/mission/:id`, plateau-breaker (it holds the
    "one game, one mistake, one rule" idea). *Unblocking:* Mohit.
 6. **Maia sparring opponent.** *Unblocking:* measure response time and move quality at
    several ratings in a throwaway container, then Mohit decides.
-7. **How fast do new games arrive?** The median import is close to immediate, but the
-   90th percentile is 5.3 h. *Unblocking:* read the auto-sync schedule and find what the
-   slow cases have in common.
+7. **Getting from 11.5 minutes to about 2.**
+   - Measured: the sync notices a finished game in a median of 3.5 min; the job then takes
+     6.6 min, mostly on the 1-CPU server workers.
+   - Three levers, each to be measured, not assumed:
+     - **notice faster:** poll active players more often, or use the platforms' game streams;
+     - **run live games on the fast workers** (PC now, new servers later);
+     - **write the read right after the Stockfish pass,** before captions and profile
+       updates (about 100 s of each job, measured 2026-11-11).
+   - *Unblocking:* time each lever on one live game.
 8. **Where does the academy coach's note live?** Next to `reflection_sessions`, or on the
    game? *Unblocking:* check the academy schema with the coach-plan code.
 
@@ -362,8 +436,11 @@ moment. The class view lists students by what needs the coach's attention this w
 - Mohit signs this document, including every row of the route table.
 - A clickable mock of all five pages, plus the academy view, built from the test player's
   real games, is reviewed on the canvas.
-- Questions 1–4 are answered with measurements, and their numbers are locked through `/lock-via-data`.
-- The fast-lane latency is measured on the PC workers with the newest-game priority set
-  by hand on one game.
+- Questions 1–4 were measured on 2026-11-12 (section 6). Before code, their numbers are
+  locked through `/lock-via-data`:
+  - the per-band leak cut and a hand-checked precision sample;
+  - the personal stop rule's minimum games;
+  - a "same as before" key that beats the other-player control.
+- The three speed levers in question 7 are each timed on one live game.
 - `/audit-pre-code` passes before the first file.
 - Mongo (tunnel on 27018) is reachable for the measurements.
