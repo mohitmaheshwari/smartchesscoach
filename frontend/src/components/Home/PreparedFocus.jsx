@@ -47,14 +47,15 @@ export default function PreparedFocus() {
     };
   }, []);
 
-  if (!data || data.state !== "ready") return null;
+  // "none": nothing beyond the last game, which LastGameCard already tells.
+  if (!data || data.state !== "ready" || data.kind === "none" || !data.title) return null;
 
+  // .cg-coach-card prints its own "Your coach" label; no second eyebrow.
   return (
     <div data-testid="prepared-focus" className="cg-coach-card">
-      <p className="cg-eyebrow">
-        {data.kind === "clean" ? "Your games" : data.kind === "reading" ? "Your coach" : "What we work on"}
-      </p>
-      <h3 className="mt-2 text-lead font-heading font-semibold text-foreground">{data.title}</h3>
+      <h3 className="text-lead font-heading font-semibold text-foreground">
+        {data.kind === "habit" ? <>We work on: {data.title.charAt(0).toLowerCase() + data.title.slice(1)}</> : data.title}
+      </h3>
       {data.sign?.text && <p className="mt-2 text-note text-foreground/85">{data.sign.text}</p>}
       {data.rule && (
         <p className="mt-2 text-note text-foreground/85">

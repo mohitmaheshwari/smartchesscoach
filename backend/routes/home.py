@@ -522,15 +522,10 @@ def prepared_focus(out: Dict[str, Any]) -> Dict[str, Any]:
         h = openings[0]
         return {"state": "ready", "kind": "opening", "title": h["headline"], "detail": h["detail"],
                 "see_url": h.get("review_url")}
-    last = out.get("last_game") or {}
-    if last and not last.get("clean"):
-        return {"state": "ready", "kind": "last_game", "title": last.get("headline"),
-                "detail": "Start there: see what changed, and what was better.",
-                "see_url": last.get("review_url")}
-    return {"state": "ready", "kind": "clean",
-            "title": "Your recent games had no single losing habit.",
-            "detail": "Keep playing. The next game that goes wrong shows us where to start.",
-            "see_url": None}
+    # Nothing beyond the last game: say nothing here. LastGameCard, above on
+    # the same page, already walks through that game; a second card about it
+    # repeated it (Mohit, 2026-11-12: "isn't both things telling same thing?").
+    return {"state": "ready", "kind": "none"}
 
 
 @router.post("/home/today/answer")
