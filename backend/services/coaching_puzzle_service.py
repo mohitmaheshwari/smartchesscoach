@@ -980,7 +980,21 @@ class CoachingPuzzleService:
         # with a known solution. The claim risk is in the coaching prose around
         # it, which is generated separately and still goes through the caption
         # layer.
-        themes = WEAKNESS_TO_PUZZLE_THEMES.get(weakness_pattern)
+        # ONE source of truth for which themes a topic may practise on.
+        # services/topic_practice_themes.py picked its lists by asking what the
+        # solver actually practises when they find the move -- which is why
+        # king_safety there is defensiveMove/exposedKing and NOT kingsideAttack
+        # or backRankMate, where the solver DELIVERS the attack instead of
+        # defending one. Where that module has no opinion on a topic, the older
+        # mapping in this file still applies.
+        from services.topic_practice_themes import (
+            question_for_themes as _question_for_themes,
+            themes_for as _practice_themes_for,
+        )
+
+        themes = list(_practice_themes_for(weakness_pattern)) or (
+            WEAKNESS_TO_PUZZLE_THEMES.get(weakness_pattern)
+        )
         if not themes:
             return []
 
@@ -1057,6 +1071,13 @@ class CoachingPuzzleService:
                 if verdict.status == AdmissionStatus.QUARANTINE:
                     continue
 
+                # The row used to hardcode calculation_depth for BOTH fields,
+                # whatever topic was asked for. _get_coaching_context reads
+                # `pattern_type`, so a king_safety page announced itself as
+                # "Calculate the Reply" over a defensive puzzle. Carry the
+                # puzzle's real Lichess themes, and label the row with the
+                # topic it is actually being served for.
+                _row_themes = [str(t) for t in (p.get("themes") or ())]
                 out.append({
                     "puzzle_id": f"lichess_{p['puzzle_id']}",
                     "source": "lichess",
@@ -1064,8 +1085,11 @@ class CoachingPuzzleService:
                     "solution": solution_moves,
                     "solution_san": solution_san,
                     "rating": p.get("rating"),
-                    "themes": ["calculation_depth"],
-                    "pattern_type": "calculation_depth",
+                    "themes": _row_themes,
+                    "pattern_type": weakness_pattern or "calculation_depth",
+                    # Asked from the THEME, never the topic: a defensiveMove
+                    # puzzle promises only that the right move is defensive.
+                    "question": _question_for_themes(_row_themes),
                     "verified_admission": verdict.to_document(),
                     "popularity": p.get("popularity"),
                     "opening": (p.get("opening_tags") or [None])[0] if p.get("opening_tags") else "",

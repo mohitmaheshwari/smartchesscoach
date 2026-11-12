@@ -802,6 +802,9 @@ async def get_prescribed_training_endpoint(
     except Exception:
         pass
 
+    _required_quality_id = (
+        resolved_focus.get("detector_quality_id") if resolved_focus else None
+    )
     result = await puzzle_service.get_prescribed_training(
         user_id=user.user_id,
         weakness_pattern=weakness,
@@ -809,10 +812,52 @@ async def get_prescribed_training_endpoint(
         rating_range=rating_range,
         strong_openings=_strong,
         player_style=_style,
-        required_quality_id=(
-            resolved_focus.get("detector_quality_id") if resolved_focus else None
-        ),
+        required_quality_id=_required_quality_id,
     )
+
+    # A focus can be AUTHORIZED to coach while NOTHING in the pool can satisfy
+    # its evidence requirement -- and then this page renders empty.
+    #
+    # Measured 2026-11-12 against production data for the account whose active
+    # focus is king_safety, stamped `gap:king_safety:ignored_king_attack`. That
+    # quality id matches 0 of 81,594 community_puzzles and 0 community training
+    # positions -- no `gap:king_safety:*` id exists anywhere -- because
+    # verified_puzzle_builder._proof_fields has provers for ten concepts and
+    # none of them can certify "the king was left exposed". The strict pass
+    # therefore returned zero and /training/pattern/king_safety showed nothing,
+    # while the detector behind that very focus had fired 196 times across the
+    # player's own 904 games. Supply at source was never the problem.
+    #
+    # Serving practice that already carries proof is the answer
+    # services/topic_practice_themes.py reasoned out on 2026-10-06. It was
+    # wired to the motif-drill route then (37b8e235) and never to this one.
+    #
+    # The evidence guarantee is untouched: get_prescribed_training still
+    # refuses Lichess whenever required_quality_id is set, so this is an
+    # explicit, labelled SECOND request rather than a widening of what counts
+    # as proof. `practice_tier` says so in the payload, and a solve here still
+    # carries no quality_id, so it cannot close the focus as verified mastery.
+    if _required_quality_id and not (result.get("puzzles") or []):
+        result = await puzzle_service.get_prescribed_training(
+            user_id=user.user_id,
+            weakness_pattern=weakness,
+            num_puzzles=num_puzzles,
+            rating_range=rating_range,
+            strong_openings=_strong,
+            player_style=_style,
+            required_quality_id=None,
+        )
+        result["practice_tier"] = True
+        result["practice_reason"] = (
+            "These are practice positions for this topic, not positions from "
+            "your own games."
+        )
+        logger.info(
+            "prescribed: practice tier for %s/%s -- no puzzle carries %s",
+            user.user_id,
+            weakness,
+            _required_quality_id,
+        )
 
     if resolved_focus:
         result["active_focus"] = resolved_focus
