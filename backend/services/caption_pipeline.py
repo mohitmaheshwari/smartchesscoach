@@ -4108,6 +4108,18 @@ def weak_pawn_count_sentence(contested: Optional[Dict[str, Any]]) -> str:
 MATERIAL_CLAIM_SEVERITIES = ("mistake", "serious", "blunder")
 
 
+_LESSON_START_RE = _re_pb.compile(
+    r"^(?:When|Whenever|Before|Always|Never|Late in|Early|In the endgame|"
+    r"Look for|Check|Count|Keep|Ask)\b")
+
+
+def _ends_with_lesson(caption: str) -> bool:
+    """True when the caption's last sentence is a transferable instruction
+    ("When X, do Y.", "Before every move, ask ..."), the card's lesson ending."""
+    sentences = [x.strip() for x in _re_pb.split(r"(?<=[.!?])\s+", (caption or "").strip()) if x.strip()]
+    return bool(sentences) and bool(_LESSON_START_RE.match(sentences[-1]))
+
+
 def reply_gap_sentence(gap: Optional[Dict[str, Any]],
                        mover_is_user: bool = True,
                        severity: Optional[str] = None,
@@ -9474,13 +9486,24 @@ def build_move_teaching_decision(
                             _rg_candidates.append(reply_gap_sentence(
                                 dict(_rg, allows=[_rg_one]),
                                 mover_is_user=bool(inputs.mover_is_user),
-                                severity=_rg_sev))
+                                severity=_rg_sev, subject=_rg_subject))
                 _rg_join = " " if _rg_cap.endswith((".", "!", "?")) else ". "
                 _rg_shipped = False
                 for _rg_try in _rg_candidates:
                     if not (_rg_try or "").strip():
                         continue
-                    _rg_full = _rg_cap + _rg_join + _rg_try.strip()
+                    # A card that ends on its lesson keeps that ending: the
+                    # sentence goes in front of it, not after it ("After
+                    # Na3, Bxa3 simply takes your knight." belongs before
+                    # "When something of yours is attacked, look for your
+                    # own attack before you move it."; 2026-11-12).
+                    _rg_sents = [x for x in _re_pb.split(
+                        r"(?<=[.!?])\s+", _rg_cap) if x.strip()]
+                    if len(_rg_sents) > 1 and _ends_with_lesson(_rg_cap):
+                        _rg_full = " ".join(
+                            _rg_sents[:-1] + [_rg_try.strip(), _rg_sents[-1]])
+                    else:
+                        _rg_full = _rg_cap + _rg_join + _rg_try.strip()
                     if (len(_rg_full.split()) <= _RG_CAP
                             and not _verify_final(_rg_full)):
                         caption_payload["caption"] = _rg_full

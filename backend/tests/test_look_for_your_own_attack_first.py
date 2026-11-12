@@ -133,7 +133,14 @@ class TestTheCard:
         said 'attacks their queen on d5' twice in 52 words."""
         text = _caption().text.caption
         assert text.count("d5") == 1
-        assert len(text.split()) <= 45
+        # Was <= 45 when the card had two sentences. Since 2026-11-12 the
+        # exchange ledger adds the move's concrete cost ("After Qxb7, Qxa2
+        # simply takes your pawn on a2."), a new fact, not a repeat; the
+        # repeat is what the d5 count checks. The pipeline's own cap holds.
+        from services.caption_config import MAX_CAPTION_WORDS
+        assert len(text.split()) <= MAX_CAPTION_WORDS
+        # The lesson stays the card's last sentence.
+        assert text.rstrip().endswith("look for your own attack before you move it.")
 
     def test_it_never_claims_a_counter_attack_that_is_not_there(self):
         """The sentence ships only when the board proves both halves."""
