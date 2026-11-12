@@ -973,3 +973,15 @@ def test_the_path_names_each_stage_and_the_summary_carries_the_rule(db):
         run(routes.class_answer(token, {"session_id": sid, "item_id": item["id"], "answer": answer}))
         view = run(routes.class_next(token, {"session_id": sid}))
     assert view["summary"]["rule"] == fs.class_by_id("opening_basics")["rule"]
+
+
+# ---------------------------------------------------------------------------
+# the student's player file (docs/coach_pages_scope.md, "Academy")
+# ---------------------------------------------------------------------------
+def test_the_player_file_is_shut_before_consent_and_to_other_academies(db):
+    _, _, _, student = _setup(db)
+    assert run(routes.student_coach_file(student["student_id"], user=COACH)) == {
+        "enabled": False, "reason": "consent"}
+    with pytest.raises(HTTPException) as e:
+        run(routes.student_coach_file(student["student_id"], user=STRANGER))
+    assert e.value.status_code == 403

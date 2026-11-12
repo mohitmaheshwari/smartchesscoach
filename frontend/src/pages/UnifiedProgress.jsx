@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { API } from "@/App";
+import { useCoachFile } from "@/lib/coachFile";
+import { CoachProgressSection } from "@/components/coachfile/CoachFileBlocks";
 import { ANALYTICS_EVENTS, trackCurriculum } from "@/lib/analytics";
 import { loadPersonalCurriculum } from "@/lib/personalCurriculum";
 // Thinking habits. The component existed since before 2026-09 and was
@@ -331,6 +333,10 @@ function CoachGameEvidence({ evidence }) {
 
 export default function UnifiedProgress({ user }) {
   const navigate = useNavigate();
+  // docs/coach_pages_scope.md, "Progress": every habit his games show, from
+  // the player file. Only for user.coach_pages; the hook answers
+  // {enabled: false} for everyone else and nothing renders.
+  const coachFile = useCoachFile("/coach-file", Boolean(user?.coach_pages));
   const [loading, setLoading] = useState(true);
   const [journey, setJourney] = useState(null);
   const [curriculum, setCurriculum] = useState(null);
@@ -392,6 +398,22 @@ export default function UnifiedProgress({ user }) {
       <Layout user={user}>
         <div className="grid h-[60vh] place-items-center" aria-label="Loading progress">
           <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!loadError && !journey?.enabled && !journey?.paused && coachFile?.enabled) {
+    // A coach-pages player whose phase-8 journey is not on: his habits are
+    // still his progress, so the page is the habits, not an apology.
+    return (
+      <Layout user={user}>
+        <div className="experience-page experience-progress-page cg-page cg-page--wide" data-testid="progress-coach-only">
+          <header className="cg-hero mb-8">
+            <p className="cg-eyebrow">Progress · what is changing in your chess</p>
+            <h1 className="cg-title">Where you started, and where you are.</h1>
+          </header>
+          <CoachProgressSection file={coachFile} />
         </div>
       </Layout>
     );
@@ -466,6 +488,8 @@ export default function UnifiedProgress({ user }) {
             {view.body}
           </p>
         </motion.header>
+
+        <CoachProgressSection file={coachFile} />
 
         <motion.section
           variants={fadeInUp}

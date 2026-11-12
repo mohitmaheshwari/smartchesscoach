@@ -12,6 +12,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { API } from "@/App";
 import Layout, { rememberAcademyStaff } from "@/components/Layout";
 import ParentReport from "@/components/academy/ParentReport";
+import { useCoachFile } from "@/lib/coachFile";
+import { OpeningHabit, ProgressList, SittingNote, TrapCard } from "@/components/coachfile/CoachFileBlocks";
 
 async function call(path, { method = "GET", body } = {}) {
   const res = await fetch(`${API}${path}`, {
@@ -576,6 +578,56 @@ function CoachPlanCard({ plan, studentId, name, onChange }) {
 // ---------------------------------------------------------------------------
 // /academy/student/:studentId
 // ---------------------------------------------------------------------------
+/**
+ * The student's player file (docs/coach_pages_scope.md, "Academy"): the same
+ * document his own coach pages read, so the coach and the child see one
+ * answer. The habit itself is the coach plan above; this adds his openings,
+ * traps, sittings and how each habit is changing. Read only after consent
+ * (the server answers {enabled: false} before it).
+ */
+function StudentCoachFile({ studentId, name }) {
+  const file = useCoachFile(`/academy/student/${studentId}/coach-file`);
+  if (!file?.enabled) return null;
+  if (file.state === "building") {
+    return (
+      <Card>
+        <Eyebrow>From {name}'s games</Eyebrow>
+        <p className="text-sm text-muted-foreground">Reading the games. This takes a moment the first time.</p>
+      </Card>
+    );
+  }
+  const notation = file.notation !== false;
+  const openings = file.openings || [];
+  const traps = [...(file.traps?.against || []), ...(file.traps?.for_you || [])];
+  return (
+    <Card>
+      <Eyebrow>From {name}'s games</Eyebrow>
+      <div data-testid="academy-coach-file" className="grid gap-6">
+        <SittingNote sitting={file.sitting} />
+        <div>
+          <p className="text-lg font-semibold">How each habit is changing</p>
+          <div className="mt-2">
+            {(file.progress?.habits?.length || file.progress?.kept?.length) ? (
+              <ProgressList file={{ ...file, habit: null }} />
+            ) : (
+              <p className="text-sm text-muted-foreground">None of the problems we can check showed up yet.</p>
+            )}
+          </div>
+        </div>
+        {(openings.length > 0 || traps.length > 0) && (
+          <div className="grid gap-8">
+            <p className="text-lg font-semibold">Opening file</p>
+            {openings.map((h) => (
+              <OpeningHabit key={`${h.side}-${h.line}-${h.idea}`} habit={h} notation={notation} canPlay={false} />
+            ))}
+            {traps.map((t) => <TrapCard key={t.key + t.side} trap={t} notation={notation} />)}
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export function AcademyStudent() {
   const { studentId } = useParams();
   const navigate = useNavigate();
@@ -679,6 +731,7 @@ export function AcademyStudent() {
               )}
             </Card>
             <CoachPlanCard plan={view.plan} studentId={studentId} name={s.display_name} onChange={reload} />
+            <StudentCoachFile studentId={studentId} name={s.display_name} />
             {(view.preview?.sections || []).some((sec) => sec.kind === "good") && (
               <Card>
                 <Eyebrow>A good moment</Eyebrow>

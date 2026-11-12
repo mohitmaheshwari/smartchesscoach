@@ -143,7 +143,13 @@ const AllGames = ({ user }) => {
     .filter(g => g.platform !== "coach" && g.opponent !== "Coach")
     .sort(sortByDate);
 
-  const activeGames = tab === "coach" ? coachGames : importedGames;
+  // docs/coach_pages_scope.md, "Games": the coach's pick leads the list.
+  const pickFirst = (rows) => {
+    if (!user?.coach_pages) return rows;
+    const isPick = (g) => recommendation?.review_states?.[g.game_id] === "recommended";
+    return [...rows.filter(isPick), ...rows.filter((g) => !isPick(g))];
+  };
+  const activeGames = pickFirst(tab === "coach" ? coachGames : importedGames);
   const selected = recommendation?.prescription;
   const recommendationEnabled = recommendation?.enabled === true;
   const recommendationFailed = recommendation?.load_failed === true;
@@ -167,7 +173,15 @@ const AllGames = ({ user }) => {
         resumed: selected.state === "started",
         chapter_count: selected.chapters?.length || 0,
       });
-      navigate(payload.prescription.review_url);
+      let url = payload.prescription.review_url;
+      // The review reads ?move=, not ?resume= (GameDecryptionV5): for the
+      // coach pages, a fresh pick opens on the decision that changed the game.
+      if (user?.coach_pages && !/[?&]move=/.test(url) && /[?&]resume=-1(&|$)/.test(url)) {
+        const chapters = payload.prescription.chapters || [];
+        const turn = chapters.find((c) => c.role === "turning_point") || chapters[0];
+        if (turn?.move_number) url += `${url.includes("?") ? "&" : "?"}move=${turn.move_number}`;
+      }
+      navigate(url);
     } catch (error) {
       setRecommendationError(error.message);
     } finally {
@@ -283,7 +297,13 @@ const AllGames = ({ user }) => {
               </p>
             ) : null}
             <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/game/${g.game_id}`); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                // Coach pages open a review on the move that decided the game,
+                // never on move one (docs/coach_pages_scope.md, "Games").
+                const atMove = user?.coach_pages && g.critical_move ? `?move=${g.critical_move}` : "";
+                navigate(`/game/${g.game_id}${atMove}`);
+              }}
               className="cg-primary-action !min-h-9 !px-4 !py-2 text-xs"
             >
               Review this with me

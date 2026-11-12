@@ -179,7 +179,19 @@ const Layout = ({ children, user, fullBleed = false }) => {
     finally { notificationReadInProgressRef.current = false; }
   };
 
-  const navigation = [
+  // The coach pages (docs/coach_pages_scope.md): one coach, five rooms. Home,
+  // Games, Learn, Progress here; Play is the gold button below. Pattern
+  // Training and the other drills fold into Learn's library. Only for a
+  // player with user.coach_pages (the flag, or a super-admin in view-as).
+  const coachNavigation = [
+    { name: 'Home', href: '/home', icon: Home, bar: 'Home' },
+    { name: 'Games', href: CURRICULUM_ROUTES.gameReview, icon: FlaskConical, bar: 'Games' },
+    { name: 'Learn', href: '/learn', icon: BookOpen, bar: 'Learn' },
+    { name: 'Progress', href: '/progress', icon: TrendingUp, bar: 'Progress' },
+    ...(isAcademyStaff() ? [{ name: 'Academy', href: '/academy', icon: Users }] : []),
+  ];
+
+  const navigation = user?.coach_pages ? coachNavigation : [
     { name: 'Home', href: '/home', icon: Home, bar: 'Home' },
     { name: 'Learn', href: personalCurriculumEnabled ? '/learn' : '/lab', icon: BookOpen, bar: 'Learn' },
     ...(personalCurriculumEnabled

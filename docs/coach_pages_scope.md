@@ -8,7 +8,7 @@ level"*, *"we will buy better servers, so performance is not the issue"*.
 
 Mission unchanged: **the academy head coach's assistant, and a coach for the player.**
 
-Status: **Mohit, 2026-11-12: "go ahead". Pre-code requirements (section 7) under way. No code until the clickable mock and the section-6 measurements are reviewed.**
+Status: **Mohit, 2026-11-12: "go ahead", then "don't make mockups, work on the live site directly" and "build everything". Built behind the per-user flag; see "Build record" at the end. The mock requirement in section 7 is superseded by his instruction.**
 
 ---
 
@@ -444,3 +444,73 @@ Questions 1–4 were measured on 2026-11-12. Scripts are in the session scratchp
 - The three speed levers in question 7 are each timed on one live game.
 - `/audit-pre-code` passes before the first file.
 - Mongo (tunnel on 27018) is reachable for the measurements.
+
+---
+
+## Build record (2026-11-12)
+
+Built on branch `claude/coach-pages`. Everything sits behind `BETWEEN_GAMES_USERS`, and is
+also open to a super-admin viewing any player through view-as (`/auth/me` says
+`coach_pages`), so every level can be reviewed live without anyone else seeing it.
+
+**The player file, schema 2** (`services/player_coach_file.py`, `services/player_coach_habit.py`)
+- **Openings count only real opening choices.** An instance is dropped when the better move
+  was a capture or a check (a missed shot), or when the move left a piece hanging (a safety
+  slip). Across 50 players these were 40% of instances under 1000 and 10-35% above. After the
+  fix, 42 of 50 players still have a habit, against 50 before.
+- **Traps.** A trap counts by position, so a transposition into the same setup is the same
+  trap. The side a trap wins for is decided by Stockfish (depth 18, at the end of the trap
+  line, 150+): `data/trap_roles_verified.json`.
+  - The engine decides 30 non-plan traps out of 55.
+  - The stored `trap_color` field is wrong on three of them.
+  - Coverage is thin: 5 of 78 players have a trap to show, because the library rarely
+    meets what they play (exact move order found 51 of 3,196 games). This is recorded as a
+    gap, not padded.
+- **"Same as before"** is said only when the deciding move matches one of his opening
+  habits (same side, same opening, same move idea).
+  - Against the other-player control, own vs other: 0.08 vs 0.01 (<1000), 0.05 vs 0.02,
+    0.11 vs 0.14 (1400-1799, n=28, fails), 0.11 vs 0.00 (1800+).
+  - The habit requirement (3+ games) is stricter than this key alone.
+- **The habit he trains** comes from `coach_plan_service`, the academy plan's engine, using
+  PLAN-trusted detectors only.
+  - It is chosen from his newest 30 analysed games and kept for 14 days while it stays in
+    his top three.
+  - It has a per-game check against the baseline taken when it was chosen.
+- **Progress** covers every trusted problem: his newest 20 games against the 40 before them.
+  - The test is a one-sided binomial tail at 0.10, against his own earlier rate.
+  - "Better" or "kept" also needs 3+ earlier games with the problem, and "worse" needs 3+
+    recent ones.
+- **Dry run** on 9 real players (two per band plus the test player), read-only, on the
+  server:
+  - every player has a habit, progress and positions to play;
+  - 7 have an opening habit;
+  - 7 had a deciding move in their last game;
+  - no digit appears in any player sentence;
+  - a build takes 11-21 s.
+
+**Pages**
+- **Home:** the sitting line, the last game's repeat line (only when it fires), "watch for"
+  (the habit's sign and rule), the costliest opening habit, and two positions to play.
+  The last game itself stays on `LastGameCard`.
+- **Games:** the coach's pick leads the list; each row opens the review at the deciding move
+  (`?move=`); a fresh pick opens at its turning-point chapter.
+- **Learn** (`/learn` → `CoachLearn`): the opening file (habits, traps against him, traps he
+  can set), the habit he trains (sign, rule, moments with "Play from here" and "See the
+  game", and practice through `/training/pattern/:key`), positions to play, and the library.
+- **Progress:** "Is it working?" with each habit's state and the kept shelf, shown even when
+  the phase-8 journey is off.
+- **Play:** any position starts Play with Coach in practice mode from that position.
+- **Academy:** the student page shows the same file after consent: sittings, how each habit
+  is changing, the opening file and traps. The habit stays with the coach plan above it.
+- **Navigation** for coach-pages players: Home, Games, Learn, Progress, plus the Play button.
+
+**Not built in this pass, and why**
+- **What the next level plays (Maia):** the human-policy runtime is off in prod and needs its
+  model mount; turning it on is Mohit's call (section 4).
+- **A reply-check set generated from his positions:** no packet builder exists, since packets
+  were hand-frozen. Practice is "play from here" plus the pattern drills.
+- **Retiring and redirecting the old routes:** only the navigation changes, and only for
+  coach-pages players. Redirects would reach everyone, so they wait for the decision to widen.
+- **Speed levers (Q7)** and the per-moment academy coach note (Q8).
+- **Ask before telling on Games:** it already exists (`PersonalizedReviewCoach` taps) where a
+  game has a personalized plan; it is not extended here.

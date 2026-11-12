@@ -21,6 +21,7 @@ import ContactUs from "@/pages/ContactUs";
 import Dashboard from "@/pages/Dashboard";
 import HomePageNew from "@/pages/HomePageNew";  // NEW focused homepage (2026-07-11)
 import PersonalCurriculum from "@/pages/PersonalCurriculum";
+import CoachLearn from "@/pages/CoachLearn";  // docs/coach_pages_scope.md, behind user.coach_pages
 import DailyFixDrill from "@/pages/DailyFixDrill";  // Daily Fix — timed rush-test drill
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
@@ -410,7 +411,9 @@ function AppRouter() {
       } />
       <Route path="/learn" element={
         <ProtectedRoute>
-          {({ user }) => <PersonalCurriculum user={user} />}
+          {({ user }) => (user?.coach_pages
+            ? <CoachLearn user={user} />
+            : <PersonalCurriculum user={user} />)}
         </ProtectedRoute>
       } />
       {/* /today is now an alias for /home — one landing page */}
