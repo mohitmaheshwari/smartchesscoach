@@ -10,7 +10,7 @@ Handles:
 - Data freshness (refresh, status)
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import re
@@ -428,25 +428,22 @@ async def get_home_session(user: User = Depends(get_current_user)):
 _coach_file_builds: set = set()
 
 
-@router.get("/home/between-games")
-async def get_between_games(user: User = Depends(get_current_user)):
-    """The between-games panel: his opening habits and the sitting line.
+async def coach_file_for(user_id: str) -> Dict[str, Any]:
+    """The player file for the pages, or "building" while it is first made.
 
     docs/coach_pages_scope.md. Reads the player file only; nothing heavy runs
-    on this request. Behind BETWEEN_GAMES_USERS (a comma list of user ids, or
-    "*"). The first visit of a flagged player starts the build in the
-    background and answers "building"; the analysis worker keeps the file
-    current after every game from then on.
+    on the request. A missing or old-schema file starts one background build
+    and answers "building"; the analysis worker keeps the file current after
+    every game from then on. Shared by the player's own pages and the academy
+    view of a student, so a coach and his student never read two answers.
     """
     import asyncio
     from services import player_coach_file as pcf
 
-    if not pcf.is_enabled_for(user.user_id):
-        return {"enabled": False}
-    doc = await db[pcf.COLLECTION].find_one({"user_id": user.user_id}, {"_id": 0})
+    doc = await db[pcf.COLLECTION].find_one({"user_id": user_id}, {"_id": 0})
     if not doc or doc.get("schema_version") != pcf.SCHEMA_VERSION:
-        if user.user_id not in _coach_file_builds:
-            _coach_file_builds.add(user.user_id)
+        if user_id not in _coach_file_builds:
+            _coach_file_builds.add(user_id)
 
             async def _build(uid: str) -> None:
                 try:
@@ -456,10 +453,30 @@ async def get_between_games(user: User = Depends(get_current_user)):
                 finally:
                     _coach_file_builds.discard(uid)
 
-            asyncio.create_task(_build(user.user_id))
+            asyncio.create_task(_build(user_id))
         return {"enabled": True, "state": "building"}
-    recent = await pcf.recent_starts(db, user.user_id)
+    recent = await pcf.recent_starts(db, user_id)
     return pcf.payload(doc, recent)
+
+
+@router.get("/coach-file")
+async def get_coach_file(request: Request, user: User = Depends(get_current_user)):
+    """Everything the five coach pages show, from one per-player file.
+
+    Behind BETWEEN_GAMES_USERS (a comma list of user ids, or "*"), and open to
+    a super-admin viewing any player through view-as, so the pages can be
+    reviewed at every level before anyone else sees them."""
+    from services import player_coach_file as pcf
+
+    if not pcf.is_enabled_for_request(request, user.user_id):
+        return {"enabled": False}
+    return await coach_file_for(user.user_id)
+
+
+@router.get("/home/between-games")
+async def get_between_games(request: Request, user: User = Depends(get_current_user)):
+    """The Home panel. Same payload as /coach-file (one source)."""
+    return await get_coach_file(request, user)
 
 
 @router.post("/home/today/answer")

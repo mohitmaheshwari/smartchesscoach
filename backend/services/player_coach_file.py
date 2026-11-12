@@ -1,28 +1,39 @@
 """The player file: one document per player that the coach pages read.
 
-docs/coach_pages_scope.md. Every coach page reads this one document by player
-id, so no page computes anything when it opens. It is a CACHE derived from
-`games` and `game_analyses`; it is never a source of truth, and deleting it
-loses nothing (the next build writes it again).
+docs/coach_pages_scope.md. Every coach page (Home, Games, Learn, Progress,
+Play, and the academy view of a student) reads this one document by player id,
+so no page computes anything when it opens. It is a CACHE derived from `games`,
+`game_analyses` and `move_observations`; it is never a source of truth, and
+deleting it loses nothing (the next build writes it again).
 
 Who writes it:
   - the analysis worker, after every analysed game, for players who already
     have a file (`refresh_if_present_sync`);
-  - the home endpoint, in the background, the first time a flagged player
-    opens Home (`build_and_store`).
+  - the page endpoint, in the background, the first time a player is opened
+    (`build_and_store`).
 
-What is in it (V1, the between-games slice):
-  - `openings`: the player's costliest opening HABITS. A habit is the same
-    move idea (same piece to the same square) in the same opening family, in
-    three or more games and at least two different positions. Matching the
-    idea instead of the exact position is what makes it visible early:
-    measured 2026-11-12 over 53 players, with only the newest 20 games a habit
-    leak shows for 21/26 (<1000), 8/11, 7/9, 7/7 (1800+) players, against
-    9/26, 3/11, 0/9, 4/7 for exact positions.
-  - `sitting`: whether long sittings cost THIS player, decided from his own
-    history with a permutation test. Across all 53 players the game's number
-    in a sitting barely moves the score (0.47-0.56), so this is never said as
-    a general rule -- only when his own games show it beyond chance.
+What is in it (schema 2):
+  - `openings`: his costliest opening HABITS. A habit is the same move idea
+    (same piece to the same square) in the same opening family, in three or
+    more games and at least two positions. Only real opening CHOICES count:
+    when the better move was a capture or a check (a missed shot) or his move
+    left a piece hanging (a safety slip), that instance belongs to the
+    tactics and safety coaching, not the opening file. Measured 2026-11-12 on
+    50 players: those were 40% of the instances under 1000 and 10-35% above.
+  - `traps`: opening traps from data/traps.json found in his games, with the
+    side each trap wins for decided by Stockfish (data/trap_roles_verified.json),
+    because the stored roles disagree with the library on 25 of 55 traps.
+  - `last_game`: the newest analysed game's deciding move (his costliest move,
+    150+), and whether it repeats one of his opening habits. "Same as before"
+    is said ONLY through a habit key (side + opening + move idea): that key
+    beat the other-player control in three bands of four (q: coach_measure.py,
+    2026-11-12); pattern ids did not (scope Q4).
+  - `habit`, `habit_check`, `progress`: the problem he trains and whether each
+    trusted problem is changing (services/player_coach_habit.py).
+  - `play_positions`: positions from his own games to spar from.
+  - `sitting`: whether long sittings cost THIS player, from his own history
+    with a permutation test. Across 53 players the game's number in a sitting
+    barely moves the score (0.47-0.56), so it is never said as a general rule.
 
 Player-facing sentences carry no digits. Chess notation lives in separate
 fields (`line`, `san`, `better_san`) that the page renders as notation.
@@ -30,31 +41,35 @@ fields (`line`, `san`, `better_san`) that the page renders as notation.
 from __future__ import annotations
 
 import io
+import json
 import logging
 import os
 import random
 import statistics
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from pathlib import Path
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import chess
 import chess.pgn
 
+from services import player_coach_habit as pch
+
 logger = logging.getLogger(__name__)
 
 COLLECTION = "player_coach_files"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 FLAG_ENV = "BETWEEN_GAMES_USERS"
 
-# Newest analysed games read for the opening habits.
+# Newest analysed games read for the opening habits, traps and progress.
 OPENING_GAMES = 60
 # The opening is the player's first twelve moves.
 OPENING_LAST_MOVE = 12
 PLIES_READ = 30
 HABIT_MIN_GAMES = 3
 HABIT_MIN_POSITIONS = 2
-HABITS_SHOWN = 2
+HABITS_SHOWN = 3
 
 # Average Stockfish loss a habit must reach to be shown, per rating band.
 # Locked 2026-11-12 from the 90th percentile of the average loss of every habit
@@ -62,6 +77,19 @@ HABITS_SHOWN = 2
 # 1000-1399 p90 86, 1400-1799 p90 73, 1800+ p90 64. One cut for every band
 # would be wrong: a typical repeated move costs 31 under 1000 and 19 at 1800+.
 HABIT_CUT_BY_BAND = {"<1000": 140, "1000-1399": 86, "1400-1799": 73, "1800+": 64}
+
+# The deciding move of a game: his costliest move, at least this much. At
+# every band 86-91% of games have one (53 players, 2026-11-12).
+DECIDING_CP = 150
+
+# Traps: shown against him when one caught him, or when its line came up in
+# two or more of his games; shown for him when he reached it twice or more.
+TRAP_FACED_MIN = 2
+TRAP_REACHED_MIN = 2
+TRAPS_SHOWN = 2
+TRAP_ROLES_PATH = Path(__file__).resolve().parent.parent / "data" / "trap_roles_verified.json"
+
+PLAY_POSITIONS_SHOWN = 4
 
 # Sittings. A new sitting starts after a gap of more than 45 minutes between
 # game starts (the median start-to-start gap is 10-16 minutes at every band).
@@ -82,6 +110,21 @@ def is_enabled_for(user_id: str) -> bool:
     raw = os.environ.get(FLAG_ENV, "")
     ids = {x.strip() for x in raw.split(",") if x.strip()}
     return "*" in ids or user_id in ids
+
+
+def is_enabled_for_request(request: Any, user_id: str) -> bool:
+    """The flag, or a super-admin viewing this player through view-as.
+
+    View-as lets Mohit review the coach pages on any player at any level
+    without anyone else seeing them: the player himself still gets the old
+    pages until his id is in the flag. `request.state.view_as` is set only by
+    routes/auth._resolve_view_as after it re-checks the super-admin session.
+    """
+    if is_enabled_for(user_id):
+        return True
+    state = getattr(request, "state", None)
+    session = getattr(state, "view_as", None) if state is not None else None
+    return bool(session) and session.get("target_user_id") == user_id
 
 
 # --------------------------------------------------------------------------
@@ -144,6 +187,38 @@ def _squares(fen: str, san: str) -> Optional[Tuple[str, str]]:
     return chess.square_name(move.from_square), chess.square_name(move.to_square)
 
 
+def _idea(san: str) -> str:
+    return san.replace("x", "").replace("+", "").replace("#", "")
+
+
+def instance_kind(fen: str, san: str, best: str) -> Optional[str]:
+    """'shot' when the better move was a capture or a check; 'safety' when his
+    move left one of his pieces hanging that was not hanging before (or the
+    moved piece itself); otherwise 'choice'. None when the move is unreadable."""
+    from services.first_steps import is_hanging
+
+    try:
+        board = chess.Board(fen)
+        move = board.parse_san(san)
+    except (ValueError, AssertionError):
+        return None
+    if best:
+        try:
+            better = board.parse_san(best)
+            if board.is_capture(better) or board.gives_check(better):
+                return "shot"
+        except (ValueError, AssertionError):
+            pass
+    me = board.turn
+    before = {sq for sq, p in board.piece_map().items() if p.color == me and is_hanging(board, sq)}
+    after_board = board.copy(stack=False)
+    after_board.push(move)
+    after = {sq for sq, p in after_board.piece_map().items() if p.color == me and is_hanging(after_board, sq)}
+    if (after - before) or move.to_square in after:
+        return "safety"
+    return "choice"
+
+
 # --------------------------------------------------------------------------
 # Openings
 # --------------------------------------------------------------------------
@@ -178,7 +253,7 @@ def opening_habits(
                     continue
             except ValueError:
                 continue
-            idea = san.replace("x", "").replace("+", "").replace("#", "")
+            idea = _idea(san)
             # Castling is never the idea to replace: when castling is
             # expensive, something else was left loose, which is a safety
             # habit and belongs to the safety coaching, not the opening file.
@@ -188,12 +263,18 @@ def opening_habits(
             # One instance per game: the same idea twice in one game is one game.
             if game_id in habits[key]:
                 continue
+            best = str(row.get("best_move") or "")
+            # A missed shot or a piece left hanging is not opening knowledge.
+            if instance_kind(fen, san, best) != "choice":
+                continue
             habits[key][game_id] = {
                 "cp": min(float(cp), 1000.0),
                 "fen": fen,
                 "position": " ".join(parts[:4]),
                 "san": san,
-                "best": str(row.get("best_move") or ""),
+                "best": best,
+                "game_id": game_id,
+                "move_number": int(parts[5]),
             }
 
     found: List[Dict[str, Any]] = []
@@ -231,6 +312,8 @@ def opening_habits(
                 "better_san": inst["best"],
                 "better_from": better[0],
                 "better_to": better[1],
+                "game_id": inst["game_id"],
+                "review_url": f"/game/{inst['game_id']}?move={inst['move_number']}",
                 "headline": (
                     f"As {colour.capitalize()}, you keep playing this move early, "
                     "and it keeps costing you."
@@ -251,6 +334,222 @@ def opening_habits(
     for habit in found:
         habit.pop("_rank", None)
     return found[:HABITS_SHOWN]
+
+
+# --------------------------------------------------------------------------
+# Traps
+# --------------------------------------------------------------------------
+_TRAP_ROLES: Optional[Dict[str, Dict[str, Any]]] = None
+
+
+def trap_roles() -> Dict[str, Dict[str, Any]]:
+    """Each trap with the side it wins for, decided by Stockfish (depth 18,
+    eval after the setup vs after the trap line, 150+). Traps the engine could
+    not decide, and opening-plan lessons, are left out."""
+    global _TRAP_ROLES
+    if _TRAP_ROLES is None:
+        try:
+            raw = json.loads(TRAP_ROLES_PATH.read_text(encoding="utf-8")).get("traps") or {}
+        except (OSError, ValueError):
+            logger.warning("trap roles file missing: %s", TRAP_ROLES_PATH)
+            raw = {}
+        _TRAP_ROLES = {k: v for k, v in raw.items()
+                       if v.get("setter") in ("white", "black") and v.get("lesson_kind") != "opening_plan"
+                       and v.get("setup_san")}
+    return _TRAP_ROLES
+
+
+def _practice_link(practice_key: Optional[str]) -> Optional[str]:
+    """A trap lesson exists only for keys the trick library knows."""
+    if not practice_key:
+        return None
+    try:
+        from trick_library_service import TRAPS_DATABASE
+    except Exception:  # pragma: no cover - library import trouble: no link
+        return None
+    return f"/play-with-coach?trap={practice_key}" if practice_key in TRAPS_DATABASE else None
+
+
+def _position_key(board: chess.Board) -> str:
+    """Pieces and side to move: the same position reached by another move order."""
+    return f"{board.board_fen()} {'w' if board.turn else 'b'}"
+
+
+def _san_moves(pgn: str, limit: int = 40) -> List[str]:
+    try:
+        game = chess.pgn.read_game(io.StringIO(pgn or ""))
+    except Exception:
+        return []
+    if game is None:
+        return []
+    board = game.board()
+    if board.fen() != chess.STARTING_FEN:
+        return []  # a game from a set-up position has no opening trap
+    out: List[str] = []
+    for move in game.mainline_moves():
+        out.append(board.san(move))
+        board.push(move)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _positions(moves: Sequence[str]) -> Dict[str, int]:
+    """Position key -> the first ply index it occurs at (0 = before any move)."""
+    board = chess.Board()
+    seen = {_position_key(board): 0}
+    for i, san in enumerate(moves, start=1):
+        try:
+            board.push_san(san)
+        except ValueError:
+            break
+        seen.setdefault(_position_key(board), i)
+    return seen
+
+
+def _setup_key(trap: Mapping[str, Any]) -> Optional[str]:
+    board = chess.Board()
+    try:
+        for san in trap["setup_san"]:
+            board.push_san(san)
+    except ValueError:
+        return None
+    return _position_key(board)
+
+
+def trap_file(games: Sequence[Mapping[str, Any]], practice_keys: Mapping[str, str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Traps against him and traps he can set, from the games' opening moves.
+
+    `games` carry `game_id`, `user_color` and `san` (the game's SAN moves).
+    `practice_keys` maps a trap key to its traps.json practice_key."""
+    tally: Dict[str, Dict[str, Any]] = {}
+    setups = {key: _setup_key(trap) for key, trap in trap_roles().items()}
+    for g in games:
+        colour = g.get("user_color")
+        moves = g.get("san") or []
+        if colour not in ("white", "black") or not moves:
+            continue
+        # By position, not move order: the trap's setup reached by a
+        # transposition is the same trap (an exact move-order match found it
+        # in 51 of 3,196 recent games, 2026-11-12).
+        positions = _positions(moves)
+        for key, trap in trap_roles().items():
+            line = trap.get("trap_line_san") or []
+            at = positions.get(setups.get(key) or "")
+            if at is None:
+                continue
+            t = tally.setdefault(key, {"caught": [], "faced": [], "reached": [], "sprung": []})
+            sprung = bool(line) and list(moves[at: at + len(line)]) == list(line)
+            if trap["setter"] == colour:
+                t["sprung" if sprung else "reached"].append(g["game_id"])
+            else:
+                t["caught" if sprung else "faced"].append(g["game_id"])
+
+    against, for_you = [], []
+    for key, t in tally.items():
+        trap = trap_roles()[key]
+        setter = trap["setter"]
+        victim = "black" if setter == "white" else "white"
+        base = {
+            "key": key,
+            "name": trap.get("name"),
+            "setup_san": trap["setup_san"],
+            "trap_line_san": trap.get("trap_line_san") or [],
+            "setup_fen": trap.get("setup_fen"),
+            "practice_url": _practice_link(practice_keys.get(key)),
+        }
+        if t["caught"] or len(t["faced"]) >= TRAP_FACED_MIN:
+            against.append({
+                **base, "side": victim,
+                "headline": ("This trap has caught you." if t["caught"]
+                             else "This trap is waiting in a line you play."),
+                "detail": "Know the line, so you see it coming.",
+                "game_id": (t["caught"] or t["faced"])[0],
+                "measured": {"caught": len(t["caught"]), "faced": len(t["faced"])},
+                "_rank": (len(t["caught"]) * 3 + len(t["faced"])),
+            })
+        if len(t["reached"]) + len(t["sprung"]) >= TRAP_REACHED_MIN:
+            for_you.append({
+                **base, "side": setter,
+                "headline": "Your games reach this trap. You can set it.",
+                "detail": "Learn the line, and the next player who walks into it pays.",
+                "game_id": (t["reached"] or t["sprung"])[0],
+                "measured": {"reached": len(t["reached"]), "sprung": len(t["sprung"])},
+                "_rank": len(t["reached"]) + len(t["sprung"]),
+            })
+    for rows in (against, for_you):
+        rows.sort(key=lambda r: -r["_rank"])
+        for r in rows:
+            r.pop("_rank", None)
+    return {"against": against[:TRAPS_SHOWN], "for_you": for_you[:TRAPS_SHOWN]}
+
+
+def _practice_keys() -> Dict[str, str]:
+    try:
+        raw = json.loads((TRAP_ROLES_PATH.parent / "traps.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    out: Dict[str, str] = {}
+    for family, recs in raw.items():
+        recs = recs if isinstance(recs, list) else [recs]
+        for i, r in enumerate(recs):
+            if r.get("practice_key"):
+                out[f"{family}#{i}"] = r["practice_key"]
+    return out
+
+
+# --------------------------------------------------------------------------
+# The last game
+# --------------------------------------------------------------------------
+def last_game_read(game: Optional[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]],
+                   habits: Sequence[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The newest analysed game's deciding move, and whether it is one of his
+    opening habits. `rows` are that game's move_evaluations."""
+    if not game:
+        return None
+    own = [r for r in rows if not r.get("is_opponent_move") and isinstance(r.get("cp_loss"), (int, float))
+           and r.get("fen_before") and r.get("move")]
+    family = " ".join(str(r.get("move") or "") for r in rows[:2]).strip()
+    base = {"game_id": game.get("game_id"), "user_color": game.get("user_color"),
+            "result": _score(game.get("result"), game.get("user_color")),
+            "played_at": game.get("played_at_utc")}
+    worst = max(own, key=lambda r: r["cp_loss"], default=None)
+    if worst is None or worst["cp_loss"] < DECIDING_CP:
+        return {**base, "clean": True, "headline": "No single move decided your last game.",
+                "detail": "Nothing big to fix from it."}
+    fen, san, best = worst["fen_before"], str(worst["move"]), str(worst.get("best_move") or "")
+    played = _squares(fen, san)
+    better = _squares(fen, best) if best and best != san else None
+    if not played:
+        return {**base, "clean": True, "headline": "No single move decided your last game.",
+                "detail": "Nothing big to fix from it."}
+    side = fen.split()[1]
+    try:
+        move_number = int(fen.split()[5])
+    except (IndexError, ValueError):
+        move_number = None
+    repeat = None
+    if move_number is not None and move_number <= OPENING_LAST_MOVE:
+        colour = "white" if side == "w" else "black"
+        for h in habits:
+            if h["side"] == colour and h["line"] == family and h["idea"] == _idea(san):
+                repeat = {"line": h["line"], "idea": h["idea"],
+                          "words": "You have played this move in this opening before, and it cost you then too."}
+                break
+    return {
+        **base,
+        "clean": False,
+        "fen": fen,
+        "san": san,
+        "better_san": best if better else None,
+        "played_from": played[0], "played_to": played[1],
+        "better_from": better[0] if better else None, "better_to": better[1] if better else None,
+        "move_number": move_number,
+        "review_url": f"/game/{game.get('game_id')}" + (f"?move={move_number}" if move_number else ""),
+        "headline": "One move decided your last game.",
+        "repeat": repeat,
+        "measured": {"cp_loss": worst["cp_loss"]},
+    }
 
 
 # --------------------------------------------------------------------------
@@ -348,6 +647,44 @@ def sitting_now(
 
 
 # --------------------------------------------------------------------------
+# Play positions
+# --------------------------------------------------------------------------
+def play_positions(openings: Sequence[Mapping[str, Any]], last_game: Optional[Mapping[str, Any]],
+                   habit: Optional[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Positions from his own games to spar from, with the side he played."""
+    out: List[Dict[str, Any]] = []
+    seen = set()
+
+    def add(fen: Optional[str], colour: Optional[str], title: str, detail: str, game_id: Any) -> None:
+        if not fen or colour not in ("white", "black"):
+            return
+        position = " ".join(fen.split()[:4])
+        if position in seen:
+            return
+        try:
+            board = chess.Board(fen)
+        except ValueError:
+            return
+        # He must be the side to move, and the game must not be over.
+        if (board.turn == chess.WHITE) != (colour == "white") or board.is_game_over():
+            return
+        seen.add(position)
+        out.append({"fen": fen, "user_color": colour, "title": title, "detail": detail,
+                    "source_game_id": game_id})
+
+    if last_game and not last_game.get("clean"):
+        add(last_game.get("fen"), last_game.get("user_color"), "Your last game, from the move that decided it",
+            "Play it again from here and find a better way.", last_game.get("game_id"))
+    for h in openings:
+        add(h.get("fen"), h.get("side"), f"Your opening as {str(h.get('side')).capitalize()}",
+            "The position where your habit costs you. Play it the better way.", h.get("game_id"))
+    for m in (habit or {}).get("moments") or []:
+        add(m.get("fen_before"), m.get("color"), f"A moment from your games: {str(habit.get('label') or '').lower()}",
+            "Play on from the position where it happened.", m.get("game_id"))
+    return out[:PLAY_POSITIONS_SHOWN]
+
+
+# --------------------------------------------------------------------------
 # Building the file
 # --------------------------------------------------------------------------
 def _game_key(game: Mapping[str, Any]) -> str:
@@ -394,31 +731,83 @@ def build_file(
     user_id: str,
     games_newest_first: Sequence[Mapping[str, Any]],
     analyses: Iterable[Mapping[str, Any]],
+    observations: Sequence[Mapping[str, Any]] = (),
+    last_rows: Sequence[Mapping[str, Any]] = (),
+    previous: Optional[Mapping[str, Any]] = None,
+    moments_fn: Optional[Callable[[Dict[str, Any], Dict[str, Dict[str, Any]]], List[Dict[str, Any]]]] = None,
+    now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
+    """Pure: everything is read by the caller. `moments_fn(habit, games_by_id)`
+    builds the habit's board moments with the engine (None in tests)."""
     games_newest_first = dedupe_games(games_newest_first)
     kept_ids = {g.get("game_id") for g in games_newest_first}
     rating = _rating(games_newest_first)
     band = _band(rating)
     analyses = [a for a in analyses if a.get("game_id") in kept_ids]
+    analysed = [g for g in games_newest_first if g.get("is_analyzed")][:OPENING_GAMES]
+    analysed_ids = [g["game_id"] for g in analysed]
+    by_id = {g["game_id"]: g for g in games_newest_first}
+
+    openings = opening_habits(analyses, band)
+    traps = trap_file(
+        [{"game_id": g["game_id"], "user_color": g.get("user_color"), "san": _san_moves(g.get("pgn") or "")}
+         for g in analysed],
+        _practice_keys(),
+    )
+    last = last_game_read(analysed[0] if analysed else None, last_rows, openings)
+
+    observations = [o for o in observations if o.get("game_id") in set(analysed_ids)]
+    gmap = pch.games_map(analysed)
+    habit = pch.choose_habit(analysed_ids, gmap, observations, (previous or {}).get("habit"), now=now)
+    habit_check = None
+    if habit:
+        evidence = habit.pop("_evidence", [])
+        cached = {m.get("key"): m for m in ((previous or {}).get("habit") or {}).get("moments") or []}
+        moments: List[Dict[str, Any]] = []
+        if moments_fn and evidence:
+            games_with_pgn = {gid: {**gmap[gid], "pgn": by_id[gid].get("pgn") or ""} for gid in gmap}
+            try:
+                moments = moments_fn({"evidence": evidence, "cached": cached}, games_with_pgn)
+            except Exception:
+                logger.exception("habit moments failed for %s", user_id)
+                moments = list(cached.values())
+        habit["moments"] = moments[:pch.HABIT_MOMENTS]
+        habit_check = pch.habit_check(habit, analysed_ids, gmap, observations)
+
     return {
         "user_id": user_id,
         "schema_version": SCHEMA_VERSION,
-        "built_at": datetime.now(timezone.utc),
+        "built_at": now or datetime.now(timezone.utc),
         "rating": rating,
         "band": band,
-        "openings": opening_habits(analyses, band),
+        "last_game": last,
+        "openings": openings,
+        "traps": traps,
+        "habit": habit,
+        "habit_check": habit_check,
+        "progress": pch.progress(analysed_ids, gmap, observations),
+        "play_positions": play_positions(openings, last, habit),
         "sitting": sitting_finding(list(reversed(list(games_newest_first))), seed=user_id),
         "source": {
             "games": len(games_newest_first),
             "analysed_games_read": len(analyses),
+            "observations_read": len(observations),
         },
     }
 
 
+# --------------------------------------------------------------------------
+# Reading and writing
+# --------------------------------------------------------------------------
 _GAME_FIELDS = {"_id": 0, "game_id": 1, "played_at_utc": 1, "result": 1, "user_color": 1,
                 "is_analyzed": 1, "user_rating": 1, "user_rating_at_time": 1,
                 "white_rating": 1, "black_rating": 1, "pgn": 1, "platform": 1,
-                "platform_game_id": 1, "url": 1}
+                "platform_game_id": 1, "url": 1, "termination": 1, "game_outcome": 1}
+
+_OBS_FILTER_OR = [{"missed_pattern": {"$ne": None}}, {"development_decision": "missed"}]
+_OBS_FIELDS = {"_id": 0, "game_id": 1, "ply": 1, "move_number": 1, "fen_before": 1, "move_uci": 1,
+               "missed_pattern": 1, "subtype": 1, "eval_before": 1, "time_spent_seconds": 1,
+               "development_decision": 1}
 
 
 def _analysis_pipeline(game_ids: List[str]) -> List[Dict[str, Any]]:
@@ -433,6 +822,62 @@ def _analysis_pipeline(game_ids: List[str]) -> List[Dict[str, Any]]:
     ]
 
 
+def _last_rows_pipeline(game_id: str) -> List[Dict[str, Any]]:
+    return [
+        {"$match": {"game_id": game_id}},
+        {"$limit": 1},
+        {"$project": {"_id": 0, "rows": {"$map": {
+            "input": {"$ifNull": ["$stockfish_analysis.move_evaluations", []]},
+            "as": "m",
+            "in": {"fen_before": "$$m.fen_before", "move": "$$m.move", "cp_loss": "$$m.cp_loss",
+                   "is_opponent_move": "$$m.is_opponent_move", "best_move": "$$m.best_move"},
+        }}}},
+    ]
+
+
+def _mark_development(observations: List[Dict[str, Any]], dev_rows: Sequence[Mapping[str, Any]]) -> None:
+    """Lock A1 of the coach plan: development counts only for a player whose
+    development rate over his last 80 analysed games passed the cut-off."""
+    from services import coach_plan_service as cp
+
+    if cp.development_rate(dev_rows)["eligible"]:
+        for o in observations:
+            o["_development_eligible"] = True
+
+
+def engine_moments(job: Mapping[str, Any], games: Mapping[str, Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Runs in a worker thread (or the worker itself): one engine for the few
+    moments of one player. Same builder as the academy plan."""
+    import chess.engine
+    from config import STOCKFISH_PATH
+    from services import coach_plan_service as cp
+
+    out: List[Dict[str, Any]] = []
+    engine = None
+    try:
+        for o in job.get("evidence") or []:
+            key = cp.moment_key(o)
+            if key in (job.get("cached") or {}):
+                out.append(job["cached"][key])
+            else:
+                game = games.get(o["game_id"])
+                if not game:
+                    continue
+                if engine is None:
+                    engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
+                m = cp.build_moment(o, game, engine)
+                if not m:
+                    continue
+                out.append({**cp.public_moment(m), "game_id": o["game_id"],
+                            "move_number": o.get("move_number")})
+            if len(out) >= pch.HABIT_MOMENTS:
+                break
+    finally:
+        if engine is not None:
+            engine.quit()
+    return out
+
+
 def _store_fields(doc: Mapping[str, Any]) -> Dict[str, Any]:
     return dict(doc)
 
@@ -440,21 +885,50 @@ def _store_fields(doc: Mapping[str, Any]) -> Dict[str, Any]:
 def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
     games = list(db.games.find({"user_id": user_id}, _GAME_FIELDS)
                  .sort("played_at_utc", -1).limit(SITTING_GAMES_READ))
-    analysed_ids = [g["game_id"] for g in games if g.get("is_analyzed")][:OPENING_GAMES]
+    analysed_ids = [g["game_id"] for g in dedupe_games(games) if g.get("is_analyzed")][:OPENING_GAMES]
     analyses = list(db.game_analyses.aggregate(_analysis_pipeline(analysed_ids))) if analysed_ids else []
-    doc = build_file(user_id, games, analyses)
+    last_rows: List[Dict[str, Any]] = []
+    if analysed_ids:
+        found = list(db.game_analyses.aggregate(_last_rows_pipeline(analysed_ids[0])))
+        last_rows = (found[0].get("rows") if found else None) or []
+    observations = list(db.move_observations.find(
+        {"user_id": user_id, "game_id": {"$in": analysed_ids}, "$or": _OBS_FILTER_OR}, _OBS_FIELDS)) if analysed_ids else []
+    dev_ids = [g["game_id"] for g in games if g.get("is_analyzed")][:80]
+    dev_rows = list(db.move_observations.find(
+        {"user_id": user_id, "game_id": {"$in": dev_ids}, "development_decision": {"$in": ["applied", "missed"]}},
+        {"_id": 0, "development_decision": 1, "missed_pattern": 1})) if dev_ids else []
+    _mark_development(observations, dev_rows)
+    previous = db[COLLECTION].find_one({"user_id": user_id}, {"_id": 0, "habit": 1})
+    doc = build_file(user_id, games, analyses, observations, last_rows, previous, engine_moments)
     db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
     return doc
 
 
 async def build_and_store(db, user_id: str) -> Dict[str, Any]:
+    import asyncio
+
     games = await (db.games.find({"user_id": user_id}, _GAME_FIELDS)
                    .sort("played_at_utc", -1).limit(SITTING_GAMES_READ).to_list(None))
-    analysed_ids = [g["game_id"] for g in games if g.get("is_analyzed")][:OPENING_GAMES]
-    analyses = []
+    analysed_ids = [g["game_id"] for g in dedupe_games(games) if g.get("is_analyzed")][:OPENING_GAMES]
+    analyses: List[Dict[str, Any]] = []
+    last_rows: List[Dict[str, Any]] = []
+    observations: List[Dict[str, Any]] = []
+    dev_rows: List[Dict[str, Any]] = []
     if analysed_ids:
         analyses = await db.game_analyses.aggregate(_analysis_pipeline(analysed_ids)).to_list(None)
-    doc = build_file(user_id, games, analyses)
+        found = await db.game_analyses.aggregate(_last_rows_pipeline(analysed_ids[0])).to_list(1)
+        last_rows = (found[0].get("rows") if found else None) or []
+        observations = await db.move_observations.find(
+            {"user_id": user_id, "game_id": {"$in": analysed_ids}, "$or": _OBS_FILTER_OR}, _OBS_FIELDS).to_list(None)
+        dev_ids = [g["game_id"] for g in games if g.get("is_analyzed")][:80]
+        dev_rows = await db.move_observations.find(
+            {"user_id": user_id, "game_id": {"$in": dev_ids}, "development_decision": {"$in": ["applied", "missed"]}},
+            {"_id": 0, "development_decision": 1, "missed_pattern": 1}).to_list(None)
+    _mark_development(observations, dev_rows)
+    previous = await db[COLLECTION].find_one({"user_id": user_id}, {"_id": 0, "habit": 1})
+    # The build parses PGNs and may run the engine: keep it off the event loop.
+    doc = await asyncio.to_thread(build_file, user_id, games, analyses, observations, last_rows,
+                                  previous, engine_moments)
     await db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
     return doc
 
@@ -476,17 +950,40 @@ async def recent_starts(db, user_id: str, limit: int = 16) -> List[Dict[str, Any
     return dedupe_games(games)
 
 
+# --------------------------------------------------------------------------
+# What the pages receive
+# --------------------------------------------------------------------------
+def _public_habit(habit: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not habit:
+        return None
+    keep = ("quality_id", "label", "kind", "pattern", "warning_sign", "rule", "practice_key",
+            "started_at", "moments", "measured")
+    return {k: habit.get(k) for k in keep}
+
+
 def payload(doc: Optional[Mapping[str, Any]], recent: Sequence[Mapping[str, Any]],
             now: Optional[datetime] = None) -> Dict[str, Any]:
-    """What the page receives. `measured` blocks stay in for review."""
+    """What the pages receive. `measured` blocks stay in for review; the pages
+    never render them."""
     if not doc:
         return {"enabled": True, "state": "building"}
+    band = doc.get("band")
     return {
         "enabled": True,
         "state": "ready",
         "schema_version": doc.get("schema_version"),
         "built_at": doc.get("built_at"),
+        "band": band,
+        # Under 1000 the boards carry the moves; notation stays off the page.
+        "notation": band != "<1000",
+        "last_game": doc.get("last_game"),
         "openings": list(doc.get("openings") or []),
+        "traps": doc.get("traps") or {"against": [], "for_you": []},
+        "habit": _public_habit(doc.get("habit")),
+        "habit_check": doc.get("habit_check"),
+        "progress": doc.get("progress") or {"habits": [], "kept": []},
+        "play_positions": list(doc.get("play_positions") or []),
         "sitting": sitting_now(doc.get("sitting") or {}, recent, now=now),
         "sitting_measured": (doc.get("sitting") or {}).get("measured"),
+        "source": doc.get("source"),
     }

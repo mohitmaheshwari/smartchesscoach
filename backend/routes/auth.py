@@ -1051,6 +1051,10 @@ async def get_me(request: Request, user: User = Depends(get_current_user)):
     # Presentation only: it never gates chess content, evidence or permission.
     viewer_id = (session or {}).get("admin_user_id") or user.user_id
     payload["coaching_room_v2"] = coaching_room_gate.is_enabled(viewer_id)
+    # The five coach pages (docs/coach_pages_scope.md): the player's own flag,
+    # or a super-admin viewing him, so any player can be reviewed live.
+    from services import player_coach_file as pcf
+    payload["coach_pages"] = pcf.is_enabled_for_request(request, user.user_id)
     return payload
 
 

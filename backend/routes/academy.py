@@ -584,6 +584,19 @@ async def student_view(student_id: str, user: User = Depends(get_current_user)):
     }
 
 
+@router.get("/student/{student_id}/coach-file")
+async def student_coach_file(student_id: str, user: User = Depends(get_current_user)):
+    """The student's player file: the same document his own coach pages read
+    (docs/coach_pages_scope.md, "Academy"), so the coach and the child see one
+    answer. Read only after the parent has agreed, like every other read of
+    the child's games."""
+    student = await _student_for(user, student_id)
+    if (student.get("consent") or {}).get("status") != "given" or not student.get("child_user_id"):
+        return {"enabled": False, "reason": "consent"}
+    from routes.home import coach_file_for
+    return await coach_file_for(student["child_user_id"])
+
+
 @router.post("/student/{student_id}/refresh")
 async def refresh_student(student_id: str, user: User = Depends(get_current_user)):
     student = await _student_for(user, student_id)
