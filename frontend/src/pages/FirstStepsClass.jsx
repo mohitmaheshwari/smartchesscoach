@@ -12,7 +12,11 @@ import { API } from "@/App";
 import LichessBoard from "@/components/LichessBoard";
 import "@/components/room/room.css";
 import { setSoundOff, soundOff, woodClick } from "@/components/room/roomSound";
+import { readAloudOn, setReadAloud, speak, stopSpeaking } from "@/components/room/roomVoice";
 
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+// The first eight classes predate the server sending `what`, `preview` and `icon`;
+// newer classes carry their own and fall through these maps.
 const PIECE_OF = { rook: "rook", bishop: "bishop", queen: "queen", knight: "knight", pawn: "pawn", king: "king", check: "king", checkmate: "queen" };
 const PREVIEW = {
   rook: "8/8/8/8/3R4/8/8/8 w - - 0 1", bishop: "8/8/8/8/3B4/8/8/8 w - - 0 1", queen: "8/8/8/8/3Q4/8/8/8 w - - 0 1",
@@ -48,14 +52,60 @@ function whitePieces(fen) {
 
 function Top({ where }) {
   const [off, setOff] = useState(soundOff());
+  const [voice, setVoice] = useState(readAloudOn());
   return (
     <div className="room-top">
       <span className="room-mark">ChessGuru</span>
       <span className="room-where">{where}</span>
-      <button type="button" className="room-sound" onClick={() => { setSoundOff(!off); setOff(!off); }}>
+      <button type="button" className="room-sound" aria-pressed={voice}
+        onClick={() => { setReadAloud(!voice); setVoice(!voice); }}>
+        {voice ? "Read aloud on" : "Read aloud off"}
+      </button>
+      <button type="button" className="room-sound" style={{ marginLeft: 8 }} onClick={() => { setSoundOff(!off); setOff(!off); }}>
         {off ? "Sound off" : "Sound on"}
       </button>
     </div>
+  );
+}
+
+/**
+ * Watch first: the coach plays the idea on the board, one step at a time, with
+ * lines drawn, before asking the child anything. Every position and line comes
+ * from the server, which built it from legal moves and checked each line.
+ */
+function Demonstration({ cur, onWatched }) {
+  const steps = cur.steps || [];
+  const [at, setAt] = useState(0);
+  const step = steps[at] || {};
+  useEffect(() => { setAt(0); }, [cur.id]);
+  useEffect(() => { speak(step.say); }, [cur.id, at, step.say]);
+  const last = at >= steps.length - 1;
+  return (
+    <>
+      <div className="room-boardbox">
+        <LichessBoard key={`${cur.id}-${at}`} fen={step.fen || cur.fen} orientation={cur.flip ? "black" : "white"}
+          viewOnly interactive={false} showDests={false} arrows={step.arrows || []}
+          highlights={(step.marks || []).map((square) => ({ square, kind: "target" }))}
+          lastMove={step.last_move || null} squareTags />
+      </div>
+      <aside className="room-side">
+        <span className="room-label">{cur.part}</span>
+        <h1>{cur.say}</h1>
+        <p className="room-task">{cur.sub}</p>
+        <div className="room-say" aria-live="polite">
+          <div className="room-who">Coach</div>
+          <p key={`${cur.id}-${at}`}>{step.say}</p>
+        </div>
+        <div className="room-steps" aria-hidden="true">
+          {steps.map((_, i) => <i key={i} className={i <= at ? "on" : ""} />)}
+        </div>
+        <div className="room-acts">
+          {at > 0 && <button type="button" className="room-btn quiet" onClick={() => setAt(at - 1)}>Back</button>}
+          {!last && <button type="button" className="room-btn" onClick={() => { woodClick(); setAt(at + 1); }}>Next</button>}
+          {last && <button type="button" className="room-btn" onClick={onWatched}>Got it, let me try</button>}
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -67,12 +117,22 @@ function Lesson({ token, view, setView, onDone }) {
   const [miss, setMiss] = useState(null);
   const [lastMove, setLastMove] = useState(null);
   const [after, setAfter] = useState(null);
+  // Where to look after a first miss (server-computed, never the answer), and
+  // the lines that show why a wrong answer was wrong, drawn for a moment.
+  const [hint, setHint] = useState(null);
+  const [flash, setFlash] = useState([]);
   const box = useRef(null);
   const busy = useRef(false);
   const pending = useRef(null);
   const sendRef = useRef(null);
+  const flashTimer = useRef(null);
 
-  useEffect(() => { setSay(null); setPick(null); setReveal(null); setMiss(null); setLastMove(null); setAfter(null); }, [cur?.id]);
+  useEffect(() => {
+    setSay(null); setPick(null); setReveal(null); setMiss(null); setLastMove(null); setAfter(null);
+    setHint(null); setFlash([]);
+    if (cur && cur.kind !== "show") speak(`${cur.say} ${cur.sub || ""}`);
+  }, [cur?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { stopSpeaking(); if (flashTimer.current) clearTimeout(flashTimer.current); }, []);
 
   const nudge = () => {
     const el = box.current;
@@ -94,18 +154,30 @@ function Lesson({ token, view, setView, onDone }) {
         if (r.reveal?.choice) text = `${text} The answer is ${r.reveal.choice}.`;
         if (r.reveal?.sans?.length) text = `${text} ${r.reveal.sans.length === 1 ? "The move is" : "Moves that work:"} ${r.reveal.sans.join(", ")}.`;
         const good = r.outcome === "right" || r.outcome === "progress" || r.outcome === "skipped";
-        if (text) setSay([good ? "good" : r.outcome === "wrong" ? "bad" : "", text]);
+        if (r.hint_marks?.length) {
+          setHint(r.hint_marks);
+          text = `${text || ""} Look at the squares I lit up.`.trim();
+        }
+        if (text) { setSay([good ? "good" : r.outcome === "wrong" ? "bad" : "", text]); speak(text); }
         else if (r.outcome === "progress") setSay(null);
         if (r.reveal) setReveal(r.reveal);
         if (r.fen_after) setAfter(r.fen_after);
         if (r.played) {
           const m = r.played[r.played.length - 1];
           setLastMove([m.slice(0, 2), m.slice(2, 4)]);
+        } else if (r.move && r.outcome === "right") {
+          setLastMove([r.move.slice(0, 2), r.move.slice(2, 4)]);
         }
         if (r.outcome === "wrong") {
           nudge();
           setMiss(tapped || null);
           setTimeout(() => setMiss(null), 650);
+          if (r.arrows?.length) {
+            // The coach draws why: the protector that takes back, the attacker left in place.
+            setFlash(r.arrows);
+            if (flashTimer.current) clearTimeout(flashTimer.current);
+            flashTimer.current = setTimeout(() => setFlash([]), 2800);
+          }
         } else if (r.outcome === "right" || r.outcome === "progress") {
           woodClick(r.outcome === "right");
         }
@@ -148,8 +220,20 @@ function Lesson({ token, view, setView, onDone }) {
   };
 
   if (!cur) return null;
+
+  if (cur.kind === "show" && !cur.finished) {
+    const watched = async () => {
+      try {
+        await call(`${token}/answer`, { session_id: view.session_id, item_id: cur.id, answer: { watched: true } });
+        await next();
+      } catch (e) { setSay(["bad", e.message]); }
+    };
+    return <div className="room-lesson"><Demonstration cur={cur} onWatched={watched} /></div>;
+  }
+
   const marks = [
     ...(cur.marks || []).map((square) => ({ square, kind: "target" })),
+    ...(hint || []).filter((s) => !(cur.found || []).includes(s)).map((square) => ({ square, kind: "target" })),
     ...(cur.found || []).map((square) => ({ square, kind: "found" })),
     ...(reveal?.squares || []).filter((s) => !(cur.found || []).includes(s)).map((square) => ({ square, kind: "answer" })),
     ...(pick ? [{ square: pick, kind: "picked" }] : []),
@@ -165,7 +249,8 @@ function Lesson({ token, view, setView, onDone }) {
     <div className="room-lesson">
       <div className="room-boardbox" ref={box}>
         <LichessBoard key={cur.id} fen={after || cur.fen} orientation={cur.flip ? "black" : "white"}
-          selectionOnly showDests={false} onSquareClick={onSquare} highlights={marks} lastMove={lastMove} squareTags />
+          selectionOnly showDests={false} onSquareClick={onSquare} highlights={marks} lastMove={lastMove} squareTags
+          arrows={[...(cur.arrows || []), ...flash]} />
       </div>
       <aside className="room-side">
         <div className="room-progress" aria-hidden="true"><i style={{ width: `${(view.index / view.count) * 100}%` }} /></div>
@@ -203,6 +288,13 @@ function Finished({ view, name, onBack }) {
       <span className="room-label">{placement ? "Ready" : s.passed ? "Lesson complete" : "One more time"}</span>
       <h1>{placement ? `${name}, your path is ready.` : s.passed ? `${view.title}, complete.` : `${view.title}, once more.`}</h1>
       <p>{s.say}</p>
+      {s.rule && (
+        // The one line to keep, as a coach ends a lesson.
+        <div className="room-remember">
+          <span className="room-label">Remember</span>
+          <p>{s.rule}</p>
+        </div>
+      )}
       {!placement && (
         <div className="room-facts">
           <div><b>{s.steps}</b><span>Steps</span></div>
@@ -231,11 +323,11 @@ function Path({ home, onStart, onPractise }) {
       </header>
       {next ? (
         <section className="room-next">
-          <div><LichessBoard fen={PREVIEW[next.id]} viewOnly interactive={false} showCoordinates={false} /></div>
+          <div><LichessBoard fen={next.preview || PREVIEW[next.id] || START_FEN} viewOnly interactive={false} showCoordinates={false} /></div>
           <div style={{ minWidth: 0 }}>
             <span className="room-label">Continue</span>
             <h2>{next.title}</h2>
-            <p>{WHAT[next.id]}</p>
+            <p>{next.what || WHAT[next.id] || ""}</p>
             <button type="button" className="room-btn" onClick={onStart}>Start lesson</button>
           </div>
         </section>
@@ -249,32 +341,36 @@ function Path({ home, onStart, onPractise }) {
           </div>
         </section>
       )}
-      <section className="room-stage">
-        <h3>Foundations</h3>
-        <div className="room-rows">
-          {home.classes.map((c) => {
-            const state = c.passed ? "done" : c.skipped ? "done" : c.id === next?.id ? "cur" : "locked";
-            const words = c.passed ? "Complete" : c.skipped ? "Known" : c.id === next?.id ? "Next" : "Locked";
-            const body = (
-              <>
-                <PieceIcon type={PIECE_OF[c.id] || "pawn"} />
-                <span><b>{c.title}</b><small>{WHAT[c.id]}</small></span>
-                <span className="st">{words}</span>
-              </>
-            );
-            if (state === "cur") {
-              return <button key={c.id} type="button" className="room-row cur open" onClick={onStart}>{body}</button>;
-            }
-            if (state === "done") {
-              return (
-                <button key={c.id} type="button" className="room-row done open" onClick={() => onPractise(c.id)}
-                  aria-label={`Practise ${c.title}`}>{body}</button>
+      {/* One section per stage, in the server's class order: the pieces first,
+          then the thinking habits a coach builds on top of them. */}
+      {[...new Set(home.classes.map((c) => c.stage || "Foundations"))].map((stage) => (
+        <section className="room-stage" key={stage}>
+          <h3>{stage}</h3>
+          <div className="room-rows">
+            {home.classes.filter((c) => (c.stage || "Foundations") === stage).map((c) => {
+              const state = c.passed ? "done" : c.skipped ? "done" : c.id === next?.id ? "cur" : "locked";
+              const words = c.passed ? "Complete" : c.skipped ? "Known" : c.id === next?.id ? "Next" : "Locked";
+              const body = (
+                <>
+                  <PieceIcon type={c.icon || PIECE_OF[c.id] || "pawn"} />
+                  <span><b>{c.title}</b><small>{c.what || WHAT[c.id] || ""}</small></span>
+                  <span className="st">{words}</span>
+                </>
               );
-            }
-            return <div key={c.id} className={`room-row ${state}`}>{body}</div>;
-          })}
-        </div>
-      </section>
+              if (state === "cur") {
+                return <button key={c.id} type="button" className="room-row cur open" onClick={onStart}>{body}</button>;
+              }
+              if (state === "done") {
+                return (
+                  <button key={c.id} type="button" className="room-row done open" onClick={() => onPractise(c.id)}
+                    aria-label={`Practise ${c.title}`}>{body}</button>
+                );
+              }
+              return <div key={c.id} className={`room-row ${state}`}>{body}</div>;
+            })}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

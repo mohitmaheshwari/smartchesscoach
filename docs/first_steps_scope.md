@@ -226,3 +226,35 @@ and a note for the coach's notebook.
 Not in this addendum: placement still ends at checkmate (a child who already
 knows the habits starts at checkmate and passes quickly); opening lines beyond
 the Italian; the first opponent for real games.
+
+---
+
+## Addendum, 2026-11-12: presentation, how the lessons are taught
+
+Mohit, 2026-11-12: *"but how do we teach that, we have the content but we need the
+presentation and style too. go ahead"*.
+
+A coach shows first, lets the child try, narrows it down when they miss, says why
+when they are wrong, and ends with one line to remember. The page now does each:
+
+| A coach... | The page |
+|---|---|
+| shows the idea before asking | **Watch first:** each thinking-habit class opens with a demonstration (`kind: "show"`). The coach plays it on the board step by step, with lines drawn; the child steps through with Next and Back, then "Got it, let me try". The server builds every step's position from legal moves and rejects any drawn line that is not a real attack or move on that board. |
+| says why a wrong answer is wrong | **Lines that explain:** tap a protected piece and the protector's line is drawn in red for a moment; take a protected piece and the piece that takes back is shown; leave something attacked and the attacker is shown. Computed from the position, never authored. |
+| builds the picture as the child finds things | each attacked piece found shows who attacks it; each capture found shows which piece takes. The lines stay drawn. |
+| narrows it down after a miss | **Hints:** after the first miss on a practice question, the squares to look at light up (your pieces that can take, their pieces that attack, the king to check). Never the answer. Check questions stay hint-free and draw nothing. |
+| ends with one line | **Remember:** every class has a one-line rule, shown on the finish screen. |
+| talks to a child who can't read yet | **Read aloud:** a switch in the top bar; the browser speaks the question, the coach's reply and each demonstration step (English voice, Indian English when the device has one). Remembered per device. |
+
+The path now groups classes by stage ("Foundations", "Thinking habits"), and each
+class sends its own one-line description and preview board. That also fixes the
+path card for classes 9 to 13, which had no preview position or description (the
+page held those in a list of the first eight classes only).
+
+Tests: every demonstration builds with legal moves and real lines; a false line
+and an illegal move are rejected; wrong answers draw the right lines; hints never
+contain the answer; the route gives a hint after the first miss only, never on a
+check question; the summary carries the class rule.
+
+Not in this addendum: Hindi read-aloud, recorded voice, animated piece movement
+inside a step beyond the board's own move animation.

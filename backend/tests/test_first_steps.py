@@ -1,6 +1,7 @@
 """First steps: every authored answer agrees with the rules, and every wrong
 tap gets the right mistake kind. docs/first_steps_scope.md."""
 import random
+import re
 
 import chess
 import pytest
@@ -346,3 +347,79 @@ def test_one_slip_is_not_a_note_about_the_child():
     key = next(iter(fs.NOTICE_WORDS))
     assert fs.coach_notes({key: 1}) == []
     assert fs.coach_notes({key: 2}) == [fs.NOTICE_WORDS[key]]
+
+
+# ---------------------------------------------------------------------------
+# presentation: watch first, the coach draws why, hints narrow it down
+# ---------------------------------------------------------------------------
+SHOWS = [(c["id"], i) for c in fs.classes() for i in c["items"] if i["kind"] == "show"]
+
+
+def test_every_thinking_habit_class_starts_with_a_demonstration():
+    for cls in fs.classes():
+        if cls.get("stage") == "Thinking habits":
+            assert cls["items"][0]["kind"] == "show", cls["id"]
+            assert cls.get("rule") and cls.get("what") and cls.get("preview"), cls["id"]
+
+
+@pytest.mark.parametrize("cls_id,item", SHOWS, ids=[i["id"] for _, i in SHOWS])
+def test_demonstrations_build_and_every_line_is_real(cls_id, item):
+    steps = fs.show_steps(item)  # raises on an illegal move or a false arrow
+    assert len(steps) >= 2
+    for step in steps:
+        chess.Board(step["fen"])
+        assert step["say"] and not re.search(r"\b\d+\b", step["say"]), step["say"]
+
+
+def test_a_demonstration_rejects_a_false_line_and_an_illegal_move():
+    base = {"id": "x", "fen": "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1"}
+    with pytest.raises(ValueError):
+        fs.show_steps({**base, "steps": [{"say": "a", "arrows": [["e4", "e6", "blue"]]}]})
+    with pytest.raises(ValueError):
+        fs.show_steps({**base, "steps": [{"say": "a", "move": "e4e6"}]})
+
+
+def test_watching_a_demonstration_through_is_the_answer():
+    item = SHOWS[0][1]
+    assert fs.grade(item, {})["outcome"] == "ignored"
+    assert fs.grade(item, {"watched": True})["outcome"] == "done"
+    shown = fs.public_item(item)
+    assert shown["steps"] and "right" not in shown
+
+
+def test_found_pieces_draw_the_lines_behind_them():
+    r = fs.grade(_item("cap-tap"), {"square": "e4"})
+    assert ["c3", "e4", "blue"] in r["arrows"]
+    r = fs.grade(_item("thr-tap"), {"square": "c3"})
+    assert r["arrows"] == [["b4", "c3", "red"]]
+    # The arrows stay drawn on the next view of the item.
+    assert fs.public_item(_item("thr-tap"), {"found": ["c3"]})["arrows"] == [["b4", "c3", "red"]]
+
+
+def test_a_wrong_answer_draws_why():
+    # Tapping a protected piece shows its protector.
+    r = fs.grade(_item("cap-free"), {"square": "b5"})
+    assert r["kind"] == "defended_target" and r["arrows"] == [["a6", "b5", "red"]]
+    # Taking a protected piece shows who takes back.
+    r = fs.grade(_item("cap-play"), {"move": "d1d5"})
+    assert r["kind"] == "not_free" and ["e6", "d5", "red"] in r["arrows"]
+    # Leaving a piece attacked shows the attacker.
+    r = fs.grade(_item("thr-save"), {"move": "g1g2"})
+    assert r["kind"] == "still_hanging" and r["arrows"] == [["b4", "c3", "red"]]
+
+
+def test_hints_point_where_to_look_never_at_the_answer():
+    assert fs.hint_marks(_item("cap-tap")) == ["a1", "c3"]
+    assert fs.hint_marks(_item("thr-tap")) == ["b4", "f2"]
+    assert fs.hint_marks(_item("open-centre")) == ["d4", "d5", "e4", "e5"]
+    assert fs.hint_marks(_item("thr-save")) == ["c3"]
+    for item_id in ("cap-free", "cct-tap-caps", "loose-win", "cap-play"):
+        item = _item(item_id)
+        hint = set(fs.hint_marks(item))
+        answer = fs.answers(item)
+        assert not hint & ({a[2:4] for a in answer} if item["kind"] == "move_goal" else answer), item_id
+
+
+def test_every_class_has_a_rule_to_take_away():
+    for cls in fs.classes():
+        assert cls.get("rule") and not re.search(r"\d", cls["rule"]), cls["id"]

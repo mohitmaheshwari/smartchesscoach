@@ -87,3 +87,10 @@
 }
 @media (max-width: 460px) { .room-next { grid-template-columns: 96px minmax(0, 1fr); gap: 14px; } .room-next h2 { font-size: 20px; } }
 @media (prefers-reduced-motion: reduce) { .room *, .room *::before, .room *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+/* Presentation (docs/first_steps_scope.md): stages, the demonstration's steps, the line to remember. */
+.room-stage + .room-stage { margin-top: 22px; }
+.room-steps { display: flex; gap: 6px; margin: 4px 0 2px; }
+.room-steps i { flex: 1; height: 3px; border-radius: 2px; background: var(--room-line); transition: background .25s; }
+.room-steps i.on { background: var(--room-gold); }
+.room-remember { border: 1px solid var(--room-line); border-left: 0; background: var(--room-panel); border-radius: 12px; padding: 14px 16px; margin: 6px 0 18px; text-align: left; }
+.room-remember p { margin: 6px 0 0; color: var(--room-text); font-size: 16px; line-height: 1.45; }

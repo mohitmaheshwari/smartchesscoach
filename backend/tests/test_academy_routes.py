@@ -838,6 +838,9 @@ def test_the_last_lesson_says_what_comes_next_and_the_coach_is_told(db):
             run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"], "answer": {"move": "a1a7"}}))
             state = db["academy_class_sessions"].rows[-1]["item_state"][cur["id"]]
             state["finished"] = True
+        elif item["kind"] == "show":
+            run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"],
+                                            "answer": {"watched": True}}))
         elif item["kind"] in fs.TAP_KINDS:
             for square in sorted(fs.answers(item)):
                 run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"],
@@ -877,7 +880,10 @@ def test_each_thinking_habit_class_can_be_passed_through_the_routes(db, class_id
     while view["current"] is not None:
         cur = view["current"]
         item = lookup[cur["id"]]
-        if item["kind"] in fs.TAP_KINDS:
+        if item["kind"] == "show":
+            assert len(cur["steps"]) >= 2 and all(s["fen"] for s in cur["steps"])
+            run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"], "answer": {"watched": True}}))
+        elif item["kind"] in fs.TAP_KINDS:
             assert cur.get("total") == len(fs.answers(item)) or item["kind"] not in fs.ALL_FOUND
             for square in sorted(fs.answers(item)):
                 run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"], "answer": {"square": square}}))
@@ -894,3 +900,76 @@ def test_the_consent_message_is_not_only_about_online_games(db):
     from urllib.parse import unquote
     text = unquote(added["whatsapp"])
     assert "lessons and games" in text and "online chess games" not in text
+
+
+def _start_class(db, class_id):
+    student = _class_child(db)
+    token = student["class_token"]
+    db[svc.STUDENTS].rows[0]["first_steps"] = {"level": 2}
+    from services import first_steps as fs
+    order = [c["id"] for c in fs.classes()]
+    for i, done in enumerate(order[order.index("checkmate"):order.index(class_id)]):
+        db["academy_class_sessions"].rows.append({
+            "session_id": f"done-{done}", "student_id": student["student_id"],
+            "user_id": student.get("user_id"), "kind": "class", "class_id": done,
+            "passed": True, "finished_at": f"2026-11-0{1 + i % 8}T10:00:00",
+            "started_at": f"2026-11-0{1 + i % 8}T09:{i:02d}:00", "mistakes": {}, "stars": 0})
+    return token, run(routes.class_start(token))
+
+
+def test_the_coach_lights_up_where_to_look_after_a_first_miss_only(db):
+    token, view = _start_class(db, "captures")
+    sid = view["session_id"]
+    assert view["current"]["kind"] == "show"
+    run(routes.class_answer(token, {"session_id": sid, "item_id": view["current"]["id"], "answer": {"watched": True}}))
+    view = run(routes.class_next(token, {"session_id": sid}))
+    while view["current"]["id"] != "cap-tap":
+        from services import first_steps as fs
+        item = next(i for c in fs.classes() for i in c["items"] if i["id"] == view["current"]["id"])
+        key = "choice" if item["kind"] == "choose" else "move"
+        run(routes.class_answer(token, {"session_id": sid, "item_id": item["id"],
+                                        "answer": {key: sorted(fs.answers(item))[0]}}))
+        view = run(routes.class_next(token, {"session_id": sid}))
+    first = _answer(token, view, {"square": "e8"})          # the king can't be taken
+    assert first["result"]["hint_marks"] == ["a1", "c3"]
+    second = _answer(token, view, {"square": "e8"})
+    assert "hint_marks" not in second["result"]
+
+
+def test_a_check_item_draws_nothing_and_gives_no_hint(db):
+    token, view = _start_class(db, "captures")
+    sid = view["session_id"]
+    from services import first_steps as fs
+    while not view["current"].get("test"):
+        item = next(i for c in fs.classes() for i in c["items"] if i["id"] == view["current"]["id"])
+        if item["kind"] == "show":
+            answer = {"watched": True}
+        elif item["kind"] in fs.TAP_KINDS:
+            for square in sorted(fs.answers(item)):
+                run(routes.class_answer(token, {"session_id": sid, "item_id": item["id"], "answer": {"square": square}}))
+            view = run(routes.class_next(token, {"session_id": sid}))
+            continue
+        else:
+            answer = {("choice" if item["kind"] == "choose" else "move"): sorted(fs.answers(item))[0]}
+        run(routes.class_answer(token, {"session_id": sid, "item_id": item["id"], "answer": answer}))
+        view = run(routes.class_next(token, {"session_id": sid}))
+    r = _answer(token, view, {"move": "a1a6"})   # takes the protected pawn: not free
+    assert r["result"]["outcome"] == "wrong"
+    assert "arrows" not in r["result"] and "hint_marks" not in r["result"]
+
+
+def test_the_path_names_each_stage_and_the_summary_carries_the_rule(db):
+    token, view = _start_class(db, "opening_basics")
+    home = run(routes.class_home(token))
+    stages = {c["id"]: c["stage"] for c in home["classes"]}
+    assert stages["rook"] == "Foundations" and stages["captures"] == "Thinking habits"
+    assert home["next"]["preview"] and home["next"]["what"]
+    from services import first_steps as fs
+    sid = view["session_id"]
+    while view["current"] is not None:
+        item = next(i for c in fs.classes() for i in c["items"] if i["id"] == view["current"]["id"])
+        answer = ({"watched": True} if item["kind"] == "show"
+                  else {("choice" if item["kind"] == "choose" else "move"): sorted(fs.answers(item))[0]})
+        run(routes.class_answer(token, {"session_id": sid, "item_id": item["id"], "answer": answer}))
+        view = run(routes.class_next(token, {"session_id": sid}))
+    assert view["summary"]["rule"] == fs.class_by_id("opening_basics")["rule"]

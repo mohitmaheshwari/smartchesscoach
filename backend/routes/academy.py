@@ -1220,9 +1220,12 @@ def _overview(student: Dict[str, Any], sessions: List[Dict[str, Any]]) -> Dict[s
         "child_name": student["display_name"],
         "placed": level is not None, "level": level,
         "classes": [{"id": c["id"], "title": c["title"], "passed": c["id"] in passed,
-                     "skipped": level is not None and c["order"] < start_order}
+                     "skipped": level is not None and c["order"] < start_order,
+                     "stage": c.get("stage") or "Foundations", "what": c.get("what") or "",
+                     "icon": c.get("icon")}
                     for c in fs.classes()],
-        "next": {"id": nxt["id"], "title": nxt["title"]} if nxt else None,
+        "next": {"id": nxt["id"], "title": nxt["title"], "what": nxt.get("what") or "",
+                 "preview": nxt.get("preview"), "icon": nxt.get("icon")} if nxt else None,
         "all_done": level is not None and nxt is None,
         "stars": sum(int(s.get("stars") or 0) for s in sessions if s.get("finished_at")),
     }
@@ -1344,8 +1347,15 @@ async def class_answer(token: str, payload: Dict[str, Any] = Body(...)):
         kinds[kind] = kinds.get(kind, 0) + 1
         st["kinds"] = kinds
         inc[f"mistakes.{kind}"] = 1
+        if not item.get("test") and st["wrong"] == 1:
+            # The coach narrows it down after a first miss: where to look, never the answer.
+            hints = fs.hint_marks(item)
+            if hints:
+                result["hint_marks"] = hints
         if item.get("test"):
-            # A check item gives no hints. After the second miss it shows the answer and is failed.
+            # A check item gives no hints and draws nothing. After the second miss
+            # it shows the answer and is failed.
+            result.pop("arrows", None)
             if st["wrong"] < REVEAL_AFTER:
                 result["say"] = "Not quite. Try once more."
             else:
@@ -1446,7 +1456,9 @@ async def _finish_class(student: Dict[str, Any], session: Dict[str, Any]) -> Dic
                    "first_try": sum(1 for r in played if (states.get(r["item_id"]) or {}).get("clean")),
                    "notes": fs.coach_notes(session.get("mistakes") or {}),
                    "next": None if practice else (nxt["title"] if nxt else None),
-                   "all_done": passed and not later and not practice}
+                   "all_done": passed and not later and not practice,
+                   # The one line to take away, as a coach ends a lesson.
+                   "rule": cls.get("rule")}
     update["summary"] = summary
     await db[fs.SESSIONS].update_one({"session_id": session["session_id"]}, {"$set": update})
     session.update(update)

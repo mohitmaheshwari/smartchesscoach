@@ -219,7 +219,8 @@
             "h5"
           ]
         }
-      ]
+      ],
+      "rule": "The rook goes in straight lines until something is in the way."
     },
     {
       "id": "bishop",
@@ -401,7 +402,8 @@
             "b1"
           ]
         }
-      ]
+      ],
+      "rule": "The bishop goes on diagonals and always stays on its colour."
     },
     {
       "id": "queen",
@@ -542,7 +544,8 @@
             "d8"
           ]
         }
-      ]
+      ],
+      "rule": "The queen moves like a rook and a bishop together."
     },
     {
       "id": "knight",
@@ -709,7 +712,8 @@
             "d6"
           ]
         }
-      ]
+      ],
+      "rule": "The knight jumps in an L, and it can jump over pieces."
     },
     {
       "id": "pawn",
@@ -841,7 +845,8 @@
             "h6"
           ]
         }
-      ]
+      ],
+      "rule": "Pawns go forward, take diagonally, and become a queen at the far end."
     },
     {
       "id": "king",
@@ -966,7 +971,8 @@
             "g1"
           ]
         }
-      ]
+      ],
+      "rule": "The king moves one square, and never onto an attacked square."
     },
     {
       "id": "check",
@@ -1097,7 +1103,8 @@
             "yes"
           ]
         }
-      ]
+      ],
+      "rule": "Out of check three ways: move the king, block the line, or take the attacker."
     },
     {
       "id": "checkmate",
@@ -1192,7 +1199,8 @@
             "h1h8"
           ]
         }
-      ]
+      ],
+      "rule": "Checkmate is check with no way out. It wins the game."
     },
     {
       "id": "captures",
@@ -1207,6 +1215,67 @@
         "wrong_choice": "cap-what"
       },
       "items": [
+        {
+          "id": "cap-watch",
+          "part": "Watch",
+          "kind": "show",
+          "fen": "4k3/8/8/3p4/4P3/2N5/8/4K3 w - - 0 1",
+          "say": "Watch first.",
+          "sub": "Your coach shows the idea on the board.",
+          "right": "Now you try.",
+          "steps": [
+            {
+              "say": "Before every move, look at what each of your pieces can take. Start with the pawn.",
+              "marks": [
+                "e4"
+              ],
+              "arrows": [
+                [
+                  "e4",
+                  "d5",
+                  "blue"
+                ],
+                [
+                  "e4",
+                  "f5",
+                  "blue"
+                ]
+              ]
+            },
+            {
+              "say": "There is a black pawn on d5. Your pawn can take it.",
+              "marks": [
+                "d5"
+              ],
+              "arrows": [
+                [
+                  "e4",
+                  "d5",
+                  "green"
+                ]
+              ]
+            },
+            {
+              "say": "Your knight reaches d5 too. Two of your pieces can take it.",
+              "arrows": [
+                [
+                  "c3",
+                  "d5",
+                  "green"
+                ],
+                [
+                  "e4",
+                  "d5",
+                  "green"
+                ]
+              ]
+            },
+            {
+              "say": "Take it.",
+              "move": "e4d5"
+            }
+          ]
+        },
         {
           "id": "cap-what",
           "part": "Today's idea",
@@ -1316,7 +1385,12 @@
             "no"
           ]
         }
-      ]
+      ],
+      "rule": "Before every move, look at everything you can take.",
+      "stage": "Thinking habits",
+      "what": "Spot every capture",
+      "icon": "knight",
+      "preview": "4k3/8/8/3p4/4P3/2N5/8/4K3 w - - 0 1"
     },
     {
       "id": "threats",
@@ -1331,6 +1405,43 @@
         "wrong_choice": "thr-what"
       },
       "items": [
+        {
+          "id": "thr-watch",
+          "part": "Watch",
+          "kind": "show",
+          "fen": "4k3/8/8/8/1b6/2N5/8/6K1 w - - 0 1",
+          "say": "Watch first.",
+          "sub": "Your coach shows the idea on the board.",
+          "right": "Now you try.",
+          "steps": [
+            {
+              "say": "After they move, ask: what does that piece attack?",
+              "marks": [
+                "b4"
+              ],
+              "arrows": [
+                [
+                  "b4",
+                  "c3",
+                  "red"
+                ]
+              ]
+            },
+            {
+              "say": "The bishop attacks your knight, and nothing protects the knight.",
+              "marks": [
+                "c3"
+              ]
+            },
+            {
+              "say": "So move the knight to a square where nothing can take it.",
+              "move": "c3e2"
+            },
+            {
+              "say": "Safe. The bishop can't reach it now."
+            }
+          ]
+        },
         {
           "id": "thr-what",
           "part": "Today's idea",
@@ -1477,7 +1588,12 @@
             "yes"
           ]
         }
-      ]
+      ],
+      "rule": "After every move they make, ask: what does it attack?",
+      "stage": "Thinking habits",
+      "what": "See what they attack",
+      "icon": "bishop",
+      "preview": "4k3/8/8/8/1b6/2N5/8/6K1 w - - 0 1"
     },
     {
       "id": "loose_pieces",
@@ -1492,6 +1608,49 @@
         "wrong_choice": "loose-what"
       },
       "items": [
+        {
+          "id": "loose-watch",
+          "part": "Watch",
+          "kind": "show",
+          "fen": "4k3/7p/4p3/3n4/8/b7/8/4K3 w - - 0 1",
+          "say": "Watch first.",
+          "sub": "Your coach shows the idea on the board.",
+          "right": "Now you try.",
+          "steps": [
+            {
+              "say": "A protector is a piece that guards another one. The pawn on e6 guards the knight.",
+              "marks": [
+                "d5"
+              ],
+              "arrows": [
+                [
+                  "e6",
+                  "d5",
+                  "green"
+                ]
+              ]
+            },
+            {
+              "say": "If you took the knight, the pawn would take you back.",
+              "arrows": [
+                [
+                  "e6",
+                  "d5",
+                  "red"
+                ]
+              ]
+            },
+            {
+              "say": "The bishop on a3 has nobody guarding it. It is loose.",
+              "marks": [
+                "a3"
+              ]
+            },
+            {
+              "say": "Loose pieces are the ones you can win."
+            }
+          ]
+        },
         {
           "id": "loose-what",
           "part": "Today's idea",
@@ -1604,7 +1763,12 @@
             "no"
           ]
         }
-      ]
+      ],
+      "rule": "A piece with no protector is loose. Keep yours protected and hunt theirs.",
+      "stage": "Thinking habits",
+      "what": "Find unprotected pieces",
+      "icon": "pawn",
+      "preview": "4k3/7p/4p3/3n4/8/b7/8/4K3 w - - 0 1"
     },
     {
       "id": "before_you_move",
@@ -1621,6 +1785,55 @@
         "wrong_choice": "cct-check"
       },
       "items": [
+        {
+          "id": "cct-watch",
+          "part": "Watch",
+          "kind": "show",
+          "fen": "4k3/3p4/4p3/3r4/8/8/1b6/1R2Q1K1 w - - 0 1",
+          "say": "Watch first.",
+          "sub": "Your coach shows the idea on the board.",
+          "right": "Now you try.",
+          "steps": [
+            {
+              "say": "Before every move, three questions. First: can you give check?",
+              "marks": [
+                "e8"
+              ]
+            },
+            {
+              "say": "No check here. Second: what can you take?",
+              "arrows": [
+                [
+                  "b1",
+                  "b2",
+                  "green"
+                ],
+                [
+                  "e1",
+                  "e6",
+                  "blue"
+                ]
+              ]
+            },
+            {
+              "say": "The pawn on e6 is protected. The bishop on b2 is not.",
+              "marks": [
+                "b2"
+              ],
+              "arrows": [
+                [
+                  "d7",
+                  "e6",
+                  "red"
+                ]
+              ]
+            },
+            {
+              "say": "Third: are they attacking anything of yours? No. So take the free bishop.",
+              "move": "b1b2"
+            }
+          ]
+        },
         {
           "id": "cct-check",
           "part": "Today's idea",
@@ -1744,7 +1957,12 @@
             "yes"
           ]
         }
-      ]
+      ],
+      "rule": "Before every move: checks, captures, threats.",
+      "stage": "Thinking habits",
+      "what": "Checks, captures, threats",
+      "icon": "queen",
+      "preview": "4k3/3p4/4p3/3r4/8/8/1b6/1R2Q1K1 w - - 0 1"
     },
     {
       "id": "opening_basics",
@@ -1759,6 +1977,59 @@
         "not_castle": "open-castle"
       },
       "items": [
+        {
+          "id": "open-watch",
+          "part": "Watch",
+          "kind": "show",
+          "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          "say": "Watch first.",
+          "sub": "Your coach shows the idea on the board.",
+          "right": "Now you try.",
+          "steps": [
+            {
+              "say": "A good start: a pawn in the middle.",
+              "move": "e2e4"
+            },
+            {
+              "say": "Black does the same.",
+              "move": "e7e5"
+            },
+            {
+              "say": "A knight comes out towards the middle and attacks the pawn.",
+              "move": "g1f3",
+              "arrows": [
+                [
+                  "f3",
+                  "e5",
+                  "red"
+                ]
+              ]
+            },
+            {
+              "say": "Black protects the pawn with a knight.",
+              "move": "b8c6"
+            },
+            {
+              "say": "The bishop comes out and aims at f7, next to the black king.",
+              "move": "f1c4",
+              "arrows": [
+                [
+                  "c4",
+                  "f7",
+                  "blue"
+                ]
+              ]
+            },
+            {
+              "say": "Black brings a bishop out too.",
+              "move": "f8c5"
+            },
+            {
+              "say": "Now castle, and the king is safe.",
+              "move": "e1g1"
+            }
+          ]
+        },
         {
           "id": "open-centre",
           "part": "Today's idea",
@@ -1872,7 +2143,12 @@
             "e2e4"
           ]
         }
-      ]
+      ],
+      "rule": "Start with a pawn in the middle, bring knights and bishops out, then castle.",
+      "stage": "Thinking habits",
+      "what": "The first moves",
+      "icon": "king",
+      "preview": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     }
   ]
 }

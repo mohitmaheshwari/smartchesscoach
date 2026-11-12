@@ -310,6 +310,129 @@ def _anything_hanging(board: chess.Board, color: bool) -> bool:
     return any(p.color == color and is_hanging(board, sq) for sq, p in board.piece_map().items())
 
 
+# ---------------------------------------------------------------------------
+# presentation: the coach draws on the board (docs/first_steps_scope.md,
+# "Presentation"). Feedback arrows are computed from the position; arrows in a
+# demonstration are authored but checked against the board when it is built,
+# so a drawn line is always a true line. Colours: green = a good capture or
+# move, blue = one of his pieces' reach, red = danger (an attacker or a protector
+# that would take back).
+# ---------------------------------------------------------------------------
+def _arrow(frm: int, to: int, colour: str) -> List[str]:
+    return [chess.square_name(frm), chess.square_name(to), colour]
+
+
+def _protector_arrows(board: chess.Board, square: int) -> List[List[str]]:
+    """The pieces that guard a square for its owner: who would take back."""
+    piece = board.piece_at(square)
+    if piece is None:
+        return []
+    return [_arrow(a, square, "red") for a in sorted(board.attackers(piece.color, square))]
+
+
+def found_arrows(item: Mapping[str, Any], found: Sequence[str]) -> List[List[str]]:
+    """Lines that explain each square the child has already found."""
+    kind = item["kind"]
+    if kind not in ALL_FOUND or kind == "tap_reach" or not found:
+        return []
+    board = board_of(item["fen"])
+    out: List[List[str]] = []
+    for name in found:
+        sq = _sq(name)
+        if kind in ("tap_captures", "tap_free"):
+            colour = "green" if kind == "tap_free" else "blue"
+            out += [_arrow(m.from_square, sq, colour) for m in board.legal_moves
+                    if m.to_square == sq and board.is_capture(m)]
+        elif kind == "tap_attacked":
+            out += [_arrow(a, sq, "red") for a in sorted(board.attackers(not board.turn, sq))]
+        elif kind == "tap_can_check":
+            checks = [m for m in board.legal_moves if m.from_square == sq and board.gives_check(m)]
+            out += [_arrow(m.from_square, m.to_square, "blue") for m in checks[:1]]
+        elif kind == "tap_undefended":
+            # Show what the child noticed: nothing guards it, so no line at all.
+            continue
+    return out
+
+
+def wrong_arrows(item: Mapping[str, Any], kind: Optional[str], square: Optional[str] = None,
+                 move: Optional[chess.Move] = None) -> List[List[str]]:
+    """Why a wrong answer is wrong, drawn on the board."""
+    board = board_of(item["fen"])
+    if kind in ("defended", "defended_target") and square:
+        return _protector_arrows(board, _sq(square))
+    if kind == "not_free" and move is not None:
+        return _protector_arrows(board, move.to_square)
+    if kind == "still_hanging" and move is not None and move in board.legal_moves:
+        after = board.copy(stack=False)
+        after.push(move)
+        out: List[List[str]] = []
+        for sq, p in after.piece_map().items():
+            if p.color == board.turn and is_hanging(after, sq):
+                out += [_arrow(a, sq, "red") for a in sorted(after.attackers(not board.turn, sq))]
+        return out
+    return []
+
+
+def hint_marks(item: Mapping[str, Any]) -> List[str]:
+    """Where to look, after a first miss. Never the answer itself."""
+    board = board_of(item["fen"])
+    kind, goal = item["kind"], item.get("goal")
+    names = chess.square_name
+    if kind in ("tap_captures", "tap_free") or goal in ("capture", "win_free"):
+        return sorted({names(m.from_square) for m in board.legal_moves if board.is_capture(m)})
+    if kind == "tap_attacked":
+        mine = [sq for sq, p in board.piece_map().items() if p.color == board.turn]
+        return sorted({names(a) for sq in mine for a in board.attackers(not board.turn, sq)})
+    if kind == "tap_can_check":
+        king = board.king(not board.turn)
+        return [names(king)] if king is not None else []
+    if goal == "save":
+        return sorted(names(sq) for sq, p in board.piece_map().items()
+                      if p.color == board.turn and is_hanging(board, sq))
+    if goal == "develop":
+        home = chess.BB_RANK_1 if board.turn == chess.WHITE else chess.BB_RANK_8
+        return sorted(names(sq) for sq, p in board.piece_map().items()
+                      if p.color == board.turn and p.piece_type in (chess.KNIGHT, chess.BISHOP)
+                      and chess.BB_SQUARES[sq] & home)
+    if goal == "centre_pawn":
+        return sorted(names(sq) for sq in CENTRE)
+    if goal == "castle":
+        king = board.king(board.turn)
+        return [names(king)] if king is not None else []
+    if goal == "exact":
+        return sorted({m[:2] for m in item.get("moves") or []})
+    return []
+
+
+def show_steps(item: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    """A demonstration, ready to draw: each step carries its own position.
+
+    The coach plays the idea on the board before asking anything. Moves are
+    pushed here so the page needs no chess logic, and an illegal authored move
+    raises (tests/test_first_steps.py builds every demonstration)."""
+    board = board_of(item["fen"])
+    out: List[Dict[str, Any]] = []
+    for step in item["steps"]:
+        last = None
+        if step.get("move"):
+            move = chess.Move.from_uci(step["move"])
+            if move not in board.legal_moves:
+                raise ValueError(f"{item['id']}: illegal demonstration move {step['move']}")
+            board.push(move)
+            last = [step["move"][:2], step["move"][2:4]]
+        arrows = [list(a) for a in step.get("arrows") or []]
+        for frm, to, *_ in arrows:
+            # An authored line must be a true line on this board: the piece on
+            # `frm` attacks `to`, or can move there.
+            a, b = _sq(frm), _sq(to)
+            legal = any(m.from_square == a and m.to_square == b for m in board.legal_moves)
+            if board.piece_at(a) is None or not (b in board.attacks(a) or legal):
+                raise ValueError(f"{item['id']}: arrow {frm}-{to} is not a real line")
+        out.append({"say": step["say"], "fen": board.fen(), "last_move": last,
+                    "arrows": arrows, "marks": list(step.get("marks") or [])})
+    return out
+
+
 def _choose_truth(item: Mapping[str, Any], board: chess.Board) -> str:
     q = item["question"]
     if q == "is_check":
@@ -522,8 +645,25 @@ def grade(item: Mapping[str, Any], answer: Mapping[str, Any], state: Optional[Ma
     """
     state = dict(state or {})
     kind = item["kind"]
+    if kind == "show":
+        # A demonstration has nothing to get wrong: watching it through is the answer.
+        if not answer.get("watched"):
+            return {"outcome": "ignored", "state": state}
+        return {"outcome": "done", "kind": None, "say": item.get("right") or "Now you try.", "state": state}
     if kind in TAP_KINDS:
-        return _grade_tap(item, answer.get("square"), state)
+        result = _grade_tap(item, answer.get("square"), state)
+        if result["outcome"] == "wrong":
+            result["arrows"] = wrong_arrows(item, result.get("kind"), square=answer.get("square"))
+        elif result["outcome"] in ("right", "progress"):
+            result["arrows"] = found_arrows(item, result.get("found") or [])
+        return result
+    if kind == "move_goal":
+        result = _grade_move_goal(item, answer.get("move"))
+        if result["outcome"] == "wrong":
+            board = board_of(item["fen"])
+            move = _parse_move(board, answer.get("move"))
+            result["arrows"] = wrong_arrows(item, result.get("kind"), move=move)
+        return result
     if kind == "choose":
         right = _choose_truth(item, board_of(item["fen"])) == answer.get("choice")
         return {"outcome": "right" if right else "wrong", "kind": None if right else "wrong_choice",
@@ -774,8 +914,12 @@ def public_item(item: Mapping[str, Any], state: Optional[Mapping[str, Any]] = No
     if item["kind"] in ALL_FOUND:
         out["total"] = len(answers(item))
         out["found"] = state.get("found", [])
+        # The lines behind what he has found stay drawn, so the board builds the picture.
+        out["arrows"] = found_arrows(item, out["found"])
     if item["kind"] == "choose":
         out.setdefault("options", [{"id": "yes", "label": "Yes"}, {"id": "no", "label": "No"}])
+    if item["kind"] == "show":
+        out["steps"] = show_steps(item)
     return out
 
 
