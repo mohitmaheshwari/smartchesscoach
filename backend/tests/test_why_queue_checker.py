@@ -81,13 +81,14 @@ def test_run_checker_failure_is_a_disagree(monkeypatch, tmp_path):
 def test_run_checker_passes_the_checker_model(monkeypatch, tmp_path):
     seen = {}
 
-    def fake(system, user, schema, *, cwd, model=None):
-        seen["model"], seen["schema"] = model, schema
+    def fake(system, user, schema, *, cwd, model=None, tools_note=""):
+        seen["model"], seen["schema"], seen["note"] = model, schema, tools_note
         return {"answer": {"verdict": "agree", "problem": "", "own_reading": "c3 wins the pawn back"},
                 "cost_usd": 0.1, "model": model}
     monkeypatch.setattr(worker, "run_claude", fake)
     out = worker.run_checker({}, {"reason": "r", "claims": []}, cwd=tmp_path)
     assert seen["model"] == worker.CHECKER_MODEL and seen["schema"] is why_study.CHECK_SCHEMA
+    assert seen["note"] is why_study.CHECKER_TOOLS_NOTE
     assert out["verdict"] == "agree" and out["own_reading"] == "c3 wins the pawn back"
 
 
@@ -100,3 +101,18 @@ def test_review_row_shows_the_checker_and_a_live_checker_publish():
     checker = [p for p in row["probes"] if p["kind"] == "checker"]
     assert checker and checker[0]["verdict"].startswith("agree")
     assert "published by the checker" in row["bucket"]
+
+
+def test_card_lines_become_full_lines_from_before_the_move():
+    shown = why_study.shown_lines({"best_move_san": "c3",
+                                   "pv_after_best": ["dxc3", "Bxf7+", "Kxf7", "Qd5+"],
+                                   "pv_after_played": ["6...Nge7", "7.", "c3"]}, "e5")
+    assert shown["better_line"] == ["c3", "dxc3", "Bxf7+", "Kxf7", "Qd5+"]
+    assert shown["played_line"] == ["e5", "Nge7", "c3"]
+    assert why_study.shown_lines(None, "e5") is None
+    assert why_study.shown_lines({"best_move_san": "c3"}, "e5") is None
+
+
+def test_writer_and_checker_are_told_to_follow_the_card_lines():
+    assert "lines_shown_on_the_card" in why_study.SYSTEM_PROMPT
+    assert "lines_shown_on_the_card" in why_study.CHECK_SYSTEM_PROMPT

@@ -33,6 +33,7 @@ def main() -> int:
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
+    worker.ENGINE_FOR_TOOLS = args.engine
     cases = json.loads(Path(args.cases).read_text(encoding="utf-8"))
     scratch = worker.LOG_DIR / "claude_cwd"
     scratch.mkdir(parents=True, exist_ok=True)
@@ -54,7 +55,8 @@ def main() -> int:
                 results.append({"position": case["played_san"], "label": study["label"], "expect": study["expect"],
                                 "run": run + 1, **check, "correct": ok})
                 print(f"  {'OK  ' if ok else 'MISS'} {study['label']}: expect {study['expect']}, "
-                      f"got {check['verdict']} ({check.get('seconds')}s, ${check.get('cost_usd')})", flush=True)
+                      f"got {check['verdict']} ({check.get('seconds')}s, ${check.get('cost_usd')}, "
+                      f"turns {check.get('turns')}, tools {check.get('tools')})", flush=True)
                 if check.get("problem"):
                     print(f"       problem: {check['problem']}")
                 print(f"       own reading: {check.get('own_reading')}")

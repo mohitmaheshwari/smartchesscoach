@@ -67,6 +67,15 @@ CHECKER_MODEL = os.environ.get("WHY_CHECKER_MODEL") or DEFAULT_CHECKER_MODEL
 AUTO_PUBLISH = os.environ.get("WHY_QUEUE_AUTO_PUBLISH", "0") == "1"
 # Publish without a person only when the gate passed AND the checker agreed.
 CHECKER_PUBLISH = os.environ.get("WHY_QUEUE_CHECKER_PUBLISH", "0") == "1"
+# The agents get an engine (scripts/why_engine_mcp.py) and many turns, so they
+# can test a line instead of trusting the packet (Mohit, 2026-11-12: "give the
+# worker the same ability"). Set WHY_AGENT_TOOLS=0 for the old one-shot call.
+AGENT_TOOLS = os.environ.get("WHY_AGENT_TOOLS", "1") == "1"
+AGENT_MAX_TURNS = int(os.environ.get("WHY_AGENT_MAX_TURNS", "30"))
+ENGINE_MCP = HERE / "why_engine_mcp.py"
+ENGINE_TOOL_NAMES = ("mcp__chess__analyse", "mcp__chess__board")
+# Set from --engine in main(); the tools need the same local Stockfish.
+ENGINE_FOR_TOOLS: Optional[str] = os.environ.get("STOCKFISH_PATH")
 LOG_DIR = Path(os.environ.get("WHY_QUEUE_LOG_DIR") or (Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "ChessGuru" / "why_queue"))
 LEASE_MINUTES = 30
 
@@ -101,6 +110,25 @@ for row in db.why_queue.find(q, {"_id": 0}).sort("created_at", 1).limit(limit):
                                    "$inc": {"attempts": 1}})
     if res.modified_count == 1 or key:
         rows.append(row)
+# The lines the asking game's review card plays out beside the caption: the
+# study must agree with them (2026-11-12, 6.e5 of 2d86e1f9). One indexed read
+# per asking game, card fields only.
+FIELDS = ("fen_before", "move_san", "best_move_san", "pv_after_played", "pv_after_best")
+for row in rows:
+    fen4 = " ".join(str(row.get("fen_before") or "").split()[:4])
+    for req in row.get("requests") or []:
+        gid = req.get("game_id")
+        if not gid:
+            continue
+        doc = db.game_analyses.find_one({"game_id": gid}, {"_id": 0, **{"decryption_v5_data." + f: 1 for f in FIELDS}}) or {}
+        cards = doc.get("decryption_v5_data")
+        cards = cards if isinstance(cards, list) else (cards or {}).get("moves") or []
+        hit = next((c for c in cards if isinstance(c, dict)
+                    and " ".join(str(c.get("fen_before") or "").split()[:4]) == fen4
+                    and c.get("move_san") == row.get("played_san")), None)
+        if hit:
+            row["card_lines"] = {f: hit.get(f) for f in FIELDS[2:]}
+            break
 emit({"rows": rows})
 '''
 
@@ -174,18 +202,29 @@ def claude_binary() -> str:
 
 
 def run_claude(system_prompt: str, user_text: str, schema: Dict[str, Any], *, cwd: Path,
-               model: Optional[str] = None) -> Dict[str, Any]:
+               model: Optional[str] = None, tools_note: str = "") -> Dict[str, Any]:
     """One headless Claude Code call. Returns {answer, raw, cost_usd, duration_ms, model}."""
     model = model or CLAUDE_MODEL
-    cmd = [claude_binary(), "-p", "--output-format", "json", "--max-turns", "1",
+    tools = bool(AGENT_TOOLS and ENGINE_FOR_TOOLS)
+    cmd = [claude_binary(), "-p", "--output-format", "json",
+           "--max-turns", str(AGENT_MAX_TURNS if tools else 1),
            "--tools", "", "--no-session-persistence",
-           "--system-prompt", system_prompt, "--json-schema", json.dumps(schema)]
+           "--system-prompt", system_prompt + (tools_note if tools else ""),
+           "--json-schema", json.dumps(schema)]
+    if tools:
+        # The engine and nothing else: no shell, no files, no web (--tools "" keeps
+        # every built-in off; --strict-mcp-config ignores any other MCP server).
+        config = Path(cwd) / "why_engine_mcp.json"
+        config.write_text(json.dumps({"mcpServers": {"chess": {
+            "command": sys.executable, "args": [str(ENGINE_MCP), "--engine", str(ENGINE_FOR_TOOLS)]}}}),
+            encoding="utf-8")
+        cmd += ["--mcp-config", str(config), "--strict-mcp-config", "--allowedTools", *ENGINE_TOOL_NAMES]
     if model:
         cmd += ["--model", model]
     # A worker started from inside a Claude Code session must not look like a child of it.
     env = {k: v for k, v in os.environ.items() if not k.startswith("CLAUDE")}
     proc = subprocess.run(cmd, input=user_text, text=True, encoding="utf-8", capture_output=True,
-                          timeout=900, cwd=str(cwd), env=env)
+                          timeout=1800 if tools else 900, cwd=str(cwd), env=env)
     if proc.returncode != 0:
         raise RuntimeError(f"claude failed ({proc.returncode}): {proc.stderr.strip()[-800:]}")
     envelope: Optional[Dict[str, Any]] = None
@@ -211,6 +250,7 @@ def run_claude(system_prompt: str, user_text: str, schema: Dict[str, Any], *, cw
         raise RuntimeError("claude's answer is not an object")
     return {"answer": answer, "raw": envelope, "cost_usd": envelope.get("total_cost_usd"),
             "duration_ms": envelope.get("duration_ms") or envelope.get("duration_api_ms"),
+            "turns": envelope.get("num_turns"), "tools": tools,
             "model": (envelope.get("modelUsage") and next(iter(envelope["modelUsage"]), None)) or model}
 
 
@@ -221,14 +261,16 @@ def run_checker(packet: Dict[str, Any], study: Dict[str, Any], *, cwd: Path) -> 
     t0 = time.time()
     try:
         out = run_claude(why_study.CHECK_SYSTEM_PROMPT, why_study.check_prompt(packet, study),
-                         why_study.CHECK_SCHEMA, cwd=cwd, model=CHECKER_MODEL)
+                         why_study.CHECK_SCHEMA, cwd=cwd, model=CHECKER_MODEL,
+                         tools_note=why_study.CHECKER_TOOLS_NOTE)
     except Exception as exc:                            # noqa: BLE001
         log.warning("checker failed: %s", exc)
         return {"verdict": "disagree", "problem": f"the checker did not answer: {type(exc).__name__}",
                 "own_reading": "", "model": CHECKER_MODEL, "cost_usd": 0.0,
                 "seconds": round(time.time() - t0, 1), "error": str(exc)[:500]}
     return {**why_study.check_verdict(out["answer"]), "model": out.get("model"),
-            "cost_usd": round(float(out.get("cost_usd") or 0), 4), "seconds": round(time.time() - t0, 1)}
+            "cost_usd": round(float(out.get("cost_usd") or 0), 4), "seconds": round(time.time() - t0, 1),
+            "turns": out.get("turns"), "tools": out.get("tools")}
 
 
 def decide_status(gate: Dict[str, Any], check: Optional[Dict[str, Any]]) -> str:
@@ -258,7 +300,8 @@ def study(row: Dict[str, Any], *, depth: int, engine_path: Optional[str], scratc
     t0 = time.time()
     packet = why_study.build_packet(fen, played, better_san=better, mover_is_user=mover_is_user, depth=depth,
                                     engine_path=engine_path, stored_class=row.get("stored_class"),
-                                    rating=row.get("rating"), live_engine_said=row.get("differential"))
+                                    rating=row.get("rating"), live_engine_said=row.get("differential"),
+                                    card_lines=row.get("card_lines"))
     better = packet["better_san"]
     packet_s = time.time() - t0
     log.info("packet for %s in %.1fs (better %s)", row["key"], packet_s, better)
@@ -274,16 +317,18 @@ def study(row: Dict[str, Any], *, depth: int, engine_path: Optional[str], scratc
             "mechanism_label": None, "claims": [], "gate": {"passed": True, "failures": []},
             "readability": None, "notes": [], "attempts": 0,
             "packet": {k: packet.get(k) for k in ("pv_after_played", "pv_after_best", "root_candidates_cp_for_mover",
-                                                   "shared_threat_probes", "material_along_best_lines")},
+                                                   "shared_threat_probes", "material_along_best_lines", "lines_shown_on_the_card")},
             "model": None, "settled_by": "engine", "cost_usd": 0.0,
             "seconds": {"packet": round(packet_s, 1), "model": 0.0},
             "worker_host": platform.node(), "studied_at": _now(),
         }
 
     t1 = time.time()
-    model_out = run_claude(why_study.SYSTEM_PROMPT, why_study.user_prompt(packet), why_study.CLAIM_SCHEMA, cwd=scratch)
+    model_out = run_claude(why_study.SYSTEM_PROMPT, why_study.user_prompt(packet), why_study.CLAIM_SCHEMA,
+                           cwd=scratch, tools_note=why_study.WRITER_TOOLS_NOTE)
     answer = model_out["answer"]
-    log.info("claude answered %s in %.1fs, cost %s", row["key"], time.time() - t1, model_out.get("cost_usd"))
+    log.info("claude answered %s in %.1fs, cost %s, turns %s, tools %s", row["key"], time.time() - t1,
+             model_out.get("cost_usd"), model_out.get("turns"), model_out.get("tools"))
     gate = why_study.run_gate(answer, fen_before=fen, played_san=played, better_san=better,
                               mover_is_user=mover_is_user, engine_path=engine_path)
     attempts = 1
@@ -299,7 +344,7 @@ def study(row: Dict[str, Any], *, depth: int, engine_path: Optional[str], scratc
         t2 = time.time()
         second = run_claude(why_study.SYSTEM_PROMPT,
                             why_study.user_prompt(packet, previous=answer, fixes=fixes),
-                            why_study.CLAIM_SCHEMA, cwd=scratch)
+                            why_study.CLAIM_SCHEMA, cwd=scratch, tools_note=why_study.WRITER_TOOLS_NOTE)
         attempts = 2
         cost += float(second.get("cost_usd") or 0)
         gate2 = why_study.run_gate(second["answer"], fen_before=fen, played_san=played, better_san=better,
@@ -328,8 +373,10 @@ def study(row: Dict[str, Any], *, depth: int, engine_path: Optional[str], scratc
         "claims": gate["claims"], "gate": {"passed": gate["passed"], "failures": gate["failures"]},
         "readability": gate.get("readability"), "notes": gate.get("notes") or [], "attempts": attempts,
         "packet": {k: packet.get(k) for k in ("pv_after_played", "pv_after_best", "root_candidates_cp_for_mover",
-                                               "shared_threat_probes", "material_along_best_lines")},
+                                               "shared_threat_probes", "material_along_best_lines",
+                                               "lines_shown_on_the_card")},
         "model": model_out.get("model"), "cost_usd": round(cost, 4),
+        "agent": {"engine_tools": model_out.get("tools"), "turns": model_out.get("turns")},
         "check": check,
         "seconds": {"packet": round(packet_s, 1), "model": round(time.time() - t1, 1)},
         "worker_host": platform.node(),
@@ -356,9 +403,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--checker-publish", action="store_true",
                     help="publish a gate-passed study when the checker agrees (same as WHY_QUEUE_CHECKER_PUBLISH=1)")
     args = ap.parse_args(argv)
+    global CHECKER_PUBLISH, ENGINE_FOR_TOOLS
     if args.checker_publish:
-        global CHECKER_PUBLISH
         CHECKER_PUBLISH = True
+    if args.engine:
+        ENGINE_FOR_TOOLS = args.engine
 
     if args.local:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

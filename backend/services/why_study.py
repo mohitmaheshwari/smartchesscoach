@@ -229,10 +229,15 @@ def board_facts(board: chess.Board, mover: chess.Color) -> Dict[str, Any]:
 def build_packet(fen_before: str, played_san: str, *, better_san: Optional[str] = None,
                  mover_is_user: bool = True, depth: int = 20, engine_path: Optional[str] = None,
                  stored_class: Optional[str] = None, rating: Optional[int] = None,
-                 live_engine_said: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                 live_engine_said: Optional[Dict[str, Any]] = None,
+                 card_lines: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Everything the model may reason from. Engine lines, board facts, probes.
 
-    The model never runs an engine itself; this is the whole of its evidence.
+    `card_lines` are the two lines the review card plays out beside the caption
+    (stored analysis, `pv_after_played` / `pv_after_best`). They can differ from
+    this packet's own lines: on 6.e5 (2d86e1f9) the card plays c3 dxc3 Bxf7+
+    Kxf7 Qd5+ while the packet's best reply was d6, so the study explained
+    cxd4 under a line that never plays it (2026-11-12).
     """
     root = chess.Board(fen_before)
     mover = root.turn
@@ -355,6 +360,27 @@ def build_packet(fen_before: str, played_san: str, *, better_san: Optional[str] 
         "live_engine_said": live_engine_said,
         "pv_after_played": after_played[0]["line"] if after_played else [],
         "pv_after_best": after_better[0]["line"] if after_better else [],
+        "lines_shown_on_the_card": shown_lines(card_lines, played_san),
+    }
+
+
+def shown_lines(card_lines: Optional[Dict[str, Any]], played_san: str) -> Optional[Dict[str, Any]]:
+    """The card's two lines as full SAN lists from the position before the move, or None."""
+    if not card_lines:
+        return None
+    def clean(seq):
+        return [m for m in _san_only(" ".join(str(x) for x in (seq or [])))]
+    played_tail = clean(card_lines.get("pv_after_played"))
+    better = str(card_lines.get("best_move_san") or "").strip()
+    better_tail = clean(card_lines.get("pv_after_best"))
+    if not played_tail and not (better and better_tail):
+        return None
+    return {
+        "note": ("The review card plays these two lines out, move by move, beside your words. "
+                 "They come from the game's stored analysis and can differ from the engine lines above."),
+        "played_line": [played_san] + played_tail if played_tail else None,
+        "better_move_on_card": better or None,
+        "better_line": [better] + better_tail if better and better_tail else None,
     }
 
 
@@ -409,6 +435,7 @@ How to write it. The reader is ten years old, or reading English as a second lan
 - If the packet shows no mechanism, only that the position is a little worse with nothing concrete, set `no_lesson` true and say why in one line. That is a real and useful answer. Do not invent a lesson.
 - `live_engine_said` is what the quick engine on the site answered when the player asked. Its `reason` `no_gap` means it measured no real difference between the two moves; `engine_choice` means the move played was its own first choice. The card still called the move a fault. If the lines here agree with the quick engine, set `no_lesson` true and say so in one line; if they show a real difference the quick engine missed, that difference is the lesson.
 - Do not read a threat off a line without checking it in the facts or probes: a move in a line is not a threat until the board says what it attacks.
+- `lines_shown_on_the_card` (when present) are the two lines the player watches beside your words. Your reason must agree with them. If the better line shown holds a tactic (a check, a fork, a piece given up to win more), that is what the player will see: explain it. When the card's better line is not the other side's best reply, say both in plain words, the best reply first and then the card's line as "if they take": "c3 attacks your pawn on d4. If you take with dxc3, Bxf7+ and Qd5+ check your king and win your bishop on c5." Never describe a move that is in neither shown line as the main point.
 - `attacks` needs a piece on the target square. For an empty square use `controls`. For "the better line is better" use `line_better` with `worse_line` = the moves of the move played's line and `better_line` = the moves of the better move's line, both starting from the position before the move played.
 
 Example. Black played 4...b6 in a Scandinavian; the better move was Nf6; it is the reader's own move, so Black is "you".
@@ -860,6 +887,34 @@ def run_gate(answer: Dict[str, Any], *, fen_before: str, played_san: str, better
             "readability": read, "notes": list(read["notes"])}
 
 
+# --- engine tools: how the agents check a line instead of trusting it -----------
+# Appended to the system prompts when the worker runs the agents with the engine
+# (scripts/why_engine_mcp.py). Written from how the Bc5 case was settled by hand
+# on 2026-11-12: a depth-20 packet line misled the checker; depth 26 and a
+# comparison of the two lines showed the real difference.
+
+WRITER_TOOLS_NOTE = """
+
+You have a chess engine. Use it. The packet is a starting point at modest depth and its lines can be wrong.
+Tools: `analyse` (engine lines from the position before the move played, after any SAN moves you give, at a depth you choose) and `board` (the board as text, material, and pieces attacked with nothing guarding them).
+How to work, in this order:
+1. Run `analyse` at depth 24 or more after the move played (moves: [played]) and after the better move (moves: [better]). Note both scores and both lines.
+2. Find the concrete difference: play each line forward with `board` and see what changes. Which piece or pawn is won or lost, which square or piece is attacked, what one move does that the other does not.
+3. Test your mechanism before you write it. If you say the move played allows something, check that the better move does NOT allow the same thing: play the better move's line and look. If the same thing happens after both moves, it is not the reason; find another one. If you say there is a threat, play it and check the other side's best reply.
+4. If after testing the difference is small and nothing concrete explains it, answer no_lesson. That is a good answer.
+Use about ten to fifteen tool calls, then answer in the JSON shape. Every claim is still replayed by a machine afterwards, so write claims exactly as the schema says, with `after` lines starting from the position before the move played."""
+
+CHECKER_TOOLS_NOTE = """
+
+You have a chess engine. Use it. The packet is at modest depth and its lines can be wrong; do not base your verdict on a packet line you have not checked.
+Tools: `analyse` (engine lines from the position before the move played, after any SAN moves you give, at a depth you choose) and `board` (the board as text, material, and pieces attacked with nothing guarding them).
+How to work:
+1. Before reading the study, run `analyse` at depth 24 or more after the move played and after the better move, and write your own reading from those lines.
+2. Test the study's central claim twice: it must happen after the move played, and it must NOT happen (or happen worse) after the better move. If both moves lead to the same thing, the study names a side fact, not the reason.
+3. Test your own reading the same way before you use it to reject the study. Reject only for a reason you checked with the engine.
+Use about ten tool calls, then answer in the JSON shape."""
+
+
 # --- the checker: a second agent reads the study before it goes live ------------
 
 CHECK_SYSTEM_PROMPT = """You are a senior chess coach checking a colleague's explanation before a player reads it. The player is rated 600 to 1500 and will trust it.
@@ -873,6 +928,7 @@ Work in this order.
    - Every sentence is true on the board and in the lines. A sentence that suggests something false is a disagree, even if each word could be defended.
    - It does not say the better move wins or saves something that the better move's line shows it does not.
    - "You/your" and "the opponent/their" match the packet's `pronouns` field.
+   - When the packet has `lines_shown_on_the_card`, the study agrees with them, and if the better line shown holds a tactic (a check, a fork, a piece given up to win more), the study explains it. A study that talks about a different branch and leaves the shown tactic unexplained is a disagree: the player watches that line beside the words.
    - A player could act on it next game.
 3. If you are unsure, the verdict is disagree. A wrong explanation shown to a player does more harm than a good one held back for a person to read.
 
