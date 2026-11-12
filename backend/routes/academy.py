@@ -1467,7 +1467,7 @@ async def _rebuild_week(student_id: str) -> None:
 
 
 async def first_steps_for_staff(student: Dict[str, Any]) -> Dict[str, Any]:
-    """What the coach sees: where the child is in the eight classes and what
+    """What the coach sees: where the child is in the classes and what
     the taps have shown in the last three classes."""
     sessions = await _sessions(student["student_id"])
     done = [s for s in sessions if s.get("kind") == "class" and s.get("finished_at")]

@@ -185,3 +185,44 @@ Not success: classes opened, stars given, minutes spent.
   card. Consent text moved to v3 so it says class answers are kept. Not built
   yet: the first opponent for real games (needs measured data, section 6) and
   read-aloud in Hindi.
+
+---
+
+## Addendum, 2026-11-12: thinking habits (classes 9-13)
+
+Mohit, 2026-11-12, after watching a coach teach a child: *"starting with some basic
+opening lines, and then check captures threats, undefended pieces, basic openings,
+how to check if there is a check, or if there is a capture available... can we set
+this up for kids? go ahead"*.
+
+This EXTENDS the signed track; nothing new is parallel. After checkmate the child
+goes on to five classes, built on the same engine and the same page:
+
+| Order | Class | What the child does |
+|---|---|---|
+| 9 | Look for captures | says whether a capture exists, taps every capture, taps the free one, wins a piece for free |
+| 10 | What is attacked? | taps every attacked piece of theirs, saves an attacked piece by moving it or by protecting it |
+| 11 | Pieces with no protector | taps loose pieces on both sides, gives a piece a protector, wins the loose piece |
+| 12 | Before every move | the three questions in order: checks, captures, threats, then a free capture and a threat handled first |
+| 13 | Starting the game | a pawn in the middle, a knight or bishop out towards the middle, the Italian (Nf3, Bc4), castling |
+
+New question kinds, all judged by the rules engine in `services/first_steps.py`:
+`tap_captures`, `tap_free`, `tap_can_check`, `tap_attacked`, `tap_undefended`
+(find every one), the yes/no questions `can_capture`, `can_check`, `is_attacked`,
+`is_defended`, and the move goals `win_free`, `save`, `defend`, `castle`,
+`develop`, `centre_pawn`, `exact`.
+
+"Safe" follows the 2026-11-06 lesson: a piece is hanging when the other side
+attacks it and nobody protects it, or a cheaper piece attacks it, and pawns
+count. "Free" means the capturing piece cannot be taken back on that square.
+
+Every authored answer is checked against the rules engine by
+`tests/test_first_steps.py` (writing them found four wrong drafts: a position
+in check, two with the wrong free capture, one bishop that could not reach its
+square). Each new class is walked end to end through the real class routes in
+`tests/test_academy_routes.py`. Every new mistake kind has words for the child
+and a note for the coach's notebook.
+
+Not in this addendum: placement still ends at checkmate (a child who already
+knows the habits starts at checkmate and passes quickly); opening lines beyond
+the Italian; the first opponent for real games.

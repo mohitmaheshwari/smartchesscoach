@@ -810,16 +810,38 @@ def test_the_last_lesson_says_what_comes_next_and_the_coach_is_told(db):
     student = _class_child(db)
     token = student["class_token"]
     db[svc.STUDENTS].rows[0]["first_steps"] = {"level": 2}
-    view = run(routes.class_start(token))
     from services import first_steps as fs
+    # Every class before the last one is already passed, so the class this
+    # child starts is the final one (opening basics since 2026-11-12).
+    order = [c["id"] for c in fs.classes()]
+    for i, class_id in enumerate(order[order.index("checkmate"):-1]):
+        db["academy_class_sessions"].rows.append({
+            "session_id": f"done-{class_id}", "student_id": student["student_id"],
+            "user_id": student.get("user_id"), "kind": "class", "class_id": class_id,
+            "passed": True, "finished_at": f"2026-11-0{1 + i % 8}T10:00:00",
+            "started_at": f"2026-11-0{1 + i % 8}T09:{i:02d}:00", "mistakes": {}, "stars": 0})
+    view = run(routes.class_start(token))
+    assert view["class_id"] == order[-1]
     sid = view["session_id"]
+
+    def _find(item_id):
+        for cls in fs.classes():
+            found = fs.item_by_id(cls, item_id)
+            if found:
+                return found
+        raise AssertionError(item_id)
+
     while view["current"] is not None:
         cur = view["current"]
-        item = fs.item_by_id(fs.class_by_id("checkmate"), cur["id"])
+        item = _find(cur["id"])
         if cur["kind"] == "game":
             run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"], "answer": {"move": "a1a7"}}))
             state = db["academy_class_sessions"].rows[-1]["item_state"][cur["id"]]
             state["finished"] = True
+        elif item["kind"] in fs.TAP_KINDS:
+            for square in sorted(fs.answers(item)):
+                run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"],
+                                                "answer": {"square": square}}))
         else:
             key = "choice" if item["kind"] == "choose" else "move"
             run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"],
@@ -832,6 +854,39 @@ def test_the_last_lesson_says_what_comes_next_and_the_coach_is_told(db):
     assert staff["row"]["needs_you"] == "Finished the lessons. Set up a class game"
     sections = {s["kind"]: s for s in staff["preview"]["sections"]}
     assert "finished the first lessons" in " ".join(sections["classes"]["lines"])
+
+
+@pytest.mark.parametrize("class_id", ["captures", "threats", "loose_pieces", "before_you_move", "opening_basics"])
+def test_each_thinking_habit_class_can_be_passed_through_the_routes(db, class_id):
+    """Answer every item right through the real class routes: the class passes."""
+    student = _class_child(db)
+    token = student["class_token"]
+    db[svc.STUDENTS].rows[0]["first_steps"] = {"level": 2}
+    from services import first_steps as fs
+    order = [c["id"] for c in fs.classes()]
+    for i, done in enumerate(order[order.index("checkmate"):order.index(class_id)]):
+        db["academy_class_sessions"].rows.append({
+            "session_id": f"done-{done}", "student_id": student["student_id"],
+            "user_id": student.get("user_id"), "kind": "class", "class_id": done,
+            "passed": True, "finished_at": f"2026-11-0{1 + i % 8}T10:00:00",
+            "started_at": f"2026-11-0{1 + i % 8}T09:{i:02d}:00", "mistakes": {}, "stars": 0})
+    view = run(routes.class_start(token))
+    assert view["class_id"] == class_id
+    sid = view["session_id"]
+    lookup = {i["id"]: i for c in fs.classes() for i in c["items"]}
+    while view["current"] is not None:
+        cur = view["current"]
+        item = lookup[cur["id"]]
+        if item["kind"] in fs.TAP_KINDS:
+            assert cur.get("total") == len(fs.answers(item)) or item["kind"] not in fs.ALL_FOUND
+            for square in sorted(fs.answers(item)):
+                run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"], "answer": {"square": square}}))
+        else:
+            key = "choice" if item["kind"] == "choose" else "move"
+            run(routes.class_answer(token, {"session_id": sid, "item_id": cur["id"],
+                                            "answer": {key: sorted(fs.answers(item))[0]}}))
+        view = run(routes.class_next(token, {"session_id": sid}))
+    assert view["summary"]["passed"] is True
 
 
 def test_the_consent_message_is_not_only_about_online_games(db):

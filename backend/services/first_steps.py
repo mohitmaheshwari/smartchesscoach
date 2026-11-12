@@ -81,7 +81,29 @@ MISTAKE_WORDS = {
     "leaves_check": "Your king is still in check after that. You must get out of check.",
     "illegal": "That move isn't allowed.",
     "extra_moves": "Done. It can be done in fewer moves.",
+    # Thinking habits (classes 9-13): checks, captures, threats, loose pieces, openings.
+    "cant_take": "None of your pieces can take that one. Look at what each of your pieces attacks.",
+    "no_check_from": "That piece can't give check this move. Look for a piece that can reach the king.",
+    "not_attacked": "Nothing attacks that piece right now. Look at what the other side's pieces aim at.",
+    "defended": "That one has a protector. Find a piece with nobody protecting it.",
+    "defended_target": "You can take it, but it is protected. You would be taken straight back.",
+    "not_capture": "That move doesn't take anything. Look for a piece you can take.",
+    "not_free": "That piece is protected, so it isn't free. Find one with no protector.",
+    "still_hanging": "Something of yours can still be taken for free. Look again before you move.",
+    "not_defended": "That piece still has no protector. Find a move that guards it.",
+    "not_castle": "To castle, move the king two squares towards the rook.",
+    "not_develop": "Bring out a knight or a bishop, towards the middle of the board.",
+    "not_centre": "Put a pawn on one of the four middle squares.",
+    "not_line": "That move is allowed, but it isn't the move we are learning. Try again.",
 }
+
+# Piece values for "is it safe": a piece is hanging when the other side
+# attacks it and either nobody protects it or a cheaper piece attacks it.
+VALUE = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100}
+CENTRE = {chess.D4, chess.E4, chess.D5, chess.E5}
+# Kinds where the child must find EVERY answer, not just one.
+ALL_FOUND = {"tap_reach", "tap_captures", "tap_can_check", "tap_attacked", "tap_undefended", "tap_free"}
+TAP_KINDS = {"tap_piece", "tap_reach", "tap_take", "tap_checker"} | ALL_FOUND
 
 
 # ---------------------------------------------------------------------------
@@ -232,11 +254,60 @@ def answers(item: Mapping[str, Any]) -> Set[str]:
         return {s for s in _names(reach(board, _sq(item["from"]))) if board.piece_at(_sq(s))}
     if kind == "tap_checker":
         return _names(board.checkers())
+    if kind == "tap_captures":
+        return {chess.square_name(m.to_square) for m in board.legal_moves if board.is_capture(m)}
+    if kind == "tap_free":
+        return {chess.square_name(m.to_square) for m in board.legal_moves
+                if board.is_capture(m) and _is_free_capture(board, m)}
+    if kind == "tap_can_check":
+        return {chess.square_name(m.from_square) for m in board.legal_moves if board.gives_check(m)}
+    if kind == "tap_attacked":
+        return {chess.square_name(sq) for sq, p in board.piece_map().items()
+                if p.color == board.turn and board.is_attacked_by(not board.turn, sq)}
+    if kind == "tap_undefended":
+        color = chess.WHITE if item.get("color", "w") == "w" else chess.BLACK
+        return {chess.square_name(sq) for sq, p in board.piece_map().items()
+                if p.color == color and p.piece_type != chess.KING and not is_defended(board, sq)}
     if kind == "choose":
         return {_choose_truth(item, board)}
     if kind == "move_goal":
-        return {m.uci() for m in board.legal_moves if _meets_goal(board, m, item["goal"])}
+        return {m.uci() for m in board.legal_moves if _meets_goal(board, m, item["goal"], item)}
     return set()
+
+
+# ---------------------------------------------------------------------------
+# safety: protected, free, hanging
+# ---------------------------------------------------------------------------
+def is_defended(board: chess.Board, square: int) -> bool:
+    """Another piece of the same colour guards this square."""
+    piece = board.piece_at(square)
+    return bool(piece) and board.is_attacked_by(piece.color, square)
+
+
+def _is_free_capture(board: chess.Board, move: chess.Move) -> bool:
+    """A capture the other side cannot answer by taking back on that square."""
+    after = board.copy(stack=False)
+    after.push(move)
+    return not after.is_attacked_by(after.turn, move.to_square)
+
+
+def is_hanging(board: chess.Board, square: int) -> bool:
+    """The other side attacks it and nobody protects it, or a cheaper piece
+    attacks it. Pawns count: a pawn given away is still given away."""
+    piece = board.piece_at(square)
+    if piece is None or piece.piece_type == chess.KING:
+        return False
+    attackers = board.attackers(not piece.color, square)
+    if not attackers:
+        return False
+    if not is_defended(board, square):
+        return True
+    cheapest = min(VALUE[board.piece_at(a).piece_type] for a in attackers)
+    return cheapest < VALUE[piece.piece_type]
+
+
+def _anything_hanging(board: chess.Board, color: bool) -> bool:
+    return any(p.color == color and is_hanging(board, sq) for sq, p in board.piece_map().items())
 
 
 def _choose_truth(item: Mapping[str, Any], board: chess.Board) -> str:
@@ -247,6 +318,16 @@ def _choose_truth(item: Mapping[str, Any], board: chess.Board) -> str:
         return "yes" if board.is_checkmate() else "no"
     if q == "is_stalemate":
         return "yes" if board.is_stalemate() else "no"
+    if q == "can_capture":
+        return "yes" if any(board.is_capture(m) for m in board.legal_moves) else "no"
+    if q == "can_check":
+        return "yes" if any(board.gives_check(m) for m in board.legal_moves) else "no"
+    if q == "is_attacked":
+        sq = _sq(item["square"])
+        piece = board.piece_at(sq)
+        return "yes" if piece and board.is_attacked_by(not piece.color, sq) else "no"
+    if q == "is_defended":
+        return "yes" if is_defended(board, _sq(item["square"])) else "no"
     if q == "same_colour":
         a, b = (_sq(s) for s in item["squares"])
         same = (chess.square_file(a) + chess.square_rank(a)) % 2 == (chess.square_file(b) + chess.square_rank(b)) % 2
@@ -254,7 +335,9 @@ def _choose_truth(item: Mapping[str, Any], board: chess.Board) -> str:
     raise ValueError(f"unknown question {q}")
 
 
-def _meets_goal(board: chess.Board, move: chess.Move, goal: str) -> bool:
+def _meets_goal(board: chess.Board, move: chess.Move, goal: str,
+                item: Optional[Mapping[str, Any]] = None) -> bool:
+    item = item or {}
     after = board.copy(stack=False)
     after.push(move)
     if goal == "check":
@@ -267,6 +350,29 @@ def _meets_goal(board: chess.Board, move: chess.Move, goal: str) -> bool:
         return move.promotion is not None
     if goal == "capture":
         return board.is_capture(move)
+    if goal == "win_free":
+        return board.is_capture(move) and _is_free_capture(board, move)
+    if goal == "save":
+        # After the move nothing of his can be taken for free.
+        return not _anything_hanging(after, board.turn)
+    if goal == "defend":
+        sq = _sq(item["square"])
+        piece = after.piece_at(sq)
+        return bool(piece) and piece.color == board.turn and is_defended(after, sq)
+    if goal == "castle":
+        return board.is_castling(move)
+    if goal == "develop":
+        piece = board.piece_at(move.from_square)
+        home = chess.BB_RANK_1 if board.turn == chess.WHITE else chess.BB_RANK_8
+        rim = chess.BB_FILE_A | chess.BB_FILE_H
+        return (bool(piece) and piece.piece_type in (chess.KNIGHT, chess.BISHOP)
+                and bool(chess.BB_SQUARES[move.from_square] & home)
+                and not chess.BB_SQUARES[move.to_square] & rim)
+    if goal == "centre_pawn":
+        piece = board.piece_at(move.from_square)
+        return bool(piece) and piece.piece_type == chess.PAWN and move.to_square in CENTRE
+    if goal == "exact":
+        return move.uci() in set(item.get("moves") or [])
     raise ValueError(f"unknown goal {goal}")
 
 
@@ -416,7 +522,7 @@ def grade(item: Mapping[str, Any], answer: Mapping[str, Any], state: Optional[Ma
     """
     state = dict(state or {})
     kind = item["kind"]
-    if kind in ("tap_piece", "tap_reach", "tap_take", "tap_checker"):
+    if kind in TAP_KINDS:
         return _grade_tap(item, answer.get("square"), state)
     if kind == "choose":
         right = _choose_truth(item, board_of(item["fen"])) == answer.get("choice")
@@ -447,11 +553,17 @@ def _grade_tap(item: Mapping[str, Any], square: Optional[str], state: Dict[str, 
             return {"outcome": "ignored", "state": state}
         found.add(name)
         state["found"] = sorted(found)
-        all_found = kind != "tap_reach" or found >= want
+        all_found = kind not in ALL_FOUND or found >= want
         return {"outcome": "right" if all_found else "progress", "kind": None,
                 "say": item.get("right") if all_found else "Yes!",
                 "found": sorted(found), "total": len(want), "state": state}
     on = board.piece_at(tapped)
+    if kind in ALL_FOUND and kind != "tap_reach":
+        k = _wrong_habit_tap(item, board, tapped)
+        if k is None:
+            return {"outcome": "ignored", "state": state}
+        return {"outcome": "wrong", "kind": k, "say": item.get("hints", {}).get(k) or MISTAKE_WORDS[k],
+                "found": sorted(found), "total": len(want), "state": state}
     if kind == "tap_checker":
         if on is None:
             return {"outcome": "ignored", "state": state}
@@ -486,6 +598,32 @@ def _grade_tap(item: Mapping[str, Any], square: Optional[str], state: Dict[str, 
             "found": sorted(found), "total": len(want), "state": state}
 
 
+def _wrong_habit_tap(item: Mapping[str, Any], board: chess.Board, tapped: int) -> Optional[str]:
+    """What a wrong tap on a thinking-habit board means. None = not a real
+    attempt (an empty square, or a piece the question is not about)."""
+    kind = item["kind"]
+    on = board.piece_at(tapped)
+    if on is None:
+        return None
+    mine = on.color == board.turn
+    if kind in ("tap_captures", "tap_free"):
+        if mine:
+            return "own_piece_take"
+        if kind == "tap_free" and any(m.to_square == tapped and board.is_capture(m) for m in board.legal_moves):
+            return "defended_target"
+        return "cant_take"
+    if kind == "tap_can_check":
+        return "no_check_from" if mine else None
+    if kind == "tap_attacked":
+        return "not_attacked" if mine else None
+    if kind == "tap_undefended":
+        color = chess.WHITE if item.get("color", "w") == "w" else chess.BLACK
+        if on.color != color or on.piece_type == chess.KING:
+            return None
+        return "defended"
+    return None
+
+
 def _parse_move(board: chess.Board, uci: Any) -> Optional[chess.Move]:
     try:
         move = chess.Move.from_uci(str(uci))
@@ -514,7 +652,7 @@ def _grade_move_goal(item: Mapping[str, Any], uci: Any) -> Dict[str, Any]:
     san = board.san(move)
     after = board.copy(stack=False)
     after.push(move)
-    if _meets_goal(board, move, item["goal"]):
+    if _meets_goal(board, move, item["goal"], item):
         return {"outcome": "right", "kind": None, "say": item.get("right"), "move": move.uci(),
                 "san": san, "fen_after": after.fen(), "state": {}}
     goal = item["goal"]
@@ -522,8 +660,12 @@ def _grade_move_goal(item: Mapping[str, Any], uci: Any) -> Dict[str, Any]:
         k = "stalemate" if after.is_stalemate() else ("check_not_mate" if after.is_check() else "no_check")
     elif goal == "check":
         k = "no_check"
+    elif goal == "win_free":
+        k = "not_free" if board.is_capture(move) else "not_capture"
     else:
-        k = "not_goal"
+        k = {"save": "still_hanging", "defend": "not_defended", "castle": "not_castle",
+             "develop": "not_develop", "centre_pawn": "not_centre", "exact": "not_line",
+             "capture": "not_capture"}.get(goal, "not_goal")
     return {"outcome": "wrong", "kind": k, "say": item.get("hints", {}).get(k) or words(k, letter),
             "state": {}}
 
@@ -629,7 +771,7 @@ def public_item(item: Mapping[str, Any], state: Optional[Mapping[str, Any]] = No
         out["child"] = item.get("child", "w")
     else:
         out["fen"] = item["fen"]
-    if item["kind"] == "tap_reach":
+    if item["kind"] in ALL_FOUND:
         out["total"] = len(answers(item))
         out["found"] = state.get("found", [])
     if item["kind"] == "choose":
@@ -712,6 +854,19 @@ NOTICE_WORDS = {
     "no_check": "misses moves that give check",
     "leaves_check": "forgets to get out of check",
     "extra_moves": "takes the long way round",
+    "cant_take": "isn't sure yet which pieces can be taken",
+    "no_check_from": "misses which pieces can give check",
+    "not_attacked": "isn't sure yet which pieces are under attack",
+    "defended": "mixes up protected and unprotected pieces",
+    "defended_target": "takes pieces that are protected",
+    "not_free": "takes protected pieces instead of free ones",
+    "not_capture": "misses captures that are there",
+    "still_hanging": "leaves pieces where they can be taken for free",
+    "not_defended": "isn't sure yet how to protect a piece",
+    "not_castle": "doesn't know castling yet",
+    "not_develop": "doesn't bring knights and bishops out yet",
+    "not_centre": "doesn't start with a pawn in the middle yet",
+    "not_line": "is still learning the opening moves",
 }
 
 

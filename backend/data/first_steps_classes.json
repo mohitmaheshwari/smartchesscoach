@@ -1193,6 +1193,686 @@
           ]
         }
       ]
+    },
+    {
+      "id": "captures",
+      "order": 9,
+      "title": "Look for captures",
+      "learnt": "how to spot every capture, and which ones are free",
+      "recall": "cap-recall",
+      "warm_up_by_kind": {
+        "cant_take": "cap-tap",
+        "defended_target": "cap-free",
+        "not_free": "cap-play",
+        "wrong_choice": "cap-what"
+      },
+      "items": [
+        {
+          "id": "cap-what",
+          "part": "Today's idea",
+          "kind": "choose",
+          "question": "can_capture",
+          "fen": "4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1",
+          "say": "Good players look for captures before every move.",
+          "sub": "Can White take anything here?",
+          "right": "Yes. The pawn on e4 can take the pawn on d5.",
+          "why_wrong": "Look at the white pawn. Pawns take one square diagonally forward.",
+          "expect": [
+            "yes"
+          ]
+        },
+        {
+          "id": "cap-none",
+          "part": "Today's idea",
+          "kind": "choose",
+          "question": "can_capture",
+          "fen": "4k3/8/8/8/3p4/8/4P3/4K3 w - - 0 1",
+          "say": "What about now?",
+          "sub": "Can White take anything here?",
+          "right": "Right, nothing to take. The pawn on e2 attacks d3 and f3, and both are empty.",
+          "why_wrong": "The pawn on e2 attacks d3 and f3. Is anything standing there?",
+          "expect": [
+            "no"
+          ]
+        },
+        {
+          "id": "cap-tap",
+          "part": "Practice",
+          "kind": "tap_captures",
+          "fen": "r3k3/p7/8/1b6/4p3/2N5/8/R3K3 w - - 0 1",
+          "say": "Find every capture.",
+          "sub": "Tap every black piece one of your pieces can take.",
+          "right": "All of them. The rook can take on a7, and the knight can take on b5 or e4.",
+          "expect": [
+            "a7",
+            "b5",
+            "e4"
+          ]
+        },
+        {
+          "id": "cap-free",
+          "part": "Practice",
+          "kind": "tap_free",
+          "fen": "4k3/8/p7/1b6/4p3/2N5/8/4K3 w - - 0 1",
+          "say": "Some pieces are protected.",
+          "sub": "Tap the piece your knight can take for free, with nobody to take back.",
+          "right": "Yes. The pawn on e4 has no protector. The bishop on b5 is protected by the pawn on a6.",
+          "expect": [
+            "e4"
+          ]
+        },
+        {
+          "id": "cap-make",
+          "part": "Practice",
+          "kind": "move_goal",
+          "goal": "capture",
+          "fen": "4k3/8/8/8/2b5/8/8/2R1K3 w - - 0 1",
+          "say": "Now take it.",
+          "sub": "Make a capture.",
+          "right": "Taken. Your rook went straight up the line.",
+          "expect": [
+            "c1c4"
+          ]
+        },
+        {
+          "id": "cap-play",
+          "part": "Play it",
+          "kind": "move_goal",
+          "goal": "win_free",
+          "fen": "6k1/8/4p3/3n4/b7/8/8/3Q2K1 w - - 0 1",
+          "say": "Two things to take. Only one is free.",
+          "sub": "Win a piece for free with your queen.",
+          "right": "Free. The bishop on a4 had no protector. The knight on d5 is protected by the pawn on e6.",
+          "expect": [
+            "d1a4"
+          ]
+        },
+        {
+          "id": "cap-test",
+          "part": "Check",
+          "kind": "move_goal",
+          "goal": "win_free",
+          "test": true,
+          "fen": "6k1/1p6/p7/8/8/8/8/R3b1K1 w - - 0 1",
+          "say": "Check your understanding",
+          "sub": "Win a piece for free.",
+          "right": "Correct. The bishop on e1 had nobody protecting it.",
+          "expect": [
+            "a1e1"
+          ]
+        },
+        {
+          "id": "cap-recall",
+          "part": "Warm-up",
+          "kind": "choose",
+          "question": "can_capture",
+          "recall_only": true,
+          "fen": "4k3/8/8/8/8/2n5/8/1B2K3 w - - 0 1",
+          "say": "Remember captures?",
+          "sub": "Can White take anything here?",
+          "right": "No. The bishop on b1 doesn't reach the knight on c3. It is not on its diagonal.",
+          "why_wrong": "Follow the bishop's diagonals from b1. Does either one reach c3?",
+          "expect": [
+            "no"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "threats",
+      "order": 10,
+      "title": "What is attacked?",
+      "learnt": "how to see what the other side is attacking, and how to save it",
+      "recall": "thr-recall",
+      "warm_up_by_kind": {
+        "not_attacked": "thr-tap",
+        "still_hanging": "thr-save",
+        "not_defended": "thr-defend",
+        "wrong_choice": "thr-what"
+      },
+      "items": [
+        {
+          "id": "thr-what",
+          "part": "Today's idea",
+          "kind": "choose",
+          "question": "is_attacked",
+          "square": "c3",
+          "marks": [
+            "c3"
+          ],
+          "fen": "4k3/8/8/8/1b6/2N5/8/6K1 w - - 0 1",
+          "say": "Before you move, ask: what is the other side attacking?",
+          "sub": "Is your knight on c3 attacked?",
+          "right": "Yes. The bishop on b4 attacks it along the diagonal.",
+          "why_wrong": "Follow the black bishop's diagonal from b4. What does it reach?",
+          "expect": [
+            "yes"
+          ]
+        },
+        {
+          "id": "thr-tap",
+          "part": "Practice",
+          "kind": "tap_attacked",
+          "fen": "4k3/8/8/8/1b6/2N5/P4n2/4K2R w K - 0 1",
+          "say": "Find the danger.",
+          "sub": "Tap every one of your pieces that is attacked.",
+          "right": "Both found. The bishop attacks your knight, and the black knight attacks your rook.",
+          "expect": [
+            "c3",
+            "h1"
+          ]
+        },
+        {
+          "id": "thr-save",
+          "part": "Practice",
+          "kind": "move_goal",
+          "goal": "save",
+          "fen": "4k3/8/8/8/1b6/2N5/8/6K1 w - - 0 1",
+          "say": "Your knight is attacked.",
+          "sub": "Move it to a square where it is safe.",
+          "right": "Safe. Nothing can take it there.",
+          "expect": [
+            "c3a2",
+            "c3a4",
+            "c3b1",
+            "c3b5",
+            "c3d1",
+            "c3d5",
+            "c3e2",
+            "c3e4"
+          ]
+        },
+        {
+          "id": "thr-defend",
+          "part": "Practice",
+          "kind": "move_goal",
+          "goal": "defend",
+          "square": "e4",
+          "marks": [
+            "e4"
+          ],
+          "fen": "4k3/8/5n2/8/4P3/8/8/1N2K3 w - - 0 1",
+          "say": "Another way to save a piece is to protect it.",
+          "sub": "The knight on f6 attacks your pawn. Bring a piece to protect it.",
+          "right": "Protected. If the knight takes, you take back.",
+          "expect": [
+            "b1c3",
+            "b1d2"
+          ]
+        },
+        {
+          "id": "thr-play",
+          "part": "Play it",
+          "kind": "move_goal",
+          "goal": "save",
+          "fen": "6k1/8/2n5/8/3R4/8/8/6K1 w - - 0 1",
+          "say": "Your rook is attacked by the knight.",
+          "sub": "Move the rook somewhere safe.",
+          "right": "Safe. The knight can't reach that square.",
+          "expect": [
+            "d4a4",
+            "d4c4",
+            "d4d1",
+            "d4d2",
+            "d4d3",
+            "d4d5",
+            "d4d6",
+            "d4d7",
+            "d4e4",
+            "d4f4",
+            "d4g4",
+            "d4h4"
+          ]
+        },
+        {
+          "id": "thr-test",
+          "part": "Check",
+          "kind": "move_goal",
+          "goal": "save",
+          "test": true,
+          "fen": "4k3/8/8/4p3/3Q4/8/8/4K3 w - - 0 1",
+          "say": "Check your understanding",
+          "sub": "Your queen is attacked by a pawn. Keep her safe.",
+          "right": "Correct. Your queen is safe now.",
+          "expect": [
+            "d4a1",
+            "d4a4",
+            "d4a7",
+            "d4b2",
+            "d4b4",
+            "d4b6",
+            "d4c3",
+            "d4c4",
+            "d4c5",
+            "d4d1",
+            "d4d2",
+            "d4d3",
+            "d4d5",
+            "d4d6",
+            "d4e3",
+            "d4e4",
+            "d4e5",
+            "d4f2",
+            "d4g1",
+            "d4g4",
+            "d4h4"
+          ]
+        },
+        {
+          "id": "thr-recall",
+          "part": "Warm-up",
+          "kind": "choose",
+          "question": "is_attacked",
+          "square": "d4",
+          "marks": [
+            "d4"
+          ],
+          "recall_only": true,
+          "fen": "4k3/8/2n5/8/3B4/8/8/4K3 w - - 0 1",
+          "say": "Remember threats?",
+          "sub": "Is your bishop on d4 attacked?",
+          "right": "Yes. The knight on c6 jumps to d4.",
+          "why_wrong": "Count the knight's jump from c6: two squares, then one to the side.",
+          "expect": [
+            "yes"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "loose_pieces",
+      "order": 11,
+      "title": "Pieces with no protector",
+      "learnt": "how to spot loose pieces, on both sides",
+      "recall": "loose-recall",
+      "warm_up_by_kind": {
+        "defended": "loose-tap-black",
+        "not_defended": "loose-defend",
+        "not_free": "loose-win",
+        "wrong_choice": "loose-what"
+      },
+      "items": [
+        {
+          "id": "loose-what",
+          "part": "Today's idea",
+          "kind": "choose",
+          "question": "is_defended",
+          "square": "d5",
+          "marks": [
+            "d5"
+          ],
+          "fen": "4k3/8/4p3/3n4/8/8/8/4K3 w - - 0 1",
+          "say": "A piece with no protector is loose. Loose pieces get taken.",
+          "sub": "Is the black knight on d5 protected?",
+          "right": "Yes. The pawn on e6 protects it.",
+          "why_wrong": "Look at the black pawn on e6. Which squares does it guard?",
+          "expect": [
+            "yes"
+          ]
+        },
+        {
+          "id": "loose-tap-black",
+          "part": "Practice",
+          "kind": "tap_undefended",
+          "color": "b",
+          "fen": "4k3/7p/4p3/3n4/8/b7/8/4K3 w - - 0 1",
+          "say": "Find their loose pieces.",
+          "sub": "Tap every black piece that has no protector.",
+          "right": "All found. Those are the pieces you can win.",
+          "expect": [
+            "a3",
+            "e6",
+            "h7"
+          ]
+        },
+        {
+          "id": "loose-tap-white",
+          "part": "Practice",
+          "kind": "tap_undefended",
+          "color": "w",
+          "fen": "4k3/8/8/8/2B5/5N2/6P1/4K3 w - - 0 1",
+          "say": "Now your own pieces.",
+          "sub": "Tap every white piece that has no protector.",
+          "right": "Both found. Your loose pieces are the ones the other side will hunt.",
+          "expect": [
+            "c4",
+            "g2"
+          ]
+        },
+        {
+          "id": "loose-defend",
+          "part": "Practice",
+          "kind": "move_goal",
+          "goal": "defend",
+          "square": "c4",
+          "marks": [
+            "c4"
+          ],
+          "fen": "4k3/8/8/8/2B5/5N2/6P1/4K3 w - - 0 1",
+          "say": "Give it a protector.",
+          "sub": "Move a piece so your bishop on c4 is protected.",
+          "right": "Protected. Your bishop isn't loose any more.",
+          "expect": [
+            "f3d2",
+            "f3e5"
+          ]
+        },
+        {
+          "id": "loose-win",
+          "part": "Play it",
+          "kind": "move_goal",
+          "goal": "win_free",
+          "fen": "6k1/8/8/8/p5b1/1n6/8/3Q2K1 w - - 0 1",
+          "say": "Hunt the loose piece.",
+          "sub": "Take the black piece that has no protector.",
+          "right": "Won. The bishop was loose. The knight was protected by the pawn on a4.",
+          "expect": [
+            "d1g4"
+          ]
+        },
+        {
+          "id": "loose-test",
+          "part": "Check",
+          "kind": "tap_undefended",
+          "color": "b",
+          "test": true,
+          "fen": "r5k1/5ppp/8/8/3b4/8/8/6K1 w - - 0 1",
+          "say": "Check your understanding",
+          "sub": "Tap every black piece that has no protector.",
+          "right": "Correct. The king protects his pawns, but not the rook or the bishop.",
+          "expect": [
+            "a8",
+            "d4"
+          ]
+        },
+        {
+          "id": "loose-recall",
+          "part": "Warm-up",
+          "kind": "choose",
+          "question": "is_defended",
+          "square": "f5",
+          "marks": [
+            "f5"
+          ],
+          "recall_only": true,
+          "fen": "4k3/8/8/5b2/8/8/8/4K3 w - - 0 1",
+          "say": "Remember loose pieces?",
+          "sub": "Is the black bishop on f5 protected?",
+          "right": "No. Nothing protects it. It is loose.",
+          "why_wrong": "Look for a black piece that guards f5. Is there one?",
+          "expect": [
+            "no"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "before_you_move",
+      "order": 12,
+      "title": "Before every move",
+      "learnt": "to look for checks, captures and threats before every move",
+      "recall": "cct-recall",
+      "warm_up_by_kind": {
+        "no_check_from": "cct-tap-checks",
+        "cant_take": "cct-tap-caps",
+        "not_attacked": "cct-tap-threat",
+        "not_free": "cct-play",
+        "still_hanging": "cct-play-2",
+        "wrong_choice": "cct-check"
+      },
+      "items": [
+        {
+          "id": "cct-check",
+          "part": "Today's idea",
+          "kind": "choose",
+          "question": "can_check",
+          "fen": "4k3/8/8/8/8/8/8/R5K1 w - - 0 1",
+          "say": "Strong players ask three questions before every move: checks, captures, threats.",
+          "sub": "First question. Can you give check?",
+          "right": "Yes. The rook can go to a8 and attack the king.",
+          "why_wrong": "Look up the a-file from your rook. Where does it end?",
+          "expect": [
+            "yes"
+          ]
+        },
+        {
+          "id": "cct-tap-checks",
+          "part": "Practice",
+          "kind": "tap_can_check",
+          "fen": "4k3/8/8/8/2N5/8/1B6/R5K1 w - - 0 1",
+          "say": "Checks.",
+          "sub": "Tap every one of your pieces that can give check this move.",
+          "right": "Both found. The rook can check from a8, and the knight can check from d6.",
+          "expect": [
+            "a1",
+            "c4"
+          ]
+        },
+        {
+          "id": "cct-tap-caps",
+          "part": "Practice",
+          "kind": "tap_captures",
+          "fen": "3rk3/8/8/1p6/2B2n2/8/8/3R2K1 w - - 0 1",
+          "say": "Captures.",
+          "sub": "Tap every black piece you can take.",
+          "right": "Both found. The bishop can take on b5 and the rook can take on d8.",
+          "expect": [
+            "b5",
+            "d8"
+          ]
+        },
+        {
+          "id": "cct-tap-threat",
+          "part": "Practice",
+          "kind": "tap_attacked",
+          "fen": "4k3/8/8/6b1/8/2N5/2r5/R3K3 w - - 0 1",
+          "say": "Threats.",
+          "sub": "Tap every one of your pieces that is attacked.",
+          "right": "Found. Always ask what they are attacking before you move.",
+          "expect": [
+            "c3"
+          ]
+        },
+        {
+          "id": "cct-play",
+          "part": "Play it",
+          "kind": "move_goal",
+          "goal": "win_free",
+          "fen": "4k3/3p4/4p3/3r4/8/8/1b6/1R2Q1K1 w - - 0 1",
+          "say": "Ask all three questions.",
+          "sub": "There is a piece you can win for free. Find it.",
+          "right": "Free. The bishop on b2 had no protector. The pawn on e6 is protected by the pawn on d7.",
+          "expect": [
+            "b1b2"
+          ]
+        },
+        {
+          "id": "cct-play-2",
+          "part": "Play it",
+          "kind": "move_goal",
+          "goal": "save",
+          "fen": "4k3/8/8/8/8/2p5/3Q4/4K3 w - - 0 1",
+          "say": "Threats come first.",
+          "sub": "Something of yours is attacked. Deal with it.",
+          "right": "Good. You checked the threat before anything else.",
+          "expect": [
+            "d2a2",
+            "d2c1",
+            "d2c2",
+            "d2c3",
+            "d2d1",
+            "d2d3",
+            "d2d4",
+            "d2d5",
+            "d2d6",
+            "d2e2",
+            "d2e3",
+            "d2f2",
+            "d2f4",
+            "d2g2",
+            "d2g5",
+            "d2h2",
+            "d2h6"
+          ]
+        },
+        {
+          "id": "cct-test",
+          "part": "Check",
+          "kind": "move_goal",
+          "goal": "win_free",
+          "test": true,
+          "fen": "4k3/8/5p2/4n3/8/1b6/8/N2R1BK1 w - - 0 1",
+          "say": "Check your understanding",
+          "sub": "Look for checks, captures and threats. Then win a piece for free.",
+          "right": "Correct. The bishop on b3 attacked your rook, and it had no protector.",
+          "expect": [
+            "a1b3"
+          ]
+        },
+        {
+          "id": "cct-recall",
+          "part": "Warm-up",
+          "kind": "choose",
+          "question": "can_check",
+          "recall_only": true,
+          "fen": "4k3/8/8/8/8/8/8/5BK1 w - - 0 1",
+          "say": "Remember the three questions?",
+          "sub": "Can your bishop give check?",
+          "right": "Yes. The bishop can go to b5 and attack the king.",
+          "why_wrong": "Follow both of the bishop's diagonals. Can it reach a square that attacks the king?",
+          "expect": [
+            "yes"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "opening_basics",
+      "order": 13,
+      "title": "Starting the game",
+      "learnt": "the first moves: a pawn in the middle, knights and bishops out, king castled",
+      "recall": "open-recall",
+      "warm_up_by_kind": {
+        "not_centre": "open-centre",
+        "not_develop": "open-develop",
+        "not_line": "open-line-1",
+        "not_castle": "open-castle"
+      },
+      "items": [
+        {
+          "id": "open-centre",
+          "part": "Today's idea",
+          "kind": "move_goal",
+          "goal": "centre_pawn",
+          "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          "say": "Start by taking the middle of the board.",
+          "sub": "Move a pawn to one of the four middle squares.",
+          "right": "Good start. Your pawn holds the middle and opens lines for your pieces.",
+          "expect": [
+            "d2d4",
+            "e2e4"
+          ]
+        },
+        {
+          "id": "open-develop",
+          "part": "Today's idea",
+          "kind": "move_goal",
+          "goal": "develop",
+          "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+          "say": "Next, bring out your knights and bishops.",
+          "sub": "Bring out a knight or a bishop, towards the middle.",
+          "right": "Yes. Pieces work best near the middle.",
+          "expect": [
+            "b1c3",
+            "f1b5",
+            "f1c4",
+            "f1d3",
+            "f1e2",
+            "g1e2",
+            "g1f3"
+          ]
+        },
+        {
+          "id": "open-line-1",
+          "part": "Practice",
+          "kind": "move_goal",
+          "goal": "exact",
+          "moves": [
+            "g1f3"
+          ],
+          "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+          "say": "Let's learn a real opening.",
+          "sub": "Bring the knight out so it attacks the pawn on e5.",
+          "right": "That's it. The knight comes out and attacks the pawn straight away.",
+          "expect": [
+            "g1f3"
+          ]
+        },
+        {
+          "id": "open-line-2",
+          "part": "Practice",
+          "kind": "move_goal",
+          "goal": "exact",
+          "moves": [
+            "f1c4"
+          ],
+          "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3",
+          "say": "Black protected the pawn.",
+          "sub": "Bring the bishop out so it aims at f7, next to the black king.",
+          "right": "That's the Italian Game. Your bishop aims at the weakest square near the black king.",
+          "expect": [
+            "f1c4"
+          ]
+        },
+        {
+          "id": "open-castle",
+          "part": "Play it",
+          "kind": "move_goal",
+          "goal": "castle",
+          "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+          "say": "Keep your king safe.",
+          "sub": "Castle: move the king two squares towards the rook.",
+          "right": "Castled. Your king is tucked away and your rook joins the game.",
+          "expect": [
+            "e1g1"
+          ]
+        },
+        {
+          "id": "open-test",
+          "part": "Check",
+          "kind": "move_goal",
+          "goal": "develop",
+          "test": true,
+          "fen": "rnbqkbnr/ppp1pppp/8/3p4/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2",
+          "say": "Check your understanding",
+          "sub": "Bring out a knight or a bishop, towards the middle.",
+          "right": "Correct. Middle first, then pieces out, then castle.",
+          "expect": [
+            "b1c3",
+            "b1d2",
+            "c1d2",
+            "c1e3",
+            "c1f4",
+            "c1g5",
+            "g1f3"
+          ]
+        },
+        {
+          "id": "open-recall",
+          "part": "Warm-up",
+          "kind": "move_goal",
+          "goal": "centre_pawn",
+          "recall_only": true,
+          "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          "say": "Remember the first move?",
+          "sub": "Put a pawn in the middle.",
+          "right": "Yes. The middle first.",
+          "expect": [
+            "d2d4",
+            "e2e4"
+          ]
+        }
+      ]
     }
   ]
 }

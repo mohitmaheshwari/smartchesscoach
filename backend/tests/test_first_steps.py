@@ -31,7 +31,7 @@ def test_authored_answers_match_the_rules(cls_id, item):
             assert par == item["expect_par"]
         for s in item["stars"]:
             assert s not in item.get("walls", []) and s != item["start"]
-    if item["kind"] in ("tap_reach", "tap_take", "tap_piece", "tap_checker", "move_goal", "choose"):
+    if item["kind"] in fs.TAP_KINDS | {"move_goal", "choose"}:
         assert fs.answers(item), f"{item['id']} has no answer"
 
 
@@ -49,7 +49,114 @@ def test_every_class_is_complete():
             assert target in items, f"{cls['id']}: warm-up {target} missing"
         for i in cls["items"]:
             assert i.get("say") and i.get("sub"), i["id"]
-    assert [c["order"] for c in fs.classes()] == list(range(1, 9))
+        # Every mistake a warm-up is keyed on must be one the grader can produce.
+        for kind in (cls.get("warm_up_by_kind") or {}):
+            assert kind in fs.MISTAKE_WORDS, f"{cls['id']}: unknown mistake kind {kind}"
+    assert [c["order"] for c in fs.classes()] == list(range(1, 14))
+
+
+# ---------------------------------------------------------------------------
+# thinking habits (classes 9-13): checks, captures, threats, loose pieces, openings
+# ---------------------------------------------------------------------------
+def test_the_thinking_habit_classes_follow_checkmate():
+    ids = [c["id"] for c in fs.classes()]
+    assert ids[8:] == ["captures", "threats", "loose_pieces", "before_you_move", "opening_basics"]
+    # A child who finished checkmate is sent on to captures, not left with nothing.
+    assert fs.next_class(2, ["checkmate"])["id"] == "captures"
+
+
+def test_move_items_are_white_to_move():
+    # The class page only lets the child pick up white pieces.
+    for cls in fs.classes():
+        for i in cls["items"]:
+            if i["kind"] in ("move_goal", "game"):
+                assert chess.Board(i["fen"]).turn == chess.WHITE, i["id"]
+
+
+@pytest.mark.parametrize("item_id,square,kind", [
+    ("cap-tap", "a1", "own_piece_take"),
+    ("cap-tap", "e8", "cant_take"),
+    ("cap-free", "b5", "defended_target"),
+    ("cap-free", "a6", "cant_take"),
+    ("thr-tap", "a2", "not_attacked"),
+    ("loose-tap-black", "d5", "defended"),
+    ("loose-tap-white", "f3", "defended"),
+    ("cct-tap-checks", "b2", "no_check_from"),
+])
+def test_wrong_habit_taps(item_id, square, kind):
+    r = fs.grade(_item(item_id), {"square": square})
+    assert r["outcome"] == "wrong" and r["kind"] == kind
+    assert r["say"] == fs.MISTAKE_WORDS[kind]
+
+
+@pytest.mark.parametrize("item_id,square", [
+    ("thr-tap", "b4"),          # an enemy piece is not "one of yours"
+    ("loose-tap-black", "e8"),  # kings are never loose pieces
+    ("loose-tap-black", "e1"),  # wrong colour
+    ("cap-tap", "d4"),          # empty square
+])
+def test_habit_taps_that_are_not_attempts_are_ignored(item_id, square):
+    assert fs.grade(_item(item_id), {"square": square})["outcome"] == "ignored"
+
+
+def test_habit_taps_need_every_answer():
+    item = _item("cap-tap")
+    state = {}
+    for square in ("a7", "b5"):
+        r = fs.grade(item, {"square": square}, state)
+        assert r["outcome"] == "progress"
+        state = r["state"]
+    r = fs.grade(item, {"square": "e4"}, state)
+    assert r["outcome"] == "right" and r["total"] == 3
+
+
+@pytest.mark.parametrize("item_id,move,kind", [
+    ("cap-play", "d1d5", "not_free"),       # the knight is protected by e6
+    ("cap-play", "d1d2", "not_capture"),
+    ("thr-save", "g1g2", "still_hanging"),  # the knight is still attacked
+    ("thr-defend", "e1e2", "not_defended"),
+    ("open-castle", "e1f1", "not_castle"),
+    ("open-develop", "b1a3", "not_develop"),  # the rim is not the middle
+    ("open-centre", "a2a4", "not_centre"),
+    ("open-line-1", "b1c3", "not_line"),
+])
+def test_wrong_habit_moves(item_id, move, kind):
+    r = fs.grade(_item(item_id), {"move": move})
+    assert r["outcome"] == "wrong" and r["kind"] == kind
+
+
+def test_a_pawn_given_away_is_hanging():
+    # "Safe" includes pawns: a pawn attacked and unprotected is hanging.
+    board = chess.Board("4k3/8/8/3p4/4P3/8/8/4K3 w - - 0 1")
+    assert fs.is_hanging(board, chess.E4) and fs.is_hanging(board, chess.D5)
+
+
+def test_a_protected_piece_attacked_by_a_cheaper_one_is_hanging():
+    # Rook on d4 protected by the king, attacked by a pawn: still lost.
+    board = chess.Board("4k3/8/8/4p3/3R4/4K3/8/8 w - - 0 1")
+    assert fs.is_defended(board, chess.D4)
+    assert fs.is_hanging(board, chess.D4)
+    # The same rook attacked only by a queen is not hanging.
+    board = chess.Board("4k3/8/8/8/3R3q/4K3/8/8 w - - 0 1")
+    assert not fs.is_hanging(board, chess.D4)
+
+
+def test_a_free_capture_cannot_be_taken_back():
+    board = chess.Board("6k1/8/4p3/3n4/b7/8/8/3Q2K1 w - - 0 1")
+    assert fs._is_free_capture(board, chess.Move.from_uci("d1a4"))
+    assert not fs._is_free_capture(board, chess.Move.from_uci("d1d5"))
+
+
+def test_coach_notes_cover_the_new_mistakes():
+    notes = fs.coach_notes({"still_hanging": 3, "not_free": 2})
+    assert notes == ["leaves pieces where they can be taken for free",
+                     "takes protected pieces instead of free ones"]
+
+
+def test_new_habit_items_hide_their_answers_and_carry_a_tally():
+    shown = fs.public_item(_item("cap-tap"))
+    assert shown["total"] == 3 and shown["found"] == []
+    assert "expect" not in shown and "right" not in shown and "color" not in shown
 
 
 def _item(item_id):
@@ -220,7 +327,7 @@ def test_placement_and_next_class():
     assert fs.next_class(0, [])["id"] == "rook"
     assert fs.next_class(0, ["rook", "bishop"])["id"] == "queen"
     assert fs.next_class(1, [])["id"] == "check"
-    assert fs.next_class(2, ["checkmate"]) is None
+    assert fs.next_class(2, ["checkmate"])["id"] == "captures"
 
 
 def test_warm_up_uses_recall_then_the_top_mistake():

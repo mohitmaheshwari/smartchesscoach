@@ -155,8 +155,11 @@ function Lesson({ token, view, setView, onDone }) {
     ...(pick ? [{ square: pick, kind: "picked" }] : []),
     ...(miss ? [{ square: miss }] : []),
   ];
+  // Every "find them all" task carries `total` from the server: squares for the
+  // piece lessons, pieces for the thinking habits (captures, threats, loose pieces).
   const tally = cur.kind === "tap_reach" ? `${(cur.found || []).length} of ${cur.total} squares found`
-    : cur.kind === "stars" ? `${cur.moves} moves · ${(cur.stars_left || []).length} left` : "";
+    : cur.kind === "stars" ? `${cur.moves} moves · ${(cur.stars_left || []).length} left`
+    : typeof cur.total === "number" ? `${(cur.found || []).length} of ${cur.total} found` : "";
 
   return (
     <div className="room-lesson">
