@@ -925,6 +925,12 @@ def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
         {"_id": 0, "game_id": 1, "trap_fires": 1})))
     deciding_rows = list(db.game_analyses.aggregate(_deciding_pipeline(analysed_ids[:pch.HABIT_GAMES]))) if analysed_ids else []
     doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, deciding_rows, engine_moments)
+    from services import player_plan_week as ppw
+    row = ppw.ensure_week_sync(db, user_id, week_start(), doc.get("plan"), games,
+                               {a["game_id"]: a.get("rows") or [] for a in analyses}, observations,
+                               (doc.get("habit") or {}).get("baseline"))
+    if row:
+        doc["plan"] = ppw.apply_week(doc.get("plan"), row)
     db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
     return doc
 
@@ -959,6 +965,12 @@ async def build_and_store(db, user_id: str) -> Dict[str, Any]:
     # The build may run the engine: keep it off the event loop.
     doc = await asyncio.to_thread(build_file, user_id, games, analyses, observations, last_rows,
                                   previous, fires, deciding_rows, engine_moments)
+    from services import player_plan_week as ppw
+    row = await ppw.ensure_week(db, user_id, week_start(), doc.get("plan"), games,
+                                {a["game_id"]: a.get("rows") or [] for a in analyses}, observations,
+                                (doc.get("habit") or {}).get("baseline"))
+    if row:
+        doc["plan"] = ppw.apply_week(doc.get("plan"), row)
     await db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
     return doc
 

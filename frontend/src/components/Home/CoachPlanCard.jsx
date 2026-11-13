@@ -209,6 +209,12 @@ export default function CoachPlanCard() {
           </p>
         </div>
       )}
+      {plan.last_week?.words && (
+        <p className={`mt-4 rounded-card border p-3 text-note ${plan.last_week.status === "kept" ? "border-emerald-500/30 bg-emerald-500/[0.06] text-foreground" : "border-border/70 text-foreground/90"}`}
+          data-testid="coach-plan-last-week">
+          {plan.last_week.words}
+        </p>
+      )}
       <p className="mt-6 text-note font-semibold text-foreground">To reach the next level, in this order:</p>
       <ol className="mt-3 space-y-3">
         {plan.steps.map((s, i) => (
