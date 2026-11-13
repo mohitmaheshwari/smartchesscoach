@@ -5195,7 +5195,8 @@ async def generate_game_decryption_v5(
                         if _tg is not None:
                             _tg_sentence, _tg_arrows = describe(
                                 _tg, fen_before=fen_before, played_san=move_san,
-                                mover_is_user=bool(is_user))
+                                mover_is_user=bool(is_user),
+                                better_san=(_inputs.best_move_san or best_move))
                             if _tg_sentence:
                                 _old = str(caption_payload.get("caption") or "").strip()
                                 # Drop the v247 answer line; the tactic says it better.
@@ -5205,7 +5206,11 @@ async def generate_game_decryption_v5(
                                            else LESSON.get(_tg["motif"], ""))
                                 caption_payload["caption"] = (
                                     _tg_sentence + (" " + _lesson if _lesson else "")).strip()
-                                caption_payload["arrows"] = _tg_arrows
+                                # A missed tactic that cannot be redrawn on the
+                                # board the card shows keeps the card's own
+                                # picture (31...Ng1+ lost a correct arrow without this).
+                                if _tg_arrows:
+                                    caption_payload["arrows"] = _tg_arrows
                                 caption_payload["rule_name"] = (
                                     (caption_payload.get("rule_name") or "")
                                     + f"→TACTIC_{_tg['kind'].upper()}_{_tg['motif'].upper()}")

@@ -61,15 +61,22 @@ def pick_tag(tags: List[Dict[str, Any]], story: Optional[str]) -> Optional[Dict[
     first, and within a kind the order tactic_tags stores (mate first)."""
     usable = [t for t in tags or [] if t.get("at_ply") == 0
               and t.get("kind") in ("missed", "allowed") and t.get("motif") in LESSON]
-    for kind in _KIND_ORDER.get(story or "", ("missed", "allowed")):
-        for t in usable:
-            if t["kind"] == kind:
-                return t
+    order = _KIND_ORDER.get(story or "", ("missed", "allowed"))
+    # A mate outranks every other lesson on the card, missed or allowed:
+    # 52...Qb1+ of 3c8d0751 missed a mate in one AND hung the queen; the card
+    # must lead with the mate.
+    mates = [t for t in usable if t["motif"] in ("forced_mate", "back_rank_mate")]
+    for pool in (mates, usable):
+        for kind in order:
+            for t in pool:
+                if t["kind"] == kind:
+                    return t
     return None
 
 
 def describe(tag: Dict[str, Any], *, fen_before: str, played_san: str,
-             mover_is_user: bool) -> Tuple[Optional[str], List[Dict[str, Any]]]:
+             mover_is_user: bool, better_san: Optional[str] = None,
+             ) -> Tuple[Optional[str], List[Dict[str, Any]]]:
     """(sentence, arrows) for one tag, or (None, []) when the facts do not
     carry what the sentence needs. Arrows are drawn on the board the card
     shows (after the played move) and only for ALLOWED tags, whose tactic is
@@ -106,8 +113,15 @@ def describe(tag: Dict[str, Any], *, fen_before: str, played_san: str,
         names = [(_piece_name(tafter, s), s) for s in targets]
         if len(names) < 2 or not all(n for n, _ in names):
             return None, []
-        what = f"{other} {names[0][0]} on {names[0][1]} and {other} {names[1][0]} on {names[1][1]}"
-        body = f"{own} {mover_piece} on {to} attacks {what} at once"
+        def _hit(name, sq):
+            return (f"checks {other} king on {sq}" if name == "king"
+                    else f"attacks {other} {name} on {sq}")
+        # A king target is said first ("checks ... and attacks ...").
+        names.sort(key=lambda n: n[0] != "king")
+        captured = tboard.piece_at(tmove.to_square) if tboard.is_capture(tmove) else None
+        lead = (f"{own} {mover_piece} takes {other} {_NAME[captured.piece_type]} on {to}, then "
+                if captured else f"{own} {mover_piece} on {to} ")
+        body = f"{lead}{_hit(*names[0])} and {_hit(*names[1])} at once"
         arrows = [_arrow(frm, to, "blue")] + [_arrow(to, s, "green" if reader_plays_it else "red") for _, s in names]
     elif motif == "free_piece":
         sq = facts.get("captured_square")
@@ -118,7 +132,8 @@ def describe(tag: Dict[str, Any], *, fen_before: str, played_san: str,
         arrows = [_arrow(frm, sq, "blue" if reader_plays_it else "red")]
     elif motif in ("forced_mate", "back_rank_mate"):
         how = " on the back rank" if motif == "back_rank_mate" else ""
-        body = f"{own} side can force mate{how}, starting with {own} {mover_piece} to {to}"
+        check = " with check" if tafter.is_check() else ""
+        body = f"{own} {mover_piece} comes to {to}{check}, and mate{how} cannot be stopped"
         arrows = [_arrow(frm, to, "blue" if reader_plays_it else "red")]
     elif motif == "discovered_attack":
         slider_sq = facts.get("slider_square")
@@ -148,14 +163,16 @@ def describe(tag: Dict[str, Any], *, fen_before: str, played_san: str,
              "back_rank_mate": "a back-rank mate", "discovered_attack": "a discovered attack",
              "pin": "a pin", "skewer": "a skewer"}[motif]
     if mover_is_user and kind == "missed":
-        sentence = f"You missed {label}: {move} was better, because {body}."
+        sentence = f"You missed {label}: with {move}, {body}."
     elif mover_is_user and kind == "allowed":
         sentence = f"{played_san} allows {label}: {body}."
+        if better_san and better_san != played_san:
+            sentence += f" {better_san} was better."
     elif kind == "missed":
-        sentence = f"Your opponent missed {label}: {move} was better for them, because {body}."
+        sentence = f"Your opponent missed {label}: with {move}, {body}."
     else:
-        sentence = f"Their {played_san} allows {label}: play {move}, because {body}."
-    sentence = sentence[0].upper() + sentence[1:]
+        sentence = f"Their {played_san} allows {label}: play {move}. {body[0].upper() + body[1:]}."
+    # A sentence that starts with a move keeps the move's own case ("c4 ...").
     if kind == "allowed":
         return sentence, arrows
     # A MISSED tactic lives on the board before the move. Draw it on the board

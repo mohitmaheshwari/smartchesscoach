@@ -26,15 +26,15 @@ def _card(mv, user, story):
 
 def test_opponent_allowed_fork_names_your_answer_and_both_targets():
     text, arrows = _card(KE7, False, "punishment")
-    assert text == ("Their Ke7 allows a fork: play Qc5+, because your queen on c5 "
-                    "attacks their bishop on d5 and their king on e7 at once.")
+    assert text == ("Their Ke7 allows a fork: play Qc5+. Your queen on c5 checks "
+                    "their king on e7 and attacks their bishop on d5 at once.")
     assert [(a["from"], a["to"]) for a in arrows] == [("c3", "c5"), ("c5", "d5"), ("c5", "e7")]
 
 
 def test_your_missed_fork_names_the_better_move_and_both_targets():
     text, _ = _card(H4, True, "opportunity")
-    assert text == ("You missed a fork: Qc5+ was better, because your queen on c5 "
-                    "attacks their bishop on d5 and their king on e7 at once.")
+    assert text == ("You missed a fork: with Qc5+, your queen on c5 checks their "
+                    "king on e7 and attacks their bishop on d5 at once.")
 
 
 def test_a_missed_tactic_is_drawn_only_while_it_is_still_on_the_shown_board():
@@ -53,3 +53,17 @@ def test_no_tag_means_no_sentence():
 def test_a_tactic_later_in_the_line_never_leads_the_card():
     tags = [{"kind": "missed", "motif": "fork", "at_ply": 4, "move": "b4", "facts": {}}]
     assert pick_tag(tags, "opportunity") is None
+
+
+def test_your_allowed_fork_names_the_better_move():
+    t = pick_tag(_tactic_tags_for(KE7), "punishment")
+    text, _ = describe(t, fen_before=KE7["fen_before"], played_san="Ke7",
+                       mover_is_user=True, better_san="Ke5")
+    assert text == ("Ke7 allows a fork: their queen on c5 checks your king on e7 "
+                    "and attacks your bishop on d5 at once. Ke5 was better.")
+
+
+def test_a_mate_leads_even_when_the_story_is_about_something_else():
+    tags = [{"kind": "allowed", "motif": "free_piece", "at_ply": 0},
+            {"kind": "missed", "motif": "forced_mate", "at_ply": 0}]
+    assert pick_tag(tags, "punishment")["motif"] == "forced_mate"
