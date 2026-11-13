@@ -418,3 +418,69 @@ def test_openings_hold_up_only_when_no_opening_habit_exists():
     assert with_opening["steps"][0]["kind"] == "opening"
     assert "Your openings hold up." not in with_opening["read"]
     assert "Your openings hold up." in ppl.build_plan(openings=[], **kw)["read"]
+
+
+# --------------------------------------------------------------------------
+# this week's work and the adherence record
+# --------------------------------------------------------------------------
+class _Coll:
+    def __init__(self):
+        self.rows = []
+
+    async def update_one(self, key, update, upsert=False):
+        if not any(all(r.get(k) == v for k, v in key.items()) for r in self.rows):
+            self.rows.append(dict(update.get("$setOnInsert") or key))
+
+    def find(self, query, projection=None):
+        rows = [r for r in self.rows if all(r.get(k) == v for k, v in query.items())]
+
+        class _Cursor:
+            def __aiter__(self_inner):
+                self_inner._it = iter(rows)
+                return self_inner
+
+            async def __anext__(self_inner):
+                try:
+                    return next(self_inner._it)
+                except StopIteration:
+                    raise StopAsyncIteration
+        return _Cursor()
+
+
+class _Db(dict):
+    def __missing__(self, name):
+        self[name] = _Coll()
+        return self[name]
+
+
+def test_plan_work_is_recorded_once_per_week_and_read_back():
+    import asyncio
+    db = _Db()
+    monday = datetime(2026, 11, 9, 10, tzinfo=timezone.utc)
+    run = asyncio.get_event_loop().run_until_complete if False else asyncio.run
+    assert run(pcf.record_activity(db, "u", "habit:x", "find", "g1:14", now=monday))
+    assert run(pcf.record_activity(db, "u", "habit:x", "find", "g1:14", now=monday + timedelta(hours=2)))
+    assert run(pcf.record_activity(db, "u", "habit:x", "learn", "learn", now=monday))
+    assert not run(pcf.record_activity(db, "u", "habit:x", "delete_everything", "", now=monday))
+    week = run(pcf.week_activity(db, "u", now=monday + timedelta(days=3)))
+    assert week["week_start"] == "2026-11-09"
+    assert week["done"]["habit:x"] == {"learn": True, "find": ["g1:14"], "play": []}
+    # Next week starts empty.
+    assert run(pcf.week_activity(db, "u", now=monday + timedelta(days=7)))["done"] == {}
+
+
+def test_opening_step_carries_its_week_of_work():
+    from services import player_coach_plan as ppl
+
+    inst = [{"game_id": f"g{i}", "move_number": 5, "fen": MODERN_BC4} for i in range(4)]
+    opening = {"side": "black", "san": "Bg4", "better_san": "Nf6", "line": "g6 Bg7", "idea": "Bg4",
+               "measured": {"games": 4, "game_ids": [f"g{i}" for i in range(4)], "instances": inst}}
+    games = {f"g{i}": {"outcome": "loss", "user_color": "black"} for i in range(24)}
+    plan = ppl.build_plan(habit=None, ranked=[], openings=[opening], sitting={}, progress={}, games=games,
+                          deciding=[], habit_check=None, newest_game_id=None, observations=[], analysed_games=30)
+    step = plan["steps"][0]
+    assert step["key"] == "opening:black:g6 Bg7:Bg4"
+    work = step["work"]
+    assert len(work["find"]) == ppl.WORK_ITEMS and work["find"][0]["url"] == "/game/g0?move=5"
+    assert work["play"][0]["user_color"] == "black" and work["play"][0]["fen"] == MODERN_BC4
+    assert not re.search(r"\d", work["target"] + work["learn"]["text"])

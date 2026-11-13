@@ -6,10 +6,12 @@
  * so it computes nothing. No figures: the order is said in words, and how much
  * each step cost stays on the server in `measured`.
  */
-import { Link } from "react-router-dom";
-import { Check, Clock, Minus, Target, TrendingDown, TrendingUp } from "lucide-react";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Check, CheckCircle2, Circle, Clock, Minus, Play, Target, TrendingDown, TrendingUp } from "lucide-react";
 
-import { useCoachFile } from "@/lib/coachFile";
+import { API } from "@/App";
+import { playFrom, useCoachFile } from "@/lib/coachFile";
 
 const ORDER_WORDS = ["First", "Then", "After that"];
 // Rating points are the one figure the plan states: the claim Mohit asked for
@@ -18,7 +20,94 @@ const fmt = (n) => `${n > 0 ? "+" : ""}${n}`;
 const GOAL = 200;
 const STATE_ICON = { better: TrendingDown, kept: Check, worse: TrendingUp, same: Minus, waiting: Clock };
 
-function Step({ step, index, check, notation }) {
+/** Records a piece of this week's work: the plan's adherence record. */
+function logWork(stepKey, action, ref) {
+  fetch(`${API}/coach-file/activity`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ step_key: stepKey, action, ref }),
+  }).catch(() => {
+    /* The work still happens; only the record is missed. */
+  });
+}
+
+function Tick({ done }) {
+  return done
+    ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-label="done" />
+    : <Circle className="h-4 w-4 shrink-0 text-muted-foreground/60" aria-label="not yet" />;
+}
+
+const ORDINAL = ["first", "second", "third"];
+
+function WeekWork({ step, done: initial }) {
+  const navigate = useNavigate();
+  const [done, setDone] = useState(() => initial || { learn: false, find: [], play: [] });
+  const work = step.work;
+  if (!work) return null;
+  const mark = (action, ref) => {
+    logWork(step.key, action, ref);
+    setDone((d) => (action === "learn" ? { ...d, learn: true } : { ...d, [action]: [...new Set([...(d[action] || []), ref])] }));
+  };
+  return (
+    <div className="mt-4 rounded-card border border-border/70 bg-background/60 p-4" data-testid="coach-plan-work">
+      <p className="cg-eyebrow">This week's work</p>
+      <ol className="mt-3 space-y-3">
+        <li className="flex items-start gap-3">
+          <Tick done={done.learn} />
+          <div className="min-w-0">
+            <p className="text-note font-semibold text-foreground">Learn it</p>
+            <p className="text-note text-muted-foreground">{work.learn.text}</p>
+            <Link to={work.learn.url} onClick={() => mark("learn", "learn")} className="mt-1 inline-flex text-note font-medium text-primary hover:underline">
+              Open the lesson
+            </Link>
+          </div>
+        </li>
+        {work.find?.length > 0 && (
+          <li className="flex items-start gap-3">
+            <Tick done={(done.find || []).length >= work.find.length} />
+            <div className="min-w-0">
+              <p className="text-note font-semibold text-foreground">Find it in your own games</p>
+              <p className="text-note text-muted-foreground">Open each moment and find the better move before you look.</p>
+              <div className="mt-1 flex flex-wrap gap-3">
+                {work.find.map((f, i) => (
+                  <Link key={f.ref} to={f.url} onClick={() => mark("find", f.ref)}
+                    className={`text-note font-medium hover:underline ${(done.find || []).includes(f.ref) ? "text-emerald-700 dark:text-emerald-400" : "text-primary"}`}>
+                    The {ORDINAL[i] || "next"} game
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </li>
+        )}
+        {work.play?.length > 0 && (
+          <li className="flex items-start gap-3">
+            <Tick done={(done.play || []).length >= work.play.length} />
+            <div className="min-w-0">
+              <p className="text-note font-semibold text-foreground">Play it</p>
+              <p className="text-note text-muted-foreground">Play each position against your coach until the better move is automatic.</p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                {work.play.map((pos, i) => (
+                  <button key={pos.ref} type="button"
+                    onClick={() => { mark("play", pos.ref); playFrom(pos, navigate); }}
+                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-note font-medium ${(done.play || []).includes(pos.ref) ? "border-emerald-500/40 text-emerald-700 dark:text-emerald-400" : "border-border text-foreground hover:bg-muted/50"}`}>
+                    <Play className="h-3 w-3" /> The {ORDINAL[i] || "next"} position
+                  </button>
+                ))}
+              </div>
+            </div>
+          </li>
+        )}
+        <li className="flex items-start gap-3">
+          <Target className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-note text-foreground/90">{work.target}</p>
+        </li>
+      </ol>
+    </div>
+  );
+}
+
+function Step({ step, index, check, notation, done }) {
   const Icon = STATE_ICON[step.state] || null;
   return (
     <li
@@ -63,7 +152,8 @@ function Step({ step, index, check, notation }) {
           <span className="font-semibold">Since you started:</span> {check.title}. {check.words}
         </p>
       )}
-      {(step.practice_url || step.learn_url) && (
+      {step.this_week && <WeekWork step={step} done={done} />}
+      {!step.this_week && (step.practice_url || step.learn_url) && (
         <div className="mt-4 flex flex-wrap gap-2">
           {step.practice_url && (
             <Link to={step.practice_url} className="cg-primary-action !min-h-9 !px-4 !py-2 text-note">
@@ -122,7 +212,8 @@ export default function CoachPlanCard() {
       <p className="mt-6 text-note font-semibold text-foreground">To reach the next level, in this order:</p>
       <ol className="mt-3 space-y-3">
         {plan.steps.map((s, i) => (
-          <Step key={`${s.kind}-${s.title}`} step={s} index={i} check={plan.check} notation={notation} />
+          <Step key={`${s.kind}-${s.title}`} step={s} index={i} check={plan.check} notation={notation}
+            done={file.week?.done?.[s.key]} />
         ))}
       </ol>
       {plan.guard && (

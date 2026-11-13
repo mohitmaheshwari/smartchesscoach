@@ -326,6 +326,8 @@ def opening_habits(
                     "band_cut_cp": cut,
                     "example_cp": inst["cp"],
                     "game_ids": [i["game_id"] for i in instances],
+                    "instances": [{"game_id": i["game_id"], "move_number": i["move_number"], "fen": i["fen"]}
+                                  for i in sorted(instances, key=lambda i: -i["cp"])[:5]],
                 },
                 "_rank": len(instances) * average,
             }
@@ -989,8 +991,45 @@ def _public_habit(habit: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]
     return {k: habit.get(k) for k in keep}
 
 
+# --------------------------------------------------------------------------
+# Adherence: the plan work he does, per week (the one source of "did he do it")
+# --------------------------------------------------------------------------
+ACTIVITY = "plan_activity"
+ACTIVITY_ACTIONS = ("learn", "find", "play")
+
+
+def week_start(now: Optional[datetime] = None) -> str:
+    """Monday of this week, UTC, as an ISO date: the plan's week."""
+    now = now or datetime.now(timezone.utc)
+    return (now - timedelta(days=now.weekday())).date().isoformat()
+
+
+async def record_activity(db, user_id: str, step_key: str, action: str, ref: str,
+                          now: Optional[datetime] = None) -> bool:
+    """One row per (week, step, action, ref): doing the same thing twice counts once."""
+    if action not in ACTIVITY_ACTIONS or not step_key or len(step_key) > 200 or len(ref or "") > 200:
+        return False
+    now = now or datetime.now(timezone.utc)
+    key = {"user_id": user_id, "week_start": week_start(now), "step_key": step_key, "action": action, "ref": ref or ""}
+    await db[ACTIVITY].update_one(key, {"$setOnInsert": {**key, "at": now}}, upsert=True)
+    return True
+
+
+async def week_activity(db, user_id: str, now: Optional[datetime] = None) -> Dict[str, Any]:
+    ws = week_start(now)
+    done: Dict[str, Dict[str, Any]] = {}
+    async for r in db[ACTIVITY].find({"user_id": user_id, "week_start": ws},
+                                     {"_id": 0, "step_key": 1, "action": 1, "ref": 1}):
+        d = done.setdefault(r["step_key"], {"learn": False, "find": [], "play": []})
+        if r["action"] == "learn":
+            d["learn"] = True
+        else:
+            d[r["action"]].append(r.get("ref"))
+    return {"week_start": ws, "done": done}
+
+
 def payload(doc: Optional[Mapping[str, Any]], recent: Sequence[Mapping[str, Any]],
-            now: Optional[datetime] = None) -> Dict[str, Any]:
+            now: Optional[datetime] = None, week: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     """What the pages receive. `measured` blocks stay in for review; the pages
     never render them."""
     if not doc:
@@ -1011,6 +1050,7 @@ def payload(doc: Optional[Mapping[str, Any]], recent: Sequence[Mapping[str, Any]
         "habit_check": doc.get("habit_check"),
         "progress": doc.get("progress") or {"habits": [], "kept": []},
         "plan": doc.get("plan"),
+        "week": week or {"week_start": week_start(now), "done": {}},
         "play_positions": list(doc.get("play_positions") or []),
         "sitting": sitting_now(doc.get("sitting") or {}, recent, now=now),
         "sitting_measured": (doc.get("sitting") or {}).get("measured"),

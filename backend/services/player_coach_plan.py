@@ -105,6 +105,34 @@ def points_at_stake(games: Mapping[str, Mapping[str, Any]], window: Sequence[str
             "games": len(hit), "window": n}
 
 
+WORK_ITEMS = 3
+
+
+def _review_url(game_id: str, move_number: Any) -> str:
+    return f"/game/{game_id}" + (f"?move={move_number}" if move_number else "")
+
+
+def _habit_work(row: Mapping[str, Any], games: Mapping[str, Mapping[str, Any]], practice_url: Optional[str]) -> Dict[str, Any]:
+    """This week's work for a habit step: its moments from his own games."""
+    moments = cp.choose_moments(row, WORK_ITEMS)
+    find, play = [], []
+    for o in moments:
+        gid, mn = o.get("game_id"), o.get("move_number")
+        if not gid:
+            continue
+        find.append({"ref": f"{gid}:{mn}", "game_id": gid, "move_number": mn, "url": _review_url(gid, mn)})
+        colour = (games.get(gid) or {}).get("user_color")
+        if o.get("fen_before") and colour in ("white", "black"):
+            play.append({"ref": f"{gid}:{mn}", "fen": o["fen_before"], "user_color": colour, "source_game_id": gid})
+    return {
+        "learn": {"ref": "learn", "url": practice_url or "/learn",
+                  "text": "Learn the warning sign and the rule, then practise the pattern."},
+        "find": find,
+        "play": play,
+        "target": "In your games this week: stop before every move and use your rule.",
+    }
+
+
 def _problem_step(row: Mapping[str, Any], progress_by_qid: Mapping[str, Mapping[str, Any]],
                   training: bool) -> Dict[str, Any]:
     from services.player_coach_habit import PRACTICE_KEY
@@ -124,6 +152,8 @@ def _problem_step(row: Mapping[str, Any], progress_by_qid: Mapping[str, Mapping[
         "training": training,
         "measured": {"games_lost": row["games_lost"], "games": row["games"], "moments": row["moments"]},
         "_affected": sorted({o["game_id"] for o in row.get("evidence") or [] if o.get("_costs_result")}),
+        "key": f"habit:{row['quality_id']}",
+        "_row": row,
     }
 
 
@@ -154,8 +184,21 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
         lost = len(lost_ids)
         if lost >= 1:
             side = "White" if h["side"] == "white" else "Black"
+            inst = (h.get("measured") or {}).get("instances") or []
+            work = {
+                "learn": {"ref": "learn", "url": "/learn",
+                          "text": "See the position you keep reaching, and the better move with the idea behind it."},
+                "find": [{"ref": f"{i['game_id']}:{i['move_number']}", "game_id": i["game_id"],
+                          "move_number": i["move_number"], "url": _review_url(i["game_id"], i["move_number"])}
+                         for i in inst[:WORK_ITEMS]],
+                "play": [{"ref": f"{i['game_id']}:{i['move_number']}", "fen": i["fen"], "user_color": h["side"],
+                          "source_game_id": i["game_id"]} for i in inst[:WORK_ITEMS]],
+                "target": f"In your games this week: when you reach this line as {side}, play the better move.",
+            }
             others.append({
                 "kind": "opening", "title": f"Your opening as {side}",
+                "key": f"opening:{h['side']}:{h.get('line')}:{h.get('idea')}",
+                "work": work,
                 "do": "Play the better move in the position where your habit costs you.",
                 "san": h.get("san"), "better_san": h.get("better_san"), "line": h.get("line"),
                 "learn_url": "/learn", "practice_url": None, "training": False,
@@ -181,6 +224,10 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
         union.update(affected)
         st["stake"] = points_at_stake(games, win, affected) if win else None
     total_stake = points_at_stake(games, win, union) if win else None
+    for st in steps:
+        row = st.pop("_row", None)
+        if row is not None:
+            st["work"] = _habit_work(row, games, st.get("practice_url"))
 
     read: List[str] = []
     phase = where_lost(deciding)

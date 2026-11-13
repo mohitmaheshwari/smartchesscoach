@@ -456,7 +456,8 @@ async def coach_file_for(user_id: str) -> Dict[str, Any]:
             asyncio.create_task(_build(user_id))
         return {"enabled": True, "state": "building"}
     recent = await pcf.recent_starts(db, user_id)
-    return pcf.payload(doc, recent)
+    week = await pcf.week_activity(db, user_id)
+    return pcf.payload(doc, recent, week=week)
 
 
 @router.get("/coach-file")
@@ -471,6 +472,23 @@ async def get_coach_file(request: Request, user: User = Depends(get_current_user
     if not pcf.is_enabled_for_request(request, user.user_id):
         return {"enabled": False}
     return await coach_file_for(user.user_id)
+
+
+@router.post("/coach-file/activity")
+async def post_coach_file_activity(body: Dict[str, Any], request: Request, user: User = Depends(get_current_user)):
+    """He did a piece of this week's plan work: learned the step, opened one of
+    his own moments, or played a position. The adherence record of the plan
+    (docs/coach_pages_scope.md). View-as is read-only, so an admin viewing a
+    player can never write his record."""
+    from services import player_coach_file as pcf
+
+    if not pcf.is_enabled_for_request(request, user.user_id):
+        raise HTTPException(status_code=403, detail="Not enabled.")
+    ok = await pcf.record_activity(db, user.user_id, str(body.get("step_key") or ""),
+                                   str(body.get("action") or ""), str(body.get("ref") or ""))
+    if not ok:
+        raise HTTPException(status_code=400, detail="Unknown plan work.")
+    return {"ok": True}
 
 
 @router.get("/home/between-games")

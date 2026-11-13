@@ -116,6 +116,7 @@ INDEXES = [
     # 2026-11-12, the player file the coach pages read (docs/coach_pages_scope.md):
     # one document per player, read by user_id on every Home load.
     ("player_coach_files", [("user_id", 1)], "pcf_user_id", {"unique": True}),
+    ("plan_activity", [("user_id", 1), ("week_start", 1)], "pa_user_week", {}),
 ]
 
 # Created during diagnosis, then measured as unused: schema_version is not
