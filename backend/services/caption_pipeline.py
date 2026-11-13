@@ -6881,6 +6881,168 @@ def classify_move_story(fen_before, played_san, pv_after_played, pv_after_best,
     return "neither", detail
 
 
+def _text_names_reply(text: str, reply_san: Optional[str]) -> bool:
+    """Token match on the reply, with or without its check mark.
+
+    The pipeline's own test is a substring match (`"e6" in "Qe6"` is true),
+    which is safe on sentences this file wrote and not on a model's prose.
+    """
+    if not text or not reply_san:
+        return False
+    norm = _normalize_san_for_match(reply_san)
+    return any(_names_the_move(text, s) for s in
+               {str(reply_san), norm, norm + "+", norm + "#"} if s)
+
+
+def opponent_reply_picture(
+    board_before: Optional[chess.Board],
+    played_move: Optional[chess.Move],
+    *,
+    caption_text: str,
+    caption_facts: Dict[str, Any],
+    story: Optional[str],
+    pv_after_played: Optional[Sequence[str]] = None,
+    their_best_san: Optional[str] = None,
+    strict_text: bool = False,
+) -> Dict[str, Any]:
+    """The teach arrows an OPPONENT card draws, chosen against its words.
+
+    Lifted out of build_move_teaching_decision on 2026-11-13 so the choice can
+    be made twice: once on the rule caption, and again in framework.decide
+    after the stored model caption has replaced it. Mohit, the same day:
+    "game review doesn't build arrows when opponent makes mistake". On
+    3c8d0751 the rule caption for 29.Bxb7 was silent, so no arrow was chosen,
+    and the stored caption that then took its place read "it lets Qg5+ come in
+    with check" over an empty board.
+
+    `strict_text` is for prose this file did not write: a token match on the
+    reply, and no reply arrow when the reply and THEIR better move are the
+    same three characters (7.Nf3 of the same game: "instead of e6" meant
+    White's e5-e6, and the board drew Black's e7-e6).
+    """
+    inputs_pv = list(pv_after_played or ())
+    _story = story
+    _teach_arrows: List[Dict[str, str]] = []
+    _after_opp_board = None
+    try:
+        _after_opp_board = board_before.copy()
+        _after_opp_board.push(played_move)
+    except Exception:
+        _after_opp_board = None
+    # ...but only when the caption is actually ABOUT our reply.
+    #
+    # An opponent card can recommend one of two different moves. The R12
+    # opp-punish variants say "Play <our reply>". The fallback tiers say
+    # "<their better move> was stronger" -- caption_fallback_tiers'
+    # R_TIER_missed_principle, which names best_move_san. The arrow
+    # builders only ever knew about the first, so on a fallback card the
+    # words named THEIR move and the board drew OURS.
+    #
+    # Reported 2026-09-28 on eb189840 move 10: "Your opponent played d6;
+    # Nxe4 was stronger - it wins a pawn", drawn with g5->f6 and f6->e7,
+    # which is Bxf6. Two different moves on one card, which is the same
+    # fault fixed on 2026-09-22 arriving by a different route.
+    #
+    # Their better move is NOT drawn instead: it is legal on the board
+    # before their move, not on the board this card renders, so drawing
+    # it would trade a mismatch for a picture of a position the player
+    # cannot see. Silence beats contradiction.
+    _reply_san = caption_facts.get("user_best_reply_san")
+    _caption_text = str(caption_text or "")
+    if strict_text:
+        _caption_is_about_reply = _text_names_reply(_caption_text, _reply_san) and not (
+            their_best_san and _normalize_san_for_match(their_best_san)
+            == _normalize_san_for_match(_reply_san))
+    else:
+        _caption_is_about_reply = bool(
+            _reply_san and _normalize_san_for_match(_reply_san)
+            in _normalize_san_for_match(_caption_text)
+        )
+    # The STORY chooses the branch. The text does not.
+    #
+    # This was `if the caption mentions our reply: draw our plan`, with the
+    # story bolted onto the else arm -- so the old text test still outranked
+    # it. On move 5 of 413fcce2 the caption says BOTH things: "they had
+    # Nxe4, grabbing your pawn on e4 for free. Play d4 -- your pawn kicks
+    # their bishop on c5." It saw "d4", took the first branch, and drew our
+    # plan on a card whose lesson is the move THEY missed. Mohit, twice:
+    # "there should have only been one arrow".
+    #
+    # An opportunity is about the move that was missed, full stop. Only
+    # when there is no opportunity does the card fall back to what we
+    # should do next, and only then does it matter whether the words name
+    # it.
+    if _story == "opportunity":
+        _teach_arrows = _missed_move_arrow(
+            board_before, _after_opp_board, caption_facts,
+            caption_text,
+        )
+    elif _story == "punishment" and _caption_is_about_reply:
+        # The whole plan, but only when there IS a plan -- material moves
+        # our way and the card is about our reply.
+        _teach_arrows = _line_sequence_arrows(
+            _after_opp_board, inputs_pv
+        ) or _line_sequence_arrows(
+            _after_opp_board, caption_facts.get("user_reply_pv")
+        ) or _reply_attack_arrows(
+            board_before, played_move, _reply_san
+        )
+    elif _caption_is_about_reply:
+        # `neither`: no material story, so no five-move plan. Mohit
+        # 2026-10-08 on move 4 Nf6 of dfe1055c: "why so many arrows and
+        # didn't understand the reason". The verdict was `neither` and the
+        # card drew Nf3, Qh5, O-O, Bxc3, bxc3 -- with bxc3, an ordinary
+        # recapture, painted green as the payoff -- while the words
+        # mentioned Nf3 and nothing else. The recommended move is drawn,
+        # because the caption names it, and nothing more is claimed.
+        _teach_arrows = _reply_attack_arrows(
+            board_before, played_move, _reply_san
+        )
+    else:
+        _teach_arrows = []
+    return {
+        "arrows": list(_teach_arrows or []),
+        "after_board": _after_opp_board,
+        "reply_san": _reply_san,
+        "about_reply": _caption_is_about_reply,
+    }
+
+
+def opponent_card_arrows(
+    board_before, played_move, *, caption_text, caption_facts, story,
+    pv_after_played=None, cp_loss=0, their_best_san=None, strict_text=False,
+) -> List[Dict[str, str]]:
+    """The whole text-dependent picture of an opponent card, in the
+    pipeline's order: the reply picture, then (punishment only) what the
+    blunder gives away, then the floor -- the reply the words name."""
+    pic = opponent_reply_picture(
+        board_before, played_move, caption_text=caption_text,
+        caption_facts=caption_facts, story=story,
+        pv_after_played=pv_after_played, their_best_san=their_best_san,
+        strict_text=strict_text)
+    arrows = pic["arrows"]
+    if not arrows and story == "punishment":
+        seen, arrows = set(), []
+        pv = list(pv_after_played or ())
+        for a in (list(_punishment_arrows(board_before, played_move,
+                                          mover_is_user=False, cp_loss=cp_loss,
+                                          pv_after_played=pv))
+                  + list(_abandoned_defender_arrows(board_before, played_move,
+                                                    mover_is_user=False,
+                                                    cp_loss=cp_loss,
+                                                    pv_after_played=pv))):
+            k = (a["from"], a["to"])
+            if k in seen:
+                continue
+            seen.add(k)
+            arrows.append(a)
+            if len(arrows) >= 4:
+                break
+    if not arrows and pic["about_reply"]:
+        arrows = _named_move_arrow(pic["after_board"], pic["reply_san"])
+    return arrows
+
+
 def _named_move_arrow(
     board: Optional[chess.Board], move_san: Optional[str]
 ) -> List[Dict[str, str]]:
@@ -10096,78 +10258,18 @@ def build_move_teaching_decision(
         # When the payoff is delayed, the sequence picture explains more than
         # the single-move one -- it is the difference between "here is what
         # the knight attacks" and "here is why the rook gets the bishop".
-        _after_opp_board = None
-        try:
-            _after_opp_board = board_before.copy()
-            _after_opp_board.push(played_move)
-        except Exception:
-            _after_opp_board = None
-        # ...but only when the caption is actually ABOUT our reply.
-        #
-        # An opponent card can recommend one of two different moves. The R12
-        # opp-punish variants say "Play <our reply>". The fallback tiers say
-        # "<their better move> was stronger" -- caption_fallback_tiers'
-        # R_TIER_missed_principle, which names best_move_san. The arrow
-        # builders only ever knew about the first, so on a fallback card the
-        # words named THEIR move and the board drew OURS.
-        #
-        # Reported 2026-09-28 on eb189840 move 10: "Your opponent played d6;
-        # Nxe4 was stronger - it wins a pawn", drawn with g5->f6 and f6->e7,
-        # which is Bxf6. Two different moves on one card, which is the same
-        # fault fixed on 2026-09-22 arriving by a different route.
-        #
-        # Their better move is NOT drawn instead: it is legal on the board
-        # before their move, not on the board this card renders, so drawing
-        # it would trade a mismatch for a picture of a position the player
-        # cannot see. Silence beats contradiction.
-        _reply_san = caption_facts.get("user_best_reply_san")
-        _caption_text = str(caption_payload.get("caption") or "")
-        _caption_is_about_reply = bool(
-            _reply_san and _normalize_san_for_match(_reply_san)
-            in _normalize_san_for_match(_caption_text)
+        # The choice lives in opponent_reply_picture so framework.decide can
+        # make it again once the stored caption has replaced these words.
+        _opp_pic = opponent_reply_picture(
+            board_before, played_move,
+            caption_text=str(caption_payload.get("caption") or ""),
+            caption_facts=caption_facts, story=_story,
+            pv_after_played=inputs.pv_after_played,
         )
-        # The STORY chooses the branch. The text does not.
-        #
-        # This was `if the caption mentions our reply: draw our plan`, with the
-        # story bolted onto the else arm -- so the old text test still outranked
-        # it. On move 5 of 413fcce2 the caption says BOTH things: "they had
-        # Nxe4, grabbing your pawn on e4 for free. Play d4 -- your pawn kicks
-        # their bishop on c5." It saw "d4", took the first branch, and drew our
-        # plan on a card whose lesson is the move THEY missed. Mohit, twice:
-        # "there should have only been one arrow".
-        #
-        # An opportunity is about the move that was missed, full stop. Only
-        # when there is no opportunity does the card fall back to what we
-        # should do next, and only then does it matter whether the words name
-        # it.
-        if _story == "opportunity":
-            _teach_arrows = _missed_move_arrow(
-                board_before, _after_opp_board, caption_facts,
-                caption_payload.get("caption"),
-            )
-        elif _story == "punishment" and _caption_is_about_reply:
-            # The whole plan, but only when there IS a plan -- material moves
-            # our way and the card is about our reply.
-            _teach_arrows = _line_sequence_arrows(
-                _after_opp_board, inputs.pv_after_played
-            ) or _line_sequence_arrows(
-                _after_opp_board, caption_facts.get("user_reply_pv")
-            ) or _reply_attack_arrows(
-                board_before, played_move, _reply_san
-            )
-        elif _caption_is_about_reply:
-            # `neither`: no material story, so no five-move plan. Mohit
-            # 2026-10-08 on move 4 Nf6 of dfe1055c: "why so many arrows and
-            # didn't understand the reason". The verdict was `neither` and the
-            # card drew Nf3, Qh5, O-O, Bxc3, bxc3 -- with bxc3, an ordinary
-            # recapture, painted green as the payoff -- while the words
-            # mentioned Nf3 and nothing else. The recommended move is drawn,
-            # because the caption names it, and nothing more is claimed.
-            _teach_arrows = _reply_attack_arrows(
-                board_before, played_move, _reply_san
-            )
-        else:
-            _teach_arrows = []
+        _after_opp_board = _opp_pic["after_board"]
+        _reply_san = _opp_pic["reply_san"]
+        _caption_is_about_reply = _opp_pic["about_reply"]
+        _teach_arrows = _opp_pic["arrows"]
     # One picture per card. The check picture is rarer and more striking, so it
     # wins when both are available; otherwise show what the blunder gave away.
     # Their reply AND the piece it costs, in that order -- the two halves of

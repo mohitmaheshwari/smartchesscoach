@@ -302,10 +302,54 @@ def decide(
             llm = None
 
     if llm:
+        old_text = decision.text.caption or ""
         decision.text.caption = llm
         decision.text.rule_name = (
             (decision.text.rule_name or "") + "→LLM_CAPTION")
+        if not inputs.mover_is_user:
+            _repick_opponent_arrows(decision, inputs, old_text, llm)
     return decision
+
+
+def _repick_opponent_arrows(decision, inputs, old_text: str, new_text: str) -> None:
+    """An opponent card's arrows follow the words that are actually shown.
+
+    The pipeline picks an opponent card's picture from its own caption -- the
+    reply it names, the move they missed -- and the stored caption replaces
+    that caption afterwards, here. Mohit 2026-11-13: "game review doesn't
+    build arrows when opponent makes mistake". On 3c8d0751, 6 of 13 opponent
+    mistake/blunder cards had no arrow: the rule caption had been silent, so
+    nothing was picked, and the stored sentence that took its place named the
+    reply ("it lets Qg5+ come in with check") over an empty board.
+
+    The arrows the pipeline chose FOR the old words are swapped for the ones
+    the new words earn; every other arrow (mate picture, trap cage) stays.
+    """
+    try:
+        import chess
+        from services.caption_pipeline import opponent_card_arrows
+        facts = decision.debug_facts or {}
+        board = chess.Board(inputs.fen_before)
+        move = board.parse_san(inputs.played_san)
+        common = dict(caption_facts=facts, story=facts.get("move_story"),
+                      pv_after_played=inputs.pv_after_played,
+                      cp_loss=inputs.cp_loss)
+        old_pic = opponent_card_arrows(board, move, caption_text=old_text, **common)
+        new_pic = opponent_card_arrows(
+            board, move, caption_text=new_text, strict_text=True,
+            their_best_san=inputs.best_move_san, **common)
+    except Exception as exc:                            # noqa: BLE001
+        logger.warning("[framework] opponent arrow re-pick failed: %r", exc)
+        return
+    import os
+    if os.environ.get("REVIEW_LEGACY_ARROWS", "false").strip().lower() != "true":
+        new_pic = [a for a in new_pic if a.get("teach") is True]
+    old_pairs = {(a.get("from"), a.get("to")) for a in old_pic}
+    new_pairs = {(a.get("from"), a.get("to")) for a in new_pic}
+    kept = [a for a in (decision.visual.arrows or [])
+            if (a.get("from"), a.get("to")) not in old_pairs
+            and (a.get("from"), a.get("to")) not in new_pairs]
+    decision.visual.arrows = list(new_pic) + kept
 
 
 def facts_for_move(move: Dict[str, Any]) -> Facts:
