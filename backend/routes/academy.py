@@ -485,6 +485,32 @@ async def add_student(batch_id: str, payload: Dict[str, Any] = Body(...),
             "whatsapp": svc.whatsapp_link(phone, _consent_message(student, batch["academy"]))}
 
 
+SEEN_WORDS = {"today": "Today", "week": "This week", "older": "Not this week", "never": "Not yet"}
+
+
+async def _engagement(student: Dict[str, Any], week_start_iso: str) -> Dict[str, Any]:
+    """How the child is dealing with it: when he last signed in or opened a
+    class, and how many classes he opened this week. From records that exist
+    (user_sessions, academy_class_sessions); nothing new is tracked for it."""
+    child = student.get("child_user_id")
+    last_signin = await db.user_sessions.find_one({"user_id": child}, {"_id": 0, "created_at": 1},
+                                                  sort=[("created_at", -1)]) if child else None
+    last_class = await db[fs.SESSIONS].find_one({"student_id": student["student_id"]}, {"_id": 0, "started_at": 1},
+                                                sort=[("started_at", -1)])
+    classes_week = await db[fs.SESSIONS].count_documents(
+        {"student_id": student["student_id"], "started_at": {"$gte": week_start_iso}})
+    stamps = [x for x in ((last_signin or {}).get("created_at"), (last_class or {}).get("started_at")) if x]
+    seen = "never"
+    if stamps:
+        last = max(datetime.fromisoformat(str(t).replace("Z", "+00:00")) for t in stamps)
+        last = last if last.tzinfo else last.replace(tzinfo=timezone.utc)
+        age = datetime.now(timezone.utc) - last
+        seen = "today" if age <= timedelta(days=1) else ("week" if age <= timedelta(days=7) else "older")
+    child_doc = await db.users.find_one({"user_id": child}, {"_id": 0, "username": 1}) if child else None
+    return {"seen": seen, "seen_words": SEEN_WORDS[seen], "classes_week": classes_week,
+            "has_login": bool((child_doc or {}).get("username"))}
+
+
 def _row_for_table(student, week, homework_status) -> Dict[str, Any]:
     habit = (week or {}).get("habit")
     habit_id = (habit or {}).get("id")
@@ -531,7 +557,7 @@ async def batch_view(batch_id: str, user: User = Depends(get_current_user)):
                                             {"_id": 0, "better_moves": 0, "coach_plan.moments": 0})
         weeks.append(week)
         status = await _homework_status(s["student_id"], start, bool((week or {}).get("homework")))
-        rows.append(_row_for_table(s, week, status))
+        rows.append({**_row_for_table(s, week, status), **await _engagement(s, start)})
     need = [r for r in rows if r["needs_you"]]
     if not rows:
         summary = "Add the first child to this batch."
@@ -639,6 +665,58 @@ async def student_coach_file(student_id: str, user: User = Depends(get_current_u
         return {"enabled": False, "reason": "consent"}
     from routes.home import coach_file_for
     return await coach_file_for(student["child_user_id"])
+
+
+@router.get("/{academy_id}/coaches")
+async def academy_coaches(academy_id: str, user: User = Depends(get_current_user)):
+    """The head coach's view: how each coach is running his students this week.
+    Plans approved (as drafted or with the rule changed) and skipped, and
+    parent reports sent, from the decisions already recorded; plus what is
+    still waiting across the academy. Owner (or site admin) only."""
+    academy = await _academy_for(user, academy_id, owner_only=True)
+    start = svc.week_start().isoformat()
+    staff = await db[svc.STAFF].find({"academy_id": academy_id}, {"_id": 0, "user_id": 1, "role": 1}).to_list(200)
+    names = {u["user_id"]: u.get("name") or u.get("email") for u in
+             await db.users.find({"user_id": {"$in": [s["user_id"] for s in staff]}},
+                                 {"_id": 0, "user_id": 1, "name": 1, "email": 1}).to_list(200)}
+    students = await db[svc.STUDENTS].find({"academy_id": academy_id, "deleted_at": None},
+                                           {"_id": 0, "student_id": 1}).to_list(2000)
+    ids = [s["student_id"] for s in students]
+    weeks = await db[svc.WEEKS].find({"student_id": {"$in": ids}, "week_start": start},
+                                     {"_id": 0, "coach_plan.status": 1, "coach_plan.actions": 1}).to_list(2000)
+    per = {s["user_id"]: {"approved": 0, "rule_changed": 0, "skipped": 0, "reports": 0, "last_action": None}
+           for s in staff}
+    waiting = 0
+    for w in weeks:
+        plan = w.get("coach_plan") or {}
+        if plan.get("status") == "draft":
+            waiting += 1
+        for a in plan.get("actions") or []:
+            row = per.get(a.get("by"))
+            if row is None:
+                continue
+            kind = a.get("action")
+            if kind == "skipped":
+                row["skipped"] += 1
+            elif kind == "approved_rule_changed":
+                row["approved"] += 1
+                row["rule_changed"] += 1
+            elif kind == "approved_unchanged":
+                row["approved"] += 1
+            at = str(a.get("at") or "")
+            row["last_action"] = max(row["last_action"] or "", at) or None
+    async for r in db[svc.REPORTS].find({"student_id": {"$in": ids}, "approved_at": {"$gte": start}},
+                                        {"_id": 0, "approved_by": 1}):
+        if r.get("approved_by") in per:
+            per[r["approved_by"]]["reports"] += 1
+    return {
+        "academy": {"academy_id": academy_id, "name": academy["name"]},
+        "week_start": start,
+        "students": len(ids),
+        "plans_waiting": waiting,
+        "coaches": [{"user_id": s["user_id"], "name": names.get(s["user_id"]), "role": s.get("role"), **per[s["user_id"]]}
+                    for s in staff],
+    }
 
 
 @router.post("/student/{student_id}/refresh")

@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import HTTPException
@@ -1029,3 +1029,34 @@ def test_a_signed_in_child_finds_his_classes(db):
     assert out["class_url"] == f"/class/{student['class_token']}"
     with pytest.raises(HTTPException):
         run(routes.my_academy_class(user=COACH))
+
+
+# ---------------------------------------------------------------------------
+# tracking: how each child is doing, and how each coach runs his students
+# ---------------------------------------------------------------------------
+def test_the_class_view_says_when_each_child_was_last_seen(db):
+    academy, batch, _, student = _setup(db)
+    view = run(routes.batch_view(batch["batch_id"], user=COACH))
+    row = view["rows"][0]
+    assert row["seen"] == "never" and row["classes_week"] == 0 and row["has_login"] is False
+    db.user_sessions.rows.append({"user_id": student["child_user_id"],
+                                  "created_at": datetime.now(timezone.utc).isoformat()})
+    row = run(routes.batch_view(batch["batch_id"], user=COACH))["rows"][0]
+    assert row["seen"] == "today" and row["seen_words"] == "Today"
+
+
+def test_the_head_coach_sees_each_coach_decisions_and_coaches_cannot(db):
+    academy, batch, _, student = _setup(db)
+    start = svc.week_start().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
+    db[svc.WEEKS].rows.append({"student_id": student["student_id"], "week_start": start,
+                               "coach_plan": {"status": "approved", "actions": [
+                                   {"at": now, "by": "coach", "action": "approved_rule_changed"},
+                                   {"at": now, "by": "coach", "action": "skipped"}]}})
+    out = run(routes.academy_coaches(academy["academy_id"], user=OWNER))
+    coach = next(c for c in out["coaches"] if c["user_id"] == "coach")
+    assert coach["approved"] == 1 and coach["rule_changed"] == 1 and coach["skipped"] == 1
+    assert out["students"] == 1 and out["plans_waiting"] == 0
+    with pytest.raises(HTTPException) as e:
+        run(routes.academy_coaches(academy["academy_id"], user=COACH))
+    assert e.value.status_code == 403

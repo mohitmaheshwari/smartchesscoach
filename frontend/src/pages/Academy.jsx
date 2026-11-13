@@ -85,6 +85,29 @@ function CopyButton({ text, label = "Copy link" }) {
 // ---------------------------------------------------------------------------
 // /academy
 // ---------------------------------------------------------------------------
+/** The head coach's view: how each coach ran his students this week. */
+function CoachesThisWeek({ academyId }) {
+  const [state] = useLoad(`/academy/${academyId}/coaches`);
+  if (state.loading || state.error || !state.data) return null;
+  const d = state.data;
+  return (
+    <div className="grid gap-2 rounded-card border border-border/70 p-3" data-testid="coaches-this-week">
+      <p className="text-sm font-semibold">This week</p>
+      <p className="text-sm text-muted-foreground">
+        {d.plans_waiting ? `${d.plans_waiting} plan${d.plans_waiting === 1 ? "" : "s"} waiting for a coach.` : "No plan is waiting for a coach."}
+      </p>
+      <ul className="grid gap-1 text-sm">
+        {d.coaches.map((c) => (
+          <li key={c.user_id}>
+            <span className="font-semibold">{c.name || "A coach"}</span>: approved {c.approved}
+            {c.rule_changed ? ` (changed the rule on ${c.rule_changed})` : ""}, skipped {c.skipped}, reports sent {c.reports}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function AcademyHome() {
   const navigate = useNavigate();
   const [state, reload] = useLoad("/academy/me");
@@ -182,6 +205,7 @@ export function AcademyHome() {
               <ul className="grid gap-1 text-sm">
                 {a.staff.map((s) => <li key={s.user_id}>{s.name || s.email} · {s.role}</li>)}
               </ul>
+              <CoachesThisWeek academyId={a.academy_id} />
               <form className="flex flex-wrap gap-2" onSubmit={(e) => {
                 e.preventDefault();
                 run(async () => {
@@ -364,7 +388,8 @@ export function AcademyBatch() {
           <table className="w-full min-w-[840px] border-collapse text-[15px]">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="p-3">Child</th><th className="p-3">Needs you?</th>
+                <th className="p-3">Child</th><th className="p-3">Last seen</th><th className="p-3">Classes this week</th>
+                <th className="p-3">Needs you?</th>
                 <th className="p-3">Habit seen this week</th>
                 <th className="p-3">Compared with last week</th><th className="p-3">Games</th>
                 <th className="p-3">Homework</th><th className="p-3">Coach plan</th>
@@ -375,6 +400,10 @@ export function AcademyBatch() {
                 <tr key={r.student_id} className="cursor-pointer border-t hover:bg-muted/50"
                   onClick={() => navigate(`/academy/student/${r.student_id}`)}>
                   <td className="p-3 font-bold underline">{r.name}</td>
+                  <td className="p-3" data-testid="seen-cell">
+                    {r.seen_words || "—"}{r.consent === "given" && !r.has_login ? <span className="block text-xs text-muted-foreground">No login yet</span> : null}
+                  </td>
+                  <td className="p-3">{r.classes_week ?? "—"}</td>
                   <td className={`p-3 ${r.needs_you ? "font-bold text-amber-700 dark:text-amber-400" : ""}`}>
                     {r.needs_you ? `Yes. ${r.needs_you}` : "No"}
                   </td>
