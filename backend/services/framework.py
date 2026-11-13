@@ -46,6 +46,7 @@ on the stored move.
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -252,6 +253,22 @@ def decide(
         llm = (row.get("llm_caption") or "").strip() or None
     except Exception:
         row = {}
+        llm = None
+
+    # OFF by default since 2026-11-13. Mohit asked to measure before
+    # deciding; every one of the 87 stored model sentences shown on his 8
+    # newest reviews was read against its board: 32 true, 22 weak, 33 wrong
+    # (38%) -- whose piece it is ("your opponent's bishop on g6" was his
+    # own), moves narrated backwards ("saves the rook without moving it"),
+    # recaptures and wins that are not there, "a fine move" on a blunder that
+    # let a mate slip, and text from the model's own instructions ("the
+    # listed moves show no clear gain"). About 40% of fault cards showed this
+    # text. Without it, 78 of 93 such cards keep the pipeline's rule text
+    # (written from engine facts), 15 go bare or empty. A false reason does
+    # more harm than a bare one; the gaps are for board-proved captions to
+    # fill. REVIEW_STORED_MODEL_CAPTIONS=1 restores the old behaviour.
+    if os.environ.get("REVIEW_STORED_MODEL_CAPTIONS", "0").strip().lower() not in (
+            "1", "true", "yes", "on"):
         llm = None
 
     # The stored sentence must agree with THIS card's grade. It was written

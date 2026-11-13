@@ -41,6 +41,10 @@ def test_level_filter_matches_the_card_bands():
 
 
 def _decide(monkeypatch, row, grade):
+    # These check the grade agreement, which still governs the stored
+    # sentence whenever the switch is on (it is off by default since
+    # 2026-11-13; see test_stored_model_text_is_off_by_default).
+    monkeypatch.setenv("REVIEW_STORED_MODEL_CAPTIONS", "1")
     decision = SimpleNamespace(
         text=SimpleNamespace(caption="", rule_name="R_FALLBACK"),
         teaching_meta=SimpleNamespace(severity=grade),
@@ -78,6 +82,31 @@ def test_good_alt_sentence_shows_only_on_a_good_card(monkeypatch):
 def test_opponent_fault_sentence_needs_an_opponent_fault_grade(monkeypatch):
     assert _decide(monkeypatch, dict(FAULT_ROW), "context").text.caption == ""
     assert _decide(monkeypatch, dict(FAULT_ROW), "opp_inaccuracy").text.caption
+
+
+def test_stored_model_text_is_off_by_default(monkeypatch):
+    """2026-11-13: 33 of 87 stored model sentences on Mohit's 8 newest
+    reviews contradicted the board. Off unless the switch is set."""
+    d = _decide(monkeypatch, dict(FAULT_ROW), "inaccuracy")
+    assert d.text.caption == "Bc5 misses that chance."      # switch on (helper)
+    monkeypatch.delenv("REVIEW_STORED_MODEL_CAPTIONS")
+    d = _decide_raw(monkeypatch, dict(FAULT_ROW), "inaccuracy")
+    assert d.text.caption == ""
+    assert "LLM_CAPTION" not in d.text.rule_name
+
+
+def _decide_raw(monkeypatch, row, grade):
+    decision = SimpleNamespace(
+        text=SimpleNamespace(caption="", rule_name="R_FALLBACK"),
+        teaching_meta=SimpleNamespace(severity=grade),
+    )
+    import services.caption_pipeline as cp
+    monkeypatch.setattr(cp, "build_move_teaching_decision",
+                        lambda *a, **k: decision)
+    key = " ".join(BC5_FEN.split()[:4])
+    return framework.decide(
+        SimpleNamespace(fen_before=BC5_FEN), None,
+        eval_lookup={key: row}, severity_override=grade)
 
 
 def test_writer_is_told_the_move_was_good():
