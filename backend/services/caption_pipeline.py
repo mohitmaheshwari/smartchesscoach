@@ -7085,12 +7085,29 @@ def repick_opponent_arrows(
     and the sentence that took its place named the reply ("it lets Qc5+ come
     in with check") over an empty board.
 
-    The arrows chosen FOR the old words are swapped for the ones the new words
-    earn; every other arrow (mate picture, trap cage) is kept. Unchanged words,
-    or no record of what the arrows were chosen for, return `arrows` as is.
+    Additive, measured on 8 of Mohit's reviews (2026-11-13): a first version
+    that swapped the old picture for whatever the new words name exactly
+    added arrows on 4 opponent cards and REMOVED them on 27, most of them true
+    pictures the words describe without spelling the move ("lets you check
+    while attacking their bishop on c5", drawn f3-d5, d5-c5). So:
+
+      - a card with no arrows gets the reply the shipped words name;
+      - a card with arrows keeps them, except when the words name THEIR
+        better move and our reply is the same characters (7.Nf3 of 3c8d0751:
+        "instead of e6" is White's e5-e6, the arrow was Black's e7-e6). Then
+        the reply arrows go -- silence beats contradiction.
+    Unchanged words, or no record of what the arrows were chosen for, return
+    `arrows` as is.
     """
     arrows = list(arrows or [])
     if chosen_for is None or (final_text or "") == (chosen_for or ""):
+        return arrows
+    reply = caption_facts.get("user_best_reply_san")
+    contradicted = bool(
+        arrows and reply and their_best_san
+        and _normalize_san_for_match(reply) == _normalize_san_for_match(their_best_san)
+        and _text_names_reply(final_text or "", their_best_san))
+    if arrows and not contradicted:
         return arrows
     try:
         board = chess.Board(fen_before)
@@ -7098,7 +7115,10 @@ def repick_opponent_arrows(
         story = caption_facts.get("move_story")
         common = dict(caption_facts=caption_facts, story=story,
                       pv_after_played=pv_after_played, cp_loss=cp_loss)
-        old_pic = opponent_card_arrows(board, move, caption_text=chosen_for, **common)
+        if contradicted:
+            old_pic = opponent_card_arrows(board, move, caption_text=chosen_for, **common)
+            old_pairs = {(a.get("from"), a.get("to")) for a in old_pic}
+            return [a for a in arrows if (a.get("from"), a.get("to")) not in old_pairs]
         new_pic = opponent_card_arrows(
             board, move, caption_text=final_text or "", strict_text=True,
             their_best_san=their_best_san, **common)
@@ -7107,11 +7127,7 @@ def repick_opponent_arrows(
         return arrows
     if os.environ.get("REVIEW_LEGACY_ARROWS", "false").strip().lower() != "true":
         new_pic = [a for a in new_pic if a.get("teach") is True]
-    old_pairs = {(a.get("from"), a.get("to")) for a in old_pic}
-    new_pairs = {(a.get("from"), a.get("to")) for a in new_pic}
-    kept = [a for a in arrows
-            if (a.get("from"), a.get("to")) not in old_pairs | new_pairs]
-    return list(new_pic) + kept
+    return list(new_pic)
 
 
 def _named_move_arrow(
