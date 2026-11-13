@@ -26,11 +26,15 @@ Player-facing sentences carry no digits; counts stay in `measured`.
 """
 from __future__ import annotations
 
+import math
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from services import coach_plan_service as cp
 
 STEPS_SHOWN = 3
+# Points at stake need at least this many finished games in the window. 2026-11-13:
+# with about fifteen games the range swung from +0 to +417 on three games.
+MIN_STAKE_GAMES = 20
 # "Most of your lost games turn in X": the share must be a majority, over at
 # least this many lost games with a deciding move.
 PHASE_MIN_LOST_GAMES = 6
@@ -68,6 +72,39 @@ def where_lost(deciding: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
             "measured": {**counts, "lost_games": n}}
 
 
+_SCORE = {"win": 1.0, "draw": 0.5, "loss": 0.0}
+
+
+def _perf(score: float) -> float:
+    """Rating difference implied by a score (the Elo expectation, inverted)."""
+    e = min(max(score, 0.01), 0.99)
+    return 400.0 * math.log10(e / (1.0 - e))
+
+
+def points_at_stake(games: Mapping[str, Mapping[str, Any]], window: Sequence[str],
+                    affected: Iterable[str]) -> Optional[Dict[str, Any]]:
+    """What fixing a step is worth, from his own last games.
+
+    Over the window, his score S of N games implies a performance. If every
+    game the step cost had been DRAWN instead (low) or WON (high), the score
+    rises and so does the implied performance; the difference is the range.
+    An upper bound on one step, not a promise: it assumes nothing else changes.
+    """
+    scores = {gid: _SCORE.get((games.get(gid) or {}).get("outcome")) for gid in window}
+    scores = {g: v for g, v in scores.items() if v is not None}
+    n = len(scores)
+    if n < MIN_STAKE_GAMES:
+        return None
+    total = sum(scores.values())
+    hit = [g for g in set(affected) if g in scores]
+    gain_draw = sum(max(0.0, 0.5 - scores[g]) for g in hit)
+    gain_win = sum(1.0 - scores[g] for g in hit)
+    base = _perf(total / n)
+    return {"low": round(_perf((total + gain_draw) / n) - base),
+            "high": round(_perf((total + gain_win) / n) - base),
+            "games": len(hit), "window": n}
+
+
 def _problem_step(row: Mapping[str, Any], progress_by_qid: Mapping[str, Mapping[str, Any]],
                   training: bool) -> Dict[str, Any]:
     from services.player_coach_habit import PRACTICE_KEY
@@ -86,6 +123,7 @@ def _problem_step(row: Mapping[str, Any], progress_by_qid: Mapping[str, Mapping[
         "state": state.get("state"), "state_title": state.get("title"),
         "training": training,
         "measured": {"games_lost": row["games_lost"], "games": row["games"], "moments": row["moments"]},
+        "_affected": sorted({o["game_id"] for o in row.get("evidence") or [] if o.get("_costs_result")}),
     }
 
 
@@ -94,7 +132,7 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
                progress: Mapping[str, Any], games: Mapping[str, Mapping[str, Any]],
                deciding: Sequence[Mapping[str, Any]], habit_check: Optional[Mapping[str, Any]],
                newest_game_id: Optional[str], observations: Iterable[Mapping[str, Any]],
-               analysed_games: int) -> Optional[Dict[str, Any]]:
+               analysed_games: int, window: Sequence[str] = ()) -> Optional[Dict[str, Any]]:
     """The plan, or None when there is nothing proven to build it from."""
     progress_by_qid = {r["quality_id"]: r for r in (progress.get("habits") or []) + (progress.get("kept") or [])}
     ranked_by_qid = {r["quality_id"]: r for r in ranked}
@@ -111,8 +149,9 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
 
     if openings:
         h = openings[0]
-        lost = sum(1 for gid in (h.get("measured") or {}).get("game_ids") or []
-                   if (games.get(gid) or {}).get("outcome") in ("loss", "draw"))
+        lost_ids = [gid for gid in (h.get("measured") or {}).get("game_ids") or []
+                    if (games.get(gid) or {}).get("outcome") in ("loss", "draw")]
+        lost = len(lost_ids)
         if lost >= 1:
             side = "White" if h["side"] == "white" else "Black"
             others.append({
@@ -121,23 +160,27 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
                 "san": h.get("san"), "better_san": h.get("better_san"), "line": h.get("line"),
                 "learn_url": "/learn", "practice_url": None, "training": False,
                 "measured": {"games_lost": lost, "games": (h.get("measured") or {}).get("games")},
+                "_affected": lost_ids,
             })
 
-    sm = (sitting or {}).get("measured") or {}
+    # Long sittings are a guard rail beside the plan, not a step to the next
+    # level (Mohit, 2026-11-13, on the first plan: "how can this be a plan").
+    guard = None
     if (sitting or {}).get("proven"):
-        est = round((sm.get("late_games") or 0) * (sm.get("drop") or 0))
-        if est >= 1:
-            others.append({
-                "kind": "sitting", "title": "Long sittings",
-                "do": "Stop after a long run of games. Your later games go worse.",
-                "learn_url": None, "practice_url": None, "training": False,
-                "measured": {"games_lost": est, "late_games": sm.get("late_games"), "drop": sm.get("drop")},
-            })
+        guard = {"title": "Stop after a long run of games",
+                 "text": "Your results drop late in a long sitting. When you have played many in a row, stop."}
 
     steps = sorted(steps + others, key=lambda s: (-s["measured"]["games_lost"], not s.get("training")))[:STEPS_SHOWN]
     if not steps:
         return None
     steps[0]["this_week"] = True
+    win = list(window)
+    union: set = set()
+    for st in steps:
+        affected = st.pop("_affected", [])
+        union.update(affected)
+        st["stake"] = points_at_stake(games, win, affected) if win else None
+    total_stake = points_at_stake(games, win, union) if win else None
 
     read: List[str] = []
     phase = where_lost(deciding)
@@ -146,12 +189,13 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
     # The read names step one, whatever kind it is, so it never contradicts the order.
     top = steps[0]["title"]
     read.append(f"What costs you most: {top[0].lower() + top[1:]}.")
-    if openings and steps[0]["kind"] != "opening":   # step one already says it
-        read.append(f"One opening habit costs you as {'White' if openings[0]['side'] == 'white' else 'Black'}.")
+    if openings:
+        if steps[0]["kind"] != "opening":   # step one already says it
+            side = "White" if openings[0]["side"] == "white" else "Black"
+            read.append(f"One opening habit costs you as {side}.")
     elif analysed_games >= OPENINGS_HOLD_MIN_GAMES:
+        # Only when no opening habit was found at all.
         read.append("Your openings hold up.")
-    if (sitting or {}).get("proven"):
-        read.append("Your results drop late in long sittings.")
 
     last_note = None
     if steps[0]["kind"] == "habit" and newest_game_id:
@@ -165,5 +209,9 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
         # The per-game check exists for the trained habit only.
         "check": next((habit_check for s in steps if s.get("training")), None),
         "last_game_note": last_note,
+        "guard": guard,
+        # Rating points the shown steps are worth together, from his last games
+        # (a range: drawn instead .. won instead). The plan's claim.
+        "stake": total_stake,
         "measured": {"where_lost": phase["measured"]},
     }

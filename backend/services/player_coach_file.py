@@ -61,7 +61,7 @@ from services import player_coach_plan as ppl
 logger = logging.getLogger(__name__)
 
 COLLECTION = "player_coach_files"
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 FLAG_ENV = "BETWEEN_GAMES_USERS"
 
 # Newest analysed games read for the opening habits, traps and progress.
@@ -767,7 +767,7 @@ def build_file(
         habit=habit, ranked=ranked, openings=openings, sitting=sitting, progress=progress, games=gmap,
         deciding=deciding_moves(deciding_rows, gmap, window_set), habit_check=habit_check,
         newest_game_id=analysed_ids[0] if analysed_ids else None, observations=observations,
-        analysed_games=len(analysed_ids),
+        analysed_games=len(analysed_ids), window=window,
     )
     return {
         "user_id": user_id,

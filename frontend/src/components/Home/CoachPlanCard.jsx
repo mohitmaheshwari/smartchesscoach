@@ -12,6 +12,10 @@ import { Check, Clock, Minus, Target, TrendingDown, TrendingUp } from "lucide-re
 import { useCoachFile } from "@/lib/coachFile";
 
 const ORDER_WORDS = ["First", "Then", "After that"];
+// Rating points are the one figure the plan states: the claim Mohit asked for
+// ("reach +200"), computed from the player's own games on the server.
+const fmt = (n) => `${n > 0 ? "+" : ""}${n}`;
+const GOAL = 200;
 const STATE_ICON = { better: TrendingDown, kept: Check, worse: TrendingUp, same: Minus, waiting: Clock };
 
 function Step({ step, index, check, notation }) {
@@ -25,6 +29,11 @@ function Step({ step, index, check, notation }) {
         <span className="cg-eyebrow">{ORDER_WORDS[index] || "Then"}</span>
         {step.this_week && (
           <span className="rounded-full bg-primary/15 px-2 py-0.5 text-meta font-medium text-primary">This week</span>
+        )}
+        {step.stake?.high > 0 && (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-meta font-medium text-foreground/80" data-testid="coach-plan-step-stake">
+            Worth up to {fmt(step.stake.high)}
+          </span>
         )}
         {step.state_title && Icon && (
           <span className="inline-flex items-center gap-1 text-meta text-muted-foreground">
@@ -97,12 +106,30 @@ export default function CoachPlanCard() {
           ))}
         </div>
       )}
+      {plan.stake?.high > 0 && (
+        <div className="mt-5 rounded-card border border-primary/30 bg-primary/[0.05] p-4" data-testid="coach-plan-stake">
+          <p className="text-body text-foreground">
+            From your recent games, these steps are worth about{" "}
+            <span className="font-semibold">{fmt(plan.stake.low)} to {fmt(plan.stake.high)}</span> rating points.
+          </p>
+          <p className="mt-1 text-note text-muted-foreground">
+            {plan.stake.high >= GOAL
+              ? "Fix them and the next level is within reach."
+              : `That is part of the way to ${fmt(GOAL)}. As you fix these, your coach finds the next ones.`}
+          </p>
+        </div>
+      )}
       <p className="mt-6 text-note font-semibold text-foreground">To reach the next level, in this order:</p>
       <ol className="mt-3 space-y-3">
         {plan.steps.map((s, i) => (
           <Step key={`${s.kind}-${s.title}`} step={s} index={i} check={plan.check} notation={notation} />
         ))}
       </ol>
+      {plan.guard && (
+        <p className="mt-5 text-note text-muted-foreground" data-testid="coach-plan-guard">
+          <span className="font-semibold text-foreground/85">{plan.guard.title}.</span> {plan.guard.text}
+        </p>
+      )}
     </section>
   );
 }

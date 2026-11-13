@@ -332,16 +332,20 @@ def test_plan_orders_steps_by_games_lost_and_the_training_habit_wins_ties():
                           sitting=sitting, progress={"habits": [], "kept": []}, games=games, deciding=[],
                           habit_check={"state": "waiting"}, newest_game_id="g0", observations=[], analysed_games=40)
     kinds = [(s["kind"], s["title"]) for s in plan["steps"]]
-    # Forks cost five games, the sittings about four, the opening three, the trained habit two.
+    # Forks cost five games, the opening three, the trained habit two; long
+    # sittings are a guard rail beside the plan, never a step.
     assert kinds[0] == ("habit", "Missing forks") and plan["steps"][0]["this_week"]
-    assert [k for k, _ in kinds] == ["habit", "sitting", "opening"]
+    assert [k for k, _ in kinds] == ["habit", "opening", "habit"]
+    assert plan["guard"] and not re.search(r"\d", plan["guard"]["text"])
     assert "What costs you most: missing forks." in plan["read"]
     tie = ppl.build_plan(habit={"quality_id": landing["quality_id"]}, ranked=[{**fork, "games_lost": 2}, landing],
                          openings=[], sitting={}, progress={}, games={}, deciding=[], habit_check=None,
                          newest_game_id=None, observations=[], analysed_games=10)
     assert tie["steps"][0]["title"] == "Leaving a piece where it can be taken"
-    # The trained habit (two games) is not in the top three, so there is no check to show.
-    assert plan["check"] is None and plan["last_game_note"] is None
+    # The trained habit is third and carries the check; nothing about the last game.
+    assert plan["check"] == {"state": "waiting"} and plan["last_game_note"] is None
+    # Openings exist, so the read must never say they hold up.
+    assert "Your openings hold up." not in plan["read"]
     for line in plan["read"] + [s["title"] + " " + s["do"] for s in plan["steps"]]:
         assert not re.search(r"\d", line), line
 
@@ -382,3 +386,35 @@ def test_where_lost_needs_a_majority_and_enough_games():
     assert ppl.where_lost([mid] * 5 + [end])["words"] == "Most of your lost games turn in the middlegame."
     assert ppl.where_lost([mid] * 3 + [end] * 3)["words"].startswith("Your lost games turn in different")
     assert ppl.where_lost([mid] * 3)["words"] is None
+
+
+
+def test_points_at_stake_is_a_range_from_his_own_games():
+    from services import player_coach_plan as ppl
+
+    # Twenty games, ten won and ten lost: a level score (twenty is the minimum).
+    games = {f"g{i}": {"outcome": "win" if i < 10 else "loss"} for i in range(20)}
+    window = list(games)
+    stake = ppl.points_at_stake(games, window, ["g10", "g11"])
+    # Two losses drawn: 11/20; two losses won: 12/20.
+    assert stake["games"] == 2 and 0 < stake["low"] < stake["high"]
+    assert stake["low"] == round(ppl._perf(11 / 20) - ppl._perf(0.5))
+    assert stake["high"] == round(ppl._perf(12 / 20) - ppl._perf(0.5))
+    # A won game cannot be worth points; too few games give no number.
+    assert ppl.points_at_stake(games, window, ["g0"])["high"] == 0
+    assert ppl.points_at_stake(games, window[:19], ["g10"]) is None
+
+
+def test_openings_hold_up_only_when_no_opening_habit_exists():
+    from services import player_coach_plan as ppl
+
+    fork = _ranked_row("gap:missed_tactic:missed_fork", "Missing forks", "missed_tactic", "fork", 5)
+    opening = {"side": "black", "san": "Bg4", "better_san": "Nf6", "line": "g6 Bg7",
+               "measured": {"games": 9, "game_ids": [f"g{i}" for i in range(9)]}}
+    games = {f"g{i}": {"outcome": "loss"} for i in range(24)}
+    kw = dict(habit=None, ranked=[fork], sitting={}, progress={}, games=games, deciding=[],
+              habit_check=None, newest_game_id=None, observations=[], analysed_games=40)
+    with_opening = ppl.build_plan(openings=[opening], **kw)
+    assert with_opening["steps"][0]["kind"] == "opening"
+    assert "Your openings hold up." not in with_opening["read"]
+    assert "Your openings hold up." in ppl.build_plan(openings=[], **kw)["read"]
