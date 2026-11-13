@@ -19,9 +19,11 @@ import {
   PlayPositions,
   TrapCard,
   WatchFor,
+  allTraps,
 } from "@/components/coachfile/CoachFileBlocks";
 
 const LIBRARY = [
+  { label: "Trap school", href: "/learn/traps", icon: Target },
   { label: "Openings", href: "/openings", icon: BookOpen },
   { label: "Tactics and traps", href: "/training", icon: Swords },
   { label: "Endgames", href: "/openings-overview?tab=endgames", icon: Crown },
@@ -45,8 +47,7 @@ export default function CoachLearn({ user }) {
   const ready = file?.enabled && file.state === "ready";
   const notation = file?.notation !== false;
   const openings = ready ? file.openings || [] : [];
-  const against = ready ? file.traps?.against || [] : [];
-  const forYou = ready ? file.traps?.for_you || [] : [];
+  const myTraps = ready ? allTraps(file) : [];
   const habit = ready ? file.habit : null;
 
   return (
@@ -72,7 +73,7 @@ export default function CoachLearn({ user }) {
           {ready && (
             <>
               <Section eyebrow="Built from your games" title="Your opening file" testid="coach-learn-openings">
-                {openings.length === 0 && against.length === 0 && forYou.length === 0 ? (
+                {openings.length === 0 && myTraps.length === 0 ? (
                   <p className="text-body text-muted-foreground">
                     No opening habit stands out in your games yet. It shows up once more of your games are read.
                   </p>
@@ -81,11 +82,8 @@ export default function CoachLearn({ user }) {
                     {openings.map((h) => (
                       <OpeningHabit key={`${h.side}-${h.line}-${h.idea}`} habit={h} notation={notation} />
                     ))}
-                    {against.map((t) => (
-                      <TrapCard key={`a-${t.key}`} trap={t} notation={notation} />
-                    ))}
-                    {forYou.map((t) => (
-                      <TrapCard key={`f-${t.key}`} trap={t} notation={notation} />
+                    {myTraps.map((t) => (
+                      <TrapCard key={`${t.key}-${t.headline}`} trap={t} notation={notation} />
                     ))}
                   </div>
                 )}

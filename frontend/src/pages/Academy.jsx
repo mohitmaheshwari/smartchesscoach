@@ -13,7 +13,7 @@ import { API } from "@/App";
 import Layout, { rememberAcademyStaff } from "@/components/Layout";
 import ParentReport from "@/components/academy/ParentReport";
 import { useCoachFile } from "@/lib/coachFile";
-import { OpeningHabit, ProgressList, SittingNote, TrapCard } from "@/components/coachfile/CoachFileBlocks";
+import { OpeningHabit, ProgressList, SittingNote, TrapCard, allTraps } from "@/components/coachfile/CoachFileBlocks";
 
 async function call(path, { method = "GET", body } = {}) {
   const res = await fetch(`${API}${path}`, {
@@ -598,7 +598,7 @@ function StudentCoachFile({ studentId, name }) {
   }
   const notation = file.notation !== false;
   const openings = file.openings || [];
-  const traps = [...(file.traps?.against || []), ...(file.traps?.for_you || [])];
+  const traps = allTraps(file);
   return (
     <Card>
       <Eyebrow>From {name}'s games</Eyebrow>
@@ -620,7 +620,7 @@ function StudentCoachFile({ studentId, name }) {
             {openings.map((h) => (
               <OpeningHabit key={`${h.side}-${h.line}-${h.idea}`} habit={h} notation={notation} canPlay={false} />
             ))}
-            {traps.map((t) => <TrapCard key={t.key + t.side} trap={t} notation={notation} />)}
+            {traps.map((t) => <TrapCard key={`${t.key}-${t.headline}`} trap={t} notation={notation} showGame={false} />)}
           </div>
         )}
       </div>

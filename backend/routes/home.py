@@ -479,6 +479,29 @@ async def get_between_games(request: Request, user: User = Depends(get_current_u
     return await get_coach_file(request, user)
 
 
+@router.get("/trap-school")
+async def get_trap_school(user: User = Depends(get_current_user)):
+    """The trap school's front page (services/trap_school.py): his own traps
+    first (from his player file, read only, never built here), then every trap
+    that really happens at 1000-1800 on Lichess."""
+    from services import player_coach_file as pcf
+    from services import trap_school as ts
+
+    doc = await db[pcf.COLLECTION].find_one({"user_id": user.user_id}, {"_id": 0, "traps": 1})
+    return ts.school((doc or {}).get("traps"))
+
+
+@router.get("/trap-school/{slug}")
+async def get_trap_school_trap(slug: str, user: User = Depends(get_current_user)):
+    """One trap: the line move by move with its explanation, and real games."""
+    from services import trap_school as ts
+
+    trap = ts.by_slug(slug)
+    if trap is None:
+        raise HTTPException(status_code=404, detail="No such trap.")
+    return trap
+
+
 @router.get("/home/prepared-focus")
 async def get_prepared_focus(user: User = Depends(get_current_user)):
     """What the coach works on with a player who has no active focus yet.

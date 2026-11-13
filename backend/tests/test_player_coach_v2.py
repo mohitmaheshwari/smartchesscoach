@@ -67,26 +67,56 @@ def scholars(monkeypatch):
     return roles
 
 
-def test_a_trap_that_caught_him_is_against_him(scholars):
-    caught = {"game_id": "a", "user_color": "black", "san": ["e4", "e5", "Bc4", "Nc6", "Qh5", "Nf6", "Qxf7#"]}
-    out = pcf.trap_file([caught], {})
-    assert [t["name"] for t in out["against"]] == ["Scholar's Mate Danger"]
-    assert out["against"][0]["side"] == "black" and out["against"][0]["headline"] == "This trap has caught you."
-    assert out["for_you"] == []
+def _fire(gid, colour, full, setter_field="black"):
+    # setter_field is the scanner's own (parity) guess; the engine's side wins.
+    return {"game_id": gid, "user_color": colour,
+            "fire": {"trap_name": "Scholar's Mate Danger", "full_sprung": full, "setter_color": setter_field}}
 
 
-def test_a_trap_he_reaches_as_the_setter_is_for_him(scholars):
-    reached = [{"game_id": g, "user_color": "white", "san": ["e4", "e5", "Bc4", "Nc6", "Qh5", "g6"]} for g in "ab"]
-    out = pcf.trap_file(reached, {"italian-game#0": "not_a_real_key"})
-    assert out["against"] == [] and out["for_you"][0]["side"] == "white"
-    # No lesson for an unknown practice key: nothing links to an empty page.
-    assert out["for_you"][0]["practice_url"] is None
+def test_trap_cases_use_the_engine_side_and_the_whole_line(scholars):
+    out = pcf.trap_record([_fire("a", "black", True), _fire("b", "black", False),
+                           _fire("c", "white", False), _fire("d", "white", True)], {})
+    assert [t["headline"] for t in out["caught"]] == ["This trap has caught you."]
+    assert out["caught"][0]["side"] == "black" and out["caught"][0]["game_id"] == "a"
+    assert out["waiting"][0]["game_id"] == "b" and out["waiting"][0]["side"] == "black"
+    assert out["could_set"][0]["side"] == "white" and out["sprang"][0]["game_id"] == "d"
+    for rows in out.values():
+        for t in rows:
+            assert not re.search(r"\d", t["headline"] + t["detail"])
 
 
-def test_a_trap_reached_by_another_move_order_is_the_same_trap(scholars):
-    # Bc4 before e5: a transposition into the same setup position.
-    caught = {"game_id": "a", "user_color": "black", "san": ["e4", "Nc6", "Bc4", "e5", "Qh5", "Nf6", "Qxf7#"]}
-    assert pcf.trap_file([caught], {})["against"][0]["headline"] == "This trap has caught you."
+def test_a_trap_the_engine_did_not_decide_is_not_shown(scholars):
+    unknown = {"game_id": "a", "user_color": "black", "fire": {"trap_name": "Fried Liver Attack", "full_sprung": True}}
+    assert all(rows == [] for rows in pcf.trap_record([unknown], {}).values())
+
+
+def test_an_unknown_practice_key_links_nowhere(scholars):
+    out = pcf.trap_record([_fire("a", "white", False)], {"italian-game#0": "not_a_real_key"})
+    assert out["could_set"][0]["practice_url"] is None
+
+
+def test_the_trap_school_file_holds_only_verified_lines():
+    import json
+    school = json.loads(pcf.TRAP_SCHOOL_PATH.read_text(encoding="utf-8"))["traps"]
+    assert school, "data/trap_school.json is missing or empty"
+    for t in school:
+        board = chess.Board()
+        for san in t["setup_san"]:
+            board.push_san(san)
+        assert board.fen() == t["setup_fen"]
+        for step in t["steps"]:
+            board.push_san(step["san"])
+            assert board.fen() == step["fen_after"]
+        assert t["examples"], t["name"]
+        assert not re.search(r"\d", t["how_common"]), t["how_common"]
+        for ex in t["examples"]:
+            # Every example game really plays the setup and the whole trap line.
+            g = chess.Board()
+            seen = set()
+            for san in ex["moves"][: ex["line_plies"] + 10]:
+                g.push_san(san)
+                seen.add(g.board_fen())
+            assert board.board_fen() in seen, (t["name"], ex["id"])
 
 
 def test_a_change_needs_games_behind_it():
@@ -96,11 +126,6 @@ def test_a_change_needs_games_behind_it():
     # A baseline of one game is not one to be "kept" against.
     assert pch.change_state(0, 20, 0.2, hits_then=1) == "same"
     assert pch.change_state(0, 20, 0.2, hits_then=8) == "kept"
-
-
-def test_one_faced_trap_is_not_enough(scholars):
-    faced = {"game_id": "a", "user_color": "black", "san": ["e4", "e5", "Bc4", "Nc6", "Qh5", "g6"]}
-    assert pcf.trap_file([faced], {})["against"] == []
 
 
 def test_verified_trap_roles_file_is_well_formed():
@@ -268,3 +293,19 @@ def test_prepared_focus_order_habit_then_opening_and_never_the_last_game_twice()
     for x in (a, b, c, e):
         text = " ".join(str(x.get(k) or "") for k in ("title", "detail", "rule"))
         assert "not settled" not in text and not re.search(r"\d", text), text
+
+
+# --------------------------------------------------------------------------
+# trap school
+# --------------------------------------------------------------------------
+def test_trap_school_puts_his_own_traps_first_and_shows_no_figures():
+    from services import trap_school as ts
+
+    first = ts.traps()[0]
+    page = ts.school({"caught": [{"key": first["key"], "game_id": "g1"}], "waiting": [{"key": "nope#0"}]})
+    assert page["mine"][0]["case"] == "caught" and page["mine"][0]["traps"][0]["game_id"] == "g1"
+    assert len(page["mine"]) == 1  # an unknown key is dropped, not shown empty
+    assert len(page["all"]) == len(ts.traps())
+    one = ts.by_slug(ts.slug(first["key"]))
+    assert one["steps"] and one["examples"] and "measured" not in one
+    assert ts.by_slug("no-such-trap") is None

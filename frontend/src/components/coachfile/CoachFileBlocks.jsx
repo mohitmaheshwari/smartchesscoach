@@ -186,7 +186,7 @@ function trapBoard(trap) {
   return trap.setup_fen || "start";
 }
 
-export function TrapCard({ trap, notation }) {
+export function TrapCard({ trap, notation, showGame = true }) {
   return (
     <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-8" data-testid="coach-file-trap">
       <Board fen={trapBoard(trap)} orientation={trap.side} size={200} />
@@ -199,16 +199,27 @@ export function TrapCard({ trap, notation }) {
             The line: <span className="font-mono">{trap.trap_line_san.join(" ")}</span>
           </p>
         )}
-        {trap.practice_url && (
-          <div className="mt-4">
-            <Action to={trap.practice_url} testid="coach-file-trap-practice">
+        <div className="mt-4 flex flex-wrap gap-2">
+          {trap.school_url && (
+            <Action to={trap.school_url} testid="coach-file-trap-school">Learn the trap</Action>
+          )}
+          {trap.practice_url && (
+            <Action to={trap.practice_url} quiet testid="coach-file-trap-practice">
               <Target className="h-3.5 w-3.5" /> Practise it with your coach
             </Action>
-          </div>
-        )}
+          )}
+          {showGame && trap.game_id && <Action to={`/game/${trap.game_id}`} quiet>See your game</Action>}
+        </div>
       </div>
     </div>
   );
+}
+
+/** His traps from the player file, in the order a coach would raise them. */
+export const TRAP_CASES = ["caught", "waiting", "could_set", "sprang"];
+export function allTraps(file) {
+  const t = file?.traps || {};
+  return TRAP_CASES.flatMap((c) => (Array.isArray(t[c]) ? t[c] : []));
 }
 
 // --------------------------------------------------------------------------

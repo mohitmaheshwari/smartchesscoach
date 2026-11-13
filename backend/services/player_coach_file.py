@@ -20,9 +20,10 @@ What is in it (schema 2):
     left a piece hanging (a safety slip), that instance belongs to the
     tactics and safety coaching, not the opening file. Measured 2026-11-12 on
     50 players: those were 40% of the instances under 1000 and 10-35% above.
-  - `traps`: opening traps from data/traps.json found in his games, with the
-    side each trap wins for decided by Stockfish (data/trap_roles_verified.json),
-    because the stored roles disagree with the library on 25 of 55 traps.
+  - `traps`: his traps in four cases (caught him / waiting for him / he could
+    set it / he sprang it), read from the analysis worker's stored trap scan
+    (game_analyses.trap_fires), with the side each trap wins for decided by
+    Stockfish (data/trap_roles_verified.json); each links to the trap school.
   - `last_game`: the newest analysed game's deciding move (his costliest move,
     150+), and whether it repeats one of his opening habits. "Same as before"
     is said ONLY through a habit key (side + opening + move idea): that key
@@ -59,7 +60,7 @@ from services import player_coach_habit as pch
 logger = logging.getLogger(__name__)
 
 COLLECTION = "player_coach_files"
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 FLAG_ENV = "BETWEEN_GAMES_USERS"
 
 # Newest analysed games read for the opening habits, traps and progress.
@@ -82,10 +83,7 @@ HABIT_CUT_BY_BAND = {"<1000": 140, "1000-1399": 86, "1400-1799": 73, "1800+": 64
 # every band 86-91% of games have one (53 players, 2026-11-12).
 DECIDING_CP = 150
 
-# Traps: shown against him when one caught him, or when its line came up in
-# two or more of his games; shown for him when he reached it twice or more.
-TRAP_FACED_MIN = 2
-TRAP_REACHED_MIN = 2
+# Traps shown per case (caught / waiting / could set / sprang).
 TRAPS_SHOWN = 2
 TRAP_ROLES_PATH = Path(__file__).resolve().parent.parent / "data" / "trap_roles_verified.json"
 
@@ -370,118 +368,83 @@ def _practice_link(practice_key: Optional[str]) -> Optional[str]:
     return f"/play-with-coach?trap={practice_key}" if practice_key in TRAPS_DATABASE else None
 
 
-def _position_key(board: chess.Board) -> str:
-    """Pieces and side to move: the same position reached by another move order."""
-    return f"{board.board_fen()} {'w' if board.turn else 'b'}"
+TRAP_SCHOOL_PATH = TRAP_ROLES_PATH.parent / "trap_school.json"
+_TRAP_SCHOOL_KEYS: Optional[set] = None
+
+TRAP_WORDS = {
+    "caught": ("This trap has caught you.", "Learn the line, so you see it coming next time."),
+    "waiting": ("This trap was waiting for you, and your opponent missed it.",
+                "Next time they may not. Learn the line."),
+    "could_set": ("You could have set this trap.", "Your games reach the position. Learn the line and set it."),
+    "sprang": ("You sprang this trap. Well played.", "It keeps working, so keep it in your games."),
+}
 
 
-def _san_moves(pgn: str, limit: int = 40) -> List[str]:
-    try:
-        game = chess.pgn.read_game(io.StringIO(pgn or ""))
-    except Exception:
-        return []
-    if game is None:
-        return []
-    board = game.board()
-    if board.fen() != chess.STARTING_FEN:
-        return []  # a game from a set-up position has no opening trap
-    out: List[str] = []
-    for move in game.mainline_moves():
-        out.append(board.san(move))
-        board.push(move)
-        if len(out) >= limit:
-            break
-    return out
+def trap_slug(key: str) -> str:
+    """The trap school's address for a trap key ("italian-game#0" -> "italian-game-0")."""
+    return key.replace("#", "-")
 
 
-def _positions(moves: Sequence[str]) -> Dict[str, int]:
-    """Position key -> the first ply index it occurs at (0 = before any move)."""
-    board = chess.Board()
-    seen = {_position_key(board): 0}
-    for i, san in enumerate(moves, start=1):
+def _school_keys() -> set:
+    global _TRAP_SCHOOL_KEYS
+    if _TRAP_SCHOOL_KEYS is None:
         try:
-            board.push_san(san)
-        except ValueError:
-            break
-        seen.setdefault(_position_key(board), i)
-    return seen
+            raw = json.loads(TRAP_SCHOOL_PATH.read_text(encoding="utf-8"))
+            _TRAP_SCHOOL_KEYS = {t["key"] for t in raw.get("traps") or []}
+        except (OSError, ValueError):
+            _TRAP_SCHOOL_KEYS = set()
+    return _TRAP_SCHOOL_KEYS
 
 
-def _setup_key(trap: Mapping[str, Any]) -> Optional[str]:
-    board = chess.Board()
-    try:
-        for san in trap["setup_san"]:
-            board.push_san(san)
-    except ValueError:
-        return None
-    return _position_key(board)
+def trap_record(fires: Iterable[Mapping[str, Any]], practice_keys: Mapping[str, str]) -> Dict[str, List[Dict[str, Any]]]:
+    """His traps, in four cases, from the analysis worker's stored trap scan.
 
+    ONE source: `game_analyses.trap_fires`, written for every analysed game by
+    services/trap_scanner.py (2026-11-12 census: 532 games). An earlier version
+    of this file re-scanned PGNs itself and found traps for 5 of 78 players.
+    The scanner's setter/victim role comes from move-count parity, which is
+    wrong on some traps, so the side is the engine's (trap_roles_verified.json).
+    "Sprang" and "caught" need the whole line (`full_sprung`), not its first move.
 
-def trap_file(games: Sequence[Mapping[str, Any]], practice_keys: Mapping[str, str]) -> Dict[str, List[Dict[str, Any]]]:
-    """Traps against him and traps he can set, from the games' opening moves.
-
-    `games` carry `game_id`, `user_color` and `san` (the game's SAN moves).
-    `practice_keys` maps a trap key to its traps.json practice_key."""
-    tally: Dict[str, Dict[str, Any]] = {}
-    setups = {key: _setup_key(trap) for key, trap in trap_roles().items()}
-    for g in games:
-        colour = g.get("user_color")
-        moves = g.get("san") or []
-        if colour not in ("white", "black") or not moves:
+    `fires`: {game_id, user_color, fire}, newest game first.
+    """
+    by_name = {t.get("name"): (k, t) for k, t in trap_roles().items()}
+    tally: Dict[Tuple[str, str], List[str]] = defaultdict(list)
+    for f in fires or ():
+        fire = f.get("fire") or {}
+        hit = by_name.get(fire.get("trap_name"))
+        colour = f.get("user_color")
+        if not hit or colour not in ("white", "black"):
             continue
-        # By position, not move order: the trap's setup reached by a
-        # transposition is the same trap (an exact move-order match found it
-        # in 51 of 3,196 recent games, 2026-11-12).
-        positions = _positions(moves)
-        for key, trap in trap_roles().items():
-            line = trap.get("trap_line_san") or []
-            at = positions.get(setups.get(key) or "")
-            if at is None:
-                continue
-            t = tally.setdefault(key, {"caught": [], "faced": [], "reached": [], "sprung": []})
-            sprung = bool(line) and list(moves[at: at + len(line)]) == list(line)
-            if trap["setter"] == colour:
-                t["sprung" if sprung else "reached"].append(g["game_id"])
-            else:
-                t["caught" if sprung else "faced"].append(g["game_id"])
+        key, trap = hit
+        full = bool(fire.get("full_sprung"))
+        if trap["setter"] == colour:
+            case = "sprang" if full else "could_set"
+        else:
+            case = "caught" if full else "waiting"
+        if f.get("game_id") not in tally[(case, key)]:
+            tally[(case, key)].append(f.get("game_id"))
 
-    against, for_you = [], []
-    for key, t in tally.items():
+    out: Dict[str, List[Dict[str, Any]]] = {case: [] for case in TRAP_WORDS}
+    for (case, key), games in tally.items():
         trap = trap_roles()[key]
         setter = trap["setter"]
-        victim = "black" if setter == "white" else "white"
-        base = {
-            "key": key,
-            "name": trap.get("name"),
-            "setup_san": trap["setup_san"],
-            "trap_line_san": trap.get("trap_line_san") or [],
+        side = setter if case in ("sprang", "could_set") else ("black" if setter == "white" else "white")
+        headline, detail = TRAP_WORDS[case]
+        out[case].append({
+            "key": key, "name": trap.get("name"), "side": side,
+            "setup_san": trap["setup_san"], "trap_line_san": trap.get("trap_line_san") or [],
             "setup_fen": trap.get("setup_fen"),
+            "school_url": f"/learn/traps/{trap_slug(key)}" if key in _school_keys() else None,
             "practice_url": _practice_link(practice_keys.get(key)),
-        }
-        if t["caught"] or len(t["faced"]) >= TRAP_FACED_MIN:
-            against.append({
-                **base, "side": victim,
-                "headline": ("This trap has caught you." if t["caught"]
-                             else "This trap is waiting in a line you play."),
-                "detail": "Know the line, so you see it coming.",
-                "game_id": (t["caught"] or t["faced"])[0],
-                "measured": {"caught": len(t["caught"]), "faced": len(t["faced"])},
-                "_rank": (len(t["caught"]) * 3 + len(t["faced"])),
-            })
-        if len(t["reached"]) + len(t["sprung"]) >= TRAP_REACHED_MIN:
-            for_you.append({
-                **base, "side": setter,
-                "headline": "Your games reach this trap. You can set it.",
-                "detail": "Learn the line, and the next player who walks into it pays.",
-                "game_id": (t["reached"] or t["sprung"])[0],
-                "measured": {"reached": len(t["reached"]), "sprung": len(t["sprung"])},
-                "_rank": len(t["reached"]) + len(t["sprung"]),
-            })
-    for rows in (against, for_you):
-        rows.sort(key=lambda r: -r["_rank"])
-        for r in rows:
-            r.pop("_rank", None)
-    return {"against": against[:TRAPS_SHOWN], "for_you": for_you[:TRAPS_SHOWN]}
+            "headline": headline, "detail": detail,
+            "game_id": games[0],
+            "measured": {"games": len(games)},
+        })
+    for rows in out.values():
+        rows.sort(key=lambda r: -r["measured"]["games"])
+        del rows[TRAPS_SHOWN:]
+    return out
 
 
 def _practice_keys() -> Dict[str, str]:
@@ -734,6 +697,7 @@ def build_file(
     observations: Sequence[Mapping[str, Any]] = (),
     last_rows: Sequence[Mapping[str, Any]] = (),
     previous: Optional[Mapping[str, Any]] = None,
+    fires: Sequence[Mapping[str, Any]] = (),
     moments_fn: Optional[Callable[[Dict[str, Any], Dict[str, Dict[str, Any]]], List[Dict[str, Any]]]] = None,
     now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
@@ -749,11 +713,7 @@ def build_file(
     by_id = {g["game_id"]: g for g in games_newest_first}
 
     openings = opening_habits(analyses, band)
-    traps = trap_file(
-        [{"game_id": g["game_id"], "user_color": g.get("user_color"), "san": _san_moves(g.get("pgn") or "")}
-         for g in analysed],
-        _practice_keys(),
-    )
+    traps = trap_record(fires, _practice_keys())
     last = last_game_read(analysed[0] if analysed else None, last_rows, openings)
 
     observations = [o for o in observations if o.get("game_id") in set(analysed_ids)]
@@ -835,6 +795,19 @@ def _last_rows_pipeline(game_id: str) -> List[Dict[str, Any]]:
     ]
 
 
+def _fires(games: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    """Stored trap fires as {game_id, user_color, fire}, newest game first.
+    Duplicate imports of one game count once (dedupe_games)."""
+    kept = dedupe_games(games)
+    order = {g["game_id"]: i for i, g in enumerate(kept)}
+    colour = {g["game_id"]: g.get("user_color") for g in kept}
+    out = []
+    for r in sorted((r for r in rows if r.get("game_id") in order), key=lambda r: order[r["game_id"]]):
+        for fire in r.get("trap_fires") or []:
+            out.append({"game_id": r["game_id"], "user_color": colour[r["game_id"]], "fire": fire})
+    return out
+
+
 def _mark_development(observations: List[Dict[str, Any]], dev_rows: Sequence[Mapping[str, Any]]) -> None:
     """Lock A1 of the coach plan: development counts only for a player whose
     development rate over his last 80 analysed games passed the cut-off."""
@@ -899,7 +872,10 @@ def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
         {"_id": 0, "development_decision": 1, "missed_pattern": 1})) if dev_ids else []
     _mark_development(observations, dev_rows)
     previous = db[COLLECTION].find_one({"user_id": user_id}, {"_id": 0, "habit": 1})
-    doc = build_file(user_id, games, analyses, observations, last_rows, previous, engine_moments)
+    fires = _fires(games, list(db.game_analyses.find(
+        {"game_id": {"$in": [g["game_id"] for g in games if g.get("is_analyzed")]}, "trap_fires.0": {"$exists": True}},
+        {"_id": 0, "game_id": 1, "trap_fires": 1})))
+    doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, engine_moments)
     db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
     return doc
 
@@ -926,9 +902,12 @@ async def build_and_store(db, user_id: str) -> Dict[str, Any]:
             {"_id": 0, "development_decision": 1, "missed_pattern": 1}).to_list(None)
     _mark_development(observations, dev_rows)
     previous = await db[COLLECTION].find_one({"user_id": user_id}, {"_id": 0, "habit": 1})
-    # The build parses PGNs and may run the engine: keep it off the event loop.
+    fires = _fires(games, await db.game_analyses.find(
+        {"game_id": {"$in": [g["game_id"] for g in games if g.get("is_analyzed")]}, "trap_fires.0": {"$exists": True}},
+        {"_id": 0, "game_id": 1, "trap_fires": 1}).to_list(None))
+    # The build may run the engine: keep it off the event loop.
     doc = await asyncio.to_thread(build_file, user_id, games, analyses, observations, last_rows,
-                                  previous, engine_moments)
+                                  previous, fires, engine_moments)
     await db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
     return doc
 
@@ -978,7 +957,7 @@ def payload(doc: Optional[Mapping[str, Any]], recent: Sequence[Mapping[str, Any]
         "notation": band != "<1000",
         "last_game": doc.get("last_game"),
         "openings": list(doc.get("openings") or []),
-        "traps": doc.get("traps") or {"against": [], "for_you": []},
+        "traps": doc.get("traps") or {case: [] for case in TRAP_WORDS},
         "habit": _public_habit(doc.get("habit")),
         "habit_check": doc.get("habit_check"),
         "progress": doc.get("progress") or {"habits": [], "kept": []},
