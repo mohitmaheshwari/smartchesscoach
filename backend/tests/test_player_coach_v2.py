@@ -309,3 +309,66 @@ def test_trap_school_puts_his_own_traps_first_and_shows_no_figures():
     one = ts.by_slug(ts.slug(first["key"]))
     assert one["steps"] and one["examples"] and "measured" not in one
     assert ts.by_slug("no-such-trap") is None
+
+
+# --------------------------------------------------------------------------
+# the coach's plan (services/player_coach_plan.py)
+# --------------------------------------------------------------------------
+def _ranked_row(qid, label, kind, pattern, lost):
+    return {"quality_id": qid, "label": label, "kind": kind, "pattern": pattern,
+            "games_lost": lost, "games": lost + 2, "moments": lost + 3}
+
+
+def test_plan_orders_steps_by_games_lost_and_the_training_habit_wins_ties():
+    from services import player_coach_plan as ppl
+
+    landing = _ranked_row("gap:piece_safety:destination_safety_exact", "Leaving a piece where it can be taken", "landing", None, 2)
+    fork = _ranked_row("gap:missed_tactic:missed_fork", "Missing forks", "missed_tactic", "fork", 5)
+    games = {f"g{i}": {"outcome": "loss" if i % 2 else "win"} for i in range(10)}
+    opening = {"side": "black", "san": "Bg4", "better_san": "Nf6", "line": "g6 Bg7",
+               "measured": {"games": 4, "game_ids": ["g1", "g3", "g5", "g2"]}}
+    sitting = {"proven": True, "measured": {"late_games": 40, "drop": 0.1}}
+    plan = ppl.build_plan(habit={"quality_id": landing["quality_id"]}, ranked=[fork, landing], openings=[opening],
+                          sitting=sitting, progress={"habits": [], "kept": []}, games=games, deciding=[],
+                          habit_check={"state": "waiting"}, newest_game_id="g0", observations=[], analysed_games=40)
+    kinds = [(s["kind"], s["title"]) for s in plan["steps"]]
+    # Forks cost five games, the sittings about four, the opening three, the trained habit two.
+    assert kinds[0] == ("habit", "Missing forks") and plan["steps"][0]["this_week"]
+    assert [k for k, _ in kinds] == ["habit", "sitting", "opening"]
+    assert "What costs you most: missing forks." in plan["read"]
+    tie = ppl.build_plan(habit={"quality_id": landing["quality_id"]}, ranked=[{**fork, "games_lost": 2}, landing],
+                         openings=[], sitting={}, progress={}, games={}, deciding=[], habit_check=None,
+                         newest_game_id=None, observations=[], analysed_games=10)
+    assert tie["steps"][0]["title"] == "Leaving a piece where it can be taken"
+    # The trained habit (two games) is not in the top three, so there is no check to show.
+    assert plan["check"] is None and plan["last_game_note"] is None
+    for line in plan["read"] + [s["title"] + " " + s["do"] for s in plan["steps"]]:
+        assert not re.search(r"\d", line), line
+
+
+def test_plan_says_the_last_game_only_when_the_step_showed_up():
+    from services import player_coach_plan as ppl
+
+    landing = _ranked_row("gap:piece_safety:destination_safety_exact", "Leaving a piece where it can be taken", "landing", None, 2)
+    showed = [{"game_id": "g0", "missed_pattern": "piece_safety", "subtype": "destination_safety_exact"}]
+    kw = dict(habit={"quality_id": landing["quality_id"]}, ranked=[landing], openings=[], sitting={},
+              progress={}, games={}, deciding=[], habit_check=None, newest_game_id="g0", analysed_games=10)
+    assert ppl.build_plan(observations=showed, **kw)["last_game_note"]
+    assert ppl.build_plan(observations=[], **kw)["last_game_note"] is None
+
+
+def test_plan_is_none_without_anything_proven():
+    from services import player_coach_plan as ppl
+
+    assert ppl.build_plan(habit=None, ranked=[], openings=[], sitting={}, progress={}, games={}, deciding=[],
+                          habit_check=None, newest_game_id=None, observations=[], analysed_games=3) is None
+
+
+def test_where_lost_needs_a_majority_and_enough_games():
+    from services import player_coach_plan as ppl
+
+    mid = {"fen": "r1bq1rk1/pppp1ppp/2n2n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 15", "move_number": 15}
+    end = {"fen": "8/5k2/8/8/8/8/5K2/3R4 w - - 0 50", "move_number": 50}
+    assert ppl.where_lost([mid] * 5 + [end])["words"] == "Most of your lost games turn in the middlegame."
+    assert ppl.where_lost([mid] * 3 + [end] * 3)["words"].startswith("Your lost games turn in different")
+    assert ppl.where_lost([mid] * 3)["words"] is None

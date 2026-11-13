@@ -514,3 +514,29 @@ also open to a super-admin viewing any player through view-as (`/auth/me` says
 - **Speed levers (Q7)** and the per-moment academy coach note (Q8).
 - **Ask before telling on Games:** it already exists (`PersonalizedReviewCoach` taps) where a
   game has a personalized plan; it is not extended here.
+
+### Addendum 2026-11-13: the plan on Home, traps from the stored scan
+
+- **The coach's plan** (`services/player_coach_plan.py`) is at the top of Home for
+  coach-pages players: a read of how he plays plus up to three steps toward the next level.
+  - Steps are ordered by games lost or drawn from level-or-better, across every kind of step:
+    a trusted habit, the costliest opening habit, long sittings.
+  - The habit being trained wins a tie. Habit-first was dropped after it put a 3-game habit
+    ahead of an 8-game opening habit for the test player.
+  - "Your last game: this week's step showed up again" is said only when it did. A game where
+    it did not is not proof it was kept.
+  - The older Home blocks are left out for coach-pages players only.
+- **Maia as the "+200" ordering signal: measured, not used.** On 55 players a plan mistake is
+  about 5% rarer 200 points up, by Maia. It beat both controls in 16/52 steps at 1000-1399,
+  and Maia sees nothing under 1100 or at 1800+.
+- **Our own rating:**
+  - Move quality ranks players (rho about 0.8) but places them about 275-300 points off.
+  - Maia places them about 225-260 off on Chess.com and about 130-180 off on Lichess (small
+    groups).
+  - Not shown as a number yet.
+- **Trap school:**
+  - `/learn/traps` covers 24 traps that Lichess players at 1000-1800 actually play to the end,
+    with 93 real games, each replayed to confirm the line.
+  - The player file's traps now come from `game_analyses.trap_fires` (one source) in four
+    cases, judged with the engine's side and the whole line.
+  - 36 of 78 players see their own traps, against 5 with the earlier rescanner.

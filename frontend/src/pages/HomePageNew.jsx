@@ -19,6 +19,7 @@ import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/l
 import Layout from "@/components/Layout";
 import LastGameCard from "@/components/Home/LastGameCard";
 import BetweenGamesPanel from "@/components/Home/BetweenGamesPanel";
+import CoachPlanCard from "@/components/Home/CoachPlanCard";
 import PreparedFocus from "@/components/Home/PreparedFocus";
 import HomeLoadingSkeleton from "@/components/HomeLoadingSkeleton";
 import CanonicalFocusRail from "@/components/experience/CanonicalFocusRail";
@@ -437,15 +438,28 @@ export default function HomePageNew({ user }) {
               a card about his last game cannot ever appear. That is the fifth
               time this session a finished surface was wired into a branch its
               audience does not take, and the comment below already said so. */}
+          {user?.coach_pages ? (
+            /* ─── THE COACH PAGES HOME (docs/coach_pages_scope.md) ───
+               Mohit, 2026-11-13: the coaching plan we developed for the player
+               belongs on Home. The plan first (the read and the steps to the
+               next level), then the last game, then what to do before the next
+               one. The older blocks below (coach session, conversation, nav
+               tiles) are left out for coach-pages players only. */
+            <>
+              <motion.div variants={fadeInUp}>
+                <CoachPlanCard />
+              </motion.div>
+              <motion.div variants={fadeInUp} className="mb-12 md:mb-16">
+                <LastGameCard />
+                <BetweenGamesPanel />
+              </motion.div>
+            </>
+          ) : (
+          <>
           <motion.div variants={fadeInUp} className="mb-12 md:mb-16">
             <LastGameCard />
-            {/* ─── BETWEEN GAMES ───
-                docs/coach_pages_scope.md. His costliest opening habits and,
-                only when his own games prove it, the sitting line. Behind
-                BETWEEN_GAMES_USERS on the server: renders nothing for anyone
-                not on it. Mounted in this branch, the one a player with games
-                actually reaches. */}
-            <BetweenGamesPanel />
+            {/* BetweenGamesPanel lives in the coach-pages branch above: the
+                server answers {enabled: false} for everyone else. */}
           </motion.div>
 
           {/* ─── THE COACHING SESSION ───
@@ -802,6 +816,8 @@ export default function HomePageNew({ user }) {
               })}
             </div>
           </motion.section>
+          </>
+          )}
         </motion.div>
       </motion.div>
     </Layout>

@@ -56,11 +56,12 @@ import chess
 import chess.pgn
 
 from services import player_coach_habit as pch
+from services import player_coach_plan as ppl
 
 logger = logging.getLogger(__name__)
 
 COLLECTION = "player_coach_files"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 FLAG_ENV = "BETWEEN_GAMES_USERS"
 
 # Newest analysed games read for the opening habits, traps and progress.
@@ -324,6 +325,7 @@ def opening_habits(
                     "average_cp": round(average, 1),
                     "band_cut_cp": cut,
                     "example_cp": inst["cp"],
+                    "game_ids": [i["game_id"] for i in instances],
                 },
                 "_rank": len(instances) * average,
             }
@@ -690,6 +692,26 @@ def dedupe_games(games: Sequence[Mapping[str, Any]]) -> List[Mapping[str, Any]]:
     return kept
 
 
+def cp_ranked(games: Mapping[str, Mapping[str, Any]], observations: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    from services import coach_plan_service as cp
+    return cp.rank_problems(games, observations)
+
+
+def deciding_moves(rows: Sequence[Mapping[str, Any]], games: Mapping[str, Mapping[str, Any]],
+                   window: set) -> List[Dict[str, Any]]:
+    """Per lost or drawn game in the window, his costliest move (DECIDING_CP+)."""
+    out = []
+    for doc in rows:
+        gid = doc.get("game_id")
+        if gid not in window or (games.get(gid) or {}).get("outcome") not in ("loss", "draw"):
+            continue
+        own = [m for m in doc.get("m") or [] if not m.get("o") and isinstance(m.get("c"), (int, float)) and m.get("f")]
+        worst = max(own, key=lambda m: m["c"], default=None)
+        if worst and worst["c"] >= DECIDING_CP:
+            out.append({"fen": worst["f"], "move_number": worst.get("n") or 0, "cp": worst["c"], "game_id": gid})
+    return out
+
+
 def build_file(
     user_id: str,
     games_newest_first: Sequence[Mapping[str, Any]],
@@ -698,6 +720,7 @@ def build_file(
     last_rows: Sequence[Mapping[str, Any]] = (),
     previous: Optional[Mapping[str, Any]] = None,
     fires: Sequence[Mapping[str, Any]] = (),
+    deciding_rows: Sequence[Mapping[str, Any]] = (),
     moments_fn: Optional[Callable[[Dict[str, Any], Dict[str, Dict[str, Any]]], List[Dict[str, Any]]]] = None,
     now: Optional[datetime] = None,
 ) -> Dict[str, Any]:
@@ -734,6 +757,18 @@ def build_file(
         habit["moments"] = moments[:pch.HABIT_MOMENTS]
         habit_check = pch.habit_check(habit, analysed_ids, gmap, observations)
 
+    progress = pch.progress(analysed_ids, gmap, observations)
+    sitting = sitting_finding(list(reversed(list(games_newest_first))), seed=user_id)
+    window = analysed_ids[:pch.HABIT_GAMES]
+    window_set = set(window)
+    ranked = cp_ranked({gid: gmap[gid] for gid in window if gid in gmap},
+                       [o for o in observations if o.get("game_id") in window_set])
+    plan = ppl.build_plan(
+        habit=habit, ranked=ranked, openings=openings, sitting=sitting, progress=progress, games=gmap,
+        deciding=deciding_moves(deciding_rows, gmap, window_set), habit_check=habit_check,
+        newest_game_id=analysed_ids[0] if analysed_ids else None, observations=observations,
+        analysed_games=len(analysed_ids),
+    )
     return {
         "user_id": user_id,
         "schema_version": SCHEMA_VERSION,
@@ -745,9 +780,10 @@ def build_file(
         "traps": traps,
         "habit": habit,
         "habit_check": habit_check,
-        "progress": pch.progress(analysed_ids, gmap, observations),
+        "progress": progress,
+        "plan": plan,
         "play_positions": play_positions(openings, last, habit),
-        "sitting": sitting_finding(list(reversed(list(games_newest_first))), seed=user_id),
+        "sitting": sitting,
         "source": {
             "games": len(games_newest_first),
             "analysed_games_read": len(analyses),
@@ -778,6 +814,16 @@ def _analysis_pipeline(game_ids: List[str]) -> List[Dict[str, Any]]:
             "as": "m",
             "in": {"fen_before": "$$m.fen_before", "move": "$$m.move", "cp_loss": "$$m.cp_loss",
                    "is_opponent_move": "$$m.is_opponent_move", "best_move": "$$m.best_move"},
+        }}}},
+    ]
+
+
+def _deciding_pipeline(game_ids: List[str]) -> List[Dict[str, Any]]:
+    return [
+        {"$match": {"game_id": {"$in": game_ids}}},
+        {"$project": {"_id": 0, "game_id": 1, "m": {"$map": {
+            "input": {"$ifNull": ["$stockfish_analysis.move_evaluations", []]}, "as": "x",
+            "in": {"o": "$$x.is_opponent_move", "c": "$$x.cp_loss", "f": "$$x.fen_before", "n": "$$x.move_number"},
         }}}},
     ]
 
@@ -875,7 +921,8 @@ def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
     fires = _fires(games, list(db.game_analyses.find(
         {"game_id": {"$in": [g["game_id"] for g in games if g.get("is_analyzed")]}, "trap_fires.0": {"$exists": True}},
         {"_id": 0, "game_id": 1, "trap_fires": 1})))
-    doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, engine_moments)
+    deciding_rows = list(db.game_analyses.aggregate(_deciding_pipeline(analysed_ids[:pch.HABIT_GAMES]))) if analysed_ids else []
+    doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, deciding_rows, engine_moments)
     db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
     return doc
 
@@ -905,9 +952,11 @@ async def build_and_store(db, user_id: str) -> Dict[str, Any]:
     fires = _fires(games, await db.game_analyses.find(
         {"game_id": {"$in": [g["game_id"] for g in games if g.get("is_analyzed")]}, "trap_fires.0": {"$exists": True}},
         {"_id": 0, "game_id": 1, "trap_fires": 1}).to_list(None))
+    deciding_rows = (await db.game_analyses.aggregate(_deciding_pipeline(analysed_ids[:pch.HABIT_GAMES])).to_list(None)
+                     if analysed_ids else [])
     # The build may run the engine: keep it off the event loop.
     doc = await asyncio.to_thread(build_file, user_id, games, analyses, observations, last_rows,
-                                  previous, fires, engine_moments)
+                                  previous, fires, deciding_rows, engine_moments)
     await db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
     return doc
 
@@ -961,6 +1010,7 @@ def payload(doc: Optional[Mapping[str, Any]], recent: Sequence[Mapping[str, Any]
         "habit": _public_habit(doc.get("habit")),
         "habit_check": doc.get("habit_check"),
         "progress": doc.get("progress") or {"habits": [], "kept": []},
+        "plan": doc.get("plan"),
         "play_positions": list(doc.get("play_positions") or []),
         "sitting": sitting_now(doc.get("sitting") or {}, recent, now=now),
         "sitting_measured": (doc.get("sitting") or {}).get("measured"),
