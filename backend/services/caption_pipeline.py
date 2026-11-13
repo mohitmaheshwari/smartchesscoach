@@ -485,6 +485,10 @@ class VisualSurface:
     # "What if I played X?", which already puts that exact position on screen.
     best_move_arrows: List[Dict[str, str]] = field(default_factory=list)
     best_move_arrows_fen: str = ""
+    # The words an OPPONENT card's arrows were chosen for. The review service
+    # rewrites the text afterwards (stored caption, verify-soften), and
+    # compares against this to pick the arrows again for the words it ships.
+    arrows_chosen_for: Optional[str] = None
 
 
 @dataclass
@@ -6950,9 +6954,24 @@ def opponent_reply_picture(
     _reply_san = caption_facts.get("user_best_reply_san")
     _caption_text = str(caption_text or "")
     if strict_text:
-        _caption_is_about_reply = _text_names_reply(_caption_text, _reply_san) and not (
-            their_best_san and _normalize_san_for_match(their_best_san)
-            == _normalize_san_for_match(_reply_san))
+        # Two engine sources can name our reply: the next position's best
+        # move (the fact) and the first move of the line after their move.
+        # They usually agree; when the soft caption quotes the line ("it lets
+        # Qg5+ come in with check", 29.Bxb7 of 3c8d0751, where the fact says
+        # g5) the move the words name is the one drawn -- if it is legal on
+        # the board the card shows.
+        _named = None
+        for _cand in (_reply_san, (inputs_pv[0] if inputs_pv else None)):
+            if not _cand or not _text_names_reply(_caption_text, _cand):
+                continue
+            if their_best_san and (_normalize_san_for_match(their_best_san)
+                                   == _normalize_san_for_match(_cand)):
+                continue   # the same characters name THEIR better move too
+            _named = _cand
+            break
+        if _named:
+            _reply_san = _named
+        _caption_is_about_reply = _named is not None
     else:
         _caption_is_about_reply = bool(
             _reply_san and _normalize_san_for_match(_reply_san)
@@ -7041,6 +7060,58 @@ def opponent_card_arrows(
     if not arrows and pic["about_reply"]:
         arrows = _named_move_arrow(pic["after_board"], pic["reply_san"])
     return arrows
+
+
+def repick_opponent_arrows(
+    arrows: Optional[List[Dict[str, str]]],
+    *,
+    chosen_for: Optional[str],
+    final_text: Optional[str],
+    fen_before: str,
+    played_san: str,
+    caption_facts: Dict[str, Any],
+    pv_after_played: Optional[Sequence[str]] = None,
+    cp_loss: int = 0,
+    their_best_san: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    """An opponent card's arrows, made to follow the words it ships with.
+
+    Mohit 2026-11-13: "game review doesn't build arrows when opponent makes
+    mistake". The pipeline picks an opponent card's picture from its own
+    caption -- the reply it names, the move they missed -- and the review
+    service then replaces that caption (the stored model sentence, the
+    verify-softened sentence). On 3c8d0751, 6 of 13 opponent mistake/blunder
+    cards had no arrow: the rule caption was silent, so nothing was picked,
+    and the sentence that took its place named the reply ("it lets Qc5+ come
+    in with check") over an empty board.
+
+    The arrows chosen FOR the old words are swapped for the ones the new words
+    earn; every other arrow (mate picture, trap cage) is kept. Unchanged words,
+    or no record of what the arrows were chosen for, return `arrows` as is.
+    """
+    arrows = list(arrows or [])
+    if chosen_for is None or (final_text or "") == (chosen_for or ""):
+        return arrows
+    try:
+        board = chess.Board(fen_before)
+        move = board.parse_san(played_san)
+        story = caption_facts.get("move_story")
+        common = dict(caption_facts=caption_facts, story=story,
+                      pv_after_played=pv_after_played, cp_loss=cp_loss)
+        old_pic = opponent_card_arrows(board, move, caption_text=chosen_for, **common)
+        new_pic = opponent_card_arrows(
+            board, move, caption_text=final_text or "", strict_text=True,
+            their_best_san=their_best_san, **common)
+    except Exception as exc:                            # noqa: BLE001
+        logger.warning("[opp_arrows] re-pick failed for %s: %r", played_san, exc)
+        return arrows
+    if os.environ.get("REVIEW_LEGACY_ARROWS", "false").strip().lower() != "true":
+        new_pic = [a for a in new_pic if a.get("teach") is True]
+    old_pairs = {(a.get("from"), a.get("to")) for a in old_pic}
+    new_pairs = {(a.get("from"), a.get("to")) for a in new_pic}
+    kept = [a for a in arrows
+            if (a.get("from"), a.get("to")) not in old_pairs | new_pairs]
+    return list(new_pic) + kept
 
 
 def _named_move_arrow(
@@ -10223,6 +10294,7 @@ def build_move_teaching_decision(
     _reply_san = None
     _after_opp_board = None
     _caption_is_about_reply = False
+    _arrows_caption_text = None
 
     if inputs.mover_is_user:
         _played_uci = played_move.uci() if played_move else ""
@@ -10260,9 +10332,10 @@ def build_move_teaching_decision(
         # the knight attacks" and "here is why the rook gets the bishop".
         # The choice lives in opponent_reply_picture so framework.decide can
         # make it again once the stored caption has replaced these words.
+        _arrows_caption_text = str(caption_payload.get("caption") or "")
         _opp_pic = opponent_reply_picture(
             board_before, played_move,
-            caption_text=str(caption_payload.get("caption") or ""),
+            caption_text=_arrows_caption_text,
             caption_facts=caption_facts, story=_story,
             pv_after_played=inputs.pv_after_played,
         )
@@ -10574,6 +10647,7 @@ def build_move_teaching_decision(
 
     visual = VisualSurface(
         arrows=_arrows_out,
+        arrows_chosen_for=_arrows_caption_text,
         highlight_squares=caption_payload.get("highlight_squares") or [],
         best_move_arrows=_best_arrows,
         best_move_arrows_fen=_best_arrows_fen,

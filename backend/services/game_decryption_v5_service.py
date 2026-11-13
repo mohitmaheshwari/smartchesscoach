@@ -5116,6 +5116,32 @@ async def generate_game_decryption_v5(
                 and (caption_facts or {}).get("user_is_winning")
             )
 
+            # An opponent card's arrows follow the words it ships with. Every
+            # text rewrite above -- the stored model caption, the
+            # verify-softened sentence -- happens after the pipeline chose
+            # the arrows for its own words (repick_opponent_arrows, 2026-11-13).
+            # A published coach study brings its own arrows and is left alone.
+            if not is_user and _caption_source is None:
+                try:
+                    from services.caption_pipeline import repick_opponent_arrows
+                    caption_payload["arrows"] = repick_opponent_arrows(
+                        caption_payload.get("arrows"),
+                        chosen_for=getattr(
+                            getattr(_decision, "visual", None),
+                            "arrows_chosen_for", None),
+                        final_text=caption_payload.get("caption"),
+                        fen_before=fen_before,
+                        played_san=move_san,
+                        caption_facts=caption_facts or {},
+                        pv_after_played=_inputs.pv_after_played,
+                        cp_loss=_inputs.cp_loss,
+                        their_best_san=best_move,
+                    )
+                except Exception as _repick_err:        # noqa: BLE001
+                    logger.info(
+                        f"[opp_arrows] m{full_move_number} {move_san} "
+                        f"kept the pipeline's arrows: {_repick_err}")
+
             move_output = {
                 "move_number": full_move_number,
                 "move_san": move_san,
