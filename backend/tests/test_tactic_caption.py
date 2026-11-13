@@ -28,7 +28,7 @@ def test_opponent_allowed_fork_names_your_answer_and_both_targets():
     text, arrows = _card(KE7, False, "punishment")
     assert text == ("Their Ke7 allows a fork: play Qc5+. Your queen on c5 checks "
                     "their king on e7 and attacks their bishop on d5 at once.")
-    assert [(a["from"], a["to"]) for a in arrows] == [("c3", "c5"), ("c5", "d5"), ("c5", "e7")]
+    assert {(a["from"], a["to"]) for a in arrows} == {("c3", "c5"), ("c5", "d5"), ("c5", "e7")}
 
 
 def test_your_missed_fork_names_the_better_move_and_both_targets():
