@@ -5141,6 +5141,32 @@ async def generate_game_decryption_v5(
                     logger.info(
                         f"[opp_arrows] m{full_move_number} {move_san} "
                         f"kept the pipeline's arrows: {_repick_err}")
+                # Still nothing on the board under a mistake badge: name our
+                # best answer and draw it, both from one board-proved source
+                # (opponent_answer_named; Mohit 2026-11-13, "best of both").
+                try:
+                    _opp_grade = str(severity_canonical or severity or "").replace("opp_", "", 1)
+                    _cap_now = str(caption_payload.get("caption") or "").strip()
+                    if (_opp_grade in ("mistake", "serious", "blunder")
+                            and _cap_now and not caption_payload.get("arrows")):
+                        from services.caption_pipeline import opponent_answer_named
+                        from services.caption_config import MAX_CAPTION_WORDS
+                        _ans, _ans_arrows = opponent_answer_named(
+                            fen_before=fen_before, played_san=move_san,
+                            caption_facts=caption_facts or {},
+                            pv_after_played=_inputs.pv_after_played,
+                        )
+                        if (_ans and _ans_arrows and len(
+                                (_cap_now + " " + _ans).split()) <= MAX_CAPTION_WORDS):
+                            caption_payload["caption"] = _cap_now + " " + _ans
+                            caption_payload["arrows"] = _ans_arrows
+                            caption_payload["rule_name"] = (
+                                (caption_payload.get("rule_name") or "")
+                                + "→ANSWER_NAMED")
+                except Exception as _ans_err:           # noqa: BLE001
+                    logger.info(
+                        f"[opp_answer] m{full_move_number} {move_san} "
+                        f"skipped: {_ans_err}")
 
             move_output = {
                 "move_number": full_move_number,

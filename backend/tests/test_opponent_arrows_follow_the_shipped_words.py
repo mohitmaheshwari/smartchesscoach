@@ -110,3 +110,41 @@ def test_words_that_name_no_reply_draw_nothing_new():
         final_text="Their king move leaves your pawn on c4 open to capture.",
         **BXB7)
     assert out == []
+
+
+# ── "best of both": name our answer and draw it, from one source ──────────
+from services.caption_pipeline import opponent_answer_named  # noqa: E402
+
+
+def test_the_answer_sentence_says_what_the_drawn_arrows_show():
+    text, arrows = opponent_answer_named(
+        fen_before=KE7["fen_before"], played_san="Ke7",
+        caption_facts={"user_best_reply_san": "Qc5+"}, pv_after_played=["Qc5+"])
+    assert text == ("Your best answer is Qc5+: it checks the king and attacks "
+                    "their bishop on d5.")
+    assert _pairs(arrows) == [("c3", "c5"), ("c5", "d5"), ("c5", "e7")]
+
+
+def test_a_quiet_fact_falls_through_to_the_lines_forcing_move():
+    """29.Bxb7: the stored fact g5 is quiet; the line's Qg5+ is the check."""
+    text, arrows = opponent_answer_named(
+        fen_before=BXB7["fen_before"], played_san="Bxb7",
+        caption_facts={"user_best_reply_san": "g5"}, pv_after_played=["Qg5+"])
+    assert text == "Your best answer is Qg5+: it checks the king."
+    assert ("d2", "g5") in _pairs(arrows)
+
+
+def test_a_quiet_answer_gets_no_sentence_and_no_arrow():
+    """Negative control: a move with no check, no winning capture and no
+    winnable target is a move list, not a reason."""
+    text, arrows = opponent_answer_named(
+        fen_before=NF3["fen_before"], played_san="Nf3",
+        caption_facts={"user_best_reply_san": "h6"}, pv_after_played=["h6"])
+    assert text is None and arrows == []
+
+
+def test_an_illegal_answer_is_never_named():
+    text, arrows = opponent_answer_named(
+        fen_before=KE7["fen_before"], played_san="Ke7",
+        caption_facts={"user_best_reply_san": "Qh1"}, pv_after_played=[])
+    assert text is None and arrows == []

@@ -7130,6 +7130,74 @@ def repick_opponent_arrows(
     return list(new_pic)
 
 
+def opponent_answer_named(
+    *,
+    fen_before: str,
+    played_san: str,
+    caption_facts: Dict[str, Any],
+    pv_after_played: Optional[Sequence[str]] = None,
+) -> Tuple[Optional[str], List[Dict[str, str]]]:
+    """One sentence naming our best answer to their mistake, and its picture.
+
+    Mohit 2026-11-13, asked whether an opponent mistake card whose words name
+    no move of ours should get a sentence naming the answer or an arrow drawn
+    anyway: "best of both". So both, from ONE source: _reply_attack_arrows,
+    which draws the answer only when the board proves it does something -- a
+    check, a capture that wins material, or an attack on a piece that can be
+    won (king-aware exchange count). The sentence is written from those same
+    arrows, so the words and the picture cannot disagree. A quiet answer gets
+    nothing: "play Kg2" with no reason is a move list, not a lesson.
+
+    The answer is the next position's engine move (the fact), else the first
+    move of the line after their move; it must be legal on the board shown.
+    """
+    try:
+        board = chess.Board(fen_before)
+        played = board.parse_san(played_san)
+        after = board.copy()
+        after.push(played)
+    except Exception:
+        return None, []
+    candidates = [caption_facts.get("user_best_reply_san")]
+    if pv_after_played:
+        candidates.append(pv_after_played[0])
+    for san in candidates:
+        if not san:
+            continue
+        try:
+            reply = after.parse_san(str(san))
+        except (ValueError, AssertionError):
+            continue
+        arrows = _reply_attack_arrows(board, played, str(san))
+        if not arrows:
+            continue                 # quiet: try the line's first move, else say nothing
+        reply_san = after.san(reply)
+        checks = any(a.get("color") == "red" for a in arrows)
+        targets = [a["to"] for a in arrows if a.get("color") == "green"]
+        captured = after.piece_at(reply.to_square)
+        parts: List[str] = []
+        if checks:
+            parts.append("it checks the king")
+        if captured is not None and not targets:
+            parts.append(f"it takes their {chess.piece_name(captured.piece_type)} "
+                         f"on {chess.square_name(reply.to_square)}")
+        for sq in targets[:1]:
+            piece = after.copy()
+            piece.push(reply)
+            p = piece.piece_at(chess.parse_square(sq))
+            if p is not None:
+                parts.append(f"attacks their {chess.piece_name(p.piece_type)} on {sq}")
+        if not parts:
+            return None, []
+        if len(parts) > 1:
+            parts[-1] = parts[-1].replace("it ", "", 1)
+            why = ", ".join(parts[:-1]) + " and " + parts[-1]
+        else:
+            why = parts[0] if parts[0].startswith("it ") else "it " + parts[0]
+        return f"Your best answer is {reply_san}: {why}.", arrows
+    return None, []
+
+
 def _named_move_arrow(
     board: Optional[chess.Board], move_san: Optional[str]
 ) -> List[Dict[str, str]]:
