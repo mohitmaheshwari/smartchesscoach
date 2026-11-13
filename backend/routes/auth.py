@@ -844,11 +844,16 @@ async def register(req: RegisterRequest, response: Response):
 
 @router.post("/login")
 async def login(req: LoginRequest, response: Response):
-    """Log in with email + password."""
+    """Log in with email + password, or, for an academy child, the username
+    and password the coach set (routes/academy.set_student_login)."""
     global db
 
-    email = (req.email or "").strip().lower()
-    user = await db.users.find_one({"email": email})
+    ident = (req.email or "").strip().lower()
+    if "@" in ident:
+        user = await db.users.find_one({"email": ident})
+    else:
+        # Children have no email; only accounts an academy manages carry a username.
+        user = await db.users.find_one({"username": ident, "managed_by_academy": True}) if ident else None
     if not user or not user.get("password_hash"):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 

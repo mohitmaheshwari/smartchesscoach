@@ -461,3 +461,22 @@ async def test_native_logout_revokes_only_an_explicit_mobile_session(auth_db):
         document.get("session_token") == "web-token"
         for document in auth_db.user_sessions.documents
     )
+
+
+@pytest.mark.asyncio
+async def test_an_academy_child_signs_in_with_the_username_the_coach_set(auth_db, monkeypatch):
+    monkeypatch.setenv("FRONTEND_URL", "https://chessguru.ai")
+    auth_db.users.documents.append({
+        "user_id": "kid-user", "name": "Rohan", "role": "student", "managed_by_academy": True,
+        "username": "rohan_7", "password_hash": auth_routes.pwd_context.hash("secret1"),
+    })
+    response = Response()
+    payload = await auth_routes.login(auth_routes.LoginRequest(email="Rohan_7", password="secret1"), response)
+    assert payload["user"]["user_id"] == "kid-user" and "password_hash" not in payload["user"]
+    with pytest.raises(HTTPException):
+        await auth_routes.login(auth_routes.LoginRequest(email="rohan_7", password="wrong"), Response())
+    # A username on an account no academy manages never signs in.
+    auth_db.users.documents.append({"user_id": "adult", "username": "adult1",
+                                    "password_hash": auth_routes.pwd_context.hash("secret1")})
+    with pytest.raises(HTTPException):
+        await auth_routes.login(auth_routes.LoginRequest(email="adult1", password="secret1"), Response())

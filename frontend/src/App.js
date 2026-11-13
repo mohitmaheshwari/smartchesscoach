@@ -24,6 +24,7 @@ import PersonalCurriculum from "@/pages/PersonalCurriculum";
 import CoachLearn from "@/pages/CoachLearn";  // docs/coach_pages_scope.md, behind user.coach_pages
 import { TrapSchoolHome, TrapSchoolTrap } from "@/pages/TrapSchool";
 import AdminPlanOutcomes from "@/pages/AdminPlanOutcomes";
+import MyClass from "@/pages/MyClass";
 import DailyFixDrill from "@/pages/DailyFixDrill";  // Daily Fix — timed rush-test drill
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
@@ -360,6 +361,12 @@ function AppRouter() {
       <Route path="/homework/:token" element={<FamilyHomework />} />
       <Route path="/play/:token" element={<FamilyClassGame />} />
       <Route path="/class/:token" element={<FirstStepsClass />} />
+      {/* A signed-in academy child goes to his own classes. */}
+      <Route path="/my-class" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {() => <MyClass />}
+        </ProtectedRoute>
+      } />
       <Route path="/class/:token/reflect" element={<ClassReflect />} />
 
       <Route path="/welcome" element={
@@ -408,7 +415,7 @@ function AppRouter() {
       <Route path="/dashboard" element={<Navigate to="/home" replace />} />
       <Route path="/home" element={
         <ProtectedRoute>
-          {({ user }) => <HomePageNew user={user} />}
+          {({ user }) => (user?.role === "student" ? <Navigate to="/my-class" replace /> : <HomePageNew user={user} />)}
         </ProtectedRoute>
       } />
       <Route path="/learn" element={

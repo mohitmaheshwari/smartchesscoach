@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -567,7 +568,9 @@ async def student_view(student_id: str, user: User = Depends(get_current_user)):
     if (student.get("consent") or {}).get("status") == "given":
         first_steps = await first_steps_for_staff(student)
     from routes.academy_coach_plan import coach_view
+    child = await db.users.find_one({"user_id": student.get("child_user_id")}, {"_id": 0, "username": 1})
     return {
+        "login": {"username": (child or {}).get("username")},
         "plan": await coach_view(student, week, start),
         "first_steps": first_steps,
         "whatsapp_class": svc.whatsapp_link(student["parent_phone"], _class_message(student)),
@@ -582,6 +585,47 @@ async def student_view(student_id: str, user: User = Depends(get_current_user)):
         "preview": preview, "last_report": last, "links": _links(student),
         "whatsapp_consent": svc.whatsapp_link(student["parent_phone"], _consent_message(student, academy)),
     }
+
+
+USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{2,19}$")
+
+
+@router.post("/student/{student_id}/login")
+async def set_student_login(student_id: str, payload: Dict[str, Any], user: User = Depends(get_current_user)):
+    """The coach gives the child a login: a username and a password, set here
+    and passed on by the coach or the parent. Calling it again resets the
+    password. Only after the parent has agreed. The child account still has no
+    email, so no email job can reach a child."""
+    from routes.auth import pwd_context
+
+    student = await _student_for(user, student_id)
+    if (student.get("consent") or {}).get("status") != "given":
+        raise HTTPException(409, "The parent has not agreed yet.")
+    username = str(payload.get("username") or "").strip().lower()
+    password = str(payload.get("password") or "")
+    if not USERNAME_RE.match(username):
+        raise HTTPException(400, "Use 3 to 20 letters, numbers, dots, dashes or underscores, starting with a letter or number.")
+    if len(password) < 6 or len(password) > 72:
+        raise HTTPException(400, "The password needs at least 6 characters.")
+    taken = await db.users.find_one({"username": username, "user_id": {"$ne": student["child_user_id"]}}, {"_id": 1})
+    if taken:
+        raise HTTPException(409, "That username is taken. Try another.")
+    await db.users.update_one({"user_id": student["child_user_id"]}, {"$set": {
+        "username": username, "password_hash": pwd_context.hash(password),
+        "login_set_by": user.user_id, "login_set_at": _now()}})
+    return {"username": username}
+
+
+@router.get("/me")
+async def my_academy_class(user: User = Depends(get_current_user)):
+    """Where a signed-in child goes: his own classes."""
+    if user.role != "student":
+        raise HTTPException(404, "Not an academy student.")
+    student = await db[svc.STUDENTS].find_one({"child_user_id": user.user_id, "deleted_at": None},
+                                              {"_id": 0, "class_token": 1, "display_name": 1})
+    if not student or not student.get("class_token"):
+        raise HTTPException(404, "No class yet.")
+    return {"class_url": f"/class/{student['class_token']}", "name": student.get("display_name")}
 
 
 @router.get("/student/{student_id}/coach-file")

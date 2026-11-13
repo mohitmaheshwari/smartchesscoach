@@ -985,3 +985,47 @@ def test_the_player_file_is_shut_before_consent_and_to_other_academies(db):
     with pytest.raises(HTTPException) as e:
         run(routes.student_coach_file(student["student_id"], user=STRANGER))
     assert e.value.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# the child's login, set by the coach
+# ---------------------------------------------------------------------------
+def test_the_coach_sets_a_login_only_after_consent_and_it_is_hashed(db):
+    _, _, _, student = _setup(db)
+    with pytest.raises(HTTPException) as e:
+        run(routes.set_student_login(student["student_id"], {"username": "rohan", "password": "secret1"}, user=COACH))
+    assert e.value.status_code == 409
+    run(routes.give_consent(student["consent_token"], _Req(),
+                            {"agree": True, "parent_name": "Meena", "is_parent": True}))
+    for bad in ({"username": "ro", "password": "secret1"}, {"username": "rohan", "password": "123"},
+                {"username": "r@han", "password": "secret1"}):
+        with pytest.raises(HTTPException) as e:
+            run(routes.set_student_login(student["student_id"], bad, user=COACH))
+        assert e.value.status_code == 400
+    out = run(routes.set_student_login(student["student_id"], {"username": "Rohan_7", "password": "secret1"}, user=COACH))
+    assert out == {"username": "rohan_7"}
+    child = next(u for u in db.users.rows if u["user_id"] == student["child_user_id"])
+    assert child["username"] == "rohan_7" and child["password_hash"] != "secret1"
+    assert "email" not in child   # still no email: no email job can reach a child
+    with pytest.raises(HTTPException) as e:
+        run(routes.set_student_login(student["student_id"], {"username": "rohan", "password": "secret1"}, user=STRANGER))
+    assert e.value.status_code == 403
+
+
+def test_a_username_belongs_to_one_child(db):
+    _, _, _, student = _setup(db)
+    run(routes.give_consent(student["consent_token"], _Req(),
+                            {"agree": True, "parent_name": "Meena", "is_parent": True}))
+    db.users.rows.append({"user_id": "someone", "username": "rohan"})
+    with pytest.raises(HTTPException) as e:
+        run(routes.set_student_login(student["student_id"], {"username": "rohan", "password": "secret1"}, user=COACH))
+    assert e.value.status_code == 409
+
+
+def test_a_signed_in_child_finds_his_classes(db):
+    _, _, _, student = _setup(db)
+    child = _User(student["child_user_id"], "student")
+    out = run(routes.my_academy_class(user=child))
+    assert out["class_url"] == f"/class/{student['class_token']}"
+    with pytest.raises(HTTPException):
+        run(routes.my_academy_class(user=COACH))

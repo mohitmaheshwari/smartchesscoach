@@ -74,7 +74,8 @@ export default function Login() {
         setError(data.detail || "Something went wrong. Please try again.");
         return;
       }
-      window.location.href = postAuthRedirect();
+      // An academy child goes to his own classes, never the adult onboarding.
+      window.location.href = data?.user?.role === "student" ? "/my-class" : postAuthRedirect();
     } catch (err) {
       setError("Network error. Please try again.");
     } finally {
@@ -159,15 +160,18 @@ export default function Login() {
           )}
 
           <div>
-            <label className="text-xs text-gray-500 mb-1.5 block">Email</label>
+            {/* Sign-in takes a username too: academy children sign in with
+                the username their coach set (routes/academy.set_student_login). */}
+            <label className="text-xs text-gray-500 mb-1.5 block">{mode === "signin" ? "Email or username" : "Email"}</label>
             <input
-              type="email"
+              type={mode === "signin" ? "text" : "email"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full bg-white/[0.03] border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/50 transition-colors"
-              placeholder="you@example.com"
-              autoComplete="email"
+              placeholder={mode === "signin" ? "you@example.com or your username" : "you@example.com"}
+              autoComplete={mode === "signin" ? "username" : "email"}
+              autoCapitalize="none"
               data-testid="login-email"
             />
           </div>

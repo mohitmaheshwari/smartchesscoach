@@ -578,6 +578,46 @@ function CoachPlanCard({ plan, studentId, name, onChange }) {
 // ---------------------------------------------------------------------------
 // /academy/student/:studentId
 // ---------------------------------------------------------------------------
+/** The child's login: the coach sets a username and a password and passes them on. */
+function StudentLogin({ studentId, name, current, onSaved }) {
+  const [username, setUsername] = useState(current || "");
+  const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true); setMsg("");
+    try {
+      const out = await call(`/academy/student/${studentId}/login`, {
+        method: "POST", body: { username, password },
+      });
+      setMsg(`Saved. ${name} signs in at chessguru.ai/login with the username ${out.username} and this password.`);
+      setPassword("");
+      onSaved && onSaved();
+    } catch (err) {
+      setMsg(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card>
+      <Eyebrow>{name}'s login</Eyebrow>
+      <p className="text-sm text-muted-foreground">
+        {current ? `Username: ${current}. Set a new password here if it is forgotten.` : `Give ${name} a username and a password to sign in with.`}
+      </p>
+      <form onSubmit={save} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]" data-testid="student-login-form">
+        <input className="rounded-control border border-border bg-background px-3 py-2 text-sm" placeholder="Username"
+          value={username} onChange={(e) => setUsername(e.target.value)} autoCapitalize="none" required />
+        <input className="rounded-control border border-border bg-background px-3 py-2 text-sm" placeholder="Password (6+ characters)"
+          type="text" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required />
+        <button type="submit" className={primary} disabled={busy}>{current ? "Save" : "Create login"}</button>
+      </form>
+      {msg && <p className="text-sm">{msg}</p>}
+    </Card>
+  );
+}
+
 /**
  * The student's player file (docs/coach_pages_scope.md, "Academy"): the same
  * document his own coach pages read, so the coach and the child see one
@@ -732,6 +772,7 @@ export function AcademyStudent() {
             </Card>
             <CoachPlanCard plan={view.plan} studentId={studentId} name={s.display_name} onChange={reload} />
             <StudentCoachFile studentId={studentId} name={s.display_name} />
+            <StudentLogin studentId={studentId} name={s.display_name} current={view.login?.username} onSaved={reload} />
             {(view.preview?.sections || []).some((sec) => sec.kind === "good") && (
               <Card>
                 <Eyebrow>A good moment</Eyebrow>
