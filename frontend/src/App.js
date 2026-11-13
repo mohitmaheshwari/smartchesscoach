@@ -23,6 +23,7 @@ import HomePageNew from "@/pages/HomePageNew";  // NEW focused homepage (2026-07
 import PersonalCurriculum from "@/pages/PersonalCurriculum";
 import CoachLearn from "@/pages/CoachLearn";  // docs/coach_pages_scope.md, behind user.coach_pages
 import { TrapSchoolHome, TrapSchoolTrap } from "@/pages/TrapSchool";
+import AdminPlanOutcomes from "@/pages/AdminPlanOutcomes";
 import DailyFixDrill from "@/pages/DailyFixDrill";  // Daily Fix — timed rush-test drill
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
@@ -633,6 +634,11 @@ function AppRouter() {
       {/* Every position the Why button sent to Claude: board, games, and
           Claude's text or "To be processed". Read-only; rulings stay on
           /admin/geometry-gaps. docs/why_queue_admin_page_scope.md */}
+      <Route path="/admin/plan-outcomes" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {() => <AdminPlanOutcomes />}
+        </ProtectedRoute>
+      } />
       <Route path="/admin/why-queue" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {() => <AdminWhyQueue />}

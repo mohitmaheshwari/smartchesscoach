@@ -212,6 +212,15 @@ class UpdateFeedbackRequest(BaseModel):
 
 # ==================== ADMIN OVERVIEW ====================
 
+@router.get("/admin/plan-outcomes")
+async def admin_plan_outcomes(user: User = Depends(require_admin)):
+    """Every player on the plan, week by week: step, verdict, work done, games,
+    real rating against his rating before the plan (services/plan_outcomes.py).
+    The evidence a "+200 if you follow it" claim needs."""
+    from services.plan_outcomes import all_outcomes
+    return await all_outcomes(db)
+
+
 @router.get("/admin/overview")
 async def admin_overview(user: User = Depends(require_admin)):
     """Platform overview stats for admin dashboard."""
