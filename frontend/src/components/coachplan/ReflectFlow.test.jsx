@@ -211,7 +211,7 @@ describe("ReflectFlow — review mode", () => {
 
 describe("ReflectFlow — development moment (scope amendment A)", () => {
   const devSign = { title: "Pieces still at home", text: "In the opening, look at your back row." };
-  const devRule = { id: "new_piece_each_move", text: "Before move 10, every move brings a new piece out, unless something is attacked." };
+  const devRule = { id: "new_piece_each_move", text: "In the opening, every move brings a new piece out, unless something is attacked." };
   const flush = () => act(async () => { await Promise.resolve(); });
 
   test("names the pieces still at home and asks which should come out", () => {

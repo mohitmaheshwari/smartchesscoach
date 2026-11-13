@@ -357,6 +357,16 @@ def test_plan_says_the_last_game_only_when_the_step_showed_up():
     assert ppl.build_plan(observations=[], **kw)["last_game_note"] is None
 
 
+def test_no_rule_the_plan_can_show_carries_a_digit():
+    from services import coach_plan_service as cp
+
+    for options in cp.RULES.values():
+        for _, text in options:
+            assert not re.search(r"\d", text), text
+    for title, text in cp.SIGNS.values():
+        assert not re.search(r"\d", title + text), text
+
+
 def test_plan_is_none_without_anything_proven():
     from services import player_coach_plan as ppl
 

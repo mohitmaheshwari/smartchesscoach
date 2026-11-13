@@ -545,7 +545,7 @@ RULES = {
                ("checks_captures_attacks", "Before every move: checks, captures, then attacks.")],
     "mate": [("every_check", "Before every move, look at every check you can give."),
              ("checks_captures_attacks", "Before every move: checks, captures, then attacks.")],
-    "development": [("new_piece_each_move", "Before move 10, every move brings a new piece out, unless something is attacked."),
+    "development": [("new_piece_each_move", "In the opening, every move brings a new piece out, unless something is attacked."),
                     ("queen_waits", "Don't move your queen twice until your knights and bishops are out.")],
 }
 

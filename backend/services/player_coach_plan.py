@@ -146,7 +146,7 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
     # The read names step one, whatever kind it is, so it never contradicts the order.
     top = steps[0]["title"]
     read.append(f"What costs you most: {top[0].lower() + top[1:]}.")
-    if openings:
+    if openings and steps[0]["kind"] != "opening":   # step one already says it
         read.append(f"One opening habit costs you as {'White' if openings[0]['side'] == 'white' else 'Black'}.")
     elif analysed_games >= OPENINGS_HOLD_MIN_GAMES:
         read.append("Your openings hold up.")
