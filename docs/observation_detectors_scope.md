@@ -1,6 +1,7 @@
 # Tactic tags on every move, proved on the board
 
-Status: DRAFT 2026-11-13, awaiting Mohit's sign-off.
+Status: SIGNED 2026-11-13 (Mohit: "go ahead, do what you recommend").
+Built: `services/tactic_tags.py`, deriver schema 21 (commit 1a11c41f).
 Extends: `docs/move_observations_scope.md` (signed 2026-06-29).
 Feeds: `docs/caption_from_board_meaning_scope.md` (signed 2026-11-12).
 
@@ -106,6 +107,26 @@ Gates:
    records, because "allowed" and "missed" on their moves drive half the cards.
 4. **Which card wins** when a move carries two tags (a fork that is also a
    free piece)? Recommendation: mate, then the larger material gain.
+
+## Decisions taken at sign-off (2026-11-13)
+
+1. **Pin or skewer: named.** The prover's own label matched the Lichess theme on
+   99.0% of pin puzzles (694/701) and 100% of skewer puzzles (967/967).
+2. **Found = played tactic that cost under 50 cp.** On 40 of Mohit's games,
+   139 of 170 played tactics cost under 50 cp; every played fork cost 50 or more.
+3. **Opponent moves: inside `opponent_previous.tactic_tags`**, not their own
+   records. Changed from the recommendation because it needs no new collection,
+   writer or index; cost: an opponent's final move of a game is not tagged.
+4. **Several tags on one move:** stored in precedence order mate, back-rank mate,
+   fork, discovered attack, pin/skewer, free piece; a card takes the first.
+5. **New: `at_ply`.** The hand check found half the forks and discovered attacks
+   land later in the line ("b4" whose fork is Qb3+ five plies on). Every tag
+   records the ply; a card says "b4 ... then Qb3+ forks" rather than "b4 forks".
+
+Hand check (gate 7.3), 49 tags from Mohit's 40 newest games, 10 per family
+(pin/skewer 9): all 49 true on the board; 2 pins rated weak (answered by castling).
+Cost: 2.5 s per game on one throttled core; full backfill about 14 h, Mohit's
+games first.
 
 ## 7. Before any code
 
