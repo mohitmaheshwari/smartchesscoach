@@ -5155,6 +5155,7 @@ async def generate_game_decryption_v5(
                             fen_before=fen_before, played_san=move_san,
                             caption_facts=caption_facts or {},
                             pv_after_played=_inputs.pv_after_played,
+                            caption_text=_cap_now,
                         )
                         if (_ans and _ans_arrows and len(
                                 (_cap_now + " " + _ans).split()) <= MAX_CAPTION_WORDS):

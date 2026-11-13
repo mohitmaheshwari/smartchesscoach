@@ -148,3 +148,21 @@ def test_an_illegal_answer_is_never_named():
         fen_before=KE7["fen_before"], played_san="Ke7",
         caption_facts={"user_best_reply_san": "Qh1"}, pv_after_played=[])
     assert text is None and arrows == []
+
+
+def test_a_capture_answer_says_the_capture_first():
+    """965ffb54 12.Nxd5: Bxd5 takes back their knight; saying only that it
+    attacks a2 hid the point."""
+    text, _ = opponent_answer_named(
+        fen_before="r2qkb1r/pp3ppp/2n1b3/3n4/3P4/2N2N2/PP2BPPP/R2QKB1R w KQkq - 0 1",
+        played_san="Nxd5", caption_facts={"user_best_reply_san": "Bxd5"},
+        pv_after_played=["Bxd5"])
+    assert text is None or "takes their knight on d5" in text
+
+
+def test_no_second_recommendation_when_the_words_already_name_our_move():
+    text, arrows = opponent_answer_named(
+        fen_before=KE7["fen_before"], played_san="Ke7",
+        caption_facts={"user_best_reply_san": "Qc5+"}, pv_after_played=["Qc5+"],
+        caption_text="Their king walks into trouble. Play Qe3+ now.")
+    assert text is None and arrows == []

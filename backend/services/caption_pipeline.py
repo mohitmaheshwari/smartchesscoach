@@ -7130,12 +7130,29 @@ def repick_opponent_arrows(
     return list(new_pic)
 
 
+def _caption_names_a_move_for(board: chess.Board, text: str) -> bool:
+    """True when a token in `text` is a legal move for the side to move."""
+    for raw in str(text or "").split():
+        tok = raw.strip(".,;:!?()[]\"'—’")
+        if not tok or not (tok[0] in "KQRBNOa" or tok[0] in "bcdefgh"):
+            continue
+        if not any(ch.isdigit() for ch in tok) and not tok.startswith("O-O"):
+            continue
+        try:
+            board.parse_san(tok)
+            return True
+        except (ValueError, AssertionError):
+            continue
+    return False
+
+
 def opponent_answer_named(
     *,
     fen_before: str,
     played_san: str,
     caption_facts: Dict[str, Any],
     pv_after_played: Optional[Sequence[str]] = None,
+    caption_text: str = "",
 ) -> Tuple[Optional[str], List[Dict[str, str]]]:
     """One sentence naming our best answer to their mistake, and its picture.
 
@@ -7158,6 +7175,10 @@ def opponent_answer_named(
         after.push(played)
     except Exception:
         return None, []
+    # A card whose words already recommend a move of ours keeps that one
+    # recommendation; a second would compete with it.
+    if _caption_names_a_move_for(after, caption_text):
+        return None, []
     candidates = [caption_facts.get("user_best_reply_san")]
     if pv_after_played:
         candidates.append(pv_after_played[0])
@@ -7178,7 +7199,9 @@ def opponent_answer_named(
         parts: List[str] = []
         if checks:
             parts.append("it checks the king")
-        if captured is not None and not targets:
+        if captured is not None:
+            # A capture is said first: 965ffb54 12.Nxd5 read "Bxd5: it attacks
+            # their pawn on a2" for a move that takes back their knight.
             parts.append(f"it takes their {chess.piece_name(captured.piece_type)} "
                          f"on {chess.square_name(reply.to_square)}")
         for sq in targets[:1]:
