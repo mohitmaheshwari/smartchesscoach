@@ -116,6 +116,14 @@ def test_deriver_identity_is_deterministic_complete_and_defensively_copied():
         "move_observation_deriver",
         "material_safety",
         "opponent_threat",
+        # v21: the tactic tags and the provers they call.
+        "tactic_tags",
+        "prover_forced_mate",
+        "prover_back_rank_mate",
+        "prover_fork",
+        "prover_discovered_attack",
+        "prover_aligned_tactic",
+        "prover_free_piece",
     }
     assert all(
         len(item["sha256"]) == 64

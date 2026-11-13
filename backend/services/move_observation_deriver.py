@@ -23,7 +23,12 @@ import statistics
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 20  # v20 (2026-09-26): time flags measured against the
+SCHEMA_VERSION = 21  # v21 (2026-11-13): tactic_tags on every user move and on
+# opponent_previous -- missed / found / allowed, proved by the gated board provers
+# (services/tactic_tags.py, docs/observation_detectors_scope.md). Before this,
+# a fork was never named: missed forks fell into missed_tactic, and the found side
+# (tactical_pattern_executed) fired on 1 of Mohit's 26,415 moves.
+# v20 (2026-09-26): v20 (2026-09-26): time flags measured against the
 # player's own pace. v19 (2026-09-22): positional state stored per move.
 #
 # v20 is a bump because the DERIVATION changed, not the shape: the
@@ -38,7 +43,7 @@ SCHEMA_VERSION = 20  # v20 (2026-09-26): time flags measured against the
 D_LIVE_FACT_VERSION = "piece_safety.d_live.v1"
 D_LIVE_SEE_FLOOR_CP = 150
 D_LIVE_CP_LOSS_FLOOR = 150
-DERIVER_SEMANTIC_VERSION = "move_observation_deriver.18.0"
+DERIVER_SEMANTIC_VERSION = "move_observation_deriver.21.0"
 
 
 @lru_cache(maxsize=1)
@@ -53,6 +58,13 @@ def _deriver_identity_json() -> str:
         "opponent_threat": backend_root
         / "services"
         / "opponent_threat_detector.py",
+        # v21: the tactic tags and every prover they call.
+        "tactic_tags": backend_root / "services" / "tactic_tags.py",
+        **{
+            f"prover_{name}": backend_root / "services" / f"{name}_puzzle_proof.py"
+            for name in ("forced_mate", "back_rank_mate", "fork",
+                         "discovered_attack", "aligned_tactic", "free_piece")
+        },
     }
     dependencies = {}
     for name, path in sorted(dependency_paths.items()):
@@ -268,7 +280,41 @@ def _build_opponent_previous(prev_mv: Optional[Dict[str, Any]]) -> Optional[Dict
         "was_check": (prev_mv.get("move") or "").endswith("+") or (prev_mv.get("move") or "").endswith("#"),
         "blundered": prev_mv.get("evaluation") == "blunder",
         "cp_loss": prev_mv.get("cp_loss") or 0,
+        # Their move's tactics (missed / found / allowed), proved on the board.
+        # Kept here, inside the next user record, as the June design keeps the
+        # opponent's move; their final move of a game has no next user record.
+        "tactic_tags": _tactic_tags_for(prev_mv),
     }
+
+
+def _tactic_tags_for(mv: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Board-proved tactic tags for one stored move evaluation. A failure here
+    must never cost the observation, so any error is an empty list."""
+    if not mv or not mv.get("fen_before") or not mv.get("move"):
+        return []
+    try:
+        from services.tactic_tags import tag_move
+        tags = tag_move(
+            mv["fen_before"], mv["move"],
+            best=mv.get("best_move"),
+            pv_after_best=mv.get("pv_after_best") or [],
+            pv_after_played=mv.get("pv_after_played") or [],
+            cp_loss=mv.get("cp_loss") or 0,
+        )
+    except Exception:                                    # noqa: BLE001
+        return []
+    # Keep what a caption, an arrow and a count need; drop the long replays.
+    keep = ("motif", "kind", "move", "at_ply", "concept_id", "prover_version", "version")
+    slim = []
+    for t in tags:
+        row = {k: t.get(k) for k in keep}
+        facts = (t.get("verifier_facts") or t.get("detector_facts") or [{}])[0] or {}
+        row["facts"] = json.loads(json.dumps(
+            {k: v for k, v in facts.items()
+             if k not in ("replayed_uci", "replayed_san", "events")},
+            default=str))                    # plain JSON: lists, not tuples
+        slim.append(row)
+    return slim
 
 
 def _index_v5_by_move_number(v5_data: Optional[List[Dict[str, Any]]]) -> Dict[int, Dict[str, Any]]:
@@ -975,6 +1021,10 @@ def derive_observations_for_game(
             "was_check": bool(mv.get("cct_is_check")),
             "was_capture": bool(mv.get("cct_is_capture")),
             "was_castle": (mv.get("move") or "") in ("O-O", "O-O-O", "0-0", "0-0-0"),
+
+            # Tactics this move missed, found or allowed, proved on the board
+            # (v21). Each: motif, kind, move, at_ply (0 = this move), facts.
+            "tactic_tags": _tactic_tags_for(mv),
 
             # Positive observations
             "concept_used": concept_used,
