@@ -268,7 +268,14 @@ export default function HomePageNew({ user }) {
     );
   }
 
-  if (curriculum?.enabled) {
+  // The coach pages come first. Prod sets PERSONAL_CURRICULUM_ENABLED with
+  // PERSONAL_CURRICULUM_ROLES=admin,super_admin, so for an admin this branch
+  // returned before the coach-pages Home below and the plan never showed on
+  // the owner's own account (Mohit, 2026-11-16: "why bhutramohit doesn't see
+  // this screen?"). View-as of a normal player never took this branch.
+  const coachPagesHome = Boolean(user?.coach_pages);
+
+  if (curriculum?.enabled && !coachPagesHome) {
     return (
       <CurriculumHome
         user={user}
@@ -282,7 +289,7 @@ export default function HomePageNew({ user }) {
     );
   }
 
-  if (curriculum?.paused) {
+  if (curriculum?.paused && !coachPagesHome) {
     return (
       <Layout user={user}>
         <main className="cg-page" data-testid="phase8-paused-state">
