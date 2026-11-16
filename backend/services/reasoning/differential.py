@@ -857,6 +857,21 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
         result["lost_guard_threat"] = {k: v for k, v in threat.items() if k != "cause"}
         if threat["fires"]:
             causes = [threat["cause"]]
+    # THE THREAT BEHIND THE REPLY: when the reply is quiet and the played line
+    # shows the mover's best defence, ask Stockfish what the reply threatens
+    # (the mover passes) and keep it when the same move does not work after
+    # the better move (dev_qf8: "Qd7 starts a line that ends with Qxf6+" named
+    # the price of stopping Qf5+ and mate). Not when the reply itself takes
+    # what the ledger names: that is said plainly already.
+    if (not causes and reply_uci and result["class"] in ("mistake", "blunder")
+            and result["family"] in ("punished", "mixed")
+            and (loss is None or loss.get("ply") is None or loss["ply"] >= 3)):
+        from .threat_line import threat_line
+        tl = threat_line(session, root, played, alternative, reply_uci, depth=depth,
+                         mover_is_user=mover_is_user, base_played=played_branch)
+        result["threat_line"] = {k: v for k, v in tl.items() if k != "cause"}
+        if tl["fires"]:
+            causes = [tl["cause"]]
     result["causes"] = causes
 
     missed = resolve_missed(fen_before, alt_san, pv_alt_rest) if pv_alt_rest else None
@@ -1031,7 +1046,7 @@ def _finish(result: Dict[str, Any], session, started: float, keep_searches: bool
 # services/why_words.py (_RELATION), next to the resolver's mechanisms and the
 # regexes that check the model kept the claim. A copy here would drift and the
 # check would silently stop applying.
-CAUSE_KINDS = ("CHECK", "LOST_GUARD", "HANGING", "ATTACKS", "UNCOVERS_ATTACK")
+CAUSE_KINDS = ("CHECK", "LOST_GUARD", "HANGING", "ATTACKS", "UNCOVERS_ATTACK", "THREAT")
 
 
 def cause_relation(kind: str) -> str:

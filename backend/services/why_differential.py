@@ -37,8 +37,10 @@ def button_config(engine_path: Optional[str] = None, *, nodes: Optional[int] = N
         from config import STOCKFISH_PATH
         engine_path = STOCKFISH_PATH
     n = int(nodes or WHY_DIFFERENTIAL_NODES)
-    return ReasoningConfig(engine_path=engine_path, nodes=n, stability_nodes=n, max_queries=8,
-                           max_total_nodes=8 * n, rank_width=3, root_cap=3, reply_width=2, max_plies=12,
+    # 10 since 2026-11-16: the threat line adds up to three searches
+    # (docs/why_threat_line_scope.md); a press used at most seven before.
+    return ReasoningConfig(engine_path=engine_path, nodes=n, stability_nodes=n, max_queries=10,
+                           max_total_nodes=10 * n, rank_width=3, root_cap=3, reply_width=2, max_plies=12,
                            max_hypotheses=1, max_expanded_nodes=1, hash_mb=WHY_DIFFERENTIAL_HASH_MB,
                            equivalence_cp=30)
 
