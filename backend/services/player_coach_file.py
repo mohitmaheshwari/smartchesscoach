@@ -64,7 +64,9 @@ logger = logging.getLogger(__name__)
 COLLECTION = "player_coach_files"
 # 6 (2026-11-16): opening habits share one better move; plan steps ordered by
 # points at stake. A version change makes the next page open rebuild the file.
-SCHEMA_VERSION = 6
+# 7 (same day): the plan lists `opening_keys`, so a week locked to a vanished
+# opening step is dropped (player_plan_week.gone_step).
+SCHEMA_VERSION = 7
 FLAG_ENV = "BETWEEN_GAMES_USERS"
 
 # Newest analysed games read for the opening habits, traps and progress.

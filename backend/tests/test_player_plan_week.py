@@ -52,6 +52,37 @@ def test_decide_moves_on_only_after_kept():
     assert ppw.decide(None, None, steps, [])["key"] == "a"
 
 
+def test_an_opening_step_whose_habit_vanished_is_not_carried_or_shown():
+    # 2026-11-16 live: the stricter opening rule removed habits that weekly
+    # rows still pointed at; the week re-locked them from last week's copy.
+    gone_key = "opening:white:d4 Nf3:Be2"
+    plan = {"steps": [{"key": "habit:k", "this_week": True}, {"key": "habit:p"}], "opening_keys": []}
+    prev = {"week_start": "2026-11-09", "step_key": gone_key, "step": {"key": gone_key, "title": "old"}}
+    assert ppw.gone_step(plan, gone_key) and not ppw.gone_step(plan, "habit:z")
+    assert ppw.decide(prev, {"status": "not_yet"}, plan["steps"], [], prev_gone=True)["key"] == "habit:k"
+    # A habit that only fell out of the top three still comes back (unchanged rule).
+    assert not ppw.gone_step(plan, "habit:z")
+    # A plan written before opening_keys existed says nothing is gone.
+    assert not ppw.gone_step({"steps": []}, gone_key)
+    # A row already written for the gone step is ignored by apply_week.
+    out = ppw.apply_week(dict(plan), {"step_key": gone_key, "step": prev["step"], "verdict": {"status": "not_yet"}})
+    assert [s["key"] for s in out["steps"]] == ["habit:k", "habit:p"] and not out.get("last_week")
+
+
+def test_build_row_moves_on_from_a_vanished_opening_and_says_so():
+    now = datetime(2026, 11, 16, 9, tzinfo=timezone.utc)
+    started = datetime(2026, 11, 9, tzinfo=timezone.utc)
+    prev = {"week_start": "2026-11-09", "step_key": KEY, "step": {"key": KEY}, "step_started": started, "baseline": None}
+    games = [{"game_id": "g1", "user_color": "black", "is_analyzed": True, "played_at_utc": started + timedelta(days=2)}]
+    plan = {"steps": [{"key": "habit:x", "title": "A habit"}], "opening_keys": []}
+    row = ppw.build_row("u", "2026-11-16", plan, prev, [], games, {"g1": _rows(True)}, [], None, now)
+    assert row["step_key"] == "habit:x" and row["step_started"] == now
+    assert row["verdict"]["replaced"] is True
+    out = ppw.apply_week({"steps": [{"key": "habit:x"}], "opening_keys": []}, row)
+    assert out["last_week"]["words"] == ppw.REPLACED_WORDS
+    assert not re.search(r"\d", ppw.REPLACED_WORDS)
+
+
 def test_apply_week_fixes_the_step_first_and_says_last_week_in_words():
     plan = {"steps": [{"key": "a", "this_week": True}, {"key": "b"}, {"key": "c"}]}
     row = {"step_key": "b", "step": {"key": "b"}, "verdict": {"status": "kept"}}

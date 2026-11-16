@@ -30,6 +30,20 @@ VERDICT_WORDS = {
     "not_yet": "Last week's step showed up again. One more week, with fresh positions.",
     "no_chance": "Last week your games did not give that step enough chances. Same step this week.",
 }
+# Said instead of the verdict's words when last week's step no longer exists.
+REPLACED_WORDS = "Last week's step is no longer in your plan, so this week has a new one."
+
+
+def gone_step(plan: Optional[Mapping[str, Any]], key: Optional[str]) -> bool:
+    """An opening step whose habit no longer exists in the player file.
+
+    Only openings: a habit step that drops out of the top three still comes
+    back from its snapshot (by design). An opening habit can vanish outright
+    (2026-11-16: habits now need one shared better move), and then the step
+    teaches a position that is not a habit. Plans built before `opening_keys`
+    existed say nothing, so nothing is gone."""
+    keys = (plan or {}).get("opening_keys")
+    return bool(key) and str(key).startswith("opening:") and keys is not None and key not in keys
 
 
 def week_bounds(week_start: str) -> tuple:
@@ -101,11 +115,13 @@ def habit_verdict(step_key: str, started: Optional[datetime], baseline: Optional
 
 
 def decide(prev: Optional[Mapping[str, Any]], verdict: Optional[Mapping[str, Any]],
-           steps: Sequence[Mapping[str, Any]], kept_keys: Iterable[str]) -> Optional[Mapping[str, Any]]:
-    """This week's step: last week's again unless it was kept; otherwise the
-    best-ranked step not already kept."""
+           steps: Sequence[Mapping[str, Any]], kept_keys: Iterable[str],
+           prev_gone: bool = False) -> Optional[Mapping[str, Any]]:
+    """This week's step: last week's again unless it was kept or no longer
+    exists (`prev_gone`, see gone_step); otherwise the best-ranked step not
+    already kept."""
     kept = set(kept_keys)
-    if prev and verdict and verdict.get("status") != "kept":
+    if prev and verdict and verdict.get("status") != "kept" and not prev_gone:
         same = next((s for s in steps if s.get("key") == prev.get("step_key")), None)
         return same or prev.get("step")
     for s in steps:
@@ -120,6 +136,10 @@ def apply_week(plan: Optional[Dict[str, Any]], week_row: Mapping[str, Any]) -> O
     if not plan or not week_row.get("step"):
         return plan
     key = week_row["step_key"]
+    if gone_step(plan, key):
+        # A row written before the opening habit vanished: the plan's own
+        # order stands, and nothing is said about last week.
+        return plan
     steps = [s for s in plan["steps"] if s.get("key") != key]
     live = next((s for s in plan["steps"] if s.get("key") == key), None)
     week_step = dict(live or week_row["step"])
@@ -129,7 +149,8 @@ def apply_week(plan: Optional[Dict[str, Any]], week_row: Mapping[str, Any]) -> O
     plan = dict(plan)
     plan["steps"] = ([week_step] + steps)[:len(plan["steps"]) or 1]
     v = week_row.get("verdict")
-    plan["last_week"] = ({"status": v["status"], "words": VERDICT_WORDS[v["status"]]} if v else None)
+    plan["last_week"] = ({"status": v["status"], "words": REPLACED_WORDS if v.get("replaced") else VERDICT_WORDS[v["status"]]}
+                         if v else None)
     return plan
 
 
@@ -164,9 +185,12 @@ def build_row(user_id: str, week_start: str, plan: Optional[Mapping[str, Any]], 
     kept = [h["step_key"] for h in history if (h.get("verdict_on_step") or {}).get("status") == "kept"]
     if verdict and verdict["status"] == "kept":
         kept.append(prev["step_key"])
-    step = decide(prev, verdict, steps, kept)
+    prev_gone = bool(prev) and gone_step(plan, prev.get("step_key"))
+    step = decide(prev, verdict, steps, kept, prev_gone=prev_gone)
     if not step:
         return None
+    if verdict and prev_gone and verdict.get("status") != "kept":
+        verdict = {**verdict, "replaced": True}
     same = bool(prev and step.get("key") == prev.get("step_key"))
     return {
         "user_id": user_id, "week_start": week_start, "step_key": step.get("key"),

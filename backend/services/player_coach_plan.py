@@ -283,4 +283,9 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
         # (a range: drawn instead .. won instead). The plan's claim.
         "stake": total_stake,
         "measured": {"where_lost": phase["measured"]},
+        # Every opening habit that exists now, shown as a step or not. The
+        # week (player_plan_week) drops a locked opening step that is not here:
+        # 2026-11-16 the stricter habit rule removed openings that weekly rows
+        # still pointed at, and the week kept showing them.
+        "opening_keys": [f"opening:{h['side']}:{h.get('line')}:{h.get('idea')}" for h in openings],
     }
