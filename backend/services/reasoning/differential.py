@@ -846,6 +846,17 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
             nxt = parse_legal_move(after_reply, pv_played_rest[1])
             if nxt is not None and nxt.to_square == reply_move.to_square:
                 causes = [c for c in causes if c["kind"] not in ("attacks", "uncovers_attack")]
+    # LOST GUARD, TWO STEPS: when the reply threatens something the played move
+    # stopped guarding and a defender is still left on the board, the one-step
+    # rule above stays silent and the ledger then names whatever the best
+    # defence gives up instead (4ec5dfca 26.Qc2: "a line that ends with axb5").
+    # Judged by playing out the trade on the square, after both moves.
+    if not causes and reply_uci and result["class"] in ("mistake", "blunder"):
+        from .lost_guard import lost_guard_threat
+        threat = lost_guard_threat(root, played, alternative, reply_uci, mover_is_user=mover_is_user)
+        result["lost_guard_threat"] = {k: v for k, v in threat.items() if k != "cause"}
+        if threat["fires"]:
+            causes = [threat["cause"]]
     result["causes"] = causes
 
     missed = resolve_missed(fen_before, alt_san, pv_alt_rest) if pv_alt_rest else None
@@ -870,6 +881,11 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
         sentences = [c["text"] for c in causes[:1]]
         lead = causes[0] if causes else None
         consequence: Optional[Dict[str, Any]] = None
+        if lead is not None and lead.get("variant") == "threat":
+            # The cause already says what falls; the played line's own captures
+            # are the defence's side effects, not the reason.
+            material = other = None
+            consequence = lead["consequence"]
         if material is not None:
             # The cause already named this square: "c5 hits your pawn on d4"
             # needs no "the exchange on d4 costs you a pawn" after it.
@@ -885,6 +901,10 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
                       mechanism=(consequence["mechanism"] if consequence else causes[0]["kind"].upper()),
                       text=" ".join(s for s in sentences if s), consequence=consequence)
         line = [played_san] + pv_played_rest[:3]
+        if lead is not None and lead.get("variant") == "threat":
+            # The threat is shown on a pass line, which does not replay from
+            # the root; the picture is the move and the reply that threatens.
+            line = [played_san, lead["reply"]]
         result["line_san"] = line
         result["arrows"] = _arrows(fen_before, line, limit=2)
         return True
