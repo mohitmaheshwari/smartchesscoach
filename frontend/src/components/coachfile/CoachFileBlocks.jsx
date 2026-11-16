@@ -13,10 +13,10 @@ import { Coffee, Play, Target, TrendingDown, TrendingUp, Minus, Check, Clock } f
 
 import { playFrom } from "@/lib/coachFile";
 
-const PLAYED = "#b45309";
-const BETTER = "#047857";
+export const PLAYED = "#b45309";
+export const BETTER = "#047857";
 
-function Board({ fen, orientation, arrows = [], marks = {}, size = 220 }) {
+export function Board({ fen, orientation, arrows = [], marks = {}, size = 220 }) {
   return (
     <div className="w-full shrink-0" style={{ maxWidth: size }}>
       <div className="aspect-square w-full">

@@ -15,7 +15,8 @@ Who writes it:
 What is in it (schema 2):
   - `openings`: his costliest opening HABITS. A habit is the same move idea
     (same piece to the same square) in the same opening family, in three or
-    more games and at least two positions. Only real opening CHOICES count:
+    more games, where the SAME better move was there every time (2026-11-16:
+    grouping by move name alone mixed positions with different answers). Only real opening CHOICES count:
     when the better move was a capture or a check (a missed shot) or his move
     left a piece hanging (a safety slip), that instance belongs to the
     tactics and safety coaching, not the opening file. Measured 2026-11-12 on
@@ -70,7 +71,6 @@ OPENING_GAMES = 60
 OPENING_LAST_MOVE = 12
 PLIES_READ = 30
 HABIT_MIN_GAMES = 3
-HABIT_MIN_POSITIONS = 2
 HABITS_SHOWN = 3
 
 # Average Stockfish loss a habit must reach to be shown, per rating band.
@@ -278,10 +278,26 @@ def opening_habits(
 
     found: List[Dict[str, Any]] = []
     for (side, family, idea), by_game in habits.items():
-        instances = list(by_game.values())
-        if len(instances) < HABIT_MIN_GAMES:
+        # One habit = one lesson: the same better move every time. Measured
+        # 2026-11-16 on the 67 live plans: 26 of 27 opening steps grouped
+        # positions whose better moves all differed (one even had his move as
+        # the best), so "You play Be2 there. Better is Ne5" was true in one
+        # game of three. Instances are kept only when they share the most
+        # common better move (same from and to square) and that move is not
+        # the one he played.
+        better_of: Dict[str, Optional[Tuple[str, str]]] = {}
+        for gid, inst in by_game.items():
+            mv = _squares(inst["fen"], inst["best"]) if inst["best"] and inst["best"] != inst["san"] else None
+            better_of[gid] = mv
+        counts: Dict[Tuple[str, str], int] = defaultdict(int)
+        for mv in better_of.values():
+            if mv:
+                counts[mv] += 1
+        if not counts:
             continue
-        if len({i["position"] for i in instances}) < HABIT_MIN_POSITIONS:
+        common = max(counts, key=counts.get)
+        instances = [inst for gid, inst in by_game.items() if better_of[gid] == common]
+        if len(instances) < HABIT_MIN_GAMES:
             continue
         average = statistics.mean(i["cp"] for i in instances)
         if average < cut:

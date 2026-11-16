@@ -12,6 +12,10 @@ import { Check, CheckCircle2, Circle, Clock, Minus, Play, Target, TrendingDown, 
 
 import { API } from "@/App";
 import { playFrom, useCoachFile } from "@/lib/coachFile";
+import { BETTER, Board, PLAYED } from "@/components/coachfile/CoachFileBlocks";
+
+/** "Who is near my king?" + "." would print "?." */
+const sentence = (t) => (/[.?!]$/.test(t) ? t : `${t}.`);
 
 const ORDER_WORDS = ["First", "Then", "After that"];
 // Rating points are the one figure the plan states: the claim Mohit asked for
@@ -108,7 +112,12 @@ function WeekWork({ step, done: initial }) {
 }
 
 function Step({ step, index, check, notation, done }) {
-  const Icon = STATE_ICON[step.state] || null;
+  // The step being trained shows "Since you started" instead: the two read
+  // different windows, and side by side they said "Same as before" and
+  // "Waiting for games" about the same step.
+  const showCheck = step.training && check?.title;
+  const Icon = showCheck ? null : STATE_ICON[step.state] || null;
+  const whereUrl = step.work?.find?.[0]?.url || step.review_url;
   return (
     <li
       className={`rounded-card border p-5 ${step.this_week ? "border-primary/40 bg-primary/[0.05]" : "border-border/70"}`}
@@ -134,8 +143,25 @@ function Step({ step, index, check, notation, done }) {
       <p className="mt-1 text-body text-foreground/90">{step.do}</p>
       {step.sign?.text && (
         <p className="mt-2 text-note text-muted-foreground">
-          <span className="font-semibold text-foreground/80">{step.sign.title}.</span> {step.sign.text}
+          <span className="font-semibold text-foreground/80">{sentence(step.sign.title)}</span> {step.sign.text}
         </p>
+      )}
+      {step.kind === "opening" && step.fen && step.played_from && step.better_from && (
+        <div className="mt-3" data-testid="coach-plan-opening-board">
+          <Board
+            fen={step.fen}
+            orientation={step.side}
+            size={200}
+            arrows={[
+              [step.played_from, step.played_to, PLAYED],
+              [step.better_from, step.better_to, BETTER],
+            ]}
+            marks={{
+              [step.played_to]: { background: "rgba(180,83,9,0.25)" },
+              [step.better_to]: { background: "rgba(4,120,87,0.22)" },
+            }}
+          />
+        </div>
       )}
       {step.kind === "opening" && notation && step.san && (
         <p className="mt-2 text-note text-muted-foreground">
@@ -147,21 +173,21 @@ function Step({ step, index, check, notation, done }) {
           ) : "."}
         </p>
       )}
-      {step.training && check?.title && (
+      {showCheck && (
         <p className="mt-3 text-note text-foreground/85" data-testid="coach-plan-check">
-          <span className="font-semibold">Since you started:</span> {check.title}. {check.words}
+          <span className="font-semibold">Since you started:</span> {sentence(check.title)} {check.words}
         </p>
       )}
       {step.this_week && <WeekWork step={step} done={done} />}
-      {!step.this_week && (step.practice_url || step.learn_url) && (
+      {!step.this_week && (step.practice_url || whereUrl) && (
         <div className="mt-4 flex flex-wrap gap-2">
           {step.practice_url && (
             <Link to={step.practice_url} className="cg-primary-action !min-h-9 !px-4 !py-2 text-note">
               <Target className="h-3.5 w-3.5" /> Practise it
             </Link>
           )}
-          {step.learn_url && (
-            <Link to={step.learn_url} className="inline-flex items-center rounded-full border border-border px-4 py-2 text-note font-medium text-foreground hover:bg-muted/50">
+          {whereUrl && (
+            <Link to={whereUrl} className="inline-flex items-center rounded-full border border-border px-4 py-2 text-note font-medium text-foreground hover:bg-muted/50">
               See where it happened
             </Link>
           )}

@@ -345,7 +345,7 @@ def test_plan_orders_steps_by_games_lost_and_the_training_habit_wins_ties():
     # The trained habit is third and carries the check; nothing about the last game.
     assert plan["check"] == {"state": "waiting"} and plan["last_game_note"] is None
     # Openings exist, so the read must never say they hold up.
-    assert "Your openings hold up." not in plan["read"]
+    assert "No opening mistake keeps coming back in your games." not in plan["read"]
     for line in plan["read"] + [s["title"] + " " + s["do"] for s in plan["steps"]]:
         assert not re.search(r"\d", line), line
 
@@ -384,8 +384,73 @@ def test_where_lost_needs_a_majority_and_enough_games():
     mid = {"fen": "r1bq1rk1/pppp1ppp/2n2n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQ1RK1 w - - 0 15", "move_number": 15}
     end = {"fen": "8/5k2/8/8/8/8/5K2/3R4 w - - 0 50", "move_number": 50}
     assert ppl.where_lost([mid] * 5 + [end])["words"] == "Most of your lost games turn in the middlegame."
-    assert ppl.where_lost([mid] * 3 + [end] * 3)["words"].startswith("Your lost games turn in different")
+    # No majority says nothing: "turn in different parts of the game" told
+    # the player nothing (Mohit, 2026-11-16).
+    assert ppl.where_lost([mid] * 3 + [end] * 3)["words"] is None
     assert ppl.where_lost([mid] * 3)["words"] is None
+
+
+def _evidence_row(qid, label, kind, pattern, lost_ids):
+    row = _ranked_row(qid, label, kind, pattern, len(lost_ids))
+    row["evidence"] = [{"game_id": g, "_costs_result": True, "_played_at": ""} for g in lost_ids]
+    return row
+
+
+def test_steps_are_ordered_by_points_at_stake_so_first_is_never_worth_less():
+    from services import player_coach_plan as ppl
+
+    games = {f"g{i}": {"outcome": "win" if i < 12 else "loss", "user_color": "white"} for i in range(30)}
+    window = list(games)
+    # More games lost overall, fewer in the window... the opening's sixty-game
+    # count must not put it first (live plan 2026-11-16: +25 before +51).
+    king = _evidence_row("gap:king_safety:ignored_king_attack", "Not answering an attack on the king",
+                         "king_attack", None, ["g20", "g21", "g22"])
+    opening = {"side": "white", "san": "Be2", "better_san": "Ne5", "line": "d4 Nf3", "idea": "Be2",
+               "measured": {"games": 5, "game_ids": ["g25", "old1", "old2", "old3", "old4"],
+                            "instances": [{"game_id": "g25", "move_number": 9, "fen": MODERN_BC4}]}}
+    games.update({f"old{i}": {"outcome": "loss", "user_color": "white"} for i in range(1, 5)})
+    plan = ppl.build_plan(habit=None, ranked=[king], openings=[opening], sitting={}, progress={}, games=games,
+                          deciding=[], habit_check=None, newest_game_id=None, observations=[],
+                          analysed_games=30, window=window)
+    kinds = [s["kind"] for s in plan["steps"]]
+    assert kinds == ["habit", "opening"]
+    highs = [s["stake"]["high"] for s in plan["steps"]]
+    assert highs == sorted(highs, reverse=True)
+    # The opening counts only its game inside the window.
+    assert plan["steps"][1]["measured"]["games_lost"] == 1
+
+
+def test_an_opening_habit_with_no_loss_in_the_window_is_not_a_step_or_a_read_line():
+    from services import player_coach_plan as ppl
+
+    games = {f"g{i}": {"outcome": "win" if i < 12 else "loss", "user_color": "white"} for i in range(30)}
+    games["old1"] = {"outcome": "loss", "user_color": "white"}
+    king = _evidence_row("gap:king_safety:ignored_king_attack", "Not answering an attack on the king",
+                         "king_attack", None, ["g20"])
+    opening = {"side": "white", "san": "Be2", "better_san": "Ne5", "line": "d4 Nf3", "idea": "Be2",
+               "measured": {"games": 3, "game_ids": ["g1", "g2", "old1"], "instances": []}}
+    plan = ppl.build_plan(habit=None, ranked=[king], openings=[opening], sitting={}, progress={}, games=games,
+                          deciding=[], habit_check=None, newest_game_id=None, observations=[],
+                          analysed_games=30, window=list(g for g in games if g != "old1"))
+    assert [s["kind"] for s in plan["steps"]] == ["habit"]
+    assert not any("opening habit" in line for line in plan["read"])
+
+
+def test_opening_step_carries_the_board_it_talks_about():
+    from services import player_coach_plan as ppl
+
+    opening = {"side": "black", "san": "Bg4", "better_san": "Nf6", "line": "g6 Bg7", "idea": "Bg4",
+               "fen": MODERN_BC4, "played_from": "c8", "played_to": "g4", "better_from": "g8", "better_to": "f6",
+               "review_url": "/game/g0?move=4",
+               "measured": {"games": 3, "game_ids": ["g0", "g1", "g2"], "instances": []}}
+    games = {f"g{i}": {"outcome": "loss", "user_color": "black"} for i in range(3)}
+    step = ppl.build_plan(habit=None, ranked=[], openings=[opening], sitting={}, progress={}, games=games,
+                          deciding=[], habit_check=None, newest_game_id=None, observations=[],
+                          analysed_games=30)["steps"][0]
+    assert (step["fen"], step["played_from"], step["better_to"]) == (MODERN_BC4, "c8", "f6")
+    assert step["work"]["learn"]["url"] == "/game/g0?move=4"
+    assert "orange" in step["do"] and "green" in step["do"]
+    assert not re.search(r"\d", step["do"] + step["work"]["target"])
 
 
 
@@ -416,8 +481,8 @@ def test_openings_hold_up_only_when_no_opening_habit_exists():
               habit_check=None, newest_game_id=None, observations=[], analysed_games=40)
     with_opening = ppl.build_plan(openings=[opening], **kw)
     assert with_opening["steps"][0]["kind"] == "opening"
-    assert "Your openings hold up." not in with_opening["read"]
-    assert "Your openings hold up." in ppl.build_plan(openings=[], **kw)["read"]
+    assert "No opening mistake keeps coming back in your games." not in with_opening["read"]
+    assert "No opening mistake keeps coming back in your games." in ppl.build_plan(openings=[], **kw)["read"]
 
 
 # --------------------------------------------------------------------------

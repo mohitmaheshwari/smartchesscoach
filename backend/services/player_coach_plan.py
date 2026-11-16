@@ -66,8 +66,8 @@ def where_lost(deciding: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
     if n >= PHASE_MIN_LOST_GAMES:
         if counts[top] / n > PHASE_MAJORITY:
             words = f"Most of your lost games turn in the {PHASE_WORDS[top]}."
-        else:
-            words = "Your lost games turn in different parts of the game, not just one."
+        # No majority: say nothing. "Your lost games turn in different parts
+        # of the game, not just one" told the player nothing (Mohit, 2026-11-16).
     return {"words": words, "phase": top if words and counts[top] / max(n, 1) > PHASE_MAJORITY else None,
             "measured": {**counts, "lost_games": n}}
 
@@ -179,28 +179,39 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
 
     if openings:
         h = openings[0]
+        # The same game window as the habit steps (his newest HABIT_GAMES),
+        # so the order and the points at stake measure the same thing.
+        # 2026-11-16: the opening counted sixty games and the habits thirty,
+        # which put a step worth +25 before one worth +51.
+        in_window = set(window) if window else None
         lost_ids = [gid for gid in (h.get("measured") or {}).get("game_ids") or []
-                    if (games.get(gid) or {}).get("outcome") in ("loss", "draw")]
+                    if (games.get(gid) or {}).get("outcome") in ("loss", "draw")
+                    and (in_window is None or gid in in_window)]
         lost = len(lost_ids)
         if lost >= 1:
             side = "White" if h["side"] == "white" else "Black"
             inst = (h.get("measured") or {}).get("instances") or []
             work = {
-                "learn": {"ref": "learn", "url": "/learn",
-                          "text": "See the position you keep reaching, and the better move with the idea behind it."},
+                "learn": {"ref": "learn", "url": h.get("review_url") or "/learn",
+                          "text": "See the position in your game, and the better move."},
                 "find": [{"ref": f"{i['game_id']}:{i['move_number']}", "game_id": i["game_id"],
                           "move_number": i["move_number"], "url": _review_url(i["game_id"], i["move_number"])}
                          for i in inst[:WORK_ITEMS]],
                 "play": [{"ref": f"{i['game_id']}:{i['move_number']}", "fen": i["fen"], "user_color": h["side"],
                           "source_game_id": i["game_id"]} for i in inst[:WORK_ITEMS]],
-                "target": f"In your games this week: when you reach this line as {side}, play the better move.",
+                "target": f"In your games this week: when you reach this position as {side}, play the green move.",
             }
             others.append({
                 "kind": "opening", "title": f"Your opening as {side}",
                 "key": f"opening:{h['side']}:{h.get('line')}:{h.get('idea')}",
                 "work": work,
-                "do": "Play the better move in the position where your habit costs you.",
+                "do": "You keep reaching this position and playing the orange move. The green move is better.",
                 "san": h.get("san"), "better_san": h.get("better_san"), "line": h.get("line"),
+                # The board the card draws: the clearest game, both moves as arrows.
+                "fen": h.get("fen"), "side": h.get("side"),
+                "played_from": h.get("played_from"), "played_to": h.get("played_to"),
+                "better_from": h.get("better_from"), "better_to": h.get("better_to"),
+                "review_url": h.get("review_url"),
                 "learn_url": "/learn", "practice_url": None, "training": False,
                 "measured": {"games_lost": lost, "games": (h.get("measured") or {}).get("games")},
                 "_affected": lost_ids,
@@ -213,16 +224,23 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
         guard = {"title": "Stop after a long run of games",
                  "text": "Your results drop late in a long sitting. When you have played many in a row, stop."}
 
-    steps = sorted(steps + others, key=lambda s: (-s["measured"]["games_lost"], not s.get("training")))[:STEPS_SHOWN]
+    win = list(window)
+    candidates = steps + others
+    for st in candidates:
+        st["stake"] = points_at_stake(games, win, st["_affected"]) if win else None
+    # Most points at stake first (the figure each step shows), so "First" is
+    # never worth less than "Then"; games lost breaks ties, then the habit
+    # being trained. Without enough games for points, games lost decides.
+    steps = sorted(candidates, key=lambda s: (-((s.get("stake") or {}).get("high") or 0),
+                                              -s["measured"]["games_lost"], not s.get("training")))[:STEPS_SHOWN]
     if not steps:
         return None
     steps[0]["this_week"] = True
-    win = list(window)
     union: set = set()
     for st in steps:
-        affected = st.pop("_affected", [])
-        union.update(affected)
-        st["stake"] = points_at_stake(games, win, affected) if win else None
+        union.update(st.pop("_affected", []))
+    for st in candidates:
+        st.pop("_affected", None)
     total_stake = points_at_stake(games, win, union) if win else None
     for st in steps:
         row = st.pop("_row", None)
@@ -237,12 +255,16 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
     top = steps[0]["title"]
     read.append(f"What costs you most: {top[0].lower() + top[1:]}.")
     if openings:
-        if steps[0]["kind"] != "opening":   # step one already says it
+        # Said only when the opening is one of the shown steps (it cost a game
+        # in the window) and step one is not already it.
+        if steps[0]["kind"] != "opening" and any(s["kind"] == "opening" for s in steps):
             side = "White" if openings[0]["side"] == "white" else "Black"
             read.append(f"One opening habit costs you as {side}.")
     elif analysed_games >= OPENINGS_HOLD_MIN_GAMES:
         # Only when no opening habit was found at all.
-        read.append("Your openings hold up.")
+        # What was measured: no costly opening move repeats with one fix.
+        # "Your openings hold up" claimed more than that (2026-11-16).
+        read.append("No opening mistake keeps coming back in your games.")
 
     last_note = None
     if steps[0]["kind"] == "habit" and newest_game_id:

@@ -52,10 +52,40 @@ def test_below_the_band_cut_is_not_shown():
     assert not pcf.opening_habits(games, "<1000")
 
 
-def test_two_games_are_not_a_habit_and_one_position_is_not_an_idea():
+def test_two_games_are_not_a_habit_but_one_position_three_times_is():
     assert not pcf.opening_habits(_bg4_games([300, 300]), "1800+")
+    # The same position, the same move, the same better move, three games:
+    # the clearest opening habit there is.
     same_square = _bg4_games([300, 300, 300], fens=(MODERN_BC4,))
-    assert not pcf.opening_habits(same_square, "1800+")
+    assert pcf.opening_habits(same_square, "1800+")
+
+
+def test_positions_with_different_better_moves_are_not_one_habit():
+    # 2026-11-16, live plan: "Be2" in three positions whose better moves were
+    # Ne5, Be2 itself and something else was shown as one habit with one fix.
+    games = []
+    for i, (fen, best) in enumerate([(MODERN_BC4, "Nf6"), (MODERN_NC3, "c5"), (MODERN_C3, "Nd7")]):
+        games.append(_game(f"g{i}", [_row("x w - - 0 1", "g6", 0), _row("x w - - 0 2", "Bg7", 0),
+                                     _row(fen, "Bg4", 300, best=best)]))
+    assert not pcf.opening_habits(games, "1800+")
+
+
+def test_only_the_instances_sharing_the_better_move_make_the_habit():
+    fens = (MODERN_BC4, MODERN_NC3, MODERN_C3, MODERN_BC4)
+    bests = ("Nf6", "Nf6", "Nf6", "c5")
+    games = [_game(f"g{i}", [_row("x w - - 0 1", "g6", 0), _row("x w - - 0 2", "Bg7", 0),
+                             _row(f, "Bg4", 300 if i < 3 else 900, best=b)])
+             for i, (f, b) in enumerate(zip(fens, bests))]
+    h = pcf.opening_habits(games, "1800+")[0]
+    assert h["better_san"] == "Nf6" and h["measured"]["games"] == 3
+    assert "g3" not in h["measured"]["game_ids"]
+
+
+def test_a_game_where_he_played_the_best_move_is_not_an_instance():
+    games = [_game(f"g{i}", [_row("x w - - 0 1", "g6", 0), _row("x w - - 0 2", "Bg7", 0),
+                             _row(f, "Bg4", 300, best=("Bg4" if i == 0 else "Nf6"))])
+             for i, f in enumerate((MODERN_BC4, MODERN_NC3, MODERN_C3))]
+    assert not pcf.opening_habits(games, "1800+")
 
 
 def test_castling_is_never_the_opening_habit():
