@@ -717,6 +717,17 @@ export default function PrescribedTraining({ user = null }) {
         : currentPuzzle?.coaching?.what_you_missed ||
           trainingData?.coaching_intro?.what_to_look_for ||
           "Before moving, always check what your opponent just threatened.";
+  // The game move that caused the problem, and the capture it allowed. Shown
+  // before the solve so the player knows which move the drill is about; the
+  // backend only sends them when the game move is not the answer.
+  const isUci = (u) => typeof u === "string" && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(u);
+  const problemArrows = [];
+  if (puzzleState === "thinking" && isUci(currentPuzzle?.coaching?.problem_move_uci)) {
+    const p = currentPuzzle.coaching.problem_move_uci;
+    problemArrows.push([p.slice(0, 2), p.slice(2, 4), "red"]);
+    const r = currentPuzzle.coaching.problem_reply_uci;
+    if (isUci(r)) problemArrows.push([r.slice(0, 2), r.slice(2, 4), "blue"]);
+  }
   const feedbackView = buildTrainingFeedbackView({
     puzzleState,
     userMove,
@@ -966,7 +977,7 @@ export default function PrescribedTraining({ user = null }) {
                           }
                           return arrows;
                         })()
-                      : []
+                      : problemArrows
                   }
                   highlights={
                     feedbackView.showSolution
@@ -991,6 +1002,23 @@ export default function PrescribedTraining({ user = null }) {
                   }
                   />
                 </div>
+                {!feedbackView.showSolution && problemArrows.length > 0 && (
+                  <div
+                    data-testid="training-problem-legend"
+                    className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11.5px] text-muted-foreground"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-rose-500" />
+                      Your move in the game
+                    </span>
+                    {problemArrows.length > 1 && (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-blue-500" />
+                        How the opponent takes it
+                      </span>
+                    )}
+                  </div>
+                )}
                 {feedbackView.showSolution && verifiedAnswer?.sourceUci && (
                   <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11.5px] text-muted-foreground">
                     <span className="inline-flex items-center gap-2">

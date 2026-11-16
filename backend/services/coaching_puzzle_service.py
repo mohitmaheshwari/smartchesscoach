@@ -49,6 +49,47 @@ def _verified_pattern_from_verdict(verdict) -> str:
     return verdict.broad_category or "calculation_depth"
 
 
+def _destination_safety_problem(fen: Optional[str], verdict: Dict) -> Optional[Dict]:
+    """Name the game move that put a piece where it could be won, and who takes it.
+
+    Read from the proven admission (played move + the detector's winning reply),
+    replayed on the board, so every square and piece in the sentence is a board
+    fact. None when the board does not replay, so the card keeps its old text.
+    """
+    import chess
+
+    try:
+        board = chess.Board(fen)
+        played = chess.Move.from_uci(str(verdict.get("played_move_uci") or ""))
+    except ValueError:
+        return None
+    if played not in board.legal_moves:
+        return None
+    mover = board.piece_at(played.from_square)
+    piece = chess.piece_name(played.promotion or mover.piece_type)
+    dest = chess.square_name(played.to_square)
+    san = board.san(played)
+    after = board.copy(stack=False)
+    after.push(played)
+
+    facts = verdict.get("detector_facts") or ()
+    fact = facts[0] if facts and isinstance(facts[0], dict) else {}
+    reply_uci = None
+    sentence = f"You played {san} here, and your {piece} could be won on {dest}."
+    try:
+        reply = chess.Move.from_uci(str(fact.get("winning_reply_uci") or ""))
+    except ValueError:
+        reply = None
+    if reply is not None and reply in after.legal_moves and reply.to_square == played.to_square:
+        taker = after.piece_at(reply.from_square)
+        reply_uci = reply.uci()
+        sentence = (
+            f"You played {san} here, and the {chess.piece_name(taker.piece_type)} on "
+            f"{chess.square_name(reply.from_square)} could take your {piece} on {dest}."
+        )
+    return {"sentence": sentence, "played_uci": played.uci(), "reply_uci": reply_uci}
+
+
 def _verdict_matches_requested(verdict, pattern: str) -> bool:
     """Match a freshly adjudicated object before it has been persisted."""
     if pattern == FORCED_MATE_PATTERN:
@@ -1208,7 +1249,24 @@ class CoachingPuzzleService:
                 coaching = dict(
                     PATTERN_COACHING.get(pattern) or DEFAULT_COACHING
                 )
-            if own_game:
+            problem = (
+                _destination_safety_problem(puzzle.get("fen"), verdict)
+                if own_game and verdict.get("concept_id") == "piece_safety.destination_safety_exact"
+                else None
+            )
+            if problem:
+                # 2026-11-16, Mohit: "it should tell what move is the problem,
+                # from this position how do you know piece safety". The game
+                # move is not the answer (the grader accepts only the stored
+                # better move), so naming it before the solve spoils nothing.
+                coaching["personal_note"] = (
+                    f"This is move {move_number} from your game." if move_number
+                    else "This position is from your game."
+                )
+                coaching["why_this_matters"] = f"{problem['sentence']} Find a better move."
+                coaching["problem_move_uci"] = problem["played_uci"]
+                coaching["problem_reply_uci"] = problem["reply_uci"]
+            elif own_game:
                 coaching["personal_note"] = (
                     f"This is move {move_number} from your game. Solve it again without looking at the answer."
                     if move_number
