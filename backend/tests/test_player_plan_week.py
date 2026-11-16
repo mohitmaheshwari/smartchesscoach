@@ -52,6 +52,41 @@ def test_decide_moves_on_only_after_kept():
     assert ppw.decide(None, None, steps, [])["key"] == "a"
 
 
+def test_a_too_few_games_verdict_is_judged_again_once_the_games_are_analysed():
+    # 2026-11-16, Mohit: row written at 08:43 UTC with analysis paused -> four
+    # games counted, "no_chance"; seven analysed later and one showed the slip.
+    qid = "gap:piece_safety:destination_safety_exact"
+    key = f"habit:{qid}"
+    started = datetime(2026, 11, 13, 10, 13, tzinfo=timezone.utc)
+    prev = {"week_start": "2026-11-09", "step_key": key, "step_started": started,
+            "baseline": {"rate": 0.27, "hit_games": 8}}
+    row = {"week_start": "2026-11-16", "step_key": key, "previous_step_key": key,
+           "verdict": {"status": "no_chance", "measured": {"games_since": 4}}}
+
+    def game(i, analysed=True):
+        return {"game_id": f"g{i}", "is_analyzed": analysed, "played_at_utc": started + timedelta(hours=i)}
+
+    hit = [{"game_id": "g2", "missed_pattern": "piece_safety", "subtype": "destination_safety_exact"}]
+    # Still too few analysed: nothing changes.
+    few = [game(i) for i in range(4)] + [game(i, False) for i in range(4, 8)]
+    assert ppw.refreshed_verdict(row, prev, few, {}, hit) is None
+    # Seven analysed, one slip: the step showed up again (same step, so allowed).
+    more = [game(i) for i in range(7)] + [game(7, False)]
+    new = ppw.refreshed_verdict(row, prev, more, {}, hit)
+    assert new and new["status"] == "not_yet" and new["measured"]["games_since"] == 7
+    # A different step this week, or a replaced verdict, is never touched.
+    assert ppw.refreshed_verdict({**row, "step_key": "habit:other"}, prev, more, {}, hit) is None
+    assert ppw.refreshed_verdict({**row, "verdict": {"status": "no_chance", "replaced": True}}, prev, more, {}, hit) is None
+
+
+def test_a_habit_step_short_of_games_says_games_not_chances():
+    row = {"previous_step_key": "habit:gap:x", "verdict": {"status": "no_chance"}}
+    assert ppw.verdict_words(row) == ppw.HABIT_TOO_FEW_WORDS
+    assert "chances" not in ppw.HABIT_TOO_FEW_WORDS and not re.search(r"\d", ppw.HABIT_TOO_FEW_WORDS)
+    # An opening step does count chances (games that reached the line).
+    assert ppw.verdict_words({"previous_step_key": KEY, "verdict": {"status": "no_chance"}}) == ppw.VERDICT_WORDS["no_chance"]
+
+
 def test_an_opening_step_whose_habit_vanished_is_not_carried_or_shown():
     # 2026-11-16 live: the stricter opening rule removed habits that weekly
     # rows still pointed at; the week re-locked them from last week's copy.

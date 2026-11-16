@@ -32,6 +32,19 @@ VERDICT_WORDS = {
 }
 # Said instead of the verdict's words when last week's step no longer exists.
 REPLACED_WORDS = "Last week's step is no longer in your plan, so this week has a new one."
+# A habit step has no count of chances, only of games since it began
+# (habit_verdict, min_games): "no chance" there means too few games, and
+# saying "your games did not give it enough chances" was untrue (2026-11-16).
+HABIT_TOO_FEW_WORDS = "Not enough games since this step began to tell yet. Same step this week."
+
+
+def verdict_words(week_row: Mapping[str, Any]) -> str:
+    v = week_row["verdict"]
+    if v.get("replaced"):
+        return REPLACED_WORDS
+    if v["status"] == "no_chance" and str(week_row.get("previous_step_key") or "").startswith("habit:"):
+        return HABIT_TOO_FEW_WORDS
+    return VERDICT_WORDS[v["status"]]
 
 
 def gone_step(plan: Optional[Mapping[str, Any]], key: Optional[str]) -> bool:
@@ -149,8 +162,7 @@ def apply_week(plan: Optional[Dict[str, Any]], week_row: Mapping[str, Any]) -> O
     plan = dict(plan)
     plan["steps"] = ([week_step] + steps)[:len(plan["steps"]) or 1]
     v = week_row.get("verdict")
-    plan["last_week"] = ({"status": v["status"], "words": REPLACED_WORDS if v.get("replaced") else VERDICT_WORDS[v["status"]]}
-                         if v else None)
+    plan["last_week"] = ({"status": v["status"], "words": verdict_words(week_row)} if v else None)
     return plan
 
 
@@ -203,11 +215,39 @@ def build_row(user_id: str, week_start: str, plan: Optional[Mapping[str, Any]], 
     }
 
 
+def refreshed_verdict(row: Mapping[str, Any], prev: Optional[Mapping[str, Any]], games: Sequence[Mapping[str, Any]],
+                      first_rows: Mapping[str, Sequence[Mapping[str, Any]]],
+                      observations: Sequence[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
+    """A "too few games" verdict judged again once more of last week's games
+    are analysed. 2026-11-16: Mohit's row was written at 08:43 UTC while
+    analysis was paused, so four of his eight games counted and the card said
+    there were not enough; with seven analysed the same rule says the step
+    showed up again. Only "not_yet" replaces it: that keeps the same step, so
+    the week's step never changes mid-week."""
+    v = row.get("verdict") or {}
+    if v.get("status") != "no_chance" or v.get("replaced") or not prev:
+        return None
+    if prev.get("step_key") != row.get("step_key"):
+        return None
+    new = _verdict_for(prev, games, first_rows, observations)
+    if new and new.get("status") == "not_yet":
+        return new
+    return None
+
+
 async def ensure_week(db, user_id: str, week_start: str, plan, games, first_rows, observations,
                       habit_baseline, now: Optional[datetime] = None) -> Optional[Mapping[str, Any]]:
     now = now or datetime.now(timezone.utc)
     row = await db[COLLECTION].find_one({"user_id": user_id, "week_start": week_start}, {"_id": 0})
     if row:
+        if (row.get("verdict") or {}).get("status") == "no_chance":
+            prev = await db[COLLECTION].find_one({"user_id": user_id, "week_start": {"$lt": week_start}}, {"_id": 0},
+                                                 sort=[("week_start", -1)])
+            new = refreshed_verdict(row, prev, games, first_rows, observations)
+            if new:
+                await db[COLLECTION].update_one({"user_id": user_id, "week_start": week_start},
+                                                {"$set": {"verdict": new, "verdict_refreshed_at": now}})
+                row = {**row, "verdict": new}
         return row
     prev = await db[COLLECTION].find_one({"user_id": user_id, "week_start": {"$lt": week_start}}, {"_id": 0},
                                          sort=[("week_start", -1)])
@@ -226,6 +266,14 @@ def ensure_week_sync(db, user_id: str, week_start: str, plan, games, first_rows,
     now = now or datetime.now(timezone.utc)
     row = db[COLLECTION].find_one({"user_id": user_id, "week_start": week_start}, {"_id": 0})
     if row:
+        if (row.get("verdict") or {}).get("status") == "no_chance":
+            prev = db[COLLECTION].find_one({"user_id": user_id, "week_start": {"$lt": week_start}}, {"_id": 0},
+                                           sort=[("week_start", -1)])
+            new = refreshed_verdict(row, prev, games, first_rows, observations)
+            if new:
+                db[COLLECTION].update_one({"user_id": user_id, "week_start": week_start},
+                                          {"$set": {"verdict": new, "verdict_refreshed_at": now}})
+                row = {**row, "verdict": new}
         return row
     prev = db[COLLECTION].find_one({"user_id": user_id, "week_start": {"$lt": week_start}}, {"_id": 0},
                                    sort=[("week_start", -1)])
