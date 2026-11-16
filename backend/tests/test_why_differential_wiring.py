@@ -14,7 +14,7 @@ def test_disabled_by_default_and_budget_is_bounded(monkeypatch):
     assert module.WHY_DIFFERENTIAL_ENABLED is False
     cfg = module.button_config("unused-by-this-test")
     assert cfg.nodes == cfg.stability_nodes          # one allocation per probe on a button press
-    assert cfg.max_queries == 8 and cfg.max_total_nodes == 8 * cfg.nodes
+    assert cfg.max_queries == 10 and cfg.max_total_nodes == 10 * cfg.nodes
     assert cfg.engine_path == "unused-by-this-test"
 
 
