@@ -62,7 +62,9 @@ from services import player_coach_plan as ppl
 logger = logging.getLogger(__name__)
 
 COLLECTION = "player_coach_files"
-SCHEMA_VERSION = 5
+# 6 (2026-11-16): opening habits share one better move; plan steps ordered by
+# points at stake. A version change makes the next page open rebuild the file.
+SCHEMA_VERSION = 6
 FLAG_ENV = "BETWEEN_GAMES_USERS"
 
 # Newest analysed games read for the opening habits, traps and progress.
