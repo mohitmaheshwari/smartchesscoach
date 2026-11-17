@@ -309,3 +309,27 @@ For every stage:
   any backfill writes for that stage.
 - The trap-school route for game-found traps is checked against
   /learn/traps/:slug.
+
+## 8. Stage A gate log (2026-11-17)
+
+Finder: `backend/services/game_trap_finder.py`, branch claude/trap-lessons
+(4bb103af), not wired. Graded on the board (python-chess + Stockfish) by an
+independent agent, never by the finder's author.
+
+| Run | Games | Finds | Graded | Real traps | Gate (27/30) |
+|---|---|---|---|---|---|
+| 1, first rule (100 cp punishment) | 2,695 (newest 50 of 57 players) | 63 | 30, by me from lines | 5 clear + 15 plausible | not judged |
+| 2, + no king offers, 200 cp | same | 46 | 30, independent | 14 | FAIL |
+| 3, + no wrong recapture, no even trade, offering piece takes part, not already lost | 4,860 older games, held out | 43 (1 per 113 games) | 30, independent | 13 | FAIL |
+
+What the misses are (run 3): the threat was already on the board before the
+offer (6); taking lost no more than other moves that ignored the threat (4);
+the opponent simply blundered (3); other (4). Comparing the move with a pass
+(the player does nothing) keeps 13 traps and 2 slips of 45 graded at a
+two-pawn margin, but drops 12 real traps: in a trap the threat can be there
+whether or not the bait is taken (Rf7 then Nxf7+).
+
+Next rule to measure, from the grader's method: the punishment must not exist
+before the offer (the same line fails from the position before it), and
+taking must be worse than the best move that does not take. Graded again on a
+fresh held-out set before anything ships.
