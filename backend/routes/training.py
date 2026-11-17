@@ -883,7 +883,33 @@ async def get_prescribed_training_endpoint(
         # Framing is never worth failing a puzzle fetch over.
         logger.debug(f"question spec skipped for {weakness}: {_spec_err}")
 
+    # The week strip: when this drill trains the player's plan step for the
+    # week, say so in the plan's own words. Read from the cached player file
+    # only (never rebuilt on this request). docs/training_coach_presence_scope.md.
+    try:
+        from services.player_coach_file import COLLECTION as _PCF
+        doc = await db[_PCF].find_one({"user_id": user.user_id}, {"_id": 0, "plan": 1})
+        week = week_step_for(weakness, (doc or {}).get("plan"))
+        if week:
+            result["week_step"] = week
+    except Exception as _week_err:
+        logger.debug(f"week step skipped for {user.user_id}: {_week_err}")
+
     return result
+
+
+def week_step_for(weakness: str, plan: Optional[Dict]) -> Optional[Dict]:
+    """This week's plan step, when its habit belongs to the drilled family."""
+    plan = plan or {}
+    step = next((s for s in plan.get("steps") or [] if s.get("this_week")), None)
+    family = str((step or {}).get("quality_id") or "").split(":")
+    if not step or len(family) < 2 or family[1] != weakness or not step.get("do"):
+        return None
+    return {
+        "key": step.get("key"),
+        "do": step["do"],
+        "last_week": (plan.get("last_week") or {}).get("words"),
+    }
 
 
 @router.post("/puzzle-attempt")
@@ -984,6 +1010,44 @@ async def evaluate_puzzle_move_endpoint(
         raise HTTPException(status_code=404, detail="puzzle is not ready for training")
     grade = grade_resolved_puzzle(puzzle, played_uci)
     return public_grade_payload(grade, reveal_answer=False)
+
+
+@router.post("/landing-check")
+async def landing_check_endpoint(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    """The coach's check after a drop, before the move is judged.
+
+    Body: puzzle_id, played_uci, and either answer (a square, or "safe") or
+    hint=true for the three looks. The position comes from the stored puzzle,
+    never from the client. docs/training_coach_presence_scope.md.
+    """
+    from datetime import datetime, timezone
+    from services.landing_check import check_landing
+    from services.verified_puzzle_runtime import resolve_verified_puzzle
+
+    puzzle_id = (request.get("puzzle_id") or "").strip()
+    played_uci = (request.get("played_uci") or "").strip()
+    if not puzzle_id or not played_uci:
+        raise HTTPException(status_code=400, detail="puzzle_id and played_uci are required")
+    puzzle = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="puzzle is not ready for training")
+    hint = bool(request.get("hint"))
+    answer = request.get("answer")
+    result = check_landing(puzzle.get("fen"), played_uci, answer=answer, hint=hint)
+    if result.get("eligible") and not hint:
+        try:
+            await db.landing_checks.insert_one({
+                "user_id": user.user_id, "puzzle_id": puzzle_id, "played_uci": played_uci,
+                "answer": answer, "correct": result["correct"], "safe": result["safe"],
+                "used_hint": bool(request.get("used_hint")),
+                "created_at": datetime.now(timezone.utc),
+            })
+        except Exception as log_err:
+            logger.warning(f"landing check not logged (non-fatal): {log_err}")
+    return result
 
 
 @router.post("/reveal-puzzle")

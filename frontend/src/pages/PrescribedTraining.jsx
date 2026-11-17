@@ -20,6 +20,9 @@ import CanonicalTrainingAssignment from "@/components/training/CanonicalTraining
 import PICPieceSafetyLesson from "@/components/training/PICPieceSafetyLesson";
 import PersonalizedLessonWorkspace from "@/components/training/PersonalizedLessonWorkspace";
 import TimeProfilePanel from "@/components/training/TimeProfilePanel";
+import {
+  WeekStrip, SessionPath, LandingCheck, CoachWatching, CoachSteppedIn, whatISaw,
+} from "@/components/training/CoachEye";
 import useMoveCaption from "@/hooks/useMoveCaption";
 import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 import { Chess } from "chess.js";
@@ -147,6 +150,21 @@ export default function PrescribedTraining({ user = null }) {
   const [coachingFeedback, setCoachingFeedback] = useState(null);
   const [verifiedAnswer, setVerifiedAnswer] = useState(null);
   const [evaluationError, setEvaluationError] = useState("");
+
+  // The coach's eye (docs/training_coach_presence_scope.md). After a drop on a
+  // landing-square drill the move waits while the coach asks what can win the
+  // piece there. Once the player checks right on their own twice in a row the
+  // coach steps back and only watches; a slip brings it back.
+  const [check, setCheck] = useState(null);
+  const checkedRef = useRef(new Set());
+  const [checksInARow, setChecksInARow] = useState(0);
+  const [coachQuiet, setCoachQuiet] = useState(false);
+  const [quietSinceIndex, setQuietSinceIndex] = useState(null);
+  const [steppedIn, setSteppedIn] = useState(false);
+  const [lastCheckRight, setLastCheckRight] = useState(false);
+  // Today's think on this position, for the "what I saw" line and the attempt record.
+  const shownAtRef = useRef(Date.now());
+  const firstMoveMsRef = useRef(null);
 
   // Unified caption from game_decryption_v5 pipeline (for puzzles from user games)
   const { caption: unifiedCaption, loading: unifiedCaptionLoading, fetchCaption } = useMoveCaption();
@@ -391,6 +409,14 @@ export default function PrescribedTraining({ user = null }) {
 
   // Current puzzle
   const currentPuzzle = trainingData?.puzzles?.[currentPuzzleIndex];
+  const currentPuzzleKey = currentPuzzle?.puzzle_id || currentPuzzle?.game_id;
+  useEffect(() => {
+    shownAtRef.current = Date.now();
+    firstMoveMsRef.current = null;
+    setLastCheckRight(false);
+    setSteppedIn(false);
+    setCheck(null);
+  }, [currentPuzzleKey]);
   const [puzzleSubmissionId, rotatePuzzleSubmissionId] =
     usePuzzleSubmissionIdentity(currentPuzzle?.puzzle_id || currentPuzzle?.game_id);
 
@@ -427,7 +453,101 @@ export default function PrescribedTraining({ user = null }) {
 
     setUserMove(move.san);
     const userMoveUci = `${sourceSquare}${targetSquare}${move.promotion || ""}`;
+    if (firstMoveMsRef.current == null) firstMoveMsRef.current = Date.now() - shownAtRef.current;
 
+    // The coach's check: first try only, pieces the check is about, and only
+    // while the coach has not stepped back. The move stays on the board.
+    const PIECE_WORDS = { n: "knight", b: "bishop", r: "rook", q: "queen" };
+    if (
+      currentPuzzle?.coaching?.landing_check &&
+      !coachQuiet &&
+      !checkedRef.current.has(currentPuzzleKey) &&
+      PIECE_WORDS[move.piece]
+    ) {
+      checkedRef.current.add(currentPuzzleKey);
+      setCheck({
+        uci: userMoveUci, san: move.san, piece: PIECE_WORDS[move.piece], square: targetSquare,
+        loading: false, hint: null, result: null, usedHint: false,
+      });
+      setPuzzleState("checking");
+      return true;
+    }
+    return submitMove(userMoveUci);
+  };
+
+  const callLandingCheck = async (body) => {
+    const res = await fetch(`${API}/training/landing-check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ puzzle_id: currentPuzzleKey, played_uci: check.uci, ...body }),
+    });
+    if (!res.ok) throw new Error("check unavailable");
+    return res.json();
+  };
+
+  const answerCheck = async (answer) => {
+    if (!check || check.result || check.loading) return;
+    setCheck((c) => ({ ...c, loading: true }));
+    try {
+      const r = await callLandingCheck({ answer, used_hint: check.usedHint });
+      if (!r.eligible) {
+        const uci = check.uci;
+        setCheck(null);
+        submitMove(uci);
+        return;
+      }
+      setCheck((c) => ({ ...c, loading: false, result: r }));
+      setLastCheckRight(Boolean(r.correct));
+      if (r.correct && !check.usedHint) {
+        const n = checksInARow + 1;
+        setChecksInARow(n);
+        if (n >= 2) {
+          setCoachQuiet(true);
+          setQuietSinceIndex(currentPuzzleIndex);
+        }
+      } else {
+        setChecksInARow(0);
+      }
+    } catch (_e) {
+      setCheck((c) => ({ ...c, loading: false }));
+      setEvaluationError("I couldn't check that just now. Please try again.");
+    }
+  };
+
+  const hintCheck = async () => {
+    if (!check || check.loading) return;
+    setCheck((c) => ({ ...c, loading: true }));
+    try {
+      const r = await callLandingCheck({ hint: true });
+      if (!r.eligible) {
+        const uci = check.uci;
+        setCheck(null);
+        submitMove(uci);
+        return;
+      }
+      setCheck((c) => ({ ...c, loading: false, hint: r, usedHint: true }));
+    } catch (_e) {
+      setCheck((c) => ({ ...c, loading: false }));
+    }
+  };
+
+  const continueAfterCheck = () => {
+    const uci = check?.uci;
+    setCheck(null);
+    if (uci) submitMove(uci);
+  };
+
+  const takeBackAfterCheck = () => {
+    game.undo();
+    setGame(new Chess(game.fen()));
+    setCheck(null);
+    setUserMove(null);
+    setPuzzleState("thinking");
+  };
+
+  // Judge a move on the board against the frozen verified answer.
+  const submitMove = async (userMoveUci) => {
     // Mark evaluating while the server resolves the frozen verified answer.
     setPuzzleState("evaluating");
     setEvaluationError("");
@@ -498,6 +618,13 @@ export default function PrescribedTraining({ user = null }) {
       setCoachingFeedback(
         result.coaching_feedback || result.miss_coaching || null
       );
+      // The coach stepped back and the piece landed where it can be won:
+      // it steps back in.
+      if (coachQuiet && result.concept_result === "fail") {
+        setCoachQuiet(false);
+        setChecksInARow(0);
+        setSteppedIn(true);
+      }
 
       if (result.is_best) {
         setPuzzleState("correct");
@@ -553,7 +680,7 @@ export default function PrescribedTraining({ user = null }) {
         credentials: "include",
         body: JSON.stringify({
           puzzle_id: puzzle.puzzle_id || puzzle.game_id,
-          time_taken_ms: 0, // TODO: track time
+          time_taken_ms: Date.now() - shownAtRef.current,
           played_uci: playedUci,
           submission_id: puzzleSubmissionId,
         }),
@@ -728,6 +855,31 @@ export default function PrescribedTraining({ user = null }) {
     const r = currentPuzzle.coaching.problem_reply_uci;
     if (isUci(r)) problemArrows.push([r.slice(0, 2), r.slice(2, 4), "blue"]);
   }
+  // The check stage on the board: the landing square ringed; the hint draws
+  // a line from every piece the three looks find; after the answer, the piece
+  // that wins it (red) or nothing (safe).
+  const checkArrows = [];
+  const checkCircles = [];
+  if (puzzleState === "checking" && check) {
+    checkCircles.push([check.square, "green"]);
+    if (check.result && !check.result.safe && check.result.answer_square) {
+      checkArrows.push([check.result.answer_square, check.square, "red"]);
+    } else if (check.hint && !check.result) {
+      check.hint.looks.forEach((look) =>
+        look.found.forEach((f) => checkArrows.push([f.sq, check.square, "blue"])));
+    }
+  }
+  const doneStates = ["correct", "acceptable", "revealed"];
+  const seenLine =
+    doneStates.includes(puzzleState) && currentPuzzle?.source === "your_game"
+      ? whatISaw({
+          gameSeconds: currentPuzzle?.your_move_seconds,
+          todayMs: firstMoveMsRef.current,
+          solved: puzzleState !== "revealed",
+          checkedRight: lastCheckRight,
+        })
+      : null;
+  const watching = Boolean(currentPuzzle?.coaching?.landing_check && coachQuiet);
   const feedbackView = buildTrainingFeedbackView({
     puzzleState,
     userMove,
@@ -736,18 +888,6 @@ export default function PrescribedTraining({ user = null }) {
     patternType: currentPuzzle?.pattern_type || weakness,
     coaching: coachingFeedback,
     fallback: fallbackPrinciple,
-  });
-
-  // Progress pips — solved ✓, missed ✗, current ●, upcoming ○
-  // `attempts` list isn't tracked globally; we synthesize pips from solvedCount + current index.
-  const pips = Array.from({ length: totalPuzzles }, (_, i) => {
-    if (i < currentPuzzleIndex) return "solved";
-    if (i === currentPuzzleIndex) {
-      if (puzzleState === "correct" || puzzleState === "acceptable") return "solved";
-      if (puzzleState === "incorrect") return "missed";
-      return "current";
-    }
-    return "upcoming";
   });
 
   // Socratic question — use coaching.question if backend provides one, else
@@ -882,10 +1022,16 @@ export default function PrescribedTraining({ user = null }) {
             Let’s practise {focusName}.
           </h1>
           <p className="cg-lede">Take one position at a time. I’m more interested in what you check than how quickly you move.</p>
-          <div className="flex items-center gap-5">
-            <div className="hidden" aria-hidden="true"><Pips pips={pips} /></div>
+          <div className="mt-6 flex items-center gap-5">
+            <SessionPath
+              total={totalPuzzles}
+              index={currentPuzzleIndex}
+              doneNow={doneStates.includes(puzzleState)}
+            />
           </div>
         </div>
+
+        <WeekStrip week={trainingData.week_step} />
 
         {/* Pool-thin note: we returned fewer puzzles than the session target.
             Explains WHY so the user doesn't think the app is broken. Once
@@ -943,7 +1089,17 @@ export default function PrescribedTraining({ user = null }) {
                     }
                   }}
                   interactive={puzzleState === "thinking"}
-                  viewOnly={puzzleState !== "thinking"}
+                  viewOnly={puzzleState !== "thinking" && puzzleState !== "checking"}
+                  selectionOnly={puzzleState === "checking" && !check?.result}
+                  showDests={puzzleState !== "checking"}
+                  onSquareClick={(sq) => {
+                    // Only a tap on one of the opponent's pieces is an answer;
+                    // a stray tap on an empty square is not held against you.
+                    if (puzzleState !== "checking" || check?.result) return;
+                    const target = game.get(sq);
+                    if (target && target.color === game.turn()) answerCheck(sq);
+                  }}
+                  circles={checkCircles}
                   arrows={
                     feedbackView.showSolution
                       ? (() => {
@@ -977,7 +1133,9 @@ export default function PrescribedTraining({ user = null }) {
                           }
                           return arrows;
                         })()
-                      : problemArrows
+                      : puzzleState === "checking"
+                        ? checkArrows
+                        : problemArrows
                   }
                   highlights={
                     feedbackView.showSolution
@@ -1070,6 +1228,14 @@ export default function PrescribedTraining({ user = null }) {
               <div className="flex items-center justify-center h-full text-muted-foreground text-[13.5px]">
                 Nothing to solve here right now.
               </div>
+            ) : puzzleState === "checking" && check ? (
+              <LandingCheck
+                check={check}
+                onSafe={() => answerCheck("safe")}
+                onHint={hintCheck}
+                onContinue={continueAfterCheck}
+                onTakeBack={takeBackAfterCheck}
+              />
             ) : (puzzleState === "thinking" || puzzleState === "evaluating") ? (
               <PuzzlePrompt
                 framing={
@@ -1094,6 +1260,8 @@ export default function PrescribedTraining({ user = null }) {
                 onReveal={revealSolution}
                 onSkip={nextPuzzle}
                 isFromOwnGame={currentPuzzle?.source === "your_game"}
+                watching={watching}
+                justStepped={watching && quietSinceIndex === currentPuzzleIndex - 1}
               />
             ) : (
               <FeedbackPanel
@@ -1108,7 +1276,8 @@ export default function PrescribedTraining({ user = null }) {
                 }
                 san={feedbackView.san}
                 threat={currentPuzzle?.threat}
-                streak={streak}
+                seenLine={seenLine}
+                steppedIn={steppedIn}
                 isComplete={isComplete}
                 onNext={nextPuzzle}
                 onRetry={retryPuzzle}
@@ -1128,27 +1297,8 @@ export default function PrescribedTraining({ user = null }) {
 /*  Design-system components (from redesign/03_Training.html)                 */
 /* ────────────────────────────────────────────────────────────────────────── */
 
-// Progress pips: solved/missed/current/upcoming
-function Pips({ pips }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      {pips.map((p, i) => {
-        if (p === "solved")
-          return <span key={i} className="h-1.5 w-6 rounded-full bg-emerald-400/70" />;
-        if (p === "missed")
-          return <span key={i} className="h-1.5 w-6 rounded-full bg-rose-400/70" />;
-        if (p === "current")
-          return (
-            <span
-              key={i}
-              className="h-1.5 w-6 rounded-full bg-violet-400 ring-2 ring-violet-400/20 ring-offset-2 ring-offset-background"
-            />
-          );
-        return <span key={i} className="h-1.5 w-6 rounded-full bg-muted" />;
-      })}
-    </div>
-  );
-}
+// Session progress lives in components/training/CoachEye.jsx (SessionPath):
+// done / now / to come, with no red and no score.
 
 // Pre-solve: provenance + Socratic question + community signal
 function PuzzlePrompt({
@@ -1158,13 +1308,16 @@ function PuzzlePrompt({
   onReveal,
   onSkip,
   isFromOwnGame,
+  watching = false,
+  justStepped = false,
 }) {
   return (
     <>
       {/* Provenance — the differentiator */}
       <div className="mb-8">
-        <div className="text-[10.5px] uppercase tracking-[0.22em] text-amber-500/90 dark:text-amber-300/80 font-semibold mb-3">
-          {isFromOwnGame ? "From your game" : "Why this puzzle"}
+        <div className="cg-eyebrow mb-3 flex items-center gap-2">
+          <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />
+          {isFromOwnGame ? "Coach's eye · from your game" : "Coach's eye"}
         </div>
         <p className="text-[13.5px] text-muted-foreground leading-relaxed max-w-[420px]">
           {framing}
@@ -1187,6 +1340,7 @@ function PuzzlePrompt({
             {toMoveLabel}. Play the move on the board.
           </p>
         )}
+        {watching && <CoachWatching justStepped={justStepped} />}
       </motion.div>
 
       {/* Footer: community signal + escape hatches */}
@@ -1197,7 +1351,7 @@ function PuzzlePrompt({
             className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
           >
             <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Show the solution
+            Show the move
           </button>
           <span className="text-border">·</span>
           <button
@@ -1220,7 +1374,8 @@ function FeedbackPanel({
   takeaway,
   nextStep,
   threat,
-  streak,
+  seenLine,
+  steppedIn,
   isComplete,
   onNext,
   onRetry,
@@ -1296,12 +1451,8 @@ function FeedbackPanel({
             {san && (
               <span className="font-mono text-[12px] text-muted-foreground">{san}</span>
             )}
-            {isCorrect && streak >= 3 && (
-              <span className="text-[10.5px] uppercase tracking-[0.18em] text-amber-500 font-semibold">
-                {streak} streak
-              </span>
-            )}
           </div>
+          {steppedIn && <CoachSteppedIn />}
           <p className="font-serif text-[17px] md:text-[19px] leading-snug text-foreground max-w-[540px] mb-3">
             {unifiedCaptionLoading ? (
               <span className="inline-flex items-center gap-2">
@@ -1323,6 +1474,15 @@ function FeedbackPanel({
             <p className="mt-3 text-[12px] italic text-muted-foreground leading-relaxed pl-1 max-w-[560px]">
               {takeaway}
             </p>
+          )}
+          {seenLine && (
+            <div data-testid="training-what-i-saw" className="mt-4 border-t border-border/60 pt-3 max-w-[560px]">
+              <p className="cg-eyebrow flex items-center gap-1.5 mb-1">
+                <Eye className="h-3 w-3" strokeWidth={1.75} />
+                What I saw
+              </p>
+              <p className="text-note text-foreground/85">{seenLine}</p>
+            </div>
           )}
           {nextStep && (
             <p className="mt-3 text-[12px] text-muted-foreground leading-relaxed max-w-[560px]">

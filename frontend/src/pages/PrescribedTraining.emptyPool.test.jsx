@@ -88,5 +88,6 @@ test("an empty puzzle pool never fabricates a Socratic question", async () => {
     "Something of yours can be taken here. Find the best move.");
   expect(container.textContent).not.toContain("Find the move this position asks for.");
   expect(container.textContent).not.toContain("Show the solution");
+  expect(container.textContent).not.toContain("Show the move"); // renamed 2026-11-17
   expect(container.textContent).not.toContain("Skip this one");
 });

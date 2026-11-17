@@ -1,6 +1,25 @@
 # Training page: the coach is in the room
 
-Status: DRAFT, awaiting Mohit's sign-off. 2026-11-17.
+Status: SIGNED 2026-11-17 ("go ahead, do it"), with three changes Mohit
+approved over the first draft:
+
+1. The yes/no tap is replaced by "tap the piece that would take it, or say it
+   is safe" (a guess no longer passes; graded by services/landing_check.py).
+2. The narrating ticks ("you picked up your bishop") are dropped. "Where should
+   I look?" walks the three looks from the landing square (close by, knight
+   jumps, long lines; the plan's own habit, coach_plan_service.SIGNS) and draws
+   a line from each piece found. "Show the solution" becomes "Show the move".
+3. The coach steps back: after two right checks in a row without the hint it
+   says "You're checking on your own now. I'll just watch." and stops asking;
+   a move that lands a piece where it can be won brings it back.
+
+Built as one coach panel that changes by stage (before / checking / what I
+saw), not three widgets. Also: practice time is now recorded (it was a
+hard-coded zero), the streak number is removed, and each answered check is
+logged to `landing_checks` for the later "getting steadier" line.
+
+Later, not built: bring a missed position back cold on another day; play the
+position out against Maia at the player's rating.
 
 Mohit, 2026-11-16, on `/training/pattern/piece_safety`: "some kind of tracking
 shows up, some kind of coach eyes, something that really looks like good stuff

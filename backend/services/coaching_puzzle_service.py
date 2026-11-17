@@ -742,6 +742,9 @@ class CoachingPuzzleService:
                         "solution_san": best_move_san,
                         "your_move": move.get("move"),
                         "your_move_uci": your_move_uci,
+                        # How long the game move took; the coach compares it,
+                        # in words, with today's think (training scope 2026-11-17).
+                        "your_move_seconds": move.get("time_spent_seconds"),
                         "cp_loss": cp_loss,
                         "move_number": move_number,
                         "rating": None,  # From your game, not rated
@@ -1234,6 +1237,10 @@ class CoachingPuzzleService:
                         "This position was selected because the original move "
                         "placed a piece on a square where it could be won."
                     ),
+                    # The page asks the landing-square check after a drop
+                    # (/training/landing-check). verified_admission is
+                    # redacted from the payload, so the page needs this flag.
+                    "landing_check": True,
                 }
             elif pattern == "piece_safety":
                 coaching = {
