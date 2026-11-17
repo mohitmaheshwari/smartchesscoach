@@ -109,7 +109,15 @@ When nothing close enough exists, the block is not shown.
   see the taker), not common traps, so a high floor would exclude moments like
   his. Set: store at 0.5% (drops only the near-impossible; costly to change),
   show at 1% (his own level; cheap to change). The stronger players'
-  distribution is still being measured and will tune the show floor.
+  distribution confirmed the show floor (below).
+  Stronger players' distribution, measured 2026-11-17 (research/similar_probe2,
+  1,780 of 178,343 positions from 1475+ public games before the time limit):
+  for each of Mohit's six mistakes, same-shape candidates 4 to 132, median
+  temptation 0.0%, top tenth 0.0% to 0.7%. At 1% or more: Be7 2, Be3 3, Nd6 3,
+  Qe5 3, Nxe5 2, Qb1+ (queen check, endgame) 0. So 1% keeps the plausible top
+  slice and drops the absurd; with 1% of the pool scanned, five of six already
+  have matches, and the rare queen-check endgame may have none (the card then
+  shows only the three looks and the puzzle). SHOW_FLOOR stays at 1%.
 
 Decided 2026-11-17 (Mohit): no consent rule. The games are public on Lichess
 and Chess.com ("these are open games and anybody can see it"). Kept out
