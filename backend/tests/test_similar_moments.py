@@ -70,7 +70,8 @@ def _obs(played="b3c2", cp_loss=0):
 
 def test_a_stronger_players_sound_move_beside_a_tempting_danger_is_stored_and_found():
     db = DB()
-    n = sm.tag_game_moments_sync(db, _game(), _obs(), maia=lambda fen, r: {"h4e7": 0.12, "h4f6": 0.01})
+    # Bf6 is near-impossible here (0.1%), below the store floor; Be7 is tempting.
+    n = sm.tag_game_moments_sync(db, _game(), _obs(), maia=lambda fen, r: {"h4e7": 0.12, "h4f6": 0.001})
     assert n == 1
     found = sm.find_similar_sync(db, user_id="weak", fen=FEN, played_uci="h4e7", rating=1325, phase="middlegame")
     assert found["words"] == "Their bishop could go to e7, where the queen on c7 could win it along a long straight line. They played Bc2 instead."
