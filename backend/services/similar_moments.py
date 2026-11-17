@@ -214,9 +214,13 @@ async def other_side_puzzle(db, *, piece: str, kind: Optional[str], rating: int,
     pt = {v: k for k, v in PIECES.items()}.get(piece)
     cursor = db.lichess_puzzles.find(
         {"themes": "hangingPiece", "rating": {"$gte": int(rating) - 250, "$lte": int(rating) + 250}},
-        {"_id": 0, "puzzle_id": 1, "fen": 1, "moves": 1, "rating": 1},
+        {"_id": 0, "puzzle_id": 1, "fen": 1, "moves": 1, "rating": 1, "themes": 1},
     ).skip(random.randint(0, 2000)).limit(sample)
     async for row in cursor:
+        # The lesson is "take the loose piece". A solution that also mates
+        # teaches mate instead (2026-11-17: Rxc6# was served for a bishop).
+        if any(str(t).startswith("mate") for t in row.get("themes") or []):
+            continue
         moves = row.get("moves") or []
         try:
             board = chess.Board(row.get("fen"))
@@ -228,6 +232,8 @@ async def other_side_puzzle(db, *, piece: str, kind: Optional[str], rating: int,
             continue
         if kind and cp._kind(board, sol.from_square, sol.to_square)[0] != kind:
             continue
+        if board.gives_check(sol):
+            continue  # a checking capture is a different lesson; untagged mates end here too
         return {
             "fen": board.fen(), "solution_uci": sol.uci(), "solution_san": board.san(sol),
             "side": "White" if board.turn == chess.WHITE else "Black",

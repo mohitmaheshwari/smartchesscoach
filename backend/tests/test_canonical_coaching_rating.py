@@ -64,6 +64,21 @@ async def test_selected_platform_wins_over_newer_other_platform():
 
 
 @pytest.mark.asyncio
+async def test_a_linked_platform_left_behind_by_a_month_gives_way_to_the_site_the_player_uses():
+    games = [
+        _game("2026.09.24", 912, "chess.com"),
+        _game("2026.09.23", 905, "chess.com"),
+        _game("2026.09.20", 930, "chess.com"),
+        _game("2026-11-17T05:00:00Z", 1352, "lichess"),
+        _game("2026-11-16T16:00:00Z", 1348, "lichess"),
+        _game("2026-11-16T13:00:00Z", 1354, "lichess"),
+    ]
+    user = {"user_id": "u1", "rating_source": "chess.com"}
+    result = await resolve_coaching_rating(_DB(games, user), "u1", user=user)
+    assert (result["rating"], result["platform"], result["stale_platform"]) == (1352, "lichess", "chess.com")
+
+
+@pytest.mark.asyncio
 async def test_malformed_lexicographic_order_cannot_choose_an_older_game():
     games = [
         _game("2026.04.01", 1175, "chess.com"),

@@ -95,6 +95,40 @@ def test_no_match_from_a_player_who_is_not_stronger_or_from_yourself():
     assert sm.find_similar_sync(db2, user_id="me", fen=FEN, played_uci="h4e7", rating=1325, phase="middlegame") is None
 
 
+class _AsyncRows:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def skip(self, n):
+        return self
+
+    def limit(self, n):
+        return self
+
+    def __aiter__(self):
+        async def gen():
+            for r in self.rows:
+                yield r
+        return gen()
+
+
+def test_the_other_side_puzzle_never_teaches_mate_or_check_instead_of_the_loose_piece():
+    import asyncio
+    # Black's bishop goes to a5 (moves[0]); White's rook takes it from a1 (moves[1]).
+    plain = {"puzzle_id": "plain", "fen": "6k1/8/1b6/8/8/8/8/R5K1 b - - 0 1", "moves": ["b6a5", "a1a5"], "themes": ["hangingPiece"]}
+    tagged_mate = {**plain, "puzzle_id": "mate", "themes": ["hangingPiece", "mateIn1"]}
+    checking = {"puzzle_id": "check", "fen": "k7/8/1b6/8/8/8/8/R5K1 b - - 0 1", "moves": ["b6a5", "a1a5"], "themes": ["hangingPiece"]}
+
+    class _DB:
+        class lichess_puzzles:
+            @staticmethod
+            def find(q, proj):
+                return _AsyncRows([tagged_mate, checking, plain])
+
+    out = asyncio.run(sm.other_side_puzzle(_DB, piece="bishop", kind=None, rating=1300))
+    assert out["puzzle_id"] == "plain" and out["solution_san"] == "Rxa5"
+
+
 def test_the_coach_thinking_walks_the_three_looks_from_the_players_square():
     t = sm.thinking_words(FEN, "h4e7")
     assert t["lead"] == "Before your bishop lands on e7, look from e7:"

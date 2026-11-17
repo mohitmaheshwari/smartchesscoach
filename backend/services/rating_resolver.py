@@ -77,6 +77,11 @@ def get_current_rating(user: Optional[Dict[str, Any]] = None,
 
 
 COACHING_RATING_WINDOW_GAMES = 3
+# The linked platform keeps winning unless another platform's newest game is
+# more than this many days newer (the player has moved sites). Measured
+# 2026-11-17: of 11 users with games on two sites, 6 had a linked platform a
+# month or more behind the other.
+STALE_PLATFORM_DAYS = 30
 
 
 def _parse_game_datetime(value: Any) -> Optional[datetime]:
@@ -157,21 +162,31 @@ async def resolve_coaching_rating(
     preferred = _normalized_platform(user.get("rating_source"))
     if preferred not in by_platform:
         preferred = ""
-    if not preferred and by_platform:
-        preferred = max(
-            by_platform,
-            key=lambda platform: by_platform[platform][0][0],
-        )
+    newest = max(by_platform, key=lambda p: by_platform[p][0][0]) if by_platform else ""
+    overridden = None
+    if not preferred:
+        preferred = newest
+    elif newest != preferred and (
+        by_platform[newest][0][0] - by_platform[preferred][0][0]
+    ).days > STALE_PLATFORM_DAYS:
+        # users.rating_source is written at account link, not chosen. When the
+        # player has moved to another site, the linked one's rating goes stale:
+        # 2026-11-17 one account read 912 from September chess.com games while
+        # playing at about 1350 on Lichess every day.
+        overridden, preferred = preferred, newest
     if preferred:
         sequence = by_platform[preferred]
         sample = sequence[:COACHING_RATING_WINDOW_GAMES]
-        return {
+        out = {
             "rating": int(median([rating for _, rating in sample])),
             "source": "recent_game_median",
             "platform": preferred,
             "sample_games": len(sample),
             "as_of": sequence[0][0].isoformat(),
         }
+        if overridden:
+            out["stale_platform"] = overridden
+        return out
 
     return {
         "rating": get_current_rating(user, profile),
