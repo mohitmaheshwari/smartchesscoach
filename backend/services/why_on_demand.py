@@ -158,8 +158,13 @@ def _phrase(p: Punishment, played_san: str,
     cannot_save = "You" if victim_whose == "your" else "They"
     where = f" on {p.victim_square}" if p.victim_square else ""
 
+    # A move that is itself checkmate is said so; "Qd3# leads to mate" reads
+    # as if more moves were needed (5ec24941 m19, 2026-11-17).
+    mates_now = str(p.agent_move or "").strip().endswith("#")
     if p.direction == "received":
         if p.mechanism == "MATE":
+            if mates_now:
+                return f"After {played_san}, {agent} is checkmate."
             return f"After {played_san}, {agent} leads to mate."
         if p.mechanism == "WINS_MATERIAL":
             if named:
@@ -186,6 +191,8 @@ def _phrase(p: Punishment, played_san: str,
 
     # direction == "missed": what the better move would have collected.
     if p.mechanism == "MATE":
+        if mates_now:
+            return f"{agent} was checkmate."
         return f"{agent} leads to mate."
     if p.mechanism == "WINS_MATERIAL":
         if named:

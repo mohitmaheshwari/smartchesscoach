@@ -107,3 +107,26 @@ The arrows are the played move and the reply.
 ## 7. Before code
 
 Signed as above; small-feature standing sign-off applies.
+
+## 8. Fixes 2026-11-17 (Mohit: "go", on fixing what his own recent games showed)
+
+Found by running the live button over the 60 mistakes of Mohit's 11 newest games
+and the 4 positions waiting in the why queue. Bug fixes to shipped behaviour;
+tests in `tests/test_why_mate_and_reply_capture.py` (all four fail on 71120c7d).
+
+- **A threat made by the reply piece is no threat when the best defence takes
+  that piece.** 2d86e1f9 m17: after Rf8 Nxf6 the defence is gxf6, and the live
+  button said "Nxf6 threatens Nh7+". A pass skips the recapture, so the pass
+  line cannot see it. Now silent there (`defence_takes_the_reply`).
+- **The same capture after the better move means the threat is met, not
+  shared.** c31e86a3 m15: Nc6 Nc7 forks queen and rook; after Na6 the defence
+  is Nxc7. Was silent ("Nc7 starts a line that ends with Nxa8"); now "After
+  Nc6, Nc7 threatens Nxe8, which wins your queen on e8 for a knight. After Na6,
+  your knight guards c7." The guard-on-the-threat-square sentence keeps
+  precedence where both hold (ho05 still names f2).
+- **Mate from the engine's score, on both sides** (`differential.py`, the rule
+  `why_on_demand._mate_from_score` already used): the line walk reads six
+  plies and needs a move after the mating one. 5ec24941 m19 (Qd3# missed) was
+  silent, now "Qd3# was checkmate."; 856f6111 m6 (Ke8 allows mate in six)
+  named a pawn on g6, now "After Ke8, Qh5+ leads to mate." A mate outranks the
+  material sentence; both-ways mate stays excluded.

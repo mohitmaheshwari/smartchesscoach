@@ -65,6 +65,14 @@ def _best(session, board: chess.Board, purpose: str, *, depth: int, roots=()) ->
     return record.lines[0]
 
 
+def _takes_on(board: chess.Board, san: Optional[str], square: int) -> bool:
+    """True when `san`, played on `board`, captures on `square`."""
+    if not san:
+        return False
+    move = parse_legal_move(board, san)
+    return move is not None and move.to_square == square and board.is_capture(move)
+
+
 def _material(board: chess.Board, line_san: List[str], mover: chess.Color) -> Optional[Dict[str, Any]]:
     """The first square in the threat line where the mover loses at least a
     pawn's worth, when the rest of the line does not give it back."""
@@ -120,12 +128,14 @@ def threat_line(session, root: chess.Board, played: chess.Move, alternative: che
         return out
 
     # The mover's best defence after the reply.
-    base_p = None
+    base_p, defence_p_san = None, None
     if base_played and base_played.get("score") and (base_played.get("line_san") or [None])[0] == reply_san:
         base_p = score_cp(base_played["score"])
+        defence_p_san = (list(base_played["line_san"]) + [None])[1]
     if base_p is None:
         defence = _best(session, chess.Board(tp.fen()), "threat_defence_played", depth=depth)
         base_p = score_cp(defence["score"]) if defence else None
+        defence_p_san = defence["moves_san"][0] if defence else None
     threat = _best(session, pass_p, "threat_after_pass_played", depth=depth)
     if base_p is None or threat is None:
         out["why_not"] = "search_unavailable"
@@ -135,6 +145,13 @@ def threat_line(session, root: chess.Board, played: chess.Move, alternative: che
     t_san = threat["moves_san"][0]
     out.update(threat_san=t_san, threat_line_san=list(threat["moves_san"][:8]),
                base_played_cp=base_p, pass_played_cp=t_p, threat_cp=base_p - t_p)
+    # A threat made by the reply piece is no threat when the best defence
+    # simply takes that piece: 2d86e1f9 m17, after Rf8 Nxf6 the defence is
+    # gxf6 and "Nxf6 threatens Nh7+" named a move the knight never lives to
+    # make. A pass skips the recapture, so the pass line cannot see this.
+    if t_move.from_square == reply.to_square and _takes_on(tp, defence_p_san, reply.to_square):
+        out["why_not"] = "defence_takes_the_reply"
+        return out
 
     mate_n = None
     if threat["score"]["kind"] == "mate" and int(threat["score"]["value"]) < 0:
@@ -160,6 +177,7 @@ def threat_line(session, root: chess.Board, played: chess.Move, alternative: che
     if pass_a is None:
         out["why_not"] = "cannot_pass_on_better_branch"
         return out
+    takes_reply_a = False
     if t_move in pass_a.legal_moves:
         defence_a = _best(session, chess.Board(ta.fen()), "threat_defence_better", depth=depth)
         same = _best(session, pass_a, "threat_after_pass_better", depth=depth, roots=[t_move])
@@ -170,6 +188,12 @@ def threat_line(session, root: chess.Board, played: chess.Move, alternative: che
         out.update(base_better_cp=base_a, pass_better_cp=t_a, threat_better_cp=base_a - t_a,
                    threat_line_better_san=list(same["moves_san"][:8]))
         mated_a = same["score"]["kind"] == "mate" and int(same["score"]["value"]) < 0
+        # After the better move the defence takes the reply piece: the threat
+        # is met there, whatever a pass would allow (c31e86a3 m15: after Na6
+        # Nc7 the defence is Nxc7; after Nc6 nothing can take on c7).
+        takes_reply_a = (t_move.from_square == reply.to_square
+                         and _takes_on(ta, defence_a["moves_san"][0], reply.to_square))
+        out["defence_takes_reply_after_better_move"] = takes_reply_a
         # A pass hands the opponent a free move, so the eval drops on both
         # branches; what the sentence claims is that T wins material (or
         # mates), so that is what must be absent after the better move
@@ -180,7 +204,7 @@ def threat_line(session, root: chess.Board, played: chess.Move, alternative: che
         else:
             same_threat = mated_a or (base_a - t_a >= THREAT_MIN_CP
                                       and _material(pass_a, list(same["moves_san"]), mover) is not None)
-        if same_threat:
+        if same_threat and not takes_reply_a:
             out["why_not"] = "same_threat_after_better_move"
             return out
     else:
@@ -228,6 +252,17 @@ def threat_line(session, root: chess.Board, played: chess.Move, alternative: che
             piece = PIECE_NAME[root.piece_at(played.from_square).piece_type]
             reason = f"{played_san} stops {own} {piece} guarding {sname}."
             guard = {"by": "played_move_left", "piece": piece, "from": chess.square_name(played.from_square)}
+    # Otherwise, when the threat is met by taking the reply piece after the
+    # better move, say who guards the reply's square (c31e86a3 m15: "After
+    # Na6, your knight guards c7"). Second, because a guard on the threat's
+    # own square says more where both hold (ho05: Rxc2's rook guards f2 and c5).
+    rsq = reply.to_square
+    if reason is None and takes_reply_a and alternative.to_square in ta.attackers(mover, rsq) \
+            and alternative.to_square not in tp.attackers(mover, rsq):
+        piece = PIECE_NAME[ta.piece_at(alternative.to_square).piece_type]
+        reason = f"After {alt_san}, {own} {piece} guards {chess.square_name(rsq)}."
+        guard = {"by": "better_move", "piece": piece, "from": chess.square_name(alternative.to_square),
+                 "square": chess.square_name(rsq)}
 
     text = first if reason is None else f"{first} {reason}"
     consequence = {"mechanism": mechanism, "direction": "received", "agent_move": t_san,

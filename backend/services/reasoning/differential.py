@@ -879,6 +879,27 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
         missed = None                     # the ledger speaks for material
     if missed is not None and not _explains_the_loss(missed, gap):
         missed = None
+    # MATE FROM THE SCORE. The resolvers find a mate only by walking the
+    # first few plies of a line, so a mate in one (no line after the mating
+    # move: 5ec24941 m19, Qd3# missed, the button silent) and a longer forced
+    # mate (856f6111 m6, Ke8 allows mate in six; the button named a pawn on
+    # g6) went unsaid. A mate score is not an estimate; the old path reads it
+    # the same way (why_on_demand._mate_from_score). Both-ways mate is no
+    # difference, so it is excluded.
+    s_played = head.get("score_played")
+    s_alt = head.get("score_alternative") if head.get("alternative_uci") else head.get("score_best")
+    if (_is_mate(s_played, against=True) and not _is_mate(s_alt, against=True)
+            and (received is None or received.mechanism != "MATE") and (reply_san or pv_played_rest)):
+        from services.punishment_resolver import Punishment
+        received = Punishment(direction="received", mechanism="MATE", agent_move=reply_san or pv_played_rest[0],
+                              payoff_cp=MATE_CP - abs(int(s_played["value"])), line=list(pv_played_rest[1:7]))
+        result["mate_from_score"] = {"side": "received", "mate_in": abs(int(s_played["value"]))}
+    if (_is_mate(s_alt, against=False) and not _is_mate(s_played, against=False)
+            and (missed is None or missed.mechanism != "MATE")):
+        from services.punishment_resolver import Punishment
+        missed = Punishment(direction="missed", mechanism="MATE", agent_move=alt_san,
+                            payoff_cp=MATE_CP - abs(int(s_alt["value"])), line=list(pv_alt_rest[:6]))
+        result["mate_from_score"] = {"side": "missed", "mate_in": abs(int(s_alt["value"]))}
     # In the punished family the gap sits on the played branch; a small gain
     # on the better move's line is not the reason (dev_qf8: a pawn in a lost
     # position while the played move drops a bishop).
@@ -891,6 +912,8 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
     def punished_answer() -> bool:
         material = loss
         other = received if (received is not None and _explains_the_loss(received, gap)) else None
+        if other is not None and other.mechanism == "MATE":
+            material = None               # a forced mate is the story, not what falls on the way
         if not causes and material is None and other is None:
             return False
         sentences = [c["text"] for c in causes[:1]]
@@ -1029,6 +1052,14 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
         result["reason"] = "shared_consequence_only" if result.get("shared_consequence") else "no_mechanism"
     result["facts"] = build_facts(result)
     return _finish(result, session, started, keep_searches)
+
+
+def _is_mate(score: Optional[dict], *, against: bool) -> bool:
+    """A typed score (the mover's side) that is mate against the mover, or for it."""
+    if not score or score.get("kind") != "mate":
+        return False
+    value = int(score.get("value") or 0)
+    return value < 0 if against else value > 0
 
 
 def _without_prefix(phrase: str, played_san: str) -> str:
