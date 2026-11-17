@@ -11,9 +11,27 @@
  * the server answers {enabled: false} and this renders nothing.
  */
 import { Link } from "react-router-dom";
+import { Clock3, UserRound } from "lucide-react";
 
 import { useCoachFile } from "@/lib/coachFile";
 import { LastGameRepeat, PlayPositions, SittingNote } from "@/components/coachfile/CoachFileBlocks";
+
+/* How he played as a person in the last game, and which clock to play
+   (docs/home_behaviour_and_clock_scope.md). Each shows only when the server
+   found it true; the words come from services/play_advice.py. */
+function CoachLine({ testId, icon: Icon, label, line }) {
+  if (!line?.headline) return null;
+  return (
+    <div data-testid={testId} className="flex items-start gap-3 rounded-card border border-border/70 bg-muted/30 p-4">
+      <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <div className="min-w-0">
+        <p className="cg-eyebrow">{label}</p>
+        <p className="mt-2 text-body font-semibold text-foreground">{line.headline}</p>
+        <p className="mt-1 text-note text-muted-foreground">{line.detail}</p>
+      </div>
+    </div>
+  );
+}
 
 export default function BetweenGamesPanel() {
   const data = useCoachFile();
@@ -22,7 +40,8 @@ export default function BetweenGamesPanel() {
   const notation = data.notation !== false;
   const note = data.plan?.last_game_note;
   const lastGame = data.last_game;
-  const hasAnything = data.sitting?.show || note || lastGame?.repeat || data.play_positions?.length;
+  const hasAnything = data.sitting?.show || note || lastGame?.repeat || data.play_positions?.length
+    || data.behaviour?.headline || data.clock_advice?.headline;
   if (!hasAnything) return null;
 
   return (
@@ -46,6 +65,8 @@ export default function BetweenGamesPanel() {
         ) : (
           <LastGameRepeat lastGame={lastGame} notation={notation} />
         )}
+        <CoachLine testId="between-games-behaviour" icon={UserRound} label="You, in that game" line={data.behaviour} />
+        <CoachLine testId="between-games-clock" icon={Clock3} label="What to play" line={data.clock_advice} />
       </div>
 
       {data.play_positions?.length > 0 && (

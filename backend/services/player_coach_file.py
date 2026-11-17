@@ -56,6 +56,7 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Seque
 import chess
 import chess.pgn
 
+from services import play_advice as pa
 from services import player_coach_habit as pch
 from services import player_coach_plan as ppl
 
@@ -66,7 +67,7 @@ COLLECTION = "player_coach_files"
 # points at stake. A version change makes the next page open rebuild the file.
 # 7 (same day): the plan lists `opening_keys`, so a week locked to a vanished
 # opening step is dropped (player_plan_week.gone_step).
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8  # 8: behaviour and clock_advice (docs/home_behaviour_and_clock_scope.md)
 FLAG_ENV = "BETWEEN_GAMES_USERS"
 
 # Newest analysed games read for the opening habits, traps and progress.
@@ -745,6 +746,8 @@ def build_file(
     deciding_rows: Sequence[Mapping[str, Any]] = (),
     moments_fn: Optional[Callable[[Dict[str, Any], Dict[str, Dict[str, Any]]], List[Dict[str, Any]]]] = None,
     now: Optional[datetime] = None,
+    skipped: Sequence[Mapping[str, Any]] = (),
+    slips_per_game: Optional[Mapping[str, Tuple[int, int]]] = None,
 ) -> Dict[str, Any]:
     """Pure: everything is read by the caller. `moments_fn(habit, games_by_id)`
     builds the habit's board moments with the engine (None in tests)."""
@@ -806,6 +809,11 @@ def build_file(
         "plan": plan,
         "play_positions": play_positions(openings, last, habit),
         "sitting": sitting,
+        "behaviour": pa.behaviour_line(analysed[0] if analysed else None, last_rows),
+        "clock_advice": pa.clock_advice(
+            pa.clock_rows(games_newest_first, skipped),
+            pa.slips_from(slips_per_game) if slips_per_game is not None else None,
+        ),
         "source": {
             "games": len(games_newest_first),
             "analysed_games_read": len(analyses),
@@ -858,7 +866,9 @@ def _last_rows_pipeline(game_id: str) -> List[Dict[str, Any]]:
             "input": {"$ifNull": ["$stockfish_analysis.move_evaluations", []]},
             "as": "m",
             "in": {"fen_before": "$$m.fen_before", "move": "$$m.move", "cp_loss": "$$m.cp_loss",
-                   "is_opponent_move": "$$m.is_opponent_move", "best_move": "$$m.best_move"},
+                   "is_opponent_move": "$$m.is_opponent_move", "best_move": "$$m.best_move",
+                   "eval_before": "$$m.eval_before", "evaluation": "$$m.evaluation",
+                   "move_number": "$$m.move_number"},
         }}}},
     ]
 
@@ -923,6 +933,21 @@ def _store_fields(doc: Mapping[str, Any]) -> Dict[str, Any]:
     return dict(doc)
 
 
+_SKIPPED_FIELDS = {"_id": 0, "base_seconds": 1, "increment_seconds": 1, "result": 1, "ending": 1,
+                   "rated": 1, "played_at_utc": 1}
+_SLIP_FIELDS = {"_id": 0, "game_id": 1, "cp_loss": 1, "eval_before": 1}
+
+
+def _slips_per_game(observations: Iterable[Mapping[str, Any]]) -> Dict[str, Tuple[int, int]]:
+    out: Dict[str, List[int]] = {}
+    for o in observations:
+        row = out.setdefault(o["game_id"], [0, 0])
+        row[1] += 1
+        if pa.is_slip(o.get("cp_loss"), o.get("eval_before")):
+            row[0] += 1
+    return {gid: (s, m) for gid, (s, m) in out.items()}
+
+
 def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
     games = list(db.games.find({"user_id": user_id}, _GAME_FIELDS)
                  .sort("played_at_utc", -1).limit(SITTING_GAMES_READ))
@@ -944,7 +969,13 @@ def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
         {"game_id": {"$in": [g["game_id"] for g in games if g.get("is_analyzed")]}, "trap_fires.0": {"$exists": True}},
         {"_id": 0, "game_id": 1, "trap_fires": 1})))
     deciding_rows = list(db.game_analyses.aggregate(_deciding_pipeline(analysed_ids[:pch.HABIT_GAMES]))) if analysed_ids else []
-    doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, deciding_rows, engine_moments)
+    skipped = list(db.skipped_game_records.find({"user_id": user_id}, _SKIPPED_FIELDS))
+    # Mistake rates are read only when a clock already passed the first two gates.
+    check_ids = pa.ids_for_mistake_check(pa.clock_rows(dedupe_games(games), skipped))
+    slips = _slips_per_game(db.move_observations.find(
+        {"user_id": user_id, "game_id": {"$in": check_ids}}, _SLIP_FIELDS)) if check_ids else None
+    doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, deciding_rows, engine_moments,
+                     skipped=skipped, slips_per_game=slips)
     from services import player_plan_week as ppw
     row = ppw.ensure_week_sync(db, user_id, week_start(), doc.get("plan"), games,
                                {a["game_id"]: a.get("rows") or [] for a in analyses}, observations,
@@ -982,9 +1013,13 @@ async def build_and_store(db, user_id: str) -> Dict[str, Any]:
         {"_id": 0, "game_id": 1, "trap_fires": 1}).to_list(None))
     deciding_rows = (await db.game_analyses.aggregate(_deciding_pipeline(analysed_ids[:pch.HABIT_GAMES])).to_list(None)
                      if analysed_ids else [])
+    skipped = await db.skipped_game_records.find({"user_id": user_id}, _SKIPPED_FIELDS).to_list(None)
+    check_ids = pa.ids_for_mistake_check(pa.clock_rows(dedupe_games(games), skipped))
+    slips = _slips_per_game(await db.move_observations.find(
+        {"user_id": user_id, "game_id": {"$in": check_ids}}, _SLIP_FIELDS).to_list(None)) if check_ids else None
     # The build may run the engine: keep it off the event loop.
     doc = await asyncio.to_thread(build_file, user_id, games, analyses, observations, last_rows,
-                                  previous, fires, deciding_rows, engine_moments)
+                                  previous, fires, deciding_rows, engine_moments, None, skipped, slips)
     from services import player_plan_week as ppw
     row = await ppw.ensure_week(db, user_id, week_start(), doc.get("plan"), games,
                                 {a["game_id"]: a.get("rows") or [] for a in analyses}, observations,
@@ -1086,5 +1121,7 @@ def payload(doc: Optional[Mapping[str, Any]], recent: Sequence[Mapping[str, Any]
         "play_positions": list(doc.get("play_positions") or []),
         "sitting": sitting_now(doc.get("sitting") or {}, recent, now=now),
         "sitting_measured": (doc.get("sitting") or {}).get("measured"),
+        "behaviour": doc.get("behaviour"),
+        "clock_advice": doc.get("clock_advice"),
         "source": doc.get("source"),
     }
