@@ -333,3 +333,32 @@ Next rule to measure, from the grader's method: the punishment must not exist
 before the offer (the same line fails from the position before it), and
 taking must be worse than the best move that does not take. Graded again on a
 fresh held-out set before anything ships.
+
+Measured on the 45 graded positions: "not already lost before the offer"
+56% precision, "the punishment is not the pass threat" 71%, both 63%. Rules
+plateau at 70-87%; the trap/slip line is a judgement about intent.
+
+### 8b. The board judge (Mohit: "do what you recommend")
+
+The finder proposes; a board judge decides (`services/trap_judge.py`): Claude
+Code headless with the why queue's two engine tools (Stockfish lines, board
+text), the graders' definition and method, a JSON verdict. A second model
+checks every TRAP independently (the why-queue writer/checker pattern). Gold
+set: `docs/qa/trap_judge_calibration_2026_11_17.json`, 59 positions labelled by
+the two independent graders. Runner: `scripts/trap_judge_calibrate.py`.
+
+| Gate | Traps called | Label TRAP | Precision | Recall |
+|---|---|---|---|---|
+| Opus 5.5 judge | 29 | 23 | 79% | 85% (23/27) |
+| Opus judge + Fable 5.1 checker, both TRAP | 28 | 23 | 82% | 85% |
+| the finder's candidates, both TRAP | 26 | 23 | 88% | |
+
+Cost: Opus $0.08 a case, Fable $0.54 a case (both with tools).
+
+The labels are one grader's judgement per case. Fable agreed with Opus on 28
+of 29, including all five "false" traps; read on the board, A3-28 (Nc7+
+deflects the rook guarding d7; the definition allows unsound bait) is a trap,
+A3-9 is mainly the opponent's slip (Ra8 traps their queen), A3-20 borderline.
+With A3-28 counted, 24 of 26 (92%), but that grading is by the finder's
+author. Before Home: a live 30 from the full pipeline (finder, judge,
+checker), graded by someone other than its author.
