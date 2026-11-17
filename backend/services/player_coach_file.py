@@ -735,6 +735,26 @@ def deciding_moves(rows: Sequence[Mapping[str, Any]], games: Mapping[str, Mappin
     return out
 
 
+def coach_lines(
+    games_newest_first: Sequence[Mapping[str, Any]],
+    last_rows: Sequence[Mapping[str, Any]] = (),
+    skipped: Sequence[Mapping[str, Any]] = (),
+    slips_per_game: Optional[Mapping[str, Tuple[int, int]]] = None,
+) -> Dict[str, Any]:
+    """How he played as a person in his last analysed game, and which clock to
+    play (docs/home_behaviour_and_clock_scope.md). The one function behind both
+    the player file and the Home of every other player (home_lines)."""
+    games = dedupe_games(games_newest_first)
+    analysed = [g for g in games if g.get("is_analyzed")]
+    return {
+        "behaviour": pa.behaviour_line(analysed[0] if analysed else None, last_rows),
+        "clock_advice": pa.clock_advice(
+            pa.clock_rows(games, skipped),
+            pa.slips_from(slips_per_game) if slips_per_game is not None else None,
+        ),
+    }
+
+
 def build_file(
     user_id: str,
     games_newest_first: Sequence[Mapping[str, Any]],
@@ -809,11 +829,7 @@ def build_file(
         "plan": plan,
         "play_positions": play_positions(openings, last, habit),
         "sitting": sitting,
-        "behaviour": pa.behaviour_line(analysed[0] if analysed else None, last_rows),
-        "clock_advice": pa.clock_advice(
-            pa.clock_rows(games_newest_first, skipped),
-            pa.slips_from(slips_per_game) if slips_per_game is not None else None,
-        ),
+        **coach_lines(games_newest_first, last_rows, skipped, slips_per_game),
         "source": {
             "games": len(games_newest_first),
             "analysed_games_read": len(analyses),
@@ -1028,6 +1044,47 @@ async def build_and_store(db, user_id: str) -> Dict[str, Any]:
         doc["plan"] = ppw.apply_week(doc.get("plan"), row)
     await db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
     return doc
+
+
+# The two Home lines for a player without the coach pages. Building his whole
+# file would also lock a plan week he never sees (player_plan_weeks), so only
+# the reads the two lines need run, and the answer is kept until his games change.
+LINES_COLLECTION = "home_coach_lines"
+_LINE_GAME_FIELDS = {"_id": 0, "game_id": 1, "played_at_utc": 1, "result": 1, "user_color": 1,
+                     "is_analyzed": 1, "pgn": 1, "platform": 1, "platform_game_id": 1, "url": 1,
+                     "termination": 1, "game_outcome": 1}
+
+
+async def _lines_key(db, user_id: str) -> str:
+    """Changes when a game arrives, a game is analysed, or a skipped game is recorded."""
+    newest = await db.games.find_one({"user_id": user_id}, {"_id": 0, "game_id": 1}, sort=[("played_at_utc", -1)])
+    analysed = await db.games.count_documents({"user_id": user_id, "is_analyzed": True})
+    skipped = await db.skipped_game_records.count_documents({"user_id": user_id})
+    return f"{SCHEMA_VERSION}|{(newest or {}).get('game_id') or ''}|{analysed}|{skipped}"
+
+
+async def home_lines(db, user_id: str) -> Dict[str, Any]:
+    key = await _lines_key(db, user_id)
+    cached = await db[LINES_COLLECTION].find_one({"user_id": user_id}, {"_id": 0})
+    if cached and cached.get("key") == key:
+        return {"behaviour": cached.get("behaviour"), "clock_advice": cached.get("clock_advice")}
+    games = dedupe_games(await (db.games.find({"user_id": user_id}, _LINE_GAME_FIELDS)
+                                .sort("played_at_utc", -1).limit(SITTING_GAMES_READ).to_list(None)))
+    analysed = [g for g in games if g.get("is_analyzed")]
+    last_rows: List[Dict[str, Any]] = []
+    if analysed:
+        found = await db.game_analyses.aggregate(_last_rows_pipeline(analysed[0]["game_id"])).to_list(1)
+        last_rows = (found[0].get("rows") if found else None) or []
+    skipped = await db.skipped_game_records.find({"user_id": user_id}, _SKIPPED_FIELDS).to_list(None)
+    check_ids = pa.ids_for_mistake_check(pa.clock_rows(games, skipped))
+    slips = _slips_per_game(await db.move_observations.find(
+        {"user_id": user_id, "game_id": {"$in": check_ids}}, _SLIP_FIELDS).to_list(None)) if check_ids else None
+    lines = coach_lines(games, last_rows, skipped, slips)
+    await db[LINES_COLLECTION].update_one(
+        {"user_id": user_id},
+        {"$set": {"user_id": user_id, "key": key, "built_at": datetime.now(timezone.utc), **lines}},
+        upsert=True)
+    return lines
 
 
 def refresh_if_present_sync(db, user_id: str) -> bool:

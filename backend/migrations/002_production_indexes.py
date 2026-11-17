@@ -118,6 +118,8 @@ INDEXES = [
     ("player_coach_files", [("user_id", 1)], "pcf_user_id", {"unique": True}),
     ("plan_activity", [("user_id", 1), ("week_start", 1)], "pa_user_week", {}),
     ("player_plan_weeks", [("user_id", 1), ("week_start", 1)], "ppw_user_week", {"unique": True}),
+    # 2026-11-17, the two Home lines for every player (docs/home_behaviour_and_clock_scope.md).
+    ("home_coach_lines", [("user_id", 1)], "hcl_user_id", {"unique": True}),
     # Academy children sign in with a username the coach sets; only they have one.
     ("users", [("username", 1)], "users_username", {"unique": True, "sparse": True}),
 ]

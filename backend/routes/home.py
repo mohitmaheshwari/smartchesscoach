@@ -491,6 +491,20 @@ async def post_coach_file_activity(body: Dict[str, Any], request: Request, user:
     return {"ok": True}
 
 
+@router.get("/home/coach-lines")
+async def get_home_coach_lines(user: User = Depends(get_current_user)):
+    """How he played as a person in his last game, and which clock to play,
+    for every player's Home (docs/home_behaviour_and_clock_scope.md). Players
+    with the coach pages read the same two lines from /coach-file."""
+    from services import player_coach_file as pcf
+
+    try:
+        return await pcf.home_lines(db, user.user_id)
+    except Exception:
+        logger.exception("home coach lines failed for %s", user.user_id)
+        return {"behaviour": None, "clock_advice": None}
+
+
 @router.get("/home/between-games")
 async def get_between_games(request: Request, user: User = Depends(get_current_user)):
     """The Home panel. Same payload as /coach-file (one source)."""

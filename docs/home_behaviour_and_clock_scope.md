@@ -92,3 +92,24 @@ Behaviour lines (one at most, from the newest analysed game):
 - Behaviour on every player's last analysed game: no line 45, chain 19,
   winning and chain 10, winning and clock 3, winning 2. A line on 34 of 79
   last games: frequent enough to matter, not on every game.
+
+## 7. Every player's Home (Mohit, 2026-11-17: "can you do it for all users home page?")
+
+- The two lines now show on the normal Home too, under the last game, in a
+  "Before your next game" panel (`HomeCoachLines`, `GET /api/home/coach-lines`).
+  Coach-pages players keep reading them from the player file; nothing changes
+  for them.
+- One function makes both: `player_coach_file.coach_lines`. The player file
+  calls it; so does `home_lines`, which reads only what the two lines need.
+- Not the whole player file for everyone: building it also locks a plan week
+  (`player_plan_weeks`) the player never sees, so a later plan would start
+  with a week he was never shown.
+- Kept in `home_coach_lines` per player and rebuilt only when his newest game,
+  his analysed-game count or his skipped-game count changes.
+- Dry run before deploy, read-only, all 79 players with games: clock advice 7,
+  behaviour line 36 (chain 19, winning and chain 12, winning and clock 3,
+  winning 2). The 8 players with a current player file got identical lines from
+  both paths. First build per player: median 0.06 s, slowest 4 s; later loads
+  read the stored answer.
+- Not shown on the CurriculumHome branch (admins without the coach pages while
+  PERSONAL_CURRICULUM_ENABLED is on).

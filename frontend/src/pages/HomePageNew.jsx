@@ -19,6 +19,7 @@ import { pageEnter, staggerContainer, staggerItem, fadeInUp, scaleIn } from "@/l
 import Layout from "@/components/Layout";
 import LastGameCard from "@/components/Home/LastGameCard";
 import BetweenGamesPanel from "@/components/Home/BetweenGamesPanel";
+import HomeCoachLines from "@/components/Home/HomeCoachLines";
 import CoachPlanCard from "@/components/Home/CoachPlanCard";
 import PreparedFocus from "@/components/Home/PreparedFocus";
 import HomeLoadingSkeleton from "@/components/HomeLoadingSkeleton";
@@ -466,7 +467,11 @@ export default function HomePageNew({ user }) {
           <motion.div variants={fadeInUp} className="mb-12 md:mb-16">
             <LastGameCard />
             {/* BetweenGamesPanel lives in the coach-pages branch above: the
-                server answers {enabled: false} for everyone else. */}
+                server answers {enabled: false} for everyone else. Its two
+                lines about the player himself reach everyone through
+                HomeCoachLines (docs/home_behaviour_and_clock_scope.md). */}
+            <HomeCoachLines />
+
           </motion.div>
 
           {/* ─── THE COACHING SESSION ───

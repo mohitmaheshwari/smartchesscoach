@@ -18,8 +18,9 @@ import { LastGameRepeat, PlayPositions, SittingNote } from "@/components/coachfi
 
 /* How he played as a person in the last game, and which clock to play
    (docs/home_behaviour_and_clock_scope.md). Each shows only when the server
-   found it true; the words come from services/play_advice.py. */
-function CoachLine({ testId, icon: Icon, label, line }) {
+   found it true; the words come from services/play_advice.py. Also used by
+   HomeCoachLines, the same two lines on every other player's Home. */
+export function CoachLine({ testId, icon: Icon, label, line }) {
   if (!line?.headline) return null;
   return (
     <div data-testid={testId} className="flex items-start gap-3 rounded-card border border-border/70 bg-muted/30 p-4">
