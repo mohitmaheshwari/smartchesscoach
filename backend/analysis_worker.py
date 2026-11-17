@@ -2541,6 +2541,20 @@ def _process_job(db, job):
                 evidence_err,
             )
 
+        # Similar moments (docs/similar_moments_scope.md): tag the tempting
+        # dangerous moments this player handled soundly, so a weaker player's
+        # mistake can be shown next to a stronger player's same kind of moment.
+        # Worker only (Maia runs here, never in the backend); non-fatal.
+        if obs_list:
+            try:
+                from services.similar_moments import tag_game_moments_sync
+
+                tagged = tag_game_moments_sync(db, game, obs_list)
+                if tagged:
+                    logger.info("[SIMILAR-MOMENTS] stored %s moments for %s", tagged, game_id)
+            except Exception as similar_err:
+                logger.warning("[SIMILAR-MOMENTS] tagging failed (non-fatal): %s", similar_err)
+
         # =========================================================================
         # GAME STORY (2026-10-21) — what this game left the player
         #

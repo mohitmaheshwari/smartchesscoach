@@ -15,6 +15,7 @@ This is a large module - ~60 endpoints covering all training features.
 
 from fastapi import APIRouter, HTTPException, Depends, Body
 from pydantic import BaseModel
+from datetime import datetime, timezone
 from typing import Optional, List, Dict
 import logging
 import os
@@ -1048,6 +1049,51 @@ async def landing_check_endpoint(
         except Exception as log_err:
             logger.warning(f"landing check not logged (non-fatal): {log_err}")
     return result
+
+
+@router.post("/similar-moment")
+async def similar_moment_endpoint(
+    request: Dict = Body(...),
+    user: User = Depends(get_current_user),
+):
+    """How a stronger player handled the same kind of moment, how the coach
+    wants you to think there, and the same mistake from the other side.
+
+    Body: puzzle_id. Position and game move come from the stored puzzle.
+    Reads the index only; Maia never runs here. docs/similar_moments_scope.md.
+    """
+    from services.move_observation_deriver import _classify_phase
+    from services.rating_resolver import get_coaching_rating
+    from services.similar_moments import find_similar, landing_signature, other_side_puzzle, thinking_words
+    from services.verified_puzzle_runtime import resolve_verified_puzzle
+
+    puzzle_id = (request.get("puzzle_id") or "").strip()
+    if not puzzle_id:
+        raise HTTPException(status_code=400, detail="puzzle_id is required")
+    puzzle = await resolve_verified_puzzle(db, puzzle_id, user_id=user.user_id)
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="puzzle is not ready for training")
+    fen = puzzle.get("fen")
+    played = (puzzle.get("verified_admission") or {}).get("played_move_uci") or puzzle.get("your_move_uci")
+    sig = landing_signature(fen, played) if fen and played else None
+    if not sig:
+        return {"available": False}
+    rating = await get_coaching_rating(db, user.user_id)
+    move_number = puzzle.get("move_number")
+    phase = _classify_phase(int(move_number)) if move_number else None
+    stronger = await find_similar(db, user_id=user.user_id, fen=fen, played_uci=played, rating=rating, phase=phase)
+    other = None
+    try:
+        other = await other_side_puzzle(db, piece=sig["piece"], kind=sig["kind"], rating=rating)
+    except Exception as err:
+        logger.debug(f"other-side puzzle skipped: {err}")
+    return {
+        "available": bool(stronger or other),
+        "yours": {"san": sig["san"], "piece": sig["piece"], "square": sig["square"], "taker": sig["taker"]},
+        "stronger": stronger,
+        "thinking": thinking_words(fen, played),
+        "other_side": other,
+    }
 
 
 @router.post("/reveal-puzzle")

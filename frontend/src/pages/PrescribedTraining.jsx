@@ -23,6 +23,7 @@ import TimeProfilePanel from "@/components/training/TimeProfilePanel";
 import {
   WeekStrip, SessionPath, LandingCheck, CoachWatching, CoachSteppedIn, whatISaw,
 } from "@/components/training/CoachEye";
+import SimilarMoment from "@/components/training/SimilarMoment";
 import useMoveCaption from "@/hooks/useMoveCaption";
 import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
 import { Chess } from "chess.js";
@@ -1288,6 +1289,13 @@ export default function PrescribedTraining({ user = null }) {
             )}
           </div>
         </div>
+
+        {/* Similar moments (docs/similar_moments_scope.md): after a
+            landing-square drill is done, a stronger player's same kind of
+            moment, the coach's three looks, and the other side. */}
+        {currentPuzzle?.coaching?.landing_check && doneStates.includes(puzzleState) && (
+          <SimilarMoment puzzleId={currentPuzzleKey} />
+        )}
       </div>
     </div>
   );
