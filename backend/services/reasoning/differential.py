@@ -950,6 +950,24 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
             result["line_san"] = line
             result["arrows"] = _arrows(fen_before, line, limit=min(3, len(line)))
             return True
+        # THE OPPORTUNITY BEHIND THE BETTER MOVE: the mirror of the threat
+        # line. In the missed family, when the better move is quiet, ask
+        # Stockfish what it threatens (the opponent passes) and keep it when
+        # the same move does not work after the played move. Before this the
+        # button fell back to the punish side, which the engine says carries
+        # the smaller part of the gap (11 of 32 in the 2026-11-16 sample).
+        if result["family"] == "missed" and result["class"] in ("mistake", "blunder"):
+            from .opportunity_line import opportunity_line
+            ol = opportunity_line(session, root, played, alternative, depth=depth,
+                                  mover_is_user=mover_is_user, alt_cp=alt_cp, played_cp=played_cp)
+            result["opportunity_line"] = {k: v for k, v in ol.items() if k != "answer"}
+            if ol["fires"]:
+                answer = ol["answer"]
+                result.update(found=True, direction="missed", mechanism=answer["consequence"]["mechanism"],
+                              text=answer["text"], consequence=answer["consequence"])
+                result["line_san"] = [alt_san]
+                result["arrows"] = _arrows(fen_before, [alt_san], limit=1)
+                return True
         return False
 
     # CHECK FIRST runs before the material answers. When both moves take the
@@ -1101,6 +1119,14 @@ def build_facts(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     else:
         facts["this_happens_after_the_move_played"] = False
         facts["the_move_that_does_it"] = result.get("better_move")
+        if consequence is not None and consequence.get("threat_move"):
+            # The opportunity line: the better move does not take anything
+            # itself; it threatens the next move. Without these the words
+            # could say "Rad8 wins their knight", which the line does not show.
+            from services.why_words import _RELATION
+            facts["what_the_better_move_threatens"] = result.get("text")
+            facts["the_threatened_move"] = consequence["threat_move"]
+            facts["relation"] = _RELATION["OPPORTUNITY"]
     if consequence is not None:
         from services.punishment_resolver import victim_owner
         from services.why_words import _RELATION, _owned

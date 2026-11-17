@@ -133,6 +133,12 @@ _RELATION: Dict[str, str] = {
     # the reply threatens to do next, from Stockfish's line when the mover
     # passes; the same move does not work after the better move.
     "THREAT": "the reply threatens a next move that wins material or mates, and after the better move it does not",
+    # The opportunity line (services/reasoning/opportunity_line.py,
+    # 2026-11-17): the mirror on the missed side. What the better move
+    # threatens to do next, from Stockfish's line when the opponent passes;
+    # the same move does not work after the move played.
+    "OPPORTUNITY": ("the better move threatens a next move that wins material or mates, "
+                    "and after the move played it does not"),
     # The tempo family (services/reasoning/tempo.py, 2026-11-02): no material
     # separates the lines; the better move brings a piece out, frees one or
     # steps out of a pawn's way, and the played move does none of those.
@@ -176,6 +182,7 @@ _CONVEYS: Dict[str, str] = {
     "ATTACKS": r"\battack|\bhits?\b|\bhitting\b|\bthreat|\baims?\b|\btargets?\b",
     "UNCOVERS_ATTACK": r"\bopen|\bline\b|\bthrough\b|\buncover|\bdiscover|\bclear",
     "THREAT": r"\bthreat|\bnext\b|\bcoming\b|\bplans?\b|\bwants? to\b|\bready to\b",
+    "OPPORTUNITY": r"\bthreat|\bnext\b|\bcoming\b|\bplans?\b|\bwants? to\b|\bready to\b",
     "TEMPO": (r"\bbring|\bbrought\b|\bout\b|\bdevelop|\btime\b|\btempo|\bslow|\bwast|\bbehind\b"
               r"|\bstuck\b|\bcan(?:not|'t) move\b|\bfree|\bin (?:the|its|their|your) way\b|\bway\b"
               r"|\bcastl|\bhome\b|\bpiece out\b"),
