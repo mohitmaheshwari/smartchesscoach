@@ -1160,6 +1160,19 @@ def _parse_pgn_date(pgn: str) -> Optional[str]:
         return None
 
 
+async def _record_skipped(db, user_id: str, games: List[Dict], platform: str, username: str) -> None:
+    """Keep a result record of every game the import skips (bullet, casual,
+    very short) in services/skipped_games.COLLECTION, never in `games`. Never
+    fails the sync."""
+    try:
+        from services.skipped_games import store_skipped_games
+        n = await store_skipped_games(db, user_id, games, platform, username, should_analyze_game)
+        if n:
+            logger.info(f"Recorded {n} skipped {platform} games for {user_id}")
+    except Exception as e:
+        logger.warning(f"skipped-game records not stored for {user_id} ({platform}): {e}")
+
+
 async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
     """
     Sync and auto-analyze games for a single user.
@@ -1227,6 +1240,7 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
         for g in eligible:
             games_to_analyze.append({"game": g, "platform": "chess.com", "username": chesscom_username})
         logger.info(f"Found {len(chesscom_games)} Chess.com games, {len(eligible)} eligible to import")
+        await _record_skipped(db, user_id, chesscom_games, "chess.com", chesscom_username)
 
     if lichess_username:
         lichess_games = await fetch_recent_lichess_games(lichess_username, platform_since["lichess"])
@@ -1237,6 +1251,7 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
         for g in eligible:
             games_to_analyze.append({"game": g, "platform": "lichess", "username": lichess_username})
         logger.info(f"Found {len(lichess_games)} Lichess games, {len(eligible)} eligible to import")
+        await _record_skipped(db, user_id, lichess_games, "lichess", lichess_username)
 
     # Newest first across both platforms, so the analysis budget below spends
     # itself on the games the player just finished rather than the oldest ones
