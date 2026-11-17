@@ -30,11 +30,15 @@ def main(argv):
     db = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
     db.similar_moments.create_index([("key", 1), ("rating", -1), ("temptation", -1)])
     children = excluded_users(db)
-    games = db.games.find(
+    # Read the whole list first: tagging takes seconds a game, and a cursor
+    # held open across that dies (CursorNotFound killed the first run,
+    # 2026-11-17, after 112 games).
+    games = list(db.games.find(
         {"is_analyzed": True, "platform": {"$in": list(PUBLIC_PLATFORMS)}, "user_rating": {"$gt": 0},
          "similar_moments_version": {"$ne": VERSION}, "user_id": {"$nin": list(children)}},
         {"_id": 0, "game_id": 1, "user_id": 1, "platform": 1, "user_rating": 1},
-    ).sort("user_rating", -1)
+    ).sort("user_rating", -1))
+    print(f"games to tag {len(games)}", flush=True)
     done = stored = 0
     t0 = time.time()
     for game in games:

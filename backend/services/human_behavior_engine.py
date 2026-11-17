@@ -203,6 +203,29 @@ class OtterProvider(HumanBehaviorProvider):
         return MoveDistribution(self.name, self.version, probs)
 
 
+def cpu_quota_threads(root: str = "/sys/fs/cgroup") -> Optional[int]:
+    """Whole CPUs this container may use (cgroup quota), or None when uncapped.
+
+    torch starts one thread per host core. Under a `cpus: "1"` cap (the
+    analysis workers, research containers) four threads share one CPU's quota
+    and throttle each other: measured 2026-11-17 on prod, Maia took 2.8 s a
+    position with 4 threads and 0.11 s with 1, same probabilities.
+    """
+    try:
+        quota, period = Path(root, "cpu.max").read_text().split()[:2]
+        if quota == "max":
+            return None
+        return max(1, int(int(quota) // int(period)))
+    except (OSError, ValueError):
+        pass
+    try:
+        quota = int(Path(root, "cpu", "cpu.cfs_quota_us").read_text())
+        period = int(Path(root, "cpu", "cpu.cfs_period_us").read_text())
+        return max(1, quota // period) if quota > 0 else None
+    except (OSError, ValueError):
+        return None
+
+
 class Maia2Provider(HumanBehaviorProvider):
     """Maia-2 (MIT). Position + both Elos; no history or clock conditioning."""
 
@@ -239,6 +262,10 @@ class Maia2Provider(HumanBehaviorProvider):
     def _load(self):
         if self._model is None:
             from maia2 import model as maia_model, inference
+            import torch
+            cap = cpu_quota_threads()
+            if cap and torch.get_num_threads() > cap:
+                torch.set_num_threads(cap)
             if not self._model_path:
                 raise RuntimeError("MAIA2_MODEL_PATH is required for governed runtime inference")
             model_path = Path(self._model_path).resolve()
