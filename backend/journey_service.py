@@ -1160,6 +1160,213 @@ def _parse_pgn_date(pgn: str) -> Optional[str]:
         return None
 
 
+async def import_one_game(db, user_id: str, game_data: Dict, platform: str, username: str) -> Optional[Dict]:
+    """Insert one platform game into `games` exactly as the sync does.
+
+    Returns the stored game_doc, or None when there is no PGN, the game is
+    already held, or a concurrent sync inserted it first. Extracted
+    verbatim from sync_user_games (2026-11-17) so the history backfill
+    (scripts/backfill_game_history.py) imports through the same path.
+    """
+    import uuid
+
+    
+    # Generate unique identifier based on game URL
+    if platform == "chess.com":
+        game_url = game_data.get("url", "")
+        pgn = extract_pgn_from_chesscom_game(game_data, username)
+    else:
+        game_id = game_data.get("id", "")
+        game_url = f"https://lichess.org/{game_id}"
+        pgn = extract_pgn_from_lichess_game(game_data, username)
+    
+    if not pgn:
+        logger.warning(f"No PGN found for game from {platform}")
+        return None
+    
+    # Already imported? Ask the platform's own id first, then fall
+    # back to the derived url/pgn clauses so rows written before
+    # platform_game_id existed are still recognised.
+    platform_game_id = extract_platform_game_id(game_data, platform)
+    identity_clauses: List[Dict[str, Any]] = []
+    if platform_game_id:
+        identity_clauses.append({
+            "user_id": user_id,
+            "platform": platform,
+            "platform_game_id": platform_game_id,
+        })
+    identity_clauses.append({"url": game_url, "user_id": user_id})
+    identity_clauses.append({"pgn": pgn, "user_id": user_id})
+
+    existing = await db.games.find_one({"$or": identity_clauses})
+    if existing:
+        # Stamp the id onto a legacy row the first time we recognise
+        # it, so the collection converges on the platform identity
+        # without a migration having to reach every document.
+        if platform_game_id and not existing.get("platform_game_id"):
+            await db.games.update_one(
+                {"game_id": existing.get("game_id")},
+                {"$set": {"platform_game_id": platform_game_id}},
+            )
+        return None
+
+    # Determine user's color
+    user_color = determine_user_color(game_data, platform, username)
+    
+    # Create game record
+    game_doc = {
+        "game_id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "platform": platform,
+        "username": username,
+        "pgn": pgn,
+        "url": game_url,
+        "user_color": user_color,
+        "imported_at": datetime.now(timezone.utc).isoformat(),
+        "auto_synced": True  # Mark as auto-synced
+    }
+
+    # Only ever set when we actually have one. The unique index is
+    # partial on {"$exists": True}, and a null would count as a value,
+    # so writing null here would make the second id-less game collide
+    # with the first.
+    if platform_game_id:
+        game_doc["platform_game_id"] = platform_game_id
+
+    # Extract player names
+    if platform == "chess.com":
+        white_player = game_data.get("white", {}).get("username", "")
+        black_player = game_data.get("black", {}).get("username", "")
+    else:  # lichess
+        white_player = game_data.get("players", {}).get("white", {}).get("user", {}).get("name", "")
+        black_player = game_data.get("players", {}).get("black", {}).get("user", {}).get("name", "")
+    
+    game_doc["white_player"] = white_player
+    game_doc["black_player"] = black_player
+    
+    # Also store opponent_name for convenience
+    if user_color == "white":
+        game_doc["opponent_name"] = black_player or "Opponent"
+    else:
+        game_doc["opponent_name"] = white_player or "Opponent"
+
+    # Canonical name fields (2026-06-06). Some surfaces read
+    # g.opponent / g.white / g.black (Dashboard.jsx 505/586/978,
+    # LabV2 nextGame) which were never populated — only the
+    # *_player / *_name variants were — so those rendered blank.
+    # Populate the canonical fields too so every consumer works
+    # regardless of which name it reads. (PROGRESS_BACKLOG #4)
+    game_doc["opponent"] = game_doc["opponent_name"]
+    game_doc["white"] = white_player
+    game_doc["black"] = black_player
+
+    # Persist authoritative game-time ratings at ingestion. Never use
+    # the product's 1200 coaching fallback as corpus provenance.
+    if platform == "chess.com":
+        white_rating = (game_data.get("white") or {}).get("rating")
+        black_rating = (game_data.get("black") or {}).get("rating")
+    else:
+        players = game_data.get("players") or {}
+        white_rating = (players.get("white") or {}).get("rating")
+        black_rating = (players.get("black") or {}).get("rating")
+    if isinstance(white_rating, (int, float)) and white_rating > 0:
+        game_doc["white_rating"] = int(white_rating)
+    if isinstance(black_rating, (int, float)) and black_rating > 0:
+        game_doc["black_rating"] = int(black_rating)
+
+    from services.rating_resolver import resolve_game_user_rating
+    rating_result = resolve_game_user_rating(game_doc)
+    if rating_result["rating"] is not None:
+        game_doc["user_rating"] = rating_result["rating"]
+        game_doc["user_rating_source"] = rating_result["source"]
+
+    # date_played — parse PGN [UTCDate]/[Date] "YYYY.MM.DD" (+ [UTCTime]
+    # if present). Was never populated, so date sorting/labels had
+    # nothing to use. Prefer UTCDate; store ISO8601 UTC.
+    game_doc["date_played"] = _parse_pgn_date(pgn)
+
+    # played_at_utc — the TYPED instant, and the only date field any
+    # measurement reads. `date_played` above stays exactly as it is:
+    # it is a string in three shapes, and ASCII "." sorts above "-",
+    # so comparing it puts every chess.com dotted date after every ISO
+    # timestamp whatever day it names. That put 407 games on the wrong
+    # side of 15 focus windows.
+    #
+    # Written here because nothing in the product wrote it before --
+    # only scripts/backfill_played_at_utc.py did, over history. So
+    # every game imported after a migration run had no typed date, and
+    # measurement silently skipped it: 1,553 of 17,804 games on
+    # 2026-09-26, all imported that month. A migration that has to be
+    # re-run after every import is not a migration.
+    #
+    # services/played_at.derive is the same function the backfill uses,
+    # not a copy of its rules. It returns nothing rather than inventing
+    # an instant, so an unparseable game stores no date instead of a
+    # fabricated one.
+    from services.played_at import SRC_NONE, derive
+
+    played_at, played_at_source = derive(
+        dict(game_doc, pgn=pgn, platform=platform)
+    )
+    if played_at is not None and played_at_source != SRC_NONE:
+        game_doc["played_at_utc"] = played_at
+        game_doc["played_at_source"] = played_at_source
+        game_doc["played_at_raw"] = game_doc.get("date_played")
+
+    # Extract additional metadata
+    if platform == "chess.com":
+        game_doc["time_control"] = game_data.get("time_class", "")
+        game_doc["result"] = game_data.get("pgn", "").split("[Result ")[1].split("]")[0].strip('"') if "[Result " in game_data.get("pgn", "") else ""
+        # Extract termination from Chess.com API
+        game_doc["termination"] = _extract_chesscom_termination(game_data, game_doc.get("user_color", "white"))
+    else:
+        game_doc["time_control"] = game_data.get("speed", "")
+        # Parse PGN [Result "..."] so we store the canonical
+        # "1-0"/"0-1"/"1/2-1/2" — the same thing chess.com does.
+        # Previously we stored game_data["status"] ("mate"/"resign"/
+        # "outoftime"), which broke every downstream W/L/D derivation
+        # since nothing else expects those values.
+        result_from_pgn = ""
+        if "[Result " in pgn:
+            try:
+                result_from_pgn = pgn.split("[Result ")[1].split("]")[0].strip('"')
+            except Exception:
+                result_from_pgn = ""
+        game_doc["result"] = result_from_pgn or game_data.get("status", "")
+        # Extract termination from Lichess API
+        game_doc["termination"] = _extract_lichess_termination(game_data)
+    
+    # Extract opening information from PGN
+    opening_info = extract_opening_from_pgn(pgn)
+    game_doc["eco"] = opening_info.get("eco")
+    game_doc["opening"] = opening_info.get("opening")
+    game_doc["opening_name"] = opening_info.get("opening_name")
+    game_doc["opening_url"] = opening_info.get("opening_url")
+    
+    if opening_info.get("opening"):
+        logger.info(f"Extracted opening: {opening_info.get('opening')} (ECO: {opening_info.get('eco')})")
+
+    # time_control_category / opponent_rating, written at import for
+    # the same reason as played_at_utc above: only a backfill wrote
+    # them, so every later import had neither.
+    from services.game_context_enricher import fill_missing_context
+    fill_missing_context(game_doc)
+
+    # The existence check above is check-then-act: two concurrent syncs
+    # both pass it before either insert lands. The unique index is what
+    # actually stops the duplicate, so a rejection here is the expected
+    # outcome of a race, not an error.
+    try:
+        await db.games.insert_one(game_doc)
+    except DuplicateKeyError:
+        logger.info(
+            f"Skipped duplicate {platform} game {platform_game_id} for {user_id} "
+            f"(already inserted by a concurrent sync)"
+        )
+        return None
+
+    return game_doc
+
 async def _record_skipped(db, user_id: str, games: List[Dict], platform: str, username: str) -> None:
     """Keep a result record of every game the import skips (bullet, casual,
     very short) in services/skipped_games.COLLECTION, never in `games`. Never
@@ -1264,206 +1471,12 @@ async def sync_user_games(db, user_id: str, user_doc: Dict) -> int:
     
     for _queue_index, item in enumerate(games_to_analyze):
         try:
-            game_data = item["game"]
-            platform = item["platform"]
-            username = item["username"]
-            
-            # Generate unique identifier based on game URL
-            if platform == "chess.com":
-                game_url = game_data.get("url", "")
-                pgn = extract_pgn_from_chesscom_game(game_data, username)
-            else:
-                game_id = game_data.get("id", "")
-                game_url = f"https://lichess.org/{game_id}"
-                pgn = extract_pgn_from_lichess_game(game_data, username)
-            
-            if not pgn:
-                logger.warning(f"No PGN found for game from {platform}")
-                continue
-            
-            # Already imported? Ask the platform's own id first, then fall
-            # back to the derived url/pgn clauses so rows written before
-            # platform_game_id existed are still recognised.
-            platform_game_id = extract_platform_game_id(game_data, platform)
-            identity_clauses: List[Dict[str, Any]] = []
-            if platform_game_id:
-                identity_clauses.append({
-                    "user_id": user_id,
-                    "platform": platform,
-                    "platform_game_id": platform_game_id,
-                })
-            identity_clauses.append({"url": game_url, "user_id": user_id})
-            identity_clauses.append({"pgn": pgn, "user_id": user_id})
-
-            existing = await db.games.find_one({"$or": identity_clauses})
-            if existing:
-                # Stamp the id onto a legacy row the first time we recognise
-                # it, so the collection converges on the platform identity
-                # without a migration having to reach every document.
-                if platform_game_id and not existing.get("platform_game_id"):
-                    await db.games.update_one(
-                        {"game_id": existing.get("game_id")},
-                        {"$set": {"platform_game_id": platform_game_id}},
-                    )
-                continue
-
-            # Determine user's color
-            user_color = determine_user_color(game_data, platform, username)
-            
-            # Create game record
-            game_doc = {
-                "game_id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "platform": platform,
-                "username": username,
-                "pgn": pgn,
-                "url": game_url,
-                "user_color": user_color,
-                "imported_at": datetime.now(timezone.utc).isoformat(),
-                "auto_synced": True  # Mark as auto-synced
-            }
-
-            # Only ever set when we actually have one. The unique index is
-            # partial on {"$exists": True}, and a null would count as a value,
-            # so writing null here would make the second id-less game collide
-            # with the first.
-            if platform_game_id:
-                game_doc["platform_game_id"] = platform_game_id
-
-            # Extract player names
-            if platform == "chess.com":
-                white_player = game_data.get("white", {}).get("username", "")
-                black_player = game_data.get("black", {}).get("username", "")
-            else:  # lichess
-                white_player = game_data.get("players", {}).get("white", {}).get("user", {}).get("name", "")
-                black_player = game_data.get("players", {}).get("black", {}).get("user", {}).get("name", "")
-            
-            game_doc["white_player"] = white_player
-            game_doc["black_player"] = black_player
-            
-            # Also store opponent_name for convenience
-            if user_color == "white":
-                game_doc["opponent_name"] = black_player or "Opponent"
-            else:
-                game_doc["opponent_name"] = white_player or "Opponent"
-
-            # Canonical name fields (2026-06-06). Some surfaces read
-            # g.opponent / g.white / g.black (Dashboard.jsx 505/586/978,
-            # LabV2 nextGame) which were never populated — only the
-            # *_player / *_name variants were — so those rendered blank.
-            # Populate the canonical fields too so every consumer works
-            # regardless of which name it reads. (PROGRESS_BACKLOG #4)
-            game_doc["opponent"] = game_doc["opponent_name"]
-            game_doc["white"] = white_player
-            game_doc["black"] = black_player
-
-            # Persist authoritative game-time ratings at ingestion. Never use
-            # the product's 1200 coaching fallback as corpus provenance.
-            if platform == "chess.com":
-                white_rating = (game_data.get("white") or {}).get("rating")
-                black_rating = (game_data.get("black") or {}).get("rating")
-            else:
-                players = game_data.get("players") or {}
-                white_rating = (players.get("white") or {}).get("rating")
-                black_rating = (players.get("black") or {}).get("rating")
-            if isinstance(white_rating, (int, float)) and white_rating > 0:
-                game_doc["white_rating"] = int(white_rating)
-            if isinstance(black_rating, (int, float)) and black_rating > 0:
-                game_doc["black_rating"] = int(black_rating)
-
-            from services.rating_resolver import resolve_game_user_rating
-            rating_result = resolve_game_user_rating(game_doc)
-            if rating_result["rating"] is not None:
-                game_doc["user_rating"] = rating_result["rating"]
-                game_doc["user_rating_source"] = rating_result["source"]
-
-            # date_played — parse PGN [UTCDate]/[Date] "YYYY.MM.DD" (+ [UTCTime]
-            # if present). Was never populated, so date sorting/labels had
-            # nothing to use. Prefer UTCDate; store ISO8601 UTC.
-            game_doc["date_played"] = _parse_pgn_date(pgn)
-
-            # played_at_utc — the TYPED instant, and the only date field any
-            # measurement reads. `date_played` above stays exactly as it is:
-            # it is a string in three shapes, and ASCII "." sorts above "-",
-            # so comparing it puts every chess.com dotted date after every ISO
-            # timestamp whatever day it names. That put 407 games on the wrong
-            # side of 15 focus windows.
-            #
-            # Written here because nothing in the product wrote it before --
-            # only scripts/backfill_played_at_utc.py did, over history. So
-            # every game imported after a migration run had no typed date, and
-            # measurement silently skipped it: 1,553 of 17,804 games on
-            # 2026-09-26, all imported that month. A migration that has to be
-            # re-run after every import is not a migration.
-            #
-            # services/played_at.derive is the same function the backfill uses,
-            # not a copy of its rules. It returns nothing rather than inventing
-            # an instant, so an unparseable game stores no date instead of a
-            # fabricated one.
-            from services.played_at import SRC_NONE, derive
-
-            played_at, played_at_source = derive(
-                dict(game_doc, pgn=pgn, platform=platform)
-            )
-            if played_at is not None and played_at_source != SRC_NONE:
-                game_doc["played_at_utc"] = played_at
-                game_doc["played_at_source"] = played_at_source
-                game_doc["played_at_raw"] = game_doc.get("date_played")
-
-            # Extract additional metadata
-            if platform == "chess.com":
-                game_doc["time_control"] = game_data.get("time_class", "")
-                game_doc["result"] = game_data.get("pgn", "").split("[Result ")[1].split("]")[0].strip('"') if "[Result " in game_data.get("pgn", "") else ""
-                # Extract termination from Chess.com API
-                game_doc["termination"] = _extract_chesscom_termination(game_data, game_doc.get("user_color", "white"))
-            else:
-                game_doc["time_control"] = game_data.get("speed", "")
-                # Parse PGN [Result "..."] so we store the canonical
-                # "1-0"/"0-1"/"1/2-1/2" — the same thing chess.com does.
-                # Previously we stored game_data["status"] ("mate"/"resign"/
-                # "outoftime"), which broke every downstream W/L/D derivation
-                # since nothing else expects those values.
-                result_from_pgn = ""
-                if "[Result " in pgn:
-                    try:
-                        result_from_pgn = pgn.split("[Result ")[1].split("]")[0].strip('"')
-                    except Exception:
-                        result_from_pgn = ""
-                game_doc["result"] = result_from_pgn or game_data.get("status", "")
-                # Extract termination from Lichess API
-                game_doc["termination"] = _extract_lichess_termination(game_data)
-            
-            # Extract opening information from PGN
-            opening_info = extract_opening_from_pgn(pgn)
-            game_doc["eco"] = opening_info.get("eco")
-            game_doc["opening"] = opening_info.get("opening")
-            game_doc["opening_name"] = opening_info.get("opening_name")
-            game_doc["opening_url"] = opening_info.get("opening_url")
-            
-            if opening_info.get("opening"):
-                logger.info(f"Extracted opening: {opening_info.get('opening')} (ECO: {opening_info.get('eco')})")
-
-            # time_control_category / opponent_rating, written at import for
-            # the same reason as played_at_utc above: only a backfill wrote
-            # them, so every later import had neither.
-            from services.game_context_enricher import fill_missing_context
-            fill_missing_context(game_doc)
-
-            # The existence check above is check-then-act: two concurrent syncs
-            # both pass it before either insert lands. The unique index is what
-            # actually stops the duplicate, so a rejection here is the expected
-            # outcome of a race, not an error.
-            try:
-                await db.games.insert_one(game_doc)
-            except DuplicateKeyError:
-                logger.info(
-                    f"Skipped duplicate {platform} game {platform_game_id} for {user_id} "
-                    f"(already inserted by a concurrent sync)"
-                )
+            game_doc = await import_one_game(db, user_id, item["game"], item["platform"], item["username"])
+            if game_doc is None:
                 continue
 
             imported_count += 1
-            logger.info(f"Auto-synced game {game_doc['game_id']} for user {user_id} from {platform}")
+            logger.info(f"Auto-synced game {game_doc['game_id']} for user {user_id} from {item['platform']}")
 
             # Analysis is capped; importing is not. Games past the budget are
             # stored and stay unanalysed, which a later sync or a manual
