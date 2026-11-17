@@ -82,7 +82,7 @@ def test_the_pool_keeps_out_coach_games_children_unsound_moves_and_weak_temptati
     assert sm.tag_game_moments_sync(DB(), _game(platform="coach"), _obs(), maia=tempt) == 0
     assert sm.tag_game_moments_sync(DB(children=["strong"]), _game(), _obs(), maia=tempt) == 0
     assert sm.tag_game_moments_sync(DB(), _game(), _obs(cp_loss=200), maia=tempt) == 0
-    assert sm.tag_game_moments_sync(DB(), _game(), _obs(), maia=lambda f, r: {"h4e7": 0.01}) == 0
+    assert sm.tag_game_moments_sync(DB(), _game(), _obs(), maia=lambda f, r: {"h4e7": 0.001}) == 0
 
 
 def test_no_match_from_a_player_who_is_not_stronger_or_from_yourself():

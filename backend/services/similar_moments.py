@@ -35,10 +35,15 @@ PIECES = {chess.KNIGHT: "knight", chess.BISHOP: "bishop", chess.ROOK: "rook", ch
 _VALUE = {"pawn": 1, "knight": 3, "bishop": 3, "rook": 5, "queen": 9, "king": 100}
 # A stored moment needs a sound played move: below a pawn's worth of loss.
 SOUND_CP = 60
-# Store wide, show narrow: the stored floor keeps the index useful while the
-# shown threshold is locked from the measured distribution (scope section 6).
-STORE_FLOOR = 0.02
-SHOW_FLOOR = 0.05
+# Store wide, show narrow. Anchor measured 2026-11-17 (research/similar_probe2):
+# Maia at his own rating gives Mohit's six real landing mistakes 0.1%, 0.8%,
+# 0.8%, 1.1%, 1.2% and 4.2%, so real mistakes are often unlikely moves; a 5%
+# floor (the first guess) would have excluded moments like his. STORE_FLOOR
+# drops only the near-impossible (a bishop to h6 on move two) and is costly to
+# change (the backfill re-tags). SHOW_FLOOR sits at his own mistakes' level and
+# is cheap to change; tune it from the stronger players' distribution.
+STORE_FLOOR = 0.005
+SHOW_FLOOR = 0.01
 STRONGER_BY = 150
 
 

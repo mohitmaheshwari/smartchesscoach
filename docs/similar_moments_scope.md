@@ -1,6 +1,6 @@
 # Similar moments: how a stronger player handled this kind of moment
 
-Status: DRAFT, awaiting Mohit's sign-off. 2026-11-17.
+Status: SIGNED 2026-11-17 ("go ahead" after the draft and consent decision).
 
 Mohit, 2026-11-17: "pick up player issues, mistakes ... pull up those games
 too to show how a better player did here ... how coach expects them to think
@@ -103,8 +103,13 @@ When nothing close enough exists, the block is not shown.
   Nxe5, and played Qb7". So matching MUST include temptation (below), whether
   the move was a capture, and whether it gave check. Re-measure coverage after
   the temptation gate; the raw count above is not coverage.
-- **How tempting must the dangerous move be?** Maia probability at the
-  other player's rating, threshold locked from the distribution, not guessed.
+- **How tempting must the dangerous move be?** Anchor measured 2026-11-17:
+  Maia at his own rating gives Mohit's six real landing mistakes 0.1%, 0.8%,
+  0.8%, 1.1%, 1.2%, 4.2%. His mistakes are mostly unlikely moves (he did not
+  see the taker), not common traps, so a high floor would exclude moments like
+  his. Set: store at 0.5% (drops only the near-impossible; costly to change),
+  show at 1% (his own level; cheap to change). The stronger players'
+  distribution is still being measured and will tune the show floor.
 
 Decided 2026-11-17 (Mohit): no consent rule. The games are public on Lichess
 and Chess.com ("these are open games and anybody can see it"). Kept out
