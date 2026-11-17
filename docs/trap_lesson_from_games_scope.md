@@ -102,9 +102,8 @@ same way:
 3. **They slipped and you did not cash in.** The opponent gave something away
    by mistake, not as a trap, and the natural reply missed it. The lesson is
    how to take it.
-4. **Traps that happen to players like you.** Game-found traps, from games
-   whose players allow it, go into the trap school for everyone at that
-   level, each named by what it does, or by its book name when it matches one.
+4. **Traps that happen to players like you.** Game-found traps from all
+   analysed games go into the trap school for everyone at that level, each named by what it does, or by its book name when it matches one.
 
 The review card on the move says what kind of moment it was and what the
 right move was; the card on the opponent's offer says it was bait; "Play the
@@ -201,8 +200,9 @@ that the player has not opened yet:
 
 **Trap school**: "Traps that caught you" and "Traps you set" list game-found
 traps next to library traps; "Traps that happen at your level" adds
-game-found traps from other players' games that allow it, named by what
+game-found traps from other players' games, named by what
 they do ("the knight on f7") or by the book name when the line matches one.
+No player names are shown.
 
 ## 3. In scope (V1, built in stages; each stage ships to Home only after its gate in 5)
 
@@ -237,10 +237,10 @@ Stage D. Missed wins:
   existing missed-side reasoning (opportunity line, ledger gain, mate).
 
 Stage E. Sharing and names:
-- Game-found traps from games whose players allow it go into "Traps that
-  happen at your level" in the trap school. Consent follows the similar-
-  moments rule (0e452784): public games only, no academy children, no coach
-  games. No player names.
+- Game-found traps from all analysed games go into "Traps that happen at
+  your level" in the trap school. No consent filter: the games are
+  ChessGuru data (Mohit, 2026-11-17). No player names, usernames or game
+  links to another player's game on the shared page; the moves only.
 - Matching to the library by pattern, not move order: the same offer, the same
   natural reply and the same punishment, in any move order. A match takes the
   library trap's name and page; otherwise the trap is named by what it does.
@@ -262,7 +262,6 @@ For every stage:
   that published text carries no numbers (Mohit, feedback "Published text:
   simple English, no numbers"). Mohit can lift it; then the card can say "6
   of 10 players at your level play Ke8 here".
-- Showing another player's game without the consent rule in Stage E.
 
 ## 5. Success criteria
 
@@ -294,6 +293,11 @@ For every stage:
   start-to-start gap per band (memory 11-12) and Mohit.
 - Question: Maia figures on the card? Why unresolved: standing rule. Unblocking
   step: Mohit.
+- Question: academy children's games in the shared trap school. Why
+  unresolved: Mohit removed the consent filter (ChessGuru data); the AI
+  personal class scope (11-06) names DPDP section 9(3), on children's data,
+  as its gating legal question, and that was not re-read for this. Unblocking
+  step: Mohit, or advice, before Stage E writes children's games.
 
 ## 7. Pre-code requirements
 
@@ -304,5 +308,4 @@ For every stage:
   per-player count and distribution, and 30 of its finds are graded, before
   any backfill writes for that stage.
 - The trap-school route for game-found traps is checked against
-  /learn/traps/:slug, and the consent filter is checked against the
-  similar-moments implementation before Stage E writes anything.
+  /learn/traps/:slug.
