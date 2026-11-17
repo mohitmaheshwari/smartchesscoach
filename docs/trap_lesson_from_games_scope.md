@@ -1,8 +1,9 @@
 # Traps found in your own games: caption, lesson, home
 
 Status: DRAFT for sign-off (2026-11-17). Path EXTEND chosen by Mohit ("go
-ahead, do what you recommend"), and the trap rule set from a hand-graded
-sample (section 0b). No code until Mohit signs the whole document.
+ahead, do what you recommend"); the trap rule set from a hand-graded sample
+(section 0b); everything first marked out of scope moved in (Mohit: "nothing
+should be left out"), built in stages A-E. No code until Mohit signs.
 
 Mohit, 2026-11-17, on 856f6111: "this game can be a good lesson of memory,
 understanding and pattern, as the player walked into a mate, somebody tried to
@@ -80,30 +81,51 @@ without its guard), or ANSWERS the check that follows their sacrifice, and
 the engine line then takes back more than was won, or mates. As a rule on the
 same 30: keeps 5 of the 8 clear traps (Ke8, Qxa2, Rxc7, fxe6, fxg4), lets in
 0 of the 15. It misses the trapped-bishop, the check-into-a-pin and the
-offered-pawn-then-attack shapes (out of scope, section 4).
+offered-pawn-then-attack shapes; those get their own rules (Stage B).
 
 ## 1. What it is
 
-When a player loses to a trap, ChessGuru says so in the game review and
-teaches the trap, from the game itself. A trap here means: the opponent
-offers something (a piece, a pawn, or a sacrifice that ends in a check), the
-move most players at that level would play takes the offer, and that move
-loses more than it won. The review card on the losing move says it was a
-trap and what the right move was; the card on the opponent's offer says it
-was bait; a "trap line" plays the whole trap on the board; a "Learn this
-trap" page teaches it move by move, built from the game; and Home tells the
-player about it after the game. Anyone who reviews the game (the player, a
-coach, an academy) sees the same thing. It uses the screens that already
-show library traps; nothing new is added to the navigation.
+ChessGuru finds the traps in a player's games, says so in the game review,
+and teaches them from the game itself. Four kinds of moment, all shown the
+same way:
+
+1. **You fell into a trap.** The opponent offers something, risking it on
+   purpose, and the move most players at your level would play loses to it.
+   Four shapes: you take what they offered and lose more; you answer the
+   check after their sacrifice and walk into mate or loss; a quiet move of
+   theirs threatens to shut in one of your pieces and the natural move lets
+   it happen; their check makes the natural block a pinned piece that falls.
+   Plus the slower one: you take an offered pawn and their attack follows.
+2. **Your trap worked, or almost did.** The same, with the sides swapped: you
+   offered, they took it and lost. Or they did not take it, and the lesson is
+   why the trap was a risk.
+3. **They slipped and you did not cash in.** The opponent gave something away
+   by mistake, not as a trap, and the natural reply missed it. The lesson is
+   how to take it.
+4. **Traps that happen to players like you.** Game-found traps, from games
+   whose players allow it, go into the trap school for everyone at that
+   level, each named by what it does, or by its book name when it matches one.
+
+The review card on the move says what kind of moment it was and what the
+right move was; the card on the opponent's offer says it was bait; "Play the
+trap" plays the whole thing on the board; "Learn this trap" opens a lesson
+page built from the game; Home tells the player after the game, and keeps
+reminding them of a trap they have not opened yet. Anyone who reviews the
+game sees the same thing. It uses the screens that already show library
+traps; nothing new is added to the navigation.
 
 ## 2. What the user sees
 
-Game review, 856f6111, the card on 5.Nxf7 (the opponent's offer):
+All words follow the caption rules: plain English, no engine numbers, "your"
+and "their" by whose move it is. How common comes as a sentence ("most
+players at your level", "about half", "some"), from Maia.
+
+**Fell for it, took the offer** (856f6111). Card on 5.Nxf7:
 
     Nxf7 is bait. The knight is yours to take, and taking it is right.
     But your king is now out in the open, so the next check is the test.
 
-The card on 6...Ke8 (the move that fell for it):
+Card on 6...Ke8:
 
     Ke8 falls into a trap. Your opponent gave up the knight on f7 to pull
     your king out, betting you would step back to e8. Most players at your
@@ -112,7 +134,7 @@ The card on 6...Ke8 (the move that fell for it):
 
     [ Play the trap ]   [ Learn this trap ]
 
-"Play the trap" (the existing trap-line player on the card), one line a move:
+"Play the trap", one line a move:
 
     5. Nxf7    Gives up the knight to pull your king out.
     5... Kxf7  Takes it. Right so far.
@@ -122,99 +144,165 @@ The card on 6...Ke8 (the move that fell for it):
     ...        (each move to 11. Qxe5#)
     Instead:   6... d5 blocks the check. You keep the knight.
 
-"Learn this trap" (a trap-school page for this trap, built from the game):
+**A piece shut in** (c96adfdb, 10...O-O after h3):
+
+    O-O falls into a trap. h3 looked slow, but it gets g4 ready to shut in
+    your bishop on f5. Most players at your level castle here. After O-O,
+    g4 leaves the bishop no square. e5 makes room first.
+
+**A check into a pin** (66090078, 7.Nc3 after Qa5+):
+
+    Nc3 falls into a trap. Qa5+ is a check that wants you to block with the
+    knight. Many players at your level do. Then Ne4 hits the knight, and it
+    cannot move because it shields your king. c3 blocks with a pawn.
+
+**An offered pawn, then an attack** (3bdad5fa, dxe5):
+
+    dxe5 takes the pawn they offered. Taking it opens the way for their queen:
+    Qh4 comes in and h2 falls with check. h3 keeps the queen out first.
+
+**Your trap worked** (any game where the opponent took your offer):
+
+    Your trap worked. You gave up the knight on f7, and they stepped back to
+    e8, as most players at their level do. Qh5+ then mates.
+
+**They did not fall for it**:
+
+    They did not take the bait. Nxf7 was a risk: after Kxf7 and d5 they keep
+    the extra knight. Next time, play Nxd4 here.
+
+**They slipped, you did not cash in** (a4615ca4, 27.exd6 after Qa3):
+
+    Qa3 was a slip by your opponent: it leaves their bishop on c7 with no
+    guard. exd6 misses it. Qxc7 takes the bishop.
+
+**Learn this trap** (a trap-school page built from the game, same layout as a
+library trap):
 
     THE KNIGHT ON F7
-    Seen in your game against a stronger player, move 5.
+    Seen in your game, move 5.
     The offer      5. Nxf7  (what it gives, what it wants)
     The test       6. Bc4+  (most players at your level answer Ke8)
     The punishment 7. Qh5+ ... mate
     What holds     6... d5
-    [ the board, move by move, as on any trap-school page ]
+    [ the board, move by move ]
 
-Home, the last-game card, one story line and one action:
+**Home**, the last-game card, one line and one action:
 
     You fell into a trap on move 6: your opponent gave up a knight to pull
     your king out.                                      [ Learn the trap ]
 
-The player file and the trap school's "Traps that caught you" list it next to
-library traps.
+or "Your trap worked on move 9", or "Your opponent slipped on move 27".
+When the last game had none, Home shows the newest trap from a recent game
+that the player has not opened yet:
 
-Words follow the caption rules: plain English, no engine numbers. How common
-comes as a sentence ("most players at your level", "about half", "some"),
-from Maia, never a figure.
+    Still to learn: the trap from Tuesday's game, a knight given on f7.
+                                                        [ Learn the trap ]
 
-## 3. In scope (V1)
+**Trap school**: "Traps that caught you" and "Traps you set" list game-found
+traps next to library traps; "Traps that happen at your level" adds
+game-found traps from other players' games that allow it, named by what
+they do ("the knight on f7") or by the book name when the line matches one.
 
-- A trap finder over a player's own games, per the rule in 0b: Maia at the
-  player's rating 30% or more for the losing move; the move takes what one of
-  the opponent's last two moves offered, or answers the check after their
-  sacrifice; the engine line after it takes back more than was won (exchange
-  ledger) or mates; the better move does not lose it.
+## 3. In scope (V1, built in stages; each stage ships to Home only after its gate in 5)
+
+Stage A. Took the offer (the 0b rule):
+- Finder: Maia at the player's rating 30% or more for the losing move; the
+  move takes what one of the opponent's last two moves offered, or answers
+  the check after their sacrifice; the engine line after it takes back more
+  than was won (exchange ledger) or mates; the better move does not lose it.
+- Captions on the losing move and the offer; "Play the trap" with one line a
+  move from board facts; the "Learn this trap" page; Home; player file and
+  "Traps that caught you".
+
+Stage B. The three shapes the A rule misses, each with its own rule:
+- A piece shut in: the opponent's quiet move costs them (bait), and after the
+  natural move the engine line traps one of the player's pieces (no safe
+  square; the existing TRAPPED reading).
+- A check into a pin: the opponent's check costs them, the natural reply
+  blocks with a piece, and the engine line wins that piece through the pin.
+- An offered pawn, then an attack: the natural move takes an offered pawn,
+  and the engine line answers with checks or threats on the king within four
+  moves and the position is lost by more than the pawn.
+
+Stage C. Traps the player set:
+- The same finders with the sides swapped (Maia at the opponent's rating for
+  their move): "Your trap worked". When the opponent found the move that
+  holds: "They did not take the bait", with why the trap was a risk.
+
+Stage D. Missed wins:
+- The opponent's move costs them a clear amount without being bait (no trap
+  shape: nothing offered on purpose), and the player's natural reply misses
+  it: "They slipped, you did not cash in", explained by the why button's
+  existing missed-side reasoning (opportunity line, ledger gain, mate).
+
+Stage E. Sharing and names:
+- Game-found traps from games whose players allow it go into "Traps that
+  happen at your level" in the trap school. Consent follows the similar-
+  moments rule (0e452784): public games only, no academy children, no coach
+  games. No player names.
+- Matching to the library by pattern, not move order: the same offer, the same
+  natural reply and the same punishment, in any move order. A match takes the
+  library trap's name and page; otherwise the trap is named by what it does.
+- The same trap seen in several games is one trap with several games, as
+  library traps have.
+
+For every stage:
 - Runs in the analysis worker for new games, and a backfill over stored games
-  (after deploy; dry-run count first, see 7).
-- The finding is stored with the library trap fires (`trap_fires`, marked as
-  found in the game), with the offer ply, the losing ply, the line, the move
-  that holds and Maia's share in words.
-- Review captions: the losing move's card and the offer's card get the trap
-  wording above, through the central caption layer (one source of truth).
-- The card's existing trap-line player shows the trap with one plain line per
-  move, written from board facts (gives up, takes, checks, steps back, mate,
-  wins), and the move that holds.
-- A trap-school page per game-found trap at /learn/traps/<id>, the same page
-  layout as library traps.
-- Home's last-game card: the story line and "Learn the trap" when the last
-  game had one.
-- The player file and "Traps that caught you" include game-found traps.
+  (after deploy; a dry run first, see 7).
+- Stored with the library trap fires (`trap_fires`, marked as found in the
+  game, with its kind and stage).
+- Words through the central caption layer (one source of truth).
+- Home: the last game's moment first; if it had none, the newest unopened
+  trap from a recent game.
 
 ## 4. Explicitly out of scope (V1)
 
-- The trap shapes the rule misses: a quiet move that traps a piece (h3, g4
-  against a bishop), a check that drives a piece into a pin (Qa5+ Nc3 Ne4),
-  an offered pawn followed by an attack rather than material. Each needs its
-  own rule and its own graded sample.
-- Traps the player SET and the opponent fell for ("sprang"). Same finder,
-  opposite side; after V1 is graded.
-- Missed wins (the opponent blundered and the player did not cash in): 15 of
-  the 30 graded were this. A separate lesson, worth its own scope.
-- Names for game-found traps. A library trap keeps its name; a game-found
-  one is named by what it does ("the knight on f7"), not a book name.
-- Adding game-found traps to the library or to other players' trap school.
-- Maia figures on any page.
-- The Lichess explorer.
+- Maia figures on a page ("61%"). Kept as words because of the standing rule
+  that published text carries no numbers (Mohit, feedback "Published text:
+  simple English, no numbers"). Mohit can lift it; then the card can say "6
+  of 10 players at your level play Ke8 here".
+- Showing another player's game without the consent rule in Stage E.
 
 ## 5. Success criteria
 
-- Precision: 30 game-found traps from the backfill, across players, graded on
-  the board: at least 27 are real traps (offer, natural move that takes it,
-  punishment). Below that, it does not ship to Home.
-- The trap is learned: of players who see a trap on Home or the review card,
-  at least 25% open "Learn this trap" or play the trap line, within two weeks.
-- The trap does not repeat: when the same offer pattern comes up again for a
-  player who opened the lesson, they take the bait less often than before.
-  Measured once enough repeats exist; reported, not a gate.
+- Precision gate, per stage: 30 of its finds from the dry run, across
+  players, graded on a board: at least 27 real. Below that, the stage does
+  not ship to Home (review cards only, until fixed).
+- Learned: of players who see a trap on Home or a review card, at least 25%
+  open "Learn this trap" or play the trap line within two weeks.
+- Not repeated: when the same pattern comes up again for a player who opened
+  the lesson, they take the bait less often than before. Reported once enough
+  repeats exist.
+- Stage C and D: of players shown "your trap worked" / "they slipped", the
+  share who open the lesson, compared with Stage A.
 
 ## 6. Open questions
 
 - Question: is 30% the right Maia bar for "natural"? Why unresolved: set from
-  one player's 30 moments. Unblocking step: the dry-run backfill's
-  distribution across players, then a second graded sample.
+  one player's 30 moments. Unblocking step: the dry run's distribution across
+  players, then a graded sample.
 - Question: how far back can the offer be? Why unresolved: two of the
-  opponent's moves covers all 8 clear traps in the sample. Unblocking step:
-  the same dry run.
-- Question: how often will a player see one? Why unresolved: 77 crude
-  moments shrink under the rule; the real per-player rate is not measured.
-  Unblocking step: dry-run count per player.
-- Question: should Home also mention a trap from an older game, not just the
-  last one? Why unresolved: product choice. Unblocking step: Mohit.
+  opponent's moves covered all 8 clear traps. Unblocking step: the dry run.
+- Question: how much must a bait cost the setter, and where does a slip end
+  and a trap begin (Stage D against A)? Why unresolved: the crude 100 cp bar
+  let in 15 slips in 30. Unblocking step: grade the dry run's split.
+- Question: how often will a player see each kind? Why unresolved: not
+  measured per player. Unblocking step: dry-run counts per player and stage.
+- Question: how recent is "a recent game" for Home's unopened trap? Why
+  unresolved: product choice plus play frequency. Unblocking step: the
+  start-to-start gap per band (memory 11-12) and Mohit.
+- Question: Maia figures on the card? Why unresolved: standing rule. Unblocking
+  step: Mohit.
 
 ## 7. Pre-code requirements
 
 - Mohit signs this document.
-- The five sample traps the rule keeps are each set up on a board and read
-  again (they were graded from engine lines).
-- A dry run of the finder over stored games (no writes) gives the per-player
-  count and fire distribution, and 30 of its fires are graded before any
-  backfill writes.
-- The trap-school page route for game-found traps is checked against the
-  existing /learn/traps/:slug routing.
+- The five sample traps the A rule keeps, and the three B examples, are each
+  set up on a board and read again (they were graded from engine lines).
+- A dry run of each stage's finder over stored games (no writes) gives the
+  per-player count and distribution, and 30 of its finds are graded, before
+  any backfill writes for that stage.
+- The trap-school route for game-found traps is checked against
+  /learn/traps/:slug, and the consent filter is checked against the
+  similar-moments implementation before Stage E writes anything.
