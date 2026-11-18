@@ -124,6 +124,10 @@ INDEXES = [
     # document per player per local day, and the puzzle ticks it reads.
     ("daily_plans", [("user_id", 1), ("day", 1)], "dp_user_day", {"unique": True}),
     ("puzzle_attempts", [("user_id", 1), ("topic", 1), ("at", 1)], "pa_user_topic_at", {}),
+    # Section 9 of that scope: teaching games, kept once fetched, and each
+    # player's next one, prepared off the request.
+    ("teaching_games", [("puzzle_id", 1)], "tg_puzzle_id", {"unique": True}),
+    ("teaching_game_prep", [("user_id", 1)], "tgp_user_id", {"unique": True}),
     # Academy children sign in with a username the coach sets; only they have one.
     ("users", [("username", 1)], "users_username", {"unique": True, "sparse": True}),
 ]

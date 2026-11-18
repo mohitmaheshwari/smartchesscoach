@@ -114,15 +114,22 @@ def week_days(day: date) -> List[date]:
 # --------------------------------------------------------------------------
 # Candidates for "new"
 # --------------------------------------------------------------------------
-def theme_candidates(rating: Optional[int], done_ids: set) -> List[Dict[str, Any]]:
+def theme_candidates(rating: Optional[int], done_ids: set, priority: Sequence[str] = ()) -> List[Dict[str, Any]]:
+    """Ideas he misses in his own games first (`priority`, from
+    services/idea_knowledge.py), whatever their place on the ladder; then the
+    ladder from his level."""
     from services.topic_practice_themes import daily_themes, rating_window
 
     low, high = rating_window(rating)
     level = rating or 1200
+    themes = daily_themes()
+    rows = [themes[k] for k in priority if k in themes] + [r for r in themes.values() if r["key"] not in priority]
     out = []
-    for row in daily_themes().values():
+    for row in rows:
         item_id = f"theme:{row['key']}"
-        if item_id in done_ids or row["median"] < level - THEME_FLOOR_BELOW:
+        if item_id in done_ids:
+            continue
+        if row["key"] not in priority and row["median"] < level - THEME_FLOOR_BELOW:
             continue
         if supply_in_window(row["theme"], low, high) < MIN_THEME_SUPPLY:
             continue
@@ -169,20 +176,39 @@ def lesson_candidates(rating: Optional[int], done_ids: set) -> List[Dict[str, An
     return out
 
 
-def pick_new(rating: Optional[int], traps, done_ids: set, yesterday_kind: Optional[str]) -> Optional[Dict[str, Any]]:
-    """One new item. Kinds take turns: never the same kind two days running
-    while another kind has something to offer."""
+NEW_KINDS = ("game", "theme", "trap", "lesson")
+
+
+def kind_order(history: Sequence[Mapping[str, Any]]) -> List[str]:
+    """New kinds take turns: the one served longest ago (or never) first,
+    ties in NEW_KINDS order."""
+    last: Dict[str, str] = {}
+    for doc in history:
+        for t in doc.get("tasks") or []:
+            if t.get("slot") == "new" and t.get("kind") in NEW_KINDS:
+                last[t["kind"]] = max(last.get(t["kind"], ""), doc["day"])
+    return sorted(NEW_KINDS, key=lambda k: (last.get(k, ""), NEW_KINDS.index(k)))
+
+
+def game_task(game: Mapping[str, Any]) -> Dict[str, Any]:
+    pid, idea = game["puzzle_id"], game["idea"]
+    return {"id": f"game:{pid}", "kind": "game", "action": "puzzles", "topic": f"study-{pid}", "count": 1,
+            "title": f"A game to study: {idea['title'].lower()} in the {game['opening']}.",
+            "text": "Players near your level. Stop at the moment and find the move.",
+            "url": f"/study/{pid}?from=today"}
+
+
+def pick_new(rating: Optional[int], traps, done_ids: set, order: Sequence[str],
+             game: Optional[Mapping[str, Any]] = None, priority: Sequence[str] = ()) -> Optional[Dict[str, Any]]:
+    """One new item, from the first kind in `order` that has one."""
     pools = {
-        "theme": theme_candidates(rating, done_ids),
+        "game": [game_task(game)] if game and f"game:{game['puzzle_id']}" not in done_ids else [],
+        "theme": theme_candidates(rating, done_ids, priority),
         "trap": trap_candidates(traps, done_ids),
         "lesson": lesson_candidates(rating, done_ids),
     }
-    order = ["theme", "trap", "lesson"]
-    if yesterday_kind in order:
-        order.remove(yesterday_kind)
-        order.append(yesterday_kind)
     for kind in order:
-        if pools[kind]:
+        if pools.get(kind):
             return pools[kind][0]
     return None
 
@@ -268,18 +294,20 @@ def pick_play(file: Mapping[str, Any], new: Optional[Mapping[str, Any]]) -> Dict
             "title": "Play a game against your coach.", "text": "Use what you worked on today."}
 
 
+def done_new_ids(history: Sequence[Mapping[str, Any]]) -> set:
+    return {t["id"] for doc in history for t in doc.get("tasks") or [] if t.get("slot") == "new" and t.get("done_at")}
+
+
 def build_tasks(file: Mapping[str, Any], week_done: Mapping[str, Any], history: Sequence[Mapping[str, Any]],
-                today: date) -> List[Dict[str, Any]]:
+                today: date, game: Optional[Mapping[str, Any]] = None,
+                priority: Sequence[str] = ()) -> List[Dict[str, Any]]:
     """The long list for the day, in order: fix, new, look back, play."""
-    done_ids = {t["id"] for doc in history for t in doc.get("tasks") or []
-                if t.get("slot") == "new" and t.get("done_at")}
-    newest = sorted(history, key=lambda d: d["day"])[-1:] if history else []
-    yesterday_kind = next((t.get("kind") for d in newest for t in d.get("tasks") or [] if t.get("slot") == "new"), None)
+    done_ids = done_new_ids(history)
     tasks: List[Dict[str, Any]] = []
     fix = pick_fix(file, week_done)
     if fix:
         tasks.append({**fix, "slot": "fix"})
-    new = pick_new(file.get("rating"), file.get("traps"), done_ids, yesterday_kind)
+    new = pick_new(file.get("rating"), file.get("traps"), done_ids, kind_order(history), game, priority)
     if new:
         tasks.append({**new, "slot": "new"})
     look = pick_look_back(history, today)
@@ -353,6 +381,79 @@ async def _proofs(db, user_id: str, tasks: Sequence[Mapping[str, Any]], day: dat
     return attempts, clocks
 
 
+PREP_COLLECTION = "teaching_game_prep"
+_preparing: set = set()
+_prep_tasks: set = set()  # keeps the background tasks referenced until they finish
+
+
+async def _his_games(db, user_id: str) -> List[Dict[str, Any]]:
+    from services import teaching_games as tg
+
+    return await db.games.find({"user_id": user_id}, {"_id": 0, "game_id": 1, "opening": 1, "user_color": 1,
+                                                      "is_analyzed": 1}).sort("played_at_utc", -1).limit(tg.OPENINGS_READ).to_list(None)
+
+
+async def _priority(db, user_id: str, games: Sequence[Mapping[str, Any]]) -> List[str]:
+    """The ideas he misses in his own games, most missed first."""
+    from services import idea_knowledge as ik
+    from services.topic_practice_themes import daily_themes
+
+    rec = await ik.load(db, user_id, [g["game_id"] for g in games if g.get("is_analyzed")])
+    return [k for k in ik.to_teach(rec) if k in daily_themes()]
+
+
+async def _knowledge_and_game(db, user_id: str, file: Mapping[str, Any],
+                              history: Sequence[Mapping[str, Any]]) -> Tuple[List[str], Optional[Dict[str, Any]]]:
+    """The ideas he misses, and the teaching game prepared for him in the
+    background (finding one takes seconds, so Home never waits for it)."""
+    priority = await _priority(db, user_id, await _his_games(db, user_id))
+    prep = await db[PREP_COLLECTION].find_one({"user_id": user_id}, {"_id": 0, "game": 1})
+    game = (prep or {}).get("game")
+    if game and f"game:{game.get('puzzle_id')}" in done_new_ids(history):
+        game = None
+    return priority, game
+
+
+async def prepare_game(db, user_id: str, rating: Optional[int]) -> None:
+    """Find and keep his next teaching game (docs/daily_coach_plan_scope.md,
+    section 9): the first idea he misses, then the ladder, in his openings,
+    never one he has studied."""
+    from services import teaching_games as tg
+    from services.topic_practice_themes import daily_themes
+
+    if user_id in _preparing:
+        return
+    _preparing.add(user_id)
+    try:
+        games = await _his_games(db, user_id)
+        priority = await _priority(db, user_id, games)
+        themes = daily_themes()
+        ideas = [themes[k] for k in priority] + [
+            themes[c["id"].split(":", 1)[1]] for c in theme_candidates(rating, set(), ())
+            if c["id"].split(":", 1)[1] not in priority]
+        studied = set()
+        async for d in db[COLLECTION].find({"user_id": user_id, "tasks.kind": "game"}, {"_id": 0, "tasks": 1}):
+            studied.update(t["id"].split(":", 1)[1] for t in d.get("tasks") or []
+                           if t.get("kind") == "game" and t.get("done_at"))
+        game = await tg.next_game(db, ideas, tg.his_openings(games), rating, studied)
+        await db[PREP_COLLECTION].update_one(
+            {"user_id": user_id},
+            {"$set": {"user_id": user_id, "game": game, "prepared_at": datetime.now(timezone.utc)}}, upsert=True)
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception("teaching game prep failed for %s", user_id)
+    finally:
+        _preparing.discard(user_id)
+
+
+def _needs_prep(doc: Mapping[str, Any], prep_game: Optional[Mapping[str, Any]]) -> bool:
+    """A new game is wanted when there is none, or today's card uses it."""
+    if not prep_game:
+        return True
+    return any(t.get("id") == f"game:{prep_game.get('puzzle_id')}" for t in doc.get("tasks") or [])
+
+
 async def today(db, user_id: str, tz_name: Optional[str], now: Optional[datetime] = None,
                 store: bool = True) -> Dict[str, Any]:
     """Today's plan, made on the first call of the day, with fresh ticks, and the week.
@@ -373,12 +474,20 @@ async def today(db, user_id: str, tz_name: Optional[str], now: Optional[datetime
     if not doc:
         history = await db[COLLECTION].find({"user_id": user_id, "day": {"$lt": day.isoformat()}},
                                             {"_id": 0, "day": 1, "size": 1, "tasks": 1}).sort("day", -1).limit(60).to_list(None)
+        priority, game = await _knowledge_and_game(db, user_id, file, history)
         doc = {"user_id": user_id, "day": day.isoformat(), "tz": str(getattr(tz, "key", DEFAULT_TZ)),
                "size": (history[0].get("size") if history else None) or DEFAULT_SIZE,
-               "tasks": build_tasks(file, week_done, history, day), "created_at": now}
+               "tasks": build_tasks(file, week_done, history, day, game, priority), "created_at": now}
         if store:
             await db[COLLECTION].update_one({"user_id": user_id, "day": doc["day"]}, {"$setOnInsert": doc}, upsert=True)
             doc = await db[COLLECTION].find_one({"user_id": user_id, "day": day.isoformat()}, {"_id": 0})
+            # Tomorrow's teaching game is found now, off the request.
+            if _needs_prep(doc, game):
+                import asyncio
+
+                task = asyncio.create_task(prepare_game(db, user_id, file.get("rating")))
+                _prep_tasks.add(task)
+                task.add_done_callback(_prep_tasks.discard)
     attempts, clocks = await _proofs(db, user_id, doc["tasks"], day, tz)
     if apply_proofs(doc["tasks"], attempts, clocks, week_done, now) and store:
         await db[COLLECTION].update_one({"user_id": user_id, "day": doc["day"]}, {"$set": {"tasks": doc["tasks"]}})

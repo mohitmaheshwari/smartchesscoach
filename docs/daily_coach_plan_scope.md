@@ -374,3 +374,77 @@ Dry run on prod before deploy, read-only, all 79 player files:
 - Fix 72, New 77, Play 79.
 - New on day one: 74 ideas and 3 traps. Two players under 600 had no New, which
   is the bug above.
+
+## 9. Teaching games (Mohit, 2026-11-18: "how do we keep finding games that teach the user something new he doesn't know"; signed: "go ahead")
+
+**What it is.** A New task can be a real game to study: a game played in an
+opening he plays, near his level, decided by an idea he does not know yet. A
+coach would pick such a game and walk him through it.
+
+**What he sees:**
+
+```
+│ ○ NEW     A game to study: a fork in the Italian Game.                    │
+│           Players near your level. Stop at the moment and find the move.  │
+│                                                                    Open → │
+```
+
+The study page:
+1. Plays through the game from move one.
+2. Stops at the moment and asks "What would you play here?".
+3. Grades the move, then shows the idea working on the board.
+4. Then shows what was really played in the game, and the result.
+
+**How "something he doesn't know" is decided (the knowledge record):**
+- **In his games**, from `move_observations.tactic_tags` over his newest
+  analysed games: for each idea, how often he **found** it, **missed** his own
+  chance, or **allowed** it to the opponent. The ideas are free piece, fork,
+  pin, skewer, discovered attack, back-rank mate, and forced mate.
+- **In puzzles**, from his answers on the day card's ideas.
+- **States:**
+  - "misses it": more chances missed than found
+  - "knows it": found at least as often as missed, at least twice
+  - "solves the puzzles but misses it in games"
+  - "not met yet"
+- Ideas he misses come first, as both theme tasks and teaching games. After
+  them comes the ladder.
+
+**Where the games come from.** Every Lichess puzzle stores the game it came
+from, the exact move, its opening and its ideas. Example: 51,251 puzzles from
+the Italian Game alone. The finder asks for:
+- the idea, in one of his openings
+- the side he plays in that opening
+- near his rating
+
+Only that one game is fetched from Lichess's public game export, and the game
+id is the only thing sent. The game is then kept in `teaching_games` and never
+shown to the same player twice.
+
+**Day card:** the four New kinds (game, idea, trap, lesson) take turns. The kind
+used least recently goes first.
+
+**Out of scope:**
+- games by masters (no source)
+- a page listing his knowledge record (later, on Progress)
+- ideas the detectors cannot see in games, which use puzzle results only
+
+### Section 9 build record (2026-11-18)
+
+- `services/idea_knowledge.py` (the knowledge record) and
+  `services/teaching_games.py` (finder, Lichess fetch, walk-through). The
+  page is `/study/:id`.
+- The four New kinds take turns, the kind used least recently first. Ideas
+  he misses in his games come before the ladder, even when they sit far
+  below his level.
+- **Finding a game takes 6 to 36 seconds** (dry run, 6 players). The opening
+  and idea fields are both lists, so the database cannot index them together.
+  So the next game is prepared in the background (`teaching_game_prep`) after
+  each day card is made, and Home never waits. A player's first day gets
+  another kind of New.
+- **Dry run on prod, read-only**, every player file:
+  - Ideas across all players: 223 missed in games, 174 known, 75 not met yet.
+  - First idea to teach: fork for 56 players, mate in two for 5, pin for 2,
+    discovered attack for 1.
+  - All 6 players tried got a real game in their own opening and on their own
+    side. For example, a 731 player who misses forks and plays the
+    Scandinavian as Black: 26 moves, then the knight fork that wins the rook.

@@ -70,6 +70,7 @@ import FirstStepsClass from "@/pages/FirstStepsClass";
 import ClassReflect from "@/pages/ClassReflect";
 import CalculationTest from "@/pages/CalculationTest";
 import MotifFindDrill from "@/pages/MotifFindDrill";
+import StudyGame from "@/pages/StudyGame";  // docs/daily_coach_plan_scope.md, section 9
 import AdminDetectorReview from "@/pages/AdminDetectorReview";
 import AdminMaiaReview from "@/pages/AdminMaiaReview";
 import AdminReasoningTrace from "@/pages/AdminReasoningTrace";
@@ -512,6 +513,11 @@ function AppRouter() {
       {/* Practice for a topic our own games cannot prove. king_safety has 151
           community puzzles and not one passes verification, so these come from
           Lichess where the proof already exists. docs/home_session_scope.md */}
+      <Route path="/study/:puzzleId" element={
+        <ProtectedRoute>
+          {({ user }) => <StudyGame user={user} />}
+        </ProtectedRoute>
+      } />
       <Route path="/training/theme/:topic" element={
         <ProtectedRoute>
           {({ user }) => <MotifFindDrill user={user} source="theme" />}

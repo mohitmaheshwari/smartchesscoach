@@ -504,6 +504,21 @@ async def get_daily_plan(request: Request, tz: Optional[str] = None, user: User 
     return {"enabled": True, **await dp.today(db, user.user_id, tz, store=not viewing_as)}
 
 
+@router.get("/study/{puzzle_id}")
+async def get_study_game(puzzle_id: str, request: Request, user: User = Depends(get_current_user)):
+    """A teaching game to walk through (docs/daily_coach_plan_scope.md, section 9).
+    The answer at the pause is graded by POST /training/theme/attempt."""
+    from services import player_coach_file as pcf
+    from services import teaching_games as tg
+
+    if not pcf.is_enabled_for_request(request, user.user_id):
+        raise HTTPException(status_code=403, detail="Not enabled.")
+    out = await tg.study_payload(db, str(puzzle_id)[:20])
+    if not out:
+        raise HTTPException(status_code=404, detail="No such game.")
+    return out
+
+
 @router.post("/daily-plan/tick")
 async def post_daily_plan_tick(body: Dict[str, Any], request: Request, user: User = Depends(get_current_user)):
     """He opened a task that is done by opening it. View-as never writes."""

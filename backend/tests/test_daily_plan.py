@@ -49,13 +49,25 @@ def test_kinds_take_turns_and_nothing_done_comes_back():
                                     "title": "A trap: Fried Liver", "url": "/learn/traps/italian-game-0"}])
     tasks = dp.build_tasks(_file(), {}, [yesterday, trap_day], date(2026, 11, 19))
     new = next(t for t in tasks if t["slot"] == "new")
-    assert new["kind"] == "theme" and new["id"] == "theme:smothered_mate"
+    # Least recently served first: no game is available, so the lesson.
+    assert new["kind"] == "lesson"
+    assert dp.kind_order([yesterday, trap_day]) == ["game", "lesson", "theme", "trap"]
+
+
+def test_a_teaching_game_comes_first_in_turn_and_missed_ideas_jump_the_ladder():
+    game = {"puzzle_id": "abc12", "idea": {"key": "fork", "title": "Fork"}, "opening": "Italian Game"}
+    tasks = dp.build_tasks(_file(), {}, [], TODAY, game=game, priority=["pin"])
+    new = next(t for t in tasks if t["slot"] == "new")
+    assert new["id"] == "game:abc12" and new["url"] == "/study/abc12?from=today"
+    assert new["title"] == "A game to study: fork in the Italian Game."
+    assert dp.theme_candidates(1900, set(), ["hanging_piece"])[0]["id"] == "theme:hanging_piece"
 
 
 def test_an_idea_not_done_is_offered_again():
-    served = _day("2026-11-16", [{"slot": "new", "kind": "theme", "id": "theme:back_rank_mate"}])
-    other = _day("2026-11-17", [{"slot": "new", "kind": "trap", "id": "trap:x"}])
-    new = next(t for t in dp.build_tasks(_file(), {}, [served, other], TODAY) if t["slot"] == "new")
+    served = _day("2026-11-14", [{"slot": "new", "kind": "theme", "id": "theme:back_rank_mate"}])
+    lesson = _day("2026-11-15", [{"slot": "new", "kind": "lesson", "id": "lesson:x"}])
+    other = _day("2026-11-16", [{"slot": "new", "kind": "trap", "id": "trap:x"}])
+    new = next(t for t in dp.build_tasks(_file(), {}, [served, lesson, other], TODAY) if t["slot"] == "new")
     assert new["id"] == "theme:back_rank_mate"
 
 
@@ -108,6 +120,13 @@ def test_a_player_under_six_hundred_still_gets_the_easiest_ideas():
 
     assert rating_window(298) == (600, 850)
     assert dp.theme_candidates(298, set())[0]["id"] == "theme:back_rank_mate"
+
+
+def test_a_new_teaching_game_is_prepared_when_today_uses_the_kept_one_or_none_is_kept():
+    doc = {"tasks": [{"id": "game:abc12"}]}
+    assert dp._needs_prep(doc, None)
+    assert dp._needs_prep(doc, {"puzzle_id": "abc12"})
+    assert not dp._needs_prep(doc, {"puzzle_id": "zzz99"})
 
 
 def test_clock_of_reads_the_pgn_tag():
