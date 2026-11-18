@@ -70,12 +70,50 @@ RATING_ABOVE = 250
 DEFAULT_RATING = 1200
 
 
+# The daily plan's tactic ideas (docs/daily_coach_plan_scope.md): topic
+# "theme-<key>" serves one Lichess theme from data/daily_themes.json.
+THEME_TOPIC_PREFIX = "theme-"
+_DAILY_THEMES: Dict[str, dict] = {}
+
+
+def daily_themes() -> Dict[str, dict]:
+    """key -> {key, theme, median, title, idea, question?}, in ladder order."""
+    if not _DAILY_THEMES:
+        import json
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parent.parent / "data" / "daily_themes.json"
+        for row in json.loads(path.read_text(encoding="utf-8"))["themes"]:
+            _DAILY_THEMES[row["key"]] = row
+    return _DAILY_THEMES
+
+
+def daily_theme(topic: str) -> dict:
+    """The daily theme row for a "theme-<key>" topic, or {}."""
+    topic = str(topic or "")
+    if not topic.startswith(THEME_TOPIC_PREFIX):
+        return {}
+    return daily_themes().get(topic[len(THEME_TOPIC_PREFIX):]) or {}
+
+
+def theme_question(row: dict) -> str:
+    """Never claims the idea is on the board now: the puzzle's line uses it,
+    and the grader checks the first move."""
+    return row.get("question") or f"This puzzle uses the idea: {row['title'].lower()}. Find the first move."
+
+
 def themes_for(topic: str) -> Sequence[str]:
+    row = daily_theme(topic)
+    if row:
+        return (row["theme"],)
     entry = THEMES_FOR_TOPIC.get(str(topic or ""))
     return entry[0] if entry else ()
 
 
 def blurb_for(topic: str) -> str:
+    row = daily_theme(topic)
+    if row:
+        return row["idea"]
     entry = THEMES_FOR_TOPIC.get(str(topic or ""))
     return entry[1] if entry else ""
 
@@ -86,7 +124,10 @@ def rating_window(rating: object) -> Tuple[int, int]:
         value = int(rating)
     except Exception:
         value = DEFAULT_RATING
-    return max(600, value - RATING_BELOW), value + RATING_ABOVE
+    low = max(600, value - RATING_BELOW)
+    # Below 600 the top of the window fell under its floor and the query was
+    # empty (a 298 player got nothing, 2026-11-18): serve the easiest band.
+    return low, max(value + RATING_ABOVE, low + RATING_ABOVE)
 
 
 def mongo_query(topic: str, rating: object) -> dict:

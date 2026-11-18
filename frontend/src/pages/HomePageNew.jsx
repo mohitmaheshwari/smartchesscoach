@@ -20,6 +20,7 @@ import Layout from "@/components/Layout";
 import LastGameCard from "@/components/Home/LastGameCard";
 import BetweenGamesPanel from "@/components/Home/BetweenGamesPanel";
 import HomeCoachLines from "@/components/Home/HomeCoachLines";
+import DayCard from "@/components/Home/DayCard";
 import CoachPlanCard from "@/components/Home/CoachPlanCard";
 import PreparedFocus from "@/components/Home/PreparedFocus";
 import HomeLoadingSkeleton from "@/components/HomeLoadingSkeleton";
@@ -454,6 +455,11 @@ export default function HomePageNew({ user }) {
                one. The older blocks below (coach session, conversation, nav
                tiles) are left out for coach-pages players only. */
             <>
+              {/* Today's tasks first (docs/daily_coach_plan_scope.md): the
+                  day's slice of the plan below, plus one new thing. */}
+              <motion.div variants={fadeInUp}>
+                <DayCard />
+              </motion.div>
               <motion.div variants={fadeInUp}>
                 <CoachPlanCard />
               </motion.div>

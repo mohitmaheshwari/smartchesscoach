@@ -1,6 +1,17 @@
 # Daily coach plan — scope
 
-Status: DRAFT for sign-off (2026-11-18). No code until Mohit signs.
+Status: SIGNED by Mohit 2026-11-18 ("go ahead"). Built in two stages:
+- **Stage 1 (built 2026-11-18):** the day card on the coach-pages Home.
+- **Stage 2 (waits on the band review in Section 7):** the coach pages for
+  every player.
+
+Defaults taken for the questions he left open, which he can overrule:
+- Open question 4: academy children get the day card on their own Home; a
+  coach view of it comes later.
+- Open question 5: the old Home's daily board question is dropped.
+- Open question 6, answered: no time zone is stored anywhere (`users` has
+  only `country`, on 58 players). The browser sends its own time zone with
+  each request, and the day starts at the player's midnight.
 
 Mohit, 2026-11-17/18:
 - A coach has a schedule and tasks for each day.
@@ -328,3 +339,38 @@ after the first week shows the baseline:
 - About 30 theme explanations written and checked.
 - Open questions 1, 4, 5 and 6 answered.
 - `/audit-pre-code` passes.
+
+
+## 8. Build record, Stage 1 (2026-11-18)
+
+Built:
+- `services/daily_plan.py` and `GET /api/daily-plan`, `POST
+  /api/daily-plan/tick`, `POST /api/daily-plan/size`, behind the coach-pages
+  gate. View-as shows the day without writing it.
+- `DayCard` on the coach-pages Home, above the plan.
+- Themed puzzles for any of the 32 ideas in `data/daily_themes.json`, through
+  the existing puzzle page: `/training/theme/theme-<idea>`.
+
+Where the build differs from the draft:
+- **Size is the number of tasks:** Short 2, Normal 3, Long 4. A New idea is
+  always a set of 6 puzzles. Both are provisional until open question 1 is
+  measured.
+- **What was taught is read from the day documents** (`daily_plans`), not from
+  `coach_memory.learning.skills`. Opening and endgame lessons still record
+  themselves there when opened, as before.
+- **An idea counts as done once it has been done.** One that was offered but
+  not done comes back on a later day of its kind.
+- **Where a player starts on the ladder.** An idea is offered when:
+  - Lichess has at least 200 of its puzzles in the player's own puzzle window
+    (counted over all 4,423,645 puzzles, `data/daily_theme_supply.json`); and
+  - its typical puzzle is no more than 400 below his rating.
+
+  Both are provisional (open question 2). Ideas available at 700, 900 and
+  1200: all 32. At 1500: 26. At 1800: 19. At 2100: 4.
+- **Bug fixed in the existing theme drill:** below 600 its window was empty.
+  Those players now get the easiest band, 600 to 850.
+
+Dry run on prod before deploy, read-only, all 79 player files:
+- Fix 72, New 77, Play 79.
+- New on day one: 74 ideas and 3 traps. Two players under 600 had no New, which
+  is the bug above.

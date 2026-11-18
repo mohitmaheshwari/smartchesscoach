@@ -120,6 +120,10 @@ INDEXES = [
     ("player_plan_weeks", [("user_id", 1), ("week_start", 1)], "ppw_user_week", {"unique": True}),
     # 2026-11-17, the two Home lines for every player (docs/home_behaviour_and_clock_scope.md).
     ("home_coach_lines", [("user_id", 1)], "hcl_user_id", {"unique": True}),
+    # 2026-11-18, the daily coach plan (docs/daily_coach_plan_scope.md): one
+    # document per player per local day, and the puzzle ticks it reads.
+    ("daily_plans", [("user_id", 1), ("day", 1)], "dp_user_day", {"unique": True}),
+    ("puzzle_attempts", [("user_id", 1), ("topic", 1), ("at", 1)], "pa_user_topic_at", {}),
     # Academy children sign in with a username the coach sets; only they have one.
     ("users", [("username", 1)], "users_username", {"unique": True, "sparse": True}),
 ]

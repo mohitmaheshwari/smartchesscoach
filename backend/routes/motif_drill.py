@@ -110,7 +110,7 @@ async def themed_attempt(payload: Dict[str, Any] = Body(...),
         raise HTTPException(status_code=400,
                             detail="position_id and move_uci are required.")
     result = await grade_themed(db, user.user_id, position_id, move_uci,
-                                payload.get("reason_id") or None)
+                                payload.get("reason_id") or None, payload.get("topic") or None)
     if not result.get("ok"):
         raise HTTPException(status_code=400,
                             detail="That position could not be graded.")

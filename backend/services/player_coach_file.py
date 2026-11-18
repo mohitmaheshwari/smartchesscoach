@@ -1165,6 +1165,8 @@ def payload(doc: Optional[Mapping[str, Any]], recent: Sequence[Mapping[str, Any]
         "schema_version": doc.get("schema_version"),
         "built_at": doc.get("built_at"),
         "band": band,
+        # The daily plan picks new material at this level (services/daily_plan.py).
+        "rating": doc.get("rating"),
         # Under 1000 the boards carry the moves; notation stays off the page.
         "notation": band != "<1000",
         "last_game": doc.get("last_game"),

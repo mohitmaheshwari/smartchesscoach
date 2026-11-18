@@ -491,6 +491,44 @@ async def post_coach_file_activity(body: Dict[str, Any], request: Request, user:
     return {"ok": True}
 
 
+@router.get("/daily-plan")
+async def get_daily_plan(request: Request, tz: Optional[str] = None, user: User = Depends(get_current_user)):
+    """Today's tasks (docs/daily_coach_plan_scope.md). Same gate as the coach
+    pages; `tz` is the browser's own time zone, so the day starts at his midnight."""
+    from services import daily_plan as dp
+    from services import player_coach_file as pcf
+
+    if not pcf.is_enabled_for_request(request, user.user_id):
+        return {"enabled": False}
+    viewing_as = bool(getattr(getattr(request, "state", None), "view_as", None))
+    return {"enabled": True, **await dp.today(db, user.user_id, tz, store=not viewing_as)}
+
+
+@router.post("/daily-plan/tick")
+async def post_daily_plan_tick(body: Dict[str, Any], request: Request, user: User = Depends(get_current_user)):
+    """He opened a task that is done by opening it. View-as never writes."""
+    from services import daily_plan as dp
+    from services import player_coach_file as pcf
+
+    if not pcf.is_enabled_for_request(request, user.user_id) or getattr(getattr(request, "state", None), "view_as", None):
+        raise HTTPException(status_code=403, detail="Not enabled.")
+    if not await dp.tick(db, user.user_id, str(body.get("task_id") or ""), body.get("tz")):
+        raise HTTPException(status_code=400, detail="Unknown task.")
+    return {"ok": True}
+
+
+@router.post("/daily-plan/size")
+async def post_daily_plan_size(body: Dict[str, Any], request: Request, user: User = Depends(get_current_user)):
+    from services import daily_plan as dp
+    from services import player_coach_file as pcf
+
+    if not pcf.is_enabled_for_request(request, user.user_id) or getattr(getattr(request, "state", None), "view_as", None):
+        raise HTTPException(status_code=403, detail="Not enabled.")
+    if not await dp.set_size(db, user.user_id, str(body.get("size") or ""), body.get("tz")):
+        raise HTTPException(status_code=400, detail="Unknown size.")
+    return {"ok": True}
+
+
 @router.get("/home/coach-lines")
 async def get_home_coach_lines(user: User = Depends(get_current_user)):
     """How he played as a person in his last game, and which clock to play,

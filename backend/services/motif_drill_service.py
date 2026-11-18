@@ -32,6 +32,7 @@ players usually give" but "is giving a piece away an answer to this card".
 from __future__ import annotations
 
 import collections
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import chess
@@ -326,7 +327,7 @@ async def get_themed_positions(db, user_id: str, topic: str,
     import chess
 
     from services.topic_practice_themes import (
-        blurb_for, mongo_query, question_for_themes,
+        blurb_for, daily_theme, mongo_query, question_for_themes, theme_question,
     )
 
     query = mongo_query(topic, await _rating_for(db, user_id))
@@ -335,6 +336,9 @@ async def get_themed_positions(db, user_id: str, topic: str,
 
     solved = await _solved_ids(db, user_id)
     spec = spec_or_fallback(topic)
+    # A daily-plan idea (docs/daily_coach_plan_scope.md) asks its own question
+    # and no reason: the topic specs' reasons were written for other topics.
+    lesson = daily_theme(topic)
     out: List[Dict[str, Any]] = []
     seen = 0
     async for doc in db.lichess_puzzles.find(query, {
@@ -366,11 +370,11 @@ async def get_themed_positions(db, user_id: str, topic: str,
             # From the THEME, not the topic: a defensiveMove puzzle promises
             # that the answer is defensive and nothing about whose king is
             # where. See topic_practice_themes.question_for_themes.
-            "question": question_for_themes(doc.get("themes")),
-            "task_line": spec.task_line_for(spec.accepts),
-            "reason_prompt": spec.reason_prompt,
-            "reason_options": [{"id": o.id, "label": o.label}
-                               for o in spec.reason_options],
+            "question": theme_question(lesson) if lesson else question_for_themes(doc.get("themes")),
+            "task_line": "" if lesson else spec.task_line_for(spec.accepts),
+            "reason_prompt": "" if lesson else spec.reason_prompt,
+            "reason_options": [] if lesson else [{"id": o.id, "label": o.label}
+                                                 for o in spec.reason_options],
         })
         if len(out) >= limit:
             break
@@ -378,6 +382,7 @@ async def get_themed_positions(db, user_id: str, topic: str,
     return {
         "ok": True,
         "topic": topic,
+        "title": lesson.get("title") if lesson else None,
         "blurb": blurb_for(topic),
         "positions": out,
         "state": "ready" if out else "exhausted",
@@ -396,7 +401,7 @@ async def _rating_for(db, user_id: str):
 
 
 async def grade_themed(db, user_id: str, position_id: str, move_uci: str,
-                       reason_id: Optional[str] = None) -> Dict[str, Any]:
+                       reason_id: Optional[str] = None, topic: Optional[str] = None) -> Dict[str, Any]:
     """Mark a themed attempt. The answer never leaves the server until now."""
     import chess
 
@@ -424,6 +429,9 @@ async def grade_themed(db, user_id: str, position_id: str, move_uci: str,
         "correct": bool(correct),
         "reason_id": reason_id or None,
         "source": "lichess_theme",
+        # The daily plan reads these to tick its tasks (docs/daily_coach_plan_scope.md).
+        "topic": str(topic)[:80] if topic else None,
+        "at": datetime.now(timezone.utc),
     })
     try:
         answer_san = board.san(chess.Move.from_uci(answer))

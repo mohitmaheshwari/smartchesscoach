@@ -26,8 +26,8 @@
  * "3 of 10". A test asserts it, because an authored string that drifts never
  * errors on its own.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { API } from "@/App";
@@ -62,6 +62,13 @@ export default function MotifFindDrill({ user, source = "motif" }) {
   const { motif: rawMotif, topic: rawTopic } = useParams();
   const raw = source === "theme" ? rawTopic : rawMotif;
   const motif = String(raw || "").toLowerCase();
+  // The daily plan (docs/daily_coach_plan_scope.md) opens "theme-<idea>"
+  // topics with its own count, and sends him back to today when he is done.
+  const [searchParams] = useSearchParams();
+  const count = Math.max(1, Math.min(Number(searchParams.get("count")) || 10, 20));
+  const fromToday = searchParams.get("from") === "today";
+  const dailyIdea = source === "theme" && motif.startsWith("theme-");
+  const [lesson, setLesson] = useState({ title: "", blurb: "" });
 
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState("ready");
@@ -74,23 +81,25 @@ export default function MotifFindDrill({ user, source = "motif" }) {
   const [error, setError] = useState("");
 
   const position = positions[idx] || null;
+  const submitRef = useRef(null);
 
   useEffect(() => {
     let live = true;
     setLoading(true);
-    fetch(`${API}/${api.list}/${motif}?count=10`, { credentials: "include" })
+    fetch(`${API}/${api.list}/${motif}?count=${count}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("unavailable"))))
       .then((data) => {
         if (!live) return;
         setPositions(data.positions || []);
         setState(data.state || "ready");
+        setLesson({ title: data.title || "", blurb: data.blurb || "" });
       })
       .catch(() => live && setError("This drill could not be loaded."))
       .finally(() => live && setLoading(false));
     return () => {
       live = false;
     };
-  }, [motif]);
+  }, [motif, count]);
 
   // The board shows the position until a move is made, then the move, so the
   // player sees what they played while they read the verdict.
@@ -115,14 +124,19 @@ export default function MotifFindDrill({ user, source = "motif" }) {
       setBoardFen(game.fen());
       const uci = `${played.from}${played.to}${played.promotion || ""}`;
       setMoveUci(uci);
-      setPhase("reason");
+      // A daily idea asks no reason: grade the move straight away.
+      if ((position.reason_options || []).length === 0) {
+        submitRef.current(null, uci);
+      } else {
+        setPhase("reason");
+      }
       return true;
     },
     [position, phase]
   );
 
   const submit = useCallback(
-    async (reasonId) => {
+    async (reasonId, uciOverride) => {
       if (!position) return;
       setError("");
       try {
@@ -132,8 +146,9 @@ export default function MotifFindDrill({ user, source = "motif" }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             position_id: position.position_id,
-            move_uci: moveUci,
+            move_uci: uciOverride || moveUci,
             reason_id: reasonId || null,
+            topic: source === "theme" ? motif : null,
           }),
         });
         if (!res.ok) throw new Error("rejected");
@@ -143,8 +158,9 @@ export default function MotifFindDrill({ user, source = "motif" }) {
         setError("That answer could not be sent. Try again.");
       }
     },
-    [position, moveUci]
+    [position, moveUci, motif, source]
   );
+  submitRef.current = submit;
 
   const next = useCallback(() => {
     setVerdict(null);
@@ -154,7 +170,9 @@ export default function MotifFindDrill({ user, source = "motif" }) {
     setIdx((i) => i + 1);
   }, []);
 
-  const title = source === "theme" ? TOPIC_TITLES[motif] : TITLES[motif];
+  const title = source === "theme"
+    ? TOPIC_TITLES[motif] || (dailyIdea ? lesson.title || "Today's idea" : undefined)
+    : TITLES[motif];
   if (!title) {
     return (
       <Layout user={user}>
@@ -178,6 +196,20 @@ export default function MotifFindDrill({ user, source = "motif" }) {
   // "Nothing tagged yet" and "you have solved these" are different things and
   // are told apart, so a migration that has not run cannot look like a
   // finished drill.
+  // Every puzzle of today's task answered: back to the day card, which ticks it.
+  if (!position && fromToday && idx > 0) {
+    return (
+      <Layout user={user}>
+        <div className="mx-auto max-w-[620px] px-6 py-8" data-testid="motif-find-drill-today-done">
+          <p className="mb-4 text-body text-foreground">That is today's set done.</p>
+          <button onClick={() => navigate("/home")} className="cg-primary-action">
+            Back to today <ArrowRight className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </div>
+      </Layout>
+    );
+  }
+
   if (!position) {
     const message =
       state === "exhausted"
@@ -211,6 +243,10 @@ export default function MotifFindDrill({ user, source = "motif" }) {
         <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">
           {title}
         </span>
+
+        {dailyIdea && lesson.blurb && (
+          <p className="mt-3 text-body text-foreground" data-testid="motif-find-drill-idea">{lesson.blurb}</p>
+        )}
 
         <div className="mt-4 rounded-lg border border-amber-200/60 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50 p-3 mb-4">
           <p className="text-[14px] text-foreground">{position.question}</p>
