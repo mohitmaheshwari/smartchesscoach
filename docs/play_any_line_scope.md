@@ -1,6 +1,8 @@
 # Play any line on the board — scope
 
-Status: DRAFT, awaiting Mohit's sign-off. No code until signed.
+Status: SIGNED by Mohit 2026-11-18 ("go ahead" on the plan as written).
+Sharing question (section 6) not answered: the safer default is used, the
+player and reviewers only; a coach once coach access exists (section 8).
 
 Mohit, 2026-11-18: "i need to be able to play any line on the board, so coach
 can also show, for example if student had asked sir what is the problem with
