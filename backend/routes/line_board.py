@@ -72,10 +72,15 @@ class LineMove(BaseModel):
 
 
 async def _game_and_rating(user: User, game_id: str):
-    game = await db.games.find_one(
-        {"game_id": game_id, **user_scope_filter(user)},
-        {"_id": 0, "game_id": 1, "user_id": 1, "pgn": 1, "user_color": 1, "user_plays_as": 1},
-    )
+    fields = {"_id": 0, "game_id": 1, "user_id": 1, "pgn": 1, "user_color": 1, "user_plays_as": 1}
+    game = await db.games.find_one({"game_id": game_id, **user_scope_filter(user)}, fields)
+    if not game:
+        # An academy coach on a student's game, after the parent agreed
+        # (routes/academy_games.py). "your" in the words stays the student.
+        from routes.academy_games import staff_may_read_game
+        other = await db.games.find_one({"game_id": game_id}, fields)
+        if other and await staff_may_read_game(db, user, other.get("user_id")):
+            game = other
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
     rating = None

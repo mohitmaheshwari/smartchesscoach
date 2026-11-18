@@ -65,6 +65,7 @@ import AdminGeometryGaps from "@/pages/AdminGeometryGaps";
 import AdminLlmCost from "@/pages/AdminLlmCost";
 import AdminWhyQueue from "@/pages/AdminWhyQueue";
 import { AcademyHome, AcademyBatch, AcademyStudent } from "@/pages/Academy";
+import AcademyStudentGame from "@/pages/AcademyStudentGame";  // docs/play_any_line_scope.md
 import { FamilyConsent, FamilyReport, FamilyHomework, FamilyClassGame } from "@/pages/AcademyFamily";
 import FirstStepsClass from "@/pages/FirstStepsClass";
 import ClassReflect from "@/pages/ClassReflect";
@@ -623,6 +624,11 @@ function AppRouter() {
       <Route path="/academy/student/:studentId" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {() => <AcademyStudent />}
+        </ProtectedRoute>
+      } />
+      <Route path="/academy/student/:studentId/game/:gameId" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {() => <AcademyStudentGame />}
         </ProtectedRoute>
       } />
       <Route path="/admin/waitlist" element={

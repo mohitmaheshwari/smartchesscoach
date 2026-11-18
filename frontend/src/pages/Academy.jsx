@@ -697,6 +697,41 @@ function StudentCoachFile({ studentId, name }) {
   );
 }
 
+const OUTCOME_WORD = { win: "Won", loss: "Lost", draw: "Drew" };
+
+/**
+ * The child's recent games, each opening on the coach board, where the coach
+ * can play any line to show the student (docs/play_any_line_scope.md).
+ * Read only after the parent has agreed, like every other read of the games.
+ */
+function StudentGames({ studentId, name }) {
+  const [state] = useLoad(`/academy/student/${studentId}/games`);
+  const games = state.data?.games || [];
+  if (!state.data?.enabled || games.length === 0) return null;
+  return (
+    <Card>
+      <Eyebrow>{name}'s games</Eyebrow>
+      <p className="text-sm text-muted-foreground">
+        Open a game and move any piece to show {name} a line. The board answers each move.
+      </p>
+      <ul className="grid gap-1" data-testid="academy-student-games">
+        {games.map((g) => (
+          <li key={g.game_id}>
+            <Link className="flex flex-wrap gap-x-2 text-sm hover:underline"
+              to={`/academy/student/${studentId}/game/${g.game_id}`}>
+              <span className="font-semibold">{OUTCOME_WORD[g.outcome] || "Played"}</span>
+              <span>{g.opponent_name ? `vs ${g.opponent_name}` : ""}</span>
+              <span className="text-muted-foreground">
+                {g.played_at ? new Date(g.played_at).toLocaleDateString() : ""}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
 export function AcademyStudent() {
   const { studentId } = useParams();
   const navigate = useNavigate();
@@ -801,6 +836,7 @@ export function AcademyStudent() {
             </Card>
             <CoachPlanCard plan={view.plan} studentId={studentId} name={s.display_name} onChange={reload} />
             <StudentCoachFile studentId={studentId} name={s.display_name} />
+            <StudentGames studentId={studentId} name={s.display_name} />
             <StudentLogin studentId={studentId} name={s.display_name} current={view.login?.username} onSaved={reload} />
             {(view.preview?.sections || []).some((sec) => sec.kind === "good") && (
               <Card>

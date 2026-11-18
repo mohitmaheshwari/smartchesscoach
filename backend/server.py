@@ -634,6 +634,7 @@ from routes import reply_check as reply_check_routes
 from routes import product_events as product_events_routes
 from routes import behavior_study as behavior_study_routes
 from routes import line_board as line_board_routes
+from routes import academy_games as academy_games_routes
 
 
 # ==================== INJECT DEPENDENCIES ====================
@@ -811,6 +812,8 @@ app.include_router(reply_check_routes.router, prefix="/api")
 # docs/play_any_line_scope.md: play any line on the review board.
 line_board_routes.set_db(db)
 app.include_router(line_board_routes.router, prefix="/api")
+academy_games_routes.set_db(db)
+app.include_router(academy_games_routes.router, prefix="/api")
 # Product events land in our own collection. Every track() call in the
 # frontend was a no-op before this: posthog is never initialised.
 app.include_router(

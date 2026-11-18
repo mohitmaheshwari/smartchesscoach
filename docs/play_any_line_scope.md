@@ -231,3 +231,17 @@ otherwise "a good move"; one comparison for the middle of the table ("Qxb2
 was better than Qd6"), true on either side of the line; "a mistake" only for
 the rating table's big losses. Also: a target with a piece behind it is
 named last, and "It" is not used after a verdict about another move.
+
+## 9. Coach pages (built 2026-11-18, after the player's board went live)
+
+- Access rule (`routes/academy_games.py`, `staff_may_read_game`): the academy's
+  owner, its coaches and site admins may read a child's games, only while the
+  parent's consent is given and the child is not deleted. The same rule as
+  every other academy read (`routes.academy._student_for`).
+- `/academy/student/:studentId` lists the child's 20 most recent games. Each
+  opens `/academy/student/:studentId/game/:gameId`: the game replays move by
+  move, and the coach can move any piece; the board answers through the same
+  `/coach/line/*` calls, which now accept the access rule. "Your" in the words
+  is the student.
+- No review captions on the coach board: the coach page is the board and the
+  line. The full review page stays owner-only.
