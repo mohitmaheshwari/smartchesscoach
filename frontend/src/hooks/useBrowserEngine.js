@@ -105,7 +105,7 @@ function whenReady() {
   start();
   return new Promise((resolve) => {
     readyWaiters.push(resolve);
-    setTimeout(() => resolve(state === "ready"), 15000);
+    setTimeout(() => resolve(state === "ready"), 8000);
   });
 }
 
@@ -125,6 +125,15 @@ export function analyse(fen, { multipv = 1, movetime = MOVETIME_MS, onInfo } = {
       worker.postMessage(`setoption name MultiPV value ${multipv}`);
       worker.postMessage(`position fen ${fen}`);
       worker.postMessage(`go movetime ${movetime}`);
+      // A search that never reports back must not hang the board: give up and
+      // let the server engine answer instead.
+      setTimeout(() => {
+        if (current && current.resolve === resolve) {
+          current = null;
+          worker.postMessage("stop");
+          resolve(null);
+        }
+      }, movetime + 4000);
     });
     if (result && result.lines[1]) {
       cache.set(key, result);
