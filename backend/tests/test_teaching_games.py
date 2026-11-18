@@ -46,6 +46,16 @@ def test_openings_match_lichess_tags_most_specific_first():
     assert tg.game_id_of("https://lichess.org/TiwHxq8n#25") == "TiwHxq8n"
 
 
+def test_openings_are_named_from_the_moves_and_variants_are_skipped():
+    italian = "1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6 *"
+    name = tg.opening_name(italian)
+    assert name and name.startswith("Italian Game")
+    games = [{"pgn": italian, "user_color": "white", "opening": None},
+             {"pgn": "1. Be3 Be4 *", "user_color": "white", "opening": "From Position - None"},
+             {"pgn": '[FEN "8/8/8/8/8/8/8/K6k w - - 0 1"]\n\n1. Kb2 *', "user_color": "black", "opening": None}]
+    assert tg.his_openings(games) == [(name, "white")]
+
+
 def test_knowledge_states_from_games_and_puzzles():
     obs = [{"tactic_tags": [{"motif": "fork", "kind": "missed"}, {"motif": "fork", "kind": "missed"},
                             {"motif": "pin", "kind": "found"}, {"motif": "pin", "kind": "found"},

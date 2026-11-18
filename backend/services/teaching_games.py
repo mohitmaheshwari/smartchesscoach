@@ -33,13 +33,48 @@ def norm(name: Any) -> str:
     return re.sub(r"[^a-z0-9]", "", str(name or "").lower())
 
 
+NAMING_PLIES = 20
+_VARIANT_WORDS = ("from position", "chess960", "racing kings", "crazyhouse", "atomic", "horde", "antichess",
+                  "king of the hill", "three-check")
+
+
+def opening_name(pgn: Any) -> Optional[str]:
+    """The deepest Lichess opening name his game reaches in its first moves
+    (services/lichess_openings_local.py, looked up by position). Stored PGNs
+    carry no opening tag, and `games.opening` is empty for most games
+    (2026-11-18: 17 of Mohit's newest 200, all of them variants)."""
+    from services.lichess_openings_local import name_for_fen
+
+    try:
+        game = chess.pgn.read_game(io.StringIO(str(pgn or "")))
+    except Exception:
+        return None
+    if game is None or game.headers.get("FEN"):
+        return None
+    board = game.board()
+    name = None
+    for i, mv in enumerate(game.mainline_moves()):
+        if i >= NAMING_PLIES or mv not in board.legal_moves:
+            break
+        board.push(mv)
+        hit = name_for_fen(board.fen())
+        if hit:
+            name = hit[0]
+    return name
+
+
 def his_openings(games: Iterable[Mapping[str, Any]]) -> List[Tuple[str, str]]:
-    """(opening name, his colour), most played first."""
+    """(opening name, his colour), most played first. Named from the moves;
+    the stored `opening` is used only when the moves give nothing."""
     c: Counter = Counter()
     for g in games:
-        name, colour = g.get("opening"), g.get("user_color")
-        if isinstance(name, str) and name.strip() and colour in ("white", "black"):
-            c[(name.strip(), colour)] += 1
+        colour = g.get("user_color")
+        stored = g.get("opening") if isinstance(g.get("opening"), str) else ""
+        if colour not in ("white", "black") or any(w in stored.lower() for w in _VARIANT_WORDS):
+            continue
+        name = opening_name(g.get("pgn")) or stored.strip()
+        if name:
+            c[(name, colour)] += 1
     return [k for k, _ in c.most_common()]
 
 

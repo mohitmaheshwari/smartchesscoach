@@ -386,11 +386,13 @@ _preparing: set = set()
 _prep_tasks: set = set()  # keeps the background tasks referenced until they finish
 
 
-async def _his_games(db, user_id: str) -> List[Dict[str, Any]]:
+async def _his_games(db, user_id: str, with_pgn: bool = False) -> List[Dict[str, Any]]:
     from services import teaching_games as tg
 
-    return await db.games.find({"user_id": user_id}, {"_id": 0, "game_id": 1, "opening": 1, "user_color": 1,
-                                                      "is_analyzed": 1}).sort("played_at_utc", -1).limit(tg.OPENINGS_READ).to_list(None)
+    fields = {"_id": 0, "game_id": 1, "opening": 1, "user_color": 1, "is_analyzed": 1}
+    if with_pgn:
+        fields["pgn"] = 1
+    return await db.games.find({"user_id": user_id}, fields).sort("played_at_utc", -1).limit(tg.OPENINGS_READ).to_list(None)
 
 
 async def _priority(db, user_id: str, games: Sequence[Mapping[str, Any]]) -> List[str]:
@@ -425,7 +427,7 @@ async def prepare_game(db, user_id: str, rating: Optional[int]) -> None:
         return
     _preparing.add(user_id)
     try:
-        games = await _his_games(db, user_id)
+        games = await _his_games(db, user_id, with_pgn=True)
         priority = await _priority(db, user_id, games)
         themes = daily_themes()
         ideas = [themes[k] for k in priority] + [
