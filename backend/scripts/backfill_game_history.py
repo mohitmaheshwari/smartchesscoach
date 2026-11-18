@@ -34,7 +34,8 @@ DRY = os.environ.get("DRY") == "1"
 
 def lichess_history(username):
     r = httpx.get(f"https://lichess.org/api/games/user/{username}",
-                  params={"pgnInJson": "true", "clocks": "true", "evals": "false", "sort": "dateAsc"},
+                  params={"pgnInJson": "true", "clocks": "true", "evals": "false",
+                          "opening": "true", "sort": "dateAsc"},
                   headers={**H, "Accept": "application/x-ndjson"}, timeout=600)
     r.raise_for_status()
     return [json.loads(line) for line in r.text.splitlines() if line.strip()]

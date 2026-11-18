@@ -167,7 +167,13 @@ async def import_games(req: ImportGamesRequest, user: User = Depends(get_current
                 # 2026-11-09 on one game: 0 tags without, 52 with). Onboarding
                 # imports through here, so without it a new player's first
                 # games had no think-time; 577 lichess games were stored so.
-                params={"max": 30, "pgnInJson": False, "clocks": "true"},
+                # opening: lichess defaults it to false and then sends no
+                # [Opening]/[ECO] header, which is why 0 of 2,013 lichess
+                # games had an opening name against 98.1% of chess.com ones
+                # (2026-11-18). Engine 2 records only opening exposure, so
+                # without this a lichess player records no skill, ever.
+                params={"max": 30, "pgnInJson": False, "clocks": "true",
+                        "opening": "true"},
                 # Lichess answers this endpoint with 404 when there is no
                 # User-Agent (verified 2026-10-28: same request, 404 without,
                 # 200 with). The background sync always sent one.
