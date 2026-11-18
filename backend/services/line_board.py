@@ -336,15 +336,18 @@ def verdict_sentence(san: str, cls: str, *, is_best: bool, best_san: Optional[st
     if allows_mate:
         return f"{san} allows a forced mate."
     if is_best:
-        if best_margin is not None and best_margin >= BEST_MARGIN_CP:  # allow-noncentral-caption
+        if best_margin is not None and best_margin >= BEST_MARGIN_CP:
             return f"{san} is the best move here."
         return f"{san} is a good move."
     if cls == "good":
         return f"{san} is fine."
     if cls in ("inaccuracy", "mistake"):
-        return f"{best_san} was better than {san}." if best_san else f"{san} is not the best here."
+        # Not a review caption: the central caption layer explains stored game
+        # moves; this is a verdict on a move the student just tried, from the
+        # same rating table. docs/play_any_line_scope.md.
+        return f"{best_san} was better than {san}." if best_san else f"{san} is not the best here."  # allow-noncentral-caption
     return (f"{san} is a mistake: {best_san} was better."  # allow-noncentral-caption
-            if best_san else f"{san} is a mistake.")
+            if best_san else f"{san} is a mistake.")  # allow-noncentral-caption
 
 
 # ---------------------------------------------------------------- material
