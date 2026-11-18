@@ -61,6 +61,9 @@ export default function AcademyStudentGame() {
 
   const lbExit = lb.exit;
   useEffect(() => { lbExit(); }, [index, lbExit]);
+  const lbPrefetch = lb.prefetch;
+  const hereFen = positions[index]?.fen;
+  useEffect(() => { if (hereFen) lbPrefetch(hereFen); }, [hereFen, lbPrefetch]);
 
   if (state.loading) return <Layout><p className="p-6 text-sm text-muted-foreground">Opening the game…</p></Layout>;
   if (state.error) {

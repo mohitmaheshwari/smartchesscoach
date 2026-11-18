@@ -267,6 +267,11 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
   // Stepping to another move of the game, or another game, ends the line.
   const lbExit = lb.exit;
   useEffect(() => { lbExit(); }, [currentMoveIndex, gameId, lbExit]);
+  // Search the position on the board in the browser while the player looks
+  // at it, so a move tried there is answered at once (scope section 10).
+  const lbPrefetch = lb.prefetch;
+  const lbActive = lb.active;
+  useEffect(() => { if (!lbActive) lbPrefetch(boardFen); }, [boardFen, lbActive, lbPrefetch]);
   
   const boardRef = useRef(null);
   const containerRef = useRef(null);

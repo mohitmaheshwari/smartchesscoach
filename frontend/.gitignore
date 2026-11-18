@@ -24,3 +24,4 @@ yarn-error.log*
 
 # Bundled client-side Stockfish engine (copied from node_modules at build time)
 public/stockfish/
+public/stockfish17/

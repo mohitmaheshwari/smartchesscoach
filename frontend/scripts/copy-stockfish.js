@@ -36,3 +36,31 @@ try {
   // Never fail the build over this — client eval simply falls back to server eval.
   console.warn("[copy-stockfish] copy failed (non-fatal):", e.message);
 }
+
+// Stockfish 17.1, lite single-threaded build (~7MB), for the line board on game
+// review: the reply and arrows come from the browser at once
+// (docs/play_any_line_scope.md, section 10). Single-threaded, so no COOP/COEP
+// headers are needed. The worker finds its .wasm next to its .js by name, so
+// both keep the package's own (hashed) names.
+const SF17_SRC = path.join(__dirname, "..", "node_modules", "stockfish", "src");
+const SF17_DEST = path.join(__dirname, "..", "public", "stockfish17");
+const SF17_FILES = ["stockfish-17.1-lite-single-03e3232.js", "stockfish-17.1-lite-single-03e3232.wasm"];
+try {
+  if (!fs.existsSync(SF17_SRC)) {
+    console.warn("[copy-stockfish] stockfish@17.1 not in node_modules — skipping " +
+      "(the line board falls back to the server engine).");
+  } else {
+    fs.mkdirSync(SF17_DEST, { recursive: true });
+    let n = 0;
+    for (const f of SF17_FILES) {
+      const src = path.join(SF17_SRC, f);
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, path.join(SF17_DEST, f));
+        n++;
+      }
+    }
+    console.log(`[copy-stockfish] bundled ${n}/${SF17_FILES.length} Stockfish 17.1 lite files -> public/stockfish17/`);
+  }
+} catch (e) {
+  console.warn("[copy-stockfish] Stockfish 17.1 copy failed (non-fatal):", e.message);
+}

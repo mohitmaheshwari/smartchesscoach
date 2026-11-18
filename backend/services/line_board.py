@@ -466,6 +466,69 @@ def material_sentence(start: chess.Board, moves: Sequence[chess.Move], user_colo
     return head + f" Overall you are {_size_word(abs(overall))} {'up' if overall > 0 else 'down'}."
 
 
+# ---------------------------------------------------------------- browser engine
+
+class ClientAnswers:
+    """Answers step()'s two engine questions from the student's own browser.
+
+    docs/play_any_line_scope.md section 10: the reply and arrows come from
+    Stockfish running in the browser, so the move is answered at once; the
+    server only writes the words. This stands in for the engine: the position
+    before the move (best move, its score, the next move's score) and the
+    position after it (the reply line and its score). Scores are centipawns
+    from the side to move, a mate as +-(10000 - n), like the server's.
+
+    Anything that does not fit the board is refused (LineError) and the route
+    falls back to the server engine.
+    """
+
+    def __init__(self, before_fen: str, best_uci: str, best_cp: int, second_cp: Optional[int],
+                 after_fen: Optional[str], pv_after_uci: Sequence[str], after_cp: Optional[int]):
+        def clamp(v):
+            return None if v is None else max(-MATE_SCORE, min(MATE_SCORE, int(v)))
+
+        before = chess.Board(before_fen)
+        try:
+            best = chess.Move.from_uci(best_uci)
+        except ValueError as exc:
+            raise LineError("bad best move from the browser") from exc
+        if best not in before.legal_moves:
+            raise LineError("the browser's best move is not legal here")
+        self.before_key = _key(before_fen)
+        self.best = best
+        self.best_cp = clamp(best_cp)
+        self.second_cp = clamp(second_cp)
+        self.after_key = _key(after_fen) if after_fen else None
+        self.after_cp = clamp(after_cp)
+        self.pv_after: List[chess.Move] = []
+        if after_fen:
+            b = chess.Board(after_fen)
+            for u in list(pv_after_uci)[:12]:
+                try:
+                    mv = chess.Move.from_uci(u)
+                except ValueError:
+                    break
+                if mv not in b.legal_moves:
+                    break
+                self.pv_after.append(mv)
+                b.push(mv)
+
+    @staticmethod
+    def _info(board: chess.Board, cp: int, pv: List[chess.Move]) -> Dict:
+        return {"score": chess.engine.PovScore(chess.engine.Cp(cp), board.turn), "pv": pv}
+
+    def analyse(self, board: chess.Board, limit=None, multipv: int = 1):
+        key = _key(board.fen())
+        if key == self.before_key:
+            out = [self._info(board, self.best_cp, [self.best])]
+            if self.second_cp is not None:
+                out.append(self._info(board, self.second_cp, []))
+            return out if multipv > 1 else out[0]
+        if self.after_key is not None and key == self.after_key and self.after_cp is not None:
+            return self._info(board, self.after_cp, list(self.pv_after))
+        raise LineError("the browser's search was for another position")
+
+
 # ---------------------------------------------------------------- one step
 
 @dataclass

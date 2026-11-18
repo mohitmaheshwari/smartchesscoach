@@ -245,3 +245,37 @@ named last, and "It" is not used after a verdict about another move.
   is the student.
 - No review captions on the coach board: the coach page is the board and the
   line. The full review page stays owner-only.
+
+## 10. The engine in the browser (Mohit 2026-11-18: "lichess explorer works damn fast for best moves and arrows")
+
+The board answered each move from the server engine: 1.3 s typical at light
+load, 20–30 s on the loaded box. Lichess is fast because the engine runs in the
+browser. So does ours now:
+
+- Stockfish 17.1, lite single-threaded build (npm `stockfish@17.1.0`, ~7 MB,
+  served from `/stockfish17/`, cached after the first visit). Single-threaded,
+  so the site needs no COOP/COEP headers. Play with Coach keeps its own Stockfish
+  10 build; this is for the line board only.
+- The browser searches the position on the board while the player looks at it
+  (0.8 s, two best moves), and the position after their move when they move.
+  The reply is played on the board as soon as it is found; the server then
+  writes the words from the browser's numbers (`client_eval` on
+  `POST /coach/line/move`, no server engine). If the browser cannot run the
+  engine, or its numbers do not fit the board, the server engine answers as
+  before.
+- "Show the engine's best move" puts a green arrow on the board for the side
+  to move, growing with the search. Off by default, so the board does not
+  hand the student the answer.
+- The why sentence stays on the server (deep search, arrives later).
+
+**Measured before building** (46 real positions; reference: server Stockfish at
+depth 22; the browser build run in Node on a desktop):
+
+| Engine | Same verdict word | Same reply | Typical depth |
+|---|---|---|---|
+| Server, depth 16 (live) | 35 / 46 | 34 / 46 | 16 |
+| Browser lite, 0.4 s | 33 / 46 | 31 / 46 | 18 |
+| Browser lite, 0.8 s | 33 / 46 | 32 / 46 | 19 |
+| Browser lite, 1.5 s | 33 / 46 | 29 / 46 | 21 |
+
+Chosen: 0.8 s. A phone searches less deeply in the same time; not measured.

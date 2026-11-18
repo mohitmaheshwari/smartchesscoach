@@ -61,6 +61,13 @@ export default function LineBoardPanel({ lb, gameFen }) {
         </div>
       )}
 
+      {lb.engineState !== "failed" && lb.setHint && (
+        <label className="flex items-center gap-2 text-xs text-gray-600" data-testid="line-hint-toggle">
+          <input type="checkbox" checked={Boolean(lb.hint)} onChange={(e) => lb.setHint(e.target.checked)} />
+          Show the engine's best move (green arrow)
+        </label>
+      )}
+
       <div className="flex flex-wrap gap-2 pt-1">
         <Button size="sm" variant="outline" onClick={lb.back} disabled={lb.busy || lb.steps.length === 0}
           data-testid="line-back">

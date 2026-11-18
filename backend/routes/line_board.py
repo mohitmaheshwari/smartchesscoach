@@ -63,12 +63,28 @@ def _allow(user_id: str) -> bool:
     return True
 
 
+class ClientEval(BaseModel):
+    """Stockfish's answer from the student's browser (section 10 of the scope).
+
+    Scores are centipawns from the side to move; a mate is +-(10000 - n).
+    """
+    engine: str = Field(default="", max_length=40)
+    best: str = Field(max_length=5)                 # best move before the student's move, UCI
+    best_cp: int
+    second_cp: Optional[int] = None                 # the next-best move's score (MultiPV 2)
+    after_cp: Optional[int] = None                  # after the student's move, side to move
+    pv_after: List[str] = Field(default_factory=list, max_length=16)  # reply first, UCI
+    depth_before: Optional[int] = None
+    depth_after: Optional[int] = None
+
+
 class LineMove(BaseModel):
     game_id: str
     start_fen: str
     moves: List[str] = Field(default_factory=list)
     # None = "Best move here": the engine's best is played as the student's move.
     move: Optional[str] = None
+    client_eval: Optional[ClientEval] = None
 
 
 async def _game_and_rating(user: User, game_id: str):
@@ -123,15 +139,42 @@ async def _record(user: User, game_id: str, body: LineMove, kind: str, out: dict
                 "why": out.get("text") if kind == "why" else None,
             },
             "found": out.get("found") if kind == "why" else None,
+            "engine": out.get("engine") if kind == "move" else None,
             "at": datetime.now(timezone.utc),
         })
     except Exception:                                   # noqa: BLE001
         logger.debug("line board: event not recorded", exc_info=True)
 
 
+def _from_browser(body: LineMove, *, user_color, rating, notation) -> dict:
+    from services.line_board import ClientAnswers, LineError, replay, step
+    ce = body.client_eval
+    board, _ = replay(body.start_fen, body.moves)
+    if body.move is None:
+        try:
+            move = chess.Move.from_uci(ce.best)
+        except ValueError as exc:
+            raise LineError("bad best move from the browser") from exc
+        if move not in board.legal_moves:
+            raise LineError("the browser's best move is not legal here")
+    else:
+        try:
+            move = board.parse_san(body.move)
+        except ValueError as exc:
+            raise LineError(f"illegal move: {body.move}") from exc
+    after = board.copy()
+    after.push(move)
+    answers = ClientAnswers(board.fen(), ce.best, ce.best_cp, ce.second_cp,
+                            None if after.is_game_over() else after.fen(), ce.pv_after, ce.after_cp)
+    out = step(answers, body.start_fen, body.moves, body.move, user_color=user_color,
+               rating=rating, depth=0, notation=notation).to_dict()
+    out["engine"] = f"browser:{ce.engine}"[:48]
+    return out
+
+
 @router.post("/move")
 async def line_move(body: LineMove, user: User = Depends(get_current_user)):
-    from services.line_board import LineError, step
+    from services.line_board import LineError, step  # noqa: F401
 
     game, rating, user_color = await _game_and_rating(user, body.game_id)
     _check_line(game, body)
@@ -144,8 +187,18 @@ async def line_move(body: LineMove, user: User = Depends(get_current_user)):
             return step(eng, body.start_fen, body.moves, body.move, user_color=user_color,
                         rating=rating, depth=LINE_BOARD_DEPTH, notation=notation).to_dict()
 
+    out = None
+    if body.client_eval is not None:
+        # The browser already searched: words only, no server engine.
+        try:
+            out = _from_browser(body, user_color=user_color, rating=rating, notation=notation)
+        except LineError as exc:
+            logger.info("line board: browser eval refused (%s); using the server engine", exc)
+            out = None
     try:
-        out = await asyncio.to_thread(_run)
+        if out is None:
+            out = await asyncio.to_thread(_run)
+            out["engine"] = "server"
     except LineError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception:                                   # noqa: BLE001

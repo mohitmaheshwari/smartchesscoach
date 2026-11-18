@@ -178,3 +178,44 @@ def test_it_is_not_used_after_a_verdict_about_another_move():
     out = step(eng, QF3, [], "Ne2", user_color=chess.WHITE, rating=1200, depth=1).to_dict()
     assert out["student"]["text"].startswith("Bxa6 was better than Ne2.")
     assert " It " not in out["student"]["text"]
+
+
+# --- the browser's engine answers (scope section 10) ---------------------------
+
+from services.line_board import ClientAnswers  # noqa: E402
+
+
+def _qf3_answers(**over):
+    b1, _ = _after(QF3, ["Qf3"])
+    kw = dict(before_fen=QF3, best_uci="b5a6", best_cp=245, second_cp=200,
+              after_fen=b1.fen(), pv_after_uci=["a6b5", "f3a8"], after_cp=276)
+    kw.update(over)
+    return ClientAnswers(**kw)
+
+
+def test_browser_answers_give_the_same_words_as_the_server_engine():
+    out = step(_qf3_answers(), QF3, [], "Qf3", user_color=chess.WHITE, rating=1200, depth=0).to_dict()
+    assert out["student"]["text"] == "Qf3 is a mistake: Bxa6 was better. It attacks their rook on a8."
+    assert out["reply"]["text"] == "Bxb5 takes your bishop on b5."
+    assert out["needs_why"] is True
+
+
+def test_browser_answers_for_another_move_are_refused():
+    # The after-search was for Qf3; the student played Ne2.
+    with pytest.raises(LineError):
+        step(_qf3_answers(), QF3, [], "Ne2", user_color=chess.WHITE, rating=1200, depth=0)
+
+
+def test_an_illegal_best_move_from_the_browser_is_refused():
+    with pytest.raises(LineError):
+        _qf3_answers(best_uci="e1e5")
+
+
+def test_the_reply_line_stops_at_the_first_illegal_move():
+    a = _qf3_answers(pv_after_uci=["a6b5", "a1a8", "f3a8"])
+    assert [m.uci() for m in a.pv_after] == ["a6b5"]
+
+
+def test_scores_are_clamped():
+    a = _qf3_answers(best_cp=10 ** 9)
+    assert a.best_cp == 10000
