@@ -993,9 +993,11 @@ def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
     doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, deciding_rows, engine_moments,
                      skipped=skipped, slips_per_game=slips)
     from services import player_plan_week as ppw
+    # A week is locked only for a player who can see the plan: 78 of the first
+    # 92 weeks belonged to players who could not (docs/coaching_intelligence_scope.md, 1a).
     row = ppw.ensure_week_sync(db, user_id, week_start(), doc.get("plan"), games,
                                {a["game_id"]: a.get("rows") or [] for a in analyses}, observations,
-                               (doc.get("habit") or {}).get("baseline"))
+                               (doc.get("habit") or {}).get("baseline")) if is_enabled_for(user_id) else None
     if row:
         doc["plan"] = ppw.apply_week(doc.get("plan"), row)
     db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
@@ -1037,9 +1039,10 @@ async def build_and_store(db, user_id: str) -> Dict[str, Any]:
     doc = await asyncio.to_thread(build_file, user_id, games, analyses, observations, last_rows,
                                   previous, fires, deciding_rows, engine_moments, None, skipped, slips)
     from services import player_plan_week as ppw
-    row = await ppw.ensure_week(db, user_id, week_start(), doc.get("plan"), games,
-                                {a["game_id"]: a.get("rows") or [] for a in analyses}, observations,
-                                (doc.get("habit") or {}).get("baseline"))
+    row = (await ppw.ensure_week(db, user_id, week_start(), doc.get("plan"), games,
+                                 {a["game_id"]: a.get("rows") or [] for a in analyses}, observations,
+                                 (doc.get("habit") or {}).get("baseline"))
+           if is_enabled_for(user_id) else None)
     if row:
         doc["plan"] = ppw.apply_week(doc.get("plan"), row)
     await db[COLLECTION].update_one({"user_id": user_id}, {"$set": _store_fields(doc)}, upsert=True)
@@ -1094,6 +1097,24 @@ def refresh_if_present_sync(db, user_id: str) -> bool:
         return False
     build_and_store_sync(db, user_id)
     return True
+
+
+VISITS_COLLECTION = "coach_pages_visits"
+
+
+async def record_visit(db, user_id: str, surface: str, now: Optional[datetime] = None) -> None:
+    """A player with the coach pages loaded them (docs/coaching_intelligence_scope.md, 1a).
+
+    Recorded on the server so exposure never depends on browser analytics.
+    One document per player: first seen, last seen, the days seen, and the
+    surfaces seen. Never called during view-as."""
+    now = now or datetime.now(timezone.utc)
+    await db[VISITS_COLLECTION].update_one(
+        {"user_id": user_id},
+        {"$setOnInsert": {"user_id": user_id, "first_seen_at": now},
+         "$set": {"last_seen_at": now},
+         "$addToSet": {"days": now.date().isoformat(), "surfaces": str(surface)[:40]}},
+        upsert=True)
 
 
 async def recent_starts(db, user_id: str, limit: int = 16) -> List[Dict[str, Any]]:

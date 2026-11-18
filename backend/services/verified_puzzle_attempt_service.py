@@ -329,6 +329,8 @@ async def record_verified_puzzle_attempt(
         "weakness_type": weakness,
         "recovery_credit_awarded": False,
         "created_at": now.isoformat(),
+        # One timestamp type on every puzzle attempt (docs/coaching_intelligence_scope.md, 1a).
+        "at": now,
         "rating": {
             "value": rating.get("rating"),
             "source": rating.get("source"),

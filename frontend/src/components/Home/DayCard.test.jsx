@@ -9,6 +9,7 @@ import DayCard from "./DayCard";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+jest.mock("@/lib/analytics", () => ({ ANALYTICS_EVENTS: new Proxy({}, { get: (_t, k) => k }), track: jest.fn() }), { virtual: true });
 jest.mock("@/App", () => ({ API: "/api" }), { virtual: true });
 jest.mock("@/lib/coachFile", () => ({ playFrom: jest.fn() }), { virtual: true });
 jest.mock("react-router-dom", () => ({
@@ -59,4 +60,15 @@ test("opening a task that is done by opening ticks it; a puzzle task waits for i
 test("renders nothing for a player without the coach pages", async () => {
   const host = await render({ enabled: false });
   expect(host.querySelector('[data-testid="day-card"]')).toBeNull();
+});
+
+test("a tick the server rejects does not stay done, and opening is tracked", async () => {
+  const { track } = require("@/lib/analytics");
+  const host = await render(DAY);
+  global.fetch.mockImplementation((url) => Promise.resolve(
+    String(url).includes("/tick") ? { ok: false, json: () => Promise.resolve({}) } : { ok: true, json: () => Promise.resolve(DAY) }));
+  await act(async () => { host.querySelector('[data-testid="day-task-fix"] a').click(); });
+  expect(track).toHaveBeenCalledWith("DAY_TASK_OPENED", expect.objectContaining({ content_kind: "fix" }));
+  expect(host.querySelector('[data-testid="day-task-fix"] [aria-label="done"]')).toBeNull();
+  expect(track).toHaveBeenCalledWith("DAY_CARD_VIEWED", expect.objectContaining({ total_items: 3, position_index: 1 }));
 });

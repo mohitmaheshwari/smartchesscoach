@@ -15,6 +15,7 @@ import { ArrowRight, Check, ChevronRight, X } from "lucide-react";
 
 import { API } from "@/App";
 import Layout from "@/components/Layout";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 
 const RESULT_WORDS = { "1-0": "White won the game.", "0-1": "Black won the game.", "1/2-1/2": "The game was drawn." };
 
@@ -49,10 +50,14 @@ export default function StudyGame({ user }) {
     let live = true;
     fetch(`${API}/study/${encodeURIComponent(puzzleId)}`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("unavailable"))))
-      .then((body) => live && setData(body))
+      .then((body) => {
+        if (!live) return;
+        setData(body);
+        track(ANALYTICS_EVENTS.STUDY_GAME_VIEWED, { surface: fromToday ? "day_card" : "direct" });
+      })
       .catch(() => live && setError("This game could not be loaded."));
     return () => { live = false; };
-  }, [puzzleId]);
+  }, [puzzleId, fromToday]);
 
   const total = data?.moves_before?.length || 0;
   const fen = useMemo(() => {
@@ -82,7 +87,11 @@ export default function StudyGame({ user }) {
       body: JSON.stringify({ position_id: data.position_id, move_uci: `${played.from}${played.to}${played.promotion || ""}`, topic: data.topic }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("rejected"))))
-      .then((v) => { setVerdict(v); setPhase("verdict"); })
+      .then((v) => {
+        setVerdict(v);
+        setPhase("verdict");
+        track(ANALYTICS_EVENTS.STUDY_GAME_ANSWERED, { outcome: v.correct ? "correct" : "incorrect" });
+      })
       .catch(() => setError("That answer could not be sent. Try again."));
     return true;
   }, [phase, data]);

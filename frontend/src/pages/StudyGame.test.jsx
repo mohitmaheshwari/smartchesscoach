@@ -9,6 +9,7 @@ import StudyGame from "./StudyGame";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+jest.mock("@/lib/analytics", () => ({ ANALYTICS_EVENTS: new Proxy({}, { get: (_t, k) => k }), track: jest.fn() }), { virtual: true });
 jest.mock("@/App", () => ({ API: "/api" }), { virtual: true });
 jest.mock("@/components/Layout", () => ({ children }) => <div>{children}</div>, { virtual: true });
 jest.mock("react-chessboard", () => ({ Chessboard: ({ position }) => <div data-testid="board">{position}</div> }), { virtual: true });

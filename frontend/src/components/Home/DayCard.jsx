@@ -7,11 +7,12 @@
  * proof; a task that is done by opening it is ticked when he opens it. The
  * week row shows the days he did his work and never counts the others.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CheckCircle2, Circle, CircleDot } from "lucide-react";
 
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { playFrom } from "@/lib/coachFile";
 
 const SLOT_WORDS = { fix: "Fix", new: "New", look_back: "Look back", play: "Play" };
@@ -26,13 +27,17 @@ function timeZone() {
 }
 
 async function post(path, body) {
-  const res = await fetch(`${API}${path}`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...body, tz: timeZone() }),
-  });
-  return res.ok;
+  try {
+    const res = await fetch(`${API}${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, tz: timeZone() }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 function Tick({ done }) {
@@ -64,7 +69,7 @@ function TaskAction({ task, onOpen }) {
   if (!task.url) return null;
   const label = task.action === "puzzles" ? (task.count > 1 ? "Start" : "Solve") : "Open";
   return (
-    <Link to={task.url} onClick={() => task.action !== "puzzles" && onOpen(task)}
+    <Link to={task.url} onClick={() => onOpen(task)}
       className="mt-2 inline-flex text-note font-medium text-primary hover:underline">
       {label}
     </Link>
@@ -73,6 +78,7 @@ function TaskAction({ task, onOpen }) {
 
 export default function DayCard() {
   const [data, setData] = useState(null);
+  const viewed = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -86,14 +92,30 @@ export default function DayCard() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Exposure: the day card was on screen, with how much of it was done
+  // (docs/coaching_intelligence_scope.md, 1a).
+  useEffect(() => {
+    if (viewed.current || !data?.enabled || data.state !== "ready" || !data.tasks?.length) return;
+    viewed.current = true;
+    track(ANALYTICS_EVENTS.DAY_CARD_VIEWED, {
+      surface: "home", type: data.size, total_items: data.tasks.length,
+      position_index: data.tasks.filter((t) => t.done).length, status: data.all_done ? "done" : "open",
+    });
+  }, [data]);
+
   if (!data?.enabled || data.state !== "ready" || !data.tasks?.length) return null;
 
   const onOpen = (task) => {
-    post("/daily-plan/tick", { task_id: task.id });
+    track(ANALYTICS_EVENTS.DAY_TASK_OPENED, { content_kind: task.slot, type: task.kind, action_kind: task.action });
+    if (task.action === "puzzles" || task.action === "games") return;  // ticked by proof, not by opening
     setData((d) => ({ ...d, tasks: d.tasks.map((t) => (t.id === task.id ? { ...t, done: true } : t)) }));
+    post("/daily-plan/tick", { task_id: task.id }).then((ok) => {
+      if (!ok) setData((d) => ({ ...d, tasks: d.tasks.map((t) => (t.id === task.id ? { ...t, done: false } : t)) }));
+    });
   };
   const onSize = async (size) => {
     if (size === data.size) return;
+    track(ANALYTICS_EVENTS.DAY_SIZE_CHANGED, { type: size });
     if (await post("/daily-plan/size", { size })) load();
   };
 

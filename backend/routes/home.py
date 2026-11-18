@@ -471,7 +471,21 @@ async def get_coach_file(request: Request, user: User = Depends(get_current_user
 
     if not pcf.is_enabled_for_request(request, user.user_id):
         return {"enabled": False}
+    await _record_coach_pages_visit(request, user.user_id, "coach_file")
     return await coach_file_for(user.user_id)
+
+
+async def _record_coach_pages_visit(request: Request, user_id: str, surface: str) -> None:
+    """Server-side exposure record (docs/coaching_intelligence_scope.md, 1a).
+    Never during view-as; never allowed to break the page."""
+    from services import player_coach_file as pcf
+
+    if getattr(getattr(request, "state", None), "view_as", None):
+        return
+    try:
+        await pcf.record_visit(db, user_id, surface)
+    except Exception:
+        logger.exception("coach pages visit record failed for %s", user_id)
 
 
 @router.post("/coach-file/activity")
@@ -501,6 +515,7 @@ async def get_daily_plan(request: Request, tz: Optional[str] = None, user: User 
     if not pcf.is_enabled_for_request(request, user.user_id):
         return {"enabled": False}
     viewing_as = bool(getattr(getattr(request, "state", None), "view_as", None))
+    await _record_coach_pages_visit(request, user.user_id, "day_card")
     return {"enabled": True, **await dp.today(db, user.user_id, tz, store=not viewing_as)}
 
 

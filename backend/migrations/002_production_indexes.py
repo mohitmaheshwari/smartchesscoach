@@ -128,6 +128,8 @@ INDEXES = [
     # player's next one, prepared off the request.
     ("teaching_games", [("puzzle_id", 1)], "tg_puzzle_id", {"unique": True}),
     ("teaching_game_prep", [("user_id", 1)], "tgp_user_id", {"unique": True}),
+    # docs/coaching_intelligence_scope.md, 1a: the server-side exposure record.
+    ("coach_pages_visits", [("user_id", 1)], "cpv_user_id", {"unique": True}),
     # Academy children sign in with a username the coach sets; only they have one.
     ("users", [("username", 1)], "users_username", {"unique": True, "sparse": True}),
 ]

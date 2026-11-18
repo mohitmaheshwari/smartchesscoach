@@ -12,6 +12,7 @@ import CoachPlanCard from "./CoachPlanCard";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+jest.mock("@/lib/analytics", () => ({ ANALYTICS_EVENTS: new Proxy({}, { get: (_t, k) => k }), track: jest.fn() }), { virtual: true });
 jest.mock("react-router-dom", () => ({
   useNavigate: () => jest.fn(),
   Link: ({ to, children, ...rest }) => <a href={to} {...rest}>{children}</a>,

@@ -225,6 +225,7 @@ async def grade(db, user_id: str, position_id: str, move_uci: str,
         "correct": bool(correct),
         "accepted_as": "best" if exact else "also_works" if also_works else None,
         "reason_id": reason_id or None,
+        "at": datetime.now(timezone.utc),  # docs/coaching_intelligence_scope.md, 1a
     })
 
     board = chess.Board(fen)

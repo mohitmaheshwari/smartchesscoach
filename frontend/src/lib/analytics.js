@@ -191,6 +191,16 @@ export const ANALYTICS_EVENTS = Object.freeze({
   GAME_REVIEW_NEXT_PRESCRIPTION_SERVED: "game_review_next_prescription_served",
   REVIEW_VALIDATION_MODE_CHANGED: "review_validation_mode_changed",
   REVIEW_VALIDATION_SUBMITTED: "review_validation_submitted",
+  // Coach pages exposure and action (docs/coaching_intelligence_scope.md, 1a).
+  // Coarse only: no game ids, positions or text.
+  COACH_PLAN_VIEWED: "coach_plan_viewed",
+  PLAN_WORK_OPENED: "plan_work_opened",
+  DAY_CARD_VIEWED: "day_card_viewed",
+  DAY_TASK_OPENED: "day_task_opened",
+  DAY_SIZE_CHANGED: "day_size_changed",
+  STUDY_GAME_VIEWED: "study_game_viewed",
+  STUDY_GAME_ANSWERED: "study_game_answered",
+  THEME_SET_COMPLETED: "theme_set_completed",
 });
 
 const KNOWN_EVENT_IDS = new Set(Object.values(ANALYTICS_EVENTS));

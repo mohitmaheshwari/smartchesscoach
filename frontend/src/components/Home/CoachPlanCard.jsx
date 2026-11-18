@@ -6,11 +6,12 @@
  * so it computes nothing. No figures: the order is said in words, and how much
  * each step cost stays on the server in `measured`.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Check, CheckCircle2, Circle, Clock, Minus, Play, Target, TrendingDown, TrendingUp } from "lucide-react";
 
 import { API } from "@/App";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { playFrom, useCoachFile } from "@/lib/coachFile";
 import { BETTER, Board, PLAYED } from "@/components/coachfile/CoachFileBlocks";
 
@@ -24,16 +25,22 @@ const fmt = (n) => `${n > 0 ? "+" : ""}${n}`;
 const GOAL = 200;
 const STATE_ICON = { better: TrendingDown, kept: Check, worse: TrendingUp, same: Minus, waiting: Clock };
 
-/** Records a piece of this week's work: the plan's adherence record. */
-function logWork(stepKey, action, ref) {
-  fetch(`${API}/coach-file/activity`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ step_key: stepKey, action, ref }),
-  }).catch(() => {
-    /* The work still happens; only the record is missed. */
-  });
+/** Records a piece of this week's work: the plan's adherence record.
+ *  Resolves true only when the server stored it, so a rejected write never
+ *  shows as done (docs/coaching_intelligence_scope.md, 1a). */
+async function logWork(stepKey, action, ref) {
+  track(ANALYTICS_EVENTS.PLAN_WORK_OPENED, { action_kind: action, surface: "coach_plan" });
+  try {
+    const res = await fetch(`${API}/coach-file/activity`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ step_key: stepKey, action, ref }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 function Tick({ done }) {
@@ -50,8 +57,11 @@ function WeekWork({ step, done: initial }) {
   const work = step.work;
   if (!work) return null;
   const mark = (action, ref) => {
-    logWork(step.key, action, ref);
+    const before = done;
     setDone((d) => (action === "learn" ? { ...d, learn: true } : { ...d, [action]: [...new Set([...(d[action] || []), ref])] }));
+    logWork(step.key, action, ref).then((ok) => {
+      if (!ok) setDone(before);
+    });
   };
   return (
     <div className="mt-4 rounded-card border border-border/70 bg-background/60 p-4" data-testid="coach-plan-work">
@@ -199,6 +209,13 @@ function Step({ step, index, check, notation, done }) {
 
 export default function CoachPlanCard() {
   const file = useCoachFile();
+  const viewed = useRef(false);
+  const stepCount = file?.plan?.steps?.length || 0;
+  useEffect(() => {
+    if (viewed.current || !file?.enabled || file.state !== "ready") return;
+    viewed.current = true;
+    track(ANALYTICS_EVENTS.COACH_PLAN_VIEWED, { surface: "home", total_items: stepCount, state: stepCount ? "plan" : "no_plan" });
+  }, [file?.enabled, file?.state, stepCount]);
   if (!file?.enabled) return null;
   if (file.state === "building") {
     return (

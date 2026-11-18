@@ -2004,6 +2004,7 @@ async def _record_puzzle_solve(db, session, item, correct: bool) -> None:
                 "source": "personalized_lesson",
                 "session_id": session.get("session_id"),
                 "created_at": datetime.now(timezone.utc).isoformat(),
+                "at": datetime.now(timezone.utc),  # docs/coaching_intelligence_scope.md, 1a
             }},
             upsert=True,
         )

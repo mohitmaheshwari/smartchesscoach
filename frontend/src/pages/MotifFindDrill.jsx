@@ -32,6 +32,7 @@ import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { ArrowRight, Check, X } from "lucide-react";
 
 // Two sources, one page. `motif` serves pin and skewer from positions this
@@ -161,6 +162,17 @@ export default function MotifFindDrill({ user, source = "motif" }) {
     [position, moveUci, motif, source]
   );
   submitRef.current = submit;
+
+  // Completion, not just opening (docs/coaching_intelligence_scope.md, 1a).
+  const completed = useRef(false);
+  useEffect(() => {
+    if (completed.current || loading || !positions.length || idx < positions.length) return;
+    completed.current = true;
+    track(ANALYTICS_EVENTS.THEME_SET_COMPLETED, {
+      content_kind: dailyIdea ? "daily_idea" : source, total_items: positions.length,
+      surface: fromToday ? "day_card" : "direct",
+    });
+  }, [loading, positions.length, idx, dailyIdea, source, fromToday]);
 
   const next = useCallback(() => {
     setVerdict(null);

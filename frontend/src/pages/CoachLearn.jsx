@@ -11,7 +11,10 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { BookOpen, Crown, Swords, Target } from "lucide-react";
 
+import { useEffect } from "react";
+
 import Layout from "@/components/Layout";
+import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useCoachFile } from "@/lib/coachFile";
 import {
   HabitMoments,
@@ -44,6 +47,8 @@ function Section({ eyebrow, title, children, testid }) {
 
 export default function CoachLearn({ user }) {
   const file = useCoachFile();
+  // Exposure (docs/coaching_intelligence_scope.md, 1a).
+  useEffect(() => { track(ANALYTICS_EVENTS.LEARN_VIEWED, { surface: "coach_learn" }); }, []);
   const ready = file?.enabled && file.state === "ready";
   const notation = file?.notation !== false;
   const openings = ready ? file.openings || [] : [];
