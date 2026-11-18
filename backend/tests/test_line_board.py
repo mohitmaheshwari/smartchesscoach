@@ -219,3 +219,24 @@ def test_the_reply_line_stops_at_the_first_illegal_move():
 def test_scores_are_clamped():
     a = _qf3_answers(best_cp=10 ** 9)
     assert a.best_cp == 10000
+
+
+def test_a_hanging_attacker_makes_no_threat():
+    # ...Rd2 hits a2 and d1, but Rxd2 just takes it: no attack is named.
+    b = chess.Board("3r3k/8/8/8/8/8/P7/3R3K b - - 0 1")
+    assert describe(b, b.parse_san("Rd2"), chess.WHITE) == []
+    # Guarded by the bishop on f4, the same rook threatens the pawn (d1 it
+    # already hit from d8, so that is not new).
+    g = chess.Board("3r3k/8/8/8/5b2/8/P7/3R3K b - - 0 1")
+    assert describe(g, g.parse_san("Rd2"), chess.WHITE) == ["Rd2 attacks your pawn on a2."]
+
+
+def test_when_every_move_is_mated_no_move_is_called_a_mistake():
+    b0 = chess.Board(QF3)
+    b1, _ = _after(QF3, ["Qf3"])
+    key = lambda b: " ".join(b.fen().split()[:4])  # noqa: E731
+    eng = _FakeEngine({key(b0): (-9980, ["Bxa6"]), key(b1): (9976, ["Bxb5"])})
+    out = step(eng, QF3, [], "Qf3", user_color=chess.WHITE, rating=1200, depth=1).to_dict()
+    assert out["student"]["text"].startswith(
+        "Qf3 does not change the result: every move here loses to a forced mate.")
+    assert out["needs_why"] is False

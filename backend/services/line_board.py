@@ -182,6 +182,11 @@ def meaningful_attacks(board_after: chess.Board, move: chess.Move,
                     new = False
             if not new:
                 continue
+            # An attacker that can simply be taken, and is not guarded, makes
+            # no threat: the reply is to take it (2026-11-18 grade: "Rxd2 ...
+            # also attacks your rook on d1" when Rxd1 just takes the rook back).
+            if board_after.attackers(not mover, att) and not _defended(board_after, att, mover):
+                continue
             unguarded = not _defended(board_after, sq, piece.color)
             if not (unguarded or VALUE[piece.piece_type] > VALUE[a_piece.piece_type]):
                 continue
@@ -622,6 +627,16 @@ def step(engine: chess.engine.SimpleEngine, start_fen: str, line_san: Sequence[s
                      notation=notation)
     head = verdict_sentence(san, cls, is_best=is_best, best_san=best_san, allows_mate=allows_mate,
                             best_margin=best_margin)
+    # Every move loses to a forced mate, or both moves still mate: the engine's
+    # "better" is only a longer mate, not a lesson (2026-11-18 grade: "h4 is a
+    # mistake: Kf2 was better" when both are mated in about twenty).
+    lost = MATE_SCORE - 200
+    if not is_best and best_score <= -lost and played_score <= -lost:
+        head = f"{san} does not change the result: every move here loses to a forced mate."  # allow-noncentral-caption
+        cls = "good"
+    elif not is_best and best_score >= lost and played_score >= lost:
+        head = f"{san} still leads to mate."  # allow-noncentral-caption
+        cls = "good"
     # The verdict already names the move; a fact that only restates it adds nothing.
     tail = [f for f in facts if not f.startswith(f"{san} is checkmate")]
     if after.is_checkmate():

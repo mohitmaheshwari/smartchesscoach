@@ -279,3 +279,15 @@ depth 22; the browser build run in Node on a desktop):
 | Browser lite, 1.5 s | 33 / 46 | 29 / 46 | 21 |
 
 Chosen: 0.8 s. A phone searches less deeply in the same time; not measured.
+
+**Words gate on the browser engine** (30 sentences from the browser build's
+answers, weighted to verdicts: 12 verdicts, 9 move facts, 9 reply facts; same
+independent grader, Stockfish depth 24–30): **27 of 30 true**. Misses:
+
+- "h4 is a mistake: Kf2 was better" when both moves are mated in about twenty.
+  Fixed: when every move loses to a forced mate the board says so and calls no
+  move a mistake ("still leads to mate" for the winning side).
+- "Rxd2 ... also attacks your rook on d1" when the rook on d2 can simply be
+  taken back. Fixed: an attacker that hangs makes no threat and is not named.
+- "Ne4 is a mistake" for a loss of about 1.5 pawns, just under the mistake
+  line: engine noise at a class line, the same kind as the server engine's.
