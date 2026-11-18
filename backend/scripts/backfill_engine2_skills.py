@@ -190,7 +190,21 @@ async def backfill(user_id: str, limit: int, reset: bool):
         # Re-classify the mistake types for this game
         mistake_types = _extract_tactical_patterns(move_evaluations, user_color)
 
-        # Record into Engine 2
+        # Record into Engine 2.
+        #
+        # opening_played was NOT passed here until 2026-11-18, which made this
+        # whole script a no-op: opening exposure is the ONLY thing
+        # record_engine2_skills_from_game records, so without a name it
+        # returns [] every time. Proven by calling it both ways -- no
+        # opening_played gives [], "Italian Game" gives
+        # ['opening_italian_white']. The script still counted the game and
+        # printed a cheerful total, and the admin page's gap line recommended
+        # running it, so the one suggested remedy could never work.
+        #
+        # Fall back to `opening` because chess.com rows fill both and some
+        # older rows carry only one.
+        opening_played = game.get("opening_name") or game.get("opening") or None
+
         added = record_engine2_skills_from_game(
             memory=memory,
             user_rating=user_rating,
@@ -200,6 +214,7 @@ async def backfill(user_id: str, limit: int, reset: bool):
             game_result=game_result,
             was_winning=was_winning,
             endgame_reached=endgame_reached,
+            opening_played=opening_played,
         )
         recorded_count += 1
 

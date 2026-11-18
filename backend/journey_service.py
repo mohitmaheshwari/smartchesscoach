@@ -246,6 +246,20 @@ async def fetch_recent_lichess_games(username: str, since_timestamp: int = None)
                 # disabled time management, rushing detection and the patience
                 # habit for anyone who plays on lichess.
                 "clocks": "true",
+                # Same class of bug as `clocks` above, found 2026-11-18.
+                # Lichess defaults `opening` to FALSE, so the exported PGN
+                # carried no [Opening] and no [ECO] header -- and
+                # extract_opening_from_pgn reads headers only. Measured on
+                # production: 0 of 2,013 lichess games had an opening name,
+                # against 21,846 of 22,274 chess.com games (98.1%), which
+                # arrive with an ECOUrl instead.
+                #
+                # That blank is not cosmetic. Engine 2 records ONE thing from
+                # a finished game -- opening exposure -- so a lichess-only
+                # player could never record a single skill attempt, and the
+                # admin page reported "No Engine 2 skill attempts recorded"
+                # for them no matter how many games they had analysed.
+                "opening": "true",
                 "evals": "false"
             }
             
