@@ -205,8 +205,11 @@ def meaningful_attacks(board_after: chess.Board, move: chess.Move,
             old = found.get(sq)
             if old is None or VALUE[a_piece.piece_type] < VALUE[board_after.piece_at(old.attacker).piece_type]:
                 found[sq] = t
-    targets = sorted(found.values(), key=lambda t: -VALUE[t.piece.piece_type])
-    return targets[:MAX_TARGETS]
+    targets = sorted(found.values(), key=lambda t: -VALUE[t.piece.piece_type])[:MAX_TARGETS]
+    # A target with a piece behind it is named last, so "behind it" reads with
+    # its own target and not the next one (2026-11-18 grade, item 21).
+    targets.sort(key=lambda t: t.behind is not None)
+    return targets
 
 
 def _target_words(board: chess.Board, t: Target, user_color: chess.Color, notation: bool) -> str:
@@ -314,17 +317,34 @@ def verdict(drop_cp: int, rating: Optional[int]) -> str:
     return "blunder"
 
 
+# "The best move" is said only when the next-best move is at least this much
+# worse. The 2026-11-18 grade found "Re2 is the best move here" false: at the
+# board's depth Re2 was top, deeper it was 52 points behind Kg5.
+BEST_MARGIN_CP = 30
+
+
 def verdict_sentence(san: str, cls: str, *, is_best: bool, best_san: Optional[str],
-                     allows_mate: bool) -> str:
-    if is_best:
-        return f"{san} is the best move here."
+                     allows_mate: bool, best_margin: Optional[int] = None) -> str:
+    """The verdict, worded so it stays true when the engine is a little noisy.
+
+    The 2026-11-18 grade found two class words wrong near a class line ("a
+    little slower" for a loss of about a pawn, "a mistake" for about half a
+    pawn). So the middle of the table gets one plain comparison that is true on
+    either side of the line, and "a mistake" is kept for the big losses
+    (blunder in the rating table), where depth does not change the answer.
+    """
     if allows_mate:
         return f"{san} allows a forced mate."
+    if is_best:
+        if best_margin is not None and best_margin >= BEST_MARGIN_CP:  # allow-noncentral-caption
+            return f"{san} is the best move here."
+        return f"{san} is a good move."
     if cls == "good":
         return f"{san} is fine."
-    if cls == "inaccuracy":
-        return f"{san} is a little slower than {best_san}." if best_san else f"{san} is a little slower."
-    return f"{san} is a mistake: {best_san} was better." if best_san else f"{san} is a mistake."
+    if cls in ("inaccuracy", "mistake"):
+        return f"{best_san} was better than {san}." if best_san else f"{san} is not the best here."
+    return (f"{san} is a mistake: {best_san} was better."  # allow-noncentral-caption
+            if best_san else f"{san} is a mistake.")
 
 
 # ---------------------------------------------------------------- material
@@ -490,9 +510,13 @@ def step(engine: chess.engine.SimpleEngine, start_fen: str, line_san: Sequence[s
     board, played = replay(start_fen, line_san)
     if board.is_game_over():
         raise LineError("the game is over in this line")
-    info_before = engine.analyse(board, chess.engine.Limit(depth=depth))
+    infos = engine.analyse(board, chess.engine.Limit(depth=depth), multipv=2)
+    if isinstance(infos, dict):
+        infos = [infos]
+    info_before = infos[0]
     best = (info_before.get("pv") or [None])[0]
     best_score = _score(info_before)
+    best_margin = (best_score - _score(infos[1])) if len(infos) > 1 else None
     if move_san is None:
         if best is None:
             raise LineError("no move")
@@ -530,14 +554,17 @@ def step(engine: chess.engine.SimpleEngine, start_fen: str, line_san: Sequence[s
 
     facts = describe(board, move, user_color, previous=previous, previous_board=prev_board,
                      notation=notation)
-    head = verdict_sentence(san, cls, is_best=is_best, best_san=best_san, allows_mate=allows_mate)
+    head = verdict_sentence(san, cls, is_best=is_best, best_san=best_san, allows_mate=allows_mate,
+                            best_margin=best_margin)
     # The verdict already names the move; a fact that only restates it adds nothing.
     tail = [f for f in facts if not f.startswith(f"{san} is checkmate")]
     if after.is_checkmate():
         student_text = f"{san} is checkmate."
     elif tail:
         first = tail[0]
-        if first.startswith(san + " "):
+        # "It" only when the verdict before it is about the same move: after
+        # "Be3 was better than dxe6." an "It takes ..." would read as Be3.
+        if first.startswith(san + " ") and head.startswith(san + " "):
             first = "It " + first[len(san) + 1:]
         student_text = head + " " + " ".join([first] + tail[1:])
     else:

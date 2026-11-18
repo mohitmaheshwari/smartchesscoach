@@ -184,3 +184,50 @@ the student sees the same answers.
   removal is reported correctly.
 - No open PR or branch touches `GameDecryptionV5.jsx` or `coach.py` at the
   time the code starts (checked again then).
+
+## 8. Results before release (2026-11-18)
+
+**Plan mode use.** 0 calls to `POST /api/analyze-plan` in all 15 nginx access
+logs on the server (about two weeks). Removed with this release.
+
+**Coach pages.** The academy pages (`Academy.jsx`) never open a student's game
+review, and game reads are scoped to the owner or a reviewer
+(`services/access_scope.py`). So the coach half needs an access rule first
+(an academy coach may read their students' games). Built next, as its own step;
+this release is the player's review board.
+
+**Timing run** (55 positions from 30 random stored games: 26 game mistakes, 29
+other moves tried from the same positions; server, throwaway container, one
+CPU at the lowest priority, so live times should be shorter):
+
+| Depth | Median | 90% within | Same verdict class as depth 22 | Same reply |
+|---|---|---|---|---|
+| 12 | 0.3 s | 1.2 s | 37 / 55 | 38 / 55 |
+| 14 | 0.4 s | 1.9 s | 40 / 55 | 38 / 55 |
+| **16** | **1.3 s** | **4.4 s** | **43 / 55** | **45 / 55** |
+| 18 | 3.0 s | 8.7 s | 46 / 55 | 41 / 55 |
+| 22 | 16.2 s | 38.0 s | — | — |
+
+Chosen: depth 16 (`LINE_BOARD_DEPTH`). The verdict class differs from a deep
+search on about one move in five, so the verdict words were rewritten to stay
+true across a class line (below).
+
+**Why sentence coverage.** The why engine found a sentence for 35 of 38 moves
+the board called a mistake (14 of 14 moves tried off the game line). Time:
+median 19 s, longest 47.5 s, which is why it is a second call.
+
+**Words gate (section 5).** 30 sentences from the board on about 40 players'
+real positions (11 move facts, 12 reply facts, 4 verdicts, 3 counts), graded
+on a board with Stockfish at depth 22–27 by an independent grader agent that
+did not see this code: **27 of 30 true**. Every board fact was true. The three
+failures were all verdict words near a class line:
+
+- "Re2 is the best move here": Kg5 was 52 points better deeper.
+- "Qd6 is a little slower than Qxb2": the loss was about a pawn.
+- "dxe6 is a mistake: Rad1 was better": the loss was about half a pawn.
+
+Fix: "the best move" only when the next move is at least 30 points worse,
+otherwise "a good move"; one comparison for the middle of the table ("Qxb2
+was better than Qd6"), true on either side of the line; "a mistake" only for
+the rating table's big losses. Also: a target with a piece behind it is
+named last, and "It" is not used after a verdict about another move.

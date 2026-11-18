@@ -16,6 +16,7 @@ from services.line_board import (
     replay,
     step,
     verdict,
+    verdict_sentence,
 )
 
 QF3 = "rn1qkbnr/p1pppp1p/b7/1B4p1/8/4P3/PPPP1PPP/RNBQK1NR w KQkq - 1 4"
@@ -132,7 +133,7 @@ class _FakeEngine:
     def __init__(self, table):
         self.table = table
 
-    def analyse(self, board, limit):
+    def analyse(self, board, limit, multipv=1):
         cp, pv = self.table[" ".join(board.fen().split()[:4])]
         return {"score": chess.engine.PovScore(chess.engine.Cp(cp), board.turn),
                 "pv": [board.parse_san(s) if i == 0 else None for i, s in enumerate(pv)][:1]}
@@ -149,3 +150,31 @@ def test_step_calls_qf3_a_mistake_and_names_the_reply():
     assert out["needs_why"] is True
     assert out["reply"]["san"] == "Bxb5"
     assert out["reply"]["text"] == "Bxb5 takes your bishop on b5."
+
+
+def test_best_is_said_only_with_a_clear_margin():
+    # 2026-11-18 grade, item 3: "Re2 is the best move here" was false deeper.
+    assert verdict_sentence("Re2", "good", is_best=True, best_san="Re2", allows_mate=False,
+                            best_margin=10) == "Re2 is a good move."
+    assert verdict_sentence("Re2", "good", is_best=True, best_san="Re2", allows_mate=False,
+                            best_margin=80) == "Re2 is the best move here."
+
+
+def test_middle_losses_get_one_comparison_that_holds_either_side_of_the_line():
+    # Items 5 and 24: "a mistake" for half a pawn, "a little slower" for a pawn.
+    for cls in ("inaccuracy", "mistake"):
+        assert verdict_sentence("Qd6", cls, is_best=False, best_san="Qxb2",
+                                allows_mate=False) == "Qxb2 was better than Qd6."
+    assert verdict_sentence("Qf3", "blunder", is_best=False, best_san="Bxa6",
+                            allows_mate=False) == "Qf3 is a mistake: Bxa6 was better."
+
+
+def test_it_is_not_used_after_a_verdict_about_another_move():
+    b1, _ = _after(QF3, ["Ne2"])
+    b0 = chess.Board(QF3)
+    key = lambda b: " ".join(b.fen().split()[:4])  # noqa: E731
+    # Ne2 a middle loss: the verdict starts with the better move.
+    eng = _FakeEngine({key(b0): (245, ["Bxa6"]), key(b1): (-150, ["Bxb5"])})
+    out = step(eng, QF3, [], "Ne2", user_color=chess.WHITE, rating=1200, depth=1).to_dict()
+    assert out["student"]["text"].startswith("Bxa6 was better than Ne2.")
+    assert " It " not in out["student"]["text"]
