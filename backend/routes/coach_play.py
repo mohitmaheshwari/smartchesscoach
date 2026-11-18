@@ -8740,6 +8740,20 @@ def apply_game_over_to_update(board, update: dict, surface_session: dict | None 
     """
     if not board.is_game_over():
         return update
+    # Every finished game says how it ended and how long it was
+    # (docs/coaching_intelligence_scope.md, 1b). Plies are counted from the
+    # move counter, so a game started from a set position counts from there.
+    update["plies_at_end"] = (board.fullmove_number - 1) * 2 + (0 if board.turn else 1)
+    if board.is_checkmate():
+        update["termination_reason"] = "checkmate"
+    elif board.is_stalemate():
+        update["termination_reason"] = "stalemate"
+    elif board.is_insufficient_material():
+        update["termination_reason"] = "insufficient_material"
+    elif board.is_seventyfive_moves():
+        update["termination_reason"] = "seventyfive_moves"
+    elif board.is_fivefold_repetition():
+        update["termination_reason"] = "fivefold_repetition"
     if board.is_checkmate():
         update["status"] = "completed"
         # No silent default. A caller that does not say who was mated gets a

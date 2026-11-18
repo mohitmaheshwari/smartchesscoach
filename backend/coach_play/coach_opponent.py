@@ -24,7 +24,7 @@ import chess.engine
 import asyncio
 import logging
 import os
-from typing import Any, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
 from concurrent.futures import ThreadPoolExecutor
@@ -124,6 +124,34 @@ def rating_to_uci_elo(user_rating: int) -> Optional[int]:
 
 # Thread pool for Stockfish calls (blocking)
 _executor = ThreadPoolExecutor(max_workers=2)
+
+def opponent_strength_record(user_rating: Any, game_mode: str) -> Dict[str, Any]:
+    """What the opponent actually is for this session, stored once at start
+    (docs/coaching_intelligence_scope.md, 1b). The same derivation as
+    CoachOpponent.__init__, so the record cannot drift from the engine:
+    rating after the floor, the skill level that rating gives, the teaching
+    backstop, UCI_Elo when on, and which engine path the mode uses (play mode:
+    the weakened engine; coach mode: the teaching selector, which ranks
+    unweakened depth-10 lines). `coach_skill_level` on the session is the
+    pre-floor value and does not describe the opponent."""
+    rating = int(user_rating or COACH_MIN_RATING)
+    strength = max(rating, COACH_MIN_RATING)
+    skill = rating_to_skill_level(strength)
+    if _pwc_teaching_opponent_enabled() and skill < TEACHING_SKILL_FLOOR:
+        skill = TEACHING_SKILL_FLOOR
+    return {
+        "version": 1,
+        "player_rating": rating,
+        "floor": COACH_MIN_RATING,
+        "floor_applied": rating < COACH_MIN_RATING,
+        "strength_rating": strength,
+        "skill_level": skill,
+        "uci_elo": rating_to_uci_elo(strength) if _pwc_coach_uci_elo_enabled() else None,
+        "engine_path": "weakened_engine" if game_mode == "play" else "teaching_selector",
+        "punish": _pwc_teaching_opponent_enabled(),
+        "blunder_guard": os.environ.get("PWC_COACH_BLUNDER_GUARD", "false").lower() == "true",
+    }
+
 
 # Map user rating to Stockfish skill level (0-20)
 def rating_to_skill_level(user_rating: int) -> int:

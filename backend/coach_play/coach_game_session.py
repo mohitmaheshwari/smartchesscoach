@@ -573,6 +573,9 @@ async def start_coach_session(
     # Add practice mode and game mode metadata
     session_dict = session.to_dict()
     session_dict['game_mode'] = game_mode  # "coach" or "play"
+    # The opponent's real strength for this session (docs/coaching_intelligence_scope.md, 1b).
+    from coach_play.coach_opponent import opponent_strength_record
+    session_dict['opponent_strength'] = opponent_strength_record(user_rating, game_mode)
     logger.info(f"[start_coach_session] game_mode={game_mode} for session {session.session_id[:8]}")
     if practice_mode:
         session_dict['practice_mode'] = True
