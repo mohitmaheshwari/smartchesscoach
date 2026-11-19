@@ -68,6 +68,17 @@ def _maia():
     return _MAIA or None
 
 
+def warm() -> bool:
+    """Load the model and run one prediction, so the first coach move after a
+    restart is not the one that pays for loading (25 s measured on prod,
+    2026-11-19). Called in the background at startup when the flag names anyone."""
+    try:
+        return choose_move(chess.STARTING_FEN, 1200, 1200) is not None
+    except Exception:
+        logger.exception("human opponent warm-up failed")
+        return False
+
+
 def sample(distribution: Dict[str, float], rng: random.Random, cutoff: float = TAIL_CUTOFF) -> Optional[str]:
     """One move from a {uci: probability} distribution, its tail below
     `cutoff` removed and the rest renormalised. Pure, for tests."""

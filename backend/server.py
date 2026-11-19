@@ -433,6 +433,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error initializing Why queue indexes: {e}")
 
+    # The human-move opponent loads Maia once, in the background, only when
+    # someone has it (docs/coaching_intelligence_scope.md, 1c).
+    try:
+        from coach_play import human_opponent as _human_opponent
+        if os.environ.get(_human_opponent.FLAG_ENV, "").strip():
+            app.state.human_opponent_warmup = asyncio.create_task(asyncio.to_thread(_human_opponent.warm))
+    except Exception as e:
+        logger.error(f"Human opponent warm-up not started: {e}")
+
     try:
         from services.coach_selected_review_service import (
             ensure_review_prescription_indexes,

@@ -76,3 +76,10 @@ def test_the_session_record_shows_the_human_opponent_without_a_floor():
     rec = opponent_strength_record(731, "coach", human=True)
     assert rec["engine_path"] == "human_policy" and rec["strength_rating"] == 731 and not rec["floor_applied"]
     assert opponent_strength_record(731, "play", human=True)["engine_path"] == "weakened_engine"
+
+
+def test_warm_up_runs_one_prediction_and_never_raises(monkeypatch):
+    monkeypatch.setattr(ho, "_maia", lambda: _Maia({"e2e4": 1.0}))
+    assert ho.warm() is True
+    monkeypatch.setattr(ho, "_maia", lambda: None)
+    assert ho.warm() is False

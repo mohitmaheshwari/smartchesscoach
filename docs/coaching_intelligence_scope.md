@@ -144,6 +144,17 @@ to a 1% veto). 1,200 real moves from our players:
 - Under 0.2% holds 0–1.3% of real moves. The cut-off is therefore 0.2%, and
   the opponent otherwise samples Maia as-is.
 
+**Measured on prod after deploy (2026-11-19):**
+- Real positions at 700, 1200 and 1700 gave human-looking moves (Maia ranks 1 to 13).
+- The first version took a median 5.2 s and up to 25 s per move: the
+  container has no CPU quota, so torch used every core of the shared box.
+  Pinned to one thread: median 0.10 s, 95th percentile 0.21 s, max 0.29 s
+  over 36 moves.
+- Loading the model takes about 25 s, so it now loads in the background at
+  startup whenever the flag names anyone.
+- When the player takes Black, the coach's first move still comes from the
+  older engine (a separate code path); only that one move.
+
 **Not in 1c:** adaptive strength from results (the target is fixed at the
 player's rating until pilot data shows where scores land), and lesson
 opportunities (Milestone 4). Maia-2 treats ratings below about 1100 as one
