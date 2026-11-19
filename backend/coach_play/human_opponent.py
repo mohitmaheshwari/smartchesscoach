@@ -53,6 +53,18 @@ def _maia():
 
         path = os.environ.get("MAIA2_MODEL_PATH")
         _MAIA = Maia2Provider(model_path=path) if path else False
+        if _MAIA:
+            # The backend container has no CPU quota, so the provider's
+            # quota-based cap does not apply and torch spreads one tiny
+            # inference over every core of a shared box: measured on prod
+            # 2026-11-19, median 5.2 s and up to 25 s per move. One thread is
+            # the measured fast case (0.11 s per position, human_behavior_engine).
+            try:
+                import torch
+
+                torch.set_num_threads(1)
+            except Exception:
+                logger.warning("human opponent: could not pin torch to one thread")
     return _MAIA or None
 
 
