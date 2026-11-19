@@ -125,7 +125,7 @@ def rating_to_uci_elo(user_rating: int) -> Optional[int]:
 # Thread pool for Stockfish calls (blocking)
 _executor = ThreadPoolExecutor(max_workers=2)
 
-def opponent_strength_record(user_rating: Any, game_mode: str) -> Dict[str, Any]:
+def opponent_strength_record(user_rating: Any, game_mode: str, human: bool = False) -> Dict[str, Any]:
     """What the opponent actually is for this session, stored once at start
     (docs/coaching_intelligence_scope.md, 1b). The same derivation as
     CoachOpponent.__init__, so the record cannot drift from the engine:
@@ -135,7 +135,9 @@ def opponent_strength_record(user_rating: Any, game_mode: str) -> Dict[str, Any]
     unweakened depth-10 lines). `coach_skill_level` on the session is the
     pre-floor value and does not describe the opponent."""
     rating = int(user_rating or COACH_MIN_RATING)
-    strength = max(rating, COACH_MIN_RATING)
+    human_path = human and game_mode != "play"
+    # The human-move opponent plays at the player's own rating: no floor.
+    strength = rating if human_path else max(rating, COACH_MIN_RATING)
     skill = rating_to_skill_level(strength)
     if _pwc_teaching_opponent_enabled() and skill < TEACHING_SKILL_FLOOR:
         skill = TEACHING_SKILL_FLOOR
@@ -143,11 +145,14 @@ def opponent_strength_record(user_rating: Any, game_mode: str) -> Dict[str, Any]
         "version": 1,
         "player_rating": rating,
         "floor": COACH_MIN_RATING,
-        "floor_applied": rating < COACH_MIN_RATING,
+        "floor_applied": (not human_path) and rating < COACH_MIN_RATING,
         "strength_rating": strength,
         "skill_level": skill,
         "uci_elo": rating_to_uci_elo(strength) if _pwc_coach_uci_elo_enabled() else None,
-        "engine_path": "weakened_engine" if game_mode == "play" else "teaching_selector",
+        # The human-move opponent (scope 1c) replaces the teaching selector in
+        # coach mode only; play mode keeps the weakened engine.
+        "engine_path": ("weakened_engine" if game_mode == "play" else "human_policy" if human else "teaching_selector"),
+        "human_target_rating": rating if (human and game_mode != "play") else None,
         "punish": _pwc_teaching_opponent_enabled(),
         "blunder_guard": os.environ.get("PWC_COACH_BLUNDER_GUARD", "false").lower() == "true",
     }
@@ -213,6 +218,9 @@ class CoachOpponent:
         self.uci_elo = rating_to_uci_elo(_strength_rating) if _pwc_coach_uci_elo_enabled() else None
         self.last_human_policy_reason = "not_requested"
         self.last_human_policy_evidence = None
+        # Set by the coach-mode routes when the human-move opponent is on for
+        # this player (coach_play/human_opponent.py, scope 1c).
+        self.human_user_id: Optional[str] = None
     
     async def get_move(
         self, fen: str, history_uci: Sequence[str] = ()
@@ -736,6 +744,23 @@ class PedagogicalOpponent(CoachOpponent):
         Returns:
             Move in SAN notation
         """
+        # HUMAN-MOVE OPPONENT (docs/coaching_intelligence_scope.md, 1c): a move
+        # a person at the player's rating would play, sampled from Maia-2. Off
+        # unless the player is in PWC_HUMAN_OPPONENT_USERS; any failure falls
+        # through to the selector below.
+        if self.human_user_id:
+            from coach_play import human_opponent
+            if human_opponent.enabled_for(self.human_user_id):
+                try:
+                    rating = int(self.user_rating or 1200)
+                    choice = await asyncio.get_event_loop().run_in_executor(
+                        _executor, human_opponent.choose_move, fen, rating, rating)
+                except Exception:
+                    logger.exception("human opponent failed; using the teaching selector")
+                    choice = None
+                if choice:
+                    self.last_teaching_context = human_opponent.teaching_context(choice)
+                    return choice["san"]
         try:
             # OPENING GUIDE: In early game, prefer moves that lead to known openings
             guided_move = self._get_opening_guided_move(fen)

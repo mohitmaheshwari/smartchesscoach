@@ -126,6 +126,8 @@ services:
       # Between-games Home panel (docs/coach_pages_scope.md): comma list of
       # user ids, or "*". Empty = off for everyone.
       - BETWEEN_GAMES_USERS=${BETWEEN_GAMES_USERS:-}
+      # Human-move opponent in coach mode (docs/coaching_intelligence_scope.md, 1c): user ids or "*". Empty = off.
+      - PWC_HUMAN_OPPONENT_USERS=${PWC_HUMAN_OPPONENT_USERS:-}
       # Phase 8 composition switch. It does not enroll anyone by itself;
       # the frozen target, immutable baseline and existing per-user review
       # enrollment must all pass the central access resolver.

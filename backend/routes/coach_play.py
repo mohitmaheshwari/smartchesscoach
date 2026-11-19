@@ -9288,6 +9288,7 @@ async def _unified_coach_turn(
             user_color=session_doc.get("user_color") or "white",
             last_game_violations=[],
         )
+        opponent.human_user_id = session_doc.get("user_id")  # scope 1c: human-move opponent when on
         coach_move_san = None
         teaching_moves = session_doc.get("opening_teaching_moves") or []
         expected_index = len(move_history)
@@ -10699,6 +10700,7 @@ async def _process_move_and_respond(
                     user_color=user_color,
                     last_game_violations=last_game_violations,
                 )
+                opponent.human_user_id = session_doc.get("user_id")  # scope 1c: human-move opponent when on
                 # If opening teaching is active, use the teaching moves
                 coach_move = None
                 if session_doc.get("opening_teaching_active"):

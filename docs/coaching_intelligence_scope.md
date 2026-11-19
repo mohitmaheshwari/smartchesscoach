@@ -114,12 +114,44 @@ Acceptance for 1b: from stored sessions we can report score by band and by
 engine path on real games by non-staff players, with the opponent's actual
 strength.
 
-### 1c. Strength correction
+### 1c. Strength correction (approved by Mohit 2026-11-19: "go ahead")
 
-Chosen after 1b shows which engine path real players actually meet. Behind a
-flag, enabled first for the pilot. Target from the investigation: players score
-35–60% in every band over 20+ real games from 5+ players. The full Maia
-opponent is Milestone 4.
+**What 1b showed.** On the pre-change data, 64 of 65 real games by non-staff
+players ran on the coach-mode teaching selector, which ranks full-strength
+depth-10 lines. The 1500 floor applies only to play mode. Players under 1000
+scored 0 of 45 there (interval 0–8%, from 4 players). Lowering the floor alone
+would change almost nothing.
+
+**Built: a human-move opponent for coach mode** (`coach_play/human_opponent.py`):
+- Each coach move is sampled from Maia-2's distribution at the player's own
+  rating (no floor), facing his rating.
+- No engine veto and no "punish" rule. A person at that rating does not
+  always take a free piece.
+- The opening-lesson line still takes priority. Play mode is unchanged.
+- If Maia fails, the existing selector plays, so a game never stalls.
+- Behind `PWC_HUMAN_OPPONENT_USERS` (user ids or "*"); empty, so off for
+  everyone until the pilot.
+- The session's `opponent_strength` records `engine_path: human_policy` and
+  the target rating. In the older coach path each coach move's snapshot keeps
+  Maia's probability and rank. The unified path stores only the session record.
+
+**The move policy, validated against real human play** (the coach's challenge
+to a 1% veto). 1,200 real moves from our players:
+- Maia is well calibrated: moves it gives 1–10% were played 3.6% of the time
+  against 3.5% predicted. Every bin is close.
+- Real players make moves Maia gives under 1% between 0.7% and 5% of the
+  time, by band. A 1% veto would delete real play.
+- Under 0.2% holds 0–1.3% of real moves. The cut-off is therefore 0.2%, and
+  the opponent otherwise samples Maia as-is.
+
+**Not in 1c:** adaptive strength from results (the target is fixed at the
+player's rating until pilot data shows where scores land), and lesson
+opportunities (Milestone 4). Maia-2 treats ratings below about 1100 as one
+group, so it is least precise for beginners.
+
+**Acceptance:** with the flag on for pilot players, score 35–60% in every band
+over 20+ real games from 5+ players (`scripts/pwc_strength_report.py`); coach
+move time under 1.5 s at the 95th percentile; no stalled games.
 
 ### Pilot (not code)
 
