@@ -102,7 +102,7 @@ export default function AcademyStudentGame() {
                 fen={lb.active ? lb.fen : here.fen}
                 orientation={data.user_color === "black" ? "black" : "white"}
                 viewOnly={lb.busy}
-                onMove={(from, to, promotion) => lb.play(here.fen, from, to, promotion)}
+                onMove={(m) => lb.play(here.fen, m.from, m.to, m.promotion)}
                 lastMove={lb.active ? lb.lastMove : (here.from ? [here.from, here.to] : null)}
                 arrows={lb.active ? lb.arrows : []}
               />

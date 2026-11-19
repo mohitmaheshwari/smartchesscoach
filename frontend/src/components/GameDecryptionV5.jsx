@@ -1361,7 +1361,9 @@ const GameDecryptionV5 = ({ gameId, analysis, pgn, userColor, onBack, coachSumma
             fen={lb.active ? lb.fen : boardFen}
             orientation={orientation}
             viewOnly={Boolean(playingLine) || showingFutureMoves || lb.busy}
-            onMove={(from, to, promotion) => lb.play(boardFen, from, to, promotion)}
+            // LichessBoard plays the move itself and calls onMove with one
+            // object {from, to, san, ...}, not three arguments.
+            onMove={(m) => lb.play(boardFen, m.from, m.to, m.promotion)}
             lastMove={lb.active ? lb.lastMove
               : (currentMove && !showingFutureMoves ? getLastMoveSquares(currentMove) : null)}
             arrows={lb.active ? lb.arrows : arrows}
