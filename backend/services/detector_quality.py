@@ -520,7 +520,33 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
         # against a bar of 50. Fails closed until 50 clean rulings exist on
         # the FIXED code. The caption wiring reads this grade, so nothing
         # renders while it says shadow.
-        grade=QualityGrade.SHADOW,
+        #
+        # PROMOTED 2026-11-19 on exactly that stated condition, not on a new
+        # judgement call. Seven further rulings landed on 2026-09-21, two days
+        # after the revert, and nobody went back to re-check the gate -- so the
+        # id sat at shadow for two months while already over its bar.
+        #
+        # Every one of the 64 stored rulings was replayed through the CURRENT
+        # serving code (scripts/replay_detector_rulings.py, 2026-11-19), which
+        # is the same rule that stopped 49 being rounded up to 50:
+        #
+        #     reviewed fires on claims the code still makes : 53   (bar 50)
+        #       true 52 | false 0 | unsure 1
+        #     rulings on claims since withdrawn             :  8   (not counted)
+        #     analyses no longer in the corpus              :  3   (not counted)
+        #     precision on decided fires   52/52 = 100.0%
+        #     Wilson 95% lower bound              93.1%   (bar 85)
+        #
+        # The single FALSE ruling from 2026-09-19 is on a claim the payoff
+        # verifier now withdraws, so it cannot recur. The one surviving
+        # `unsure` is a wording question, not a truth question: the reviewer
+        # noted the threat is the rook behind the bishop, not the bishop. It
+        # is counted in the 53 and excluded from the precision denominator.
+        #
+        # Negatives and the adversarial packet are unchanged from the original
+        # packet and are restated below. Dropping this back to shadow is a
+        # one-word revert that silences the caption with no other code change.
+        grade=QualityGrade.CAPTION,
         evidence_ref="docs/discovered_attack_caption_promotion_2026_09_19.md",
         rationale=(
             "Meets every Caption-grade value in the 2026-08-27 threshold lock, "
@@ -549,15 +575,17 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "Negatives and adversarial cases are board-adjudicated, not human "
             "semantic gold. They supplement the human figure and do not "
             "substitute for it.",
-            "REVIEWED FIRES ARE 49, ONE BELOW THE LOCKED BAR OF 50. The "
-            "packet was assembled at 52; replaying all 56 rulings through the "
-            "serving code shows 3 are on claims the payoff verifier now "
-            "rejects, because two gates landed partway through the review. "
-            "Precision is unaffected -- a claim the detector no longer makes "
-            "cannot be wrong -- but the count is short and is recorded rather "
-            "than rounded up, because rounding it up is what put simple_hang "
-            "at a false 96.9%. The grade stands on Mohit's explicit 'we can "
-            "switch it on'; one more ruling closes the formal gap.",
+            "Reviewed fires are 53 against the locked bar of 50, counted "
+            "2026-11-19 by replaying all 64 stored rulings through the "
+            "serving code: 8 are on claims the payoff verifier now rejects "
+            "and 3 on analyses no longer in the corpus, and neither group is "
+            "counted. The 2026-09-19 shortfall of 49 is closed by the 7 "
+            "rulings made on 2026-09-21. The count is recorded rather than "
+            "rounded, because rounding it up is what put simple_hang at a "
+            "false 96.9%.",
+            "Precision rests on 52 decided fires, all by one reviewer "
+            "(Mohit). There is no second independent rater, so inter-rater "
+            "agreement is unmeasured.",
             "Wired 2026-09-19 as caption_pipeline detector #15, rendering "
             "through R12_blunder why_user_missed_discovered_attack, gated on "
             "this grade so dropping it to shadow silences the caption with no "

@@ -54,6 +54,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -179,6 +180,52 @@ def select_first_match(rules: list, facts: Dict[str, Any]) -> Optional[Dict[str,
 # Template rendering — substitute facts into a chosen variant
 # ────────────────────────────────────────────────────────────────────
 
+# A slot sits at a sentence start when it opens the template, or follows a
+# sentence terminator and whitespace. A clause authored for the em-dash slot
+# ("{best_move_san} was better — {why_clause}") is lowercase on purpose, and
+# the SAME clause is reused by variants that put it after a full stop
+# ("{best_move_san} was better. {why_clause}"), where lowercase is simply
+# wrong. Found 2026-11-19 on the discovered-attack clause the moment its
+# detector reached Caption grade: "Bd7 was better — it brings a new piece
+# into the game. it steps your bishop out of the way ...". The clause is not
+# at fault and neither is the variant; the join is, so the join is fixed once
+# here rather than by authoring a capitalised twin of every clause.
+_SENTENCE_START_SLOT = re.compile(
+    r"(?:^|[.!?]['\"’”]?\s+)\{([A-Za-z_][A-Za-z0-9_]*)\}"
+)
+
+# Never recase a chess move. SAN case is meaning: "b5" is a pawn move and
+# "B5" is nothing, "exd5" is a capture and "Exd5" is nothing. Several clauses
+# legitimately open with a move, so they are left exactly as authored.
+_SAN_LIKE = re.compile(
+    r"^(?:[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?[+#]?|O-O(?:-O)?)$"
+)
+
+
+def _sentence_cased(template: str, facts: Dict[str, Any]) -> Dict[str, Any]:
+    """Capitalise the values of slots the template puts at a sentence start.
+
+    Returns a copy; the caller's facts are never mutated. A value is left
+    alone when it is not a non-empty string, does not begin with a lowercase
+    letter, or begins with something that reads as a SAN move.
+    """
+    names = set(_SENTENCE_START_SLOT.findall(template))
+    if not names:
+        return facts
+    out = dict(facts)
+    for name in names:
+        value = out.get(name)
+        if not isinstance(value, str) or not value:
+            continue
+        if not value[0].islower():
+            continue
+        first_word = value.split(None, 1)[0].strip(".,;:!?")
+        if _SAN_LIKE.match(first_word):
+            continue
+        out[name] = value[0].upper() + value[1:]
+    return out
+
+
 def render_template(
     rule_name: str, variant: str, facts: Dict[str, Any]
 ) -> Optional[str]:
@@ -199,7 +246,7 @@ def render_template(
         if facts.get(key) is None or facts.get(key) == "":
             return None
     try:
-        return template.format(**facts)
+        return template.format(**_sentence_cased(template, facts))
     except (KeyError, IndexError, ValueError) as exc:
         logger.warning(
             f"[caption_templates] {rule_name}/{variant} render failed: {exc}"
