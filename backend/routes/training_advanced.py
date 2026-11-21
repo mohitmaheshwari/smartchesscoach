@@ -1526,12 +1526,14 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
         root_cause = ""
         subline = ""
         diagnosis = ""
+        lesson = None
         try:
             from services.game_coach_summary import compute_game_summary
             _gs = compute_game_summary(evals, result, uc, g.get("opening", "") or "", termination=termination)
             diagnosis = _gs.get("diagnosis", "") or ""
             root_cause = _gs.get("root_cause", "") or ""
             subline = _gs.get("subline", "") or ""
+            lesson = _gs.get("lesson")
         except Exception as _diag_err:
             logger.debug(f"game diagnosis failed for {gid}: {_diag_err}")
 
@@ -1552,6 +1554,7 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "diagnosis": diagnosis,
             "root_cause": root_cause,
             "subline": subline,
+            "lesson": lesson,
             "summary_headline": g.get("summary", {}).get("headline") if isinstance(g.get("summary"), dict) else None,
             "behavior": behavior,
             "lesson_label": lesson_label,

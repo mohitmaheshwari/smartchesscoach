@@ -882,6 +882,20 @@ const Dashboard = ({ user }) => {
                     </p>
                   )}
 
+                  {featuredGame?.lesson?.href && (
+                    <button
+                      type="button"
+                      data-testid="summary-lesson-link"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(featuredGame.lesson.href);
+                      }}
+                      className="mt-4 inline-flex items-center gap-1.5 text-[13.5px] font-medium text-foreground underline underline-offset-4 decoration-border hover:decoration-foreground"
+                    >
+                      {featuredGame.lesson.label}
+                    </button>
+                  )}
+
                   {/* Move-by-move reasoning */}
                   {reasoningLines.length > 0 && (
                     <ol className="mt-7 space-y-2.5 max-w-[540px]">

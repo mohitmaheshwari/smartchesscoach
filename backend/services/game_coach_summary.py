@@ -15,6 +15,8 @@ Everything is derived from Stockfish eval + existing analysis data.
 import logging
 from typing import Dict, List, Optional
 
+import chess
+
 from services import mate_state
 from services.player_identity import BlunderType
 
@@ -79,7 +81,7 @@ def compute_game_summary(
     is_draw = "1/2" in game_result
 
     if is_draw:
-        return _summarize_draw(profile)
+        return _summarize_draw(profile, unconverted_basic_win(move_evaluations, user_color))
     if user_won:
         return _summarize_win(profile)
     return _summarize_loss(profile, opening_name, termination)
@@ -655,10 +657,60 @@ def _summarize_loss(profile: Dict, opening_name: str, termination: str) -> Dict:
     )
 
 
-def _summarize_draw(profile: Dict) -> Dict:
+# A king with a queen or a rook always mates a lone king. A draw from there is
+# not "an advantage that slipped", it is a method the player does not know yet,
+# and the curriculum already teaches it.
+BASIC_WIN_LESSONS = {
+    "queen": "/endgames/basic_mates/queen_mate",
+    "rook": "/endgames/basic_mates/rook_mate",
+}
+
+
+def unconverted_basic_win(move_evaluations: List[Dict], user_color: str) -> Optional[str]:
+    """'queen' or 'rook' when the game's last position had the player's queen
+    or rook against a lone king that could not take it, else None.
+
+    Read from the last evaluated position. If the opponent still had a move
+    after it, a lone king could only change the material by taking that
+    queen or rook, so a piece the king cannot take survives to the end.
+    """
+    if not move_evaluations:
+        return None
+    fen = (move_evaluations[-1] or {}).get("fen_after") or ""
+    try:
+        board = chess.Board(fen)
+    except ValueError:
+        return None
+    me = chess.WHITE if user_color == "white" else chess.BLACK
+    if chess.popcount(board.occupied_co[not me]) != 1:     # only the king left
+        return None
+    takeable = set()
+    if board.turn != me:
+        takeable = {m.to_square for m in board.legal_moves if board.is_capture(m)}
+    for piece_type, name in ((chess.QUEEN, "queen"), (chess.ROOK, "rook")):
+        if any(sq not in takeable for sq in board.pieces(piece_type, me)):
+            return name
+    return None
+
+
+def _summarize_draw(profile: Dict, basic_win: Optional[str] = None) -> Dict:
     user_moves = profile["user_moves"]
     worst = profile["worst_move"]
     peak = profile["peak_user_eval"]
+    if basic_win:
+        summary = _build_summary(
+            GameDiagnosis.DRAW,
+            f"You had king and {basic_win} against a lone king, and it ended in a draw.",
+            "That ending is always a win. It takes a few minutes to learn the method.",
+            None,
+            _draw_context(user_moves, peak),
+            "",
+        )
+        summary["lesson"] = {
+            "label": f"Learn the {basic_win} mate",
+            "href": BASIC_WIN_LESSONS[basic_win],
+        }
+        return summary
     if peak >= 200:
         headline = "A draw you could have won."
         subline = f"Peak advantage +{peak / 100:.1f}."
