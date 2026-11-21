@@ -1,6 +1,6 @@
 # Only-move lessons — the coach teaches the one move that wins
 
-**Status: DRAFT, awaiting Mohit's sign-off. No code written.**
+**Status: SIGNED 2026-11-21 (Mohit: "do what you recommend"). Q1–Q4 settled below. No code yet.**
 Written 2026-11-21. First example: game `181687cf`, move 49.
 
 ---
@@ -240,39 +240,38 @@ Measured over the first 4 weeks after launch, on players shown a missed card:
 - For C: **every** game ending in rook or queen against a bare king, not won,
   gets the new headline. Checked on the 4 known games and every new one.
 
-## 6. Open questions
+## 6. Decisions (were open questions)
 
-1. **What counts as "only move"?**
-   *Why open:* the current 150 cp gap fires on 41% of games when the player
-   was winning. That is probably too many to be "the one move that mattered".
-   It also counts +900 vs +700 (both winning) as an only move.
-   *Unblock:* recompute on win/draw/loss classes over the same 600 games,
-   read 30 fires by hand, then lock with `/lock-via-data`.
-2. **Is `eval_before` from White's side for every game?**
-   *Why open:* the winning filter assumes it; not checked for games where the
-   player is Black.
-   *Unblock:* check 5 such games against the stored mate info.
-3. **Tablebase source: the lichess API or local tables?**
-   *Why open:* the API is free and covers 7 pieces, but it is an outside
-   service, called at analysis time. Local tables were judged not worth it on
-   10-19 (only 14 of 444 misses have 7 or fewer pieces). Mohit's call.
-   *Unblock:* Mohit decides.
-4. **One lesson per game, or more?**
-   *Why open:* this game had four misses of the same idea. One lesson teaches
-   it; four repeat it.
-   *Unblock:* Mohit decides. Default: one, the first miss.
-5. **Hint wording for positions outside the checked family.**
-   *Why open:* automatic "why" questions for any position are not solved. V1
-   falls back to the arrow.
-   *Unblock:* measure how many of the 444 misses fall in the king-supports-pawn
-   family.
+1. **What counts as "only move" — LOCKED from data, 2026-11-21.**
+   The player was winning before the move (+200 or better, the existing
+   `severity.DECISIVENESS_WINNING_CP`), the best move keeps +200 or better,
+   and the second-best move is below +100: one move keeps the win, every
+   other move gives most of it back. Same 600 games:
+
+   | Definition | Missed moves | Games | Deep check (depth 22, top 5 moves, 30 random) |
+   |---|---|---|---|
+   | Today's flag (150 cp gap) | 445 | 247 (41%) | — |
+   | Second-best below +200 | 315 | 203 (34%) | 25 of 30 confirmed; many close calls like +2.4 vs +1.9 |
+   | **Second-best below +100 (locked)** | **144** | **112 (19%)** | **29 of 30 confirmed** |
+
+   The one miss was a 9-piece position the deeper search rates only +1.1.
+   25 of the 144 have 12 or fewer pieces; most of the rest are middlegame
+   tactics. All phases are in V1: the board flow is the same for both.
+2. **`eval_before` is from White's side — CHECKED.** In games where the
+   player is Black, positions with a big material gap: the sign matches
+   White's material in 1,126 and differs in 26.
+3. **Tablebase: the lichess API — DECIDED.** It is called only for flagged
+   positions with 7 or fewer pieces, and results are cached by position. If
+   it fails, no card. It sends the position only, nothing about the player.
+4. **One lesson per game, on the first miss — DECIDED.** A found only move is
+   shown only if nothing was missed.
+5. **Hint wording outside the checked family:** stays as written. V1 falls
+   back to the arrow.
 
 ## 7. Pre-code requirements
 
-- Mohit signs off on this document.
-- Q1 locked from data: the only-move definition, with 30 hand-read fires.
-- Q2 checked.
-- Q3 decided by Mohit.
+- ~~Mohit signs off~~ done 2026-11-21.
+- ~~Q1 locked~~, ~~Q2 checked~~, ~~Q3~~ and ~~Q4~~ decided: see section 6.
 - The computing cost of the extra pass on every player move is measured.
   It is not a design limit (11-12 rule), but the time per game must be known
   before a deploy.
