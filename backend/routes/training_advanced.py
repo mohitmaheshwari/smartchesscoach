@@ -1558,7 +1558,6 @@ async def get_lab_coach_pick(user: User = Depends(get_current_user)):
             "summary_headline": g.get("summary", {}).get("headline") if isinstance(g.get("summary"), dict) else None,
             "behavior": behavior,
             "lesson_label": lesson_label,
-            "lesson": core_les.get("lesson", ""),
             "brilliant_moves": brilliant_count,
             "sacrifices": sacrifice_count,
             "brilliant_detail": brilliant_moves_detail,
