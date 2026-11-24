@@ -137,7 +137,10 @@ def send_one(to_email: str, first_name: str) -> None:
 
 
 async def fetch_users(db, only: str | None, force: bool):
-    q: dict = {"email": {"$exists": True, "$ne": None, "$ne": ""}}
+    # `{"$ne": None, "$ne": ""}` keeps only the last pair in Python, so the
+    # None test was dropped and users with email=None were selected for a
+    # send. Same bug as the one fixed in server.py quick_sync_loop.
+    q: dict = {"email": {"$nin": [None, ""]}}
     if only:
         q["email"] = only
     elif not force:

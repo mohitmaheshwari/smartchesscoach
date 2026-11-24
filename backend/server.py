@@ -19,7 +19,8 @@ from datetime import datetime, timezone, timedelta
 
 # Import centralized config
 from config import (
-    BACKGROUND_SYNC_INTERVAL_SECONDS, QUICK_SYNC_INTERVAL_SECONDS
+    BACKGROUND_SYNC_INTERVAL_SECONDS, QUICK_SYNC_INTERVAL_SECONDS,
+    LICHESS_LIVE_WATCH_ENABLED, LICHESS_LIVE_WATCH_INTERVAL_SECONDS
 )
 
 # Import journey service for background sync
@@ -284,13 +285,23 @@ async def quick_sync_loop():
                 _sync_status["last_sync_at"] = datetime.now(timezone.utc).isoformat()
             logger.info("Quick sync: Checking for new games...")
 
+            # `{"$ne": None, "$ne": ""}` is one dict with a duplicate key, so
+            # Python keeps only the last pair and the None test is silently
+            # dropped: the filter then matched every user whose username field
+            # was None. Measured on prod 2026-11-25 -- it selected 136 of 139
+            # users, 66 of whom had no username at all, and the 100-row cap
+            # below was then filled with 84 useless rows, pushing 8 of the 24
+            # real lichess users out of the 5-minute loop and onto the 6-hour
+            # one. That is where the multi-hour import lags came from.
+            # `$nin` is the form run_background_sync already uses
+            # (journey_service.py:1662); keep the two identical.
             users = await db.users.find({
                 "$or": [
-                    {"chess_com_username": {"$exists": True, "$ne": None, "$ne": ""}},
-                    {"chesscom_username": {"$exists": True, "$ne": None, "$ne": ""}},
-                    {"lichess_username": {"$exists": True, "$ne": None, "$ne": ""}}
+                    {"chess_com_username": {"$nin": [None, ""]}},
+                    {"chesscom_username": {"$nin": [None, ""]}},
+                    {"lichess_username": {"$nin": [None, ""]}}
                 ]
-            }, {"_id": 0}).to_list(100)
+            }, {"_id": 0}).to_list(1000)
 
             total_synced = 0
             for user_doc in users:
@@ -470,6 +481,22 @@ async def lifespan(app: FastAPI):
 
     _quick_sync_task = asyncio.create_task(quick_sync_loop())
     logger.info("Quick sync started (5 minute interval)")
+
+    # Closes the detection half of "play -> review". quick_sync above finds a
+    # finished game within 5 minutes; this notices it in seconds by watching
+    # Lichess's free users/status endpoint, then fires that same sync. It never
+    # imports anything itself and needs no OAuth scope.
+    if LICHESS_LIVE_WATCH_ENABLED:
+        from services.lichess_live_watch import live_watch_loop
+        _lichess_live_watch_task = asyncio.create_task(
+            live_watch_loop(db, LICHESS_LIVE_WATCH_INTERVAL_SECONDS)
+        )
+        logger.info(
+            "Lichess live watch started (%ss interval)",
+            LICHESS_LIVE_WATCH_INTERVAL_SECONDS,
+        )
+    else:
+        logger.info("Lichess live watch disabled by LICHESS_LIVE_WATCH_ENABLED")
 
     if analysis_queue_fallback_enabled():
         _analysis_queue_fallback_task = asyncio.create_task(analysis_queue_fallback_loop())

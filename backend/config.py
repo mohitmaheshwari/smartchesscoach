@@ -107,6 +107,22 @@ BACKGROUND_SYNC_INTERVAL_SECONDS = 6 * 60 * 60  # Full background sync (6 hours)
 QUICK_SYNC_INTERVAL_SECONDS = 5 * 60  # Check for new games every 5 minutes
 QUICK_SYNC_MAX_GAMES = 3              # Max games to process per quick sync
 
+# Lichess live watch -- see services/lichess_live_watch.py.
+# Polls the free, unauthenticated /api/users/status so a finished lichess game
+# is synced in seconds rather than waiting up to QUICK_SYNC_INTERVAL_SECONDS.
+# Lichess sanctions once every 5s for this endpoint; 10s is the cheaper default
+# and still turns a 5-minute wait into a ten-second one.
+LICHESS_LIVE_WATCH_INTERVAL_SECONDS = int(
+    os.environ.get("LICHESS_LIVE_WATCH_INTERVAL_SECONDS", "10")
+)
+# On by default: it only makes the existing sync run sooner, and at one request
+# per 10s it is far inside Lichess's limits. Set to "false" to stop it without
+# a deploy.
+LICHESS_LIVE_WATCH_ENABLED = (
+    os.environ.get("LICHESS_LIVE_WATCH_ENABLED", "true").strip().lower()
+    not in ("0", "false", "no", "off")
+)
+
 # Game preferences
 PREFERRED_TIME_CONTROLS = ["rapid", "classical", "blitz"]
 MIN_GAME_MOVES = 10               # Skip very short games

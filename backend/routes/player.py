@@ -1850,7 +1850,6 @@ async def get_progress_narrative(user: User = Depends(get_current_user)):
             "one_move_blunder": "You leave pieces undefended. This is the #1 thing costing you games.",
             "tactical_miss": "You miss tactics — forks, pins, skewers that win material.",
             "calculation_error": "In sharp positions, you don't calculate deep enough. You see 1 move ahead but miss what happens after.",
-            "calculation_depth": "When the position gets complicated, your calculation breaks down.",
             "piece_safety": "You move pieces to squares where they can be captured for free.",
             "king_safety": "Your king gets into trouble — either you don't castle or your pawn shield gets weakened.",
             "threw_winning": "You get good positions but then throw them away. Conversion is the issue.",

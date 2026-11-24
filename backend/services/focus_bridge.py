@@ -653,7 +653,6 @@ async def get_active_focus_bundle(db, user_id: str) -> Optional[Dict[str, Any]]:
         "rating_band": focus.get("rating_band"),
         "rating_used": focus.get("rating_used"),
         "runners_up": focus.get("runners_up") or [],
-        "rating_band": focus.get("rating_band"),
         "detector_quality_id": focus.get("detector_quality_id"),
         "proof_eligibility": focus.get("proof_eligibility"),
         "focus_kind": focus.get("focus_kind"),

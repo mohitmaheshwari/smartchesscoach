@@ -197,7 +197,10 @@ def main(argv=None) -> int:
                 continue
             seen = hit = 0
             for doc in db.lichess_puzzles.find(
-                    {"themes": other, "themes": {"$ne": theme}},
+                    # Both conditions on one field: written as two keys in one
+                    # dict the $ne won and `other` was dropped, so every row
+                    # tested the same population. $all keeps both.
+                    {"themes": {"$all": [other], "$ne": theme}},
                     {"fen": 1, "moves": 1}).limit(200):
                 parsed = _puzzle_position(doc)
                 if parsed is None:

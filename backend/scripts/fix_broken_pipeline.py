@@ -67,17 +67,20 @@ async def fix_2_integrate_pattern_decay():
         {"$limit": 30},
         {"$project": {
             "game_id": 1,
-            "cognitive_gaps": {"$cond": [
-                {"$isArray": "$analysis.stockfish_analysis.move_evaluations"},
-                {"$map": {
-                    "input": "$analysis.stockfish_analysis.move_evaluations",
-                    "as": "move",
-                    "in": "$$move.cognitive_gap"
-                }},
-                []
-            ]},
+            # One key, written twice: the $filter won, and inside the same
+            # $project "$cognitive_gaps" resolves against the INPUT document,
+            # where games have no such field -- so this always returned [].
+            # Nested, which is what the two halves were trying to say.
             "cognitive_gaps": {"$filter": {
-                "input": {"$ifNull": ["$cognitive_gaps", []]},
+                "input": {"$cond": [
+                    {"$isArray": "$analysis.stockfish_analysis.move_evaluations"},
+                    {"$map": {
+                        "input": "$analysis.stockfish_analysis.move_evaluations",
+                        "as": "move",
+                        "in": "$$move.cognitive_gap"
+                    }},
+                    []
+                ]},
                 "as": "gap",
                 "cond": {"$ne": ["$$gap", None]}
             }}
