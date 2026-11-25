@@ -1620,3 +1620,46 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* ─── /coach2 design preview ────────────────────────────────────────────
+   The redesign preview pins itself to the LIGHT surface so the proposal
+   reads the same whichever way the theme toggle is set (the app still
+   defaults to dark — ThemeContext.jsx:13).
+
+   The values are copied from the LIVE `.experience-v1` light block above
+   (the one that starts "Inner Product Experience V2"), NOT from the
+   identical-looking block ~1000 lines earlier, which that block's own
+   comment marks as dead. No new colour enters the system here: #f4efe4
+   and the two radial tints are already in the file.
+
+   Both selectors are listed because `.dark .experience-v1` is (0,2,0)
+   and the dark `background` declaration would otherwise still apply.
+
+   --c2-frame  the board's walnut surround
+   --c2-coord  the coordinate ink that sits on it     — 6.4:1, passes AA
+   --c2-green  green that is legible as TEXT on these surfaces — 5.2:1.
+               `--success` (158 56% 39%) is only 3.3:1 here and must not
+               be used for the 12px labels.
+   All three are HSL triplets like every other token in this file, so the
+   ratchet in .githooks/pre-commit stays at --max-hex=209. */
+.experience-v1.coach2,
+.dark .experience-v1.coach2 {
+  --background: 42 41% 96%;
+  --foreground: 157 48% 6%;
+  --card: 42 48% 99%;
+  --card-foreground: 157 48% 6%;
+  --muted: 40 26% 91%;
+  --muted-foreground: 159 14% 35%;
+  --border: 42 20% 82%;
+  --success: 158 56% 39%;
+  --experience-ink: 157 48% 6%;
+  --experience-shadow: 157 46% 6%;
+  --c2-frame: hsl(25 40% 31%);
+  --c2-coord: hsl(33 63% 89%);
+  --c2-green: hsl(162 51% 32%);
+  color: hsl(var(--foreground));
+  background:
+    radial-gradient(circle at 92% -5%, rgb(var(--cg-accent-rgb) / 0.16), transparent 30rem),
+    radial-gradient(circle at 14% 102%, rgb(126 231 194 / 0.12), transparent 28rem),
+    #f4efe4;
+}
