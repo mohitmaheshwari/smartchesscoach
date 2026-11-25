@@ -213,9 +213,23 @@ The point is never the playing. So the criteria measure what happens *after* the
 
 - **Primary, behavioural:** of games played through our board, the share where the player
   opens the review **in the same session**, versus the baseline for games played on
-  lichess.org and picked up by the watcher. The watcher shipped today establishes that
-  baseline; no target is set because no baseline exists yet. If play-through does not beat
-  it, this feature has no reason to exist and should be removed, not iterated.
+  lichess.org and picked up by the watcher. If play-through does not beat it, this feature
+  has no reason to exist and should be removed, not iterated.
+
+  **The baseline is now measured, 2026-11-25** —
+  `backend/scripts/measure_review_open_rate.py --days 14`, run on the prod host. Over the
+  14 days to 2026-11-25: 2,385 games imported by 33 users, 19 distinct reviews opened, of
+  which 10 were internal accounts, 9 were real users across 8 people, and **4 were real
+  users opening the same day the game was imported — 3 people: `pr0xladno`,
+  `dhirajawasthi2015`, `Aress Amr`**.
+
+  That number is small enough to change what this section means. Three people is not a
+  population you can beat a rate against; a board that lifts 3 same-day opens to 5 is
+  indistinguishable from noise. Before the board is worth building, either the watcher
+  has to move this number on its own over a few weeks, or the audience has to grow.
+  Building a surface that risks engine-marking real Lichess accounts, for three users who
+  already open their reviews, is the wrong order of work — and the first two of those
+  three are exactly the users the watcher already serves.
 - **Zero engine marks.** Any ChessGuru user receiving a Lichess engine mark during this
   build is a stop-everything event: pull the surface the same day, then diagnose.
 - A game started on `/play/online` reaches a real opponent within 60s at 10+0, or tells the

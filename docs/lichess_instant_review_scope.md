@@ -103,15 +103,45 @@ Tapping it opens the existing review at `/game/:gameId`. No new review surface i
   2,094 today).
 - No increase in Lichess 429s; the watcher makes at most 12 calls/minute total.
 - Behavioural, and the one that actually matters: of users who get a notification within
-  4 minutes, the share who open the review **the same day**. No target set yet — there is
-  no baseline, so V1 establishes it.
+  4 minutes, the share who open the review **the same day**. **Baseline measured
+  2026-11-25, before the watcher could affect it: 4 same-day opens by 3 real users over
+  14 days, against 2,385 imports by 33 users.** See the answered open question in §6 and
+  `backend/scripts/measure_review_open_rate.py`.
+- **Watcher verified live in production 2026-11-25.** 22 fires in the first ~6 hours for
+  two real users (`pr0xladno`, `dhirajawasthi2015`), logged as
+  `lichess live watch: <name> finished a game, synced immediately` in the backend
+  container. The newest resulting row was imported 7 minutes after the game was played.
+  This closes the one gap left open in the deploy report: the final `sync_user_games` hop
+  was inference then, and is observed now.
 
 ## 6. Open questions
 
-- **Does a notification reach anyone who isn't on the site?** Unresolved. In-app rows are
-  invisible to someone who never visits, and that is most users. Unblocking step: ship V1,
-  then measure same-day open rate; if it is ~0, the next build is the delivery channel
-  (email under the contract), not more detection.
+- **Does a notification reach anyone who isn't on the site?** **ANSWERED 2026-11-25, and
+  the answer is "almost nobody, but not nobody."** Measured with
+  `backend/scripts/measure_review_open_rate.py --days 14` on the prod host (nginx
+  `combined` logs joined to the `games` and `users` collections; a review open is
+  `GET /api/coach/decryption/v5/{game_id}`, the only call GameDecryptionV5 makes):
+
+  | | 14 days to 2026-11-25 |
+  |---|---|
+  | games imported | 2,385 by 33 users |
+  | review opens (distinct games) | 19 |
+  | — by internal accounts | 10 (this developer's account + "Coach Test") |
+  | — by real users | 9, across 8 users |
+  | — by real users, same day as import | **4, across 3 users** |
+
+  The three are `pr0xladno`, `dhirajawasthi2015` and `Aress Amr`. The first two are
+  exactly the users the watcher has fired for since it went live. So the premise is not
+  refuted — the people who play on Lichess and come back for a fresh game are real, and
+  the watcher serves them — but the population is three, not a cohort.
+
+  Two framings to avoid, both of which I produced before checking: the per-game rate over
+  all imported games (12/2385 = 0.5%) is meaningless, because imports are bulk at ~72
+  games per user per fortnight and nobody reviews 72 games; and the rate including
+  internal accounts overstates real usage about 2x.
+
+  So the next build is still the delivery channel, not more detection — but it is worth
+  building for three named people only if they are the pilot, not the market.
 - **Do private Lichess accounts break the no-auth path?** `users/status` and game export
   are public-only. Unverified. Unblocking step: count connected users whose games 404.
 - **Is 10s polling the right interval?** Lichess sanctions 5s. Starting at 10s as the
