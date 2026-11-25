@@ -99,6 +99,11 @@ class LiveGame:
     rated: bool = False
     speed: Optional[str] = None
     draw_offer_from: Optional[str] = None
+    # Filled in from Lichess's own export once the game is over. We never
+    # compute a rating change ourselves: Lichess owns that number.
+    our_rating: Optional[int] = None
+    our_rating_diff: Optional[int] = None
+    opponent_rating_after: Optional[int] = None
     started_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -140,6 +145,9 @@ class LiveGame:
             "game_id": self.game_id,
             "color": self.color,
             "fen": self.board_fen(),
+            # The client replays the moves from here to build the move list and
+            # the captured material, so it must know where the game began.
+            "initial_fen": self.initial_fen,
             "moves": self.moves,
             "status": self.status,
             "winner": self.winner,
@@ -151,6 +159,9 @@ class LiveGame:
             "rated": self.rated,
             "speed": self.speed,
             "draw_offer_from": self.draw_offer_from,
+            "our_rating": self.our_rating,
+            "our_rating_diff": self.our_rating_diff,
+            "opponent_rating_after": self.opponent_rating_after,
             "stream_alive": self.stream_alive,
             "lichess_url": f"{LICHESS}/{self.game_id}",
             "started_at": self.started_at,
@@ -355,16 +366,50 @@ async def _begin(db: Any, user_id: str, token: str, info: Dict[str, Any]) -> Non
     _track(user_id, asyncio.create_task(_run_game_stream(db, user_id, token, game_id)))
 
 
+async def _fill_result_from_lichess(game: LiveGame) -> None:
+    """Ask Lichess what the game was worth. It owns that number, not us.
+
+    The export endpoint gives status, winner and each player's ratingDiff for
+    a finished public game, with no auth. A failure here costs the rating line
+    on the result card and nothing else, so it never raises.
+    """
+    url = f"{LICHESS}/game/export/{game.game_id}?moves=false&clocks=false"
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(
+                url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"}
+            )
+        if response.status_code != 200:
+            return
+        data = response.json()
+        players = data.get("players") or {}
+        ours = players.get(game.color) or {}
+        theirs = players.get("black" if game.color == "white" else "white") or {}
+        game.our_rating = ours.get("rating")
+        game.our_rating_diff = ours.get("ratingDiff")
+        game.opponent_rating_after = theirs.get("rating")
+        if data.get("status"):
+            game.status = data["status"]
+        if data.get("winner"):
+            game.winner = data["winner"]
+    except Exception as exc:
+        logger.info("live play: could not read the result of %s: %s", game.game_id, exc)
+
+
 async def _finish(db: Any, user_id: str) -> None:
     """The game is over. Guard OFF, so the review can open."""
     game = _GAMES.get(user_id)
+    if game:
+        await _fill_result_from_lichess(game)
     await release_live_game(db, user_id)
     if game:
         logger.info(
-            "live play: %s finished lichess game %s (%s)",
+            "live play: %s finished lichess game %s (%s, rating %s%s)",
             user_id,
             game.game_id,
             game.status,
+            game.our_rating,
+            f" {game.our_rating_diff:+d}" if game.our_rating_diff is not None else "",
         )
 
 

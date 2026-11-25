@@ -21,6 +21,14 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Chessboard } from "react-chessboard";
 
 import LiveSearchBoard from "./LiveSearchBoard";
+import {
+  MoveList,
+  MoveNav,
+  PlayerCard,
+  ResultCard,
+  captured as capturedFrom,
+  replay,
+} from "./LiveGameSurfaces";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
 const POLL_MS = 1500;
@@ -69,6 +77,8 @@ export default function PlayVsHuman({ onExit }) {
   const [rated, setRated] = useState(true);
   // The player's real Lichess handle and rating, shown on the search screen.
   const [me, setMe] = useState(null);
+  // Which half-move the board is showing. Only meaningful once the game ends.
+  const [ply, setPly] = useState(0);
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -308,6 +318,21 @@ export default function PlayVsHuman({ onExit }) {
   const finished = Boolean(game && game.finished);
   const opponent = (game && game.opponent) || {};
   const ourColor = (game && game.color) || "white";
+
+  const { sans, fens } = replay(game.initial_fen, game.moves);
+  const livePly = sans.length;
+  // While the game is live the board always shows the live position. Browsing
+  // only unlocks once it is over -- a board that can show some OTHER position
+  // mid-game is one refactor away from showing an analysed one.
+  const shownPly = finished ? Math.min(ply, livePly) : livePly;
+  const shownFen = fens[shownPly] || game.fen;
+  const atLive = shownPly === livePly;
+
+  const taken = capturedFrom(shownFen);
+  const ourTaken = ourColor === "white" ? taken.white : taken.black;
+  const theirTaken = ourColor === "white" ? taken.black : taken.white;
+  const edge = ourColor === "white" ? taken.advantage : -taken.advantage;
+
   const ourClock = ourColor === "white" ? game.white_time_ms : game.black_time_ms;
   const theirClock = ourColor === "white" ? game.black_time_ms : game.white_time_ms;
 
@@ -323,38 +348,41 @@ export default function PlayVsHuman({ onExit }) {
         </div>
       )}
 
-      <div className="flex items-center justify-between text-sm mb-2">
-        <span className="font-medium" data-testid="live-opponent">
-          {opponent.username || "Opponent"}
-          {opponent.rating ? ` (${opponent.rating})` : ""}
-        </span>
-        <span className="font-mono tabular-nums" data-testid="live-their-clock">
-          {clock(theirClock)}
-        </span>
-      </div>
+      <PlayerCard
+        name={opponent.username || "Opponent"}
+        rating={opponent.rating}
+        clockMs={theirClock}
+        pieces={theirTaken}
+        advantage={edge < 0 ? -edge : 0}
+        active={!finished && !game.our_turn}
+        testId="live-opponent-card"
+      />
 
-      <div data-testid="live-board">
+      <div className="my-2" data-testid="live-board">
         <Chessboard
-          position={game.fen}
+          position={shownFen}
           boardOrientation={ourColor}
           onPieceDrop={onDrop}
-          arePiecesDraggable={playing && game.our_turn}
+          arePiecesDraggable={playing && game.our_turn && atLive}
           customBoardStyle={{ borderRadius: "6px" }}
         />
       </div>
 
-      <div className="flex items-center justify-between text-sm mt-2">
-        <span className="text-muted-foreground">
-          {finished
-            ? resultLine(game, ourColor)
-            : game.our_turn
-            ? "Your move"
-            : "Their move"}
-        </span>
-        <span className="font-mono tabular-nums" data-testid="live-our-clock">
-          {clock(ourClock)}
-        </span>
-      </div>
+      <PlayerCard
+        name={(me && me.username) || "You"}
+        rating={me && me.rating}
+        clockMs={ourClock}
+        pieces={ourTaken}
+        advantage={edge > 0 ? edge : 0}
+        active={!finished && game.our_turn}
+        testId="live-our-card"
+      />
+
+      {!finished && (
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          {game.our_turn ? "Your move" : "Their move"}
+        </p>
+      )}
 
       {game.draw_offer_from && game.draw_offer_from !== ourColor && !finished && (
         <div className="mt-4 rounded-md border border-border p-3 text-sm">
@@ -377,7 +405,7 @@ export default function PlayVsHuman({ onExit }) {
       )}
 
       {!finished && (
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => act("/draw", { accept: true })}
             disabled={busy}
@@ -403,51 +431,41 @@ export default function PlayVsHuman({ onExit }) {
         </div>
       )}
 
-      {/* The sealed panel. During the game it holds no data whatsoever --
-          not a number, not a word about the position. That is the rule. */}
-      <div className="mt-6 rounded-lg border border-border p-4" data-testid="live-review-panel">
-        {!finished ? (
+      <div className="mt-5 rounded-xl border border-border">
+        <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
+          Moves
+        </div>
+        <MoveList sans={sans} ply={shownPly} onSeek={setPly} canSeek={finished} />
+      </div>
+      {finished && (
+        <MoveNav ply={shownPly} total={livePly} onSeek={setPly} enabled />
+      )}
+
+      {finished ? (
+        <div className="mt-5">
+          <ResultCard
+            game={game}
+            ourColor={ourColor}
+            review={review}
+            onNewGame={() => act("/finish")}
+            busy={busy}
+          />
+        </div>
+      ) : (
+        /* The sealed panel. During the game it holds no data whatsoever --
+           not a number, not a word about the position. That is the rule. */
+        <div className="mt-5 rounded-lg border border-border p-4" data-testid="live-review-panel">
           <p className="text-sm text-muted-foreground">
             🔒 Your review opens the moment this game ends. Nothing about this
             position is shown while you are playing — Lichess forbids outside
             help, and we are not going to put your account at risk.
           </p>
-        ) : review && review.ready ? (
-          <a
-            href={review.review_url}
-            data-testid="live-open-review"
-            className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white"
-          >
-            Open your review →
-          </a>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {review && review.imported
-              ? "Analysing your game — this takes a minute or two."
-              : "Picking your game up from Lichess…"}
-          </p>
-        )}
-      </div>
-
-      {finished && (
-        <button
-          onClick={() => act("/finish")}
-          disabled={busy}
-          data-testid="live-finish"
-          className="mt-4 text-sm text-muted-foreground underline"
-        >
-          Back to Play with Coach
-        </button>
+        </div>
       )}
 
       {error && <Problem text={error} />}
     </Shell>
   );
-}
-
-function resultLine(game, ourColor) {
-  if (!game.winner) return `Game over — ${game.status}`;
-  return game.winner === ourColor ? "You won" : "You lost";
 }
 
 function Problem({ text }) {

@@ -172,9 +172,11 @@ describe("once the game is over", () => {
 
     const { host } = await render(<PlayVsHuman onExit={() => {}} />);
 
+    // Once the game is over the sealed panel is replaced by the result card,
+    // which carries the review button (or says why it is not ready yet).
     expect(host.querySelector('[data-testid="live-open-review"]')).toBeNull();
     expect(
-      host.querySelector('[data-testid="live-review-panel"]').textContent
+      host.querySelector('[data-testid="live-result-card"]').textContent
     ).toMatch(/analysing/i);
   });
 });
