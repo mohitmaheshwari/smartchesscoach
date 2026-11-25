@@ -239,6 +239,20 @@ The point is never the playing. So the criteria measure what happens *after* the
 - **Will the 23 existing users reconnect?** Honestly, probably not: 73 of 82 were
   one-and-done. **Unblocking step:** none that precedes the build. Accept that V1's real
   audience is Mohit plus new sign-ups, and do not size the build on 23 users converting.
+- **Can a brand-new user sign up for Lichess from inside our app?** No, and this is
+  settled: there is **no account-creation endpoint** in the Lichess API (searched the full
+  `paths:` block of `doc/specs/lichess-api.yaml`), and lila's `conf/routes` — read in full
+  — exposes signup only as web form routes, `GET /signup` → `controllers.Auth.signup` and
+  `POST /signup` → `controllers.Auth.signupPost`. The account API is read-only apart from
+  preferences and kid mode. Nothing in those sources *forbids* third-party signup; there
+  is simply no mechanism, and we must never handle someone else's Lichess password.
+  What works instead: our existing OAuth connect already sends them to Lichess's own
+  authorize page, which requires login and offers sign-up there. **But Lichess requires
+  email confirmation** (`GET /signup/confirm/:token`), so a brand-new user cannot go
+  sign up → play in one unbroken session. Anyone arriving without a Lichess account has a
+  mandatory detour through their inbox. **Unblocking step:** none needed to build, but the
+  `/play/online` empty state must say this plainly rather than bouncing them to a page
+  that looks broken.
 - **Is 10+0 Rapid?** The spec names the categories but does not map clock times to them,
   and the FAQ page refuses automated fetches. Chessiro ships 10+0, which is evidence but
   not authority. **Unblocking step:** confirm from `lichess.org/faq#time-controls` by hand
