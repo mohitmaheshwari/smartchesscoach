@@ -1,9 +1,23 @@
 # Play on Lichess, through ChessGuru — Scope
 
-Status: **SIGNED for pre-code work only** (Mohit, 2026-11-25: "go ahead, do what
-you recommend" — my recommendation was the chokepoint audit and the guard test,
-explicitly *not* the board). The audit is done and is recorded below; it changed
-the design. **The board itself is still unsigned.**
+Status: **SIGNED, including the board** (Mohit, 2026-11-25: *"go ahead and give me a
+feature, maybe a separate section inside play with coach, play vs human, something
+and then shows lichess board"*). An earlier signoff the same day covered pre-code
+work only — the chokepoint audit and the guard test — and both are done and
+recorded below; the audit changed the design.
+
+**Placement changed by that signoff.** This document originally proposed a new
+route, `/play/online`. Mohit asked for it as a **section inside Play with Coach**
+("play vs human"), which is better and is what we are building: Play with Coach
+already owns setup, board and sidebar, so this becomes a third mode beside the
+coach game and the lesson modes rather than a fourth board implementation.
+`/play/online` below should be read as "the Play-vs-Human section of
+`/play-with-coach`"; the flow, the sealed panel and the guard are unchanged.
+
+**Guard built first, as promised.** `backend/services/live_play_guard.py` plus
+`LivePlayGuardMiddleware`, registered inside CORS in `server.py`. 20 tests pass
+across the structural gate and a new behavioural suite, and the behavioural suite
+is mutation-checked — see §3.
 Written: 2026-11-25. Audit base: `working-code` @ 502a6856 (live), plus prod reads
 and Lichess source reads the same day.
 
@@ -185,6 +199,42 @@ work time 1.4 min median, 78s observed 2026-11-25).
   draw, auth). Default-deny means an endpoint written next month is covered by doing
   nothing. During a live Lichess game, our engine does nothing for that user at all —
   which is both the rule and the simplest thing to verify.
+
+  **BUILT 2026-11-25**, before any board code. `backend/services/live_play_guard.py`:
+  `PLAY_ALLOWLIST` (10 paths), `is_blocked_during_live_game`,
+  `user_has_live_lichess_game`, and `LivePlayGuardMiddleware` registered in `server.py`
+  *before* `CORSMiddleware` — `add_middleware` prepends, so CORS ends up outermost and
+  wraps the guard. That ordering is deliberate: a 403 that CORS does not wrap reaches the
+  browser as an opaque CORS failure instead of the sentence explaining why coaching paused.
+  Verified: CORS index 0, guard index 1.
+
+  Three properties worth recording because each was a real decision:
+
+  - **It costs nothing when nobody is playing.** An in-process set of user_ids is checked
+    first; when it is empty the middleware returns having done no I/O and resolved no
+    session. Sound only because the backend runs exactly one uvicorn worker
+    (`docker/supervisord.conf:15`, `Dockerfile.backend:56`, neither passing `--workers`).
+    If that ever becomes multi-worker the set stops being coherent and the guard must move
+    to a shared store — the durable `lichess_live_play` row exists for that reason.
+  - **A restart mid-game does not unguard the player.** `load_live_players_from_db` runs at
+    startup, because a deploy during somebody's game is the quiet way to get them marked.
+  - **It is keyed on the game, never on a flag.** A row exists only between the game
+    starting and ending.
+
+  Tested two ways, 20 tests, all passing: the structural gate
+  (`test_no_coaching_during_a_live_lichess_game.py`, 7) and a behavioural suite
+  (`test_live_play_guard_behaviour.py`, 13) that drives the ASGI middleware with a fake
+  inner app and fake db. The behavioural suite covers the opposite failure too — a
+  bystander is never blocked, nothing is blocked when nobody is playing, CORS preflights
+  pass, and the guard comes off when the game ends — because a guard that fires too widely
+  takes the product down for everyone.
+
+  **Mutation-checked**, since a passing test proves nothing until it can fail: deleting
+  `_normalise` and stubbing `is_blocked_during_live_game` to `False` were both caught. The
+  first mutation initially *survived* `test_a_trailing_slash_does_not_open_a_hole`, which
+  turned out to be satisfied by default-deny whether or not normalisation existed — that
+  test was rewritten to assert the half that can actually fail (an allowlisted path with a
+  stray slash must still let the player move, or they lose on time).
 - **A `User-Agent` and referer that identify us honestly**, so that if we ever do break the
   rule Lichess can find us — and so we never look like a client trying to hide.
 

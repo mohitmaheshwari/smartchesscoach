@@ -476,6 +476,20 @@ async def lifespan(app: FastAPI):
     _background_sync_task = asyncio.create_task(background_sync_loop())
     logger.info("Background sync scheduler started (6 hour interval)")
 
+    # A deploy mid-game must not drop the guard: rebuild the in-process set of
+    # players still in a live Lichess game from the durable rows, or the very
+    # next request could serve one of them an evaluation.
+    try:
+        from services.live_play_guard import load_live_players_from_db
+        _still_playing = await load_live_players_from_db(db)
+        if _still_playing:
+            logger.warning(
+                "Live play guard: %d player(s) mid-Lichess-game across this restart",
+                _still_playing,
+            )
+    except Exception as e:
+        logger.error(f"Live play guard: startup load failed: {e}")
+
     asyncio.create_task(daily_digest_loop())
     logger.info("Daily digest scheduler started (mode=%s)" % os.environ.get("DIGEST_EMAILS_MODE", "dry"))
 
@@ -882,6 +896,22 @@ ALLOWED_ORIGINS = [
 # Note the browser rule this restores: "*" and credentials are mutually
 # exclusive by spec, so the wildcard was not merely permissive, it defeated
 # the point of the allowlist entirely.
+# Nothing engine-derived may be served while a user is in a live Lichess game
+# (docs/play_through_lichess_scope.md). Default-deny above the whole route
+# table, because 163 endpoints can put a client-supplied position in front of
+# the engine and guarding them one by one would miss the 164th.
+#
+# Added BEFORE CORSMiddleware on purpose. add_middleware prepends, so the last
+# one added is outermost: CORS must wrap this, or our 403 reaches the browser
+# as an opaque CORS failure instead of the sentence explaining why.
+from services.live_play_guard import (  # noqa: E402
+    LivePlayGuardMiddleware,
+    set_db_provider as _set_live_play_db_provider,
+)
+
+_set_live_play_db_provider(lambda: db)
+app.add_middleware(LivePlayGuardMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
