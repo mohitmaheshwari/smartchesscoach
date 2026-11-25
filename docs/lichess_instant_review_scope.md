@@ -140,8 +140,30 @@ Tapping it opens the existing review at `/game/:gameId`. No new review surface i
   games per user per fortnight and nobody reviews 72 games; and the rate including
   internal accounts overstates real usage about 2x.
 
-  So the next build is still the delivery channel, not more detection — but it is worth
-  building for three named people only if they are the pilot, not the market.
+  **Then, 2026-11-25, the reason turned out not to be interest at all.** Checking whether
+  a delivery channel already existed before building one found that every off-site channel
+  is dead, each failing silently:
+
+  - `notifications` holds **20,781 rows and not one has `read: true`**. The in-app badge
+    works and is invisible to anyone not already on the site.
+  - Push died in commit `3bf3e78a`, 2026-04-03, which deleted
+    `async def send_push_notification` from `server.py` and left the caller at
+    `journey_service.py:1622`. 68 failures in 48h, swallowed by `logger.warning`. There is
+    also no push-subscription collection, so repairing it would reach nobody.
+  - `backend/email_service.py` is an unconfigured SendGrid stub: `is_email_configured()`
+    is False in prod (no `SENDGRID_API_KEY`, while every `SMTP_*` var is set), gated with
+    no `else` so it logs nothing, and its CTA is literally `href="#"`.
+  - `backend/services/digest_email_service.py` is the one good channel — Zoho SMTP, mode
+    read at send time, pilot allowlist, opt-out honoured, and one CTA to
+    `https://chessguru.ai/game/{worst_game_id}` exactly as the Email → Page Contract
+    requires. It still composes today for all three real users. **But a send attempt
+    returns `550 5.4.6 Unusual sending activity detected` — Zoho has blocked the
+    account.** 47 digests were sent, all to the pilot address, none since 2026-09-21.
+
+  So the measured 4-opens-in-14-days is not a verdict on the product. For at least two
+  months nothing could reach anyone. **Repair the chain before building any new surface to
+  deliver into** — and check Zoho's plan send limit before `DIGEST_EMAILS_MODE=live` puts
+  136 addresses through it, or the block returns at once.
 - **Do private Lichess accounts break the no-auth path?** `users/status` and game export
   are public-only. Unverified. Unblocking step: count connected users whose games 404.
 - **Is 10s polling the right interval?** Lichess sanctions 5s. Starting at 10s as the
