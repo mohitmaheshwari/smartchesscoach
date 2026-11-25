@@ -1642,8 +1642,19 @@
                be used for the 12px labels.
    All three are HSL triplets like every other token in this file, so the
    ratchet in .githooks/pre-commit stays at --max-hex=209. */
+/* Split in two on purpose (2026-11-25).
+   A dialog renders in a PORTAL at <body>, outside .experience-v1, so it
+   needs these tokens re-declared on itself. But if the same rule also
+   carried the page `background` shorthand, the modal would paint itself
+   with the page gradient: `.experience-v1.coach2` is specificity (0,2,0)
+   and Tailwind's `.bg-card` is (0,1,0), so the gradient would win and the
+   modal surface would silently become the page surface.
+   So: rule 1 declares tokens only and is what a portal opts into via
+   .coach2-surface; rule 2 paints the page and is never used on a portal. */
 .experience-v1.coach2,
-.dark .experience-v1.coach2 {
+.dark .experience-v1.coach2,
+.coach2-surface,
+.dark .coach2-surface {
   --background: 42 41% 96%;
   --foreground: 157 48% 6%;
   --card: 42 48% 99%;
@@ -1658,8 +1669,27 @@
   --c2-coord: hsl(33 63% 89%);
   --c2-green: hsl(162 51% 32%);
   color: hsl(var(--foreground));
+}
+
+.experience-v1.coach2,
+.dark .experience-v1.coach2 {
   background:
     radial-gradient(circle at 92% -5%, rgb(var(--cg-accent-rgb) / 0.16), transparent 30rem),
     radial-gradient(circle at 14% 102%, rgb(126 231 194 / 0.12), transparent 28rem),
     #f4efe4;
+}
+
+/* Focus ring on a dialog input. The reference uses a ~3px warm ring over
+   a darker border rather than the browser default outline; ours is the
+   same shape in our own green. Measured off the reference: ring 3px. */
+.coach2-surface .c2-input:focus,
+.experience-v1.coach2 .c2-input:focus {
+  outline: none;
+  border-color: var(--c2-green);
+  box-shadow: 0 0 0 3px rgb(var(--cg-accent-rgb) / 0.34);
+}
+
+.coach2-surface .c2-input::placeholder,
+.experience-v1.coach2 .c2-input::placeholder {
+  color: hsl(var(--muted-foreground));
 }

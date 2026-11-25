@@ -26,20 +26,19 @@
  * index.css like every other token in that file. No new hex literal enters
  * src, so the design-system ratchet in .githooks/pre-commit stays at 209.
  */
-import React from "react";
+import React, { useState } from "react";
 import {
-  Home,
   BookOpen,
-  Target,
-  TrendingUp,
-  Play,
   MessageSquare,
   Flag,
   ChevronRight,
   ChevronLeft,
   Check,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import LichessBoard from "@/components/LichessBoard";
+import C2Dialog, { initialDialog } from "@/components/coach2/C2Dialog";
+import { C2Rail, C2MobileBar } from "@/components/coach2/C2Nav";
 
 // Italian Game after 1.e4 e5 2.Nf3 Nc6 3.Bc4 — black to move.
 // The coaching line below only claims what is true here: Bc4 is the ONE
@@ -51,26 +50,21 @@ const ARROWS = [["c4", "f7", "green"]];
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const RANKS = ["8", "7", "6", "5", "4", "3", "2", "1"];
 
-const NAV = [
-  { label: "Home", Icon: Home, href: "/home" },
-  { label: "Learn", Icon: BookOpen, href: "/lab" },
-  { label: "Train", Icon: Target, href: "/training/prescribed" },
-  { label: "Progress", Icon: TrendingUp, href: "/progress" },
-  { label: "Play", Icon: Play, href: "/coach2", active: true },
-];
-
 const ACTIONS = [
   {
+    id: "ask",
     title: "Ask the coach",
     sub: "Stuck? Get a hint before you move.",
     Icon: MessageSquare,
   },
   {
+    id: "lessons",
     title: "Lesson library",
     sub: "18 traps and 10 endgames to play through.",
     Icon: BookOpen,
   },
   {
+    id: "end",
     title: "End the game",
     sub: "Stop here and go straight to your review.",
     Icon: Flag,
@@ -112,34 +106,13 @@ function PlayerStrip({ initial, name, sub, clock, active, accent }) {
 }
 
 export default function Coach2() {
+  // Only here so the dialogs can be opened and judged. The preview still
+  // makes no network call of any kind.
+  const [dialog, setDialog] = useState(initialDialog);
+
   return (
     <div className="experience-v1 coach2 flex min-h-screen flex-wrap bg-background text-foreground">
-      {/* Labelled rail — never icon-only */}
-      <nav
-        aria-label="Main"
-        className="hidden w-[92px] shrink-0 flex-col gap-1 border-r border-border bg-card px-2 py-5 md:flex"
-      >
-        {NAV.map(({ label, Icon, href, active }) => (
-          <a
-            key={label}
-            href={href}
-            className={`flex flex-col items-center gap-1.5 rounded-card px-1 py-2.5 text-meta font-semibold no-underline ${
-              active ? "" : "text-muted-foreground"
-            }`}
-            style={
-              active
-                ? {
-                    background: "rgb(var(--cg-accent-rgb) / 0.18)",
-                    color: "var(--c2-green)",
-                  }
-                : undefined
-            }
-          >
-            <Icon className="h-5 w-5" aria-hidden="true" />
-            <span>{label}</span>
-          </a>
-        ))}
-      </nav>
+      <C2Rail active="Play" />
 
       <div className="w-full min-w-0 px-5 pb-24 pt-6 md:w-auto md:flex-[999_1_560px] md:px-8 md:pb-10">
         {/* Mobile back row */}
@@ -151,7 +124,16 @@ export default function Coach2() {
           >
             <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </a>
-          <span className="font-heading text-body font-semibold">Play with Coach</span>
+          <span className="flex-grow font-heading text-body font-semibold">
+            Play with Coach
+          </span>
+          <a
+            href="/coach2/settings"
+            aria-label="Settings"
+            className="flex h-9 w-9 items-center justify-center rounded-control text-muted-foreground"
+          >
+            <SettingsIcon className="h-5 w-5" aria-hidden="true" />
+          </a>
         </div>
 
         <header className="mb-6 flex flex-wrap items-end justify-between gap-5">
@@ -286,10 +268,11 @@ export default function Coach2() {
               </div>
             </div>
 
-            {ACTIONS.map(({ title, sub, Icon }) => (
+            {ACTIONS.map(({ id, title, sub, Icon }) => (
               <button
                 key={title}
                 type="button"
+                onClick={() => setDialog(id)}
                 className="flex w-full items-center gap-3.5 rounded-card border border-border bg-card px-4 py-3.5 text-left shadow-e1"
               >
                 <span
@@ -337,26 +320,37 @@ export default function Coach2() {
         </div>
       </div>
 
-      {/* Mobile bar — labels, and grid-auto-flow so a 5th item cannot wrap */}
-      <nav
-        aria-label="Main"
-        className="fixed bottom-0 left-0 right-0 grid h-16 border-t border-border bg-card md:hidden"
-        style={{ gridAutoFlow: "column", gridAutoColumns: "minmax(0, 1fr)" }}
-      >
-        {NAV.map(({ label, Icon, href, active }) => (
-          <a
-            key={label}
-            href={href}
-            className={`flex flex-col items-center justify-center gap-1 text-meta font-semibold no-underline ${
-              active ? "" : "text-muted-foreground"
-            }`}
-            style={active ? { color: "var(--c2-green)" } : undefined}
-          >
-            <Icon className="h-5 w-5" aria-hidden="true" />
-            <span>{label}</span>
-          </a>
-        ))}
-      </nav>
+      <C2MobileBar active="Play" />
+
+      <C2Dialog
+        open={dialog === "end"}
+        onOpenChange={(v) => setDialog(v ? "end" : null)}
+        title="End the game here?"
+        description="You are 3 moves in. The coach will still write your review, but a 3-move game does not give it much to go on."
+        cancelLabel="Keep playing"
+        confirmLabel="End and review"
+        onConfirm={() => setDialog(null)}
+      />
+
+      <C2Dialog
+        open={dialog === "ask"}
+        onOpenChange={(v) => setDialog(v ? "ask" : null)}
+        title="Ask for a hint?"
+        description="The coach will point at the square that matters, not give you the move. This uses one of your 5 hints for this game."
+        cancelLabel="Not yet"
+        confirmLabel="Give me a hint"
+        onConfirm={() => setDialog(null)}
+      />
+
+      <C2Dialog
+        open={dialog === "lessons"}
+        onOpenChange={(v) => setDialog(v ? "lessons" : null)}
+        title="Leave this game for a lesson?"
+        description="Your game is saved and you can come straight back to this position."
+        cancelLabel="Stay here"
+        confirmLabel="Open the library"
+        onConfirm={() => setDialog(null)}
+      />
     </div>
   );
 }

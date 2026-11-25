@@ -29,6 +29,7 @@ import DailyFixDrill from "@/pages/DailyFixDrill";  // Daily Fix — timed rush-
 import ImportGames from "@/pages/ImportGames";
 import Lab from "@/pages/Lab";
 import Coach2 from "@/pages/Coach2";  // /coach2 — Play-with-Coach redesign preview, static, no backend
+import Coach2Settings from "@/pages/Coach2Settings";  // /coach2/settings — dialog + settings preview
 import AllGames from "@/pages/AllGames";
 import PersonalMoments from "@/pages/PersonalMoments";  // /coach/moments/:topic — email landing pages
 import ReviewQueue from "@/pages/ReviewQueue";
@@ -354,6 +355,7 @@ function AppRouter() {
       {/* Design preview, unlinked from nav. Static position, no API call, so
           it renders without a backend. The live screen is /play-with-coach. */}
       <Route path="/coach2" element={<Coach2 />} />
+      <Route path="/coach2/settings" element={<Coach2Settings />} />
 
       {/* Public SEO routes — no auth required. Indexed by crawlers,
           served to cold visitors as marketing/teaching content. */}
