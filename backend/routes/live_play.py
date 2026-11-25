@@ -19,6 +19,7 @@ choose a move. If yes, it does not belong in this file.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -263,10 +264,41 @@ async def live_review(
     """
     if db is None:
         raise HTTPException(status_code=503, detail="Database not ready")
+    fields = {"_id": 0, "game_id": 1, "is_analyzed": 1}
     game = await db.games.find_one(
-        {"user_id": user.user_id, "platform_game_id": lichess_game_id},
-        {"_id": 0, "game_id": 1, "is_analyzed": 1},
+        {"user_id": user.user_id, "platform_game_id": lichess_game_id}, fields
     )
+    if not game:
+        # One Lichess account can be connected to more than one ChessGuru
+        # account, and the instant-review watcher syncs only the first user row
+        # it finds for a handle.
+        #
+        # Measured on the first real game, 2026-11-25 (HAoRXstt, played from
+        # user_8b599930d7ef): the watcher fired 6s after the game ended and
+        # filed an analysed copy under user_3536563fc90e at 17:01:06, while
+        # the player own account did not get its copy until the routine sync
+        # at 17:05:24. Both accounts are linked to lichess "bhutramohit".
+        #
+        # So this is not "the review never appears" -- the caller own copy does
+        # arrive and is preferred above. It is five minutes of "picking your
+        # game up..." while an analysed copy of the very same game already
+        # exists. Matching on the connected Lichess handle closes that gap, and
+        # it cannot reach anyone else games: it is the same human on the same
+        # Lichess account, which is exactly who played this game.
+        me = await db.users.find_one(
+            {"user_id": user.user_id}, {"_id": 0, "lichess_username": 1}
+        )
+        handle = ((me or {}).get("lichess_username") or "").strip()
+        if handle:
+            siblings = await db.users.distinct(
+                "user_id",
+                {"lichess_username": {"$regex": f"^{re.escape(handle)}$", "$options": "i"}},
+            )
+            if siblings:
+                game = await db.games.find_one(
+                    {"user_id": {"$in": siblings}, "platform_game_id": lichess_game_id},
+                    fields,
+                )
     if not game:
         # The watcher imports a finished Lichess game within seconds, but
         # "not yet" is a normal answer here, not an error.
