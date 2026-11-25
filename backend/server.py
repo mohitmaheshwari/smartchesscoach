@@ -683,6 +683,7 @@ from routes import diagnostic as diagnostic_routes
 from routes import reply_check as reply_check_routes
 from routes import product_events as product_events_routes
 from routes import behavior_study as behavior_study_routes
+from routes import live_play as live_play_routes  # Play vs Human (Lichess)
 from routes import line_board as line_board_routes
 from routes import academy_games as academy_games_routes
 
@@ -753,6 +754,7 @@ reviewer_routes.set_db(db)
 diagnostic_routes.set_db(db)
 product_events_routes.set_db(db)
 behavior_study_routes.set_db(db)
+live_play_routes.set_db(db)
 
 
 # ==================== REGISTER ROUTERS ====================
@@ -779,6 +781,9 @@ app.include_router(settings_routes.router, prefix="/api")
 app.include_router(openings_routes.router, prefix="/api")
 app.include_router(admin_openings_routes.router, prefix="/api")
 app.include_router(coach_play_routes.router, prefix="/api")
+# Play vs Human. Every path under /coach/play/live is in the live-play guard's
+# allowlist, which is why it keeps working while a Lichess game is live.
+app.include_router(live_play_routes.router, prefix="/api")
 app.include_router(streak_routes.router, prefix="/api")
 
 # New route modules

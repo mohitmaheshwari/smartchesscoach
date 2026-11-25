@@ -43,7 +43,15 @@ def init_db(database):
 
 LICHESS_CLIENT_ID = os.environ.get("LICHESS_CLIENT_ID", "chessguru-app")
 LICHESS_REDIRECT_URI = os.environ.get("LICHESS_REDIRECT_URI", "")  # Set in env
-LICHESS_SCOPES = "preference:read email:read"
+# board:play added 2026-11-25 for Play vs Human
+# (docs/play_through_lichess_scope.md). It is what lets us post the player's own
+# move to Lichess; it grants nothing else and no engine help is involved.
+#
+# Tokens issued before today carry only the first two scopes, so those users get
+# one "reconnect" prompt before they can play. The granted scopes are recorded
+# on the user doc below precisely so we can tell, instead of discovering it from
+# a 401 in the middle of somebody's game.
+LICHESS_SCOPES = "preference:read email:read board:play"
 
 LICHESS_AUTH_URL = "https://lichess.org/oauth"
 LICHESS_TOKEN_URL = "https://lichess.org/api/token"
@@ -181,6 +189,9 @@ async def lichess_callback(code: str = None, state: str = None, error: str = Non
         {"$set": {
             "lichess_username": lichess_username,
             "lichess_token": access_token,
+            # What this token may actually do. routes/live_play.py reads it to
+            # decide between "play" and "reconnect once".
+            "lichess_scopes": LICHESS_SCOPES,
             "lichess_rating": lichess_rating,
             "lichess_connected_at": datetime.now(timezone.utc).isoformat(),
             "lichess_profile": {

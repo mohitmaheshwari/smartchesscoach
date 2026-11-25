@@ -23,6 +23,7 @@ import { Target } from "lucide-react";
 import { PostGameStreakResult } from "@/components/streak";
 import EnforcementCheckboxModal from "@/components/coach-play/EnforcementCheckboxModal";
 import CoachPlaySetup from "@/components/coach/CoachPlaySetup";
+import PlayVsHuman from "@/components/coach/PlayVsHuman";
 import CoachPlayBoard from "@/components/coach/CoachPlayBoard";
 import CoachPlaySidebar from "@/components/coach/CoachPlaySidebar";
 import UnifiedCoachPanel from "@/components/coach/UnifiedCoachPanel";
@@ -100,6 +101,9 @@ const CoachPlay = ({ user }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  // Play vs Human (Lichess) is a sibling of the coach game, not a variant of
+  // it: while it is open the coach game is not running, and vice versa.
+  const [playVsHuman, setPlayVsHuman] = useState(false);
   const [experienceConfig, setExperienceConfig] = useState(null);
   const [experienceLoading, setExperienceLoading] = useState(true);
   const [unifiedHelp, setUnifiedHelp] = useState(null);
@@ -3970,12 +3974,42 @@ const CoachPlay = ({ user }) => {
     );
   }
 
+  // Play vs Human: a real Lichess opponent on this board. A section of Play
+  // with Coach rather than its own page, so setup/board/sidebar stay in one
+  // flow. Self-contained on purpose: nothing in the coach game needs to know
+  // about it, and nothing in it may ever suggest a move (see PlayVsHuman.jsx).
+  if (!gameStarted && playVsHuman) {
+    return (
+      <div className="pwc-root">
+        <PlayVsHuman onExit={() => setPlayVsHuman(false)} />
+      </div>
+    );
+  }
+
   if (!gameStarted) {
     // `pwc-root` carries the PWC design tokens. The setup screen used to
     // render outside it, so a player met the app's own palette here and a
     // different one the moment the game started. One flow, one look.
     return (
       <div className="pwc-root">
+      <div className="mx-auto max-w-xl px-4 pt-6">
+        <button
+          onClick={() => setPlayVsHuman(true)}
+          data-testid="play-vs-human-entry"
+          className="w-full rounded-lg border border-border p-4 text-left hover:bg-muted/40"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Play a human</div>
+              <div className="text-sm text-muted-foreground">
+                A real opponent from Lichess, on this board. Review waiting the
+                moment it ends.
+              </div>
+            </div>
+            <span aria-hidden className="text-muted-foreground">&rarr;</span>
+          </div>
+        </button>
+      </div>
       <CoachPlaySetup
         user={user}
         loading={loading}

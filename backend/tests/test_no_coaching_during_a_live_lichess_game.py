@@ -237,6 +237,55 @@ def test_the_guard_is_installed_as_middleware_not_per_route() -> None:
     )
 
 
+def test_everything_playing_needs_is_actually_mounted() -> None:
+    """The allowlist and the routes must not drift apart.
+
+    This is the failure the allowlist makes possible: rename
+    `/coach/play/live/move` in routes/live_play.py, forget the frozenset, and
+    the guard now refuses the player's own move. They sit there and lose on
+    time, mid-game, with no way out but resigning on lichess.org.
+
+    So: every allowlisted play path must exist in the route table, and every
+    mounted play path must be either allowlisted or deliberately refused.
+    """
+    os.environ.setdefault("MONGO_URL", "mongodb://127.0.0.1:27017")
+    os.environ.setdefault("DB_NAME", "test_database")
+    guard = _guard()
+
+    import server  # noqa: WPS433
+
+    mounted = {
+        r.path for r in server.app.routes
+        if getattr(r, "path", "").startswith("/api/coach/play/live")
+    }
+    assert mounted, "no Play-vs-Human routes are mounted at all"
+
+    play_paths = {p for p in guard.PLAY_ALLOWLIST if p.startswith("/api/coach/play/live")}
+    missing = sorted(play_paths - mounted)
+    assert not missing, (
+        "these paths are allowlisted for use during a live Lichess game but no "
+        "route serves them, so the client would get a 404 mid-game:\n  "
+        + "\n  ".join(missing)
+    )
+
+    # Mounted-but-blocked is allowed, but only on purpose:
+    #   time-controls  — needed before a game, must not be reachable during one
+    #   review/{id}    — this IS the sealed panel. It must stay unreachable
+    #                    until the game ends, enforced structurally rather than
+    #                    by the frontend choosing not to ask.
+    deliberately_blocked = {
+        "/api/coach/play/live/time-controls",
+        "/api/coach/play/live/review/{lichess_game_id}",
+    }
+    blocked = {p for p in mounted if guard.is_blocked_during_live_game(p)}
+    unexpected = sorted(blocked - deliberately_blocked)
+    assert not unexpected, (
+        "these Play-vs-Human routes are refused during a live game. If the "
+        "player needs them to play, allowlist them; if not, add them to "
+        "deliberately_blocked here with a reason:\n  " + "\n  ".join(unexpected)
+    )
+
+
 def test_the_whole_api_surface_is_covered() -> None:
     """Against the real route table, not a hand-kept list.
 
