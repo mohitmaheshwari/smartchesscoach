@@ -19,7 +19,7 @@
  */
 
 import React, { useEffect, useRef, useState } from "react";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -119,11 +119,14 @@ export default function LiveSearchBoard({
       {/* The real board, held back so the search reads on top of it. It is the
           position they are about to play, not decoration. */}
       <div className="pointer-events-none select-none opacity-[0.18]">
-        <Chessboard
-          position={START_FEN}
-          arePiecesDraggable={false}
-          boardOrientation="white"
-          customBoardStyle={{ borderRadius: "0" }}
+        <LichessBoard
+          fen={START_FEN}
+          orientation="white"
+          interactive={false}
+          viewOnly
+          showDests={false}
+          disableArrows
+          showCoordinates={false}
         />
       </div>
 

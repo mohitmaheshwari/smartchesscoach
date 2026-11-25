@@ -14,7 +14,7 @@ import { createRoot } from "react-dom/client";
 
 import LiveSearchBoard from "./LiveSearchBoard";
 
-jest.mock("react-chessboard", () => ({ Chessboard: () => null }), { virtual: true });
+jest.mock("@/components/LichessBoard", () => () => null, { virtual: true });
 
 async function render(element) {
   const host = document.createElement("div");

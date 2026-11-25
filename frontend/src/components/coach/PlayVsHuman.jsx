@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 
 import LiveSearchBoard from "./LiveSearchBoard";
 import {
@@ -185,13 +185,15 @@ export default function PlayVsHuman({ onExit }) {
     }
   };
 
-  const onDrop = (from, to) => {
-    if (!playing || !game.our_turn) return false;
-    // Always promote to a queen. Anything else needs a picker, which is a
-    // choice for V2, not a reason to block the move now.
-    const promotion = to[1] === "8" || to[1] === "1" ? "q" : "";
-    act("/move", { uci: `${from}${to}${promotion}` });
-    return true; // optimistic; the Lichess stream is the source of truth
+  // LichessBoard hands us {from, to, ...}; it already promotes to a queen
+  // internally, so a promoting move needs the q suffix in the UCI we relay.
+  const onBoardMove = (moveData) => {
+    if (!moveData || !playing || !game.our_turn) return;
+    const { from, to } = moveData;
+    const promoting =
+      (to[1] === "8" || to[1] === "1") &&
+      String(moveData.piece || "").toLowerCase().includes("p");
+    act("/move", { uci: `${from}${to}${promoting ? "q" : ""}` });
   };
 
   // ---------------------------------------------------------------- reconnect
@@ -358,13 +360,31 @@ export default function PlayVsHuman({ onExit }) {
         testId="live-opponent-card"
       />
 
+      {/* The same board Play with Coach uses -- chessground, the brown board
+          and cburnett pieces -- so this does not look like a different
+          product. What is NOT reused is CoachPlayBoard, the wrapper around
+          it: that carries the eval bar, the position coaching panel and the
+          pre-move checklist, every one of which is outside help during a
+          live Lichess game.
+
+          disableArrows is LichessBoard's own hard kill-switch, documented
+          there as the one place that guarantees no coaching shape can ever
+          appear whatever an upstream caller forgot. It stays on for the whole
+          of a live game and only relaxes once the game is over. */}
       <div className="my-2" data-testid="live-board">
-        <Chessboard
-          position={shownFen}
-          boardOrientation={ourColor}
-          onPieceDrop={onDrop}
-          arePiecesDraggable={playing && game.our_turn && atLive}
-          customBoardStyle={{ borderRadius: "6px" }}
+        <LichessBoard
+          fen={shownFen}
+          orientation={ourColor}
+          onMove={onBoardMove}
+          interactive={playing && game.our_turn && atLive}
+          viewOnly={!(playing && game.our_turn && atLive)}
+          movableColor={ourColor}
+          lastMove={null}
+          arrows={[]}
+          circles={[]}
+          highlights={[]}
+          disableArrows={!finished}
+          showCoordinates
         />
       </div>
 

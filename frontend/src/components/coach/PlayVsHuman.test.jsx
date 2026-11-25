@@ -18,12 +18,10 @@ import PlayVsHuman from "./PlayVsHuman";
 // The board itself is react-chessboard's problem, not ours. Mock it and record
 // what position we handed it.
 let lastBoardProps = null;
-jest.mock("react-chessboard", () => ({
-  Chessboard: (props) => {
-    lastBoardProps = props;
-    return null;
-  },
-}), { virtual: true });
+jest.mock("@/components/LichessBoard", () => (props) => {
+  lastBoardProps = props;
+  return null;
+}, { virtual: true });
 
 const LIVE_GAME = {
   playing: true,
@@ -136,10 +134,27 @@ describe("while the Lichess game is live", () => {
     await render(<PlayVsHuman onExit={() => {}} />);
 
     expect(lastBoardProps).not.toBeNull();
-    expect(lastBoardProps.position).toBe(LIVE_GAME.game.fen);
-    expect(lastBoardProps.boardOrientation).toBe("white");
-    // Not our turn, so the pieces must not be draggable.
-    expect(lastBoardProps.arePiecesDraggable).toBe(false);
+    expect(lastBoardProps.fen).toBe(LIVE_GAME.game.fen);
+    expect(lastBoardProps.orientation).toBe("white");
+    // Not our turn, so the pieces must not be movable.
+    expect(lastBoardProps.interactive).toBe(false);
+  });
+
+  it("forces the board's arrow kill-switch on", async () => {
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+5"], default: "10+5" } })],
+      ["/state", () => ({ body: LIVE_GAME })],
+    ]);
+    await render(<PlayVsHuman onExit={() => {}} />);
+
+    // LichessBoard.disableArrows is documented there as the one place that
+    // guarantees no coaching shape can appear whatever an upstream caller
+    // forgot. During a live Lichess game it is not optional.
+    expect(lastBoardProps.disableArrows).toBe(true);
+    expect(lastBoardProps.arrows).toEqual([]);
+    expect(lastBoardProps.circles).toEqual([]);
+    // A move classification is an engine verdict; it must never be passed.
+    expect(lastBoardProps.moveClassification).toBeUndefined();
   });
 });
 
