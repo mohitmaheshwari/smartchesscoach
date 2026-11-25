@@ -20,6 +20,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Chessboard } from "react-chessboard";
 
+import LiveSearchBoard from "./LiveSearchBoard";
+
 const API = process.env.REACT_APP_BACKEND_URL || "";
 const POLL_MS = 1500;
 
@@ -65,6 +67,8 @@ export default function PlayVsHuman({ onExit }) {
   // casual-by-default reads as "nobody is here". It moves the player's real
   // Lichess rating, so the choice is on screen, not hidden in a default.
   const [rated, setRated] = useState(true);
+  // The player's real Lichess handle and rating, shown on the search screen.
+  const [me, setMe] = useState(null);
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -84,6 +88,7 @@ export default function PlayVsHuman({ onExit }) {
           setTimeControls(data.options);
           setChosen(data.default || data.options[0]);
           if (typeof data.default_rated === "boolean") setRated(data.default_rated);
+          if (data.me) setMe(data.me);
         }
       })
       .catch(() => {});
@@ -273,34 +278,26 @@ export default function PlayVsHuman({ onExit }) {
     const pool = state.seek || {};
     return (
       <Shell onExit={onExit} title="Looking for an opponent">
-        <div className="flex items-center gap-3 text-sm">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-          Waiting for a {pool.time_control || chosen}{" "}
-          {pool.rated === false ? "casual" : "rated"} game on Lichess…
-          {waited > 0 && (
-            <span className="font-mono tabular-nums text-muted-foreground">
-              {waited}s
-            </span>
-          )}
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Keep this tab open. The moment someone accepts, the board appears here.
+        <LiveSearchBoard
+          timeControl={pool.time_control || chosen}
+          rated={pool.rated === false ? false : true}
+          waited={waited}
+          me={me}
+          opponent={null}
+          onCancel={() => act("/seek/cancel")}
+          busy={busy}
+        />
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          Keep this tab open — a Lichess seek lives only as long as this
+          connection. The board takes over the moment someone accepts.
         </p>
         {waited >= 45 && (
-          <p className="mt-2 text-xs text-amber-400" data-testid="live-slow-pool">
+          <p className="mt-2 text-center text-xs text-amber-400" data-testid="live-slow-pool">
             {pool.rated === false
               ? "The casual pool is quiet. Cancel and try Rated — many more people are waiting there."
               : "Quiet right now. Cancel and try 10+0 if you picked a less common time control."}
           </p>
         )}
-        <button
-          onClick={() => act("/seek/cancel")}
-          disabled={busy}
-          data-testid="live-cancel-seek"
-          className="mt-5 rounded-md border border-border px-4 py-2 text-sm"
-        >
-          Cancel
-        </button>
         {error && <Problem text={error} />}
       </Shell>
     );

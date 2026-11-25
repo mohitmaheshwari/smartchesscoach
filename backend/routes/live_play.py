@@ -115,16 +115,31 @@ async def live_state(user: User = Depends(get_current_user)):
 
 
 @router.get("/time-controls")
-async def time_controls():
-    """What we offer, and why nothing faster.
+async def time_controls(user: User = Depends(get_current_user)):
+    """What we offer, plus who the player is, for the lobby and search screen.
 
     Not in the guard's allowlist on purpose: it is only needed before a game
     starts, so it must not be reachable during one.
+
+    `me` is here rather than in /state because /state is polled every 1.5s and
+    does no database work at all; this is read once when the screen mounts.
     """
+    me = {}
+    if db is not None:
+        doc = await db.users.find_one(
+            {"user_id": user.user_id},
+            {"_id": 0, "lichess_username": 1, "lichess_rating": 1},
+        )
+        if doc:
+            me = {
+                "username": doc.get("lichess_username"),
+                "rating": doc.get("lichess_rating"),
+            }
     return {
         "options": list(play.TIME_CONTROLS.keys()),
         "default": play.DEFAULT_TIME_CONTROL,
         "default_rated": play.DEFAULT_RATED,
+        "me": me,
         "note": (
             "Lichess allows Rapid and slower for games played through other "
             "apps, so these are the three we offer."
