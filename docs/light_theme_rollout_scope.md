@@ -5,6 +5,39 @@ Date: 2026-11-25. Nothing in here is built yet.
 
 ---
 
+## Status, 2026-11-25 evening
+
+Step 1 is **half done and live**. Nothing changed for any user: the
+default is still dark.
+
+Shipped in `a69923d3`, deployed, and verified by rendering
+`https://chessguru.ai/shell2` in both themes:
+
+- The six CSS rules are fixed. The cause was not missing light styles —
+  the dark values were written onto the *shared* `.experience-v1`
+  selector instead of `.dark .experience-v1`, so they beat the correct
+  light rules that already existed at `index.css:99` on source order.
+  Moving them to `.dark` was the whole fix.
+- The board surround is now a token, `--experience-board-frame`:
+  walnut in light, unchanged `#141618` in dark.
+- The scrim is now a token, `--cg-overlay`: 50% in light, 66% in dark.
+  All **four** shared overlays use it — dialog, alert-dialog, sheet and
+  drawer. All four previously said `bg-black/80`.
+- `/shell2` is a new unlinked harness that renders the real `Layout`
+  with a stub user. `Layout` takes `user` as a prop and guards every
+  fetch, so it renders with no backend. That is how this was verified
+  without a login.
+
+Measured on the live page, not estimated: sidebar `#0d0e10` to cream,
+mobile bar near-black to cream, board surround `rgb(21 23 25)` to
+`rgb(111 74 47)`. Glyph contrast 5.07:1, 5.32:1, 17.51:1 and 5.86:1 —
+all pass AA. Dark re-rendered and is unchanged.
+
+**Still open:** the ~32 dark-assuming spots inside the product screens
+(these need a login or your eyes), the rest of step 2, and step 3.
+
+---
+
 ## The short version
 
 The light theme already exists. It has existed for a while. The site
