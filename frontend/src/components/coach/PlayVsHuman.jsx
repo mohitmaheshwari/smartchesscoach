@@ -337,11 +337,12 @@ export default function PlayVsHuman({ onExit }) {
 
   const ourClock = ourColor === "white" ? game.white_time_ms : game.black_time_ms;
   const theirClock = ourColor === "white" ? game.black_time_ms : game.white_time_ms;
+  const ourTurn = Boolean(!finished && game.our_turn);
 
   return (
-    <Shell onExit={finished ? onExit : null} title={finished ? "Game over" : "Playing"}>
+    <div className="mx-auto w-full max-w-6xl px-4 py-5">
       {game.reconnecting && (
-        <div className="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+        <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
           We lost our connection to this game. It is still live on{" "}
           <a className="underline" href={game.lichess_url} target="_blank" rel="noreferrer">
             lichess.org
@@ -350,141 +351,155 @@ export default function PlayVsHuman({ onExit }) {
         </div>
       )}
 
-      <PlayerCard
-        name={opponent.username || "Opponent"}
-        rating={opponent.rating}
-        clockMs={theirClock}
-        pieces={theirTaken}
-        advantage={edge < 0 ? -edge : 0}
-        active={!finished && !game.our_turn}
-        testId="live-opponent-card"
-      />
-
-      {/* The same board Play with Coach uses -- chessground, the brown board
-          and cburnett pieces -- so this does not look like a different
-          product. What is NOT reused is CoachPlayBoard, the wrapper around
-          it: that carries the eval bar, the position coaching panel and the
-          pre-move checklist, every one of which is outside help during a
-          live Lichess game.
-
-          disableArrows is LichessBoard's own hard kill-switch, documented
-          there as the one place that guarantees no coaching shape can ever
-          appear whatever an upstream caller forgot. It stays on for the whole
-          of a live game and only relaxes once the game is over. */}
-      <div className="my-2" data-testid="live-board">
-        <LichessBoard
-          fen={shownFen}
-          orientation={ourColor}
-          onMove={onBoardMove}
-          interactive={playing && game.our_turn && atLive}
-          viewOnly={!(playing && game.our_turn && atLive)}
-          movableColor={ourColor}
-          lastMove={null}
-          arrows={[]}
-          circles={[]}
-          highlights={[]}
-          disableArrows={!finished}
-          showCoordinates
-        />
-      </div>
-
-      <PlayerCard
-        name={(me && me.username) || "You"}
-        rating={me && me.rating}
-        clockMs={ourClock}
-        pieces={ourTaken}
-        advantage={edge > 0 ? edge : 0}
-        active={!finished && game.our_turn}
-        testId="live-our-card"
-      />
-
-      {!finished && (
-        <p className="mt-2 text-center text-sm text-muted-foreground">
-          {game.our_turn ? "Your move" : "Their move"}
-        </p>
-      )}
-
-      {game.draw_offer_from && game.draw_offer_from !== ourColor && !finished && (
-        <div className="mt-4 rounded-md border border-border p-3 text-sm">
-          Your opponent offers a draw.
-          <div className="mt-2 flex gap-2">
-            <button
-              onClick={() => act("/draw", { accept: true })}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-white"
-            >
-              Accept
-            </button>
-            <button
-              onClick={() => act("/draw", { accept: false })}
-              className="rounded-md border border-border px-3 py-1.5"
-            >
-              Decline
-            </button>
-          </div>
-        </div>
-      )}
-
-      {!finished && (
-        <div className="mt-4 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => act("/draw", { accept: true })}
-            disabled={busy}
-            className="rounded-md border border-border px-3 py-1.5 text-sm"
-          >
-            Offer draw
-          </button>
-          <button
-            onClick={() => act("/resign")}
-            disabled={busy}
-            data-testid="live-resign"
-            className="rounded-md border border-red-500/50 px-3 py-1.5 text-sm text-red-400"
-          >
-            Resign
-          </button>
-          <button
-            onClick={() => act("/abort")}
-            disabled={busy}
-            className="rounded-md border border-border px-3 py-1.5 text-sm"
-          >
-            Abort
-          </button>
-        </div>
-      )}
-
-      <div className="mt-5 rounded-xl border border-border">
-        <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
-          Moves
-        </div>
-        <MoveList sans={sans} ply={shownPly} onSeek={setPly} canSeek={finished} />
-      </div>
-      {finished && (
-        <MoveNav ply={shownPly} total={livePly} onSeek={setPly} enabled />
-      )}
-
-      {finished ? (
-        <div className="mt-5">
-          <ResultCard
-            game={game}
-            ourColor={ourColor}
-            review={review}
-            onNewGame={() => act("/finish")}
-            busy={busy}
+      {/* Board left, game panel right: the shape every chess site uses,
+          because the board wants the room and the move list wants height. */}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+        <div className="min-w-0">
+          <PlayerCard
+            name={opponent.username || "Opponent"}
+            rating={opponent.rating}
+            clockMs={theirClock}
+            pieces={theirTaken}
+            advantage={edge < 0 ? -edge : 0}
+            active={!finished && !ourTurn}
+            testId="live-opponent-card"
           />
-        </div>
-      ) : (
-        /* The sealed panel. During the game it holds no data whatsoever --
-           not a number, not a word about the position. That is the rule. */
-        <div className="mt-5 rounded-lg border border-border p-4" data-testid="live-review-panel">
-          <p className="text-sm text-muted-foreground">
-            🔒 Your review opens the moment this game ends. Nothing about this
-            position is shown while you are playing — Lichess forbids outside
-            help, and we are not going to put your account at risk.
-          </p>
-        </div>
-      )}
 
-      {error && <Problem text={error} />}
-    </Shell>
+          <div className="my-2.5" data-testid="live-board">
+            <LichessBoard
+              fen={shownFen}
+              orientation={ourColor}
+              onMove={onBoardMove}
+              interactive={playing && ourTurn && atLive}
+              viewOnly={!(playing && ourTurn && atLive)}
+              movableColor={ourColor}
+              arrows={[]}
+              circles={[]}
+              highlights={[]}
+              showCoordinates={false}
+              edgeCoordinates
+              disableArrows={!finished}
+            />
+          </div>
+
+          <PlayerCard
+            name={(me && me.username) || "You"}
+            rating={me && me.rating}
+            clockMs={ourClock}
+            pieces={ourTaken}
+            advantage={edge > 0 ? edge : 0}
+            active={ourTurn}
+            testId="live-our-card"
+          />
+
+          {!finished && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              <span
+                className={`mr-1 text-sm font-medium ${
+                  ourTurn ? "text-emerald-400" : "text-muted-foreground"
+                }`}
+                data-testid="live-turn"
+              >
+                {ourTurn ? "Your move" : "Their move"}
+              </span>
+              <button
+                onClick={() => act("/draw", { accept: true })}
+                disabled={busy}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted/40"
+              >
+                Offer draw
+              </button>
+              <button
+                onClick={() => act("/resign")}
+                disabled={busy}
+                data-testid="live-resign"
+                className="rounded-lg border border-rose-500/50 px-3 py-1.5 text-sm text-rose-400 hover:bg-rose-500/10"
+              >
+                Resign
+              </button>
+              <button
+                onClick={() => act("/abort")}
+                disabled={busy}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted/40"
+              >
+                Abort
+              </button>
+            </div>
+          )}
+
+          {game.draw_offer_from && game.draw_offer_from !== ourColor && !finished && (
+            <div className="mt-3 rounded-xl border border-border p-3 text-sm">
+              Your opponent offers a draw.
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => act("/draw", { accept: true })}
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-white"
+                >
+                  Accept
+                </button>
+                <button
+                  onClick={() => act("/draw", { accept: false })}
+                  className="rounded-lg border border-border px-3 py-1.5"
+                >
+                  Decline
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <aside className="flex min-w-0 flex-col gap-4">
+          <div className="rounded-2xl border border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <div>
+                <div className="text-base font-semibold leading-tight">Play a Human</div>
+                <div className="text-xs text-muted-foreground">
+                  {game.rated ? "Rated" : "Casual"} · {game.speed || "rapid"} · on Lichess
+                </div>
+              </div>
+              {finished && (
+                <button
+                  onClick={onExit}
+                  data-testid="live-exit"
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Close
+                </button>
+              )}
+            </div>
+            <MoveList sans={sans} ply={shownPly} onSeek={setPly} canSeek={finished} />
+            {finished && (
+              <div className="border-t border-border px-2 pb-2">
+                <MoveNav ply={shownPly} total={livePly} onSeek={setPly} enabled />
+              </div>
+            )}
+          </div>
+
+          {finished ? (
+            <ResultCard
+              game={game}
+              ourColor={ourColor}
+              review={review}
+              onNewGame={() => act("/finish")}
+              busy={busy}
+            />
+          ) : (
+            <div
+              className="rounded-2xl border border-border p-4"
+              data-testid="live-review-panel"
+            >
+              <p className="text-sm text-muted-foreground">
+                🔒 Your review opens the moment this game ends. Nothing about
+                this position is shown while you are playing — Lichess forbids
+                outside help, and we are not going to put your account at risk.
+              </p>
+            </div>
+          )}
+
+          {error && <Problem text={error} />}
+        </aside>
+      </div>
+    </div>
   );
 }
 

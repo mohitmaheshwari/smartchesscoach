@@ -220,6 +220,12 @@ const LichessBoard = forwardRef(({
   moveClassification = null, // { square: "e4", type: "blunder" | "best" | "mistake" | ... }
   showCoordinates = true,    // file letters a-h + rank numbers 1-8 overlay (Parth req 2026-06-03)
   squareTags = false,        // learner boards: every square named on a small tag, at every size
+  // Chessground's own edge coordinates (a-h along the bottom, 1-8 up the
+  // side), as every chess site shows them. Default OFF so no existing board
+  // changes: the per-square BoardCoordinates overlay above is a different
+  // thing, for reading annotations off a review board, and it labels all 64
+  // squares, which is clutter on a board you are actually playing on.
+  edgeCoordinates = false,
   // Hard kill-switch for arrows/circles — every caller (props, the imperative
   // drawArrows/highlightSquares handle, the initial chessground config) is
   // forced empty when true. This is the ONE place that guarantees no coaching
@@ -510,7 +516,7 @@ const LichessBoard = forwardRef(({
         // with our piece set's full-square footprint. Disable in-square
         // coords here and render labels outside the board via CSS
         // (see App.css cg-wrap-with-coords block).
-        coordinates: false,
+        coordinates: edgeCoordinates,
         events: {
           select: (key) => {
             console.log("LichessBoard square selected:", key);

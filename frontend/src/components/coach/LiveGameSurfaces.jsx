@@ -103,26 +103,48 @@ export function CapturedRow({ pieces, advantage }) {
 }
 
 export function PlayerCard({ name, rating, clockMs, pieces, advantage, active, testId }) {
-  const total = clockMs === null || clockMs === undefined ? null : Math.max(0, Math.floor(clockMs / 1000));
+  const total =
+    clockMs === null || clockMs === undefined ? null : Math.max(0, Math.floor(clockMs / 1000));
+  // Under a minute the clock is the only thing that matters on this card.
+  const urgent = total !== null && total <= 30;
+  const initial = (name || "?").trim().charAt(0).toUpperCase();
+
   return (
     <div
-      className={`flex items-center justify-between rounded-xl border px-3 py-2 ${
-        active ? "border-emerald-500/70 bg-emerald-500/5" : "border-border"
+      className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2.5 transition-colors ${
+        active ? "border-emerald-500/70 bg-emerald-500/[0.07]" : "border-border bg-card"
       }`}
       data-testid={testId}
     >
-      <div className="min-w-0">
-        <div className="truncate text-sm font-semibold">
-          {name}
-          {rating ? (
-            <span className="ml-1 font-normal text-muted-foreground">({rating})</span>
-          ) : null}
+      <div className="flex min-w-0 items-center gap-3">
+        <div
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-semibold"
+          aria-hidden
+        >
+          {initial}
         </div>
-        <CapturedRow pieces={pieces} advantage={advantage} />
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold leading-tight">
+            {name}
+            {rating ? (
+              <span className="ml-1 font-normal text-muted-foreground">({rating})</span>
+            ) : null}
+          </div>
+          <CapturedRow pieces={pieces} advantage={advantage} />
+        </div>
       </div>
-      <div className="ml-3 shrink-0 rounded-lg border border-border px-3 py-1 font-mono text-base tabular-nums">
+      <div
+        className={`shrink-0 rounded-xl px-4 py-1.5 font-mono text-2xl font-semibold tabular-nums ${
+          urgent
+            ? "bg-rose-500/15 text-rose-300"
+            : active
+            ? "bg-emerald-500/15"
+            : "bg-muted/60 text-muted-foreground"
+        }`}
+        data-testid={testId ? `${testId}-clock` : undefined}
+      >
         {total === null
-          ? "—"
+          ? "—:—"
           : `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`}
       </div>
     </div>

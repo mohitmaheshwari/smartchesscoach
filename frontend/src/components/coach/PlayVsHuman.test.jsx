@@ -156,6 +156,20 @@ describe("while the Lichess game is live", () => {
     // A move classification is an engine verdict; it must never be passed.
     expect(lastBoardProps.moveClassification).toBeUndefined();
   });
+
+  it("uses edge coordinates, not a label stamped on all 64 squares", async () => {
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+5"], default: "10+5" } })],
+      ["/state", () => ({ body: LIVE_GAME })],
+    ]);
+    await render(<PlayVsHuman onExit={() => {}} />);
+
+    // BoardCoordinates labels every square once the board is >=420px, which
+    // is right for reading annotations off a review board and clutter on a
+    // board you are playing. 2026-11-25: it shipped that way and looked it.
+    expect(lastBoardProps.showCoordinates).toBe(false);
+    expect(lastBoardProps.edgeCoordinates).toBe(true);
+  });
 });
 
 describe("once the game is over", () => {
