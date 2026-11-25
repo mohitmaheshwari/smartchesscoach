@@ -147,6 +147,20 @@ services:
       - PERSONAL_IMPROVEMENT_CYCLE_ENABLED=${PERSONAL_IMPROVEMENT_CYCLE_ENABLED:-false}
       - PERSONAL_IMPROVEMENT_CYCLE_ROLES=${PERSONAL_IMPROVEMENT_CYCLE_ROLES:-admin,super_admin}
       - PWC_SURVIVING_INSTRUCTION_ENABLED=${PWC_SURVIVING_INSTRUCTION_ENABLED:-false}
+      # Lichess live watch (docs/lichess_instant_review_scope.md). Polls the
+      # free, unauthenticated users/status endpoint and fires the EXISTING
+      # sync the moment a watched player's game ends, instead of waiting up to
+      # five minutes for quick_sync_loop. Declared here because the backend
+      # takes an explicit environment list -- a value set only in .env is
+      # silently ignored, and without this line there is no way to stop the
+      # poller short of a code deploy.
+      #
+      # Unlike the rollout flags above this one defaults ON. It renders
+      # nothing and gates no surface; it only changes WHEN an import runs, so
+      # fail-closed here would just mean the feature ships dead. Set it to 0
+      # in .env and restart the backend to stop calling Lichess.
+      - LICHESS_LIVE_WATCH_ENABLED=${LICHESS_LIVE_WATCH_ENABLED:-true}
+      - LICHESS_LIVE_WATCH_INTERVAL_SECONDS=${LICHESS_LIVE_WATCH_INTERVAL_SECONDS:-10}
       # Focus outcomes. With this off the loop still measures every active
       # focus daily and records the observation, but never CLOSES one -- so a
       # lock is re-extended forever, the 28-day time box never fires, and a

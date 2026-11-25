@@ -74,7 +74,10 @@ Tapping it opens the existing review at `/game/:gameId`. No new review surface i
   `sync_user_games()` for that user. **No new import, storage or queue code.**
 - Raise the `quick_sync_loop` user cap from 100 to cover all connected users (136 today).
 - A `User-Agent` naming the site, per Lichess's requirement. No user identity in it.
-- Env flag to turn the watcher off without a deploy.
+- Env flag to turn the watcher off without a deploy. It must be listed in
+  `docker-compose.yml`'s backend `environment:` block as well as read in `config.py`:
+  the backend takes an explicit environment list, so a value set only in `.env` is
+  silently ignored and there would be no off-switch short of a code deploy.
 
 ## 4. Explicitly out of scope (V1)
 
