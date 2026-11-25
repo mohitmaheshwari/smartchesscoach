@@ -1,6 +1,9 @@
 # Play on Lichess, through ChessGuru — Scope
 
-Status: **DRAFT — awaiting Mohit sign-off. No code until signed off.**
+Status: **SIGNED for pre-code work only** (Mohit, 2026-11-25: "go ahead, do what
+you recommend" — my recommendation was the chokepoint audit and the guard test,
+explicitly *not* the board). The audit is done and is recorded below; it changed
+the design. **The board itself is still unsigned.**
 Written: 2026-11-25. Audit base: `working-code` @ 502a6856 (live), plus prod reads
 and Lichess source reads the same day.
 
@@ -168,10 +171,20 @@ work time 1.4 min median, 78s observed 2026-11-25).
 - **A sealed review panel** that receives no position data until Lichess reports the game
   is over, then opens in place on the finished game.
 - **A hard structural guarantee that no engine output can reach a live game.** Not a
-  feature flag — a flag that flips the wrong way marks real accounts as cheats. The
-  guarantee is enforced on the server, in the one place that serves coaching data, keyed on
-  the game's own state: `playable == true` means the endpoint returns nothing. With a test
-  that fails if any coaching route can return a body for a playable game.
+  feature flag — a flag that flips the wrong way marks real accounts as cheats.
+
+  **Revised 2026-11-25 by the audit (see section 7).** There is no single place that
+  serves coaching data: **163** endpoints can put a client-supplied position in front of
+  the engine, across 25 route files, and there are 86 separate `db.games.find_one` sites
+  with no shared loader. A per-route guard over 163 endpoints would be forgotten the first
+  time someone writes the 164th.
+
+  So the guard sits **above the route table and fails closed**: middleware that, while the
+  authenticated user has a live Lichess Board-API game, refuses every `/api` path except a
+  small, hand-reviewed allowlist of what playing itself requires (move, stream, resign,
+  draw, auth). Default-deny means an endpoint written next month is covered by doing
+  nothing. During a live Lichess game, our engine does nothing for that user at all —
+  which is both the rule and the simplest thing to verify.
 - **A `User-Agent` and referer that identify us honestly**, so that if we ever do break the
   rule Lichess can find us — and so we never look like a client trying to hide.
 
@@ -241,13 +254,25 @@ The point is never the playing. So the criteria measure what happens *after* the
       (a) whether a sealed panel is acceptable, (b) whether the opening name is, and
       (c) to be added to `GameStreamByOauthOrigin.allowedClients`. A reply is **not** a
       blocker for a bare board; it is a blocker for anything beyond it.
-- [ ] Every backend route that can return coaching, caption, evaluation or arrow data is
-      enumerated, and the single chokepoint that will carry the `playable` guard is
-      identified by `file:line`. If there is no single chokepoint, building one is the
-      first task, not the last.
-- [ ] The failing test is written **before** the feature: a test that asserts no coaching
-      route returns a body for a game Lichess reports as playable. It must fail on today's
-      code for the right reason.
+- [x] **Done 2026-11-25.** Every backend route that can put a client position in front of
+      the engine is enumerated: **163** endpoints over 25 files (30 in `coach_play.py`, 27
+      in `coach.py`, 13 in `training_advanced.py`). Worst cases, both live today:
+      `POST /api/best-moves` (`routes/analysis.py:1174`) returns best moves for any FEN,
+      and `POST /api/coach/line/move` (`routes/line_board.py:175`) plays any line at
+      depth 16. **There is no single chokepoint** — 86 `db.games.find_one` sites, no
+      shared loader — so the guard became middleware (section 3).
+      *A first pass of this scan said 73. It was wrong: it searched only inside each
+      handler and so missed `line_board.py`, whose handler calls a neutrally-named
+      `_engine()` helper. The positive-control test caught that. The scan is now judged
+      per module and is deliberately over-inclusive.*
+- [x] **Done 2026-11-25.** The failing test is written before the feature:
+      `backend/tests/test_no_coaching_during_a_live_lichess_game.py`. 6 tests fail on
+      today's code naming the missing `services/live_play_guard.py`; the 7th — the
+      positive control that the scanner still sees the known endpoints — passes, so a
+      future green run cannot come from a broken scanner. It checks the guard against the
+      **real** route table (787 `/api` paths on 2026-11-25), so coverage does not depend
+      on a hand-kept list, and it includes the negative control that the guard is inert
+      when there is no live game.
 - [ ] 10+0's category confirmed by hand from the Lichess FAQ.
 - [ ] A Lichess OAuth app registered with `board:play`, and the consent screen read and
       screenshotted — the user sees what we ask for, and we should know what that says.
