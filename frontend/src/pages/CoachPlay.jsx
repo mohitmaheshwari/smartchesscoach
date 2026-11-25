@@ -3992,24 +3992,6 @@ const CoachPlay = ({ user }) => {
     // different one the moment the game started. One flow, one look.
     return (
       <div className="pwc-root">
-      <div className="mx-auto max-w-xl px-4 pt-6">
-        <button
-          onClick={() => setPlayVsHuman(true)}
-          data-testid="play-vs-human-entry"
-          className="w-full rounded-lg border border-border p-4 text-left hover:bg-muted/40"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="font-medium">Play a human</div>
-              <div className="text-sm text-muted-foreground">
-                A real opponent from Lichess, on this board. Review waiting the
-                moment it ends.
-              </div>
-            </div>
-            <span aria-hidden className="text-muted-foreground">&rarr;</span>
-          </div>
-        </button>
-      </div>
       <CoachPlaySetup
         user={user}
         loading={loading}
@@ -4036,6 +4018,7 @@ const CoachPlay = ({ user }) => {
         experienceConfig={experienceConfig}
         upgradeInfo={upgradeInfo}
         timeControl={timeControl}
+        onPlayVsHuman={() => setPlayVsHuman(true)}
         onUnifiedModeSelected={(mode) => track(
           ANALYTICS_EVENTS.PWC_UNIFIED_MODE_SELECTED,
           { experience_version: "unified_v1", game_mode: mode }

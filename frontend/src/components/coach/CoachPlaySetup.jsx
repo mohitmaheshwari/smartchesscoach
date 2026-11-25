@@ -142,6 +142,7 @@ const CoachPlaySetup = ({
   upgradeInfo = null,
   timeControl = "15+10",
   onUnifiedModeSelected,
+  onPlayVsHuman,
 }) => {
   const navigate = useNavigate();
 
@@ -178,6 +179,7 @@ const CoachPlaySetup = ({
         timeControl={timeControl}
         startGame={startGame}
         onModeSelected={onUnifiedModeSelected}
+        onPlayVsHuman={onPlayVsHuman}
       />
     );
   }
@@ -197,6 +199,24 @@ const CoachPlaySetup = ({
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Home
         </Button>
+
+        {/* Play vs Human. The unified screen shows this as a third mode card;
+            this is the same entry for the legacy screen, so neither path
+            silently loses the feature. */}
+        {onPlayVsHuman && (
+          <button
+            type="button"
+            onClick={onPlayVsHuman}
+            data-testid="play-vs-human-entry"
+            className="mb-6 w-full rounded-lg border border-border p-4 text-left hover:bg-muted/40"
+          >
+            <div className="font-medium">Play a Human</div>
+            <div className="text-sm text-muted-foreground">
+              A real opponent from Lichess, on this board. No coaching while you
+              play — your review opens the moment the game ends.
+            </div>
+          </button>
+        )}
 
         {/* Setup card scales in (0.95 → 1); the sections inside stagger
             via the shared container — fade + scale per the locked spec. */}

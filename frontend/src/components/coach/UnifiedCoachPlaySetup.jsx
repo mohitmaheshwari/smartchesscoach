@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Brain, Check, Lock, Play, Settings2, Target } from "lucide-react";
+import { ArrowLeft, Brain, Check, Lock, Play, Settings2, Target, Users } from "lucide-react";
 
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,7 @@ const UnifiedCoachPlaySetup = ({
   timeControl,
   startGame,
   onModeSelected,
+  onPlayVsHuman,
 }) => {
   const navigate = useNavigate();
   const [showSettings, setShowSettings] = useState(false);
@@ -229,6 +230,19 @@ const UnifiedCoachPlaySetup = ({
             }}
             testId="unified-mode-play"
           />
+          {onPlayVsHuman && (
+            <div className="md:col-span-2">
+              <ModeChoice
+                active={false}
+                blocked={false}
+                label="Play a Human"
+                description="A real opponent from Lichess, on this board. No coaching while you play — your review opens the moment the game ends."
+                icon={Users}
+                onClick={onPlayVsHuman}
+                testId="unified-mode-human"
+              />
+            </div>
+          )}
         </section>
 
         <section className="mt-5 rounded-2xl border border-border bg-card">
