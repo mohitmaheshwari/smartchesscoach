@@ -60,7 +60,11 @@ async function call(path, options = {}) {
 
 export default function PlayVsHuman({ onExit }) {
   const [timeControls, setTimeControls] = useState(["10+0", "10+5", "15+10"]);
-  const [chosen, setChosen] = useState("10+5");
+  const [chosen, setChosen] = useState("10+0");
+  // Rated by default because the casual pool is a fraction of the size, and
+  // casual-by-default reads as "nobody is here". It moves the player's real
+  // Lichess rating, so the choice is on screen, not hidden in a default.
+  const [rated, setRated] = useState(true);
   const [state, setState] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -79,6 +83,7 @@ export default function PlayVsHuman({ onExit }) {
         if (alive && data && data.options) {
           setTimeControls(data.options);
           setChosen(data.default || data.options[0]);
+          if (typeof data.default_rated === "boolean") setRated(data.default_rated);
         }
       })
       .catch(() => {});
@@ -134,6 +139,22 @@ export default function PlayVsHuman({ onExit }) {
       alive = false;
     };
   }, [game]);
+
+  // Seconds spent searching, so a quiet pool reads as "still looking" rather
+  // than "this button does nothing".
+  const [waited, setWaited] = useState(0);
+  useEffect(() => {
+    if (!seeking) {
+      setWaited(0);
+      return undefined;
+    }
+    const started = Date.now();
+    const tick = setInterval(
+      () => setWaited(Math.floor((Date.now() - started) / 1000)),
+      1000
+    );
+    return () => clearInterval(tick);
+  }, [seeking]);
 
   const act = async (path, body) => {
     setBusy(true);
@@ -207,9 +228,34 @@ export default function PlayVsHuman({ onExit }) {
             </button>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground mb-5">{TIME_CONTROL_BLURB}</p>
+        <p className="text-xs text-muted-foreground mb-4">{TIME_CONTROL_BLURB}</p>
+
+        <div className="mb-5 flex flex-wrap gap-2">
+          {[
+            { value: true, label: "Rated" },
+            { value: false, label: "Casual" },
+          ].map((option) => (
+            <button
+              key={option.label}
+              onClick={() => setRated(option.value)}
+              data-testid={`live-rated-${option.label.toLowerCase()}`}
+              className={`rounded-md border px-4 py-2 text-sm font-medium ${
+                rated === option.value
+                  ? "border-emerald-500 bg-emerald-500/15"
+                  : "border-border hover:bg-muted/40"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground mb-5">
+          {rated
+            ? "Rated counts on your Lichess rating, and far more people are waiting in the rated pool — you will be paired much faster."
+            : "Casual leaves your rating alone, but the casual pool is much quieter, so you may wait a while."}
+        </p>
         <button
-          onClick={() => act("/seek", { time_control: chosen })}
+          onClick={() => act("/seek", { time_control: chosen, rated })}
           disabled={busy}
           data-testid="live-find-opponent"
           className="rounded-md bg-emerald-600 px-5 py-2.5 font-medium text-white disabled:opacity-50"
@@ -224,16 +270,29 @@ export default function PlayVsHuman({ onExit }) {
   // ----------------------------------------------------------------- seeking
 
   if (seeking && !playing) {
+    const pool = state.seek || {};
     return (
       <Shell onExit={onExit} title="Looking for an opponent">
         <div className="flex items-center gap-3 text-sm">
           <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-          Waiting for a {state.seek ? state.seek.time_control : chosen} game on
-          Lichess…
+          Waiting for a {pool.time_control || chosen}{" "}
+          {pool.rated === false ? "casual" : "rated"} game on Lichess…
+          {waited > 0 && (
+            <span className="font-mono tabular-nums text-muted-foreground">
+              {waited}s
+            </span>
+          )}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
           Keep this tab open. The moment someone accepts, the board appears here.
         </p>
+        {waited >= 45 && (
+          <p className="mt-2 text-xs text-amber-400" data-testid="live-slow-pool">
+            {pool.rated === false
+              ? "The casual pool is quiet. Cancel and try Rated — many more people are waiting there."
+              : "Quiet right now. Cancel and try 10+0 if you picked a less common time control."}
+          </p>
+        )}
         <button
           onClick={() => act("/seek/cancel")}
           disabled={busy}

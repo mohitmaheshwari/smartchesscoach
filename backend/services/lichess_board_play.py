@@ -66,7 +66,16 @@ TIME_CONTROLS: Dict[str, Dict[str, int]] = {
     "10+5": {"time": 10, "increment": 5},
     "15+10": {"time": 15, "increment": 10},
 }
-DEFAULT_TIME_CONTROL = "10+5"
+# 10+0 by default: it is the busiest Rapid pool on Lichess by a wide margin,
+# and the first version defaulted to 10+5 and left Mohit sitting in a quiet
+# pool for a minute while Chessiro paired him in seconds at 10+0.
+DEFAULT_TIME_CONTROL = "10+0"
+
+# Rated by default, for the same reason: the casual pool is a fraction of the
+# rated one, so casual-by-default looks like "nobody is here". It is a real
+# choice though -- it moves the player's own Lichess rating -- so the UI states
+# it plainly rather than deciding quietly on their behalf.
+DEFAULT_RATED = True
 
 
 class LichessPlayError(Exception):
@@ -154,6 +163,7 @@ class SeekState:
 
     user_id: str
     time_control: str
+    rated: bool = DEFAULT_RATED
     created_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -361,7 +371,13 @@ async def _finish(db: Any, user_id: str) -> None:
 # ------------------------------------------------------------------ the actions
 
 
-async def start_seek(db: Any, user_id: str, token: str, time_control: str) -> SeekState:
+async def start_seek(
+    db: Any,
+    user_id: str,
+    token: str,
+    time_control: str,
+    rated: bool = DEFAULT_RATED,
+) -> SeekState:
     """Join the Lichess pool and wait for a human.
 
     The seek lives only as long as its HTTP connection: *"Keep the connection
@@ -379,24 +395,33 @@ async def start_seek(db: Any, user_id: str, token: str, time_control: str) -> Se
         raise LichessPlayError("You already have a game in progress.")
 
     _cancel_tasks(user_id)
-    seek = SeekState(user_id=user_id, time_control=time_control)
+    seek = SeekState(user_id=user_id, time_control=time_control, rated=rated)
     _SEEKS[user_id] = seek
 
     # Event stream first, then the seek: the pairing can happen instantly, and
     # Lichess's own docs warn that otherwise you miss the gameStart event.
     _track(user_id, asyncio.create_task(_run_event_stream(db, user_id, token)))
     await asyncio.sleep(0)  # let the event stream get as far as connecting
-    _track(user_id, asyncio.create_task(_hold_seek(user_id, token, time_control)))
-    logger.info("live play: %s seeking a %s game", user_id, time_control)
+    _track(
+        user_id, asyncio.create_task(_hold_seek(user_id, token, time_control, rated))
+    )
+    logger.info(
+        "live play: %s seeking a %s %s game",
+        user_id,
+        time_control,
+        "rated" if rated else "casual",
+    )
     return seek
 
 
-async def _hold_seek(user_id: str, token: str, time_control: str) -> None:
+async def _hold_seek(
+    user_id: str, token: str, time_control: str, rated: bool = DEFAULT_RATED
+) -> None:
     config = TIME_CONTROLS[time_control]
     data = {
         "time": str(config["time"]),
         "increment": str(config["increment"]),
-        "rated": "false",          # casual until the player asks otherwise
+        "rated": "true" if rated else "false",
         "variant": "standard",
     }
     try:

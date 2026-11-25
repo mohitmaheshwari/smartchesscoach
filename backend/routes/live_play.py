@@ -98,7 +98,11 @@ async def live_state(user: User = Depends(get_current_user)):
         return {
             "playing": False,
             "seeking": seek is not None,
-            "seek": {"time_control": seek.time_control, "created_at": seek.created_at}
+            "seek": {
+                "time_control": seek.time_control,
+                "rated": seek.rated,
+                "created_at": seek.created_at,
+            }
             if seek
             else None,
         }
@@ -120,6 +124,7 @@ async def time_controls():
     return {
         "options": list(play.TIME_CONTROLS.keys()),
         "default": play.DEFAULT_TIME_CONTROL,
+        "default_rated": play.DEFAULT_RATED,
         "note": (
             "Lichess allows Rapid and slower for games played through other "
             "apps, so these are the three we offer."
@@ -130,18 +135,20 @@ async def time_controls():
 @router.post("/seek")
 async def live_seek(
     time_control: str = Body(play.DEFAULT_TIME_CONTROL, embed=True),
+    rated: bool = Body(play.DEFAULT_RATED, embed=True),
     user: User = Depends(get_current_user),
 ):
     """Join the Lichess pool and wait for a human opponent."""
     doc = await _user_doc(user)
     token = _token_or_reconnect(doc)
     try:
-        seek = await play.start_seek(db, user.user_id, token, time_control)
+        seek = await play.start_seek(db, user.user_id, token, time_control, rated)
     except LichessPlayError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {
         "seeking": True,
         "time_control": seek.time_control,
+        "rated": seek.rated,
         "message": "Looking for an opponent on Lichess…",
     }
 
@@ -149,6 +156,7 @@ async def live_seek(
 @router.post("/start")
 async def live_start(
     time_control: str = Body(play.DEFAULT_TIME_CONTROL, embed=True),
+    rated: bool = Body(play.DEFAULT_RATED, embed=True),
     user: User = Depends(get_current_user),
 ):
     """Alias for /seek, kept because the allowlist names both.
@@ -156,7 +164,7 @@ async def live_start(
     The client calls whichever reads better in its own flow; starting a game
     and seeking one are the same act in a pool pairing.
     """
-    return await live_seek(time_control=time_control, user=user)
+    return await live_seek(time_control=time_control, rated=rated, user=user)
 
 
 @router.post("/seek/cancel")

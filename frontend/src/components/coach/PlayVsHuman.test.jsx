@@ -179,6 +179,74 @@ describe("once the game is over", () => {
   });
 });
 
+describe("the seek we actually send", () => {
+  // 2026-11-25: the first version sent casual 10+5 and sat in a quiet pool for
+  // a minute while Chessiro paired the same player in seconds at 10+0. The
+  // pool you ask for is the whole feature working or not.
+  it("defaults to a rated 10+0 game, the busiest pool", async () => {
+    mockApi([
+      [
+        "/time-controls",
+        () => ({
+          body: { options: ["10+0", "10+5", "15+10"], default: "10+0", default_rated: true },
+        }),
+      ],
+      ["/state", () => ({ body: { playing: false, seeking: false } })],
+      ["/seek", () => ({ body: { seeking: true } })],
+    ]);
+
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+    const button = host.querySelector('[data-testid="live-find-opponent"]');
+    expect(button).not.toBeNull();
+
+    await act(async () => {
+      button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const seek = global.fetch.mock.calls.find(([url]) => String(url).includes("/live/seek"));
+    expect(seek).toBeDefined();
+    expect(JSON.parse(seek[1].body)).toEqual({ time_control: "10+0", rated: true });
+  });
+
+  it("sends casual only when the player actually picks it", async () => {
+    mockApi([
+      [
+        "/time-controls",
+        () => ({ body: { options: ["10+0"], default: "10+0", default_rated: true } }),
+      ],
+      ["/state", () => ({ body: { playing: false, seeking: false } })],
+      ["/seek", () => ({ body: { seeking: true } })],
+    ]);
+
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+    await act(async () => {
+      host
+        .querySelector('[data-testid="live-rated-casual"]')
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await act(async () => {
+      host
+        .querySelector('[data-testid="live-find-opponent"]')
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const seek = global.fetch.mock.calls.find(([url]) => String(url).includes("/live/seek"));
+    expect(JSON.parse(seek[1].body).rated).toBe(false);
+  });
+
+  it("says plainly that rated moves their real Lichess rating", async () => {
+    mockApi([
+      [
+        "/time-controls",
+        () => ({ body: { options: ["10+0"], default: "10+0", default_rated: true } }),
+      ],
+      ["/state", () => ({ body: { playing: false, seeking: false } })],
+    ]);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+    expect(host.textContent).toMatch(/counts on your Lichess rating/i);
+  });
+});
+
 describe("when the account cannot play yet", () => {
   it("asks for the one-time Lichess permission instead of failing silently", async () => {
     mockApi([
