@@ -33,6 +33,27 @@
   --cg-accent: #7fb069;
   --cg-accent-hi: #8fbf78;      /* hover */
   --cg-accent-rgb: 127 176 105; /* for rgb(... / alpha) */
+
+  /* Modal scrim. Lives on :root (not .experience-v1) because every dialog
+     renders in a PORTAL at <body>, outside that wrapper. .dark is on <html>
+     so the portal still sees the dark value.
+     50% in light: measured off chessiro.com/settings, where a cream page
+     rgb(243 230 219) dims to rgb(122 115 110) — solving per channel gives
+     0.498 / 0.500 / 0.498. At the old 80% the same cream drops to
+     rgb(49 46 44) and the page behind is simply gone.
+     66% in dark: the dark page is already rgb(10 11 12), so 50% would barely
+     register. The dark card is lighter than the dark page, so the modal
+     separates from above as well as below. */
+  --cg-overlay: rgb(0 0 0 / 0.50);
+}
+
+.dark {
+  --cg-overlay: rgb(0 0 0 / 0.66);
+}
+
+/* Used by dialog / alert-dialog / sheet / drawer in components/ui. */
+.cg-overlay {
+  background: var(--cg-overlay);
 }
 
 @tailwind base;
@@ -636,8 +657,10 @@
   padding: clamp(0.4rem, 1vw, 0.75rem);
   border: 1px solid hsl(var(--border) / 0.76);
   border-radius: 1.1rem;
-  /* Neutral, so nothing tints the board. */
-  background: #141618;
+  /* A token, not a literal. In dark this stays the neutral near-black that
+     tints nothing; in light it is the walnut frame from the /coach2
+     preview, which is the whole point of framing the board. */
+  background: var(--experience-board-frame);
   box-shadow:
     0 26px 70px hsl(var(--experience-shadow) / 0.24),
     0 1px 0 hsl(0 0% 100% / 0.07) inset;
@@ -1110,6 +1133,7 @@
   --experience-teal: 158 56% 39%;
   --experience-rose: 10 100% 70%;
   --experience-shadow: 157 46% 6%;
+  --experience-board-frame: hsl(25 40% 31%);   /* walnut */
   color: hsl(var(--foreground));
   background:
     radial-gradient(circle at 92% -5%, rgb(var(--cg-accent-rgb) / 0.16), transparent 30rem),
@@ -1148,6 +1172,7 @@
   --border: 207 11% 16%;          /* #252a2e hairline */
   --input: 207 11% 16%;
   --ring: 101 31% 55%;
+  --experience-board-frame: hsl(210 9% 9%);    /* #141618, unchanged in dark */
   /* No blanket glow behind every page. The old radial washes made every
      surface faintly green and flattened the hierarchy. */
   background: #0a0b0c;
@@ -1155,25 +1180,40 @@
 
 /* Flat panel, hairline edge. The green gradient and accent glow made the
    navigation compete with the board for attention. */
-.experience-v1 .experience-sidebar {
+/* 2026-11-25: these were on the SHARED .experience-v1 selector, so the
+   near-black sidebar applied in LIGHT mode too — a cream page with a
+   #0d0e10 rail and near-white text. Verified by rendering /shell2 with
+   the theme forced to light.
+   The correct light rules already existed at the top of this file
+   (.experience-v1 .experience-sidebar, ~line 99, token-driven). They were
+   simply being overridden from here on source order. Scoping these to
+   .dark lets the earlier, correct rules win in light. */
+.dark .experience-v1 .experience-sidebar {
   color: #f1f2ef;
   background: #0d0e10;
   border-right: 1px solid rgb(255 255 255 / 0.07);
   box-shadow: none;
 }
 
-.experience-v1 .experience-sidebar .text-foreground {
+.dark .experience-v1 .experience-sidebar .text-foreground {
   color: #f1f2ef;
 }
 
-.experience-v1 .experience-sidebar .text-muted-foreground {
+.dark .experience-v1 .experience-sidebar .text-muted-foreground {
   color: rgb(241 242 239 / 0.56);
 }
 
-.experience-v1 .experience-sidebar nav a > div:not(.experience-coach-cta):hover,
-.experience-v1 .experience-sidebar button:hover {
+.dark .experience-v1 .experience-sidebar nav a > div:not(.experience-coach-cta):hover,
+.dark .experience-v1 .experience-sidebar button:hover {
   color: #fff;
   background: rgb(255 255 255 / 0.06);
+}
+
+/* Light hover, same shape: ink wash instead of a white one. */
+.experience-v1 .experience-sidebar nav a > div:not(.experience-coach-cta):hover,
+.experience-v1 .experience-sidebar button:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--experience-ink) / 0.06);
 }
 
 .experience-v1 .experience-sidebar nav a > div.bg-primary\/15 {
@@ -1302,12 +1342,18 @@
      base rule said repeat(4), so the real track count depended on which rule
      won - and both were wrong for an academy or curriculum account, whose nav
      array renders six or seven items. */
+  /* 2026-11-25: scoped to .dark. On the shared selector this kept the
+     bottom bar near-black on a cream page. The base .experience-mobile-nav
+     rule (~line 687) is already token-driven and correct for light. */
+}
+
+.dark .experience-v1 .experience-mobile-nav {
   border-color: rgb(255 255 255 / 0.10);
   background: rgb(7 20 17 / 0.94);
   box-shadow: 0 24px 65px rgb(7 20 17 / 0.28);
 }
 
-.experience-v1 .experience-mobile-nav a {
+.dark .experience-v1 .experience-mobile-nav a {
   color: rgb(244 239 228 / 0.55);
 }
 
