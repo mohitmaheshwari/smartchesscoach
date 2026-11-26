@@ -117,3 +117,77 @@ def test_nothing_is_claimed_about_counting_when_there_is_no_race():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# ---------------------------------------------------------------------------
+# The triage. Mohit, 2026-11-26: "even best players like Magnus can sometimes
+# let a piece undefended... human coaches don't give you exercise when you
+# blunder something from eyesight, because they know you know this."
+# ---------------------------------------------------------------------------
+
+from services.teaching_script_builder import (  # noqa: E402
+    candidate_positions_from_pgn,
+    triage,
+)
+
+
+def test_a_rushed_move_is_not_a_knowledge_gap():
+    v = triage({"think_seconds": 1.4, "clock_seconds": 400.0})
+    assert v["verdict"] == "execution_failure"
+    assert v["cause"] == "rushed"
+
+
+def test_a_move_in_time_trouble_is_not_a_knowledge_gap():
+    v = triage({"think_seconds": 20.0, "clock_seconds": 18.0})
+    assert v["verdict"] == "execution_failure"
+    assert v["cause"] == "time_pressure"
+
+
+def test_what_their_own_rating_already_finds_is_not_taught():
+    # The Magnus case: the concept is known at this level, so a drill on it
+    # is the thing that makes a competent player leave.
+    v = triage({"think_seconds": 30.0, "clock_seconds": 500.0},
+               band_solve_pct=88.0)
+    assert v["verdict"] == "execution_failure"
+    assert v["cause"] == "known_by_their_level"
+
+
+def test_time_to_think_and_their_level_does_not_find_it_is_teachable():
+    v = triage({"think_seconds": 42.0, "clock_seconds": 600.0},
+               band_solve_pct=31.0)
+    assert v["verdict"] == "knowledge_gap"
+
+
+def test_no_evidence_either_way_stays_teachable():
+    # Withholding a lesson on no evidence helps nobody.
+    v = triage({"think_seconds": None, "clock_seconds": None})
+    assert v["verdict"] == "unclear"
+
+
+PGN_WITH_CLOCKS = """[Event "rated rapid game"]
+[TimeControl "900+10"]
+[Result "*"]
+
+1. e4 {[%clk 0:15:08]} 1... e5 {[%clk 0:15:05]} 2. Nf3 {[%clk 0:15:14]} 2... Nc6 {[%clk 0:14:20]} *
+"""
+
+
+def test_the_clock_and_the_think_time_are_read_off_the_pgn():
+    # Without these the triage has nothing to go on, and every mistake looks
+    # like ignorance.
+    cands = candidate_positions_from_pgn(PGN_WITH_CLOCKS, user_color="white",
+                                         max_men=32)
+    assert len(cands) == 4
+    # Black's second move: 15:05 -> 14:20 is 45s spent, plus the 10s increment.
+    black_second = cands[3]
+    assert black_second["clock_seconds"] == pytest.approx(860.0)
+    assert black_second["think_seconds"] == pytest.approx(55.0)
+    # The first move of each side has no previous reading, so no think time.
+    assert cands[0]["think_seconds"] is None
+
+
+def test_a_pgn_without_clocks_still_produces_candidates():
+    plain = '[Result "*"]\n\n1. e4 e5 2. Nf3 *\n'
+    cands = candidate_positions_from_pgn(plain, user_color="white", max_men=32)
+    assert len(cands) == 3
+    assert all(c["clock_seconds"] is None for c in cands)

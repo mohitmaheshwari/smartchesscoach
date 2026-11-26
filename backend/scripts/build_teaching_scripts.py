@@ -175,6 +175,7 @@ async def main() -> int:
         q["user_id"] = args.user
 
     built, skipped, looked = 0, 0, 0
+    behaviours: List[Dict[str, Any]] = []
     write_errors: List[str] = []
     started = time.time()
 
@@ -217,7 +218,8 @@ async def main() -> int:
             try:
                 tree = build_tree(cand["fen"], engine, depth=args.depth,
                                   human_probs=probs or None, maia_meta=meta,
-                                  max_band_solve=args.max_band_solve)
+                                  max_band_solve=args.max_band_solve,
+                                  candidate=cand)
             except chess.engine.EngineTerminatedError:
                 print("  engine died; restarting")
                 engine = open_engine(args.threads)
@@ -225,9 +227,31 @@ async def main() -> int:
             except Exception as exc:
                 print(f"  {game_id} ply {cand['ply']}: {exc}")
                 continue
-            if tree is not None:
-                chosen = (cand, tree)
-                break
+            if tree is None:
+                continue
+            if (tree.triage or {}).get("verdict") == "execution_failure":
+                # Not a lesson. Keep it as a behaviour finding and go on
+                # looking in this game for something the player genuinely
+                # did not know.
+                behaviours.append({
+                    "game_id": game_id,
+                    "user_id": game.get("user_id"),
+                    "ply": cand["ply"],
+                    "move_number": cand.get("move_number"),
+                    "fen": cand["fen"],
+                    "played": cand["played"],
+                    "should_have_played": tree.only_move.san,
+                    "cause": tree.triage.get("cause"),
+                    "detail": tree.triage.get("detail"),
+                    "think_seconds": tree.triage.get("think_seconds"),
+                    "clock_seconds": tree.triage.get("clock_seconds"),
+                    "kind": "behaviour",
+                    "builder_version": BUILDER_VERSION,
+                    "built_at": datetime.now(timezone.utc).isoformat(),
+                })
+                continue
+            chosen = (cand, tree)
+            break
 
         if chosen is None:
             skipped += 1
@@ -246,10 +270,13 @@ async def main() -> int:
             "builder_version": BUILDER_VERSION,
             "built_at": datetime.now(timezone.utc).isoformat(),
             "tree": tree.to_doc(),
+            "kind": "lesson",
+            "triage": tree.triage,
             "status": "draft",          # a coach reviews before anyone sees it
         }
         built += 1
         tag = "found it" if cand["played"] == tree.only_move.san else "MISSED IT"
+        tag += f" | {(tree.triage or {}).get('cause', 'no-triage')}"
         print(f"  [{built:3}] {game_id[-12:]} ply {cand['ply']:>3} "
               f"{tree.men} men  {tree.proof:10} only move "
               f"{tree.only_move.san:7} ({tag})")
@@ -279,6 +306,16 @@ async def main() -> int:
     secs = time.time() - started
     print(f"\n  looked at {looked} unconverted games in {secs:.0f}s")
     print(f"  built {built}   no teachable position {skipped}")
+    print(f"  behaviour findings (knew it, missed it anyway): {len(behaviours)}")
+    if behaviours:
+        from collections import Counter
+        for cause, n in Counter(b["cause"] for b in behaviours).most_common():
+            print(f"    {cause:24} {n}")
+    if args.out and behaviours:
+        import json as _json
+        with open(args.out, "a", encoding="utf-8") as fh:
+            for b in behaviours:
+                fh.write(_json.dumps(b, default=str) + chr(10))
     if args.dry_run:
         print("  DRY RUN -- nothing was written")
     elif args.out:

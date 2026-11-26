@@ -23,6 +23,7 @@ EXHAUSTIVELY, so for those there is no evaluation involved at all.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -149,6 +150,7 @@ class TeachingTree:
     bare_race: Optional[Dict[str, str]] = None
     engine: Dict[str, Any] = field(default_factory=dict)
     maia: Dict[str, Any] = field(default_factory=dict)
+    triage: Dict[str, Any] = field(default_factory=dict)
 
     def to_doc(self) -> Dict[str, Any]:
         return asdict(self)
@@ -304,7 +306,8 @@ def build_tree(fen: str,
                depth: int = DEFAULT_DEPTH,
                human_probs: Optional[Dict[str, float]] = None,
                maia_meta: Optional[Dict[str, Any]] = None,
-               max_band_solve: float = MAX_BAND_SOLVE
+               max_band_solve: float = MAX_BAND_SOLVE,
+               candidate: Optional[Dict[str, Any]] = None
                ) -> Optional[TeachingTree]:
     """The whole tree for one position, or None if it is not teachable."""
     board = chess.Board(fen)
@@ -334,6 +337,26 @@ def build_tree(fen: str,
             return None
 
     only_v = next(v for v in verdicts if v.uci == only.uci())
+
+    # Sort the mistake BEFORE paying for the defender tries and the main
+    # line. An execution failure needs no lesson, so building one would be
+    # both wasted engine time and the wrong product: a drill for something
+    # the player already knew.
+    verdict: Dict[str, Any] = {}
+    if candidate is not None:
+        verdict = triage(candidate, band_solve_pct=only_v.human_pct)
+        if verdict["verdict"] == "execution_failure":
+            return TeachingTree(
+                fen=fen,
+                side_to_move="white" if board.turn == chess.WHITE else "black",
+                men=len(board.piece_map()),
+                proof="exhaustive" if proof == "exhaustive" else "search",
+                only_move=only_v,
+                alternatives=[v for v in verdicts if v.uci != only.uci()][:4],
+                engine={"depth": depth} if proof == "search" else {"exhaustive": True},
+                maia=maia_meta or {},
+                triage=verdict,
+            )
     alts = [v for v in verdicts if v.uci != only.uci()]
     # order the alternatives the way the student would reach for them, so the
     # script answers the likely mistake first rather than the engine's second
@@ -348,6 +371,7 @@ def build_tree(fen: str,
         only_move=only_v,
         alternatives=alts[:6],
         bare_race=_bare_race(board, engine),
+        triage=verdict,
         engine={"depth": depth} if proof == "search" else {"exhaustive": True},
         maia=maia_meta or {},
     )
@@ -506,6 +530,107 @@ def render_script(tree: TeachingTree,
     return out
 
 
+_CLK = re.compile(r"\[%clk\s+(\d+):(\d+):(\d+(?:\.\d+)?)\]")
+
+
+def _clock_seconds(comment: Optional[str]) -> Optional[float]:
+    """Seconds left on the mover's clock after this move, from [%clk h:mm:ss]."""
+    if not comment:
+        return None
+    m = _CLK.search(comment)
+    if not m:
+        return None
+    h, mm, ss = m.groups()
+    return int(h) * 3600 + int(mm) * 60 + float(ss)
+
+
+def _increment_seconds(time_control: Optional[str]) -> float:
+    """The increment from a PGN TimeControl like "900+10"."""
+    if not time_control or "+" not in str(time_control):
+        return 0.0
+    try:
+        return float(str(time_control).split("+", 1)[1])
+    except (TypeError, ValueError):
+        return 0.0
+
+
+# --------------------------------------------------------------------------
+# the triage: did they not know it, or did they know it and miss it?
+# --------------------------------------------------------------------------
+
+# Mohit, 2026-11-26: "Even best players like Magnus can sometimes let a piece
+# undefended... human coaches don't give you exercise when you blunder
+# something from eyesight, because they know you know this."
+#
+# A lesson handed to someone for something they already know is the fastest
+# way to lose them. So every mistake is sorted first, and only a genuine
+# knowledge gap earns a lesson. The rest become behaviour findings: the clock,
+# the rush, where their attention was.
+#
+# BOTH THRESHOLDS BELOW ARE UNLOCKED. They are set to catch the obvious cases,
+# not because a distribution was measured. Lock them with /lock-via-data
+# before anyone reads meaning into the exact numbers.
+# Measured 2026-11-26 over 12,337 think times from 203 real games: median
+# 3.9s, p10 0.0s, p90 20.2s, and 42% of ALL moves come in at 3s or under. So
+# a flat 3-second rule would call nearly half of every game rushed, which is
+# useless. What matters is a move played much faster than THIS player thinks
+# on THIS day, so the test is relative to their own median for the game, with
+# an absolute floor for moves that were plainly instant.
+RUSHED_SECONDS = 1.5          # instant by any standard
+RUSHED_FRACTION = 0.33        # ...or a third of their own pace this game
+LOW_CLOCK_SECONDS = 60.0      # at this little remaining, seeing it is the problem
+
+
+def triage(candidate: Dict[str, Any],
+           band_solve_pct: Optional[float] = None,
+           rushed_seconds: float = RUSHED_SECONDS,
+           low_clock_seconds: float = LOW_CLOCK_SECONDS,
+           rushed_fraction: float = RUSHED_FRACTION) -> Dict[str, Any]:
+    """Knowledge gap, or execution failure? Returns a verdict and its reason.
+
+    Only "knowledge_gap" earns a lesson. "execution_failure" earns a sentence
+    about the circumstance instead, which is what a human coach would say.
+    "unclear" means we have no evidence either way -- treated as teachable,
+    because withholding a lesson on no evidence helps nobody.
+    """
+    think = candidate.get("think_seconds")
+    clock = candidate.get("clock_seconds")
+
+    pace = candidate.get("game_median_think")
+    if think is not None:
+        bar = rushed_seconds
+        if pace:
+            bar = max(rushed_seconds, rushed_fraction * pace)
+        if think <= bar:
+            detail = f"played in {think:.0f}s"
+            if pace:
+                detail += f", against {pace:.0f}s typical for them this game"
+            return {"verdict": "execution_failure", "cause": "rushed",
+                    "detail": detail, "think_seconds": think,
+                    "clock_seconds": clock, "pace_seconds": pace}
+
+    if clock is not None and clock <= low_clock_seconds:
+        return {"verdict": "execution_failure", "cause": "time_pressure",
+                "detail": f"{clock:.0f}s left on the clock",
+                "think_seconds": think, "clock_seconds": clock}
+
+    if band_solve_pct is not None and band_solve_pct >= 75.0:
+        # Most players at their own rating find this move. Being told the
+        # concept is being told something they demonstrably already have.
+        return {"verdict": "execution_failure", "cause": "known_by_their_level",
+                "detail": f"{band_solve_pct:.0f}% of their rating find it",
+                "think_seconds": think, "clock_seconds": clock}
+
+    if think is None and clock is None and band_solve_pct is None:
+        return {"verdict": "unclear", "cause": "no_evidence", "detail": "",
+                "think_seconds": None, "clock_seconds": None}
+
+    return {"verdict": "knowledge_gap", "cause": "had_time_and_missed_it",
+            "detail": (f"spent {think:.0f}s with {clock:.0f}s left"
+                       if think is not None and clock is not None else ""),
+            "think_seconds": think, "clock_seconds": clock}
+
+
 def candidate_positions_from_pgn(pgn: str,
                                  user_color: Optional[str] = None,
                                  max_men: int = 7) -> List[Dict[str, Any]]:
@@ -535,21 +660,53 @@ def candidate_positions_from_pgn(pgn: str,
     if user_color:
         hero = chess.WHITE if str(user_color).lower().startswith("w") else chess.BLACK
 
+    increment = _increment_seconds(game.headers.get("TimeControl"))
     board = game.board()
+    node = game
+    last_clock: Dict[bool, Optional[float]] = {True: None, False: None}
     out: List[Dict[str, Any]] = []
-    for ply, move in enumerate(game.mainline_moves(), start=1):
+    ply = 0
+    for node in game.mainline():
+        move = node.move
+        if move is None:
+            continue
+        ply += 1
+        mover = board.turn
+        clock = _clock_seconds(node.comment)
+        # Think time is the player's own clock before minus after, plus the
+        # increment they just earned. It is what tells a rushed move from a
+        # considered one, and it is the single strongest signal that a player
+        # knew better and simply had no time to see it.
+        think = None
+        if clock is not None and last_clock[mover] is not None:
+            think = max(0.0, last_clock[mover] - clock + increment)
         if len(board.piece_map()) <= max_men:
             out.append({
                 "fen": board.fen(),
                 "ply": ply,
                 "move_number": board.fullmove_number,
                 "played": board.san(move),
-                "is_opponent_move": hero is not None and board.turn != hero,
+                "is_opponent_move": hero is not None and mover != hero,
+                "clock_seconds": clock,
+                "think_seconds": round(think, 1) if think is not None else None,
             })
+        if clock is not None:
+            last_clock[mover] = clock
         try:
             board.push(move)
         except Exception:
             break
+
+    # Each side's own pace for THIS game, so a rushed move is judged against
+    # how that player was actually thinking rather than a global constant.
+    import statistics as _stats
+    for side in (False, True):
+        mine = [c["think_seconds"] for c in out
+                if c["is_opponent_move"] is side and c["think_seconds"] is not None]
+        pace = _stats.median(mine) if len(mine) >= 4 else None
+        for c in out:
+            if c["is_opponent_move"] is side:
+                c["game_median_think"] = round(pace, 1) if pace else None
 
     # The endgame is where the small positions are, and the sharpest moment
     # is usually the first time the position got small, not the last.
