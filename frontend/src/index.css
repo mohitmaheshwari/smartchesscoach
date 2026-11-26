@@ -1200,6 +1200,19 @@
      one definition the portalled dialogs also read. */
   --background: 210 10% 7%;       /* rgb(16 18 20) */
   --foreground: 80 11% 94%;       /* #f1f2ef */
+  /* Re-declared here deliberately. These still resolve to the ONE
+     definition (--cg-surface, top of this file), but they must be stated at
+     THIS specificity: the dead V1 block ~1050 lines above also matches
+     `.dark .experience-v1` (0,2,0) and sets a bluish --card: 223 27% 10%.
+     Letting --card inherit from the (0,1,0) `.experience-v1` rule let that
+     dead value win -- measured on the live site as rgb(19 23 32), a step of
+     only dL* 2.37 where the whole point was 7.70. */
+  --card: var(--cg-surface);
+  --card-foreground: var(--cg-surface-fg);
+  --popover: var(--cg-surface);
+  --popover-foreground: var(--cg-surface-fg);
+  --border: var(--cg-surface-line);
+  --input: var(--cg-surface-line);
   /* 2026-09-23: was acid lime 82 87% 62%. Now our green, matching
      --cg-accent. Dark foreground on it measures ~7.8:1; white would be
      ~2.5:1, so primary-foreground must stay dark. */
