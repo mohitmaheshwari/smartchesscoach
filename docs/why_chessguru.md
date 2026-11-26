@@ -29,6 +29,39 @@ someone else to read.
 
 ---
 
+## 0. We work out whether you actually knew it
+
+Every other product treats every mistake as a training gap. That is the
+mistake, and it is why their drills insult anyone who can play.
+
+Magnus hangs pieces. Nobody's answer to that is a hanging-piece worksheet,
+and a human coach would never hand him one — because they know he knows. The
+moment a coach gives you a drill for something you already understand, you
+stop respecting them.
+
+So a mistake is triaged before anything is taught:
+
+| The mistake was | What we do |
+|---|---|
+| **A knowledge gap** — you did not know it | Teach it, from a position whose answer can be proved |
+| **An execution failure** — you knew it and missed it | **No exercise.** We tell you the real cause: the clock, where your attention was, which part of the board |
+
+Four signals decide it, and we already hold all four: how much time was on
+your clock at that move, whether your own rating band finds the move easily,
+whether you got materially similar positions right in other games, and
+whether you have been taught and tested on it before.
+
+This is also why we ask before we tell (§2). Asking is not only better
+teaching — it is the **only** way to tell the two apart.
+
+Our own earlier measurement says the same thing: at these ratings tactical
+failures are *blindness* rather than ignorance — the patterns are known by
+everybody — while development was the genuine knowledge axis, correlating at
+r 0.89. A product that cannot tell those apart will spend its life drilling
+people on things they already know.
+
+---
+
 ## 1. The coach teaches the games where only one move won
 
 **What it is.** We search a player's own games for a position where exactly
@@ -238,7 +271,8 @@ student. Ours does not.
 
 | | |
 |---|---|
-| Only-move lessons | **Built.** Generator, exhaustive solver and coach skill all running |
+| Triage: did they already know it? | **Specified, not built.** Upstream of everything else |
+| Only-move lessons | **Built.** Generator, exhaustive solver and coach skill all running -- but not yet gated on the triage, and not yet visible to anyone |
 | Maia-conditioned scripts | **Built.** Verified at 1100–1500 |
 | Behaviour measurement | **Measured.** Not yet surfaced in a report |
 | Concept course | **Scoped.** Ordering and teaching text are the open work |
@@ -262,10 +296,9 @@ student. Ours does not.
 
 ## The one-sentence version
 
-Every AI chess coach is an opinion engine that rephrases an evaluation and is
-wrong often enough to matter. We teach the positions whose answers can be
-*proved*, we know which wrong move this player would have chosen, and we ask
-before we tell — so the coach is right by construction rather than by luck.
+Everyone else rephrases an engine's opinion and assumes you need practice. We
+work out whether you actually knew it, prove the lesson when you didn't, and
+name the real cause when you did.
 
 ---
 
