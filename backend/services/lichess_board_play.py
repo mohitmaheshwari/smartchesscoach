@@ -399,7 +399,8 @@ async def _begin(db: Any, user_id: str, token: str, info: Dict[str, Any]) -> Non
         opponent=opponent,
     )
     _GAMES[user_id] = game
-    _SEEKS.pop(user_id, None)
+    pending = _SEEKS.pop(user_id, None)
+    await _record_pairing(db, user_id, game_id, pending, game)
 
     # Before the board can render anything, the engine is closed for this user.
     await register_live_game(db, user_id, game_id)
@@ -462,6 +463,51 @@ async def _finish(db: Any, user_id: str) -> None:
 
 
 # ------------------------------------------------------------------ the actions
+
+
+PAIRINGS = "live_seek_pairings"
+
+
+async def _record_pairing(
+    db: Any,
+    user_id: str,
+    game_id: str,
+    seek: Optional["SeekState"],
+    game: "LiveGame",
+) -> None:
+    """How long this player waited in the pool, kept as history.
+
+    The seek's created_at used to be discarded here, which left us unable to
+    answer the one question a player asks before pressing the button: how
+    long will I wait. Lichess publishes no site-wide online count we may use,
+    so this is the honest alternative -- a number we measure ourselves.
+
+    Append-only and one row per pairing, deliberately NOT the guard's
+    lichess_live_play document: that one upserts on user_id and is overwritten
+    every game, so it can never hold a distribution.
+
+    A failed write must never stop a game starting. The player is about to
+    move; a metric is not worth an exception on that path.
+    """
+    if db is None or seek is None:
+        return
+    try:
+        started = datetime.fromisoformat(seek.created_at)
+        waited = (datetime.now(timezone.utc) - started).total_seconds()
+        await db[PAIRINGS].insert_one(
+            {
+                "user_id": user_id,
+                "lichess_game_id": game_id,
+                "time_control": seek.time_control,
+                "rated": bool(seek.rated),
+                "sought_at": seek.created_at,
+                "paired_at": datetime.now(timezone.utc).isoformat(),
+                "waited_seconds": round(max(0.0, waited), 2),
+                "speed": game.speed,
+            }
+        )
+    except Exception as exc:  # noqa: BLE001 - never block the game
+        logger.info("live play: could not record pairing for %s: %s", user_id, exc)
 
 
 async def start_seek(

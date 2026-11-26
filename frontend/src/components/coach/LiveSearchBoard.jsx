@@ -7,10 +7,23 @@
  * Everything stated here is true. The handle and rating are the player's real
  * Lichess ones, the pool is the seek we actually sent, the timer is real
  * elapsed seconds. There is deliberately no "searching among N players"
- * counter: Lichess publishes no online-player count (`/api/count` and
- * `/api/users/online` are 404, `/api/status` is API-version info, and the
- * numbers on their homepage are per-tournament), so any such figure would be
- * invented. The motion carries the feeling instead of a made-up number.
+ * counter -- but the earlier reason given here was wrong and is corrected
+ * below, because a false "we checked, it is impossible" stops anyone looking
+ * again.
+ *
+ * What is actually true (checked 2026-11-26): Lichess's published API has no
+ * site-wide online count -- the OpenAPI spec offers only /api/users/status
+ * (per username) and /api/bot/online (bots). But the number IS real and is
+ * NOT invented: lichess.org's own live counter is fed over their socket, and
+ * Chessiro displays it as "Searching among 88,998 users", which matches what
+ * third-party trackers report. So the figure exists; we simply have no
+ * sanctioned way to read it. Reaching that socket means presenting as
+ * Lichess's own web client, which would break silently whenever they change
+ * the message format, so it is not done here.
+ *
+ * If we ever want this line, the honest routes are to ask Lichess for a
+ * supported endpoint, or to show a number we own -- our measured time from
+ * seek to pairing, which is what a player actually wants to know anyway.
  *
  * REBUILT 2026-11-26 after Mohit hit three faults on the live page:
  *
