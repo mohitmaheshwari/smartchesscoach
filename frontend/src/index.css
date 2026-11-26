@@ -45,15 +45,53 @@
      register. The dark card is lighter than the dark page, so the modal
      separates from above as well as below. */
   --cg-overlay: rgb(0 0 0 / 0.50);
+
+  /* The product surface, hoisted here so PORTALS can reach it. Radix renders
+     dialog / alert-dialog / sheet / drawer at <body>, outside .experience-v1,
+     so they fell back to the base shadcn palette: a dialog measured
+     rgb(11 13 20) in dark while the app behind it was rgb(30 33 36). Every modal
+     the app was off-palette. This is the ONE definition -- .experience-v1
+     consumes it with var(), so there is no second copy to drift. */
+  --cg-surface: 42 48% 99%;        /* rgb(254 253 251) */
+  --cg-surface-fg: 157 48% 6%;
+  --cg-surface-line: 42 20% 82%;
+
+  /* Elevation. The shadows in tailwind.config.js are plain black drops,
+     which is why dark looked flat: a black shadow on a near-black page is
+     invisible, and .dark .cg-panel/.cg-hero set box-shadow:none outright.
+     Depth in a dark UI comes from a 1px top highlight -- the surface catches
+     light, it does not cast it. */
+  --cg-lift-1: 0 1px 2px rgb(21 17 10 / 0.06), 0 1px 3px rgb(21 17 10 / 0.05);
+  --cg-lift-2: 0 2px 4px rgb(21 17 10 / 0.05), 0 10px 24px -10px rgb(21 17 10 / 0.16);
+  --cg-lift-3: 0 4px 8px rgb(21 17 10 / 0.06), 0 24px 56px -22px rgb(21 17 10 / 0.26);
+  --cg-top-edge: inset 0 1px 0 rgb(255 255 255 / 0.70);
 }
 
 .dark {
   --cg-overlay: rgb(0 0 0 / 0.66);
+
+  --cg-surface: 212 9% 13%;        /* rgb(30 33 36) */
+  --cg-surface-fg: 80 11% 94%;
+  --cg-surface-line: 208 10% 24%;  /* rgb(55 62 67), a hairline you can see */
+
+  --cg-lift-1: 0 1px 2px rgb(0 0 0 / 0.44);
+  --cg-lift-2: 0 2px 6px rgb(0 0 0 / 0.46), 0 12px 28px -12px rgb(0 0 0 / 0.64);
+  --cg-lift-3: 0 6px 14px rgb(0 0 0 / 0.50), 0 28px 64px -26px rgb(0 0 0 / 0.78);
+  --cg-top-edge: inset 0 1px 0 rgb(255 255 255 / 0.055);
 }
 
 /* Used by dialog / alert-dialog / sheet / drawer in components/ui. */
 .cg-overlay {
   background: var(--cg-overlay);
+}
+
+/* The panel of a portalled surface: same card colour, text and hairline as
+   the app behind it. Used by dialog / alert-dialog / sheet / drawer. */
+.cg-portal-surface {
+  background: hsl(var(--cg-surface));
+  color: hsl(var(--cg-surface-fg));
+  border-color: hsl(var(--cg-surface-line));
+  box-shadow: var(--cg-lift-3), var(--cg-top-edge);
 }
 
 @tailwind base;
@@ -1108,10 +1146,12 @@
 .experience-v1 {
   --background: 42 41% 96%;
   --foreground: 157 48% 6%;
-  --card: 42 48% 99%;
-  --card-foreground: 157 48% 6%;
-  --popover: 42 48% 99%;
-  --popover-foreground: 157 48% 6%;
+  /* --card / --popover / --border come from --cg-surface at the top of this
+     file. One definition, which the portalled dialogs read too. */
+  --card: var(--cg-surface);
+  --card-foreground: var(--cg-surface-fg);
+  --popover: var(--cg-surface);
+  --popover-foreground: var(--cg-surface-fg);
   /* 2026-09-23: was acid lime 82 87% 62%. This is the app's real accent
      token - it is redefined here, later than the amber at the top of the
      file, so this one wins. Now our green, matching --cg-accent. */
@@ -1123,8 +1163,8 @@
   --muted-foreground: 159 14% 35%;
   --accent: 158 65% 70%;
   --accent-foreground: 158 58% 15%;
-  --border: 42 20% 82%;
-  --input: 42 20% 82%;
+  --border: var(--cg-surface-line);
+  --input: var(--cg-surface-line);
   --ring: 101 31% 55%;   /* was lime; focus ring follows the accent */
   --success: 158 56% 39%;
   --warning: 38 92% 54%;
@@ -1152,30 +1192,30 @@
    a green wash over every page. They are now neutral near-black, so the only
    colour on screen is the board and the one accent. */
 .dark .experience-v1 {
-  --background: 210 9% 4%;        /* #0a0b0c */
+  /* 2026-11-26: page was rgb(10 11 12) and card rgb(20 22 24) -- a perceptual step of
+     only dL* 2.98, which is why every card read as a smudge instead of a
+     surface. Measured: page L* 4.86, card L* 12.57, step dL* 7.7.
+     --card / --popover / --border are NOT set here: they come from
+     --cg-surface in the .dark block at the top of this file, which is the
+     one definition the portalled dialogs also read. */
+  --background: 210 10% 7%;       /* rgb(16 18 20) */
   --foreground: 80 11% 94%;       /* #f1f2ef */
-  --card: 210 9% 9%;              /* #141618 */
-  --card-foreground: 80 11% 94%;
-  --popover: 210 9% 9%;
-  --popover-foreground: 80 11% 94%;
   /* 2026-09-23: was acid lime 82 87% 62%. Now our green, matching
      --cg-accent. Dark foreground on it measures ~7.8:1; white would be
      ~2.5:1, so primary-foreground must stay dark. */
   --primary: 101 31% 55%;
   --primary-foreground: 210 9% 4%;
-  --secondary: 210 10% 11%;       /* #1a1d20 */
+  --secondary: 210 9% 17%;        /* rgb(39 44 48) */
   --secondary-foreground: 80 11% 94%;
-  --muted: 210 10% 11%;
-  --muted-foreground: 212 7% 57%; /* #8a9199 */
-  --accent: 210 10% 11%;          /* shadcn "accent" = hover bg, not brand */
+  --muted: 210 9% 17%;
+  --muted-foreground: 212 9% 64%; /* lifted from the old muted grey */
+  --accent: 210 9% 17%;           /* shadcn "accent" = hover bg, not brand */
   --accent-foreground: 80 11% 94%;
-  --border: 207 11% 16%;          /* #252a2e hairline */
-  --input: 207 11% 16%;
   --ring: 101 31% 55%;
-  --experience-board-frame: hsl(210 9% 9%);    /* #141618, unchanged in dark */
+  --experience-board-frame: hsl(var(--cg-surface));  /* follows the card */
   /* No blanket glow behind every page. The old radial washes made every
      surface faintly green and flattened the hierarchy. */
-  background: #0a0b0c;
+  background: rgb(16 18 20);
 }
 
 /* Flat panel, hairline edge. The green gradient and accent glow made the
@@ -1373,7 +1413,9 @@
 .cg-page {
   width: min(100%, 1120px);
   margin-inline: auto;
-  padding: clamp(1.5rem, 4vw, 3.5rem) clamp(0.25rem, 2vw, 1.5rem) 5rem;
+  /* was 3.5rem top / 5rem bottom. With a 4rem hero heading and 2rem panel
+     padding, a screen holding three facts needed three scrolls. */
+  padding: clamp(1.25rem, 2.4vw, 2rem) clamp(0.25rem, 2vw, 1.5rem) 4rem;
 }
 
 .cg-page--wide {
@@ -1383,22 +1425,26 @@
 .cg-hero {
   position: relative;
   overflow: hidden;
-  padding: clamp(1.5rem, 4vw, 3rem);
-  border: 1px solid rgb(7 20 17 / 0.10);
-  border-radius: clamp(1.5rem, 3vw, 2.25rem);
+  /* Was up to 3rem padding inside a 36px radius. On /learn that wrapped a
+     single heading in a 165px band that was ~90% empty. */
+  padding: clamp(1.25rem, 2.6vw, 1.875rem);
+  border: 1px solid hsl(var(--border));
+  border-radius: 1.25rem;
   background:
     radial-gradient(circle at 92% 0%, rgb(var(--cg-accent-rgb) / 0.22), transparent 18rem),
     linear-gradient(145deg, rgb(255 253 248 / 0.98), rgb(244 239 228 / 0.88));
-  box-shadow: 0 32px 90px rgb(7 20 17 / 0.09);
+  box-shadow: var(--cg-lift-2), var(--cg-top-edge);
 }
 
 /* Flat card, hairline edge. Was a green gradient (#10271f -> #0b2019) with an
    accent wash, which made the page's largest surface its loudest one. The
    introduction should not outshout the thing you came to do. */
 .dark .experience-v1 .cg-hero {
-  border-color: rgb(255 255 255 / 0.07);
+  border-color: hsl(var(--border));
   background: hsl(var(--card));
-  box-shadow: none;
+  /* was box-shadow:none -- a black drop is invisible here, so depth comes
+     from the top edge catching light. */
+  box-shadow: var(--cg-lift-2), var(--cg-top-edge);
 }
 
 .cg-eyebrow {
@@ -1416,20 +1462,23 @@
 
 .cg-title {
   max-width: 48rem;
-  margin-top: 0.8rem;
+  margin-top: 0.5rem;
   font-family: 'Outfit', system-ui, sans-serif;
-  font-size: clamp(2rem, 5vw, 4rem);
+  /* was clamp(2rem, 5vw, 4rem) -- a 64px page heading. At 64px with
+     line-height 1.02 a six-word title is a whole band of screen, and every
+     page opened with one. */
+  font-size: clamp(1.75rem, 3.2vw, 2.75rem);
   font-weight: 650;
-  line-height: 1.02;
-  letter-spacing: -0.04em;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 
 .cg-lede {
   max-width: 42rem;
-  margin-top: 1.15rem;
+  margin-top: 0.6rem;
   color: hsl(var(--muted-foreground));
-  font-size: clamp(0.95rem, 1.8vw, 1.08rem);
-  line-height: 1.75;
+  font-size: clamp(0.95rem, 1.8vw, 1.0625rem);
+  line-height: 1.6;
 }
 
 .cg-coach-card {
@@ -1456,14 +1505,18 @@
 }
 
 .cg-panel {
-  border: 1px solid rgb(7 20 17 / 0.10);
-  border-radius: 1.5rem;
-  background: hsl(var(--card) / 0.92);
-  box-shadow: 0 18px 55px rgb(7 20 17 / 0.06);
+  /* 51 use-sites -- the app's main surface. It had a 6%-opacity shadow
+     (invisible), a 24px radius (everything read as the same soft slab) and a
+     92%-opaque card colour, so it never quite separated from the page. */
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  background: hsl(var(--card));
+  box-shadow: var(--cg-lift-1), var(--cg-top-edge);
 }
 
 .dark .experience-v1 .cg-panel {
-  border-color: rgb(255 255 255 / 0.09);
+  border-color: hsl(var(--border));
+  box-shadow: var(--cg-lift-1), var(--cg-top-edge);
 }
 
 .cg-primary-action {
