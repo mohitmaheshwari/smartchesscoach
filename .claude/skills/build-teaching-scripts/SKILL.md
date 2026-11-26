@@ -103,19 +103,51 @@ Inside `tree`:
 | `--rebuild` | redo games converted by an older builder version |
 | `--dry-run` | write nothing |
 
-## Where to run it
+## Where to run it, and how the writing works
 
-Either works; pick on speed, not on principle.
+**Build here, load there.** This workstation has the cores (12, native
+Stockfish at `C:\Users\MIISCO\chess-tools\engine\stockfish\`) but its
+database login is **read-only** — `chessguru_local_ro` cannot write to
+`chess_coach`, by design. The production box can write but must not run an
+engine; it serves the site.
 
-- **This workstation** is faster: 12 cores, native Stockfish at
-  `C:\Users\MIISCO\chess-tools\engine\stockfish\`. Needs `MONGO_URL` pointed
-  at `localhost:27018` rather than `host.docker.internal`.
-- **The `chess-coach-backend` container** already has `MONGO_URL` and
-  `/usr/games/stockfish`. It has no source mount, so `docker cp` the two
-  files in first or they will not be there.
+So a real run is two steps:
 
-Never run it on the production server. It is a research job: `nice` it, and
-keep it off the box that serves the site.
+```bash
+# 1. build on the workstation, into a file
+MONGO_URL=<the local RO url, host.docker.internal -> localhost> \
+  python backend/scripts/build_teaching_scripts.py \
+    --limit 25 --scan 900 --maia --out /tmp/scripts.jsonl
+
+# 2. copy it over and load it where the login can write
+scp /tmp/scripts.jsonl root@72.60.204.176:/root/
+ssh root@72.60.204.176 'cd /root/repos/smartchesscoach && \
+  python3 backend/scripts/build_teaching_scripts.py --load /root/scripts.jsonl'
+```
+
+`--dry-run` needs neither; use it for every first look.
+
+**There is a ready-made overnight runner** at
+`C:\Users\MIISCO\teaching_out\run_overnight.sh`. It sets `MONGO_URL` from the
+container, appends to `batch.jsonl` and `batch.log`, and prints the two load
+commands when it finishes. Interrupting it costs nothing: the builder skips
+games that already have a script, so starting it again carries on.
+
+Budget roughly **20 seconds per game** at `--depth 20` with `--maia`, and
+expect about **one script per 30 games** — measured 2026-11-26. An overnight
+run of eight hours covers roughly 1,400 games and yields around 45 scripts.
+
+If you forget `--out` and the login cannot write, the run now says
+`WRITE REFUSED` once and **keeps going** rather than dying — but it stores
+nothing, so you have burned the engine time. Before the fix, one refused
+write killed the whole run with a traceback and lost everything built so
+far. Use `--out` for any run you care about.
+
+The `chess-coach-backend` container also works and has `MONGO_URL` already,
+but it has no source mount: `docker cp` both files in first or they will not
+be there. It is slower than the host.
+
+Never run the build on the production server. It is a research job.
 
 **Redirect output to a file and poll the file.** Piping this to `head` or
 `tail` buffers everything until it finishes, which looks exactly like a hang.
