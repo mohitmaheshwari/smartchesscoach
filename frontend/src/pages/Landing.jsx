@@ -275,17 +275,17 @@ export default function Landing() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }} />
       <header className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.08] bg-[#071411]/80 backdrop-blur-2xl">
         <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
-          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7FB069]">
+          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="flex min-h-[44px] items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7FB069]">
             <img src="/chessguru-logo.svg" alt="" className="h-8 w-8" /><span className="font-heading text-[17px] font-bold tracking-tight">ChessGuru</span>
           </button>
           <nav aria-label="Main navigation" className="hidden items-center gap-7 lg:flex">
-            {[["For parents and academies", "families"], ["How it works", "how-it-works"], ["The plan", "personal-plan"], ["Proof", "proof"]].map(([label, id]) => <button key={id} type="button" onClick={() => scrollToId(id)} className="text-sm text-white/55 transition-colors hover:text-white focus:outline-none focus-visible:text-[#7FB069]">{label}</button>)}
-            <button type="button" onClick={() => navigate("/pricing")} className="text-sm text-white/55 transition-colors hover:text-white">Pricing</button>
+            {[["For parents and academies", "families"], ["How it works", "how-it-works"], ["The plan", "personal-plan"], ["Proof", "proof"]].map(([label, id]) => <button key={id} type="button" onClick={() => scrollToId(id)} className="inline-flex min-h-[44px] items-center text-sm text-white/55 transition-colors hover:text-white focus:outline-none focus-visible:text-[#7FB069]">{label}</button>)}
+            <button type="button" onClick={() => navigate("/pricing")} className="inline-flex min-h-[44px] items-center text-sm text-white/55 transition-colors hover:text-white">Pricing</button>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
-            {devMode && <button type="button" onClick={handleDevLogin} disabled={devLoading} data-testid="dev-login-button" className="hidden rounded-full border border-white/15 px-3 py-2 text-xs text-white/60 sm:inline-flex"><Code className="mr-1.5 h-3.5 w-3.5" />{devLoading ? "…" : "Dev"}</button>}
-            <button type="button" onClick={() => navigate(`/login?redirect_to=${encodeURIComponent("/home")}`)} data-testid="signin-link" className="hidden px-2 py-2 text-sm font-medium text-white/60 transition-colors hover:text-white sm:inline-flex">Sign in</button>
-            <button type="button" onClick={() => startPlan("nav")} data-testid="login-button" className="rounded-full bg-[#F4EFE4] px-4 py-2.5 text-xs font-bold text-[#071411] transition-transform hover:-translate-y-0.5 sm:px-5 sm:text-sm">Build my plan</button>
+            {devMode && <button type="button" onClick={handleDevLogin} disabled={devLoading} data-testid="dev-login-button" className="hidden min-h-[44px] items-center rounded-full border border-white/15 px-3 py-2 text-xs text-white/60 sm:inline-flex"><Code className="mr-1.5 h-3.5 w-3.5" />{devLoading ? "…" : "Dev"}</button>}
+            <button type="button" onClick={() => navigate(`/login?redirect_to=${encodeURIComponent("/home")}`)} data-testid="signin-link" className="hidden min-h-[44px] items-center px-2 py-2 text-sm font-medium text-white/60 transition-colors hover:text-white sm:inline-flex">Sign in</button>
+            <button type="button" onClick={() => startPlan("nav")} data-testid="login-button" className="inline-flex min-h-[44px] items-center rounded-full bg-[#F4EFE4] px-4 py-2.5 text-xs font-bold text-[#071411] transition-transform hover:-translate-y-0.5 sm:px-5 sm:text-sm">Build my plan</button>
           </div>
         </div>
       </header>
@@ -306,7 +306,7 @@ export default function Landing() {
                 <PrimaryButton onClick={() => startPlan("hero")} testId="hero-cta-button" className="sm:px-7">Build my improvement plan</PrimaryButton>
                 <button type="button" onClick={() => scrollToId("personal-plan")} data-testid="learn-more-button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/15 px-6 py-3.5 text-sm font-semibold text-white/75 transition-colors hover:border-white/30 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60">See a real example <ChevronRight className="h-4 w-4" /></button>
               </motion.div>
-              <button type="button" onClick={() => scrollToId("families")} data-testid="hero-families-link" className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[#9DF0D3] underline decoration-[#9DF0D3]/40 underline-offset-4 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7FB069]">For a child, or for your academy <ChevronRight className="h-4 w-4" /></button>
+              <button type="button" onClick={() => scrollToId("families")} data-testid="hero-families-link" className="mt-5 inline-flex min-h-[44px] items-center gap-1.5 text-sm font-semibold text-[#9DF0D3] underline decoration-[#9DF0D3]/40 underline-offset-4 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#7FB069]">For a child, or for your academy <ChevronRight className="h-4 w-4" /></button>
               <motion.div initial={reduceMotion ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.48, duration: 0.8 }} className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-xs text-white/45">
                 <span className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#7EE7C2]" /> Chess.com + Lichess</span><span className="flex items-center gap-2"><Check className="h-3.5 w-3.5 text-[#7EE7C2]" /> Free to start</span><span className="flex items-center gap-2"><LockKeyhole className="h-3.5 w-3.5 text-[#7EE7C2]" /> No credit card</span>
               </motion.div>
@@ -385,7 +385,7 @@ export default function Landing() {
               <div className="rounded-[24px] bg-[#F4EFE4] p-6 text-[#071411]">
                 <div className="flex items-baseline justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#537066]">Free</p><p className="mt-2 font-heading text-4xl font-semibold">₹0</p></div><Gamepad2 className="h-7 w-7 text-[#28745D]" /></div>
                 <ul className="mt-5 space-y-2.5 text-sm text-[#365047]">{["Import Chess.com and Lichess games", "Receive your coaching focus", "Start personal pattern training"].map((text) => <li key={text} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#28745D]" />{text}</li>)}</ul>
-                <button type="button" onClick={() => navigate("/pricing")} className="mt-6 inline-flex items-center gap-2 text-sm font-bold text-[#071411] underline decoration-[#7FB069] decoration-2 underline-offset-4">See Free and Pro <ArrowRight className="h-4 w-4" /></button>
+                <button type="button" onClick={() => navigate("/pricing")} className="mt-6 inline-flex min-h-[44px] items-center gap-2 text-sm font-bold text-[#071411] underline decoration-[#7FB069] decoration-2 underline-offset-4">See Free and Pro <ArrowRight className="h-4 w-4" /></button>
               </div>
             </Reveal>
           </div>
@@ -413,7 +413,7 @@ export default function Landing() {
       <footer className="border-t border-white/10 bg-[#071411] py-9">
         <div className="mx-auto flex max-w-[1240px] flex-col items-center justify-between gap-6 px-5 text-xs text-white/40 sm:px-8 md:flex-row">
           <div className="flex items-center gap-2.5"><img src="/chessguru-logo.svg" alt="" className="h-7 w-7" /><span className="font-heading text-sm font-semibold text-white">ChessGuru</span><span>Built for players stuck on a plateau.</span></div>
-          <nav aria-label="Footer navigation" className="flex flex-wrap justify-center gap-x-5 gap-y-2"><a href="/pricing" className="hover:text-white">Pricing</a><a href="/terms" className="hover:text-white">Terms</a><a href="/privacy" className="hover:text-white">Privacy</a><a href="/refund" className="hover:text-white">Refunds</a><a href="/contact" className="hover:text-white">Contact</a></nav>
+          <nav aria-label="Footer navigation" className="flex flex-wrap items-center justify-center gap-x-5 [&>a]:inline-flex [&>a]:min-h-[44px] [&>a]:items-center"><a href="/pricing" className="hover:text-white">Pricing</a><a href="/terms" className="hover:text-white">Terms</a><a href="/privacy" className="hover:text-white">Privacy</a><a href="/refund" className="hover:text-white">Refunds</a><a href="/contact" className="hover:text-white">Contact</a></nav>
         </div>
       </footer>
     </div>

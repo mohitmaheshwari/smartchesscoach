@@ -661,7 +661,7 @@ function SessionExpired() {
         <a
           href="/login"
           data-testid="live-sign-in-again"
-          className="inline-block rounded-lg bg-amber-500 px-3.5 py-2 text-sm font-semibold text-black"
+          className="inline-flex min-h-[44px] items-center rounded-lg bg-amber-500 px-3.5 py-2 text-sm font-semibold text-black"
         >
           Sign in again
         </a>
