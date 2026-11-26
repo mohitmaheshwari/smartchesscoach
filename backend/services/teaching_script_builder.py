@@ -43,6 +43,12 @@ NOT_WIN_CP = 250
 DEFAULT_DEPTH = 26
 EXACT_MAX_MEN = 5
 
+# Reject a position when this share of the player's own rating band already
+# finds the only move. UNLOCKED: chosen to exclude the indefensible, not
+# measured against a distribution of band solve-rates. Lock it with
+# /lock-via-data before anyone reads anything into the cut-off.
+MAX_BAND_SOLVE = 0.90
+
 WIN, DRAW, LOSS = 1, 0, -1
 
 
@@ -256,6 +262,14 @@ def _bare_race(board: chess.Board,
     """
     pm = board.piece_map()
     mover = board.turn
+    # ONLY for positions that already are king-and-pawn. Stripping a rook off
+    # the board produces a different position with a different answer, and a
+    # script that then says "count -- the king is in time" is stating, as a
+    # fact about the game in front of the student, the result of a position
+    # that never existed. Caught on the first real row the generator wrote:
+    # 1k6/8/1p6/7P/8/6P1/1r1R3K/8 is a ROOK endgame and the beat fired anyway.
+    if {p.piece_type for p in pm.values()} - {chess.KING, chess.PAWN}:
+        return None
     pawns = [(sq, p) for sq, p in pm.items()
              if p.piece_type == chess.PAWN and p.color == mover]
     if len(pawns) != 1:
@@ -289,7 +303,8 @@ def build_tree(fen: str,
                engine: Optional[chess.engine.SimpleEngine],
                depth: int = DEFAULT_DEPTH,
                human_probs: Optional[Dict[str, float]] = None,
-               maia_meta: Optional[Dict[str, Any]] = None
+               maia_meta: Optional[Dict[str, Any]] = None,
+               max_band_solve: float = MAX_BAND_SOLVE
                ) -> Optional[TeachingTree]:
     """The whole tree for one position, or None if it is not teachable."""
     board = chess.Board(fen)
@@ -302,6 +317,21 @@ def build_tree(fen: str,
             p = human_probs.get(v.uci)
             if p is not None:
                 v.human_pct = round(100.0 * p, 1)
+
+        # A position this rating already solves is not a lesson. The first
+        # row the generator ever wrote was one where Maia put 99.7% of
+        # 1180-rated players on the only move -- technically an only-move
+        # position, pedagogically worthless, and it produced the line "About
+        # 0 in 100 players rated 1180 play it here" about the alternative.
+        #
+        # The cut-off below is NOT locked against a measured distribution
+        # yet, so it is deliberately loose: it rejects the indefensible
+        # rather than pretending to know where "too easy" begins. See the
+        # open question in docs/guided_concept_curriculum_scope.md.
+        solved_by = next(
+            (v.human_pct for v in verdicts if v.uci == only.uci()), None)
+        if solved_by is not None and solved_by >= max_band_solve * 100.0:
+            return None
 
     only_v = next(v for v in verdicts if v.uci == only.uci())
     alts = [v for v in verdicts if v.uci != only.uci()]
@@ -425,11 +455,17 @@ def render_script(tree: TeachingTree,
                 "text": f"You are {tree.side_to_move.title()}, and you are "
                         f"winning. There is exactly one move that keeps it."})
 
-    # the tempting move, named by what this rating actually plays
+    # The tempting move, named by what this rating actually plays. If no
+    # alternative reaches a real share, there is no tempting move and the beat
+    # is dropped -- it used to fall back to the top alternative regardless and
+    # produce "About 0 in 100 players rated 1180 play it here", which is both
+    # absurd and a sign the position was not worth teaching in the first place.
     tempting = next((a for a in tree.alternatives
                      if a.human_pct is not None and a.human_pct >= 5.0), None)
-    if tempting is None and tree.alternatives:
-        tempting = tree.alternatives[0]
+    if tempting is None and all(a.human_pct is None for a in tree.alternatives):
+        # No human model at all: fall back to the engine's runner-up, and say
+        # nothing about how many people play it, because we do not know.
+        tempting = tree.alternatives[0] if tree.alternatives else None
     if tempting is not None:
         who = ""
         if tempting.human_pct is not None:

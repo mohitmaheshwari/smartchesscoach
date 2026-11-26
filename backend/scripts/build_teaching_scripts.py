@@ -118,17 +118,46 @@ async def main() -> int:
                     help="only consider positions with at most this many pieces")
     ap.add_argument("--depth", type=int, default=24)
     ap.add_argument("--threads", type=int, default=4)
+    ap.add_argument("--max-band-solve", type=float, default=0.90,
+                    help="skip a position when this share of the player's "
+                         "rating band already finds the only move (needs "
+                         "--maia to have any effect)")
     ap.add_argument("--maia", action="store_true",
                     help="add what this rating actually plays (slower)")
     ap.add_argument("--rebuild", action="store_true",
                     help="redo games already converted by an older builder")
     ap.add_argument("--dry-run", action="store_true", help="write nothing")
+    ap.add_argument("--out", default=None,
+                    help="append built scripts to this JSONL file instead of "
+                         "writing to Mongo. Use this when building on a "
+                         "workstation whose database login is read-only: "
+                         "build here, copy the file over, load it there.")
+    ap.add_argument("--load", default=None,
+                    help="load a JSONL file produced by --out into Mongo and "
+                         "exit. Run this where the login can write.")
     ap.add_argument("--scan", type=int, default=600,
                     help="how many analysed games to look through")
     args = ap.parse_args()
 
     client = AsyncIOMotorClient(os.environ["MONGO_URL"])
     db = client[os.environ.get("DB_NAME", "chess_coach")]
+
+    if args.load:
+        import json
+        loaded = 0
+        with open(args.load, encoding="utf-8") as fh:
+            for raw in fh:
+                raw = raw.strip()
+                if not raw:
+                    continue
+                doc = json.loads(raw)
+                await db[COLLECTION].update_one(
+                    {"game_id": doc["game_id"], "ply": doc["ply"]},
+                    {"$set": doc}, upsert=True)
+                loaded += 1
+        total = await db[COLLECTION].count_documents({})
+        print(f"loaded {loaded} scripts; {COLLECTION} now holds {total}")
+        return 0
 
     print(f"builder {BUILDER_VERSION}")
     done = await already_done(db, args.rebuild)
@@ -146,6 +175,7 @@ async def main() -> int:
         q["user_id"] = args.user
 
     built, skipped, looked = 0, 0, 0
+    write_errors: List[str] = []
     started = time.time()
 
     cursor = db.games.find(
@@ -186,7 +216,8 @@ async def main() -> int:
                 probs, meta = maia(cand["fen"], rating)
             try:
                 tree = build_tree(cand["fen"], engine, depth=args.depth,
-                                  human_probs=probs or None, maia_meta=meta)
+                                  human_probs=probs or None, maia_meta=meta,
+                                  max_band_solve=args.max_band_solve)
             except chess.engine.EngineTerminatedError:
                 print("  engine died; restarting")
                 engine = open_engine(args.threads)
@@ -222,12 +253,27 @@ async def main() -> int:
         print(f"  [{built:3}] {game_id[-12:]} ply {cand['ply']:>3} "
               f"{tree.men} men  {tree.proof:10} only move "
               f"{tree.only_move.san:7} ({tag})")
-        if not args.dry_run:
-            await db[COLLECTION].update_one(
-                {"game_id": game_id, "ply": cand["ply"]},
-                {"$set": doc},
-                upsert=True,
-            )
+        if args.out:
+            import json
+            with open(args.out, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(doc, default=str) + "\n")
+        elif not args.dry_run:
+            # A refused write must not throw away the rest of the run. The
+            # workstation login is read-only on purpose, and losing an hour
+            # of engine time to one Unauthorized is not an acceptable way to
+            # find that out -- say it plainly and keep the work via --out.
+            try:
+                await db[COLLECTION].update_one(
+                    {"game_id": game_id, "ply": cand["ply"]},
+                    {"$set": doc},
+                    upsert=True,
+                )
+            except Exception as exc:
+                write_errors.append(str(exc).split(",")[0])
+                if len(write_errors) == 1:
+                    print(f"    WRITE REFUSED: {exc}")
+                    print("    continuing; re-run with --out FILE to keep "
+                          "the scripts and load them where you can write")
 
     engine.quit()
     secs = time.time() - started
@@ -235,6 +281,13 @@ async def main() -> int:
     print(f"  built {built}   no teachable position {skipped}")
     if args.dry_run:
         print("  DRY RUN -- nothing was written")
+    elif args.out:
+        print(f"  wrote {built} scripts to {args.out}")
+        print(f"  load them with:  --load {os.path.basename(args.out)}")
+    elif write_errors:
+        print(f"  {len(write_errors)} WRITES REFUSED -- nothing was stored.")
+        print(f"  first error: {write_errors[0]}")
+        print("  re-run with --out FILE, then --load it where the login can write")
     else:
         total = await db[COLLECTION].count_documents({})
         print(f"  {COLLECTION} now holds {total}")
