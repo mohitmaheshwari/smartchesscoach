@@ -596,18 +596,31 @@ def triage(candidate: Dict[str, Any],
     think = candidate.get("think_seconds")
     clock = candidate.get("clock_seconds")
 
-    pace = candidate.get("game_median_think")
-    if think is not None:
-        bar = rushed_seconds
-        if pace:
-            bar = max(rushed_seconds, rushed_fraction * pace)
-        if think <= bar:
-            detail = f"played in {think:.0f}s"
-            if pace:
-                detail += f", against {pace:.0f}s typical for them this game"
-            return {"verdict": "execution_failure", "cause": "rushed",
-                    "detail": detail, "think_seconds": think,
-                    "clock_seconds": clock, "pace_seconds": pace}
+    # NO "rushed" RULE. It was here, and it was backwards.
+    #
+    # The assumption was: played fast, therefore did not calculate,
+    # therefore knew it and slipped -- an execution failure, no lesson.
+    # Measured 2026-11-26 over 44,580 big errors that carry a missed_pattern,
+    # splitting the taxonomy into blindness (piece_safety, king_safety,
+    # missed_tactic, tactical_oversight -- things their level knows) against
+    # knowledge (opening_knowledge, endgame_technique):
+    #
+    #     0-1s    blindness 78.3%   knowledge 21.7%
+    #     1-3s              83.1%             16.9%
+    #     3-10s             87.6%             12.4%
+    #     10-30s            91.3%              8.7%
+    #     30s+              93.2%              6.8%
+    #
+    # Monotonic across five buckets: a FAST error is three times MORE likely
+    # to be a real knowledge gap, not less. Which is obvious once seen -- if
+    # you move instantly you did not notice there was anything to think
+    # about, and that is not knowing. Thinking for thirty seconds and erring
+    # anyway means you saw the problem and your pattern knowledge failed.
+    #
+    # Suppressing a lesson because the move was quick would have withheld
+    # teaching from exactly the players who needed it most.
+    #
+    # Pace is still recorded on the candidate; it is just not a verdict.
 
     if clock is not None and clock <= low_clock_seconds:
         return {"verdict": "execution_failure", "cause": "time_pressure",

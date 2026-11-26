@@ -131,10 +131,17 @@ from services.teaching_script_builder import (  # noqa: E402
 )
 
 
-def test_a_rushed_move_is_not_a_knowledge_gap():
+def test_a_fast_move_is_still_teachable():
+    # This test asserted the opposite until 2026-11-26. The rule was that a
+    # quick move meant they knew it and slipped, so no lesson. Measured over
+    # 44,580 big errors, a 0-1s error is a knowledge gap 21.7% of the time
+    # against 6.8% at 30s+ -- fast errors are three times MORE likely to be
+    # genuine ignorance, because moving instantly means not noticing there
+    # was anything to think about. The old rule withheld teaching from the
+    # players who needed it most.
     v = triage({"think_seconds": 1.4, "clock_seconds": 400.0})
-    assert v["verdict"] == "execution_failure"
-    assert v["cause"] == "rushed"
+    assert v["verdict"] == "knowledge_gap"
+    assert v["cause"] != "rushed"
 
 
 def test_a_move_in_time_trouble_is_not_a_knowledge_gap():

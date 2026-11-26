@@ -164,8 +164,56 @@ version changes.
   when it fires against 59.3 when it does not. Fix or retire before anything
   quotes it.
 
+### Measured 2026-11-26, and two ideas died
+
+**Board geometry is dead.** The hypothesis was that errors cluster where the
+player stopped looking. Split by phase, the effect vanishes exactly where it
+was supposed to matter:
+
+| | queenside a-c | centre d-e | kingside f-h |
+|---|---|---|---|
+| opening | 5.70% | 5.58% | 7.17% |
+| middlegame | 11.26% | 11.15% | 11.83% |
+| endgame | 10.80% | 10.78% | 10.76% |
+
+Distance from the opponent's last move is not monotonic either (near 13.88%
+against across-the-board 14.44%). The one clean gap — adjacent moves at
+10.45% — is recaptures and forced replies being mechanically safe. Only the
+opening shows a region effect, and that is opening theory, not attention.
+**Do not build "all on the queenside while the game was on the kingside".**
+
+**"Rushed" is dead, and it was backwards.** Over 44,580 big errors carrying a
+`missed_pattern`, split into blindness (`piece_safety`, `king_safety`,
+`missed_tactic`, `tactical_oversight`) against knowledge
+(`opening_knowledge`, `endgame_technique`):
+
+| think time | blindness | knowledge gap |
+|---|---|---|
+| 0–1s | 78.3% | **21.7%** |
+| 1–3s | 83.1% | 16.9% |
+| 3–10s | 87.6% | 12.4% |
+| 10–30s | 91.3% | 8.7% |
+| 30s+ | 93.2% | **6.8%** |
+
+A fast error is **three times more likely** to be a genuine knowledge gap.
+Moving instantly means not noticing there was anything to think about, which
+is not knowing. The triage briefly suppressed lessons on quick moves, which
+would have withheld teaching from the players who needed it most. Removed.
+
+**Clock remaining survives** and is the one time signal that holds: 13.37%
+big errors with under 15 seconds left, against 7.94% at 3–10 minutes.
+
+**Already in the data and unused:** `move_observations.time_flag` already
+classifies `snap_decision`, `time_pressure_blunder` and `slow_paralysis`.
+`slow_paralysis` fires on 6.3% of errors where the player thought 30s or
+more — a real detector nobody has surfaced.
+
+**A near miss worth recording:** `missed_free_piece` reads 0 across all
+63,965 big errors because it is never populated. A dead field returns a
+clean zero that looks exactly like a finding.
+
 **Status: researched, not built.** No detector runs in production. No report
-exists. Board-geometry and time-pressure detection **not measured yet.**
+exists.
 
 ---
 
