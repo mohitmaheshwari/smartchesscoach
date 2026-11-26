@@ -949,7 +949,7 @@ export default function PrescribedTraining({ user = null }) {
               navigate("/home");
             }
           }}
-          className="text-[11.5px] text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5 mb-8"
+          className="text-[11.5px] text-muted-foreground hover:text-foreground transition-colors inline-flex min-h-[44px] items-center gap-1.5 mb-6"
         >
           <ArrowLeft className="w-3 h-3" strokeWidth={1.75} />
           Back
@@ -1356,7 +1356,7 @@ function PuzzlePrompt({
         <div className="flex items-center gap-5 text-[12.5px] flex-wrap">
           <button
             onClick={onReveal}
-            className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
+            className="text-muted-foreground hover:text-foreground transition-colors inline-flex min-h-[44px] items-center gap-1.5"
           >
             <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />
             Show the move
@@ -1364,7 +1364,7 @@ function PuzzlePrompt({
           <span className="text-border">·</span>
           <button
             onClick={onSkip}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors inline-flex min-h-[44px] items-center"
           >
             Skip this one
           </button>

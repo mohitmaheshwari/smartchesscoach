@@ -342,7 +342,7 @@ const AllGames = ({ user }) => {
                 <div className="flex items-center gap-2 mb-5">
                   <button
                     onClick={() => navigate(CURRICULUM_ROUTES.home)}
-                    className="p-1.5 rounded-lg hover:bg-muted/50 transition"
+                    className="flex h-11 w-11 items-center justify-center rounded-lg transition hover:bg-muted/50"
                     aria-label="Back to Home"
                   >
                     <ChevronLeft className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
@@ -461,7 +461,7 @@ const AllGames = ({ user }) => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => navigate(CURRICULUM_ROUTES.home)}
-                  className="p-1.5 rounded-lg hover:bg-muted/50 transition"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg transition hover:bg-muted/50"
                   aria-label="Back to Home"
                 >
                   <ChevronLeft className="w-4 h-4 text-muted-foreground" strokeWidth={2} />
@@ -485,7 +485,7 @@ const AllGames = ({ user }) => {
           <div className="flex items-center gap-1 p-1 rounded-xl bg-muted/30 border border-border/40">
             <button
               onClick={() => { setTab("imported"); setExpandedGameId(null); }}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`flex-1 min-h-[44px] py-1.5 text-xs font-medium rounded-lg transition-all ${
                 tab === "imported" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -493,7 +493,7 @@ const AllGames = ({ user }) => {
             </button>
             <button
               onClick={() => { setTab("coach"); setExpandedGameId(null); }}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              className={`flex-1 min-h-[44px] py-1.5 text-xs font-medium rounded-lg transition-all ${
                 tab === "coach" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >

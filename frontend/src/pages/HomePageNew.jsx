@@ -408,7 +408,7 @@ export default function HomePageNew({ user }) {
               </p>
               <button
                 onClick={() => navigate("/import")}
-                className="text-note text-foreground hover:underline transition-colors inline-flex items-center gap-1.5"
+                className="text-note text-foreground hover:underline transition-colors inline-flex min-h-[44px] items-center gap-1.5"
               >
                 <Import className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Connect Chess.com or Lichess

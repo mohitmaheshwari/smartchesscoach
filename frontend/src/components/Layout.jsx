@@ -283,7 +283,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
       >
         {/* Logo */}
         <div className={`flex items-center h-16 px-4 ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
-          <Link to="/home" className="flex items-center gap-3 group">
+          <Link to="/home" className="flex min-h-[44px] items-center gap-3 group">
             <div className="experience-brand-mark w-9 h-9 rounded-xl flex items-center justify-center">
               <img src="/chessguru-logo.svg" alt="" className="h-7 w-7" />
             </div>
@@ -295,7 +295,9 @@ const Layout = ({ children, user, fullBleed = false }) => {
           </Link>
           {!sidebarCollapsed && (
             <button
-              className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-white/5"
+              type="button"
+              aria-label="Collapse sidebar"
+              className="flex h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
               onClick={() => setSidebarCollapsed(true)}
             >
               <ChevronLeft className="w-4 h-4" strokeWidth={1.5} />
@@ -311,7 +313,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
             return (
               <Link key={item.href} to={item.href}>
                 <div
-                  className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                  className={`relative w-full flex min-h-[44px] items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                     sidebarCollapsed ? 'justify-center px-2' : 'justify-start'
                   } ${active
                     ? 'bg-primary/15 text-primary font-medium'
@@ -406,7 +408,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
         <div className="p-3 space-y-1 border-t border-border/50">
           <button
             onClick={toggleTheme}
-            className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`}
+            className={`w-full flex min-h-[44px] items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`}
             data-testid="sidebar-theme-toggle"
           >
             {theme === "dark" ? <Sun className="w-[18px] h-[18px]" strokeWidth={1.5} /> : <Moon className="w-[18px] h-[18px]" strokeWidth={1.5} />}
@@ -414,7 +416,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
           </button>
 
           <Link to="/settings">
-            <div className={`w-full flex items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
+            <div className={`w-full flex min-h-[44px] items-center gap-3 px-3 py-2 text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all rounded-lg ${sidebarCollapsed ? 'justify-center px-2' : 'justify-start'}`} data-testid="nav-settings">
               <Settings className="w-[18px] h-[18px]" strokeWidth={1.5} />
               {!sidebarCollapsed && <span className="text-[13px]">Settings</span>}
             </div>
@@ -459,7 +461,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
       {/* ═══ Mobile Header ═══ */}
       <header className="experience-mobile-header md:hidden fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/90 backdrop-blur-xl">
         <div className="flex items-center justify-between h-14 px-4">
-          <Link to="/home" className="flex items-center gap-2.5">
+          <Link to="/home" className="flex min-h-[44px] items-center gap-2.5">
             <div className="experience-brand-mark w-8 h-8 rounded-xl flex items-center justify-center">
               <img src="/chessguru-logo.svg" alt="" className="h-6 w-6" />
             </div>
@@ -468,7 +470,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="w-8 h-8 relative" data-testid="notifications-bell">
+                <Button variant="ghost" size="icon" className="h-11 w-11 relative" data-testid="notifications-bell">
                   <Bell className="w-4 h-4" />
                   {unreadCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 w-4 h-4 experience-acid-badge text-[10px] font-bold text-black rounded-full flex items-center justify-center">
@@ -501,7 +503,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} data-testid="mobile-menu-toggle">
+            <Button variant="ghost" size="icon" aria-label={mobileMenuOpen ? "Close menu" : "Open menu"} className="h-11 w-11" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} data-testid="mobile-menu-toggle">
               {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </Button>
           </div>
