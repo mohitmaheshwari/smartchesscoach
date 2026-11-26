@@ -12,7 +12,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock("@/lib/analytics", () => ({ ANALYTICS_EVENTS: new Proxy({}, { get: (_t, k) => k }), track: jest.fn() }), { virtual: true });
 jest.mock("@/App", () => ({ API: "/api" }), { virtual: true });
 jest.mock("@/components/Layout", () => ({ children }) => <div>{children}</div>, { virtual: true });
-jest.mock("react-chessboard", () => ({ Chessboard: ({ position }) => <div data-testid="board">{position}</div> }), { virtual: true });
+// The page now renders the product's own board. Mocked for the same reason
+jest.mock("@/components/LichessBoard", () => ({ fen }) => <div data-testid="board">{fen}</div>, { virtual: true });
 jest.mock("lucide-react", () => new Proxy({}, { get: () => () => <span /> }), { virtual: true });
 jest.mock("react-router-dom", () => ({
   useParams: () => ({ puzzleId: "p1" }),

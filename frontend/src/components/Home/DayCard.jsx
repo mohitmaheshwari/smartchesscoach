@@ -76,7 +76,7 @@ function TaskAction({ task, onOpen }) {
   );
 }
 
-export default function DayCard() {
+export default function DayCard({ flush = false }) {
   const [data, setData] = useState(null);
   const viewed = useRef(false);
 
@@ -120,9 +120,24 @@ export default function DayCard() {
   };
 
   return (
-    <section data-testid="day-card" className="mb-10 rounded-panel border border-border/70 bg-card p-6 shadow-e2 md:p-8">
+    <section
+      data-testid="day-card"
+      /* `flush` drops this card's own panel so Home can print Today and
+         the plan as ONE card. Two identical panels read as two separate
+         to-do lists that partly repeat each other, and the player has to
+         work out whether doing one ticks the other. The hairline below is
+         owned here so it never appears without Today above it. */
+      className={flush
+        ? "mb-7 border-b border-border/60 pb-7"
+        : "mb-10 rounded-panel border border-border/70 bg-card p-6 shadow-e2 md:p-8"}
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <p className="cg-eyebrow">{data.all_done ? "Today · done" : "Today"}</p>
+        <div>
+          <p className="cg-eyebrow">{data.all_done ? "Today · done" : "Today"}</p>
+          {flush && (
+            <p className="mt-1 text-meta text-muted-foreground">From step one of your plan, below.</p>
+          )}
+        </div>
         <div className="flex items-center gap-1 text-meta text-muted-foreground" data-testid="day-card-size">
           <span>Your day:</span>
           {data.sizes.map((s) => (

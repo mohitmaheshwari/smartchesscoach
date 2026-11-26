@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { ArrowRight, Check, ChevronRight, X } from "lucide-react";
 
 import { API } from "@/App";
@@ -127,9 +127,25 @@ export default function StudyGame({ user }) {
           {data.opening}. Players near your level.
         </p>
 
-        <div className="mt-5 aspect-square w-full max-w-[440px] mx-auto">
-          <Chessboard position={fen} onPieceDrop={onDrop} arePiecesDraggable={phase === "ask"}
-            boardOrientation={data.solver === "black" ? "black" : "white"} customBoardStyle={{ borderRadius: "6px" }} />
+        {/* The product's own board, not a second library. This page shipped
+            with react-chessboard while LichessBoard is used in 95 other
+            files, so the one screen that teaches a pattern showed different
+            squares and different pieces from every screen around it.
+            LichessBoard hands onMove a {from, to}; onDrop still takes the
+            two squares, so the handler is unchanged. */}
+        <div className="mt-5 w-full max-w-[440px] mx-auto">
+          <div className="experience-board-stage">
+            <div className="aspect-square w-full overflow-hidden">
+              <LichessBoard
+                fen={fen}
+                orientation={data.solver === "black" ? "black" : "white"}
+                interactive={phase === "ask"}
+                viewOnly={phase !== "ask"}
+                showDests={phase === "ask"}
+                onMove={(m) => m && onDrop(m.from, m.to)}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="mt-5 rounded-card border border-border/70 bg-card p-5" data-testid={`study-${phase}`}>

@@ -465,11 +465,21 @@ export default function HomePageNew({ user }) {
             <>
               {/* Today's tasks first (docs/daily_coach_plan_scope.md): the
                   day's slice of the plan below, plus one new thing. */}
+              {/* ONE card, not two. Today and the plan were two identical
+                  panels carrying two to-do lists that partly repeat each
+                  other -- "find the better move in one of your games" above
+                  and "find it in your own games" below -- so the player had
+                  to work out whether they were the same work. They are: the
+                  comment above has always said Today is the day's slice of
+                  the plan. Now the page says it too. */}
               <motion.div variants={fadeInUp}>
-                <DayCard />
-              </motion.div>
-              <motion.div variants={fadeInUp}>
-                <CoachPlanCard />
+                <section
+                  data-testid="home-coach-panel"
+                  className="mb-10 rounded-panel border border-border/70 bg-card p-6 shadow-e2 md:p-8"
+                >
+                  <DayCard flush />
+                  <CoachPlanCard flush />
+                </section>
               </motion.div>
               <motion.div variants={fadeInUp} className="mb-12 md:mb-16">
                 <LastGameCard />

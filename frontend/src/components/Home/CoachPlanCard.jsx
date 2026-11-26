@@ -143,7 +143,11 @@ function Step({ step, index, check, notation, done }) {
             Worth up to {fmt(step.stake.high)}
           </span>
         )}
-        {step.state_title && Icon && (
+        {/* "Same as before" and "Waiting for games" say nothing about chess
+            and read as system notes. Only a CHANGE is worth a player's
+            attention, so the unchanged and not-enough-data states stay
+            silent and the icon goes with them. */}
+        {step.state_title && Icon && step.state !== "same" && step.state !== "waiting" && (
           <span className="inline-flex items-center gap-1 text-meta text-muted-foreground">
             <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {step.state_title}
           </span>
@@ -207,7 +211,7 @@ function Step({ step, index, check, notation, done }) {
   );
 }
 
-export default function CoachPlanCard() {
+export default function CoachPlanCard({ flush = false }) {
   const file = useCoachFile();
   const viewed = useRef(false);
   const stepCount = file?.plan?.steps?.length || 0;
@@ -229,7 +233,10 @@ export default function CoachPlanCard() {
   if (!plan?.steps?.length) return null;
   const notation = file.notation !== false;
   return (
-    <section className="mb-10 rounded-panel border border-border/70 bg-card p-6 shadow-e2 md:p-8" data-testid="coach-plan">
+    <section
+      className={flush ? "" : "mb-10 rounded-panel border border-border/70 bg-card p-6 shadow-e2 md:p-8"}
+      data-testid="coach-plan"
+    >
       <p className="cg-eyebrow">Your coach's plan</p>
       <h2 className="mt-2 font-heading text-title text-foreground">How you play, and the way up</h2>
       {plan.read?.length > 0 && (
