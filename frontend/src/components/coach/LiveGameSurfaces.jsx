@@ -139,9 +139,15 @@ export function useLiveClock(baseMs, ageMs, running) {
   const key = `${baseMs}|${ageMs}|${running}`;
   if (anchor.current.key !== key) {
     const known = baseMs !== null && baseMs !== undefined;
+    // The age correction belongs ONLY to the player on move. clock_age_ms is
+    // how stale the reading is, and only the side whose clock is running has
+    // been losing time during it. Subtracting it from the idle side made
+    // their clock fall by a step on every poll -- not a smooth tick, since
+    // no interval runs for them, but indistinguishable from one on screen,
+    // and it ran both clocks down at once.
     anchor.current = {
       key,
-      from: known ? Math.max(0, baseMs - (ageMs || 0)) : null,
+      from: known ? Math.max(0, baseMs - (running ? ageMs || 0 : 0)) : null,
       at: nowMs(),
     };
   }

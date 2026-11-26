@@ -300,11 +300,44 @@ describe("the clock", () => {
       clockAgeMs: 2000,
       running: false,
     });
-    // Not their move: the age is still subtracted (it was true then and the
-    // clock has not moved since), but nothing runs.
-    expect(shown().textContent).toBe("9:58");
+    // Not their move, so no time has come off THEIR clock during those two
+    // seconds. The age belongs to whoever is on move. Subtracting it here
+    // was the bug: it showed 9:58 for a player who still has all 10:00.
+    expect(shown().textContent).toBe("10:00");
     await advance(8000);
+    expect(shown().textContent).toBe("10:00");
+  });
+
+  it("holds the idle clock still across polls, as the reading goes stale", async () => {
+    // The regression that reached a live game. clock_age_ms grows with every
+    // poll while nobody moves, so subtracting it from the idle side stepped
+    // that clock down once per poll. It is not a smooth tick -- no interval
+    // runs for a stopped clock -- but on screen it is indistinguishable from
+    // one, and both clocks ran down together.
+    const { shown, rerender } = await mount({
+      clockMs: 600000,
+      clockAgeMs: 0,
+      running: false,
+    });
+    expect(shown().textContent).toBe("10:00");
+
+    for (const age of [700, 1500, 2400, 3300, 5000]) {
+      await rerender({ clockMs: 600000, clockAgeMs: age, running: false });
+      expect(shown().textContent).toBe("10:00");
+    }
+  });
+
+  it("still corrects for a stale reading on the side that IS running", async () => {
+    // The fix must not throw away the correction where it belongs, or the
+    // running clock lurches backwards on every poll.
+    const { shown, rerender } = await mount({
+      clockMs: 600000,
+      clockAgeMs: 2000,
+      running: true,
+    });
     expect(shown().textContent).toBe("9:58");
+    await rerender({ clockMs: 600000, clockAgeMs: 5000, running: true });
+    expect(shown().textContent).toBe("9:55");
   });
 
   it("re-anchors on every new reading, so our drift lives one poll at most", async () => {
@@ -336,6 +369,9 @@ describe("the clock", () => {
     expect(shown().textContent).toBe("5:05");
   });
 
+  // 30 seconds at a 100ms tick is 300 renders inside act(), which genuinely
+  // takes longer than Jest's 5s default on a loaded machine. The assertion is
+  // unchanged; only the budget is honest about what the test does.
   it("stops at zero rather than counting into negative time", async () => {
     const { shown, advance } = await mount({
       clockMs: 3000,
@@ -344,7 +380,7 @@ describe("the clock", () => {
     });
     await advance(30000);
     expect(shown().textContent).toBe("0:00.0");
-  });
+  }, 20000);
 
   it("goes urgent while it is running, not only when a poll happens to land", async () => {
     const { shown, advance } = await mount({

@@ -33,6 +33,7 @@ import Coach2Settings from "@/pages/Coach2Settings";
 import ShellPreview from "@/pages/ShellPreview";
 import ThemePreview from "@/pages/ThemePreview";  // /shell2 — theme harness, real Layout, no backend  // /coach2/settings — dialog + settings preview
 import StudyHall from "@/pages/StudyHall";        // /study-hall — "Study Hall" visual direction, self-contained
+import LobbyPreview from "@/pages/LobbyPreview";  // /lobby2 — the seek screen, both states, no Lichess seek
 import AllGames from "@/pages/AllGames";
 import PersonalMoments from "@/pages/PersonalMoments";  // /coach/moments/:topic — email landing pages
 import ReviewQueue from "@/pages/ReviewQueue";
@@ -362,6 +363,7 @@ function AppRouter() {
       <Route path="/shell2" element={<ShellPreview />} />
       <Route path="/theme2" element={<ThemePreview />} />
       <Route path="/study-hall" element={<StudyHall />} />
+      <Route path="/lobby2" element={<LobbyPreview />} />
 
       {/* Public SEO routes — no auth required. Indexed by crawlers,
           served to cold visitors as marketing/teaching content. */}
