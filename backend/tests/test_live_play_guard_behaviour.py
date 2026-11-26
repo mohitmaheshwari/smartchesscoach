@@ -234,7 +234,13 @@ def test_the_player_is_refused_an_engine_derived_path():
     assert payload["live_lichess_game"] is True
     # The player must learn this is deliberate and that nothing is lost.
     assert "Lichess" in payload["detail"]
-    assert "ends" in payload["detail"]
+    # The intent, not one word of the wording: the player must be told the
+    # review is still coming, and be given somewhere to go. A refusal that
+    # only says "no" reads as a broken page, which is how this shipped on
+    # 2026-11-25 -- correct, and indistinguishable from the app being down.
+    assert "review" in payload["detail"].lower()
+    assert payload["open"] == "/play-with-coach"
+    assert payload["open_label"]
 
 
 def test_an_endpoint_invented_next_month_is_refused():

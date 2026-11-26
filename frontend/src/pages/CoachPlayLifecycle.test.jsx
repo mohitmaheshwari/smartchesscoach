@@ -8,6 +8,14 @@ import useGuardian from "@/hooks/useGuardian";
 import useStockfishEval from "@/hooks/useStockfishEval";
 import { useCoachFlow } from "@/coachFlow";
 
+// CoachPlay reaches chessground through the Play-a-Human screen it gained on
+// 2026-11-25, and chessground ships ESM that jest does not transform, so this
+// whole suite stopped loading. Every other suite that renders a board mocks it
+// the same way.
+jest.mock("@/components/LichessBoard", () =>
+  require("@/components/coachplan/__fixtures__/fakeLichessBoard")
+);
+
 let mockSearchParams = new URLSearchParams();
 const mockHandleStartLesson = jest.fn();
 const mockEvaluateMove = jest.fn();

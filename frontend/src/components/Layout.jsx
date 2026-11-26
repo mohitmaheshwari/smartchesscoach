@@ -1,3 +1,5 @@
+import LiveGameBar from "@/components/LiveGameBar";
+import { readRefusal } from "@/lib/liveGameNotice";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -73,6 +75,8 @@ const Layout = ({ children, user, fullBleed = false }) => {
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
   const [coachPulse, setCoachPulse] = useState(null);
+  // Set when the coach-pulse poll is refused because a Lichess game is live.
+  const [liveNotice, setLiveNotice] = useState(null);
   const [lossStreak, setLossStreak] = useState({ show: false, count: 0 });
   const [personalCurriculumEnabled, setPersonalCurriculumEnabled] = useState(false);
 
@@ -94,6 +98,12 @@ const Layout = ({ children, user, fullBleed = false }) => {
     const fetchCoachPulse = async () => {
       try {
         const streakRes = await fetch(`${API}/loss-streak-status`, { credentials: 'include' });
+        // This poll is already being refused during a live Lichess game -- all
+        // three of its endpoints are outside the guard's allowlist. Noticing
+        // here costs no extra request and is the one place that sees it.
+        const refused = await readRefusal(streakRes);
+        setLiveNotice(refused);
+        if (refused) { setCoachPulse(null); return; }
         if (streakRes.ok) {
           const streakData = await streakRes.json();
           setLossStreak({ show: streakData.show_plateau_breaker, count: streakData.consecutive_losses, message: streakData.message });
@@ -264,6 +274,7 @@ const Layout = ({ children, user, fullBleed = false }) => {
 
   return (
     <div className={`min-h-screen flex bg-background ${EXPERIENCE_V1_ENABLED ? "experience-v1" : ""}`}>
+      <LiveGameBar notice={liveNotice} onClear={() => setLiveNotice(null)} />
       {/* ═══ Desktop Sidebar ═══ */}
       <aside
         className={`experience-sidebar hidden md:flex flex-col fixed left-0 top-0 h-full z-40 transition-all duration-300 sidebar-gradient ${

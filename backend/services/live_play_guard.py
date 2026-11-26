@@ -246,10 +246,11 @@ def _session_token_from_scope(scope) -> Optional[str]:
 # Written for the player, not for us: they need to know this is deliberate and
 # that nothing is lost, or it reads as a broken page.
 _REFUSAL = (
-    b'{"detail":"Coaching is paused while your Lichess game is live. Lichess '
-    b"forbids outside help during a game, and ignoring that would get your own "
-    b'account marked as an engine user. Your review opens the moment the game '
-    b'ends.","live_lichess_game":true}'
+    b'{"detail":"Your game is live, so the coach is quiet. Lichess forbids '
+    b"outside help during a game, and ignoring that would get your own account "
+    b'marked as an engine user. Finish the game and your review opens by '
+    b'itself.","live_lichess_game":true,"open":"/play-with-coach",'
+    b'"open_label":"Back to your game"}'
 )
 
 
