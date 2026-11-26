@@ -155,14 +155,14 @@ export default function DayCard({ flush = false }) {
         </p>
       )}
 
-      <ol className="mt-4 space-y-4">
+      <ol className="mt-5 divide-y divide-border/50">
         {data.tasks.map((task) => (
-          <li key={task.id} className="flex items-start gap-3" data-testid={`day-task-${task.slot}`}>
+          <li key={task.id} className="flex items-start gap-3.5 py-4 first:pt-0 last:pb-0" data-testid={`day-task-${task.slot}`}>
             <Tick done={task.done} />
             <div className="min-w-0">
               <p className="cg-eyebrow">{SLOT_WORDS[task.slot] || task.slot}</p>
-              <p className={`mt-1 text-body font-semibold ${task.done ? "text-muted-foreground" : "text-foreground"}`}>{task.title}</p>
-              {!task.done && <p className="mt-1 text-note text-muted-foreground">{task.text}</p>}
+              <p className={`mt-1 font-heading text-lead font-semibold leading-snug ${task.done ? "text-muted-foreground" : "text-foreground"}`}>{task.title}</p>
+              {!task.done && <p className="mt-1.5 text-body text-muted-foreground">{task.text}</p>}
               <TaskAction task={task} onOpen={onOpen} />
             </div>
           </li>

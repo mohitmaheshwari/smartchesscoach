@@ -130,7 +130,13 @@ function Step({ step, index, check, notation, done }) {
   const whereUrl = step.work?.find?.[0]?.url || step.review_url;
   return (
     <li
-      className={`rounded-card border p-5 ${step.this_week ? "border-primary/40 bg-primary/[0.05]" : "border-border/70"}`}
+      /* Only THIS WEEK's rung is a box. The other two were bordered cards
+         nested inside a bordered card inside a bordered panel, which is what
+         made the ladder read as loose fragments instead of one ordered list.
+         They are rungs now: air and a rule, no second frame. */
+      className={step.this_week
+        ? "rounded-card border border-primary/40 bg-primary/[0.05] p-5"
+        : "border-t border-border/50 px-1 pt-6"}
       data-testid="coach-plan-step"
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -242,7 +248,7 @@ export default function CoachPlanCard({ flush = false }) {
       {plan.read?.length > 0 && (
         <div className="mt-4 space-y-1.5" data-testid="coach-plan-read">
           {plan.read.map((line) => (
-            <p key={line} className="text-body text-foreground/90">{line}</p>
+            <p key={line} className="text-lead leading-snug text-foreground/90">{line}</p>
           ))}
         </div>
       )}
@@ -265,8 +271,8 @@ export default function CoachPlanCard({ flush = false }) {
           {plan.last_week.words}
         </p>
       )}
-      <p className="mt-6 text-note font-semibold text-foreground">To reach the next level, in this order:</p>
-      <ol className="mt-3 space-y-3">
+      <p className="mt-8 text-note font-semibold text-foreground">To reach the next level, in this order:</p>
+      <ol className="mt-4 space-y-6">
         {plan.steps.map((s, i) => (
           <Step key={`${s.kind}-${s.title}`} step={s} index={i} check={plan.check} notation={notation}
             done={file.week?.done?.[s.key]} />
