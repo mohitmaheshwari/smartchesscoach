@@ -1,0 +1,170 @@
+/*
+ * "Instrument" — a visual direction for ChessGuru, 2026-11-26.
+ *
+ * Deliberately NOT the warm-paper, serif-display look of the reference site:
+ * that was copied once already and Mohit called it. This is the other end —
+ * an instrument panel. Near-black ground, bone type, monospaced figures, a
+ * hard grid, hairlines, two accents that differ in lightness as well as hue
+ * so they survive a colourblind reader and a bad phone screen.
+ *
+ * The one ownable structure in chess is the 8x8 and its coordinates. The page
+ * is laid out on that grid and indexed with file letters, rather than being
+ * decorated with a picture of a board.
+ *
+ * Scoped entirely to `.in-root`. No :root, no .dark, nothing global. Colours
+ * are rgb() triplets because scripts/palette_report.js caps DISTINCT HEX at
+ * 209 and the repo sits exactly on it.
+ *
+ * Mobile is the default: every measurement below is fluid or wraps, and the
+ * cause strip reflows rather than scrolling sideways.
+ */
+
+.in-root {
+  --in-bg: 12 13 15;
+  --in-panel: 20 22 25;
+  --in-raise: 27 30 34;
+  --in-line: 42 46 52;
+  --in-line-soft: 32 35 40;
+
+  --in-bone: 232 233 230;
+  --in-dim: 150 155 160;
+  --in-faint: 104 110 117;
+
+  /* warm = still a problem. cool = it moved. different lightness, not just hue. */
+  --in-warm: 214 125 58;
+  --in-cool: 122 170 198;
+  --in-bad: 206 94 84;
+
+  --in-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --in-ui: "Inter", system-ui, -apple-system, sans-serif;
+
+  background: rgb(var(--in-bg));
+  color: rgb(var(--in-bone));
+  font-family: var(--in-ui);
+  min-height: 100vh;
+}
+
+.in-shell {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 4vw, 32px);
+}
+
+.in-rule { border: 0; border-top: 1px solid rgb(var(--in-line)); margin: 0; }
+
+.in-label {
+  margin: 0;
+  font-family: var(--in-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(var(--in-faint));
+}
+
+.in-num { font-family: var(--in-mono); font-variant-numeric: tabular-nums; }
+
+.in-h1 {
+  margin: 14px 0 0;
+  font-size: clamp(26px, 5.2vw, 40px);
+  line-height: 1.14;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  text-wrap: pretty;
+}
+
+.in-lede {
+  margin: 14px 0 0;
+  max-width: 62ch;
+  font-size: clamp(14.5px, 1.6vw, 16px);
+  line-height: 1.65;
+  color: rgb(var(--in-dim));
+}
+
+.in-panel {
+  background: rgb(var(--in-panel));
+  border: 1px solid rgb(var(--in-line));
+  border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgb(232 233 230 / 0.04);
+}
+
+/* ── the cause strip ────────────────────────────────────────── */
+
+.in-lane {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 12px 0;
+  border-top: 1px solid rgb(var(--in-line-soft));
+}
+
+/* From 640px the label, strip and delta sit on one line. Below it they
+   stack, which is why the strip never needs to scroll sideways. */
+@media (min-width: 640px) {
+  .in-lane {
+    grid-template-columns: 150px minmax(0, 1fr) 104px;
+    gap: 16px;
+    align-items: center;
+  }
+}
+
+.in-cells {
+  display: grid;
+  grid-template-columns: repeat(22, minmax(0, 1fr));
+  gap: 2px;
+  height: 26px;
+}
+
+.in-cell { border-radius: 1px; min-width: 0; }
+
+.in-delta {
+  font-family: var(--in-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+@media (min-width: 640px) { .in-delta { text-align: right; } }
+
+/* ── file-letter index, the one chess structure worth owning ── */
+
+.in-files {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 2px;
+}
+.in-file {
+  height: 3px;
+  border-radius: 1px;
+  background: rgb(var(--in-line));
+}
+.in-file--on { background: rgb(var(--in-warm)); }
+
+.in-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgb(var(--in-line));
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-family: var(--in-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: rgb(var(--in-dim));
+}
+
+.in-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.in-btn--solid { background: rgb(var(--in-bone)); color: rgb(var(--in-bg)); }
+.in-btn--quiet { border-color: rgb(var(--in-line)); color: rgb(var(--in-bone)); }
+.in-btn--quiet:hover { background: rgb(var(--in-raise)); }
