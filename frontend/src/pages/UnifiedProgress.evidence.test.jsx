@@ -8,9 +8,9 @@ const mockLoadPersonalCurriculum = jest.fn();
 jest.mock("react-router-dom", () => ({
   useNavigate: () => mockNavigate,
 }), { virtual: true });
-jest.mock("react-chessboard", () => ({
-  Chessboard: ({ position }) => <div data-testid="evidence-board">{position}</div>,
-}));
+jest.mock("@/components/LichessBoard", () => ({ fen }) => (
+  <div data-testid="evidence-board">{fen}</div>
+));
 jest.mock("@/components/Layout", () => ({ children }) => <div>{children}</div>);
 jest.mock("@/App", () => ({ API: "https://api.test/api" }));
 jest.mock("@/lib/analytics", () => ({

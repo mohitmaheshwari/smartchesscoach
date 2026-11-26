@@ -18,7 +18,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { API } from "@/App";
 import { ArrowRight, ChevronLeft } from "lucide-react";
 
@@ -149,10 +149,12 @@ const MomentCard = ({ moment, index }) => {
       </div>
       <div className="grid md:grid-cols-2 gap-5 p-5">
         <div style={{ maxWidth: 360 }}>
-          <Chessboard
-            position={fen}
-            arePiecesDraggable={false}
-            boardOrientation={sideToMove}
+          <LichessBoard
+            fen={fen}
+            orientation={sideToMove}
+            viewOnly
+            interactive={false}
+            showDests={false}
           />
         </div>
         <div className="space-y-3 text-sm">

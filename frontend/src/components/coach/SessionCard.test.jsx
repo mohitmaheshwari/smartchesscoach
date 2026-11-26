@@ -10,9 +10,9 @@ jest.mock("lucide-react", () => ({ Loader2: () => null, ChevronRight: () => null
 jest.mock("react-router-dom", () => ({
   Link: ({ to, children, ...rest }) => <a href={to} {...rest}>{children}</a>,
 }), { virtual: true });
-jest.mock("react-chessboard", () => ({
-  Chessboard: ({ position }) => <div data-testid="board" data-fen={position} />,
-}), { virtual: true });
+jest.mock("@/components/LichessBoard", () => ({ fen }) => (
+  <div data-testid="board" data-fen={fen} />
+), { virtual: true });
 
 const SessionCard = require("./SessionCard").default;
 

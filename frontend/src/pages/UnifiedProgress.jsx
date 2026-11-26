@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
@@ -192,10 +192,12 @@ function EvidenceBoard({ item, label, recent, onReview }) {
       </div>
       <div className="grid gap-4 p-4 sm:grid-cols-[minmax(150px,220px)_1fr] sm:items-center">
         <div className="aspect-square w-full overflow-hidden rounded-xl shadow-sm">
-          <Chessboard
-            position={item.fen}
-            boardOrientation={orientation}
-            arePiecesDraggable={false}
+          <LichessBoard
+            fen={item.fen}
+            orientation={orientation}
+            viewOnly
+            interactive={false}
+            showDests={false}
           />
         </div>
         <div>

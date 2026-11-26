@@ -22,7 +22,7 @@ import { useState, useEffect } from "react";
 import { API } from "@/App";
 import { Loader2, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 
 const KIND_WORDS = {
   appreciate: "Appreciate",
@@ -171,10 +171,11 @@ export default function SessionCard({ showFocusWhy = true }) {
           whose home page contains no chess is the thing this replaces. */}
       {data.fen && (
         <div className="mt-5 aspect-square w-full max-w-[280px]">
-          <Chessboard
-            position={data.fen}
-            arePiecesDraggable={false}
-            customBoardStyle={{ borderRadius: "8px" }}
+          <LichessBoard
+            fen={data.fen}
+            viewOnly
+            interactive={false}
+            showDests={false}
           />
         </div>
       )}

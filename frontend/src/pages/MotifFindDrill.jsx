@@ -29,7 +29,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
@@ -265,12 +265,13 @@ export default function MotifFindDrill({ user, source = "motif" }) {
         </div>
 
         <div className="aspect-square w-full max-w-[440px] mx-auto">
-          <Chessboard
-            position={shownFen}
-            onPieceDrop={onDrop}
-            boardOrientation={orientation}
-            arePiecesDraggable={phase === "solving"}
-            customBoardStyle={{ borderRadius: "6px" }}
+          <LichessBoard
+            fen={shownFen}
+            orientation={orientation}
+            onMove={(m) => m && onDrop(m.from, m.to)}
+            interactive={phase === "solving"}
+            viewOnly={phase !== "solving"}
+            showDests={phase === "solving"}
           />
         </div>
 

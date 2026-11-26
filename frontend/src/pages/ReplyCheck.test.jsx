@@ -10,12 +10,10 @@ import ReplyCheck from "./ReplyCheck";
 
 let lastBoardProps = null;
 
-jest.mock("react-chessboard", () => ({
-  Chessboard: (props) => {
-    lastBoardProps = props;
-    return <div data-testid="board" data-fen={props.position} />;
-  },
-}), { virtual: true });
+jest.mock("@/components/LichessBoard", () => (props) => {
+  lastBoardProps = props;
+  return <div data-testid="board" data-fen={props.fen} />;
+}, { virtual: true });
 jest.mock("@/components/Layout", () => ({ children }) => <div>{children}</div>, { virtual: true });
 jest.mock("@/App", () => ({ API: "https://api.test" }), { virtual: true });
 jest.mock("sonner", () => ({ toast: { error: jest.fn(), success: jest.fn() } }));
@@ -94,7 +92,7 @@ describe("ReplyCheck", () => {
     await act(async () => btn.click());
   };
   const drop = async (from, to) => {
-    await act(async () => { lastBoardProps.onPieceDrop(from, to); });
+    await act(async () => { lastBoardProps.onMove({ from, to }); });
   };
 
   test("shows the position and the check, and nothing else", async () => {
@@ -110,25 +108,25 @@ describe("ReplyCheck", () => {
   test("a legal move sticks to the board; an illegal one is refused", async () => {
     await mount();
     await click("No");
-    expect(lastBoardProps.arePiecesDraggable).toBe(true);
+    expect(lastBoardProps.interactive).toBe(true);
 
-    let accepted;
-    await act(async () => { accepted = lastBoardProps.onPieceDrop("c4", "c7"); }); // Qxc7
-    expect(accepted).toBe(true);
+    // The board no longer reads a return value, so "accepted" is read off
+    // what the player can see: the move is named, the position moved on,
+    // and the board locked.
+    await drop("c4", "c7"); // Qxc7
     expect(container.textContent).toContain("Qxc7");
     // the move stays on the board, and the board locks so a second drag
     // cannot stack another move on top
-    expect(lastBoardProps.position).not.toBe(ITEM.fen);
-    expect(lastBoardProps.arePiecesDraggable).toBe(false);
+    expect(lastBoardProps.fen).not.toBe(ITEM.fen);
+    expect(lastBoardProps.interactive).toBe(false);
   });
 
   test("an illegal drop is rejected and nothing is recorded", async () => {
     await mount();
     await click("No");
-    let accepted;
-    await act(async () => { accepted = lastBoardProps.onPieceDrop("a5", "a1"); });
-    expect(accepted).toBe(false);
-    expect(lastBoardProps.position).toBe(ITEM.fen);
+    // Refused is visible as the position not moving.
+    await drop("a5", "a1");
+    expect(lastBoardProps.fen).toBe(ITEM.fen);
   });
 
   test("the full six answers are recorded, and only then is evidence fetched", async () => {

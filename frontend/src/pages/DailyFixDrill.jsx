@@ -9,7 +9,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { API } from "@/App";
 import Layout from "@/components/Layout";
 import { Flame, ArrowRight, Clock } from "lucide-react";
@@ -196,11 +196,13 @@ export default function DailyFixDrill({ user }) {
         </div>
 
         <div className="aspect-square w-full max-w-[440px] mx-auto">
-          <Chessboard
-            position={boardFen || drill.fen}
-            onPieceDrop={onDrop}
-            boardOrientation={orientation}
-            arePiecesDraggable={phase === "solving"}
+          <LichessBoard
+            fen={boardFen || drill.fen}
+            orientation={orientation}
+            onMove={(m) => m && onDrop(m.from, m.to)}
+            interactive={phase === "solving"}
+            viewOnly={phase !== "solving"}
+            showDests={phase === "solving"}
           />
         </div>
 

@@ -20,7 +20,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { API } from "@/App";
 import { ArrowLeft, RotateCcw, ChevronRight, Loader2, ExternalLink, Check, X, Lightbulb } from "lucide-react";
 import usePuzzleSubmissionIdentity from "@/hooks/usePuzzleSubmissionIdentity";
@@ -261,22 +261,24 @@ const SkillDrill = ({ user }) => {
         <div className="w-full">
           <div className="rounded-lg overflow-hidden ring-1 ring-border">
             {chess && (
-              <Chessboard
-                position={chess.fen()}
-                boardOrientation={orientation}
-                arePiecesDraggable={!verdict && !grading}
-                onPieceDrop={(from, to) => {
-                  if (verdict || grading) return false;
-                  // Only accept legal moves (snap back otherwise); submitMove
-                  // then applies it on the board state and grades it.
+              <LichessBoard
+                fen={chess.fen()}
+                orientation={orientation}
+                interactive={!verdict && !grading}
+                viewOnly={Boolean(verdict) || grading}
+                showDests={!verdict && !grading}
+                onMove={(m) => {
+                  if (!m || verdict || grading) return;
+                  // Only accept legal moves; submitMove then applies it on the
+                  // board state and grades it. The board no longer reads a
+                  // return value, so an illegal move is simply not submitted.
                   try {
                     const test = new Chess(chess.fen());
-                    if (!test.move({ from, to, promotion: "q" })) return false;
+                    if (!test.move({ from: m.from, to: m.to, promotion: "q" })) return;
                   } catch {
-                    return false;
+                    return;
                   }
-                  submitMove(from, to);
-                  return true;
+                  submitMove(m.from, m.to);
                 }}
               />
             )}

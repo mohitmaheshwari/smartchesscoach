@@ -10,7 +10,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Chess } from "chess.js";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { toast } from "sonner";
 
 import Layout from "@/components/Layout";
@@ -264,13 +264,13 @@ export default function ReplyCheck({ user }) {
           {/* ---------- board ---------- */}
           <div className="min-w-0">
             <div className="aspect-square w-full max-w-[440px]">
-              <Chessboard
-                id="reply-check-board"
-                position={shownFen}
-                boardOrientation={orientation}
-                onPieceDrop={onDrop}
-                arePiecesDraggable={draggable}
-                customBoardStyle={{ borderRadius: "6px" }}
+              <LichessBoard
+                fen={shownFen}
+                orientation={orientation}
+                onMove={(m) => m && onDrop(m.from, m.to)}
+                interactive={draggable}
+                viewOnly={!draggable}
+                showDests={draggable}
               />
             </div>
             <p className="mt-3 text-sm font-medium">

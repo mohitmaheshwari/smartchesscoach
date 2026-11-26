@@ -32,7 +32,7 @@
  */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { API } from "@/App";
 
 /* ------------------------------------------------ 1. what I know about you */
@@ -78,10 +78,11 @@ function Known({ known, assessment }) {
           className="mt-7 flex flex-col gap-5 rounded-[24px] border border-emerald-500/25 bg-emerald-500/[0.05] p-5 sm:flex-row sm:items-center sm:gap-6"
         >
           <div className="aspect-square w-full max-w-[180px] shrink-0">
-            <Chessboard
-              position={known.good_game.fen}
-              arePiecesDraggable={false}
-              customBoardStyle={{ borderRadius: "8px" }}
+            <LichessBoard
+              fen={known.good_game.fen}
+              viewOnly
+              interactive={false}
+              showDests={false}
             />
           </div>
           <div className="min-w-0">
@@ -162,11 +163,12 @@ function Today({ today }) {
     >
       <div className="flex flex-col gap-7 md:flex-row md:items-start md:gap-9">
         <div className="aspect-square w-full max-w-[320px] shrink-0">
-          <Chessboard
-            position={today.fen}
-            arePiecesDraggable={false}
-            boardOrientation={today.user_color === "black" ? "black" : "white"}
-            customBoardStyle={{ borderRadius: "10px" }}
+          <LichessBoard
+            fen={today.fen}
+            orientation={today.user_color === "black" ? "black" : "white"}
+            viewOnly
+            interactive={false}
+            showDests={false}
           />
         </div>
 

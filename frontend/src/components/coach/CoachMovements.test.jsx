@@ -16,9 +16,9 @@ const path = require("path");
 // the CRA resolver does not find these from a mock factory otherwise.
 jest.mock("@/App", () => ({ API: "/api" }), { virtual: true });
 jest.mock("react-router-dom", () => ({ useNavigate: () => jest.fn() }), { virtual: true });
-jest.mock("react-chessboard", () => ({
-  Chessboard: ({ position }) => <div data-testid="board" data-fen={position} />,
-}), { virtual: true });
+jest.mock("@/components/LichessBoard", () => ({ fen }) => (
+  <div data-testid="board" data-fen={fen} />
+), { virtual: true });
 
 const CoachMovements = require("./CoachMovements").default;
 
