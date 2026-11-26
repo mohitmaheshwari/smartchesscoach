@@ -526,3 +526,59 @@ describe("when the account cannot play yet", () => {
     expect(host.textContent).toMatch(/never suggest moves/i);
   });
 });
+
+describe("when the ChessGuru session has expired", () => {
+  // Reported live on 2026-11-26: "lichess matching stopped again for me,
+  // while chessiro found me an opponent". It was not Lichess. The server log
+  // showed twelve 401s in fifteen seconds on /live/state and
+  // /live/time-controls, and the lobby went on looking signed in -- the
+  // time-controls call ended in a bare .catch(() => {}), so nothing was set,
+  // no banner appeared, and the Play button stayed enabled. Pressing it did
+  // nothing visible, which reads as broken matchmaking rather than a dead
+  // session.
+  const SIGNED_OUT = [
+    ["/time-controls", () => ({ status: 401, body: { detail: "Not authenticated" } })],
+    ["/state", () => ({ status: 401, body: { detail: "Not authenticated" } })],
+  ];
+
+  it("says you are signed out instead of looking normal", async () => {
+    mockApi(SIGNED_OUT);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+    expect(host.querySelector('[data-testid="live-session-expired"]')).not.toBeNull();
+  });
+
+  it("does not blame Lichess, and does not send them to reconnect it", async () => {
+    mockApi(SIGNED_OUT);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+    expect(host.querySelector('[data-testid="live-needs-lichess"]')).toBeNull();
+    expect(host.querySelector('[data-testid="live-connect-lichess"]')).toBeNull();
+    const link = host.querySelector('[data-testid="live-sign-in-again"]');
+    expect(link).not.toBeNull();
+    expect(link.getAttribute("href")).toBe("/login");
+  });
+
+  it("will not let them press a button that cannot work", async () => {
+    mockApi(SIGNED_OUT);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+    const button = host.querySelector('[data-testid="live-find-opponent"]');
+    expect(button.disabled).toBe(true);
+
+    await act(async () => {
+      button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const seek = global.fetch.mock.calls.find(([url]) =>
+      String(url).includes("/live/seek"));
+    expect(seek).toBeUndefined();
+  });
+
+  it("notices even when only the time-controls call is refused", async () => {
+    // This is the exact path that used to swallow it. /state answering
+    // normally must not hide a dead session found by the other call.
+    mockApi([
+      ["/time-controls", () => ({ status: 401, body: { detail: "Not authenticated" } })],
+      ["/state", () => ({ body: { playing: false, seeking: false } })],
+    ]);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+    expect(host.querySelector('[data-testid="live-session-expired"]')).not.toBeNull();
+  });
+});

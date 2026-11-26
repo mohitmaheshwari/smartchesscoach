@@ -86,6 +86,13 @@ export default function PlayVsHuman({ onExit }) {
   // single choice is made, so the screen never sets someone up and then
   // refuses them.
   const [blocker, setBlocker] = useState(null);
+  // A 401 means the ChessGuru session ended, which has nothing to do with
+  // Lichess -- but the page used to swallow it, so the lobby still looked
+  // signed in and the Play button still looked live. Clicking it then did
+  // nothing visible, which reads as "matchmaking is broken" rather than
+  // "you are logged out". Reported live on 2026-11-26 after twelve 401s in
+  // fifteen seconds left the page looking perfectly normal.
+  const [signedOut, setSignedOut] = useState(false);
   // Which half-move the board is showing. Only meaningful once the game ends.
   const [ply, setPly] = useState(0);
   const [state, setState] = useState(null);
@@ -111,7 +118,11 @@ export default function PlayVsHuman({ onExit }) {
           setBlocker(data.blocker || null);
         }
       })
-      .catch(() => {});
+      .catch((e) => {
+        // Was a bare swallow. A 401 here is the whole reason the lobby could
+        // sit there looking usable with a dead session behind it.
+        if (alive && e && e.status === 401) setSignedOut(true);
+      });
     return () => {
       alive = false;
     };
@@ -122,8 +133,10 @@ export default function PlayVsHuman({ onExit }) {
       const next = await call("/state");
       setState(next);
       setError(null);
+      setSignedOut(false);
     } catch (e) {
-      if (e.status === 409) setReconnect(e.message);
+      if (e.status === 401) setSignedOut(true);
+      else if (e.status === 409) setReconnect(e.message);
       else setError(e.message);
     }
   }, []);
@@ -287,7 +300,8 @@ export default function PlayVsHuman({ onExit }) {
           </div>
 
           <aside className="flex flex-col gap-3.5">
-            {blocker ? <NeedsLichess blocker={blocker} /> : null}
+            {signedOut ? <SessionExpired /> : null}
+            {blocker && !signedOut ? <NeedsLichess blocker={blocker} /> : null}
 
             {me && me.username ? (
               <div
@@ -371,7 +385,7 @@ export default function PlayVsHuman({ onExit }) {
 
             <button
               onClick={() => act("/seek", { time_control: chosen, rated })}
-              disabled={busy || Boolean(blocker)}
+              disabled={busy || Boolean(blocker) || signedOut}
               data-testid="live-find-opponent"
               className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-base font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
             >
@@ -628,6 +642,34 @@ export default function PlayVsHuman({ onExit }) {
  * one. Both used to be told the same thing, and only after choosing a time
  * control.
  */
+function SessionExpired() {
+  // Deliberately says nothing about Lichess. The failure is our session, and
+  // sending someone to reconnect Lichess when their ChessGuru login expired
+  // would send them round a loop that cannot fix it.
+  return (
+    <div
+      className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4"
+      data-testid="live-session-expired"
+    >
+      <div className="text-sm font-semibold">You have been signed out</div>
+      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+        Your session ended, so we cannot look for an opponent for you. Nothing
+        is wrong with your Lichess account. Sign in again and the game is
+        right here.
+      </p>
+      <div className="mt-3">
+        <a
+          href="/login"
+          data-testid="live-sign-in-again"
+          className="inline-block rounded-lg bg-amber-500 px-3.5 py-2 text-sm font-semibold text-black"
+        >
+          Sign in again
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function NeedsLichess({ blocker }) {
   const brandNew = blocker.reason === "lichess_not_connected";
   return (
