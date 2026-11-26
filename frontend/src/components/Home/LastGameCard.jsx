@@ -34,7 +34,7 @@
  */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { ChevronRight, Clock3 } from "lucide-react";
 
 import { API } from "@/App";
@@ -75,29 +75,32 @@ export default function LastGameCard() {
         {turning.fen_before && (
           <div className="w-full max-w-[240px] shrink-0">
             <div className="aspect-square w-full">
-              <Chessboard
-                position={turning.fen_before}
-                arePiecesDraggable={false}
-                boardOrientation={turning.board_orientation === "black" ? "black" : "white"}
-                customBoardStyle={{ borderRadius: "10px" }}
+              {/* The product's own board. This card used react-chessboard, so
+                  Home showed a different board from the 61 files around it.
+                  The arrow colour moves from the hex "#b45309" to the brush
+                  name "amber": LichessBoard matches colour NAMES, and handed
+                  a hex it falls through to blue. The two tinted squares are
+                  dropped -- `lastMove` highlights exactly that pair, in the
+                  board's own language. */}
+              <LichessBoard
+                fen={turning.fen_before}
+                orientation={turning.board_orientation === "black" ? "black" : "white"}
+                viewOnly
+                interactive={false}
+                showDests={false}
                 /* Draw the move the sentence names. The board shows the
                    position BEFORE it, so without this the card points at a
                    move that is not on the board yet -- on 4...Bd6 that meant
                    a near-starting position with every piece at home and the
                    only hint in the text. Mohit: "look at board, it doesn't
                    make sense." */
-                customArrows={
+                arrows={
                   turning.from && turning.to
-                    ? [[turning.from, turning.to, "#b45309"]]
+                    ? [[turning.from, turning.to, "amber"]]
                     : []
                 }
-                customSquareStyles={
-                  turning.from && turning.to
-                    ? {
-                        [turning.from]: { background: "rgba(180,83,9,0.18)" },
-                        [turning.to]: { background: "rgba(180,83,9,0.28)" },
-                      }
-                    : {}
+                lastMove={
+                  turning.from && turning.to ? [turning.from, turning.to] : null
                 }
               />
             </div>

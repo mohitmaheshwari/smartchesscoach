@@ -15,15 +15,13 @@ jest.mock("lucide-react", () => ({
   ChevronRight: () => <span />, Clock3: () => <span data-testid="clock-icon" />,
 }), { virtual: true });
 
-// The board is the same react-chessboard the section below it uses, so the
-// test records what the card ASKS it to draw rather than counting squares.
+// The board is the product's own LichessBoard, so the test records what the
+// card ASKS it to draw rather than counting squares.
 const boardProps = [];
-jest.mock("react-chessboard", () => ({
-  Chessboard: (props) => {
-    boardProps.push(props);
-    return <div data-testid="board" />;
-  },
-}), { virtual: true });
+jest.mock("@/components/LichessBoard", () => (props) => {
+  boardProps.push(props);
+  return <div data-testid="board" />;
+}, { virtual: true });
 
 const CARD = {
   state: "clock",
@@ -122,11 +120,13 @@ describe("LastGameCard", () => {
     mock(200, CARD);
     await render();
     expect(boardProps).toHaveLength(1);
-    expect(boardProps[0].position).toBe(CARD.turning_point.fen_before);
+    expect(boardProps[0].fen).toBe(CARD.turning_point.fen_before);
     // He was Black in this fixture; showing it from White's side would put
     // the moment he is being asked to look at upside down.
-    expect(boardProps[0].boardOrientation).toBe("black");
-    expect(boardProps[0].arePiecesDraggable).toBe(false);
+    expect(boardProps[0].orientation).toBe("black");
+    // Same intent, the new board's words: nobody plays moves on a card.
+    expect(boardProps[0].interactive).toBe(false);
+    expect(boardProps[0].viewOnly).toBe(true);
   });
 
   test("it draws the move it names", async () => {
@@ -136,15 +136,15 @@ describe("LastGameCard", () => {
     // look at board, it doesn't make sense."
     mock(200, { ...CARD, turning_point: { ...CARD.turning_point, from: "c5", to: "d4" } });
     await render();
-    expect(boardProps[0].customArrows).toEqual([["c5", "d4", "#b45309"]]);
-    expect(Object.keys(boardProps[0].customSquareStyles)).toEqual(["c5", "d4"]);
+    expect(boardProps[0].arrows).toEqual([["c5", "d4", "amber"]]);
+    expect(boardProps[0].lastMove).toEqual(["c5", "d4"]);
   });
 
   test("a card with no squares draws no arrow rather than a wrong one", async () => {
     mock(200, CARD);                       // fixture carries no from/to
     await render();
-    expect(boardProps[0].customArrows).toEqual([]);
-    expect(boardProps[0].customSquareStyles).toEqual({});
+    expect(boardProps[0].arrows).toEqual([]);
+    expect(boardProps[0].lastMove).toBeNull();
   });
 
   test("it is drawn with the page's own board, not one of its own", async () => {
@@ -194,8 +194,8 @@ describe("LastGameCard", () => {
   test("the board and the first line point at the same move", async () => {
     mock(200, STORY_CARD);
     await render();
-    expect(boardProps[0].position).toBe(STORY_CARD.board.fen_before);
-    expect(boardProps[0].customArrows).toEqual([["f2", "g3", "#b45309"]]);
+    expect(boardProps[0].fen).toBe(STORY_CARD.board.fen_before);
+    expect(boardProps[0].arrows).toEqual([["f2", "g3", "amber"]]);
     // Not "It is where the game turned": that sentence belongs to the
     // both-sides turning point, which is not what the board shows here.
     expect(container.textContent).toContain("You played Kg3 here.");

@@ -8,7 +8,7 @@
  * the words point at the arrows instead of naming squares.
  */
 import { Link, useNavigate } from "react-router-dom";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { Coffee, Play, Target, TrendingDown, TrendingUp, Minus, Check, Clock } from "lucide-react";
 
 import { playFrom } from "@/lib/coachFile";
@@ -16,17 +16,37 @@ import { playFrom } from "@/lib/coachFile";
 export const PLAYED = "#b45309";
 export const BETTER = "#047857";
 
+// Every board in the product is this one. This wrapper used to mount
+// react-chessboard, so the coach's own file and the plan on Home drew a
+// different board from the 61 files around them.
+//
+// CAREFUL, and the reason this was not a find-and-replace: callers pass the
+// arrow colour as a HEX (PLAYED "#b45309", BETTER "#047857"), and
+// LichessBoard's brush matcher recognises colour NAMES. Handed the hex it
+// falls through to blue, so played and better would both have come out blue
+// and the one thing the picture says would have been lost, silently. The
+// map below is that translation.
+//
+// `marks` tinted the two destination squares. LichessBoard's highlight
+// vocabulary is a fixed set of lesson marks with no "tint this square", and
+// the arrows already carry played-vs-better, so the tint is dropped rather
+// than approximated with a mark that means something else.
+const BRUSH = { [PLAYED]: "amber", [BETTER]: "green" };
+
 export function Board({ fen, orientation, arrows = [], marks = {}, size = 220 }) {
+  const painted = arrows.map(([from, to, color, label]) => [
+    from, to, BRUSH[color] || color, label,
+  ]);
   return (
     <div className="w-full shrink-0" style={{ maxWidth: size }}>
-      <div className="aspect-square w-full">
-        <Chessboard
-          position={fen}
-          arePiecesDraggable={false}
-          boardOrientation={orientation === "black" ? "black" : "white"}
-          customBoardStyle={{ borderRadius: "10px" }}
-          customArrows={arrows}
-          customSquareStyles={marks}
+      <div className="aspect-square w-full overflow-hidden rounded-[10px]">
+        <LichessBoard
+          fen={fen}
+          orientation={orientation === "black" ? "black" : "white"}
+          viewOnly
+          interactive={false}
+          showDests={false}
+          arrows={painted}
         />
       </div>
     </div>
