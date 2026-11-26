@@ -254,7 +254,7 @@ export default function PlayVsHuman({ onExit }) {
             <button
               onClick={onExit}
               data-testid="live-exit"
-              className="shrink-0 text-sm text-muted-foreground hover:text-foreground"
+              className="-mr-3 inline-flex min-h-[44px] shrink-0 items-center px-3 text-sm text-muted-foreground hover:text-foreground"
             >
               Close
             </button>
@@ -576,7 +576,7 @@ export default function PlayVsHuman({ onExit }) {
                 <button
                   onClick={onExit}
                   data-testid="live-exit"
-                  className="text-sm text-muted-foreground hover:text-foreground"
+                  className="-mr-3 inline-flex min-h-[44px] items-center px-3 text-sm text-muted-foreground hover:text-foreground"
                 >
                   Close
                 </button>
@@ -681,11 +681,15 @@ function Shell({ title, children, onExit }) {
     <div className="mx-auto max-w-xl px-4 py-6">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">{title}</h2>
+        {/* 44px is the floor for a thumb. As bare text this Close was 20px
+            tall: the hardest thing on the screen to hit, on the screen you
+            reach for when you want out. The negative margin keeps it looking
+            exactly where it already looked. */}
         {onExit && (
           <button
             onClick={onExit}
             data-testid="live-exit"
-            className="text-sm text-muted-foreground hover:text-foreground"
+            className="-mr-3 inline-flex min-h-[44px] items-center px-3 text-sm text-muted-foreground hover:text-foreground"
           >
             Close
           </button>

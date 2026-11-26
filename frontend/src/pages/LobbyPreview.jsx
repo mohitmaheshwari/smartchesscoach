@@ -14,6 +14,7 @@
  */
 import React from "react";
 import LiveSearchBoard from "@/components/coach/LiveSearchBoard";
+import PlayVsHuman from "@/components/coach/PlayVsHuman";
 
 const ME = { username: "bhutramohit", rating: 1424 };
 
@@ -55,6 +56,20 @@ export default function LobbyPreview() {
             />
           </section>
         </div>
+
+        {/* The step BEFORE the seek. PlayVsHuman falls to its lobby branch
+            when nothing is playing, seeking or finished, and its fetches are
+            caught — so it renders here with no backend at all. */}
+        <section className="mt-10 w-full max-w-xl">
+          <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Before the seek — choosing a game
+          </h2>
+          <p className="mb-3 text-xs text-muted-foreground">
+            The real PlayVsHuman lobby. No backend, so it shows the state a
+            signed-out visitor would reach.
+          </p>
+          <PlayVsHuman onExit={() => {}} />
+        </section>
       </div>
     </div>
   );
