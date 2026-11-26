@@ -1,0 +1,521 @@
+"""Turn a played game into a teaching script, with the chess computed.
+
+The shape of the script is taken from how a coach actually talks through a
+position: the move you were going to play and why it fails, the move that
+wins, then the opponent fighting back and getting smarter -- "if they try
+this... their better try is this..." -- and the finish.
+
+Every one of those is a search result, not a writing decision:
+
+    the tempting move   = what players at this rating actually play (Maia)
+    the only move       = the unique move above the winning threshold
+    their tries         = the defender's replies, ranked, each answered
+    "and this is forced"= how many of our replies still win
+
+So this module emits a TREE. Rendering it into English is a separate step,
+and whatever writes those sentences never chooses a move, a branch or a
+verdict. That is the whole reason this content type is safe when our caption
+text was not: a claim here is arithmetic, not an opinion.
+
+Positions with at most five men and only kings and pawns are solved
+EXHAUSTIVELY, so for those there is no evaluation involved at all.
+"""
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field, asdict
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+import chess
+import chess.engine
+
+logger = logging.getLogger(__name__)
+
+BUILDER_VERSION = "teaching_script.v1"
+
+# A move "wins" above this, and the position is only teachable if the
+# second-best is clearly below it. Two thresholds rather than one, so a
+# position where the choice is between +600 and +580 never becomes a lesson
+# about an "only move".
+WIN_CP = 500
+NOT_WIN_CP = 250
+
+DEFAULT_DEPTH = 26
+EXACT_MAX_MEN = 5
+
+WIN, DRAW, LOSS = 1, 0, -1
+
+
+# --------------------------------------------------------------------------
+# exact solving, for the positions where no engine opinion is needed
+# --------------------------------------------------------------------------
+
+def is_exactly_solvable(board: chess.Board) -> bool:
+    pm = board.piece_map()
+    if len(pm) > EXACT_MAX_MEN or len(pm) < 3:
+        return False
+    if {p.piece_type for p in pm.values()} - {chess.KING, chess.PAWN}:
+        return False
+    return any(p.piece_type == chess.PAWN for p in pm.values())
+
+
+def solve_exact(board: chess.Board, hero: chess.Color,
+                depth: int = 0, memo: Optional[Dict] = None) -> int:
+    """WIN / DRAW / LOSS for `hero`, by exhaustive search. No engine."""
+    if memo is None:
+        memo = {}
+    key = (board.board_fen(), board.turn, board.ep_square)
+    if key in memo:
+        return memo[key]
+    if depth > 60:
+        return DRAW
+    pm = board.piece_map()
+    if not any(p.piece_type == chess.PAWN for p in pm.values()):
+        return DRAW                      # no pawns left: nobody can mate
+    if board.is_stalemate() or board.is_insufficient_material():
+        return DRAW
+    if board.is_checkmate():
+        return LOSS if board.turn == hero else WIN
+
+    memo[key] = DRAW                     # repetition guard: unresolved = draw
+    ours = board.turn == hero
+    best = LOSS if ours else WIN
+    for mv in board.legal_moves:
+        board.push(mv)
+        if mv.promotion:
+            mover = not board.turn
+            if not board.attackers(not mover, mv.to_square):
+                # a new queen nobody can take decides it
+                result = WIN if mover == hero else LOSS
+            else:
+                result = solve_exact(board, hero, depth + 1, memo)
+        else:
+            result = solve_exact(board, hero, depth + 1, memo)
+        board.pop()
+        if ours:
+            if result == WIN:
+                memo[key] = WIN
+                return WIN
+            best = max(best, result)
+        else:
+            if result == LOSS:
+                memo[key] = LOSS
+                return LOSS
+            best = min(best, result)
+    memo[key] = best
+    return best
+
+
+# --------------------------------------------------------------------------
+# the tree
+# --------------------------------------------------------------------------
+
+@dataclass
+class MoveVerdict:
+    san: str
+    uci: str
+    verdict: str                 # "wins" | "draws" | "loses"
+    detail: str                  # "exact" or a centipawn/mate string
+    human_pct: Optional[float] = None     # share of this rating who play it
+
+
+@dataclass
+class DefenderTry:
+    san: str
+    detail: str
+    our_answer: Optional[str]
+    our_winning_replies: int
+    our_legal_replies: int
+    forced: bool
+    line: str
+
+
+@dataclass
+class TeachingTree:
+    fen: str
+    side_to_move: str
+    men: int
+    proof: str                            # "exhaustive" | "search"
+    only_move: Optional[MoveVerdict]
+    alternatives: List[MoveVerdict] = field(default_factory=list)
+    defender_tries: List[DefenderTry] = field(default_factory=list)
+    main_line: str = ""
+    bare_race: Optional[Dict[str, str]] = None
+    engine: Dict[str, Any] = field(default_factory=dict)
+    maia: Dict[str, Any] = field(default_factory=dict)
+
+    def to_doc(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+def _score_cp(score: chess.engine.PovScore, pov: chess.Color) -> int:
+    return score.pov(pov).score(mate_score=100000) or 0
+
+
+def _verdict_from_cp(cp: int) -> str:
+    if cp >= WIN_CP:
+        return "wins"
+    if cp <= -WIN_CP:
+        return "loses"
+    return "draws"
+
+
+def rank_all_moves(board: chess.Board, engine: chess.engine.SimpleEngine,
+                   depth: int = DEFAULT_DEPTH) -> List[Tuple[int, chess.Move, str]]:
+    """Every legal move, scored from the mover's point of view."""
+    hero = board.turn
+    out = []
+    for mv in board.legal_moves:
+        san = board.san(mv)
+        board.push(mv)
+        info = engine.analyse(board, chess.engine.Limit(depth=depth))
+        cp = _score_cp(info["score"], hero)
+        board.pop()
+        out.append((cp, mv, san))
+    out.sort(key=lambda r: -r[0])
+    return out
+
+
+def find_only_move(board: chess.Board,
+                   engine: Optional[chess.engine.SimpleEngine],
+                   depth: int = DEFAULT_DEPTH
+                   ) -> Tuple[Optional[chess.Move], List[MoveVerdict], str]:
+    """The unique winning move, if there is exactly one.
+
+    Returns (move, every move's verdict, proof kind). `move` is None when the
+    position is not an only-move position -- either nothing wins, or more than
+    one thing does, or the gap to the second best is too small to teach.
+    """
+    hero = board.turn
+
+    if is_exactly_solvable(board):
+        if solve_exact(board.copy(), hero) != WIN:
+            return None, [], "exhaustive"
+        verdicts, winners = [], []
+        for mv in board.legal_moves:
+            san = board.san(mv)
+            board.push(mv)
+            r = solve_exact(board.copy(), hero)
+            board.pop()
+            name = {WIN: "wins", DRAW: "draws", LOSS: "loses"}[r]
+            verdicts.append(MoveVerdict(san, mv.uci(), name, "exact"))
+            if r == WIN:
+                winners.append(mv)
+        if len(winners) != 1:
+            return None, verdicts, "exhaustive"
+        return winners[0], verdicts, "exhaustive"
+
+    if engine is None:
+        return None, [], "search"
+
+    # Cheap rejection first. Scoring every legal move is 20-40 engine calls,
+    # and almost every position we look at is not an only-move position, so
+    # paying that up front made the builder unusable -- minutes per game.
+    #
+    # This probe is NOT exact: a shallow search can under-rate the winning
+    # move, so a position it rejects might have been teachable. It can only
+    # ever lose us lessons, never admit a bad one, because everything that
+    # passes still goes through the full-depth ranking below, which makes the
+    # actual decision. Generous margins keep the false-negative rate low;
+    # yield matters less here than never shipping a wrong "only move".
+    try:
+        probe = engine.analyse(board, chess.engine.Limit(depth=min(14, depth)),
+                               multipv=2)
+    except Exception:
+        probe = []
+    if probe:
+        top = _score_cp(probe[0]["score"], hero)
+        if top < WIN_CP // 2:
+            return None, [], "search"
+        if len(probe) > 1 and _score_cp(probe[1]["score"], hero) > WIN_CP:
+            return None, [], "search"
+
+    ranked = rank_all_moves(board, engine, depth)
+    if not ranked:
+        return None, [], "search"
+    verdicts = [
+        MoveVerdict(san, mv.uci(), _verdict_from_cp(cp), f"{cp:+d}cp")
+        for cp, mv, san in ranked
+    ]
+    best_cp, best_mv, _ = ranked[0]
+    if best_cp < WIN_CP:
+        return None, verdicts, "search"
+    if len(ranked) > 1 and ranked[1][0] > NOT_WIN_CP:
+        # more than one move keeps it: not an only-move lesson
+        return None, verdicts, "search"
+    return best_mv, verdicts, "search"
+
+
+def _bare_race(board: chess.Board,
+               engine: Optional[chess.engine.SimpleEngine]
+               ) -> Optional[Dict[str, str]]:
+    """Strip to kings and the mover's passed pawn, to show the pure race.
+
+    This is what lets a script say "count first -- their king is in time"
+    and prove it, rather than assert it.
+    """
+    pm = board.piece_map()
+    mover = board.turn
+    pawns = [(sq, p) for sq, p in pm.items()
+             if p.piece_type == chess.PAWN and p.color == mover]
+    if len(pawns) != 1:
+        return None
+    stripped = chess.Board(None)
+    stripped.clear()
+    for sq, p in pm.items():
+        if p.piece_type == chess.KING or (sq, p) in pawns:
+            stripped.set_piece_at(sq, p)
+    stripped.turn = mover
+    if not stripped.is_valid():
+        return None
+    if is_exactly_solvable(stripped):
+        r = solve_exact(stripped.copy(), mover)
+        return {"fen": stripped.fen(),
+                "result": {WIN: "the pawn queens", DRAW: "the king is in time",
+                           LOSS: "the king is in time"}[r],
+                "proof": "exhaustive"}
+    if engine is None:
+        return None
+    info = engine.analyse(stripped, chess.engine.Limit(depth=30))
+    cp = _score_cp(info["score"], mover)
+    pv = info.get("pv", [])[:10]
+    return {"fen": stripped.fen(),
+            "result": "the pawn queens" if cp >= WIN_CP else "the king is in time",
+            "line": stripped.variation_san(pv) if pv else "",
+            "proof": "search"}
+
+
+def build_tree(fen: str,
+               engine: Optional[chess.engine.SimpleEngine],
+               depth: int = DEFAULT_DEPTH,
+               human_probs: Optional[Dict[str, float]] = None,
+               maia_meta: Optional[Dict[str, Any]] = None
+               ) -> Optional[TeachingTree]:
+    """The whole tree for one position, or None if it is not teachable."""
+    board = chess.Board(fen)
+    only, verdicts, proof = find_only_move(board, engine, depth)
+    if only is None:
+        return None
+
+    if human_probs:
+        for v in verdicts:
+            p = human_probs.get(v.uci)
+            if p is not None:
+                v.human_pct = round(100.0 * p, 1)
+
+    only_v = next(v for v in verdicts if v.uci == only.uci())
+    alts = [v for v in verdicts if v.uci != only.uci()]
+    # order the alternatives the way the student would reach for them, so the
+    # script answers the likely mistake first rather than the engine's second
+    # choice. Falls back to the search order when there is no human model.
+    alts.sort(key=lambda v: -(v.human_pct if v.human_pct is not None else 0.0))
+
+    tree = TeachingTree(
+        fen=fen,
+        side_to_move="white" if board.turn == chess.WHITE else "black",
+        men=len(board.piece_map()),
+        proof="exhaustive" if proof == "exhaustive" else "search",
+        only_move=only_v,
+        alternatives=alts[:6],
+        bare_race=_bare_race(board, engine),
+        engine={"depth": depth} if proof == "search" else {"exhaustive": True},
+        maia=maia_meta or {},
+    )
+
+    # the defender fights back
+    board.push(only)
+    hero = not board.turn
+    tries: List[Tuple[int, chess.Move, str]] = []
+    for mv in board.legal_moves:
+        san = board.san(mv)
+        if engine is None:
+            tries.append((0, mv, san))
+            continue
+        board.push(mv)
+        info = engine.analyse(board, chess.engine.Limit(depth=depth))
+        tries.append((_score_cp(info["score"], hero), mv, san))
+        board.pop()
+    tries.sort(key=lambda r: r[0])          # their best defence first
+
+    for cp, mv, san in tries[:5]:
+        board.push(mv)
+        replies, winning = [], []
+        for rm in board.legal_moves:
+            rsan = board.san(rm)
+            if engine is None:
+                continue
+            board.push(rm)
+            rinfo = engine.analyse(board, chess.engine.Limit(depth=max(18, depth - 6)))
+            rcp = _score_cp(rinfo["score"], hero)
+            board.pop()
+            replies.append((rcp, rsan))
+            if rcp >= WIN_CP:
+                winning.append((rcp, rsan))
+        line, pv_first = "", None
+        if engine is not None:
+            info = engine.analyse(board, chess.engine.Limit(depth=depth))
+            pv = info.get("pv", [])[:10]
+            if pv:
+                line = board.variation_san(pv)
+                pv_first = board.san(pv[0])
+        board.pop()
+        winning.sort(reverse=True)
+        # Name the move the line actually plays. Taking the highest-scoring
+        # reply instead produced scripts that said "you answer a5" above a
+        # line beginning 2...Nxg5+ -- both winning, but a coach reading a
+        # recommendation that contradicts the variation under it stops
+        # trusting the whole script, and they would be right to.
+        answer = None
+        if winning:
+            names = {w[1] for w in winning}
+            answer = pv_first if pv_first in names else winning[0][1]
+        tree.defender_tries.append(DefenderTry(
+            san=san,
+            detail=f"{cp:+d}cp" if engine is not None else "",
+            our_answer=answer,
+            our_winning_replies=len(winning),
+            our_legal_replies=len(replies),
+            forced=len(winning) == 1,
+            line=line,
+        ))
+    board.pop()
+
+    if engine is not None:
+        mb = chess.Board(fen)
+        moves: List[chess.Move] = []
+        for _ in range(16):
+            info = engine.analyse(mb, chess.engine.Limit(depth=depth))
+            pv = info.get("pv", [])
+            if not pv:
+                break
+            moves.append(pv[0])
+            mb.push(pv[0])
+            if mb.is_game_over():
+                break
+        # Numbered, because an unnumbered run of sixteen plies is unreadable
+        # and a coach has to be able to follow it on a board.
+        tree.main_line = chess.Board(fen).variation_san(moves) if moves else ""
+
+    return tree
+
+
+# --------------------------------------------------------------------------
+# finding positions worth teaching, inside a game we already analysed
+# --------------------------------------------------------------------------
+
+def render_script(tree: TeachingTree,
+                  rating: Optional[int] = None) -> List[Dict[str, str]]:
+    """Turn the tree into the coach's lines, deterministically.
+
+    Shape taken from how a coach actually talks it through: the tempting move
+    dismissed in a sentence, then the whole of the time spent on the win with
+    the defender fighting back and getting smarter. Not a table of refutations
+    -- that reads like a scoreboard and teaches nothing.
+
+    No model is involved. Every sentence below is assembled from a field of
+    the tree, so nothing here can assert a chess fact the search did not
+    produce. A model may later rewrite these lines for tone; if it does, it
+    gets the tree too, and it still never chooses a move or a verdict.
+    """
+    out: List[Dict[str, str]] = []
+    if tree.only_move is None:
+        return out
+
+    out.append({"beat": "hook",
+                "text": f"You are {tree.side_to_move.title()}, and you are "
+                        f"winning. There is exactly one move that keeps it."})
+
+    # the tempting move, named by what this rating actually plays
+    tempting = next((a for a in tree.alternatives
+                     if a.human_pct is not None and a.human_pct >= 5.0), None)
+    if tempting is None and tree.alternatives:
+        tempting = tree.alternatives[0]
+    if tempting is not None:
+        who = ""
+        if tempting.human_pct is not None:
+            who = (f" About {tempting.human_pct:.0f} in 100 players"
+                   f"{f' rated {rating}' if rating else ''} play it here.")
+        out.append({"beat": "tempting",
+                    "text": f"The move that will occur to you is "
+                            f"{tempting.san}.{who} It only {tempting.verdict}."})
+
+    if tree.bare_race:
+        out.append({"beat": "count",
+                    "text": "Strip the board down to the king and the running "
+                            f"pawn and count: {tree.bare_race['result']}."
+                            + (f" {tree.bare_race.get('line', '')}".rstrip()
+                               if tree.bare_race.get("line") else "")})
+
+    out.append({"beat": "the move",
+                "text": f"The move is {tree.only_move.san}. It is the only move "
+                        f"on the board that wins"
+                        + (" -- proved by searching it to the end."
+                           if tree.proof == "exhaustive"
+                           else f" ({tree.only_move.detail}).")})
+
+    for t in tree.defender_tries:
+        sharp = ""
+        if t.forced:
+            sharp = (f" Be careful here: {t.our_answer} is the only reply of "
+                     f"{t.our_legal_replies} that still wins.")
+        elif t.our_answer:
+            sharp = f" You answer {t.our_answer}."
+        out.append({"beat": "their try",
+                    "text": f"If they try {t.san}.{sharp}"
+                            + (f" {t.line}" if t.line else "")})
+
+    if tree.main_line:
+        out.append({"beat": "finish", "text": f"The win: {tree.main_line}"})
+
+    return out
+
+
+def candidate_positions_from_pgn(pgn: str,
+                                 user_color: Optional[str] = None,
+                                 max_men: int = 7) -> List[Dict[str, Any]]:
+    """Positions in one game that might carry a lesson, read from its PGN.
+
+    Deliberately NOT from game_analyses. Those documents hold a few hundred
+    kilobytes of move evaluations each, and pulling them only to discover the
+    game never reached an endgame cost about 2.9 seconds per game over the
+    tunnel -- with roughly one game in thirteen having any position small
+    enough to be worth looking at. The PGN is about two kilobytes, replays
+    locally, and already says what the player actually played.
+
+    Ordered so the best teaching material comes first: a position where it
+    was the player's own move is worth more than one of the opponent's.
+    """
+    import io
+    import chess.pgn as pgn_mod
+
+    try:
+        game = pgn_mod.read_game(io.StringIO(pgn or ""))
+    except Exception:
+        return []
+    if game is None:
+        return []
+
+    hero: Optional[chess.Color] = None
+    if user_color:
+        hero = chess.WHITE if str(user_color).lower().startswith("w") else chess.BLACK
+
+    board = game.board()
+    out: List[Dict[str, Any]] = []
+    for ply, move in enumerate(game.mainline_moves(), start=1):
+        if len(board.piece_map()) <= max_men:
+            out.append({
+                "fen": board.fen(),
+                "ply": ply,
+                "move_number": board.fullmove_number,
+                "played": board.san(move),
+                "is_opponent_move": hero is not None and board.turn != hero,
+            })
+        try:
+            board.push(move)
+        except Exception:
+            break
+
+    # The endgame is where the small positions are, and the sharpest moment
+    # is usually the first time the position got small, not the last.
+    out.sort(key=lambda c: (c["is_opponent_move"], c["ply"]))
+    return out
