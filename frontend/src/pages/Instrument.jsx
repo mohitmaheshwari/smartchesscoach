@@ -85,42 +85,83 @@ function pointsFor() {
   });
 }
 
+/** Vertical position of a rating, as a percentage down the plot. */
+const topPct = (r) => (1 - (r - LO) / (HI - LO)) * 100;
+
+/**
+ * The plot stretches to fill its box rather than keeping the viewBox aspect:
+ * at 880x180 a phone gave it 67px of height and the line became a squiggle.
+ * So `preserveAspectRatio="none"` plus `vector-effect="non-scaling-stroke"`,
+ * which keeps the stroke 2px at every width, and every label is HTML sitting
+ * over the plot — nothing inside the SVG can be stretched out of shape.
+ */
 function RatingLine() {
   const pts = pointsFor();
   const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const area = `${line} L${W},${H} L0,${H} Z`;
-  const last = pts[pts.length - 1];
+  const lastR = SERIES[SERIES.length - 1].r;
 
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      width="100%"
-      style={{ display: "block", height: "auto", overflow: "visible" }}
+    <div
+      style={{ position: "relative", height: "clamp(150px, 17vw, 200px)", paddingLeft: 38 }}
       role="img"
       aria-label="Rapid rating across 754 analysed games, rising from a median of 1202 in February to 1539 in November."
     >
-      {[1200, 1300, 1400, 1500].map((r) => {
-        const y = H - ((r - LO) / (HI - LO)) * H;
-        return (
-          <g key={r}>
-            <line x1="0" y1={y} x2={W} y2={y} style={{ stroke: rgb("line-soft") }} strokeWidth="1" />
-            <text x="0" y={y - 5} fontSize="10" fontFamily="var(--in-mono)" style={{ fill: rgb("faint") }}>
-              {r}
-            </text>
-          </g>
-        );
-      })}
-      <path d={area} style={{ fill: rgb("bone") }} fillOpacity="0.05" />
-      <path
-        d={line}
-        fill="none"
-        style={{ stroke: rgb("bone") }}
-        strokeWidth="2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      <circle cx={last[0]} cy={last[1]} r="4" style={{ fill: rgb("bone") }} />
-    </svg>
+      {[1200, 1300, 1400, 1500].map((r) => (
+        <span
+          key={r}
+          className="in-num"
+          style={{
+            position: "absolute", left: 0, top: `${topPct(r)}%`,
+            transform: "translateY(-50%)", fontSize: 10, color: rgb("faint"),
+          }}
+        >
+          {r}
+        </span>
+      ))}
+
+      <div style={{ position: "relative", height: "100%" }}>
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          style={{ display: "block", width: "100%", height: "100%" }}
+          aria-hidden="true"
+          focusable="false"
+        >
+          {[1200, 1300, 1400, 1500].map((r) => {
+            const y = H - ((r - LO) / (HI - LO)) * H;
+            return (
+              <line
+                key={r}
+                x1="0" y1={y} x2={W} y2={y}
+                style={{ stroke: rgb("line-soft") }}
+                strokeWidth="1"
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+          <path d={area} style={{ fill: rgb("bone") }} fillOpacity="0.05" />
+          <path
+            d={line}
+            fill="none"
+            style={{ stroke: rgb("bone") }}
+            strokeWidth="2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute", left: "100%", top: `${topPct(lastR)}%`,
+            width: 7, height: 7, marginLeft: -3.5, marginTop: -3.5,
+            borderRadius: "50%", background: rgb("bone"),
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
