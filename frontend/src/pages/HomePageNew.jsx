@@ -89,48 +89,56 @@ export default function HomePageNew({ user }) {
   const curriculumDecisionElementRef = useRef(null);
 
   useEffect(() => {
-    (async () => {
+    // Four INDEPENDENT reads. They used to be four sequential `await`s inside
+    // one try block, which had two faults:
+    //
+    //   1. `if (res.ok)` guards a non-ok RESPONSE, but a THROWN fetch (dropped
+    //      connection, CORS, DNS) skipped straight to the catch and abandoned
+    //      every later request. dashboard-v2 was last and is the ONLY one that
+    //      sets hasGames, so one flaky earlier call showed the brand-new-player
+    //      screen -- "Let's begin with your chess" -- to somebody with a
+    //      history. Seen 2026-11-26 on an account with 10 analysed games while
+    //      dashboard-v2 itself correctly returned games_analyzed: 10. The
+    //      comment further down this file records the same failure reaching a
+    //      player with 52.
+    //   2. Serial waiting: Home sat through three reads it does not need
+    //      before the one it does.
+    //
+    // Now each read fails alone and they run together.
+    const readJson = async (path) => {
       try {
-        // The coach conversation — primary content for a returning user.
-        const convRes = await fetch(`${API}/home/coach-conversation`, { credentials: "include" });
-        if (convRes.ok) {
-          const convData = await convRes.json();
-          if (convData.has_conversation) setCoachConversation(convData);
-        }
-
-        const focusRes = await fetch(`${API}/coach/active-focus`, {
-          credentials: "include",
-        });
-        if (focusRes.ok) {
-          setActiveFocus(await focusRes.json());
-        }
-
-        // Check diagnostic status
-        const diagRes = await fetch(`${API}/diagnostic/status`, { credentials: "include" });
-        if (diagRes.ok) {
-          const diag = await diagRes.json();
-          setDiagnosticStatus(diag);
-        }
-
-        // Check if user has games
-        const dashRes = await fetch(`${API}/home/dashboard-v2`, { credentials: "include" });
-        if (dashRes.ok) {
-          const d = await dashRes.json();
-          if (d.games_analyzed > 0 || d.games_imported > 0) setHasGames(true);
-          if (d.last_session) setLastSession(d.last_session);
-        }
+        const res = await fetch(`${API}${path}`, { credentials: "include" });
+        return res.ok ? await res.json() : null;
       } catch (e) {
-        console.error("Error loading home data:", e);
-      } finally {
-        setLoading(false);
-        // Fired once per page load regardless of which branch (onboarding
-        // / no-focus-yet / full conversation) renders — "home_viewed" is
-        // the denominator every other Home event is a rate against.
-        // "Return within 24h" is deliberately NOT a client event here —
-        // it's computed downstream from repeat home_viewed timestamps,
-        // not something a single page load can observe about itself.
-        track(ANALYTICS_EVENTS.FUNNEL_HOME_VIEWED);
+        console.error(`Home: ${path} failed`, e);
+        return null;
       }
+    };
+
+    (async () => {
+      const [conv, focus, diag, dash] = await Promise.all([
+        readJson("/home/coach-conversation"),
+        readJson("/coach/active-focus"),
+        readJson("/diagnostic/status"),
+        readJson("/home/dashboard-v2"),
+      ]);
+
+      if (conv && conv.has_conversation) setCoachConversation(conv);
+      if (focus) setActiveFocus(focus);
+      if (diag) setDiagnosticStatus(diag);
+      if (dash) {
+        if (dash.games_analyzed > 0 || dash.games_imported > 0) setHasGames(true);
+        if (dash.last_session) setLastSession(dash.last_session);
+      }
+
+      setLoading(false);
+      // Fired once per page load regardless of which branch (onboarding
+      // / no-focus-yet / full conversation) renders — "home_viewed" is
+      // the denominator every other Home event is a rate against.
+      // "Return within 24h" is deliberately NOT a client event here —
+      // it's computed downstream from repeat home_viewed timestamps,
+      // not something a single page load can observe about itself.
+      track(ANALYTICS_EVENTS.FUNNEL_HOME_VIEWED);
     })();
   }, []);
 
