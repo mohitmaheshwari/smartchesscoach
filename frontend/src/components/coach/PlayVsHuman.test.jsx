@@ -364,6 +364,144 @@ describe("the lobby, before a seek is sent", () => {
   });
 });
 
+describe("someone who has just signed up, with no Lichess account", () => {
+  // 2026-11-26: anonymous play is not possible -- Lichess accepts an anonymous
+  // seek but every stream and move endpoint is Scoped(_.Board.Play), so a
+  // tokenless player could join the pool and then never learn the game id,
+  // see the position, or move. That makes what this screen says to a brand-new
+  // user the whole experience, and it used to say "Reconnect Lichess" after
+  // letting them choose a time control first.
+  const BRAND_NEW = [
+    [
+      "/time-controls",
+      () => ({
+        body: {
+          options: ["10+0", "10+5"],
+          default: "10+0",
+          default_rated: true,
+          me: {},
+          can_play: false,
+          blocker: {
+            reason: "lichess_not_connected",
+            message:
+              "Games against people are played on Lichess, so you need a free Lichess account.",
+          },
+        },
+      }),
+    ],
+    ["/state", () => ({ body: { playing: false, seeking: false } })],
+  ];
+
+  it("says so before a single choice is made, not after", async () => {
+    mockApi(BRAND_NEW);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    const panel = host.querySelector('[data-testid="live-needs-lichess"]');
+    expect(panel).not.toBeNull();
+    expect(panel.textContent).toMatch(/you will need a Lichess account/i);
+    // Never the word that assumes they already had one.
+    expect(panel.textContent).not.toMatch(/reconnect/i);
+  });
+
+  it("offers a way to get an account, not only a way to link one", async () => {
+    mockApi(BRAND_NEW);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    const make = host.querySelector('[data-testid="live-make-lichess"]');
+    expect(make).not.toBeNull();
+    expect(make.getAttribute("href")).toBe("https://lichess.org/signup");
+    expect(host.querySelector('[data-testid="live-connect-lichess"]')).not.toBeNull();
+  });
+
+  it("says what they CAN do right now", async () => {
+    mockApi(BRAND_NEW);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+    expect(
+      host.querySelector('[data-testid="live-needs-lichess"]').textContent
+    ).toMatch(/play the coach right now/i);
+  });
+
+  it("will not let them start a seek that is going to be refused", async () => {
+    mockApi(BRAND_NEW);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    const button = host.querySelector('[data-testid="live-find-opponent"]');
+    expect(button.disabled).toBe(true);
+
+    await act(async () => {
+      button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const seek = global.fetch.mock.calls.find(([url]) => String(url).includes("/live/seek"));
+    expect(seek).toBeUndefined();
+  });
+
+  it("still shows the board, so the screen is worth looking at", async () => {
+    mockApi(BRAND_NEW);
+    await render(<PlayVsHuman onExit={() => {}} />);
+    expect(lastBoardProps).not.toBeNull();
+    expect(lastBoardProps.fen).toMatch(/^rnbqkbnr\/pppppppp/);
+  });
+});
+
+describe("someone whose Lichess is connected but cannot move pieces yet", () => {
+  const NEEDS_SCOPE = [
+    [
+      "/time-controls",
+      () => ({
+        body: {
+          options: ["10+0"],
+          default: "10+0",
+          default_rated: true,
+          me: { username: "someone", rating: 1500 },
+          can_play: false,
+          blocker: {
+            reason: "needs_board_play_scope",
+            message:
+              "Reconnect your Lichess account once to let ChessGuru make your moves.",
+          },
+        },
+      }),
+    ],
+    ["/state", () => ({ body: { playing: false, seeking: false } })],
+  ];
+
+  it("asks for the one permission, and does not tell them to go get an account", async () => {
+    mockApi(NEEDS_SCOPE);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    const panel = host.querySelector('[data-testid="live-needs-lichess"]');
+    expect(panel.textContent).toMatch(/one more permission/i);
+    expect(host.querySelector('[data-testid="live-connect-lichess"]').textContent).toMatch(
+      /reconnect/i
+    );
+    expect(host.querySelector('[data-testid="live-make-lichess"]')).toBeNull();
+  });
+});
+
+describe("someone who can just play", () => {
+  it("sees no permission panel at all", async () => {
+    mockApi([
+      [
+        "/time-controls",
+        () => ({
+          body: {
+            options: ["10+0"],
+            default: "10+0",
+            default_rated: true,
+            me: { username: "someone", rating: 1500 },
+            can_play: true,
+            blocker: null,
+          },
+        }),
+      ],
+      ["/state", () => ({ body: { playing: false, seeking: false } })],
+    ]);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+    expect(host.querySelector('[data-testid="live-needs-lichess"]')).toBeNull();
+    expect(host.querySelector('[data-testid="live-find-opponent"]').disabled).toBe(false);
+  });
+});
+
 describe("when the account cannot play yet", () => {
   it("asks for the one-time Lichess permission instead of failing silently", async () => {
     mockApi([

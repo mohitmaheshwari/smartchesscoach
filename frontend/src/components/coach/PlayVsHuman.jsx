@@ -82,6 +82,10 @@ export default function PlayVsHuman({ onExit }) {
   const [rated, setRated] = useState(true);
   // The player's real Lichess handle and rating, shown on the search screen.
   const [me, setMe] = useState(null);
+  // What stands between this account and a game, if anything. Known before a
+  // single choice is made, so the screen never sets someone up and then
+  // refuses them.
+  const [blocker, setBlocker] = useState(null);
   // Which half-move the board is showing. Only meaningful once the game ends.
   const [ply, setPly] = useState(0);
   const [state, setState] = useState(null);
@@ -104,6 +108,7 @@ export default function PlayVsHuman({ onExit }) {
           setChosen(data.default || data.options[0]);
           if (typeof data.default_rated === "boolean") setRated(data.default_rated);
           if (data.me) setMe(data.me);
+          setBlocker(data.blocker || null);
         }
       })
       .catch(() => {});
@@ -282,6 +287,8 @@ export default function PlayVsHuman({ onExit }) {
           </div>
 
           <aside className="flex flex-col gap-3.5">
+            {blocker ? <NeedsLichess blocker={blocker} /> : null}
+
             {me && me.username ? (
               <div
                 className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3"
@@ -364,7 +371,7 @@ export default function PlayVsHuman({ onExit }) {
 
             <button
               onClick={() => act("/seek", { time_control: chosen, rated })}
-              disabled={busy}
+              disabled={busy || Boolean(blocker)}
               data-testid="live-find-opponent"
               className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-base font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
             >
@@ -607,6 +614,56 @@ export default function PlayVsHuman({ onExit }) {
           {error && <Problem text={error} />}
         </aside>
       </div>
+    </div>
+  );
+}
+
+/**
+ * What a player needs before they can play a person at all.
+ *
+ * Two different people see this. Someone who connected Lichess months ago
+ * owes us one permission. Someone who signed up here ten minutes ago may
+ * never have heard of Lichess, and "reconnect" names a thing they have never
+ * done -- so that case gets a way to get an account, not just a way to link
+ * one. Both used to be told the same thing, and only after choosing a time
+ * control.
+ */
+function NeedsLichess({ blocker }) {
+  const brandNew = blocker.reason === "lichess_not_connected";
+  return (
+    <div
+      className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4"
+      data-testid="live-needs-lichess"
+    >
+      <div className="text-sm font-semibold">
+        {brandNew ? "You will need a Lichess account" : "One more permission"}
+      </div>
+      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+        {blocker.message}
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <a
+          href={`${API}/api/oauth/lichess/connect`}
+          data-testid="live-connect-lichess"
+          className="rounded-lg bg-amber-500 px-3.5 py-2 text-sm font-semibold text-black"
+        >
+          {brandNew ? "Connect Lichess" : "Reconnect Lichess"}
+        </a>
+        {brandNew ? (
+          <a
+            href="https://lichess.org/signup"
+            target="_blank"
+            rel="noreferrer"
+            data-testid="live-make-lichess"
+            className="text-xs text-muted-foreground underline hover:text-foreground"
+          >
+            No account yet? Make one, it is free
+          </a>
+        ) : null}
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        You can play the coach right now without any of this.
+      </p>
     </div>
   );
 }

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Optional
+from typing import Dict, Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
@@ -54,35 +54,52 @@ async def _user_doc(user: User) -> dict:
     return doc
 
 
-def _token_or_reconnect(doc: dict) -> str:
-    """The Lichess token, or a 409 that tells the client to reconnect.
+def play_blocker(doc: dict) -> Optional[Dict[str, str]]:
+    """What stands between this account and a game, or None.
 
-    A 409 rather than a 401: the user IS authenticated with us, they simply
-    have not granted Lichess the permission to move pieces on their behalf.
-    The frontend turns this into one "Reconnect Lichess to play" button.
+    Two different people hit this and they need different words. Somebody who
+    connected Lichess months ago has an account and owes us one permission.
+    Somebody who signed up here ten minutes ago may never have heard of
+    Lichess, and telling them to "reconnect" names a thing they have never
+    done. Until 2026-11-26 both got the reconnect wording, and both got it
+    only after choosing a time control -- the screen let them set everything
+    up and then refused.
+
+    Returned rather than raised so the lobby can say it up front; the seek
+    still raises, because by then it is an error.
     """
     token = (doc.get("lichess_token") or "").strip()
     if not token:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "reason": "lichess_not_connected",
-                "message": "Connect your Lichess account to play here.",
-            },
-        )
+        return {
+            "reason": "lichess_not_connected",
+            "message": (
+                "Games against people are played on Lichess, so you need a "
+                "free Lichess account. It takes a minute, and the games come "
+                "straight back here for your review."
+            ),
+        }
     scopes = (doc.get("lichess_scopes") or "").split()
     if REQUIRED_SCOPE not in scopes:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "reason": "needs_board_play_scope",
-                "message": (
-                    "Reconnect your Lichess account once to let ChessGuru make "
-                    "your moves. Nothing else changes."
-                ),
-            },
-        )
-    return token
+        return {
+            "reason": "needs_board_play_scope",
+            "message": (
+                "Reconnect your Lichess account once to let ChessGuru make "
+                "your moves. Nothing else changes."
+            ),
+        }
+    return None
+
+
+def _token_or_reconnect(doc: dict) -> str:
+    """The Lichess token, or a 409 saying what is missing.
+
+    A 409 rather than a 401: the user IS authenticated with us, they simply
+    have not granted Lichess the permission to move pieces on their behalf.
+    """
+    blocker = play_blocker(doc)
+    if blocker:
+        raise HTTPException(status_code=409, detail=blocker)
+    return (doc.get("lichess_token") or "").strip()
 
 
 @router.get("/state")
@@ -129,18 +146,29 @@ async def time_controls(user: User = Depends(get_current_user)):
     if db is not None:
         doc = await db.users.find_one(
             {"user_id": user.user_id},
-            {"_id": 0, "lichess_username": 1, "lichess_rating": 1},
+            {"_id": 0, "lichess_username": 1, "lichess_rating": 1,
+             "lichess_token": 1, "lichess_scopes": 1},
         )
         if doc:
             me = {
                 "username": doc.get("lichess_username"),
                 "rating": doc.get("lichess_rating"),
             }
+    blocker = play_blocker(doc) if doc else {
+        "reason": "lichess_not_connected",
+        "message": (
+            "Games against people are played on Lichess, so you need a free "
+            "Lichess account. It takes a minute, and the games come straight "
+            "back here for your review."
+        ),
+    }
     return {
         "options": list(play.TIME_CONTROLS.keys()),
         "default": play.DEFAULT_TIME_CONTROL,
         "default_rated": play.DEFAULT_RATED,
         "me": me,
+        "can_play": blocker is None,
+        "blocker": blocker,
         "note": (
             "Lichess allows Rapid and slower for games played through other "
             "apps, so these are the three we offer."
