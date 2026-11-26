@@ -117,7 +117,9 @@ describe("reveal behaviour", () => {
 
   test("before the answer only the candidate arrow shows, never the capture", () => {
     const arrows = repArrows(isSafeRep, false);
-    expect(arrows).toEqual([["d1", "d5", "rgb(100,116,139)"]]);
+    // A brush name, not a CSS colour: LichessBoard matches names and sends
+    // anything it does not recognise to blue, which means "unlabelled".
+    expect(arrows).toEqual([["d1", "d5", "palegrey"]]);
     expect(arrows.some(([from]) => from === "e6")).toBe(false);
   });
 

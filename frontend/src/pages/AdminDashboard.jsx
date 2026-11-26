@@ -31,7 +31,7 @@ import {
   ArrowLeft, Flag, X, Clock, Eye, Gamepad2, Brain, BookOpen, Download, Copy, Check,
   Sparkles, ExternalLink,
 } from "lucide-react";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
 
 const WINE = "#722F37";
@@ -1787,8 +1787,8 @@ function DecryptionReviewDetail({
   // via chess.js because we only persist SAN for candidates.
   const customArrows = (() => {
     const arrows = [];
-    const RED = "rgb(220, 38, 38)";
-    const GREEN = "rgb(22, 163, 74)";
+    const RED = "red";
+    const GREEN = "green";
     if (row.move_uci && row.move_uci.length >= 4) {
       arrows.push([row.move_uci.slice(0, 2), row.move_uci.slice(2, 4), RED]);
     }
@@ -1845,11 +1845,13 @@ function DecryptionReviewDetail({
             {" "}({userColorLabel} to move)
           </div>
           <div style={{ maxWidth: 360 }}>
-            <Chessboard
-              position={row.fen_before}
-              arePiecesDraggable={false}
-              boardOrientation={orientation}
-              customArrows={customArrows}
+            <LichessBoard
+              fen={row.fen_before}
+              orientation={orientation}
+              viewOnly
+              interactive={false}
+              showDests={false}
+              arrows={customArrows}
             />
           </div>
           <div className="text-[10px] text-muted-foreground flex gap-3">

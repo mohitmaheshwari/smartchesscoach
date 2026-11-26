@@ -22,7 +22,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import {
   SQUARE_ANSWER_TYPES,
   buildRepView,
@@ -72,18 +72,12 @@ export default function RepRunner({ rep, index = 0, total = 0, onAnswer, onNext 
   );
 
   /** Highlights: only after the answer, so nothing gives the answer away. */
-  const squareStyles = useMemo(() => {
-    const styles = {};
-    revealHighlights(rep, revealed).forEach((sq) => {
-      styles[sq] = { background: SQUARE_HIGHLIGHT };
-    });
+  const highlights = useMemo(() => {
+    const marks = revealHighlights(rep, revealed).map((sq) => ({ square: sq, kind: "path" }));
     if (revealed && selected && SQUARE_ANSWER_TYPES.has(rep?.rep_type)) {
-      styles[selected] = {
-        ...(styles[selected] || {}),
-        boxShadow: "inset 0 0 0 3px rgba(59,130,246,0.9)",
-      };
+      marks.push({ square: selected, kind: "target" });
     }
-    return styles;
+    return marks;
   }, [rep, revealed, selected]);
 
   const arrows = useMemo(() => repArrows(rep, revealed), [rep, revealed]);
@@ -94,14 +88,15 @@ export default function RepRunner({ rep, index = 0, total = 0, onAnswer, onNext 
     <div className="w-full max-w-[560px] mx-auto flex flex-col gap-3">
       {/* Board — always first, always dominant. */}
       <div className="w-full rounded-lg overflow-hidden ring-1 ring-border">
-        <Chessboard
-          position={displayFen}
-          boardOrientation={orientation}
-          arePiecesDraggable={false}
+        <LichessBoard
+          fen={displayFen}
+          orientation={orientation}
+          viewOnly={false}
+          interactive={false}
+          showDests={false}
           onSquareClick={handleSquareClick}
-          customArrows={arrows}
-          customSquareStyles={squareStyles}
-          customBoardStyle={{ borderRadius: 0 }}
+          arrows={arrows}
+          highlights={highlights}
         />
       </div>
 

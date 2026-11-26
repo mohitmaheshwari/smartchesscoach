@@ -87,7 +87,7 @@ export function revealHighlights(rep, revealed) {
 export function repArrows(rep, revealed) {
   const view = buildRepView(rep);
   if (!revealed) {
-    return view.candidateArrow ? [[...view.candidateArrow, "rgb(100,116,139)"]] : [];
+    return view.candidateArrow ? [[...view.candidateArrow, "palegrey"]] : [];
   }
   const cap = (rep?.demonstration || {}).capture_uci;
   if (typeof cap !== "string" || cap.length < 4) return [];

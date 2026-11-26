@@ -12,7 +12,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Chessboard } from "react-chessboard";
+import LichessBoard from "@/components/LichessBoard";
 import { Chess } from "chess.js";
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, ExternalLink, Target } from "lucide-react";
@@ -40,12 +40,13 @@ function MiniBoard({ fen, orientation, size = 180, arrows = [] }) {
   return (
     <div className="w-full shrink-0" style={{ maxWidth: size }}>
       <div className="aspect-square w-full">
-        <Chessboard
-          position={fen}
-          arePiecesDraggable={false}
-          boardOrientation={orientation === "black" ? "black" : "white"}
-          customBoardStyle={{ borderRadius: "10px" }}
-          customArrows={arrows}
+        <LichessBoard
+          fen={fen}
+          orientation={orientation === "black" ? "black" : "white"}
+          viewOnly
+          interactive={false}
+          showDests={false}
+          arrows={arrows}
         />
       </div>
     </div>
@@ -132,7 +133,7 @@ function LineStepper({ trap }) {
   return (
     <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-8" data-testid="trap-line">
       <MiniBoard fen={fens[i]} orientation={trap.victim} size={340}
-        arrows={sq ? [[sq[0], sq[1], isTempting ? "#b45309" : "#047857"]] : []} />
+        arrows={sq ? [[sq[0], sq[1], isTempting ? "amber" : "green"]] : []} />
       <div className="min-w-0 flex-1">
         <p className="cg-eyebrow">{i === 0 ? "The position" : i === trap.steps.length ? "The end of the trap" : "The line"}</p>
         {i === 0 ? (
@@ -183,7 +184,7 @@ function GameReplay({ game, orientation }) {
   return (
     <div className="rounded-card border border-border/70 p-4" data-testid="trap-example">
       <MiniBoard fen={cur.fen} orientation={orientation} size={260}
-        arrows={cur.from ? [[cur.from, cur.to, "#047857"]] : []} />
+        arrows={cur.from ? [[cur.from, cur.to, "green"]] : []} />
       <p className="mt-3 text-note text-muted-foreground">
         A real game on Lichess. {resultWords}.
         {cur.san ? <> Last move <span className="font-mono text-foreground">{cur.san}</span>.</> : null}
