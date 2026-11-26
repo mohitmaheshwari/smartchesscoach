@@ -278,6 +278,92 @@ describe("the seek we actually send", () => {
   });
 });
 
+describe("the lobby, before a seek is sent", () => {
+  // 2026-11-26: the first version was a 440px column of form controls floating
+  // at the top of an empty page -- no board, nothing to look at, on a screen
+  // whose whole job is to make someone want to press one button.
+  const LOBBY = [
+    [
+      "/time-controls",
+      () => ({
+        body: {
+          options: ["10+0", "10+5", "15+10"],
+          default: "10+0",
+          default_rated: true,
+          me: { username: "bhutramohit", rating: 1437 },
+        },
+      }),
+    ],
+    ["/state", () => ({ body: { playing: false, seeking: false } })],
+  ];
+
+  it("shows a board before a single choice is made", async () => {
+    mockApi(LOBBY);
+    await render(<PlayVsHuman onExit={() => {}} />);
+
+    expect(lastBoardProps).not.toBeNull();
+    expect(lastBoardProps.fen).toMatch(/^rnbqkbnr\/pppppppp/);
+    // Nothing on it is playable or annotated: it is a picture of chess.
+    expect(lastBoardProps.interactive).toBe(false);
+    expect(lastBoardProps.disableArrows).toBe(true);
+  });
+
+  it("says who you will be playing as, with your real handle", async () => {
+    mockApi(LOBBY);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    const card = host.querySelector('[data-testid="live-me"]');
+    expect(card).not.toBeNull();
+    expect(card.textContent).toMatch(/bhutramohit/);
+    expect(card.textContent).toMatch(/1437/);
+  });
+
+  it("spells out what each time control actually means", async () => {
+    mockApi(LOBBY);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    expect(host.querySelector('[data-testid="live-tc-10+0"]').textContent).toMatch(
+      /10 min/
+    );
+    expect(host.querySelector('[data-testid="live-tc-10+5"]').textContent).toMatch(
+      /10 min \+ 5s a move/
+    );
+    // No speed class: Lichess's Bullet/Blitz/Rapid thresholds are a table we
+    // have not checked, so the screen does no classifying.
+    expect(host.querySelector('[data-testid="live-tc-15+10"]').textContent).not.toMatch(
+      /rapid|blitz|bullet/i
+    );
+  });
+
+  it("names the chosen control on the button you are about to press", async () => {
+    mockApi(LOBBY);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    const button = host.querySelector('[data-testid="live-find-opponent"]');
+    expect(button.textContent).toMatch(/Find an opponent · 10\+0/);
+
+    await act(async () => {
+      host
+        .querySelector('[data-testid="live-tc-15+10"]')
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(
+      host.querySelector('[data-testid="live-find-opponent"]').textContent
+    ).toMatch(/Find an opponent · 15\+10/);
+  });
+
+  it("leaves out the account card rather than inventing a handle", async () => {
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+0"], default: "10+0" } })],
+      ["/state", () => ({ body: { playing: false, seeking: false } })],
+    ]);
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    expect(host.querySelector('[data-testid="live-me"]')).toBeNull();
+    expect(host.querySelector('[data-testid="live-find-opponent"]')).not.toBeNull();
+  });
+});
+
 describe("when the account cannot play yet", () => {
   it("asks for the one-time Lichess permission instead of failing silently", async () => {
     mockApi([

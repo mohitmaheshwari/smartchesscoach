@@ -36,6 +36,19 @@ const POLL_MS = 1500;
 const TIME_CONTROL_BLURB =
   "Lichess allows Rapid and slower for games played through other apps, so these are the three we offer.";
 
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+/**
+ * "10+5" -> "10 min + 5s a move". Arithmetic on the time control, not a speed
+ * class: Lichess's Bullet/Blitz/Rapid thresholds are a table we have not
+ * checked, and a wrong label on a screen about time would be its own bug.
+ */
+function describeTimeControl(tc) {
+  const [base, inc] = String(tc).split("+");
+  const minutes = `${base} min`;
+  return Number(inc) > 0 ? `${minutes} + ${inc}s a move` : minutes;
+}
+
 async function call(path, options = {}) {
   const response = await fetch(`${API}/api/coach/play/live${path}`, {
     credentials: "include",
@@ -215,64 +228,157 @@ export default function PlayVsHuman({ onExit }) {
   // ------------------------------------------------------------------- lobby
 
   if (!playing && !seeking && !(game && game.finished)) {
-    return (
-      <Shell onExit={onExit} title="Play a human">
-        <p className="text-sm text-muted-foreground mb-5">
-          A real opponent from the Lichess pool, on this board. Your coach stays
-          quiet until the game ends — then your review is waiting.
-        </p>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {timeControls.map((tc) => (
-            <button
-              key={tc}
-              onClick={() => setChosen(tc)}
-              data-testid={`live-tc-${tc}`}
-              className={`rounded-md border px-4 py-2 text-sm font-medium ${
-                chosen === tc
-                  ? "border-emerald-500 bg-emerald-500/15"
-                  : "border-border hover:bg-muted/40"
-              }`}
-            >
-              {tc}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground mb-4">{TIME_CONTROL_BLURB}</p>
+    const choice = (selected) =>
+      `rounded-xl border px-3 py-2.5 text-left transition-colors ${
+        selected
+          ? "border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/40"
+          : "border-border hover:border-muted-foreground/40 hover:bg-muted/40"
+      }`;
 
-        <div className="mb-5 flex flex-wrap gap-2">
-          {[
-            { value: true, label: "Rated" },
-            { value: false, label: "Casual" },
-          ].map((option) => (
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 py-8">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold leading-tight">Play a human</h2>
+            <p className="mt-1.5 max-w-lg text-sm text-muted-foreground">
+              A real opponent from the Lichess pool, on this board. Your coach
+              stays quiet until the game ends — then your review is waiting.
+            </p>
+          </div>
+          {onExit && (
             <button
-              key={option.label}
-              onClick={() => setRated(option.value)}
-              data-testid={`live-rated-${option.label.toLowerCase()}`}
-              className={`rounded-md border px-4 py-2 text-sm font-medium ${
-                rated === option.value
-                  ? "border-emerald-500 bg-emerald-500/15"
-                  : "border-border hover:bg-muted/40"
-              }`}
+              onClick={onExit}
+              data-testid="live-exit"
+              className="shrink-0 text-sm text-muted-foreground hover:text-foreground"
             >
-              {option.label}
+              Close
             </button>
-          ))}
+          )}
         </div>
-        <p className="text-xs text-muted-foreground mb-5">
-          {rated
-            ? "Rated counts on your Lichess rating, and far more people are waiting in the rated pool — you will be paired much faster."
-            : "Casual leaves your rating alone, but the casual pool is much quieter, so you may wait a while."}
-        </p>
-        <button
-          onClick={() => act("/seek", { time_control: chosen, rated })}
-          disabled={busy}
-          data-testid="live-find-opponent"
-          className="rounded-md bg-emerald-600 px-5 py-2.5 font-medium text-white disabled:opacity-50"
-        >
-          {busy ? "Starting…" : "Find an opponent"}
-        </button>
-        {error && <Problem text={error} />}
-      </Shell>
+
+        {/* The board is here before a single choice is made, because this is a
+            chess screen and it should look like one the moment it opens. It is
+            also literally the next thing the player sees: the search screen
+            animates this same board, then the game takes it over. */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_23rem] lg:items-start">
+          <div className="min-w-0">
+            <div className="rounded-2xl border border-border bg-card p-3">
+              <LichessBoard
+                fen={START_FEN}
+                orientation="white"
+                interactive={false}
+                viewOnly
+                arrows={[]}
+                circles={[]}
+                highlights={[]}
+                showCoordinates={false}
+                edgeCoordinates
+                disableArrows
+              />
+            </div>
+            <p className="mt-2.5 text-center text-xs text-muted-foreground">
+              Lichess decides your colour when it pairs you.
+            </p>
+          </div>
+
+          <aside className="flex flex-col gap-3.5">
+            {me && me.username ? (
+              <div
+                className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3"
+                data-testid="live-me"
+              >
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-semibold"
+                  aria-hidden
+                >
+                  {me.username.trim().charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold leading-tight">
+                    {me.username}
+                    {me.rating ? (
+                      <span className="ml-1 font-normal text-muted-foreground">
+                        ({me.rating})
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Playing as you, on Lichess
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Time control
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {timeControls.map((tc) => (
+                  <button
+                    key={tc}
+                    onClick={() => setChosen(tc)}
+                    data-testid={`live-tc-${tc}`}
+                    className={choice(chosen === tc)}
+                  >
+                    <div className="text-base font-semibold leading-none">{tc}</div>
+                    <div className="mt-1 text-[11px] leading-tight text-muted-foreground">
+                      {describeTimeControl(tc)}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">{TIME_CONTROL_BLURB}</p>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Rating
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {[
+                  { value: true, label: "Rated", sub: "Counts" },
+                  { value: false, label: "Casual", sub: "Does not count" },
+                ].map((option) => (
+                  <button
+                    key={option.label}
+                    onClick={() => setRated(option.value)}
+                    data-testid={`live-rated-${option.label.toLowerCase()}`}
+                    className={choice(rated === option.value)}
+                  >
+                    <div className="text-base font-semibold leading-none">
+                      {option.label}
+                    </div>
+                    <div className="mt-1 text-[11px] leading-tight text-muted-foreground">
+                      {option.sub}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {rated
+                  ? "Rated counts on your Lichess rating, and far more people are waiting in the rated pool — you will be paired much faster."
+                  : "Casual leaves your rating alone, but the casual pool is much quieter, so you may wait a while."}
+              </p>
+            </div>
+
+            <button
+              onClick={() => act("/seek", { time_control: chosen, rated })}
+              disabled={busy}
+              data-testid="live-find-opponent"
+              className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-base font-semibold text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+            >
+              {busy ? "Starting…" : `Find an opponent · ${chosen}`}
+            </button>
+
+            <p className="text-center text-xs text-muted-foreground">
+              We never suggest a move while the game is live. Lichess forbids
+              outside help, and we are not putting your account at risk.
+            </p>
+            {error && <Problem text={error} />}
+          </aside>
+        </div>
+      </div>
     );
   }
 
