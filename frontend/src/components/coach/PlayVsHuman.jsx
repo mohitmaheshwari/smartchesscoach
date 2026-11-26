@@ -36,14 +36,6 @@ const POLL_MS = 1500;
 const TIME_CONTROL_BLURB =
   "Lichess allows Rapid and slower for games played through other apps, so these are the three we offer.";
 
-function clock(ms) {
-  if (ms === null || ms === undefined) return "—";
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
 async function call(path, options = {}) {
   const response = await fetch(`${API}/api/coach/play/live${path}`, {
     credentials: "include",
@@ -337,6 +329,12 @@ export default function PlayVsHuman({ onExit }) {
 
   const ourClock = ourColor === "white" ? game.white_time_ms : game.black_time_ms;
   const theirClock = ourColor === "white" ? game.black_time_ms : game.white_time_ms;
+  // Whose clock is running is the server's call, not ours: it is the only side
+  // that knows whether the stream is still alive and whose turn it is. While we
+  // are browsing a finished game, neither clock runs.
+  const theirColor = ourColor === "white" ? "black" : "white";
+  const ourClockRunning = game.ticking === ourColor;
+  const theirClockRunning = game.ticking === theirColor;
   const ourTurn = Boolean(!finished && game.our_turn);
 
   return (
@@ -359,6 +357,8 @@ export default function PlayVsHuman({ onExit }) {
             name={opponent.username || "Opponent"}
             rating={opponent.rating}
             clockMs={theirClock}
+            clockAgeMs={game.clock_age_ms}
+            running={theirClockRunning}
             pieces={theirTaken}
             advantage={edge < 0 ? -edge : 0}
             active={!finished && !ourTurn}
@@ -386,6 +386,8 @@ export default function PlayVsHuman({ onExit }) {
             name={(me && me.username) || "You"}
             rating={me && me.rating}
             clockMs={ourClock}
+            clockAgeMs={game.clock_age_ms}
+            running={ourClockRunning}
             pieces={ourTaken}
             advantage={edge > 0 ? edge : 0}
             active={ourTurn}

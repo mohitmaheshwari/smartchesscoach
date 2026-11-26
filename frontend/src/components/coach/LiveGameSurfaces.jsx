@@ -13,7 +13,7 @@
  * analysed one.
  */
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Chess } from "chess.js";
 
 // Lichess status -> something a person would say. Anything unmapped falls
@@ -88,7 +88,7 @@ export function captured(fen) {
   };
 }
 
-export function CapturedRow({ pieces, advantage }) {
+export function CapturedRow({ pieces = [], advantage = 0 }) {
   if (!pieces.length && !advantage) return <span className="h-4 block" />;
   return (
     <span className="flex items-center gap-0.5 text-sm leading-none text-muted-foreground">
@@ -102,11 +102,86 @@ export function CapturedRow({ pieces, advantage }) {
   );
 }
 
-export function PlayerCard({ name, rating, clockMs, pieces, advantage, active, testId }) {
-  const total =
-    clockMs === null || clockMs === undefined ? null : Math.max(0, Math.floor(clockMs / 1000));
-  // Under a minute the clock is the only thing that matters on this card.
-  const urgent = total !== null && total <= 30;
+// Fast enough that a second boundary never lands late enough to see, and
+// fast enough to show tenths under ten seconds, which is where a tenth is the
+// only number that matters.
+const TICK_MS = 100;
+
+/** Monotonic where the browser has one, so a system clock change cannot jump it. */
+function nowMs() {
+  return typeof performance !== "undefined" && performance.now
+    ? performance.now()
+    : Date.now();
+}
+
+/**
+ * A clock that runs down between server readings.
+ *
+ * Lichess sends a clock reading with every board update and nothing in
+ * between, so a clock drawn straight from the poll moves in 1.5-second lurches
+ * and sits frozen through a long think. The fix is not to poll harder: it is to
+ * take each reading with the age the server reports for it, anchor it against
+ * our own monotonic clock, and run it down locally until the next reading
+ * arrives. Every reading re-anchors, so any drift of ours lives for at most one
+ * poll, and the number on screen is always Lichess's number plus elapsed time
+ * -- never a number we invented.
+ *
+ * `running` comes from the server too (`ticking`), because only the server
+ * knows whose turn it is. It is deliberately false before the first move and
+ * while the stream is down: see `ticking()` in lichess_board_play.py.
+ */
+export function useLiveClock(baseMs, ageMs, running) {
+  const [, redraw] = useState(0);
+  const anchor = useRef({ key: null, from: null, at: 0 });
+
+  // Re-anchor on each new reading. Keyed on the reading itself rather than
+  // done in an effect, so the very first render already has an anchor.
+  const key = `${baseMs}|${ageMs}|${running}`;
+  if (anchor.current.key !== key) {
+    const known = baseMs !== null && baseMs !== undefined;
+    anchor.current = {
+      key,
+      from: known ? Math.max(0, baseMs - (ageMs || 0)) : null,
+      at: nowMs(),
+    };
+  }
+
+  useEffect(() => {
+    if (!running) return undefined;
+    const id = setInterval(() => redraw((n) => n + 1), TICK_MS);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const { from, at } = anchor.current;
+  if (from === null) return null;
+  if (!running) return from;
+  return Math.max(0, from - (nowMs() - at));
+}
+
+/** M:SS, and M:SS.d under ten seconds, which is what Lichess shows. */
+export function clockText(ms) {
+  if (ms === null || ms === undefined) return "—:—";
+  const left = Math.max(0, ms);
+  const secs = Math.floor(left / 1000);
+  const mmss = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  if (left >= 10000) return mmss;
+  return `${mmss}.${Math.floor((left % 1000) / 100)}`;
+}
+
+export function PlayerCard({
+  name,
+  rating,
+  clockMs,
+  clockAgeMs,
+  running,
+  pieces,
+  advantage,
+  active,
+  testId,
+}) {
+  const remaining = useLiveClock(clockMs, clockAgeMs, running);
+  // Under half a minute the clock is the only thing that matters on this card.
+  const urgent = remaining !== null && remaining <= 30000;
   const initial = (name || "?").trim().charAt(0).toUpperCase();
 
   return (
@@ -143,9 +218,7 @@ export function PlayerCard({ name, rating, clockMs, pieces, advantage, active, t
         }`}
         data-testid={testId ? `${testId}-clock` : undefined}
       >
-        {total === null
-          ? "—:—"
-          : `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`}
+        {clockText(remaining)}
       </div>
     </div>
   );

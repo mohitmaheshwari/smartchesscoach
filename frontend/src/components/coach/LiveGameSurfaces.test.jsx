@@ -16,8 +16,10 @@ import { createRoot } from "react-dom/client";
 import {
   MoveList,
   MoveNav,
+  PlayerCard,
   ResultCard,
   captured,
+  clockText,
   replay,
   resultWords,
 } from "./LiveGameSurfaces";
@@ -219,5 +221,162 @@ describe("the move list", () => {
     const buttons = host.querySelectorAll("button");
     buttons.forEach((b) => expect(b.disabled).toBe(true));
     expect(seen).toEqual([]);
+  });
+});
+
+/**
+ * The clock.
+ *
+ * Lichess sends a reading with each board update and nothing in between, so a
+ * clock drawn straight from the 1.5s poll lurches and then sits frozen through
+ * a long think. These tests are about the two halves of the fix: subtract the
+ * age the server reports for a reading, then run it down locally until the next
+ * one. The failure they catch is a clock that looks live and is not -- in a
+ * 10+0 game that is the difference between "I have time" and flagging.
+ */
+describe("the clock", () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "queueMicrotask"] });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const mount = async (props) => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    await act(async () => {
+      root.render(<PlayerCard testId="p" name="Someone" pieces={[]} {...props} />);
+    });
+    const shown = () => host.querySelector('[data-testid="p-clock"]');
+    const rerender = async (next) => {
+      await act(async () => {
+        root.render(<PlayerCard testId="p" name="Someone" pieces={[]} {...next} />);
+      });
+    };
+    const advance = async (ms) => {
+      await act(async () => {
+        jest.advanceTimersByTime(ms);
+      });
+    };
+    return { shown, rerender, advance };
+  };
+
+  it("formats the way a chess clock does, with tenths under ten seconds", () => {
+    expect(clockText(600000)).toBe("10:00");
+    expect(clockText(65000)).toBe("1:05");
+    expect(clockText(10000)).toBe("0:10");
+    expect(clockText(9400)).toBe("0:09.4");
+    expect(clockText(0)).toBe("0:00.0");
+    expect(clockText(null)).toBe("—:—");
+  });
+
+  it("subtracts the age of the reading instead of drawing a stale number", async () => {
+    // 10:00 as measured two seconds ago is 9:58 now. Drawing 10:00 here is the
+    // lurch: the next poll would drop it to 9:56.
+    const { shown } = await mount({ clockMs: 600000, clockAgeMs: 2000, running: true });
+    expect(shown().textContent).toBe("9:58");
+  });
+
+  it("runs down between readings, with no new data at all", async () => {
+    const { shown, advance } = await mount({
+      clockMs: 600000,
+      clockAgeMs: 0,
+      running: true,
+    });
+    expect(shown().textContent).toBe("10:00");
+
+    await advance(3000);
+    expect(shown().textContent).toBe("9:57");
+
+    await advance(4000);
+    expect(shown().textContent).toBe("9:53");
+  });
+
+  it("leaves the other player's clock exactly where it was", async () => {
+    const { shown, advance } = await mount({
+      clockMs: 600000,
+      clockAgeMs: 2000,
+      running: false,
+    });
+    // Not their move: the age is still subtracted (it was true then and the
+    // clock has not moved since), but nothing runs.
+    expect(shown().textContent).toBe("9:58");
+    await advance(8000);
+    expect(shown().textContent).toBe("9:58");
+  });
+
+  it("re-anchors on every new reading, so our drift lives one poll at most", async () => {
+    const { shown, rerender, advance } = await mount({
+      clockMs: 600000,
+      clockAgeMs: 0,
+      running: true,
+    });
+    await advance(5000);
+    expect(shown().textContent).toBe("9:55");
+
+    // Lichess now says 8:20. Whatever we had counted down to is discarded.
+    await rerender({ clockMs: 500000, clockAgeMs: 0, running: true });
+    expect(shown().textContent).toBe("8:20");
+    await advance(2000);
+    expect(shown().textContent).toBe("8:18");
+  });
+
+  it("follows an increment upward rather than refusing to go up", async () => {
+    // A 10+5 game adds five seconds after the move. Lichess's reading already
+    // includes it, so the clock must be allowed to rise.
+    const { shown, rerender } = await mount({
+      clockMs: 300000,
+      clockAgeMs: 0,
+      running: false,
+    });
+    expect(shown().textContent).toBe("5:00");
+    await rerender({ clockMs: 305000, clockAgeMs: 0, running: false });
+    expect(shown().textContent).toBe("5:05");
+  });
+
+  it("stops at zero rather than counting into negative time", async () => {
+    const { shown, advance } = await mount({
+      clockMs: 3000,
+      clockAgeMs: 0,
+      running: true,
+    });
+    await advance(30000);
+    expect(shown().textContent).toBe("0:00.0");
+  });
+
+  it("goes urgent while it is running, not only when a poll happens to land", async () => {
+    const { shown, advance } = await mount({
+      clockMs: 35000,
+      clockAgeMs: 0,
+      running: true,
+    });
+    expect(shown().className).not.toMatch(/rose/);
+    await advance(6000);
+    expect(shown().textContent).toBe("0:29");
+    expect(shown().className).toMatch(/rose/);
+  });
+
+  it("says nothing rather than zero when there is no reading yet", async () => {
+    const { shown, advance } = await mount({ clockMs: null, running: true });
+    expect(shown().textContent).toBe("—:—");
+    await advance(5000);
+    expect(shown().textContent).toBe("—:—");
+  });
+
+  it("clears its interval when the clock stops, rather than leaking one", async () => {
+    // A clock per card per game, left running for the rest of the session, is
+    // the kind of leak nothing on screen reveals.
+    const started = jest.spyOn(global, "setInterval");
+    const cleared = jest.spyOn(global, "clearInterval");
+
+    const { rerender } = await mount({ clockMs: 600000, clockAgeMs: 0, running: true });
+    const ours = started.mock.results.map((r) => r.value);
+    expect(ours.length).toBeGreaterThan(0);
+
+    await rerender({ clockMs: 600000, clockAgeMs: 0, running: false });
+    const releasedIds = cleared.mock.calls.map(([id]) => id);
+    for (const id of ours) expect(releasedIds).toContain(id);
   });
 });

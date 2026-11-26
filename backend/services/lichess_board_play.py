@@ -43,6 +43,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -95,6 +96,13 @@ class LiveGame:
     winner: Optional[str] = None
     white_time_ms: Optional[int] = None
     black_time_ms: Optional[int] = None
+    # When those two numbers were true, on a monotonic clock. Lichess sends a
+    # clock reading with each board update and nothing in between, so without
+    # this the browser cannot tell a 10:00 that just arrived from a 10:00 that
+    # is eight seconds stale -- and the clock on screen moves in poll-sized
+    # jumps. Monotonic, not wall clock, so an NTP correction cannot make a
+    # player's remaining time jump.
+    clock_at: Optional[float] = None
     opponent: Dict[str, Any] = field(default_factory=dict)
     rated: bool = False
     speed: Optional[str] = None
@@ -139,6 +147,38 @@ class LiveGame:
         plies = len((self.moves or "").split())
         return (plies % 2 == 0) == (self.color == "white")
 
+    def clock_age_ms(self) -> Optional[int]:
+        """How stale the clock readings are, in milliseconds.
+
+        The browser subtracts this once and then runs the clock down itself,
+        re-syncing on every reading. That keeps the two machines' wall clocks
+        out of it entirely: we report an age, never an instant.
+        """
+        if self.clock_at is None:
+            return None
+        return max(0, int((time.monotonic() - self.clock_at) * 1000))
+
+    def ticking(self) -> Optional[str]:
+        """Whose clock is actually running, or None if neither is.
+
+        None in three cases, and each one is a case where ticking would be a
+        guess rather than a reading:
+
+        * the game is over -- both clocks stopped;
+        * the stream is dead -- we no longer know the position, so we do not
+          know whose turn it is, and we would run down the wrong player;
+        * no move has been played yet. Lichess's own handling of the clock
+          before the first move is not something we have verified, and a clock
+          that counts down and then jumps *back up* on the first reading reads
+          as a broken clock. Sitting still and then stepping down does not.
+        """
+        if self.finished or not self.stream_alive:
+            return None
+        plies = len((self.moves or "").split())
+        if plies == 0:
+            return None
+        return "white" if plies % 2 == 0 else "black"
+
     def as_payload(self) -> Dict[str, Any]:
         """Exactly what the board needs, and nothing a coach would say."""
         return {
@@ -155,6 +195,8 @@ class LiveGame:
             "our_turn": (not self.finished) and self.our_turn(),
             "white_time_ms": self.white_time_ms,
             "black_time_ms": self.black_time_ms,
+            "clock_age_ms": self.clock_age_ms(),
+            "ticking": self.ticking(),
             "opponent": self.opponent,
             "rated": self.rated,
             "speed": self.speed,
@@ -294,6 +336,12 @@ def _apply_state(game: LiveGame, state: Dict[str, Any]) -> None:
         game.white_time_ms = state.get("wtime")
     if state.get("btime") is not None:
         game.black_time_ms = state.get("btime")
+    if state.get("wtime") is not None or state.get("btime") is not None:
+        # Stamped here, where the reading arrives, and not where the payload is
+        # built: the gap between the two is exactly the staleness we owe the
+        # browser. Lichess's number already includes any increment added after
+        # the move, so nothing about the time control needs modelling here.
+        game.clock_at = time.monotonic()
     if state.get("wdraw"):
         game.draw_offer_from = "white"
     elif state.get("bdraw"):
