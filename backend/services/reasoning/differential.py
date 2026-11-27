@@ -1048,6 +1048,24 @@ def explain_move(fen_before: str, played_san: str, *, config: ReasoningConfig, d
             result["line_san"] = [alt_san]
             result["arrows"] = _arrows(fen_before, [alt_san], limit=1)
 
+    # SAME REPLY, DIFFERENT ANSWER runs after everything else, so no sentence
+    # the other answers already give can change. When both moves allow the
+    # same reply, the engine used to stop at "shared" (18.Qd2: Nc4 after Qd2
+    # and after d6). The difference is the mover's answer to that reply: after
+    # d6 it is Qb3, after Qd2 the queen has left c2 and Qb3 is gone. The
+    # measurement is kept whether or not it fires.
+    if not result["found"] and result["class"] in ("mistake", "blunder"):
+        from .shared_answer import shared_answer
+        sa = shared_answer(session, root, played, alternative, played_branch=played_branch,
+                           alt_branch=alt_branch, depth=depth, mover_is_user=mover_is_user, gap_cp=gap)
+        result["shared_answer"] = {k: v for k, v in sa.items() if k != "answer"}
+        if sa["fires"]:
+            answer = sa["answer"]
+            result.update(found=True, direction="missed", mechanism="SHARED_REPLY", text=answer["text"],
+                          consequence=answer["consequence"], shared_answer_facts=answer["facts"])
+            result["line_san"] = list(answer["line_san"])
+            result["arrows"] = _arrows(fen_before, result["line_san"], limit=3)
+
     if not result["found"]:
         result["reason"] = "shared_consequence_only" if result.get("shared_consequence") else "no_mechanism"
     result["facts"] = build_facts(result)
@@ -1129,6 +1147,15 @@ def build_facts(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         facts["this_happens_after_the_move_played"] = False
         facts["the_move_that_does_it"] = result.get("better_move")
         facts.update(result.get("check_first_facts") or {})
+        return facts
+    if result.get("mechanism") == "SHARED_REPLY":
+        # Board facts from shared_answer.py: the reply both moves allow, the
+        # answer the better move keeps, and why the played move loses it.
+        from services.why_words import _RELATION
+        facts["this_happens_after_the_move_played"] = False
+        facts["the_move_that_does_it"] = result.get("better_move")
+        facts["relation"] = _RELATION["SHARED_REPLY"]
+        facts.update(result.get("shared_answer_facts") or {})
         return facts
     consequence = result.get("consequence")
     causes = result.get("causes") or []

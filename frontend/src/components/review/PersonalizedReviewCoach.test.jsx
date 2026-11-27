@@ -360,3 +360,101 @@ describe("PersonalizedReviewCoach — tap reflection", () => {
       .toContain(event.teaching.principle);
   });
 });
+
+
+describe("PersonalizedReviewCoach — a card that reads out a stored engine line", () => {
+let container;
+let root;
+beforeEach(() => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+  global.fetch = jest.fn();
+});
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+  jest.restoreAllMocks();
+});
+const renderCoach = (overrides = {}) => {
+  const props = {
+    gameId: "game", plan, events: [event], prompts: [prompt], reflectionResponses: [],
+    onChapterSelect: jest.fn(), onShowVisual: jest.fn(), onNavigate: jest.fn(), onReplay: jest.fn(),
+    ...overrides,
+  };
+  act(() => root.render(<PersonalizedReviewCoach {...props} />));
+  return props;
+};
+  const lineEvent = {
+    ...event,
+    move: { ply: 35, number: 18, san: "Qd2", actor: "user" },
+    teaching: {
+      caption: "After Qd2, the line is Qd2, Nc4, Qc1, Ba3, Rd2. When every recapture is counted, you give up a rook.",
+      principle: "Before starting a capture sequence, count every recapture to the end.",
+      visual: { arrows: [["a5", "c4"]], highlights: ["c4"] },
+      explain_from_engine: true,
+    },
+  };
+  const answered = [{
+    event_id: EVENT_ID, prompt_id: "prompt", selected_option_id: "not_sure", answered_before_reveal: true,
+  }];
+  const flush = async () => {
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+  };
+  const start = () => act(() => {
+    container.querySelector("[data-testid='personalized-review-start']")
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+
+  test("shows the engine's reason, draws its arrows, and never the stored line", async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        found: true,
+        direction: "missed",
+        text: "d6 was the move. Both moves allow Nc4, but after d6 you answer it with Qb3 and trade queens.",
+        arrows: [{ from: "d5", to: "d6" }, { from: "a5", to: "c4" }, { from: "c2", to: "b3" }],
+      }),
+    });
+    const props = renderCoach({ events: [lineEvent], reflectionResponses: answered });
+    start();
+    await flush();
+    expect(global.fetch.mock.calls[0][0]).toBe("/api/coach/why/game/18?san=Qd2&opponent=false");
+    expect(container.querySelector("[data-testid='engine-reason-text']").textContent)
+      .toContain("after d6 you answer it with Qb3");
+    expect(container.textContent).not.toContain("the line is");
+    expect(container.textContent).not.toContain("count every recapture");
+    expect(container.querySelector("[data-testid='personalized-review-show-visual']")).toBeNull();
+    const drawn = props.onShowVisual.mock.calls.at(-1)[0];
+    expect(boardArrowsForReviewVisual(drawn)).toEqual([
+      ["d5", "d6", "green"], ["a5", "c4", "amber"], ["c2", "b3", "blue"],
+    ]);
+  });
+
+  test("when the engine has no reason, names the better move and invents nothing", async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ found: false, reason: "no_mechanism", better_move: "d6" }),
+    });
+    const props = renderCoach({ events: [lineEvent], reflectionResponses: answered });
+    start();
+    await flush();
+    expect(container.querySelector("[data-testid='engine-reason-none']").textContent)
+      .toBe("d6 was the stronger move here. I can't put the reason into words yet.");
+    expect(container.textContent).not.toContain("the line is");
+    expect(props.onShowVisual).not.toHaveBeenCalled();
+  });
+
+  test("an opponent's card asks about the opponent's move", async () => {
+    global.fetch.mockResolvedValue({ ok: false, status: 404, json: async () => ({}) });
+    renderCoach({
+      events: [{ ...lineEvent, move: { ...lineEvent.move, actor: "opponent" } }],
+      reflectionResponses: answered,
+    });
+    start();
+    await flush();
+    expect(global.fetch.mock.calls[0][0]).toContain("&opponent=true");
+    expect(container.querySelector("[data-testid='engine-reason-none']")).not.toBeNull();
+  });
+});
