@@ -370,6 +370,10 @@ class TeachingReference:
     headline: str = ""
     practical_lead: str = ""
     cause_fingerprint: str = ""
+    # True when the caption reads out a stored engine line ("After Qd2, the
+    # line is Qd2, Nc4, ..."). The card then asks the why engine for the
+    # reason and shows that instead (docs/why_shared_answer_scope.md, part B).
+    explain_from_engine: bool = False
 
     def __post_init__(self) -> None:
         if any(
@@ -383,6 +387,8 @@ class TeachingReference:
             )
         ):
             raise ReviewContractViolation("teaching strings must be text")
+        if not isinstance(self.explain_from_engine, bool):
+            raise ReviewContractViolation("teaching.explain_from_engine must be a bool")
         if not isinstance(self.visual, VisualReference):
             raise ReviewContractViolation("teaching.visual must be VisualReference")
 
@@ -409,6 +415,8 @@ class TeachingReference:
             if not _SHA256_RE.fullmatch(self.cause_fingerprint):
                 raise ReviewContractViolation("cause_fingerprint must be SHA-256")
             payload["cause_fingerprint"] = self.cause_fingerprint
+        if self.explain_from_engine:
+            payload["explain_from_engine"] = True
         return payload
 
 
