@@ -44,6 +44,103 @@ OPENINGS_HOLD_MIN_GAMES = 30
 PHASE_WORDS = {"opening": "opening", "middlegame": "middlegame", "endgame": "endgame"}
 
 
+# ---------------------------------------------------------------------------
+# "A chapter must not open for something we know he already knows."
+#
+# Mohit, 2026-11-26: "even best players like Magnus can sometimes let a piece
+# undefended... human coaches don't give you exercise when you blunder
+# something from eyesight, because they know you know this."
+#
+# Until 2026-11-27 the plan ranked purely by points at stake, which is
+# frequency times cost. That ranks a thing he does wrong twice out of a
+# hundred above a thing he has never been taught, because the first comes up
+# constantly. On Mohit's own live plan it put
+# `gap:piece_safety:destination_safety_exact` third -- a decision he gets
+# right 4,141 times out of 4,318.
+#
+# The denominator is the whole point. `missed_pattern` (and so
+# coach_plan_service.quality_id) is set ONLY when he missed, so counting it
+# gives a numerator with nothing underneath. The structured detector fields
+# carry both: `eligible` says he faced the decision, `fires` says it went
+# wrong. Any detector recording quality_id + eligible + fires contributes,
+# so this does not need a hardcoded list and picks up new ones for free.
+# Mohit's rule, 2026-11-27: "it should be counted by opportunity exists vs
+# opportunity taken... if a one move blunder exists and if that is 25%, player
+# still needs to do the drill. If that's less than 25%, then we would try to
+# understand why this error existed -- was this a time pressure thing, was
+# this an eyesight or was player distracted, not focused... chess is also
+# focus and behavioral tactics, so that's what we want to track."
+#
+# So the bar is a RATE over his last ten games, not a count, and not a
+# percentile of other players. At or above it he drills. Below it, the error
+# is real but the answer is a circumstance, not an exercise.
+#
+# Why ten games is enough here when twenty was not enough to detect
+# improvement (see player_coach_habit.change_state): proving a big difference
+# is cheap, proving absence is expensive. Measured 2026-11-27 across 65 users
+# with ten analysed games, a ten-game window holds min 3, p25 35, median 44,
+# max 73 piece-safety opportunities -- so 25% means about eleven fires
+# against about three for a typical player. Four of the 65 cleared the bar
+# (44.7%, 35.1%, 32.3%, 27.3%); the other 61 belong in the behavioural
+# branch.
+RATE_WINDOW_GAMES = 10
+DRILL_RATE = 0.25
+# Below this many opportunities the rate is noise: a player truly at 30% shows
+# under 25% about a quarter of the time at n=20. The median window holds 44,
+# so almost everyone clears it. NOT locked -- /lock-via-data.
+MIN_OPPORTUNITIES = 20
+
+
+def own_reliability(observations: Iterable[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Per quality_id: how often he faced this decision, how often it went wrong.
+
+    Reads the structured detector verdicts rather than `missed_pattern`,
+    because only those carry an opportunity count.
+    """
+    tally: Dict[str, Dict[str, Any]] = {}
+    for obs in observations:
+        for value in obs.values():
+            if not isinstance(value, Mapping):
+                continue
+            qid = value.get("quality_id")
+            if not qid or "eligible" not in value:
+                continue
+            row = tally.setdefault(str(qid), {"eligible": 0, "fired": 0})
+            if value.get("eligible"):
+                row["eligible"] += 1
+                if value.get("fires"):
+                    row["fired"] += 1
+    for row in tally.values():
+        row["error_rate"] = (row["fired"] / row["eligible"]) if row["eligible"] else None
+    return tally
+
+
+def below_drill_bar(reliability: Mapping[str, Mapping[str, Any]],
+                    quality_id: Optional[str]) -> Optional[Dict[str, Any]]:
+    """The error is real but too rare to drill: ask WHY instead.
+
+    Returns the counted evidence when the rate is under DRILL_RATE, else None
+    (drill, or no usable denominator). A step is never withheld on a guess --
+    absent or thin evidence returns None.
+
+    The caller owes the player the behavioural reading in this case. Dropping
+    the step and saying nothing is the wrong half of Mohit's rule.
+    """
+    if not quality_id:
+        return None
+    row = reliability.get(quality_id)
+    if not row or row.get("error_rate") is None:
+        return None
+    if row["eligible"] < MIN_OPPORTUNITIES:
+        return None
+    if row["error_rate"] >= DRILL_RATE:
+        return None
+    return {"quality_id": quality_id,
+            "opportunities": row["eligible"], "taken_wrong": row["fired"],
+            "rate": round(row["error_rate"], 4),
+            "drill_bar": DRILL_RATE, "needs": "behavioural_reading"}
+
+
 def phase_of(fen: str, move_number: int) -> str:
     """Opening = his first twelve moves; endgame = six or fewer queens, rooks,
     bishops and knights left on the board (both sides); otherwise middlegame.
@@ -162,10 +259,22 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
                progress: Mapping[str, Any], games: Mapping[str, Mapping[str, Any]],
                deciding: Sequence[Mapping[str, Any]], habit_check: Optional[Mapping[str, Any]],
                newest_game_id: Optional[str], observations: Iterable[Mapping[str, Any]],
-               analysed_games: int, window: Sequence[str] = ()) -> Optional[Dict[str, Any]]:
+               analysed_games: int, window: Sequence[str] = (),
+               reliability: Optional[Mapping[str, Mapping[str, Any]]] = None) -> Optional[Dict[str, Any]]:
     """The plan, or None when there is nothing proven to build it from."""
+    # Read once. It is an Iterable, and it is needed again for the "last game"
+    # line below -- iterating it twice would leave that silently empty.
+    obs = list(observations)
+    # His whole record when the caller read it, else what the window holds.
+    # The window is capped at 60 games and cannot carry this decision on its
+    # own -- see player_coach_file._reliability_pipeline.
+    reliability = dict(reliability) if reliability is not None else own_reliability(obs)
     progress_by_qid = {r["quality_id"]: r for r in (progress.get("habits") or []) + (progress.get("kept") or [])}
     ranked_by_qid = {r["quality_id"]: r for r in ranked}
+    # Steps withheld because he demonstrably already has them. Kept so the
+    # reason is auditable, and so a later surface can say "you have these"
+    # rather than the plan just going quiet.
+    reliable_skips: List[Dict[str, Any]] = []
 
     steps: List[Dict[str, Any]] = []
     others: List[Dict[str, Any]] = []
@@ -174,8 +283,16 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
     for row in ranked:
         if habit and row["quality_id"] == habit.get("quality_id"):
             continue
-        if row["games_lost"] >= 1:
-            others.append(_problem_step(row, progress_by_qid, training=False))
+        if row["games_lost"] < 1:
+            continue
+        # No chapter opens for something he already has. Frequency times cost
+        # ranks a thing he gets right 24 times out of 25 above a thing nobody
+        # has taught him, because the first keeps coming up.
+        under = below_drill_bar(reliability, row.get("quality_id"))
+        if under:
+            reliable_skips.append(under)
+            continue
+        others.append(_problem_step(row, progress_by_qid, training=False))
 
     if openings:
         h = openings[0]
@@ -228,6 +345,20 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
     candidates = steps + others
     for st in candidates:
         st["stake"] = points_at_stake(games, win, st["_affected"]) if win else None
+
+    # A step with no affected game in the window has no evidence behind it in
+    # the period it is being shown for. Mohit's live plan on 2026-11-26 put
+    # `gap:piece_safety:destination_safety_exact` third with
+    # stake {low: 0, high: 0, games: 0} -- "AFTER THAT, practise this", worth
+    # nothing, measured over nothing, while its own text read "this shows up
+    # in fewer of your games than before".
+    #
+    # Only dropped while an evidenced step survives, so the card never empties
+    # because of this rule.
+    evidenced = [st for st in candidates
+                 if ((st.get("stake") or {}).get("games") or 0) >= 1]
+    if evidenced and len(evidenced) < len(candidates):
+        candidates = evidenced
     # Most points at stake first (the figure each step shows), so "First" is
     # never worth less than "Then"; games lost breaks ties, then the habit
     # being trained. Without enough games for points, games lost decides.
@@ -269,7 +400,7 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
     last_note = None
     if steps[0]["kind"] == "habit" and newest_game_id:
         qid = steps[0]["quality_id"]
-        if any(o.get("game_id") == newest_game_id and cp.quality_id(o) == qid for o in observations):
+        if any(o.get("game_id") == newest_game_id and cp.quality_id(o) == qid for o in obs):
             last_note = "Your last game: this week's step showed up again."
 
     return {
@@ -279,6 +410,12 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
         "check": next((habit_check for s in steps if s.get("training")), None),
         "last_game_note": last_note,
         "guard": guard,
+        # Errors real enough to count but under the drill bar. Each one is a
+        # DEBT, not a dismissal: Mohit's rule says we owe the player why it
+        # happened -- the clock, their eyes, their focus -- and these rows are
+        # what a behavioural reading must be built from. Dropping the step and
+        # saying nothing is the wrong half of the rule.
+        "ask_why": reliable_skips,
         # Rating points the shown steps are worth together, from his last games
         # (a range: drawn instead .. won instead). The plan's claim.
         "stake": total_stake,

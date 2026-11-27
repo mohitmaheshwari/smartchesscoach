@@ -768,6 +768,7 @@ def build_file(
     now: Optional[datetime] = None,
     skipped: Sequence[Mapping[str, Any]] = (),
     slips_per_game: Optional[Mapping[str, Tuple[int, int]]] = None,
+    reliability: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Pure: everything is read by the caller. `moments_fn(habit, games_by_id)`
     builds the habit's board moments with the engine (None in tests)."""
@@ -813,6 +814,8 @@ def build_file(
         deciding=deciding_moves(deciding_rows, gmap, window_set), habit_check=habit_check,
         newest_game_id=analysed_ids[0] if analysed_ids else None, observations=observations,
         analysed_games=len(analysed_ids), window=window,
+        # His whole record, not the 60-game window these observations hold.
+        reliability=reliability,
     )
     return {
         "user_id": user_id,
@@ -850,6 +853,50 @@ _OBS_FILTER_OR = [{"missed_pattern": {"$ne": None}}, {"development_decision": "m
 _OBS_FIELDS = {"_id": 0, "game_id": 1, "ply": 1, "move_number": 1, "fen_before": 1, "move_uci": 1,
                "missed_pattern": 1, "subtype": 1, "eval_before": 1, "time_spent_seconds": 1,
                "development_decision": 1}
+
+
+# Detector verdicts that record an opportunity count. Each carries
+# quality_id + eligible + fires, so they can answer "how often did he face
+# this decision, and how often did it go wrong". `missed_pattern` cannot:
+# it is set only when he missed, giving a numerator with no denominator.
+RELIABILITY_FIELDS = ["destination_safety_exact", "piece_safety_decision",
+                      "development_decision", "decision_register"]
+
+
+def _reliability_pipeline(user_id: str, game_ids: Sequence[str]) -> List[Dict[str, Any]]:
+    """Opportunity exists vs opportunity taken, over his last ten games.
+
+    Mohit's rule, 2026-11-27: a rate, not a count. At or above 25% he drills;
+    below it the error is real but the answer is a circumstance, so the
+    behavioural reading is owed instead.
+
+    Ten games is enough for THIS question because the effect is large --
+    measured across 65 users, a ten-game window holds a median of 44
+    piece-safety opportunities, so the bar is about eleven fires against about
+    three for a typical player. It is NOT enough to prove a habit has gone;
+    see player_coach_habit.change_state, where twenty games cannot clear a
+    one-sided p<0.10 for any habit rarer than about one game in nine.
+    """
+    return [
+        {"$match": {"user_id": user_id, "game_id": {"$in": list(game_ids)}}},
+        {"$project": {"d": [f"${f}" for f in RELIABILITY_FIELDS]}},
+        {"$unwind": "$d"},
+        {"$match": {"d.quality_id": {"$ne": None}, "d.eligible": True}},
+        {"$group": {"_id": "$d.quality_id",
+                    "eligible": {"$sum": 1},
+                    "fired": {"$sum": {"$cond": [{"$eq": ["$d.fires", True]}, 1, 0]}}}},
+    ]
+
+
+def reliability_from_rows(rows: Iterable[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Aggregation output -> the shape player_coach_plan.already_reliable reads."""
+    out: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        qid, elig, fired = r.get("_id"), int(r.get("eligible") or 0), int(r.get("fired") or 0)
+        if not qid or elig <= 0:
+            continue
+        out[str(qid)] = {"eligible": elig, "fired": fired, "error_rate": fired / elig}
+    return out
 
 
 def _analysis_pipeline(game_ids: List[str]) -> List[Dict[str, Any]]:
@@ -990,8 +1037,13 @@ def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
     check_ids = pa.ids_for_mistake_check(pa.clock_rows(dedupe_games(games), skipped))
     slips = _slips_per_game(db.move_observations.find(
         {"user_id": user_id, "game_id": {"$in": check_ids}}, _SLIP_FIELDS)) if check_ids else None
+    # His whole counted record per quality_id, so a step is never opened on
+    # something he already has. Deliberately NOT limited to analysed_ids:
+    # see _reliability_pipeline.
+    reliability = reliability_from_rows(db.move_observations.aggregate(
+        _reliability_pipeline(user_id, analysed_ids[:ppl.RATE_WINDOW_GAMES])))
     doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, deciding_rows, engine_moments,
-                     skipped=skipped, slips_per_game=slips)
+                     skipped=skipped, slips_per_game=slips, reliability=reliability)
     from services import player_plan_week as ppw
     # A week is locked only for a player who can see the plan: 78 of the first
     # 92 weeks belonged to players who could not (docs/coaching_intelligence_scope.md, 1a).
@@ -1035,9 +1087,12 @@ async def build_and_store(db, user_id: str) -> Dict[str, Any]:
     check_ids = pa.ids_for_mistake_check(pa.clock_rows(dedupe_games(games), skipped))
     slips = _slips_per_game(await db.move_observations.find(
         {"user_id": user_id, "game_id": {"$in": check_ids}}, _SLIP_FIELDS).to_list(None)) if check_ids else None
+    reliability = reliability_from_rows(await db.move_observations.aggregate(
+        _reliability_pipeline(user_id, analysed_ids[:ppl.RATE_WINDOW_GAMES])).to_list(None))
     # The build may run the engine: keep it off the event loop.
     doc = await asyncio.to_thread(build_file, user_id, games, analyses, observations, last_rows,
-                                  previous, fires, deciding_rows, engine_moments, None, skipped, slips)
+                                  previous, fires, deciding_rows, engine_moments, None, skipped, slips,
+                                  reliability)
     from services import player_plan_week as ppw
     row = (await ppw.ensure_week(db, user_id, week_start(), doc.get("plan"), games,
                                  {a["game_id"]: a.get("rows") or [] for a in analyses}, observations,

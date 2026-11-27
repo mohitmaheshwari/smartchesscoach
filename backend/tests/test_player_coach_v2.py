@@ -549,3 +549,131 @@ def test_opening_step_carries_its_week_of_work():
     assert len(work["find"]) == ppl.WORK_ITEMS and work["find"][0]["url"] == "/game/g0?move=5"
     assert work["play"][0]["user_color"] == "black" and work["play"][0]["fen"] == MODERN_BC4
     assert not re.search(r"\d", work["target"] + work["learn"]["text"])
+
+
+# ---------------------------------------------------------------------------
+# "A chapter must not open for something we know he already knows."
+# Mohit, 2026-11-26, on Magnus occasionally leaving a piece undefended.
+# ---------------------------------------------------------------------------
+
+QID_LANDING = "gap:piece_safety:destination_safety_exact"
+
+
+def _obs(qid, n_eligible, n_fired, game_id="g1"):
+    """Observations carrying a structured detector verdict.
+
+    `eligible` is the denominator -- he faced the decision. `fires` is the
+    numerator. `missed_pattern` cannot be used for this: it is set only when
+    he missed, so counting it gives a numerator with nothing underneath.
+    """
+    rows = []
+    for i in range(n_eligible):
+        rows.append({"game_id": game_id, "destination_safety_exact": {
+            "quality_id": qid, "eligible": True, "fires": i < n_fired}})
+    return rows
+
+
+def _plan(ranked, observations):
+    from services import player_coach_plan as ppl
+    games = {f"g{i}": {"outcome": "loss"} for i in range(30)}
+    return ppl.build_plan(
+        habit=None, ranked=ranked, openings=[], sitting={}, progress={},
+        games=games, deciding=[], habit_check=None, newest_game_id=None,
+        observations=observations, analysed_games=40,
+        window=[f"g{i}" for i in range(30)])
+
+
+def test_at_or_above_the_drill_bar_he_still_drills():
+    # Mohit, 2026-11-27: "if a one move blunder exists and if that is 25%,
+    # player still need to do the drill."
+    landing = _ranked_row(QID_LANDING, "Leaving a piece where it can be taken",
+                          "landing", None, 2)
+    plan = _plan([landing], _obs(QID_LANDING, 40, 16))      # 40% of chances
+    assert [s.get("quality_id") for s in plan["steps"]] == [QID_LANDING]
+    assert plan["ask_why"] == []
+
+
+def test_under_the_drill_bar_the_step_becomes_a_question_not_an_exercise():
+    # "...if that's less than 25%, then we would try to understand why this
+    # error existed, was this a time pressure thing, was this an eye sight or
+    # was player distracted, not focused."
+    landing = _ranked_row(QID_LANDING, "Leaving a piece where it can be taken",
+                          "landing", None, 2)
+    fork = _ranked_row("gap:missed_tactic:missed_fork", "Missing forks",
+                       "missed_tactic", "fork", 3)
+    plan = _plan([fork, landing], _obs(QID_LANDING, 50, 3))  # 6%: the median
+    assert QID_LANDING not in [s.get("quality_id") for s in plan["steps"]]
+    owed = plan["ask_why"][0]
+    assert owed["quality_id"] == QID_LANDING
+    assert owed["opportunities"] == 50 and owed["taken_wrong"] == 3
+    assert owed["rate"] == 0.06
+    # It is a debt, not a dismissal: the behavioural reading is still owed.
+    assert owed["needs"] == "behavioural_reading"
+
+
+def test_too_few_chances_decides_nothing_either_way():
+    # At ten opportunities a 25% rate is noise. A step is never withheld, and
+    # never kept, on a denominator that cannot carry the question.
+    landing = _ranked_row(QID_LANDING, "Leaving a piece where it can be taken",
+                          "landing", None, 2)
+    plan = _plan([landing], _obs(QID_LANDING, 10, 0))
+    assert [s.get("quality_id") for s in plan["steps"]] == [QID_LANDING]
+    assert plan["ask_why"] == []
+
+
+def test_the_bar_is_a_rate_not_a_count():
+    # Three wrong out of eight chances drills; three out of fifty does not.
+    from services import player_coach_plan as ppl
+    landing = _ranked_row(QID_LANDING, "x", "landing", None, 2)
+    many = ppl.own_reliability(_obs(QID_LANDING, 50, 3))
+    few = ppl.own_reliability(_obs(QID_LANDING, 24, 12))
+    assert ppl.below_drill_bar(many, QID_LANDING) is not None      # 6% -> ask why
+    assert ppl.below_drill_bar(few, QID_LANDING) is None           # 50% -> drill
+
+
+def test_a_step_with_no_affected_game_in_the_window_is_not_shown():
+    from services import player_coach_plan as ppl
+
+    # Mohit's live plan, 2026-11-26: step three was shown as "AFTER THAT"
+    # with stake {low: 0, high: 0, games: 0} -- worth nothing, measured over
+    # nothing -- while its own text read "this shows up in fewer of your
+    # games than before".
+    fork = dict(_ranked_row("gap:missed_tactic:missed_fork", "Missing forks",
+                            "missed_tactic", "fork", 3),
+                evidence=[{"game_id": "g1", "_costs_result": True, "_played_at": "2026-11-20"},
+                          {"game_id": "g3", "_costs_result": True, "_played_at": "2026-11-21"}])
+    # Its losses are real but ALL sit outside the window being shown.
+    stale = dict(_ranked_row(QID_LANDING, "Leaving a piece where it can be taken",
+                             "landing", None, 1),
+                 evidence=[{"game_id": "old1", "_costs_result": True, "_played_at": "2026-09-01"}])
+    # Points at stake need MIN_STAKE_GAMES finished games in the window, or
+    # every stake comes back None and nothing can be compared.
+    games = {f"g{i}": {"outcome": "loss"} for i in range(30)}
+    games.update({f"old{i}": {"outcome": "loss"} for i in range(3)})
+    win = [f"g{i}" for i in range(30)]
+
+    plan = ppl.build_plan(
+        habit=None, ranked=[fork, stale], openings=[], sitting={}, progress={},
+        games=games, deciding=[], habit_check=None, newest_game_id=None,
+        observations=[], analysed_games=40, window=win)
+    shown = [s.get("quality_id") for s in plan["steps"]]
+    for s in plan["steps"]:
+        assert ((s.get("stake") or {}).get("games") or 0) >= 1, shown
+
+
+def test_the_last_game_line_survives_reading_observations_twice():
+    from services import player_coach_plan as ppl
+
+    # build_plan takes an Iterable and now reads it for reliability too.
+    # Consuming a generator would leave the "last game" check silently empty.
+    landing = _ranked_row(QID_LANDING, "Leaving a piece where it can be taken",
+                          "landing", None, 2)
+    games = {f"g{i}": {"outcome": "loss"} for i in range(30)}
+    win = [f"g{i}" for i in range(30)]
+    showed = (o for o in [{"game_id": "gnew", "missed_pattern": "piece_safety",
+                           "subtype": "destination_safety_exact"}])
+    plan = ppl.build_plan(
+        habit=None, ranked=[landing], openings=[], sitting={}, progress={},
+        games=games, deciding=[], habit_check=None, newest_game_id="gnew",
+        observations=showed, analysed_games=40, window=win)
+    assert plan["last_game_note"]

@@ -1,7 +1,7 @@
 # The coach: what it must do, and where each piece actually is
 
 The standing record of Mohit's product decisions for the coaching product,
-so nothing is lost between sessions. Last updated 2026-11-26.
+so nothing is lost between sessions. Last updated 2026-11-27.
 
 **Read the status column honestly.** "Built" means the code exists and runs.
 It does not mean a user can see it. Today **nothing in this document is
@@ -38,7 +38,52 @@ work, 2026-11-10): tactical failures at these ratings are *blindness* —
 the patterns are known by everyone — while development correlated at r 0.89
 as the genuine knowledge axis.
 
-**Status: understood, not built.** The gate is specified in §6.
+### The gate on the live plan — BUILT 2026-11-27, and mostly blind
+
+Signed off by Mohit 2026-11-27 ("stop drilling what they know" as the release
+scope). `own_reliability` / `already_reliable` in
+`backend/services/player_coach_plan.py`, fed by `_reliability_pipeline` in
+`player_coach_file.py`; 75 tests pass and the real `build_file` was run
+against prod.
+
+**What changed on Mohit's own live plan:** step three
+(`gap:piece_safety:destination_safety_exact`, stake +0 over 0 games) is gone.
+A step with no affected game in the window is no longer shown while an
+evidenced step survives.
+
+**What did NOT change, and must not be oversold:**
+
+- **The reliability gate is a no-op on his account.** Measured over 400,000
+  observations, 37 users with 200+ opportunities ran min 0.9%, p25 3.8%,
+  median 6.0%, p75 10.7%, max 30.4%. He is at 4.1% — roughly the 30th
+  percentile, not mastery. An absolute "90% correct" bar would have withheld
+  the step for 26 of those 37, so the bar is the measured best quartile per
+  detector, and he sits outside it.
+- **Exactly one detector in the system carries a `quality_id` AND an
+  opportunity count**: `destination_safety_exact`. The two steps his plan
+  actually shows — `gap:king_safety:ignored_king_attack` and
+  `gap:missed_tactic:missed_fork` — have no structured verdict, so the gate
+  cannot evaluate them at all. For the things we recommend, we still cannot
+  tell whether he already knows them.
+- `piece_safety_decision` is eligible 4,318 times and **has never fired
+  once**, on the identical denominator where `destination_safety_exact` fires
+  177 times. That is the positive control: a dead detector, same shape as
+  `missed_free_piece`.
+
+**So the next build step is not the gate — it is opportunity counts.** Give
+the king-safety and missed-tactic detectors an `eligible`/`fires` verdict with
+a `quality_id`, and the gate starts working where it matters.
+
+---
+
+**Status: BUILT 2026-11-27.** `triage()` in
+`backend/services/teaching_script_builder.py`, wired at
+`backend/scripts/build_teaching_scripts.py:233` -- an `execution_failure`
+verdict short-circuits before the expensive branches and is written as a
+behaviour row instead of a lesson. The gate is described in §6.
+
+It has produced **zero** behaviour findings so far, because only one
+position in ~100 games has reached it. Built is not the same as exercised.
 
 ---
 
@@ -51,8 +96,11 @@ as the genuine knowledge axis.
 
 Same engine underneath. The difference is who receives what.
 
-**Status: not built.** Academy collections exist from an older pilot with
-1–2 rows.
+**Status: not built.** Academy collections exist from the older pilot,
+verified in prod 2026-11-27: `academies` 1, `academy_students` 2,
+`academy_staff` 1, `academy_batches` 1, `academy_class_sessions` 10,
+`academy_student_weeks` 8, `academy_class_games` 1,
+`academy_homework_attempts` 1, `academy_parent_reports` 1.
 
 ---
 
@@ -75,12 +123,27 @@ solved **exhaustively** — the answer is a proof, not an evaluation. Above that
 size, one move must clear a winning bar *and* the runner-up must fall well
 below it.
 
-**Status: BUILT.** `backend/services/teaching_script_builder.py`,
+**Status: BUILT, AND NOTHING CAN READ IT.**
+`backend/services/teaching_script_builder.py`,
 `backend/scripts/build_teaching_scripts.py`, skill
-`.claude/skills/build-teaching-scripts/`. Two scripts produced. **Not loaded
-to prod. Not shown to anyone. Missing the §0 triage gate.**
+`.claude/skills/build-teaching-scripts/`. The §0 triage gate is now in place.
 
-Measured cost: ~20s per game at depth 20 with Maia, ~1 script per 30 games.
+The decisive fact, checked 2026-11-27: the string `teaching_scripts` appears
+in **exactly one file in the repository -- the script that writes it.** No
+endpoint serves it, no frontend file mentions it, and the collection does not
+exist in prod. This is not a deployment gap waiting on a load command. There
+is no reader to load it for. **The missing piece is a surface, not content.**
+
+**Throughput is unmeasured.** Two attempts on 2026-11-27 both died -- one
+when a second Stockfish and a second Maia model were run beside it, one when
+the owning session exited. The same first 50 games took 215s in one run and
+1514s in the other, 7x apart, so no rate from either is trustworthy.
+
+**What the content looks like so far (n=1, do not characterise from it):**
+one lesson, on a position where 61.8% of the player's own rating band already
+finds the move, which the player **played correctly himself**, proved by
+engine search rather than exhaustively. It does not survive any cut-off
+tighter than 75%. This is the shape §7 question 3 is about.
 
 ---
 
@@ -239,7 +302,7 @@ exists.
 
 ---
 
-## 6. The triage gate — specified, not built
+## 6. The triage gate — BUILT 2026-11-27
 
 Before any lesson is generated from a mistake, decide which kind it was.
 
@@ -259,9 +322,56 @@ behaviour finding instead.
 **If it says they did not:** the §2 lesson is legitimate, and §3's question
 confirms it before teaching.
 
-This is a filter on the existing generator, not a rebuild. **It should land
-before any script is loaded to prod**, or the first content we ship is
-exactly the kind that drives a competent player away.
+This is a filter on the existing generator, not a rebuild. It landed before
+any script reached prod, which was the point.
+
+**Of the four kinds of evidence, two are wired:** the clock (1) and the Maia
+band (2). The player's own history (3) and our teaching history (4) are not
+consulted. So the gate catches time pressure and already-known-at-this-level,
+and cannot yet catch "he got this right in three other games".
+
+### And the signal kind 3 would read has stalled (verified 2026-11-27)
+
+The data exists at scale -- `user_concept_understanding` 5,424 rows over 76
+users, `move_observations` 765,721, `puzzle_attempts` 811. Clean games are
+still being credited. **What stopped is the step from a clean streak to
+`mastered_at`: not one concept, for any user, has been mastered since
+2026-09-17.**
+
+Positive control, so this is a break and not missing input: games analysed per
+month went 3,178 (Sep) -> 3,261 (Oct) -> 3,894 (Nov), while clean-game credit
+went 443 -> 11 -> 27. Daily, the drop is 2026-09-19/20: 15/50/61/38 rows a day
+through the 19th, then a flat 1-3 a day ever since, including today.
+
+**Cause not established.** Also not established: whether the pre-20-September
+rate was organic at all -- the day shape (four busy days, then five silent
+ones) looks like a batch. The relevant history is that the 2026-06-04 backfill
+wrongly stamped 749 of 763 `mastered_at` values, `cleanup_artifact_mastery.py`
+correctly stripped them on 2026-06-06 on the promise that "live game events
+from this point forward will re-master legitimate concepts organically", and
+832 rows did re-master between June and September before it stopped.
+
+**What this costs, on Mohit's own account:** 1,039 games, 1,032 analysed, 120
+concept rows. 42 of them carry a clean streak of 20 to 329 games and are still
+not flagged mastered -- six endgame principles sit at 329 clean games each.
+Every one is a concept he demonstrably has, which the system has never
+concluded he has. That is the Magnus case precisely, and it is live.
+
+A restore path already exists:
+`backend/scripts/restore_concept_mastery_snapshot.py`, against the snapshot
+`cleanup_artifact_mastery.py` always writes before applying. Restoring would
+re-grant the wrong stamps though -- the fix is the granting step, not the
+snapshot.
+
+**The band cut-off is now one number.** It was two that disagreed: `triage()`
+hardcoded 75% while `build_tree` gated on `max_band_solve` (0.90), so
+anything 75-90% passed the first and was thrown out by the second -- the flag
+was dead across the range that mattered and the effective cut-off was always
+75%. `MAX_BAND_SOLVE` is now 0.75, the runner's flag defaults to it, and the
+bar is passed into `triage()`. **Effective behaviour is unchanged**; this
+wrote down what was already being enforced rather than re-choosing it. A test
+asserts the flag is not dead across 75-90%. Still not locked against a
+measured distribution -- see section 7 question 4.
 
 ---
 
@@ -272,8 +382,12 @@ exactly the kind that drives a competent player away.
 2. **Signoff on [guided_concept_curriculum_scope.md](guided_concept_curriculum_scope.md).**
 3. **Does §2 fire only when the player did not know it?** Or are only-move
    positions intrinsically worth teaching regardless? These build differently.
-4. **The band-solve cut-off** (currently 90%) is not locked against a measured
-   distribution. `/lock-via-data` before anyone reads meaning into it.
+4. **The band-solve cut-off** is now a single number, 75% (it was two that
+   disagreed; see section 6). Still not locked against a measured
+   distribution. `/lock-via-data` before anyone reads meaning into it. The
+   build writes `human_pct` on every row so the distribution can be read off
+   real output; `teaching_out/distribution.py` prints it, including the
+   population rejected above the bar, which lands in the behaviour rows.
 5. **The Lichess de-branding pass** — approved in principle, not done.
 6. **The player-count line** ("Searching among N users"). Available only by
    presenting as Lichess's own web client; not done, and not recommended.
@@ -284,16 +398,24 @@ exactly the kind that drives a competent player away.
 
 | Item | Status |
 |---|---|
-| §0 triage (knowledge vs execution) | Understood 2026-11-26. **Not built.** |
+| §0 triage (knowledge vs execution) | **Built 2026-11-27.** Wired, and has fired zero times |
 | §1 two doors | Not built |
-| §2 only-move content | **Built.** Not loaded, not visible, missing the triage gate |
+| §2 only-move content | **Built. No reader exists anywhere in the repo.** 1 lesson, not in prod |
 | §3 concept check and sequencing | Scoped. Blocked on the ordering |
-| §4 behaviour detectors | Researched. Not built. Geometry not yet measured |
+| §4 behaviour detectors | Researched. Not built. Geometry measured and dead |
 | §4 academy reports | Not built |
 | §5 standing rules | In force |
-| §6 triage gate | Specified here. Not built |
+| §6 triage gate | **Built.** 2 of its 4 evidence kinds wired |
 
-**One of seven things built. Nothing visible to a user.**
+**Two of seven built. Still nothing visible to a user** -- and for section 2
+that is now known to be a missing *surface*, not a missing deploy: the only
+mention of `teaching_scripts` in the entire repository is the script that
+writes it.
+
+**The one thing blocking value is not engineering.** Section 7 question 3 --
+whether a lesson may be built on a position the player already played
+correctly -- is unanswered, and the single lesson built so far is exactly that
+case. A longer build run mostly produces more of it.
 
 ---
 

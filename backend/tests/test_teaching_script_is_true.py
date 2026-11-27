@@ -198,3 +198,36 @@ def test_a_pgn_without_clocks_still_produces_candidates():
     cands = candidate_positions_from_pgn(plain, user_color="white", max_men=32)
     assert len(cands) == 3
     assert all(c["clock_seconds"] is None for c in cands)
+
+
+def test_the_verdict_never_claims_the_player_missed_it():
+    # triage() is not told what the player played, so it may not say they
+    # missed anything. The very first row this generator wrote was logged as
+    # "found it | had_time_and_missed_it" -- the player had played the only
+    # move. Whether they found it is `player_found_it`, set by the runner.
+    v = triage({"think_seconds": 42.0, "clock_seconds": 600.0},
+               band_solve_pct=31.0)
+    assert v["verdict"] == "knowledge_gap"
+    assert "missed" not in v["cause"]
+    assert "missed" not in v.get("detail", "")
+
+
+def test_the_band_cut_off_is_one_number_and_the_flag_is_not_dead():
+    # It used to be two. triage() hardcoded 75% while build_tree gated on
+    # max_band_solve (0.90), so a position 75-90% of the band already finds
+    # passed build_tree and was then rejected here -- the flag did nothing
+    # across its most important range and the real cut-off was always 75%.
+    from services.teaching_script_builder import MAX_BAND_SOLVE
+
+    cand = {"think_seconds": 40.0, "clock_seconds": 600.0}
+
+    # 80% of the band finds it. Under the default bar that is already-known.
+    assert triage(cand, band_solve_pct=80.0)["cause"] == "known_by_their_level"
+    # Raising the bar to 90 must actually let it through, or the flag is dead.
+    assert triage(cand, band_solve_pct=80.0,
+                  band_bar_pct=90.0)["verdict"] == "knowledge_gap"
+    # Lowering it must actually reject more.
+    assert triage(cand, band_solve_pct=60.0,
+                  band_bar_pct=50.0)["cause"] == "known_by_their_level"
+    # And the default the runner uses is the one number, not a second copy.
+    assert MAX_BAND_SOLVE == 0.75

@@ -48,7 +48,14 @@ EXACT_MAX_MEN = 5
 # finds the only move. UNLOCKED: chosen to exclude the indefensible, not
 # measured against a distribution of band solve-rates. Lock it with
 # /lock-via-data before anyone reads anything into the cut-off.
-MAX_BAND_SOLVE = 0.90
+# The share of the player's own rating band that may already find the only
+# move before the position stops being worth teaching. 0.75 because that is
+# what the pipeline has ALREADY been enforcing -- triage hardcoded 75% and
+# rejected everything build_tree's looser 0.90 let through. Written down as
+# the one number rather than re-chosen; it is not locked against a measured
+# distribution yet, and /lock-via-data should settle it before anything
+# reads meaning into it.
+MAX_BAND_SOLVE = 0.75
 
 WIN, DRAW, LOSS = 1, 0, -1
 
@@ -344,7 +351,8 @@ def build_tree(fen: str,
     # the player already knew.
     verdict: Dict[str, Any] = {}
     if candidate is not None:
-        verdict = triage(candidate, band_solve_pct=only_v.human_pct)
+        verdict = triage(candidate, band_solve_pct=only_v.human_pct,
+                         band_bar_pct=max_band_solve * 100.0)
         if verdict["verdict"] == "execution_failure":
             return TeachingTree(
                 fen=fen,
@@ -583,6 +591,7 @@ LOW_CLOCK_SECONDS = 60.0      # at this little remaining, seeing it is the probl
 
 def triage(candidate: Dict[str, Any],
            band_solve_pct: Optional[float] = None,
+           band_bar_pct: float = MAX_BAND_SOLVE * 100.0,
            rushed_seconds: float = RUSHED_SECONDS,
            low_clock_seconds: float = LOW_CLOCK_SECONDS,
            rushed_fraction: float = RUSHED_FRACTION) -> Dict[str, Any]:
@@ -627,7 +636,13 @@ def triage(candidate: Dict[str, Any],
                 "detail": f"{clock:.0f}s left on the clock",
                 "think_seconds": think, "clock_seconds": clock}
 
-    if band_solve_pct is not None and band_solve_pct >= 75.0:
+    # ONE number decides this, and it arrives from the caller. It used to be
+    # hardcoded 75.0 here while build_tree gated on max_band_solve (0.90),
+    # so 75-90% passed build_tree and was then thrown out by this line: the
+    # flag was dead across the range that mattered most and the effective
+    # cut-off was 75% whatever the flag said. Aligned, not re-chosen --
+    # MAX_BAND_SOLVE is now 0.75, so the effective behaviour is unchanged.
+    if band_solve_pct is not None and band_solve_pct >= band_bar_pct:
         # Most players at their own rating find this move. Being told the
         # concept is being told something they demonstrably already have.
         return {"verdict": "execution_failure", "cause": "known_by_their_level",
@@ -638,7 +653,14 @@ def triage(candidate: Dict[str, Any],
         return {"verdict": "unclear", "cause": "no_evidence", "detail": "",
                 "think_seconds": None, "clock_seconds": None}
 
-    return {"verdict": "knowledge_gap", "cause": "had_time_and_missed_it",
+    # NOT "missed it": triage is never told what the player actually played,
+    # so it cannot support that claim. The first row this generator ever
+    # produced was stamped `had_time_and_missed_it` on a position where the
+    # player had played the only move -- "found it | had_time_and_missed_it"
+    # in the same log line. The label now says only what is known here:
+    # they had time on the clock and the concept is not one their level
+    # already has. Whether they found it is the runner's `player_found_it`.
+    return {"verdict": "knowledge_gap", "cause": "had_time_to_think",
             "detail": (f"spent {think:.0f}s with {clock:.0f}s left"
                        if think is not None and clock is not None else ""),
             "think_seconds": think, "clock_seconds": clock}

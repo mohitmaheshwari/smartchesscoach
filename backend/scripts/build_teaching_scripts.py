@@ -34,6 +34,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from services.teaching_script_builder import (
     BUILDER_VERSION,
+    MAX_BAND_SOLVE,
     build_tree,
     candidate_positions_from_pgn,
 )
@@ -118,7 +119,7 @@ async def main() -> int:
                     help="only consider positions with at most this many pieces")
     ap.add_argument("--depth", type=int, default=24)
     ap.add_argument("--threads", type=int, default=4)
-    ap.add_argument("--max-band-solve", type=float, default=0.90,
+    ap.add_argument("--max-band-solve", type=float, default=MAX_BAND_SOLVE,
                     help="skip a position when this share of the player's "
                          "rating band already finds the only move (needs "
                          "--maia to have any effect)")
