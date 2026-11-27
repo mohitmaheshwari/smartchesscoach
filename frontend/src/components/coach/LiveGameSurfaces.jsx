@@ -312,23 +312,57 @@ export function resultWords(game, ourColor) {
   return { headline: game.winner === ourColor ? "You won" : "You lost", reason };
 }
 
+/* ------------------------------------------------------------------ result */
+
+const RATING_PENDING_TEXT = "Asking Lichess for your new rating…";
+
+const RESULT_STYLES = `
+@keyframes cg-result-in   { from { opacity: 0 } to { opacity: 1 } }
+@keyframes cg-result-rise { from { opacity: 0; transform: translateY(18px) }
+                            to   { opacity: 1; transform: none } }
+@keyframes cg-spin        { to { transform: rotate(360deg) } }
+.cg-result-overlay { animation: cg-result-in .16s ease-out both; }
+.cg-result-panel   { animation: cg-result-rise .26s cubic-bezier(.22,1,.36,1) both; }
+.cg-spin           { animation: cg-spin .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .cg-result-overlay, .cg-result-panel, .cg-spin { animation: none; }
+}
+`;
+
+/** ↑ 6 / ↓ 7 / ±0, or nothing. One renderer, so the card and the pop-up agree. */
+export function RatingDelta({ diff, testId }) {
+  if (typeof diff !== "number") return null;
+  return (
+    <span
+      className={`text-sm font-medium tabular-nums ${
+        diff > 0
+          ? "text-emerald-400"
+          : diff < 0
+          ? "text-rose-400"
+          : "text-muted-foreground"
+      }`}
+      data-testid={testId}
+    >
+      {diff > 0 ? `↑ ${diff}` : diff < 0 ? `↓ ${Math.abs(diff)}` : "±0"}
+    </span>
+  );
+}
+
 /**
- * The rating change, which is Lichess's number and never ours.
- *
- * Shared by the sidebar card and the pop-up so there is one place that decides
- * what an unknown rating looks like. That matters more than it sounds: the
- * server learns the game is over from the game stream, and only THEN asks
- * Lichess's export endpoint what the game was worth. For a second or two a
- * finished game legitimately has no rating attached to it.
+ * The rating change on the sidebar card, which is Lichess's number and never
+ * ours.
  *
  * Three states, and they are different things:
  *   - a number        -> show it, with the change
  *   - still asking    -> say so, on a rated game only
  *   - casual, or gone -> say nothing at all, rather than guess
+ *
+ * The middle one matters more than it sounds. The server learns the game is
+ * over from the Lichess game stream, and only THEN asks their export endpoint
+ * what the game was worth, so for a second or two a finished game legitimately
+ * has no rating attached to it.
  */
 export function RatingLine({ game, pending }) {
-  const diff = game.our_rating_diff;
-
   if (game.our_rating == null) {
     if (!pending || !game.rated) return null;
     return (
@@ -336,7 +370,7 @@ export function RatingLine({ game, pending }) {
         className="mt-4 text-sm text-muted-foreground"
         data-testid="live-rating-pending"
       >
-        Asking Lichess for your new rating…
+        {RATING_PENDING_TEXT}
       </div>
     );
   }
@@ -346,48 +380,38 @@ export function RatingLine({ game, pending }) {
       <span className="text-2xl font-semibold tabular-nums" data-testid="live-new-rating">
         {game.our_rating}
       </span>
-      {typeof diff === "number" ? (
-        <span
-          className={`text-sm font-medium tabular-nums ${
-            diff > 0
-              ? "text-emerald-400"
-              : diff < 0
-              ? "text-rose-400"
-              : "text-muted-foreground"
-          }`}
-          data-testid="live-rating-diff"
-        >
-          {diff > 0 ? `↑ ${diff}` : diff < 0 ? `↓ ${Math.abs(diff)}` : "±0"}
-        </span>
-      ) : null}
+      <RatingDelta diff={game.our_rating_diff} testId="live-rating-diff" />
     </div>
   );
 }
 
 /** The review door, in whichever of its two states is true right now. */
-function ReviewAction({ review, testIdReady, testIdPending }) {
+function ReviewAction({ review, testIdReady, testIdPending, size = "md" }) {
+  const tall = size === "lg" ? "min-h-[52px] text-base" : "min-h-[44px] text-sm";
   if (review && review.ready) {
     return (
       <a
         href={review.review_url}
         data-testid={testIdReady}
-        className="flex min-h-[44px] items-center justify-center rounded-lg bg-emerald-600 px-4 text-sm font-medium text-white"
+        className={`flex ${tall} items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 font-semibold text-white transition-colors hover:bg-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400`}
       >
-        Review this game →
+        Review this game <span aria-hidden="true">→</span>
       </a>
     );
   }
   return (
-    <button
-      type="button"
-      disabled
+    <div
       data-testid={testIdPending}
-      className="flex min-h-[44px] items-center justify-center rounded-lg border border-border px-4 text-sm text-muted-foreground"
+      className={`flex ${tall} items-center justify-center gap-2.5 rounded-xl border border-border px-4 text-muted-foreground`}
     >
+      <span
+        aria-hidden="true"
+        className="cg-spin h-3.5 w-3.5 shrink-0 rounded-full border-2 border-border border-t-emerald-500"
+      />
       {review && review.imported
         ? "Analysing your game…"
         : "Picking your game up from Lichess…"}
-    </button>
+    </div>
   );
 }
 
@@ -449,6 +473,36 @@ export function ResultCard({
   );
 }
 
+/** One line of the little crosstable: who, and what they are rated now. */
+function ScoreRow({ name, rating, diff, mine, testId }) {
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 px-4 py-3 ${
+        mine ? "bg-muted/50" : ""
+      }`}
+      data-testid={testId}
+    >
+      <div className="flex min-w-0 items-baseline gap-2">
+        <span className="truncate text-sm font-medium text-foreground">{name}</span>
+        {mine ? (
+          <span className="shrink-0 text-xs text-muted-foreground">you</span>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-baseline gap-2">
+        <span
+          className={`text-sm tabular-nums ${
+            mine ? "font-semibold text-foreground" : "text-muted-foreground"
+          }`}
+          data-testid={mine && rating != null ? "live-new-rating" : undefined}
+        >
+          {rating == null ? "—" : rating}
+        </span>
+        <RatingDelta diff={diff} testId={mine ? "live-rating-diff" : undefined} />
+      </div>
+    </div>
+  );
+}
+
 /**
  * The game-over pop-up.
  *
@@ -461,6 +515,25 @@ export function ResultCard({
  * much the same. On a phone that column sits below the board, so the end of a
  * game -- the one moment the screen actually has something to announce --
  * changed nothing in view.
+ *
+ * What it says, in the order it says it:
+ *
+ *   1. the verdict, large, in one of three words
+ *   2. how the game ended, quietly
+ *   3. a two-line crosstable: both players, both ratings, your change
+ *   4. ONE primary action -- the review, which is the whole product
+ *   5. the two ways out, side by side and deliberately lighter
+ *
+ * The crosstable replaced a floating rating with "against someone" under it.
+ * A rated game is a transaction between two players and reads as one; it also
+ * gives the unknown-rating case somewhere honest to sit (an em dash in the
+ * cell, with a line underneath saying we are still asking) instead of a hole
+ * where a number should be.
+ *
+ * No board in here, on purpose. On a phone this is a sheet at the bottom with
+ * the real board still above it, and on a desktop the real board is behind the
+ * dimmed overlay. A second copy of a board we are already showing is clutter,
+ * not chess.
  *
  * It is dismissible, and dismissing leaves the identical result standing in
  * the sidebar. The pop-up is the announcement, not the only copy, so closing
@@ -476,6 +549,7 @@ export function ResultCard({
 export function ResultModal({
   game,
   ourColor,
+  me,
   review,
   ratingPending,
   onDismiss,
@@ -486,14 +560,20 @@ export function ResultModal({
   const won = game.winner === ourColor;
   const drawn = !game.winner;
   const panelRef = useRef(null);
-  const closeRef = useRef(null);
 
   useEffect(() => {
     // Where focus was when the game ended, so closing puts it back.
     const previous = document.activeElement;
-    // Focus the close button, not the review link: landing on a link means
-    // Enter navigates away from a result nobody has read yet.
-    if (closeRef.current) closeRef.current.focus();
+    // Focus the PANEL, not a control inside it.
+    //
+    // Focusing a control was the first version and it looked wrong the moment
+    // it was on screen: Chrome treats a programmatic focus with no prior
+    // interaction as keyboard focus, so "Look at the board" opened wearing a
+    // ring and read as a second primary action next to the review. The panel
+    // carries role=dialog and aria-labelledby, so landing here is what a
+    // screen reader wants anyway, and Tab then walks the controls in order,
+    // starting at the review.
+    if (panelRef.current) panelRef.current.focus();
     return () => {
       if (previous && typeof previous.focus === "function") previous.focus();
     };
@@ -528,10 +608,20 @@ export function ResultModal({
   }, [onDismiss]);
 
   const opponent = game.opponent || {};
+  const accent = drawn
+    ? "bg-border"
+    : won
+    ? "bg-emerald-500"
+    : "bg-rose-500";
+  const showPending = game.our_rating == null && game.rated && ratingPending;
+  // A casual game leaves an em dash in our rating cell with nothing to explain
+  // it, which reads like a value that failed to load. It did not fail: there
+  // is no number because nothing was at stake. Say that.
+  const showCasual = !game.rated;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 backdrop-blur-sm sm:items-center sm:p-4"
+      className="cg-result-overlay fixed inset-0 z-50 flex items-end justify-center bg-background/80 backdrop-blur-sm sm:items-center sm:p-4"
       data-testid="live-result-overlay"
       onMouseDown={(event) => {
         // Only a press on the backdrop itself. A drag that began inside the
@@ -539,70 +629,100 @@ export function ResultModal({
         if (event.target === event.currentTarget) onDismiss();
       }}
     >
+      <style>{RESULT_STYLES}</style>
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="live-result-title"
+        tabIndex={-1}
         data-testid="live-result-modal"
-        className={`w-full max-w-sm rounded-t-2xl border bg-card p-6 text-center shadow-lg sm:rounded-2xl ${
-          drawn
-            ? "border-border"
-            : won
-            ? "border-emerald-500/60"
-            : "border-rose-500/50"
-        }`}
+        className="cg-result-panel focus:outline-none w-full max-w-sm overflow-hidden rounded-t-2xl border border-border bg-card shadow-2xl sm:rounded-2xl"
       >
-        <div
-          id="live-result-title"
-          className={`text-3xl font-bold ${
-            drawn ? "" : won ? "text-emerald-400" : "text-rose-400"
-          }`}
-          data-testid="live-modal-headline"
-        >
-          {headline}
-        </div>
-        {reason ? (
-          <div className="mt-1 text-sm text-muted-foreground">{reason}</div>
-        ) : null}
+        {/* The only place the outcome is coloured besides the word itself.
+            A fully tinted card shouts; a 3px rule states it. */}
+        <div className={`h-[3px] w-full ${accent}`} aria-hidden="true" />
 
-        <RatingLine game={game} pending={ratingPending} />
-
-        {opponent.username ? (
+        <div className="px-6 pb-6 pt-5 text-center">
           <div
-            className="mt-1 text-xs text-muted-foreground"
-            data-testid="live-modal-opponent"
+            id="live-result-title"
+            className={`text-3xl font-bold leading-tight ${
+              drawn ? "" : won ? "text-emerald-400" : "text-rose-400"
+            }`}
+            data-testid="live-modal-headline"
           >
-            against {opponent.username}
-            {game.opponent_rating_after ? ` (${game.opponent_rating_after})` : ""}
+            {headline}
           </div>
-        ) : null}
+          {reason ? (
+            <div className="mt-1 text-sm text-muted-foreground">{reason}</div>
+          ) : null}
 
-        <div className="mt-6 flex flex-col gap-2">
-          <ReviewAction
-            review={review}
-            testIdReady="live-modal-review"
-            testIdPending="live-modal-review-pending"
-          />
-          <button
-            type="button"
-            onClick={onNewGame}
-            disabled={busy}
-            data-testid="live-modal-new-game"
-            className="flex min-h-[44px] items-center justify-center rounded-lg border border-border px-4 text-sm font-medium"
-          >
-            New game
-          </button>
-          <button
-            type="button"
-            ref={closeRef}
-            onClick={onDismiss}
-            data-testid="live-modal-close"
-            className="flex min-h-[44px] items-center justify-center rounded-lg px-4 text-sm text-muted-foreground hover:text-foreground"
-          >
-            Look at the board
-          </button>
+          <div className="mt-5 divide-y divide-border overflow-hidden rounded-xl border border-border text-left">
+            <ScoreRow
+              name={(me && me.username) || "You"}
+              rating={game.our_rating}
+              diff={game.our_rating_diff}
+              mine
+            />
+            <ScoreRow
+              name={opponent.username || "Opponent"}
+              rating={game.opponent_rating_after || opponent.rating}
+              testId="live-modal-opponent"
+            />
+          </div>
+
+          {showPending ? (
+            <div
+              className="mt-2.5 text-xs text-muted-foreground"
+              data-testid="live-rating-pending"
+            >
+              {RATING_PENDING_TEXT}
+            </div>
+          ) : null}
+
+          {showCasual ? (
+            <div
+              className="mt-2.5 text-xs text-muted-foreground"
+              data-testid="live-casual-note"
+            >
+              Casual game, so no rating changed.
+            </div>
+          ) : null}
+
+          <div className="mt-6">
+            <ReviewAction
+              review={review}
+              testIdReady="live-modal-review"
+              testIdPending="live-modal-review-pending"
+              size="lg"
+            />
+          </div>
+
+          {/* Deliberately lighter than the review, and side by side so neither
+              reads as the thing to do next. */}
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onNewGame}
+              disabled={busy}
+              data-testid="live-modal-new-game"
+              className="flex min-h-[44px] items-center justify-center rounded-xl border border-border px-3 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              New game
+            </button>
+            <button
+              type="button"
+              onClick={onDismiss}
+              data-testid="live-modal-close"
+              className="flex min-h-[44px] items-center justify-center rounded-xl px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Look at the board
+            </button>
+          </div>
         </div>
+
+        {/* A phone's home indicator sits over the bottom of a sheet. */}
+        <div className="h-[env(safe-area-inset-bottom)] sm:hidden" aria-hidden="true" />
       </div>
     </div>
   );

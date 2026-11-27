@@ -501,6 +501,11 @@ describe("the game-over pop-up", () => {
     );
     expect(host.querySelector('[data-testid="live-rating-pending"]')).toBeNull();
     expect(host.querySelector('[data-testid="live-new-rating"]')).toBeNull();
+    // ...but it does explain the empty cell, which otherwise reads as a value
+    // that failed to load.
+    expect(
+      host.querySelector('[data-testid="live-casual-note"]').textContent
+    ).toMatch(/no rating changed/i);
   });
 
   it("offers the review only once it is ready, same rule as the card", async () => {
@@ -606,13 +611,20 @@ describe("the game-over pop-up", () => {
     const controls = panel.querySelectorAll("a[href], button");
     expect(controls.length).toBe(3); // review, new game, close
     for (const control of controls) {
-      expect(control.className).toMatch(/min-h-\[44px\]/);
+      // Not a literal 44: the primary action is deliberately taller. The floor
+      // is what matters, so read the number and check it.
+      const found = /min-h-\[(\d+)px\]/.exec(control.className);
+      expect(found).not.toBeNull();
+      expect(Number(found[1])).toBeGreaterThanOrEqual(44);
     }
   });
 
-  it("opens with focus on the close button, not on the review link", async () => {
-    // Landing on a link means Enter navigates away from a result nobody has
-    // read yet.
+  it("opens with focus on the dialog itself, wearing no ring", async () => {
+    // Focusing a control was the first version. Chrome treats a programmatic
+    // focus with no prior interaction as keyboard focus, so the dismiss
+    // button opened with a visible ring and read as a second primary action.
+    // The panel is the right target: role=dialog, aria-labelledby, and Tab
+    // then starts at the review.
     const host = await render(
       <ResultModal
         game={won}
@@ -622,8 +634,123 @@ describe("the game-over pop-up", () => {
         onNewGame={noop}
       />
     );
-    expect(document.activeElement).toBe(
-      host.querySelector('[data-testid="live-modal-close"]')
+    const panel = host.querySelector('[data-testid="live-result-modal"]');
+    expect(document.activeElement).toBe(panel);
+    expect(panel.getAttribute("tabindex")).toBe("-1");
+    // Focus is inside the dialog, and not sitting on anything that navigates.
+    expect(document.activeElement).not.toBe(
+      host.querySelector('[data-testid="live-modal-review"]')
     );
+  });
+});
+
+describe("the pop-up's crosstable", () => {
+  const won = {
+    status: "outoftime",
+    winner: "white",
+    rated: true,
+    our_rating: 1430,
+    our_rating_diff: 6,
+    opponent: { username: "vanissimo1", rating: 1450 },
+    opponent_rating_after: 1444,
+  };
+  const noop = () => {};
+
+  it("names both players and both ratings, not just ours", async () => {
+    // A rated game is a transaction between two people and should read as
+    // one. The old card showed a floating number with "against someone"
+    // under it.
+    const host = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        me={{ username: "bhutramohit", rating: 1424 }}
+        review={null}
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    const panel = host.querySelector('[data-testid="live-result-modal"]');
+    expect(panel.textContent).toContain("bhutramohit");
+    expect(panel.textContent).toContain("1430");
+    expect(panel.textContent).toContain("vanissimo1");
+    // Their rating AFTER the game, which is the one Lichess just set.
+    expect(
+      host.querySelector('[data-testid="live-modal-opponent"]').textContent
+    ).toContain("1444");
+  });
+
+  it("falls back to You when we do not know the player's handle", async () => {
+    const host = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        review={null}
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    expect(host.querySelector('[data-testid="live-result-modal"]').textContent).toContain(
+      "You"
+    );
+  });
+
+  it("shows a dash where an unknown rating goes, never a blank cell", async () => {
+    const host = await render(
+      <ResultModal
+        game={{ ...won, our_rating: null, our_rating_diff: null }}
+        ourColor="white"
+        me={{ username: "bhutramohit" }}
+        review={null}
+        ratingPending
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    const panel = host.querySelector('[data-testid="live-result-modal"]');
+    expect(panel.textContent).toContain("—");
+    expect(panel.querySelector('[data-testid="live-rating-pending"]')).not.toBeNull();
+    expect(panel.textContent).not.toMatch(/↑|↓|±/);
+  });
+
+  it("gives the review the weight and leaves the other two lighter", async () => {
+    // Three equal buttons is no hierarchy at all, and the review is the whole
+    // reason the product exists.
+    const host = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        review={{ ready: true, review_url: "/game/abc" }}
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    const primary = host.querySelector('[data-testid="live-modal-review"]');
+    expect(primary.className).toMatch(/bg-emerald-600/);
+
+    for (const id of ["live-modal-new-game", "live-modal-close"]) {
+      expect(host.querySelector(`[data-testid="${id}"]`).className).not.toMatch(
+        /bg-emerald/
+      );
+    }
+  });
+
+  it("colours the outcome once, as a rule, not as a tinted card", async () => {
+    const host = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        review={null}
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    const panel = host.querySelector('[data-testid="live-result-modal"]');
+    // The panel itself stays neutral; the win reads from the rule and the word.
+    expect(panel.className).not.toMatch(/bg-emerald|border-emerald/);
+    expect(panel.querySelector(".bg-emerald-500")).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="live-modal-headline"]').className
+    ).toMatch(/text-emerald-400/);
   });
 });

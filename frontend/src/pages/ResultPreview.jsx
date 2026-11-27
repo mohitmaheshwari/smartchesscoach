@@ -14,6 +14,7 @@
 import React, { useState } from "react";
 import { ResultModal } from "@/components/coach/LiveGameSurfaces";
 
+const ME = { username: "bhutramohit", rating: 1424 };
 const OPPONENT = { username: "vanissimo1", rating: 1450 };
 
 const BASE = {
@@ -147,6 +148,7 @@ export default function ResultPreview() {
         <ResultModal
           game={state.game}
           ourColor="white"
+          me={ME}
           review={state.review}
           ratingPending={state.ratingPending}
           onDismiss={() => setOpen(false)}

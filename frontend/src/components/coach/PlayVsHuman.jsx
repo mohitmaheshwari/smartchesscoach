@@ -535,6 +535,7 @@ export default function PlayVsHuman({ onExit }) {
         <ResultModal
           game={game}
           ourColor={ourColor}
+          me={me}
           review={review}
           ratingPending={ratingPending}
           onDismiss={() => setResultSeen(true)}
