@@ -769,6 +769,7 @@ def build_file(
     skipped: Sequence[Mapping[str, Any]] = (),
     slips_per_game: Optional[Mapping[str, Tuple[int, int]]] = None,
     reliability: Optional[Mapping[str, Mapping[str, Any]]] = None,
+    behaviour: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Pure: everything is read by the caller. `moments_fn(habit, games_by_id)`
     builds the habit's board moments with the engine (None in tests)."""
@@ -816,6 +817,7 @@ def build_file(
         analysed_games=len(analysed_ids), window=window,
         # His whole record, not the 60-game window these observations hold.
         reliability=reliability,
+        behaviour=behaviour,
     )
     return {
         "user_id": user_id,
@@ -886,6 +888,56 @@ def _reliability_pipeline(user_id: str, game_ids: Sequence[str]) -> List[Dict[st
                     "eligible": {"$sum": 1},
                     "fired": {"$sum": {"$cond": [{"$eq": ["$d.fires", True]}, 1, 0]}}}},
     ]
+
+
+# The behavioural reading needs EVERY one of his moves in the window, not
+# just the errors: "unravelling" is about the move BEFORE the error, and
+# _OBS_FILTER_OR keeps only rows that already went wrong. It also needs
+# time_left_seconds and cp_loss, which _OBS_FIELDS does not carry.
+_BEHAVIOUR_FIELDS = {"_id": 0, "game_id": 1, "ply": 1, "move_number": 1,
+                     "cp_loss": 1, "time_left_seconds": 1,
+                     **{f: 1 for f in RELIABILITY_FIELDS}}
+
+
+def _behaviour_query(user_id: str, game_ids: Sequence[str]) -> Dict[str, Any]:
+    return {"user_id": user_id, "game_id": {"$in": list(game_ids)}}
+
+
+def behaviour_readings(rows: Iterable[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """quality_id -> why those errors happened, over the rate window.
+
+    Mohit's rule: under the drill bar the player is owed a circumstance. See
+    services/player_behaviour_reading.py for what earned a place and what the
+    data refused (moving fast is protective, tilt is dead, board region is
+    dead), and for the ceiling: about half of these errors have no
+    explanation we can stand behind, and that stays visible.
+    """
+    from services import player_behaviour_reading as pbr
+
+    by_game: Dict[str, List[Mapping[str, Any]]] = {}
+    for row in rows:
+        by_game.setdefault(row.get("game_id"), []).append(row)
+    for game_rows in by_game.values():
+        game_rows.sort(key=lambda r: r.get("ply") or 0)
+
+    fired_by_qid: Dict[str, List[tuple]] = {}
+    for game_rows in by_game.values():
+        for row in game_rows:
+            for field in RELIABILITY_FIELDS:
+                verdict = row.get(field)
+                if not isinstance(verdict, Mapping):
+                    continue
+                qid = verdict.get("quality_id")
+                if qid and verdict.get("fires"):
+                    fired_by_qid.setdefault(str(qid), []).append(
+                        (row.get("game_id"), row.get("ply")))
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for qid, keys in fired_by_qid.items():
+        got = pbr.reading(by_game, keys)
+        if got:
+            out[qid] = got
+    return out
 
 
 def reliability_from_rows(rows: Iterable[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -1040,10 +1092,14 @@ def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
     # His whole counted record per quality_id, so a step is never opened on
     # something he already has. Deliberately NOT limited to analysed_ids:
     # see _reliability_pipeline.
+    rate_window = analysed_ids[:ppl.RATE_WINDOW_GAMES]
     reliability = reliability_from_rows(db.move_observations.aggregate(
-        _reliability_pipeline(user_id, analysed_ids[:ppl.RATE_WINDOW_GAMES])))
+        _reliability_pipeline(user_id, rate_window)))
+    behaviour = behaviour_readings(db.move_observations.find(
+        _behaviour_query(user_id, rate_window), _BEHAVIOUR_FIELDS)) if rate_window else {}
     doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, deciding_rows, engine_moments,
-                     skipped=skipped, slips_per_game=slips, reliability=reliability)
+                     skipped=skipped, slips_per_game=slips, reliability=reliability,
+                     behaviour=behaviour)
     from services import player_plan_week as ppw
     # A week is locked only for a player who can see the plan: 78 of the first
     # 92 weeks belonged to players who could not (docs/coaching_intelligence_scope.md, 1a).
@@ -1087,12 +1143,15 @@ async def build_and_store(db, user_id: str) -> Dict[str, Any]:
     check_ids = pa.ids_for_mistake_check(pa.clock_rows(dedupe_games(games), skipped))
     slips = _slips_per_game(await db.move_observations.find(
         {"user_id": user_id, "game_id": {"$in": check_ids}}, _SLIP_FIELDS).to_list(None)) if check_ids else None
+    rate_window = analysed_ids[:ppl.RATE_WINDOW_GAMES]
     reliability = reliability_from_rows(await db.move_observations.aggregate(
-        _reliability_pipeline(user_id, analysed_ids[:ppl.RATE_WINDOW_GAMES])).to_list(None))
+        _reliability_pipeline(user_id, rate_window)).to_list(None))
+    behaviour = behaviour_readings(await db.move_observations.find(
+        _behaviour_query(user_id, rate_window), _BEHAVIOUR_FIELDS).to_list(None)) if rate_window else {}
     # The build may run the engine: keep it off the event loop.
     doc = await asyncio.to_thread(build_file, user_id, games, analyses, observations, last_rows,
                                   previous, fires, deciding_rows, engine_moments, None, skipped, slips,
-                                  reliability)
+                                  reliability, behaviour)
     from services import player_plan_week as ppw
     row = (await ppw.ensure_week(db, user_id, week_start(), doc.get("plan"), games,
                                  {a["game_id"]: a.get("rows") or [] for a in analyses}, observations,

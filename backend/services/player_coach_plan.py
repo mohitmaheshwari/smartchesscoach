@@ -260,7 +260,8 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
                deciding: Sequence[Mapping[str, Any]], habit_check: Optional[Mapping[str, Any]],
                newest_game_id: Optional[str], observations: Iterable[Mapping[str, Any]],
                analysed_games: int, window: Sequence[str] = (),
-               reliability: Optional[Mapping[str, Mapping[str, Any]]] = None) -> Optional[Dict[str, Any]]:
+               reliability: Optional[Mapping[str, Mapping[str, Any]]] = None,
+               behaviour: Optional[Mapping[str, Mapping[str, Any]]] = None) -> Optional[Dict[str, Any]]:
     """The plan, or None when there is nothing proven to build it from."""
     # Read once. It is an Iterable, and it is needed again for the "last game"
     # line below -- iterating it twice would leave that silently empty.
@@ -290,6 +291,11 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
         # has taught him, because the first keeps coming up.
         under = below_drill_bar(reliability, row.get("quality_id"))
         if under:
+            # The debt comes due here: say WHY, or say plainly that we cannot.
+            # An unexplained reading is still a reading and is not dropped.
+            read_why = (behaviour or {}).get(row.get("quality_id"))
+            if read_why:
+                under = {**under, "why": read_why}
             reliable_skips.append(under)
             continue
         others.append(_problem_step(row, progress_by_qid, training=False))

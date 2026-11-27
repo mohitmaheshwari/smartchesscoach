@@ -38,7 +38,73 @@ work, 2026-11-10): tactical failures at these ratings are *blindness* —
 the patterns are known by everyone — while development correlated at r 0.89
 as the genuine knowledge axis.
 
-### The gate on the live plan — BUILT 2026-11-27, and mostly blind
+### The drill rule and the behavioural reading — BUILT 2026-11-27
+
+**Mohit's rule, in his words:** *"it should be counted by opportunity exists
+vs opportunity taken... if a one move blunder exists and if that is 25%,
+player still need to do the drill. If that's less than 25%, then we would try
+to understand why this error existed, was this a time pressure thing, was
+this an eye sight or was player distracted, not focused... chess is just not
+calculation and tactics, chess is also focus and behavioral tactics, so
+that's what we want to track."*
+
+A rate over his last ten games, not a count. At or above 25% he drills; below
+it the step is withheld and the player is owed a circumstance.
+`RATE_WINDOW_GAMES = 10`, `DRILL_RATE = 0.25`, `MIN_OPPORTUNITIES = 20`.
+
+Verified on prod through the real build path, 63 users: **48 have a withheld
+step, 4 drill** (45%, 35%, 32%, 27%). 102 tests pass.
+
+**Ten games is enough for this and not for other questions.** Proving a big
+difference is cheap; proving absence is expensive. The window holds a median
+of 44 opportunities, so the bar is ~11 fires against ~3 for a typical player.
+By contrast `player_coach_habit.change_state` cannot declare a habit GONE for
+any habit rarer than about one game in nine, because its 20-game window
+cannot clear a one-sided p<0.10 — see §4.
+
+#### What the behavioural reading may say
+
+`services/player_behaviour_reading.py`. A cause counts only if it is commoner
+among the errors than among the SAME opportunities that went fine. Measured
+over 1,200 games and 5,466 eligible decisions, base rate 8.29%:
+
+| signal | n | with | without | lift |
+|---|---|---|---|---|
+| time pressure (<60s left) | 218 | 14.68% | 8.05% | **1.82x** |
+| unravelling (big error in last 3) | 1,539 | 10.14% | 7.56% | **1.34x** |
+| late game (move 31+) | 672 | 10.42% | 7.99% | **1.30x** |
+| snap move (<= 1/3 his pace) | 382 | 6.02% | 8.49% | **0.71x** |
+
+**The commonest reason a piece gets hung is that a mistake was just made** —
+unravelling covers 34.4% of errors, more than everything else together.
+
+**Refused, and guarded by a test:**
+
+- **Moving fast is not a cause; it is protective** (0.71x). "Eyesight" and
+  "he rushed" are the same guess, and the data has now refused it three
+  times — the teaching triage's `rushed` rule was backwards too.
+- **Tilt**: dead. **Board region**: dead.
+
+**The ceiling, which stays visible:** at least one signal covers 49.7% of
+errors and **nothing covers the other 50.3%**, so `not_explained` is a
+first-class answer. A cause is never claimed when it covers fewer errors than
+"we cannot say" does.
+
+#### Still missing
+
+- **Exactly one detector carries a `quality_id` AND an opportunity count**
+  (`destination_safety_exact`), so the whole rule applies to piece safety
+  only. `ignored_king_attack` and `missed_fork` — the steps plans actually
+  show — have none. **This is the next build step.**
+- **Do not let other detectors get opportunity counts before the reading
+  covers them**, or a 25% bar suppresses nearly every drill at once.
+- A step withheld with **zero** errors in the window is not the same as one
+  withheld with few: the first means he appears to have stopped, and deserves
+  saying so rather than a reading. Not built.
+- `piece_safety_decision` is eligible 4,318 times and has **never fired**.
+  Dead detector; same shape as `missed_free_piece`.
+
+### The earlier percentile gate (superseded 2026-11-27)
 
 Signed off by Mohit 2026-11-27 ("stop drilling what they know" as the release
 scope). `own_reliability` / `already_reliable` in
