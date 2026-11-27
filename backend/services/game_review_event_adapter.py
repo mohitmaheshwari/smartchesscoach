@@ -451,7 +451,14 @@ def _verified_line_teaching(
         headline=frame.headline,
         practical_lead=frame.lead,
         cause_fingerprint=cause.fingerprint,
+        # These three read a stored line aloud; the card asks the why engine
+        # for the reason instead (Mohit 2026-11-27 on 18.Qd2: "this just
+        # tells the line straight up").
+        explain_from_engine=cause.lesson_kind in _LINE_READING_KINDS,
     )
+
+
+_LINE_READING_KINDS = frozenset({"exchange_sequence", "missed_material_opportunity", "missed_forced_mate"})
 
 
 def _cause_teaching(

@@ -48,6 +48,79 @@ export const boardArrowsForReviewVisual = (visual = {}) => {
 };
 
 
+// A card whose caption reads out a stored engine line asks the why engine
+// for the reason instead (docs/why_shared_answer_scope.md, part B). Mohit
+// 2026-11-27 on 18.Qd2: "this just tells the line straight up ... we have an
+// engine that should be called and should call LLM for translating to
+// English". The answer is the engine's finding in the words layer's English;
+// when the engine has no reason, the card names the better move and says no
+// more. The stored line is never shown.
+export const engineArrows = (data) => (data?.arrows || [])
+  .filter((a) => a?.from && a?.to)
+  .map((a, i) => ({
+    from: a.from,
+    to: a.to,
+    role: i % 2 === 1 ? "threat" : (data.direction === "missed" ? (i === 0 ? "safe_move" : "opportunity") : "threat"),
+  }));
+
+export function EngineReason({ gameId, move, onShowVisual }) {
+  const [state, setState] = useState({ status: "loading", data: null });
+  useEffect(() => {
+    let cancelled = false;
+    const opponent = move?.actor === "opponent";
+    setState({ status: "loading", data: null });
+    fetch(
+      `${API}/coach/why/${gameId}/${move?.number}`
+        + `?san=${encodeURIComponent(move?.san || "")}`
+        + `&opponent=${opponent ? "true" : "false"}`,
+      { credentials: "include" },
+    )
+      .then((res) => (res.ok ? res.json() : { found: false, reason: `http_${res.status}` }))
+      .then((data) => {
+        if (cancelled) return;
+        setState({ status: "done", data });
+        const arrows = engineArrows(data);
+        if (data?.found && arrows.length) {
+          onShowVisual?.({
+            arrows: arrows.map((a) => [a.from, a.to]),
+            relationship_arrows: arrows,
+            highlights: [],
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: "done", data: { found: false, reason: "network" } });
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, move?.number, move?.san, move?.actor]);
+
+  if (state.status === "loading") {
+    return (
+      <p className="mt-3 flex items-center gap-2 text-[15px] text-slate-500" data-testid="engine-reason-loading">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Working out why...
+      </p>
+    );
+  }
+  const data = state.data || {};
+  if (data.found && data.text) {
+    return (
+      <p className="mt-3 text-[17px] leading-8 text-slate-800" data-testid="engine-reason-text">
+        {data.text}
+      </p>
+    );
+  }
+  return (
+    <p className="mt-3 text-[17px] leading-8 text-slate-800" data-testid="engine-reason-none">
+      {data.better_move
+        ? `${data.better_move} was the stronger move here. I can't put the reason into words yet.`
+        : "I can't put the reason for this one into words yet."}
+    </p>
+  );
+}
+
+
 export default function PersonalizedReviewCoach({
   gameId,
   plan,
@@ -310,8 +383,12 @@ export default function PersonalizedReviewCoach({
     (option) => option.id === answer?.selected_option_id
   )?.label;
   const canReveal = tapMoment ? Boolean(tapAnswer) : (!prompt || Boolean(answer));
-  const keepLine = (tapAnswer?.keep_line || event.teaching?.principle || "").trim();
-  const visual = event.teaching?.visual || {};
+  // A line-reading card's principle and arrows belong to the stored line
+  // ("count every recapture to the end"), not to the engine's reason, so
+  // they are not shown next to it.
+  const fromEngine = Boolean(event.teaching?.explain_from_engine);
+  const keepLine = (tapAnswer?.keep_line || (fromEngine ? "" : event.teaching?.principle) || "").trim();
+  const visual = fromEngine ? {} : (event.teaching?.visual || {});
   const moveRecord = (moves || [])[Number(event.move?.ply) - 1] || {};
   const candidateComparison = moveRecord.candidate_comparison || null;
   const hasVisual = Boolean(
@@ -456,9 +533,13 @@ export default function PersonalizedReviewCoach({
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800">
               What actually happened
             </p>
-            <p className="mt-3 text-[17px] leading-8 text-slate-800">
-              {event.teaching.caption}
-            </p>
+            {fromEngine ? (
+              <EngineReason gameId={gameId} move={event.move} onShowVisual={onShowVisual} />
+            ) : (
+              <p className="mt-3 text-[17px] leading-8 text-slate-800">
+                {event.teaching.caption}
+              </p>
+            )}
             {keepLine && keepLine !== event.teaching.caption && (
               <div
                 className="mt-5 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-4"

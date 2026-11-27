@@ -248,7 +248,11 @@ def threat_line(session, root: chess.Board, played: chess.Move, alternative: che
             piece = PIECE_NAME[ta.piece_at(alternative.to_square).piece_type]
             reason = f"After {alt_san}, {own} {piece} guards {sname}."
             guard = {"by": "better_move", "piece": piece, "from": chess.square_name(alternative.to_square)}
-        elif played.from_square in guards_a and played.to_square not in guards_p:
+        # Not when the played move lands ON the threatened square: then the
+        # piece is the target, not a guard that left (18.Qd2, local engine:
+        # "Qd2 stops your queen guarding d2" about the queen standing on d2).
+        elif (played.from_square in guards_a and played.to_square not in guards_p
+              and played.to_square != sq):
             piece = PIECE_NAME[root.piece_at(played.from_square).piece_type]
             reason = f"{played_san} stops {own} {piece} guarding {sname}."
             guard = {"by": "played_move_left", "piece": piece, "from": chess.square_name(played.from_square)}

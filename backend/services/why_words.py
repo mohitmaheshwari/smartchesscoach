@@ -148,6 +148,12 @@ _RELATION: Dict[str, str] = {
     # played the king takes back there, and the better move's check makes the
     # king step away first.
     "CHECK_FIRST": "the better move gives check first, so the king steps away and can no longer take back",
+    # Same reply, different answer (services/reasoning/shared_answer.py,
+    # 2026-11-27): both moves allow the same reply; after the better move the
+    # mover has an answer to it, and after the move played that answer is
+    # gone or fails.
+    "SHARED_REPLY": ("both moves allow the same reply, but only after the better move is there an answer "
+                     "to it; after the move played that answer is gone or fails"),
 }
 
 # Any ONE of these conveys the relation. Written as alternatives, not as a
@@ -188,6 +194,10 @@ _CONVEYS: Dict[str, str] = {
               r"|\bcastl|\bhome\b|\bpiece out\b"),
     # The check has to be said; "the king steps away" alone could be any move.
     "CHECK_FIRST": r"\bcheck",
+    # The answer being gone has to be said; "both moves allow Nc4" alone is
+    # the shared part, not the difference.
+    "SHARED_REPLY": (r"\bno longer\b|\bnot possible\b|\bcan(?:not|'t)\b|\bgone\b|\bfails?\b"
+                     r"|\bwithout\b|\bloses?\b|\btakes? away\b|\bin the way\b|\bblock"),
 }
 
 
