@@ -301,6 +301,69 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "Volume alone is not a promotion case.",
         ),
     ),
+    # ---- the opportunity side (services/tactic_opportunity.py, v22) ------
+    # These two are the first detectors in the product that record the chance
+    # as well as the miss. Every other gap row is a numerator: 79,277
+    # missed_pattern rows say what went wrong and nothing says how often the
+    # same chance came and was handled. A rate needs both.
+    #
+    # SHADOW is the honest grade today and it is NOT a holding pen: the
+    # DIAGNOSTIC surface admits anything not Disabled, so these power the
+    # per-player rates, the peer-rate bars and the drill decision from the
+    # moment they are derived. What Shadow withholds is the right to put a
+    # sentence in front of a player, and neither has the reviewed semantic
+    # packet the 2026-08-27 lock requires for that.
+    "gap:missed_tactic:mate_in_one": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "board-exhaustive + engine-witnessed; measured 2026-11-28 over "
+            "600 games / 200 chances"
+        ),
+        rationale=(
+            "The chance side is exact and needs no prover: every legal move is "
+            "pushed and board.is_checkmate() is read, so the denominator is "
+            "exhaustive by construction. The coachable side additionally "
+            "requires that the player did not play the engine's own best move, "
+            "that the engine labels his move an error, and that it cost at "
+            "least 100cp. On the measured sample every surviving fire was "
+            "engine-labelled a blunder."
+        ),
+        limitations=(
+            "No independently reviewed semantic packet, which Caption grade "
+            "requires; the claim is board-and-engine true, not review-read.",
+            "Long forced mates are not included -- this is mate in ONE only.",
+            "cp_loss saturates in already-winning positions, so a skipped mate "
+            "in a won game is correctly a chance but is withheld as a claim.",
+        ),
+    ),
+    "gap:missed_tactic:free_material": Authorization(
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "free_piece_puzzle_proof (99.6% on Lichess) + engine witness; "
+            "measured 2026-11-28 over 600 games / 1,895 chances"
+        ),
+        rationale=(
+            "Asks the Lichess-validated free-piece prover about every legal "
+            "capture rather than about one move, which turns a prover into a "
+            "denominator at 0.89 ms a move and no engine time. 1,895 chances "
+            "across 600 games; the board-level miss rate is a human 32.6% and "
+            "spreads 18.9-46.7% across users, so it separates players."
+        ),
+        limitations=(
+            "THE BOARD FACT IS NOT THE COACHING CLAIM. Ungated, 39.9% of 671 "
+            "fires were on the engine's own best move -- true geometry, false "
+            "coaching. `fires` is therefore the denominator's numerator only; "
+            "`coachable` is the gated verdict and the one a surface may read.",
+            "The prover's 99.6% was measured on Lichess puzzles, a different "
+            "distribution from our corpus; it is not a reviewed precision "
+            "figure for these fires.",
+            "Recall against independently selected free-material opportunities "
+            "on our own corpus is unmeasured, so Plan grade is not arguable.",
+            "Fork, pin, skewer and discovered attack are absent: their provers "
+            "walk the payoff along the engine's line and refused all 120 "
+            "stored-fork positions when handed an empty line.",
+        ),
+    ),
     "gap:missed_tactic:missed_discovered_attack": Authorization(
         grade=QualityGrade.SHADOW,
         evidence_ref="fire volume measured 2026-09-24; caption unverified",

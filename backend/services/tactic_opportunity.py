@@ -69,7 +69,32 @@ import chess
 
 from services.free_piece_puzzle_proof import build_free_piece_proof
 
-TACTIC_OPPORTUNITY_VERSION = "tactic_opportunity.v1"
+TACTIC_OPPORTUNITY_VERSION = "tactic_opportunity.v2"
+
+# THE CALLER'S GATE, measured 2026-11-28 and locked here instead of left to
+# whoever calls this module -- which is how v1 shipped, and it was wrong.
+#
+# v1 had `fires` alone and `fires` is a pure board fact: "a proved winner was
+# available and he did not play it". Measured on 600 real games / 1,895
+# chances, 39.9% of its 671 fires were on THE ENGINE'S OWN BEST MOVE. There is
+# no reading of chess in which playing the best move is a miss. The board fact
+# was true every time; the coaching claim built on it was false 2 times in 5.
+#
+# The fix is not to gate the board fact -- that would corrupt the denominator,
+# which is the whole point of this module. `fires` stays exactly as it was and
+# the rate stays computable with no engine at all. What is added is a SECOND,
+# narrower verdict for the claim a player is actually shown.
+#
+# Gate, from the distribution:
+#   played != the engine's best move     removes all 268 false fires
+#   engine's own label is an error        excludes 'good'/'best'/'brilliant'
+#   cp_loss >= 100                        the floor every prover in this
+#                                         codebase already refuses below
+#
+# Survivors on the measured sample: free_material 167 fires labelled only
+# blunder/mistake/inaccuracy; mate_in_one 15, all blunders.
+MIN_COACHABLE_CP_LOSS = 100
+ERROR_LABELS = frozenset({"inaccuracy", "mistake", "blunder"})
 
 # The same constant tactic_tags uses when it asks a prover about a move it
 # already believes in: a proved tactic is winning by construction, and the
@@ -156,10 +181,41 @@ def free_material_moves(board: chess.Board) -> List[chess.Move]:
             if _proved_free(board, mv)]
 
 
+def _coachable(fires: bool, played_uci: Optional[str],
+               engine: Optional[Mapping[str, Any]]) -> Optional[bool]:
+    """May a player be TOLD he missed this? A stricter question than `fires`.
+
+    None means "not measured" -- no engine witness was supplied -- which is a
+    different fact from False and must not collapse into it.
+
+    The board proves the chance existed. It does not prove that skipping it was
+    an error, and in 39.9% of v1 fires it was not: he had something better, and
+    the engine said so. Three independent conditions, all from stored fields:
+    he did not play the engine's choice, the engine calls his move an error,
+    and the error is at least MIN_COACHABLE_CP_LOSS.
+    """
+    if not fires or engine is None:
+        return None if engine is None else False
+    best = engine.get("best_move_uci")
+    if best and played_uci and str(best) == str(played_uci):
+        return False
+    if str(engine.get("evaluation") or "").lower() not in ERROR_LABELS:
+        return False
+    try:
+        cp = float(engine.get("cp_loss") or 0)
+    except (TypeError, ValueError):
+        return False
+    return cp >= MIN_COACHABLE_CP_LOSS
+
+
 def _verdict(motif: str, takers: Sequence[chess.Move],
-             played: Optional[chess.Move]) -> Dict[str, Any]:
+             played: Optional[chess.Move],
+             played_uci: Optional[str] = None,
+             engine: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
     eligible = bool(takers)
+    _fires = eligible and (played is None or played not in takers)
     return {
+        "coachable": _coachable(_fires, played_uci, engine),
         "quality_id": QUALITY_IDS[motif],
         "version": TACTIC_OPPORTUNITY_VERSION,
         "eligible": eligible,
@@ -171,7 +227,9 @@ def _verdict(motif: str, takers: Sequence[chess.Move],
     }
 
 
-def opportunities(fen: str, played_uci: Optional[str]) -> Optional[Dict[str, Dict[str, Any]]]:
+def opportunities(fen: str, played_uci: Optional[str],
+                  engine: Optional[Mapping[str, Any]] = None
+                  ) -> Optional[Dict[str, Dict[str, Any]]]:
     """Per motif: did the chance exist, and did he take it?
 
     Returns None only when the position itself cannot be read. A missing or
@@ -196,6 +254,8 @@ def opportunities(fen: str, played_uci: Optional[str]) -> Optional[Dict[str, Dic
             played = candidate
 
     return {
-        "mate_in_one": _verdict("mate_in_one", mate_in_one_moves(board), played),
-        "free_material": _verdict("free_material", free_material_moves(board), played),
+        "mate_in_one": _verdict("mate_in_one", mate_in_one_moves(board), played,
+                                played_uci, engine),
+        "free_material": _verdict("free_material", free_material_moves(board),
+                                  played, played_uci, engine),
     }

@@ -23,7 +23,14 @@ import statistics
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 21  # v21 (2026-11-13): tactic_tags on every user move and on
+SCHEMA_VERSION = 22  # v22 (2026-11-28): tactic_opportunity on every user move --
+# the first OPPORTUNITY DENOMINATOR besides destination_safety_exact. Before this
+# a missed tactic was a numerator with nothing under it: 79,277 missed_pattern rows
+# recorded only what went wrong, so "he missed 1,073 forks" could not be turned
+# into a rate and therefore could not be compared between players, tracked over
+# time, or used to decide whether a drill is still needed. Reads the chance off
+# the board with no engine time (services/tactic_opportunity.py), 0.89 ms a move.
+# v21 (2026-11-13): tactic_tags on every user move and on
 # opponent_previous -- missed / found / allowed, proved by the gated board provers
 # (services/tactic_tags.py, docs/observation_detectors_scope.md). Before this,
 # a fork was never named: missed forks fell into missed_tactic, and the found side
@@ -60,6 +67,7 @@ def _deriver_identity_json() -> str:
         / "opponent_threat_detector.py",
         # v21: the tactic tags and every prover they call.
         "tactic_tags": backend_root / "services" / "tactic_tags.py",
+        "tactic_opportunity": backend_root / "services" / "tactic_opportunity.py",
         **{
             f"prover_{name}": backend_root / "services" / f"{name}_puzzle_proof.py"
             for name in ("forced_mate", "back_rank_mate", "fork",
@@ -285,6 +293,36 @@ def _build_opponent_previous(prev_mv: Optional[Dict[str, Any]]) -> Optional[Dict
         # opponent's move; their final move of a game has no next user record.
         "tactic_tags": _tactic_tags_for(prev_mv),
     }
+
+
+def _tactic_opportunity_for(mv: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Was a proved tactic available, and did the player take it?
+
+    The pair (eligible, fires) is what makes a RATE possible: eligible counts
+    the chance, fires counts the miss. `tactic_tags` cannot do this job -- its
+    found and missed sides are gated on disjoint cp_loss bands, so found+missed
+    is not a denominator (services/idea_knowledge.py records the measurement).
+
+    Returns None when the position cannot be read. A zero chance and an
+    unreadable board are different facts and must not collapse into one row.
+    """
+    if not mv or not mv.get("fen_before"):
+        return None
+    try:
+        from services.tactic_opportunity import opportunities
+        # The engine witness is what separates the board fact from the
+        # coaching claim. Without it `coachable` stays None -- not measured --
+        # rather than silently reading as "no".
+        return opportunities(
+            mv["fen_before"], mv.get("move_uci"),
+            engine={"best_move_uci": mv.get("best_move_uci"),
+                    "evaluation": mv.get("evaluation"),
+                    "cp_loss": mv.get("cp_loss")},
+        )
+    except Exception:                                              # noqa: BLE001
+        # A denominator must never take the analysis pipeline down. A missing
+        # row reads as "not measured", which is true, rather than as a zero.
+        return None
 
 
 def _tactic_tags_for(mv: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -1056,6 +1094,13 @@ def derive_observations_for_game(
             # Plan-authorized exact fact. This is additive; D_live remains for
             # historic measurement compatibility until its rollout concludes.
             "destination_safety_exact": destination_safety_exact,
+            # v22: the opportunity side. Carries quality_id + eligible + fires
+            # per motif -- the shape the drill gate and the peer-rate bars
+            # already read. Only motifs whose proof needs nothing but the
+            # position are in here; fork, pin and skewer walk their payoff
+            # along the engine's line and stay out until they have a
+            # board-only proof of their own.
+            "tactic_opportunity": _tactic_opportunity_for(mv),
         }
 
         # v9: time management signals from PGN clocks
