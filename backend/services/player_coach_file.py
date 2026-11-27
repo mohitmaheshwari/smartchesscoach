@@ -770,6 +770,7 @@ def build_file(
     slips_per_game: Optional[Mapping[str, Tuple[int, int]]] = None,
     reliability: Optional[Mapping[str, Mapping[str, Any]]] = None,
     behaviour: Optional[Mapping[str, Mapping[str, Any]]] = None,
+    axes: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Pure: everything is read by the caller. `moments_fn(habit, games_by_id)`
     builds the habit's board moments with the engine (None in tests)."""
@@ -834,6 +835,12 @@ def build_file(
         "plan": plan,
         "play_positions": play_positions(openings, last, habit),
         "sitting": sitting,
+        # Tracked behaviour: a rate out of chances per axis, over the rate
+        # window. Mohit, 2026-11-27: "chess is also focus and behavioral
+        # tactics, so that's what we want to track." Recorded for every
+        # player the coach file is built for; surfacing it to a PARENT or
+        # COACH is the academy half of section 4 and is not built.
+        "behaviour_axes": dict(axes or {}),
         **coach_lines(games_newest_first, last_rows, skipped, slips_per_game),
         "source": {
             "games": len(games_newest_first),
@@ -894,13 +901,29 @@ def _reliability_pipeline(user_id: str, game_ids: Sequence[str]) -> List[Dict[st
 # just the errors: "unravelling" is about the move BEFORE the error, and
 # _OBS_FILTER_OR keeps only rows that already went wrong. It also needs
 # time_left_seconds and cp_loss, which _OBS_FIELDS does not carry.
+_AXIS_PAIR_FIELDS = ["ignored_opponent_threat", "responded_to_threat",
+                     "missed_opponent_blunder", "punished_opponent_blunder"]
 _BEHAVIOUR_FIELDS = {"_id": 0, "game_id": 1, "ply": 1, "move_number": 1,
                      "cp_loss": 1, "time_left_seconds": 1,
-                     **{f: 1 for f in RELIABILITY_FIELDS}}
+                     **{f: 1 for f in RELIABILITY_FIELDS},
+                     **{f: 1 for f in _AXIS_PAIR_FIELDS}}
 
 
 def _behaviour_query(user_id: str, game_ids: Sequence[str]) -> Dict[str, Any]:
     return {"user_id": user_id, "game_id": {"$in": list(game_ids)}}
+
+
+def behaviour_axes(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Tracked behaviour: a rate out of chances per axis, over the window.
+
+    Mohit, 2026-11-27: "chess is also focus and behavioral tactics, so that's
+    what we want to track." These are TRACKED, not drill gates -- the 25% bar
+    is calibrated to piece safety and would drill 46 of 59 users on threats
+    and 9 of 10 on punishing mistakes. See player_behaviour_reading.AXES.
+    """
+    from services import player_behaviour_reading as pbr
+
+    return pbr.axis_rates(list(rows))
 
 
 def behaviour_readings(rows: Iterable[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -1095,11 +1118,13 @@ def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
     rate_window = analysed_ids[:ppl.RATE_WINDOW_GAMES]
     reliability = reliability_from_rows(db.move_observations.aggregate(
         _reliability_pipeline(user_id, rate_window)))
-    behaviour = behaviour_readings(db.move_observations.find(
-        _behaviour_query(user_id, rate_window), _BEHAVIOUR_FIELDS)) if rate_window else {}
+    beh_rows = list(db.move_observations.find(
+        _behaviour_query(user_id, rate_window), _BEHAVIOUR_FIELDS)) if rate_window else []
+    behaviour = behaviour_readings(beh_rows)
+    axes = behaviour_axes(beh_rows)
     doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, deciding_rows, engine_moments,
                      skipped=skipped, slips_per_game=slips, reliability=reliability,
-                     behaviour=behaviour)
+                     behaviour=behaviour, axes=axes)
     from services import player_plan_week as ppw
     # A week is locked only for a player who can see the plan: 78 of the first
     # 92 weeks belonged to players who could not (docs/coaching_intelligence_scope.md, 1a).
@@ -1146,12 +1171,14 @@ async def build_and_store(db, user_id: str) -> Dict[str, Any]:
     rate_window = analysed_ids[:ppl.RATE_WINDOW_GAMES]
     reliability = reliability_from_rows(await db.move_observations.aggregate(
         _reliability_pipeline(user_id, rate_window)).to_list(None))
-    behaviour = behaviour_readings(await db.move_observations.find(
-        _behaviour_query(user_id, rate_window), _BEHAVIOUR_FIELDS).to_list(None)) if rate_window else {}
+    beh_rows = (await db.move_observations.find(
+        _behaviour_query(user_id, rate_window), _BEHAVIOUR_FIELDS).to_list(None)) if rate_window else []
+    behaviour = behaviour_readings(beh_rows)
+    axes = behaviour_axes(beh_rows)
     # The build may run the engine: keep it off the event loop.
     doc = await asyncio.to_thread(build_file, user_id, games, analyses, observations, last_rows,
                                   previous, fires, deciding_rows, engine_moments, None, skipped, slips,
-                                  reliability, behaviour)
+                                  reliability, behaviour, axes)
     from services import player_plan_week as ppw
     row = (await ppw.ensure_week(db, user_id, week_start(), doc.get("plan"), games,
                                  {a["game_id"]: a.get("rows") or [] for a in analyses}, observations,

@@ -169,3 +169,81 @@ def reading(error_rows_by_game: Mapping[str, Sequence[Mapping[str, Any]]],
             "median_clock_seconds": _median(clocks),
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Tracked behaviour axes
+#
+# Mohit, 2026-11-27: "chess is just not calculation and tactics, chess is also
+# focus and behavioral tactics, so that's what we want to track."
+#
+# Each axis is a rate out of chances, from a pair of booleans that
+# move_observations already carries at 100% coverage. They are TRACKED, not
+# used as drill gates, and that is a measured decision rather than a
+# preference. Per-user rates over the last ten games, 2026-11-27:
+#
+#   axis                        users  p25  median  max   at/above a 25% bar
+#   kept pieces safe               65   4%     6%   30%   4 of 65
+#   answered their threat          59  26%    32%   64%  46 of 59
+#   punished their mistake         10  41%    54%   68%   9 of 10
+#   found it when it mattered      62  87%    94%  100%  62 of 62
+#
+# So the 25% drill bar is calibrated to piece safety and transfers to none of
+# the others: it would drill almost everyone, which is the opposite of the
+# rule it came from. `found it when it mattered` has a 94% median -- missing
+# the best move at a critical moment is near-universal, so it measures being
+# human, not a weakness, and must never be shown as a fault.
+#
+# A per-axis bar has to come from each axis's own distribution before any of
+# these gates a drill. Until then they are context: a rate the player and the
+# coach can both read, comparable between players because it has a
+# denominator.
+AXES = {
+    "axis:piece_safety": {
+        "title": "Keeping pieces safe",
+        "good": "Your pieces stayed safe",
+        # This one is the structured verdict, counted in player_coach_file.
+        "pair": None,
+        "drill_bar": 0.25,          # measured: picks 4 of 65
+    },
+    "axis:threat_answered": {
+        "title": "Answering their threats",
+        "good": "You answered what they threatened",
+        "pair": ("ignored_opponent_threat", "responded_to_threat"),
+        "drill_bar": None,          # 25% would drill 46 of 59
+    },
+    "axis:punished_their_mistake": {
+        "title": "Punishing their mistakes",
+        "good": "You took what they gave you",
+        "pair": ("missed_opponent_blunder", "punished_opponent_blunder"),
+        "drill_bar": None,          # 25% would drill 9 of 10
+    },
+}
+
+# Deliberately NOT an axis: was_critical_moment / found_best_in_critical.
+# 94% median across 62 users. A number everyone fails is not a weakness, and
+# showing it would read as "you are bad at chess".
+NOT_AN_AXIS = ("found_best_in_critical",)
+
+
+def axis_rates(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Chances and wrong turns per tracked axis, over whatever rows are given.
+
+    `wrong / chances` only -- no verdict, no drill decision. The bar for each
+    axis is an open calibration (see AXES), and a rate with a denominator is
+    worth showing on its own.
+    """
+    out: Dict[str, Dict[str, Any]] = {}
+    for key, spec in AXES.items():
+        pair = spec.get("pair")
+        if not pair:
+            continue
+        wrong_field, right_field = pair
+        wrong = sum(1 for r in rows if r.get(wrong_field))
+        right = sum(1 for r in rows if r.get(right_field))
+        chances = wrong + right
+        if not chances:
+            continue
+        out[key] = {"title": spec["title"], "chances": chances, "wrong": wrong,
+                    "rate": round(wrong / chances, 4)}
+    return out

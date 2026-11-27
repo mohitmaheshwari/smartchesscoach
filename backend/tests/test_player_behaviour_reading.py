@@ -120,3 +120,48 @@ def test_the_player_facing_words_carry_no_digits():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# ---------------------------------------------------------------------------
+# Tracked axes. Measured per-user over ten games, 2026-11-27:
+#   kept pieces safe            p25  4%  median  6%  max  30%   4 of 65 >= 25%
+#   answered their threat       p25 26%  median 32%  max  64%  46 of 59 >= 25%
+#   punished their mistake      p25 41%  median 54%  max  68%   9 of 10 >= 25%
+#   found it when it mattered   p25 87%  median 94%  max 100%  62 of 62 >= 25%
+# ---------------------------------------------------------------------------
+
+
+def test_an_axis_is_a_rate_out_of_chances():
+    rows = ([{"ignored_opponent_threat": True}] * 3
+            + [{"responded_to_threat": True}] * 7)
+    got = pbr.axis_rates(rows)["axis:threat_answered"]
+    assert got["chances"] == 10 and got["wrong"] == 3
+    assert got["rate"] == 0.3
+
+
+def test_an_axis_with_no_chances_is_absent_not_zero():
+    # A player who never faced a threat has no rate, not a perfect one.
+    assert "axis:threat_answered" not in pbr.axis_rates([{"cp_loss": 10}])
+
+
+def test_only_piece_safety_carries_a_drill_bar():
+    # The 25% bar is calibrated to piece safety (4 of 65 users). On threats
+    # it would drill 46 of 59 and on punishing mistakes 9 of 10, which is the
+    # opposite of the rule it came from. Each axis needs its own bar first.
+    assert pbr.AXES["axis:piece_safety"]["drill_bar"] == 0.25
+    for key, spec in pbr.AXES.items():
+        if key != "axis:piece_safety":
+            assert spec["drill_bar"] is None, key
+
+
+def test_what_everyone_fails_is_not_tracked_as_a_weakness():
+    # found_best_in_critical has a 94% median across 62 users. A number
+    # everyone fails measures being human, not a fault.
+    assert "found_best_in_critical" in pbr.NOT_AN_AXIS
+    assert not any("critical" in k for k in pbr.AXES)
+
+
+def test_axis_titles_carry_no_digits():
+    for spec in pbr.AXES.values():
+        assert not any(ch.isdigit() for ch in spec["title"])
+        assert not any(ch.isdigit() for ch in spec["good"])
