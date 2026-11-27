@@ -359,35 +359,93 @@ describe("Progress unavailable states", () => {
     delete global.fetch;
   });
 
+  // CHANGED 2026-11-27. These five reasons used to produce the
+  // "progress-unavailable" page. They no longer do, and that is the point
+  // of docs/progress_page_scope.md: the phase-8 access gate returned
+  // enabled=0 for ALL 139 production users, so between this page and the
+  // paused one, every single player got an apology instead of a progress
+  // page. /progress now reads move_observations, which is behind no flag,
+  // and a disabled journey is simply not the question any more.
+  //
+  // What these tests still guarantee, and must keep guaranteeing: the
+  // backend's reason string never reaches the player's eyes.
+  const noChances = { schema_version: "progress_chances.v1", enabled: true,
+    has_evidence: false, analysed_games: 0, recent_games: 0, axes: [] };
+
   test.each(["baseline_missing", "enrollment_provenance_missing", "not_enrolled", "composition_disabled", "unknown_future_reason"])(
-    "disabled %s never masquerades as missing practice or game evidence", async (reason) => {
-      global.fetch.mockResolvedValue({ ok: true, json: async () => ({ enabled: false, paused: false, reason }) });
+    "disabled %s shows the chances page, and never leaks the reason", async (reason) => {
+      global.fetch.mockImplementation((url) => {
+        const path = String(url);
+        if (path.includes("/progress/chances")) {
+          return Promise.resolve({ ok: true, json: async () => noChances });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ enabled: false, paused: false, reason }),
+        });
+      });
       await act(async () => root.render(<UnifiedProgress user={{ user_id: "student" }} />));
-      const panel = container.querySelector('[data-testid="progress-unavailable"]');
-      expect(panel).not.toBeNull();
-      // The backend reason stays available for diagnostics, but is never shown to the user.
-      expect(panel.getAttribute("data-tracking-reason")).toBe(reason);
+      expect(container.querySelector('[data-testid="progress-chances-page"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="progress-unavailable"]')).toBeNull();
       expect(container.textContent).not.toContain(reason);
-      // Retrying cannot change a persistent access state, so it must not be offered here.
-      expect(Array.from(container.querySelectorAll("button"))
-        .some((button) => button.textContent === "Try again")).toBe(false);
+      // Nothing about practice, proof or a lesson state is claimed, which
+      // was the original worry and still holds.
       expect(container.textContent).not.toContain("Continue my lesson");
       expect(container.textContent).not.toContain("No game-level proof");
       expect(container.textContent).not.toContain("Practice recorded");
-      if (reason === "baseline_missing") expect(container.textContent).toContain("tracking setup issue");
-      const games = Array.from(container.querySelectorAll("button"))
-        .find((button) => button.textContent === "See my imported games");
-      act(() => games.click());
-      expect(mockNavigate).toHaveBeenCalledWith("/games");
+      // And it never apologises: that is the whole reason for the change.
+      expect(container.textContent).not.toContain("has disappeared");
     }
   );
 
-  test.each(["http", "network", "malformed"])("a %s failure is explicit and retry restores real evidence", async (failure) => {
-    if (failure === "network") global.fetch.mockRejectedValueOnce(new Error("offline"));
-    else global.fetch.mockResolvedValueOnce({
-      ok: failure !== "http", json: async () => ({}),
+  test("the unavailable page is still there for when the chances cannot load", async () => {
+    // The fallback must not become dead code. If move_observations cannot
+    // be read, a player is told that, rather than shown an empty table that
+    // looks like "you had no chances".
+    global.fetch.mockImplementation((url) => {
+      const path = String(url);
+      if (path.includes("/progress/chances")) return Promise.reject(new Error("offline"));
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ enabled: false, paused: false, reason: "composition_disabled" }),
+      });
     });
-    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => journey() });
+    await act(async () => root.render(<UnifiedProgress user={{ user_id: "student" }} />));
+    expect(container.querySelector('[data-testid="progress-chances-page"]')).toBeNull();
+    expect(container.querySelector('[data-testid="progress-unavailable"]')).not.toBeNull();
+  });
+
+  // Matched by URL, not by call order. The page gained a third request on
+  // 2026-11-27 (/progress/chances) and a queue of mockResolvedValueOnce
+  // silently handed the journey's failure to the new call instead, so these
+  // three tests failed for a reason that had nothing to do with what they
+  // check. A URL-matched mock cannot drift that way.
+  //
+  // /progress/chances answers with no evidence here on purpose: these tests
+  // are about what a player sees when the journey cannot load, and a player
+  // WITH chances now gets the chance table instead, which is a different
+  // test.
+  test.each(["http", "network", "malformed"])("a %s failure is explicit and retry restores real evidence", async (failure) => {
+    let journeyCalls = 0;
+    global.fetch.mockImplementation((url) => {
+      const path = String(url);
+      if (path.includes("/progress/chances")) {
+        // Fails here too, deliberately. Since 2026-11-27 the chances ARE
+        // the page, so "your progress did not load" means this call
+        // failed. A test where only the journey fails is now a test that
+        // the chances page renders, which is the block above.
+        return Promise.reject(new Error("offline"));
+      }
+      if (path.includes("/progress/complete-coaching")) {
+        journeyCalls += 1;
+        if (journeyCalls > 1) {
+          return Promise.resolve({ ok: true, json: async () => journey() });
+        }
+        if (failure === "network") return Promise.reject(new Error("offline"));
+        return Promise.resolve({ ok: failure !== "http", json: async () => ({}) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
     await act(async () => root.render(<UnifiedProgress user={{ user_id: "student" }} />));
     expect(container.textContent).toContain("Your progress didn’t load.");
     expect(container.textContent).not.toContain("No game-level proof");

@@ -21,6 +21,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import Layout from "@/components/Layout";
+import ProgressChances from "@/components/progress/ProgressChances";
 import { API } from "@/App";
 import { useCoachFile } from "@/lib/coachFile";
 import { CoachProgressSection } from "@/components/coachfile/CoachFileBlocks";
@@ -341,6 +342,11 @@ export default function UnifiedProgress({ user }) {
   const coachFile = useCoachFile("/coach-file", Boolean(user?.coach_pages));
   const [loading, setLoading] = useState(true);
   const [journey, setJourney] = useState(null);
+  // Behind no flag. The phase-8 journey below is: on 2026-11-27 its access
+  // gate returned enabled=0 for all 139 production users, so this page was
+  // an apology for every single one of them.
+  // docs/progress_page_scope.md
+  const [chances, setChances] = useState(null);
   const [curriculum, setCurriculum] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -358,8 +364,12 @@ export default function UnifiedProgress({ user }) {
     setLoadError(false);
     setJourney(null);
     setCurriculum(null);
+    setChances(null);
     Promise.allSettled([
       loadPersonalCurriculum(API, user?.user_id, "progress"),
+      fetch(`${API}/progress/chances`, { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
       fetch(`${API}/progress/complete-coaching`, {
         credentials: "include",
       }).then(async (response) => {
@@ -371,10 +381,13 @@ export default function UnifiedProgress({ user }) {
         return payload;
       }),
     ])
-      .then(([curriculumResult, journeyResult]) => {
+      .then(([curriculumResult, chancesResult, journeyResult]) => {
         if (cancelled) return;
         if (curriculumResult.status === "fulfilled") {
           setCurriculum(curriculumResult.value);
+        }
+        if (chancesResult.status === "fulfilled") {
+          setChances(chancesResult.value);
         }
         if (journeyResult.status === "fulfilled") {
           setJourney(journeyResult.value);
@@ -400,6 +413,49 @@ export default function UnifiedProgress({ user }) {
       <Layout user={user}>
         <div className="grid h-[60vh] place-items-center" aria-label="Loading progress">
           <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+        </div>
+      </Layout>
+    );
+  }
+
+  // Anybody whose games we have read gets a real page, whatever any flag
+  // says. This branch is FIRST on purpose: the two below it are the paused
+  // apology and the unavailable notice, which between them were the whole
+  // of /progress for all 139 users.
+  // Fires whenever the chances loaded AND the phase-8 journey is not on.
+  //
+  // Not "has_evidence" -- that was the first version and it left the 58
+  // users with no observations falling through to the paused apology,
+  // "Nothing you learned has disappeared", which is the thing this page is
+  // replacing. A player with nothing read yet gets the designed empty
+  // state, which says what will appear and why it has not.
+  //
+  // The journey check keeps the richer phase-8 page for the day somebody
+  // turns that gate on; today it is enabled for 0 of 139 users.
+  if (chances && !journey?.enabled) {
+    return (
+      <Layout user={user}>
+        <div
+          className="experience-page experience-progress-page cg-page cg-page--wide"
+          data-testid="progress-chances-page"
+        >
+          <header className="cg-hero mb-8">
+            <p className="cg-eyebrow">Progress</p>
+            {/* The headline must not promise what the body then denies:
+                "What came up, and what you did" over "Nothing to count
+                yet" reads as a page that lost something. */}
+            <h1 className="cg-title">
+              {chances.has_evidence
+                ? "What came up, and what you did."
+                : "This page fills itself in."}
+            </h1>
+          </header>
+          <ProgressChances data={chances} />
+          {coachFile?.enabled ? (
+            <div className="mt-8">
+              <CoachProgressSection file={coachFile} />
+            </div>
+          ) : null}
         </div>
       </Layout>
     );

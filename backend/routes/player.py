@@ -177,6 +177,20 @@ async def get_complete_coaching_progress(
     return projection
 
 
+@router.get("/progress/chances")
+async def get_progress_chances(user: User = Depends(get_current_user)):
+    """What came up in this player's games, and what they did with it.
+
+    Behind no flag at all, deliberately: the page this feeds replaced one
+    whose only source was the phase-8 projection, and that gate returned
+    enabled=0 for all 139 users in production on 2026-11-27.
+    docs/progress_page_scope.md.
+    """
+    from services.progress_chances import build_progress_chances
+
+    return await build_progress_chances(db, user.user_id)
+
+
 @router.get("/progress/real")
 async def get_real_progress(user: User = Depends(get_current_user)):
     """
