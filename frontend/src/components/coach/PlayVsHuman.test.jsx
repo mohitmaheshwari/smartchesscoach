@@ -582,3 +582,283 @@ describe("when the ChessGuru session has expired", () => {
     expect(host.querySelector('[data-testid="live-session-expired"]')).not.toBeNull();
   });
 });
+
+describe("the moment a game ends", () => {
+  // Mohit, 2026-11-27, after winning a rated game on time: "no popup, on
+  // winning... the rating winner or lost, all should come up as soon as game
+  // ends with a result."
+  //
+  // Before this, the result appeared only as a card in the right-hand column,
+  // which on a phone is below the board. The end of the game changed nothing
+  // in view.
+
+  const RATED_FINISHED = {
+    playing: true,
+    seeking: false,
+    game: {
+      ...LIVE_GAME.game,
+      status: "outoftime",
+      winner: "white",
+      finished: true,
+      our_turn: false,
+      rated: true,
+      our_rating: 1430,
+      our_rating_diff: 6,
+    },
+  };
+
+  it("puts the result in front of the player, not off to the side", async () => {
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+5"], default: "10+5" } })],
+      ["/state", () => ({ body: RATED_FINISHED })],
+      ["/live/review/", () => ({ body: { ready: false, imported: false } })],
+    ]);
+
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    const modal = host.querySelector('[data-testid="live-result-modal"]');
+    expect(modal).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="live-modal-headline"]').textContent
+    ).toBe("You won");
+    expect(modal.textContent).toContain("on time");
+    expect(modal.querySelector('[data-testid="live-new-rating"]').textContent).toBe(
+      "1430"
+    );
+    expect(modal.querySelector('[data-testid="live-rating-diff"]').textContent).toBe(
+      "↑ 6"
+    );
+  });
+
+  it("shows nothing of the kind while the game is still being played", async () => {
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+5"], default: "10+5" } })],
+      ["/state", () => ({ body: LIVE_GAME })],
+    ]);
+
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    expect(host.querySelector('[data-testid="live-result-modal"]')).toBeNull();
+    expect(host.querySelector('[data-testid="live-result-overlay"]')).toBeNull();
+  });
+
+  it("closes to the board, leaving the same result standing in the sidebar", async () => {
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+5"], default: "10+5" } })],
+      ["/state", () => ({ body: RATED_FINISHED })],
+      ["/live/review/", () => ({ body: { ready: false, imported: false } })],
+    ]);
+
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    await act(async () => {
+      host
+        .querySelector('[data-testid="live-modal-close"]')
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(host.querySelector('[data-testid="live-result-modal"]')).toBeNull();
+    // Dismissing the announcement must not cost the player the result.
+    const card = host.querySelector('[data-testid="live-result-card"]');
+    expect(card).not.toBeNull();
+    expect(card.querySelector('[data-testid="live-rating-diff"]').textContent).toBe(
+      "↑ 6"
+    );
+  });
+
+  it("keeps asking for the rating that arrives after the result does", async () => {
+    // The server marks the game finished from the Lichess game stream, and
+    // only THEN asks /game/export what the game was worth. The main poll
+    // stops on the first finished payload -- the one with no rating in it --
+    // so without a catch-up that empty answer is the last word the browser
+    // ever gets.
+    const withoutRating = {
+      ...RATED_FINISHED,
+      game: { ...RATED_FINISHED.game, our_rating: null, our_rating_diff: null },
+    };
+    let stateCalls = 0;
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+5"], default: "10+5" } })],
+      [
+        "/state",
+        () => {
+          stateCalls += 1;
+          return { body: stateCalls >= 3 ? RATED_FINISHED : withoutRating };
+        },
+      ],
+      ["/live/review/", () => ({ body: { ready: false, imported: false } })],
+    ]);
+
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    // First answer: finished, but Lichess has not told us the number yet. Say
+    // so rather than show a blank where a rating belongs.
+    expect(
+      host.querySelector('[data-testid="live-rating-pending"]')
+    ).not.toBeNull();
+    expect(host.querySelector('[data-testid="live-new-rating"]')).toBeNull();
+
+    const callsBefore = stateCalls;
+    for (let i = 0; i < 3; i += 1) {
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+    }
+    expect(stateCalls).toBeGreaterThan(callsBefore);
+
+    expect(
+      host.querySelector('[data-testid="live-new-rating"]').textContent
+    ).toBe("1430");
+    expect(host.querySelector('[data-testid="live-rating-pending"]')).toBeNull();
+  });
+
+  it("gives up on the rating instead of asking forever", async () => {
+    const withoutRating = {
+      ...RATED_FINISHED,
+      game: { ...RATED_FINISHED.game, our_rating: null, our_rating_diff: null },
+    };
+    let stateCalls = 0;
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+5"], default: "10+5" } })],
+      [
+        "/state",
+        () => {
+          stateCalls += 1;
+          return { body: withoutRating };
+        },
+      ],
+      ["/live/review/", () => ({ body: { ready: false, imported: false } })],
+    ]);
+
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    for (let i = 0; i < 14; i += 1) {
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+    }
+
+    // Bounded: 8 tries at 2s. Past that we stop asking and stop promising.
+    expect(stateCalls).toBeLessThanOrEqual(10);
+    expect(host.querySelector('[data-testid="live-rating-pending"]')).toBeNull();
+    // and still no invented number
+    expect(
+      host.querySelector('[data-testid="live-result-modal"]').textContent
+    ).not.toMatch(/↑|↓|±/);
+  });
+
+  it("does not chase a rating for a casual game, which has none", async () => {
+    let stateCalls = 0;
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+5"], default: "10+5" } })],
+      [
+        "/state",
+        () => {
+          stateCalls += 1;
+          return { body: FINISHED_GAME }; // rated: false
+        },
+      ],
+      ["/live/review/", () => ({ body: { ready: false, imported: false } })],
+    ]);
+
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+    const callsAfterLoad = stateCalls;
+
+    for (let i = 0; i < 5; i += 1) {
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+        await Promise.resolve();
+      });
+    }
+
+    expect(stateCalls).toBe(callsAfterLoad);
+    expect(host.querySelector('[data-testid="live-rating-pending"]')).toBeNull();
+  });
+});
+
+describe("the poll after a game is over", () => {
+  // Found 2026-11-27 while wiring the result pop-up's New game button.
+  //
+  // Stopping the poll on a finished game stopped it for the whole session: the
+  // effect that created the interval depended only on `poll`, which never
+  // changes identity, so nothing ever started it again. The path that exposes
+  // it is the one every player takes -- finish, New game, find an opponent --
+  // and the search screen then waits for a pairing that only ever arrives on
+  // a /state poll.
+
+  it("stops while the finished board is on screen", async () => {
+    let stateCalls = 0;
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+5"], default: "10+5" } })],
+      [
+        "/state",
+        () => {
+          stateCalls += 1;
+          return { body: FINISHED_GAME }; // casual, so no rating catch-up either
+        },
+      ],
+      ["/live/review/", () => ({ body: { ready: false, imported: false } })],
+    ]);
+
+    await render(<PlayVsHuman onExit={() => {}} />);
+    const settled = stateCalls;
+
+    for (let i = 0; i < 5; i += 1) {
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+        await Promise.resolve();
+      });
+    }
+
+    expect(stateCalls).toBe(settled);
+  });
+
+  it("comes back the moment there is a new game to watch", async () => {
+    let finished = true;
+    let stateCalls = 0;
+    mockApi([
+      ["/time-controls", () => ({ body: { options: ["10+5"], default: "10+5" } })],
+      [
+        "/state",
+        () => {
+          stateCalls += 1;
+          return {
+            body: finished
+              ? FINISHED_GAME
+              : { playing: false, seeking: true, game: null },
+          };
+        },
+      ],
+      ["/live/review/", () => ({ body: { ready: false, imported: false } })],
+      ["/finish", () => ({ body: { ok: true } })],
+    ]);
+
+    const { host } = await render(<PlayVsHuman onExit={() => {}} />);
+
+    // Leaving the finished game is exactly what the pop-up's New game does.
+    finished = false;
+    await act(async () => {
+      host
+        .querySelector('[data-testid="live-modal-new-game"]')
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const afterFinish = stateCalls;
+    await act(async () => {
+      jest.advanceTimersByTime(1500);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(1500);
+      await Promise.resolve();
+    });
+
+    expect(stateCalls).toBeGreaterThan(afterFinish);
+  });
+});

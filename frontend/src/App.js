@@ -34,6 +34,7 @@ import ShellPreview from "@/pages/ShellPreview";
 import ThemePreview from "@/pages/ThemePreview";  // /shell2 — theme harness, real Layout, no backend  // /coach2/settings — dialog + settings preview
 import Instrument from "@/pages/Instrument";      // /instrument — "Instrument" direction: the line AND what is under it
 import LobbyPreview from "@/pages/LobbyPreview";  // /lobby2 — the seek screen, both states, no Lichess seek
+import ResultPreview from "@/pages/ResultPreview";  // /result2 — the game-over pop-up, every state, no Lichess game
 import AllGames from "@/pages/AllGames";
 import PersonalMoments from "@/pages/PersonalMoments";  // /coach/moments/:topic — email landing pages
 import ReviewQueue from "@/pages/ReviewQueue";
@@ -364,6 +365,7 @@ function AppRouter() {
       <Route path="/theme2" element={<ThemePreview />} />
       <Route path="/instrument" element={<Instrument />} />
       <Route path="/lobby2" element={<LobbyPreview />} />
+      <Route path="/result2" element={<ResultPreview />} />
 
       {/* Public SEO routes — no auth required. Indexed by crawlers,
           served to cold visitors as marketing/teaching content. */}

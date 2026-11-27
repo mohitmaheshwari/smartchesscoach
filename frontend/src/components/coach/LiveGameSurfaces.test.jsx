@@ -18,6 +18,7 @@ import {
   MoveNav,
   PlayerCard,
   ResultCard,
+  ResultModal,
   captured,
   clockText,
   replay,
@@ -414,5 +415,215 @@ describe("the clock", () => {
     await rerender({ clockMs: 600000, clockAgeMs: 0, running: false });
     const releasedIds = cleared.mock.calls.map(([id]) => id);
     for (const id of ours) expect(releasedIds).toContain(id);
+  });
+});
+
+describe("the game-over pop-up", () => {
+  // Mohit, 2026-11-27: a rated game ended on a flag and the screen did not
+  // change. These guard the announcement itself, not its styling.
+  const won = {
+    status: "outoftime",
+    winner: "white",
+    rated: true,
+    our_rating: 1430,
+    our_rating_diff: 6,
+    opponent: { username: "vanissimo1", rating: 1450 },
+    opponent_rating_after: 1444,
+  };
+
+  const noop = () => {};
+
+  it("announces the result, the reason and the rating in one place", async () => {
+    const host = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        review={null}
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    expect(host.querySelector('[data-testid="live-modal-headline"]').textContent).toBe(
+      "You won"
+    );
+    expect(host.textContent).toContain("on time");
+    expect(host.querySelector('[data-testid="live-new-rating"]').textContent).toBe("1430");
+    expect(host.querySelector('[data-testid="live-rating-diff"]').textContent).toBe("↑ 6");
+    expect(host.querySelector('[data-testid="live-modal-opponent"]').textContent).toContain(
+      "vanissimo1"
+    );
+  });
+
+  it("says you lost when you lost", async () => {
+    const host = await render(
+      <ResultModal
+        game={{ ...won, winner: "black", our_rating: 1424, our_rating_diff: -7 }}
+        ourColor="white"
+        review={null}
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    expect(host.querySelector('[data-testid="live-modal-headline"]').textContent).toBe(
+      "You lost"
+    );
+    expect(host.querySelector('[data-testid="live-rating-diff"]').textContent).toBe("↓ 7");
+  });
+
+  it("waits out loud for a rating it has not been given yet", async () => {
+    // The server marks the game finished BEFORE it has asked Lichess what the
+    // game was worth, so this state is real and lasts a second or two.
+    const host = await render(
+      <ResultModal
+        game={{ ...won, our_rating: null, our_rating_diff: null }}
+        ourColor="white"
+        review={null}
+        ratingPending
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    expect(host.querySelector('[data-testid="live-rating-pending"]')).not.toBeNull();
+    // and never a guessed number in the meantime
+    expect(host.textContent).not.toMatch(/↑|↓|±/);
+  });
+
+  it("says nothing about rating on a casual game", async () => {
+    const host = await render(
+      <ResultModal
+        game={{ ...won, rated: false, our_rating: null, our_rating_diff: null }}
+        ourColor="white"
+        review={null}
+        ratingPending
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    expect(host.querySelector('[data-testid="live-rating-pending"]')).toBeNull();
+    expect(host.querySelector('[data-testid="live-new-rating"]')).toBeNull();
+  });
+
+  it("offers the review only once it is ready, same rule as the card", async () => {
+    const pending = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        review={{ imported: true, ready: false }}
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    expect(pending.querySelector('[data-testid="live-modal-review"]')).toBeNull();
+    expect(
+      pending.querySelector('[data-testid="live-modal-review-pending"]').textContent
+    ).toMatch(/analysing/i);
+
+    const ready = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        review={{ ready: true, review_url: "/game/abc" }}
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    expect(
+      ready.querySelector('[data-testid="live-modal-review"]').getAttribute("href")
+    ).toBe("/game/abc");
+  });
+
+  it("closes on the button, on Escape, and on the backdrop", async () => {
+    let closed = 0;
+    const host = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        review={null}
+        onDismiss={() => {
+          closed += 1;
+        }}
+        onNewGame={noop}
+      />
+    );
+
+    await act(async () => {
+      host
+        .querySelector('[data-testid="live-modal-close"]')
+        .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(closed).toBe(1);
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+      );
+    });
+    expect(closed).toBe(2);
+
+    await act(async () => {
+      host
+        .querySelector('[data-testid="live-result-overlay"]')
+        .dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    });
+    expect(closed).toBe(3);
+  });
+
+  it("does not close when the press lands on the panel itself", async () => {
+    let closed = 0;
+    const host = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        review={null}
+        onDismiss={() => {
+          closed += 1;
+        }}
+        onNewGame={noop}
+      />
+    );
+    await act(async () => {
+      host
+        .querySelector('[data-testid="live-result-modal"]')
+        .dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    });
+    expect(closed).toBe(0);
+  });
+
+  it("is a dialog, and every control on it clears the 44px floor", async () => {
+    const host = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        review={{ ready: true, review_url: "/game/abc" }}
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    const panel = host.querySelector('[data-testid="live-result-modal"]');
+    expect(panel.getAttribute("role")).toBe("dialog");
+    expect(panel.getAttribute("aria-modal")).toBe("true");
+
+    const controls = panel.querySelectorAll("a[href], button");
+    expect(controls.length).toBe(3); // review, new game, close
+    for (const control of controls) {
+      expect(control.className).toMatch(/min-h-\[44px\]/);
+    }
+  });
+
+  it("opens with focus on the close button, not on the review link", async () => {
+    // Landing on a link means Enter navigates away from a result nobody has
+    // read yet.
+    const host = await render(
+      <ResultModal
+        game={won}
+        ourColor="white"
+        review={{ ready: true, review_url: "/game/abc" }}
+        onDismiss={noop}
+        onNewGame={noop}
+      />
+    );
+    expect(document.activeElement).toBe(
+      host.querySelector('[data-testid="live-modal-close"]')
+    );
   });
 });

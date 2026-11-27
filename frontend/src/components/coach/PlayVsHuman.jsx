@@ -17,7 +17,7 @@
  * not even in the guard's allowlist, so it cannot answer until the game ends.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import LichessBoard from "@/components/LichessBoard";
 
 import LiveSearchBoard from "./LiveSearchBoard";
@@ -26,12 +26,18 @@ import {
   MoveNav,
   PlayerCard,
   ResultCard,
+  ResultModal,
   captured as capturedFrom,
   replay,
 } from "./LiveGameSurfaces";
 
 const API = process.env.REACT_APP_BACKEND_URL || "";
 const POLL_MS = 1500;
+// How long we keep asking for the rating after a rated game ends.
+// 8 x 2s = 16s, which is comfortably past the 15s timeout on the server's
+// own call to Lichess's export endpoint.
+const RATING_POLL_MS = 2000;
+const RATING_TRIES = 8;
 
 const TIME_CONTROL_BLURB =
   "Lichess allows Rapid and slower for games played through other apps, so these are the three we offer.";
@@ -100,7 +106,11 @@ export default function PlayVsHuman({ onExit }) {
   const [error, setError] = useState(null);
   const [reconnect, setReconnect] = useState(null);
   const [review, setReview] = useState(null);
-  const pollRef = useRef(null);
+  // The result pop-up shows once per game and then stays shut. The same
+  // result keeps standing in the sidebar, so dismissing it costs nothing.
+  const [resultSeen, setResultSeen] = useState(false);
+  // True only while we are still asking Lichess what the game was worth.
+  const [ratingPending, setRatingPending] = useState(false);
 
   const game = state && state.game;
   const seeking = Boolean(state && state.seeking);
@@ -141,20 +151,75 @@ export default function PlayVsHuman({ onExit }) {
     }
   }, []);
 
-  // Poll while there is anything to watch. Stop once the game is over, so a
-  // finished board does not keep a timer alive for the rest of the session.
+  // Poll while there is anything to watch, and stop once the game is over, so
+  // a finished board does not keep a timer alive for the rest of the session.
+  //
+  // This used to clear a stored interval id and null it out, which stopped the
+  // poll for the whole session rather than for the finished game: `poll` never
+  // changes identity, so the effect that created the interval never ran again.
+  // The path that exposes it is the one every player takes -- finish a game,
+  // press New game, look for another opponent -- and the search screen then
+  // sat there forever, because the pairing it was waiting for only ever
+  // arrives on a /state poll. Making the interval's existence a function of
+  // whether there is something to watch means it comes back on its own.
+  const watching = !(game && game.finished);
   useEffect(() => {
     poll();
-    pollRef.current = setInterval(poll, POLL_MS);
-    return () => clearInterval(pollRef.current);
-  }, [poll]);
+    if (!watching) return undefined;
+    const id = setInterval(poll, POLL_MS);
+    return () => clearInterval(id);
+  }, [poll, watching]);
 
+  // A new game means the announcement is owed again.
+  const gameId = game ? game.game_id : null;
   useEffect(() => {
-    if (game && game.finished && pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
+    setResultSeen(false);
+  }, [gameId]);
+
+  // The rating arrives AFTER the result does, and the main poll has already
+  // stopped by then.
+  //
+  // The server learns the game is over from the Lichess game stream, marks it
+  // finished, and only then asks /game/export what the game was worth --
+  // a network round trip. Any /state answered inside that window is correctly
+  // finished and correctly has no rating in it. Since the poll above shuts
+  // down on the first finished payload, that empty one used to be the last
+  // word the browser ever got, and the rating line simply never appeared.
+  //
+  // So: keep asking, slower, for a bounded time, and only on a rated game
+  // (a casual game has no rating change to wait for).
+  const needRating = Boolean(
+    game && game.finished && game.rated && game.our_rating == null
+  );
+  useEffect(() => {
+    if (!needRating) {
+      setRatingPending(false);
+      return undefined;
     }
-  }, [game]);
+    setRatingPending(true);
+    let alive = true;
+    let tries = 0;
+    const id = setInterval(async () => {
+      tries += 1;
+      if (tries > RATING_TRIES) {
+        clearInterval(id);
+        // Say nothing rather than wait forever. Lichess owns this number and
+        // sometimes does not give it to us.
+        if (alive) setRatingPending(false);
+        return;
+      }
+      try {
+        const next = await call("/state");
+        if (alive) setState(next);
+      } catch (_) {
+        // A failed catch-up costs the rating line and nothing else.
+      }
+    }, RATING_POLL_MS);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [needRating, gameId]);
 
   // The game is over, so the seal is lifted and we may ask where the review is.
   useEffect(() => {
@@ -466,6 +531,18 @@ export default function PlayVsHuman({ onExit }) {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-5">
+      {finished && !resultSeen && (
+        <ResultModal
+          game={game}
+          ourColor={ourColor}
+          review={review}
+          ratingPending={ratingPending}
+          onDismiss={() => setResultSeen(true)}
+          onNewGame={() => act("/finish")}
+          busy={busy}
+        />
+      )}
+
       {game.reconnecting && (
         <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
           We lost our connection to this game. It is still live on{" "}
@@ -609,6 +686,7 @@ export default function PlayVsHuman({ onExit }) {
               game={game}
               ourColor={ourColor}
               review={review}
+              ratingPending={ratingPending}
               onNewGame={() => act("/finish")}
               busy={busy}
             />
