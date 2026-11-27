@@ -66,3 +66,34 @@ def test_knowledge_states_from_games_and_puzzles():
     assert rec["fork"]["state"] == "misses" and rec["pin"]["state"] == "knows"
     assert rec["skewer"]["state"] == "puzzles_only" and rec["mate_in_one"]["allowed"] == 1
     assert ik.to_teach(rec) == ["fork", "skewer"]
+
+
+def test_found_and_missed_are_gated_on_disjoint_losses():
+    """The invariant that stops found/missed becoming a rate.
+
+    tactic_tags fires MISSED only at cp_loss >= 100 and FOUND only at
+    cp_loss <= FOUND_MAX_CP_LOSS, so the two counts come from different
+    populations of moves and there is a band between them where neither can
+    fire. Measured on prod 2026-11-27 over 766,091 user moves: 72.0% sit in
+    FOUND's slice, 11.1% in the gap, 16.9% in MISSED's slice. A fork passed
+    up for 60cp is in none of them.
+
+    If this test fails, someone has closed or moved the gap -- which changes
+    whether `missed / (found + missed)` means anything, and that question has
+    to be re-measured before any rate, peer comparison or significance test
+    is built on these counts. See services/idea_knowledge.py.
+    """
+    from services import tactic_tags as tt
+
+    assert tt.FOUND_MAX_CP_LOSS < 100, (
+        "found and missed now overlap or touch; re-measure before using them "
+        "as a numerator and denominator")
+    assert tt.FOUND_MAX_CP_LOSS == 49
+
+
+def test_the_knowledge_state_is_a_count_comparison_not_a_rate():
+    # Deliberately crude. ik exposes no rate or percentage for an idea,
+    # because its two counts are not comparable (see the test above).
+    rec = ik.record([{"tactic_tags": [{"motif": "fork", "kind": "missed"}]}], [])
+    assert set(rec["fork"]) == {"found", "missed", "allowed", "puzzles", "solved", "state"}
+    assert not hasattr(ik, "rate")

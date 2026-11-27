@@ -12,6 +12,33 @@ States (provisional, scope open question 2):
   puzzles_only - solves the idea's puzzles but still misses it in games
   knows        - found at least as often as missed, at least twice
   unseen       - no evidence yet
+
+FOUND + MISSED IS NOT AN OPPORTUNITY DENOMINATOR. DO NOT MAKE IT A RATE.
+------------------------------------------------------------------------
+The two kinds are gated on different, disjoint slices of cp_loss
+(services/tactic_tags.py): MISSED fires only when the move lost >= 100cp,
+FOUND only when it lost <= FOUND_MAX_CP_LOSS (49). So a fork he passed up
+that cost him 60cp produces neither tag, and the two counts are drawn from
+different populations of moves. Measured on prod 2026-11-27 over 766,091
+user moves at schema >= 21: 72.0% lost <= 49cp (FOUND's slice), 11.1% lost
+50-99cp (NEITHER can fire), 16.9% lost >= 100cp (MISSED's slice).
+
+`missed / (found + missed)` is therefore not a rate, and the corpus-wide
+"87% of forks missed" it produces is an artifact of the gating, not a fact
+about any player. The comparison in `state()` below inherits that: it is a
+crude signal that he does not use an idea, and must not be refined into a
+percentage, a peer comparison or a significance test. Doing that would
+launder the bias into a confident number -- far worse than the crude rule.
+
+A real denominator means asking "was this tactic available here at all"
+regardless of what the move cost, which needs `pv_after_best` on every
+position. Measured over 200 games: it is present on 89.9% of moves losing
+>= 100cp but only 7.9% of those losing <= 49cp, 28.3% overall. So it needs a
+fresh engine pass over about 72% of user moves (roughly 550,000 positions),
+not a re-derivation of stored data. Until that exists, the only axis with a
+true opportunity count is destination_safety_exact -- see
+player_behaviour_reading.PEER_RATES, which is calibrated and may be trusted
+as a rate precisely because its eligible/fires pair is gated once.
 """
 from __future__ import annotations
 
