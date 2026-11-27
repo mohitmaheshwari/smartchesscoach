@@ -205,8 +205,40 @@ Three things about that mockup are deliberate:
 - **Any new detector, or any backend measurement.** V1 reads what is already
   stored.
 - **Per-week history or charts.** Running totals and a last-10 column only.
+- **The opening check and the week's day-card facts.** Both were offered,
+  both are good, and both are deliberately not built yet: as they stand they
+  exist only for coach-pages players (7 ids), and `player_plan_weeks` held 92
+  rows for 67 players with none new since 2026-11-18. Built as-is they would
+  render an empty state for roughly 130 of 139 users — the exact failure this
+  whole document is about. The opening one can be freed by calling
+  `opening_verdict` over a games window against each habit in the player's
+  coach file instead of waiting for a plan week; that is the next piece of
+  work, not this one.
 - **"Found it when it mattered" as an n-of-m row.** See the resolved
   question below: the data is the best we have, the framing is unshippable.
+
+## 4b. What "a real denominator" does and does not mean
+
+Raised by `smartchesscoach-5d` after the build, and it is a fair catch worth
+writing down rather than waving away.
+
+Every row on this page counts out of the chances that came up, and those
+denominators are real: the fields are present on 765,881 observations and
+the pairs are mutually exclusive by construction. That is a statement about
+**coverage**, not about **correctness**.
+
+Nobody has graded, on our players' own games, how often
+`responded_to_threat`, `ignored_opponent_threat`,
+`punished_opponent_blunder` or `missed_opponent_blunder` is *right*. The
+prover behind the tactic tags scores 96-100% on Lichess puzzles, but these
+four are not that prover, and a coach has never reviewed a sample of them.
+`destination_safety_exact` is the one with a published eligible/fires
+contract and a stated base rate.
+
+So the page's claim is deliberately the narrow one: "this came up N times and
+you did X of them", never "you are good at this". If somebody later wants a
+verdict out of these rows, the precision review has to happen first, and it
+is a coach reading positions, not another count.
 
 ## 5. Success criteria
 
