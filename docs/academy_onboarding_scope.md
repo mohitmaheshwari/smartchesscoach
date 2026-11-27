@@ -6,7 +6,11 @@ also please make sure the UX is top notch, not any rough UX."*
 
 He is right. A player gets a three-step welcome. A coach gets an admin form.
 
-**Status: awaiting sign-off.** Written to the mandatory 7-section template.
+**Sign-off.** Mohit, 2026-11-27: "okay, go ahead please", in answer to this
+document and the two open questions in section 6. Recorded as the explicit
+sign-off. He did not answer the two questions one by one, so V1 ships the
+position each of them already states here, and both are revisited on the
+first real pilot rather than guessed at again.
 
 ---
 
@@ -244,4 +248,34 @@ screen with "Copy link" beside it, and this needed no decision.
       needs.
 - [x] A rendered-check harness exists (`playwright-core` in the scratchpad)
       that measures overflow, the 44px floor and real occlusion.
-- [ ] **Mohit's sign-off on this document.**
+- [x] **Mohit's sign-off on this document** (2026-11-27, above).
+
+---
+
+## Built
+
+Shipped in `55098ecf`. Nothing in section 4 crept in, and no backend was
+touched: `POST /academy`, `POST /{id}/batches` and
+`POST /batch/{id}/students` were enough, exactly as section 7 predicted.
+
+Verified by walking the real flow in a browser at 390x844 and 1280x900 --
+nine screens, both personas, and the "nobody told us" case: 0 horizontal
+overflow, 0 controls under 44px, 0 controls actually covered
+(`elementFromPoint`, not a screenshot), 0 inputs without a real label, no JS
+errors. 35 tests across the five suites this touched.
+
+Two defects were written and caught by looking rather than by testing, which
+is the argument for `/academy2` existing at all:
+
+- `Shell` was defined inside the component, so every keystroke created a new
+  component type, React remounted the subtree, and the input being typed into
+  lost focus. There is now a test that types and asserts focus survived.
+- The preview wrote `?who=` from an effect, after the child had already read
+  it in a `useState` initialiser, so it always showed the "who are you"
+  screen whichever persona was selected.
+
+One thing that looked like a defect and was not: the fixed bottom nav appears
+to sit on top of the coach list in a full-page screenshot. It does not --
+`elementFromPoint` at the real scroll position reports nothing covered. A
+full-page screenshot paints a `position: fixed` element once, at its viewport
+position, and stitches it into the middle of the image.

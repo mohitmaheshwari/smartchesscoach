@@ -279,6 +279,8 @@ export default function AcademyStart() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [finished, setFinished] = useState(false);
+  // null until we know whether this account already has an academy.
+  const [checking, setChecking] = useState(true);
   const madeRef = useRef({ academy_id: null, batch_id: null });
 
   const steps = who === "parent" ? PARENT_STEPS : COACH_STEPS;
@@ -302,6 +304,35 @@ export default function AcademyStart() {
       .catch(() => {});
     return () => { alive = false; };
   }, []);
+
+  // Step 1 CREATES an academy, so this page must not become a way to make a
+  // second one. The in-session guard (madeRef) does not survive a refresh,
+  // and the page is reachable by typing the URL or by going back after
+  // finishing -- either of which would leave a coach with two academies and
+  // their children in whichever one they happened to be in.
+  //
+  // Renders nothing until the answer arrives: flashing "what is your academy
+  // called?" at somebody who already has one is its own small lie.
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API}/api/academy/me`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive) return;
+        if (d && Array.isArray(d.academies) && d.academies.length > 0) {
+          navigate("/academy", { replace: true });
+          return;
+        }
+        setChecking(false);
+      })
+      .catch(() => {
+        // Could not ask. Letting them through is the kinder failure: the
+        // worst case is a duplicate, and refusing set-up entirely because
+        // one GET failed is worse.
+        if (alive) setChecking(false);
+      });
+    return () => { alive = false; };
+  }, [navigate]);
 
   const run = async (fn) => {
     if (busy) return;
@@ -390,6 +421,10 @@ export default function AcademyStart() {
 
   const setKid = (i, patch) =>
     setKids(kids.map((k, n) => (n === i ? { ...k, ...patch } : k)));
+
+  // Below every hook on purpose: kidsReady above is a useMemo, so an early
+  // return placed over it would be a conditional hook call.
+  if (checking) return null;
 
   /* -- shell --------------------------------------------------------- */
 

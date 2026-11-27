@@ -272,6 +272,37 @@ describe("academy set-up", () => {
     }
   });
 
+  test("sends an owner who already has an academy to it, rather than making a second", async () => {
+    // Step 1 creates an academy. madeRef guards within a session; a refresh,
+    // a typed URL or Back-after-finishing does not get that guard, and the
+    // coach would end up with two academies and their children split.
+    global.fetch = jest.fn((url) => {
+      const path = String(url);
+      const json = (d) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(d) });
+      if (path.includes("/academy/me")) return json({ academies: [{ academy_id: "acad_1" }] });
+      return json({ user_id: "u1", name: "Priya Nair" });
+    });
+    setUrl("?who=coach");
+    await render();
+
+    expect(mockNavigate).toHaveBeenCalledWith("/academy", { replace: true });
+    // and never flashed the first question at them
+    expect(container.querySelector("h1")).toBeNull();
+  });
+
+  test("still lets them set up if that check fails", async () => {
+    // Refusing set-up because one GET failed is worse than a duplicate.
+    global.fetch = jest.fn((url) => {
+      const path = String(url);
+      if (path.includes("/academy/me")) return Promise.reject(new Error("offline"));
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ name: "Priya Nair" }) });
+    });
+    setUrl("?who=coach");
+    await render();
+
+    expect(el("start-step").textContent).toBe("Step 1 of 3");
+  });
+
   test("says what went wrong instead of silently doing nothing", async () => {
     global.fetch = jest.fn(() =>
       Promise.resolve({
