@@ -106,6 +106,10 @@ def games_map(games_newest_first: Sequence[Mapping[str, Any]]) -> Dict[str, Dict
             "termination": g.get("termination"), "game_outcome": g.get("game_outcome"),
             "outcome": user_outcome(dict(g)),
             "played_at": played.isoformat() if isinstance(played, datetime) else str(played or ""),
+            # Carried so the plan can compare him against players at his own
+            # level (player_coach_plan.rating_band_of). `user_rating_at_time`
+            # is present on zero of 25,799 games, checked 2026-11-27.
+            "user_rating": g.get("user_rating"),
         }
     return out
 

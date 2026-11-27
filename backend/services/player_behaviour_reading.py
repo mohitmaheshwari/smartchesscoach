@@ -194,29 +194,29 @@ def reading(error_rows_by_game: Mapping[str, Sequence[Mapping[str, Any]]],
 # the best move at a critical moment is near-universal, so it measures being
 # human, not a weakness, and must never be shown as a fault.
 #
-# A per-axis bar has to come from each axis's own distribution before any of
-# these gates a drill. Until then they are context: a rate the player and the
-# coach can both read, comparable between players because it has a
-# denominator.
+# Each axis's bar now comes from its OWN distribution, per level: see
+# PEER_RATES and `worse_than_peers` below. No axis carries a bare absolute
+# rate any more except the one Mohit set by hand, which stays exactly where
+# he put it.
 AXES = {
     "axis:piece_safety": {
         "title": "Keeping pieces safe",
         "good": "Your pieces stayed safe",
         # This one is the structured verdict, counted in player_coach_file.
         "pair": None,
-        "drill_bar": 0.25,          # measured: picks 4 of 65
+        "peer_key": "gap:piece_safety:destination_safety_exact",
     },
     "axis:threat_answered": {
         "title": "Answering their threats",
         "good": "You answered what they threatened",
         "pair": ("ignored_opponent_threat", "responded_to_threat"),
-        "drill_bar": None,          # 25% would drill 46 of 59
+        "peer_key": "axis:threat_answered",
     },
     "axis:punished_their_mistake": {
         "title": "Punishing their mistakes",
         "good": "You took what they gave you",
         "pair": ("missed_opponent_blunder", "punished_opponent_blunder"),
-        "drill_bar": None,          # 25% would drill 9 of 10
+        "peer_key": "axis:punished_their_mistake",
     },
 }
 
@@ -226,24 +226,207 @@ AXES = {
 NOT_AN_AXIS = ("found_best_in_critical",)
 
 
-def axis_rates(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """Chances and wrong turns per tracked axis, over whatever rows are given.
+# ---------------------------------------------------------------------------
+# "Does he still need this drill?" -- calibrated, per axis, per level
+#
+# Mohit, 2026-11-27: "if that is 25%, player still need to do the drill, if
+# that's less than 25%, then we would try to understand why this error
+# existed". He set 25% for one-move piece blunders, and it is right there:
+# it picks 4 of 65 users. Transferred to the other axes it drilled 48 of 59
+# and 40 of 43, which is the opposite of the rule.
+#
+# So the bar is now his absolute rate OR "clearly worse than players at his
+# own level", whichever fires -- the second being a one-sided binomial test
+# of his count against the measured rate for his rating band. Measured
+# 2026-11-27 on prod, 65 users with 10+ analysed games, server-side $group:
+#
+#   axis                 window  pooled  beginner_low  beginner_high  intermediate
+#   piece safety            10g    8.0%        14.4%          6.7%          2.7%
+#   threats answered        10g   32.1%        39.2%         31.8%         26.4%
+#   punished mistakes       20g   41.0%        45.7%         35.8%          -
+#
+# Piece safety moves 6.8x across the bands (14.4% -> 2.1%), so a pooled peer
+# rate would tell a beginner he is "worse than peers" for being ordinary at
+# his level -- Mohit's Magnus objection, inverted. Banding is not a
+# refinement here, it is the difference between right and wrong.
+#
+# The advanced band (1800+) had 7 users or fewer on every axis, so it is
+# absent below and falls back to pooled. MIN_BAND_USERS records the bar that
+# excluded it; it is not applied at runtime.
+#
+# WHAT THIS RULE DOES TO MOHIT'S 25%, measured on the same 65 users:
+#   piece safety      keeps all 4 that 25% picked, and adds 2 below it
+#                     (19% against a 6.7% band, p=8.6e-04; 11% against
+#                      2.7%, p=8.8e-03) -- both genuinely worse than peers
+#   threats           4 of 59 instead of 48
+#   punished          2 of 43 instead of 40
+# So it is strictly more inclusive where he set it and sane where he did not.
+#
+# NOT locked -- /lock-via-data. Re-measure with calibrate_axis_bars2.py.
+MIN_CHANCES = 20            # a rate under this is not read at all
+PEER_ALPHA = 0.05           # one-sided; 0.10 would add 4 users on piece safety
+MIN_BAND_USERS = 8          # how the bands below were admitted, not a runtime gate
 
-    `wrong / chances` only -- no verdict, no drill decision. The bar for each
-    axis is an open calibration (see AXES), and a rate with a denominator is
-    worth showing on its own.
+PEER_RATES = {
+    "gap:piece_safety:destination_safety_exact": {
+        "window_games": 10,
+        "absolute_bar": 0.25,        # Mohit's, and only here
+        "pooled": 0.080,
+        "bands": {"beginner_low": 0.144, "beginner_high": 0.067,
+                  "intermediate": 0.027},
+    },
+    "axis:threat_answered": {
+        "window_games": 10,
+        "absolute_bar": None,
+        "pooled": 0.321,
+        "bands": {"beginner_low": 0.392, "beginner_high": 0.318,
+                  "intermediate": 0.264},
+    },
+    "axis:punished_their_mistake": {
+        # 1.3 chances a game: ten games reach the minimum for 10 of 65 users,
+        # twenty games for 43 of 59. The axis is silent at Mohit's ten-game
+        # window, so it reads twenty and says so.
+        "window_games": 20,
+        "absolute_bar": None,
+        "pooled": 0.410,
+        "bands": {"beginner_low": 0.457, "beginner_high": 0.358},
+    },
+}
+
+
+def window_games(key: str, default: int = 10) -> int:
+    """How many games this axis needs to have anything to say."""
+    spec = PEER_RATES.get(key)
+    return int(spec["window_games"]) if spec else default
+
+
+def binom_sf(k: int, n: int, p: float) -> float:
+    """P(X >= k) for X ~ Bin(n, p). One-sided: is he worse than his peers?
+
+    Exact rather than normal-approximated, because the counts are small
+    (20 to 60 chances) and the rates near 0.03, where the approximation is
+    worst and would invent significance.
     """
+    if k <= 0:
+        return 1.0
+    if n <= 0 or k > n:
+        return 0.0 if k > n else 1.0
+    if p <= 0.0:
+        return 0.0
+    if p >= 1.0:
+        return 1.0
+    from math import comb
+    return sum(comb(n, i) * (p ** i) * ((1.0 - p) ** (n - i))
+               for i in range(k, n + 1))
+
+
+def peer_rate(key: str, band: Optional[str] = None) -> Optional[float]:
+    """The measured rate for players at his level, or pooled when thin."""
+    spec = PEER_RATES.get(key)
+    if not spec:
+        return None
+    if band and band in (spec.get("bands") or {}):
+        return spec["bands"][band]
+    return spec.get("pooled")
+
+
+def worse_than_peers(key: str, wrong: int, chances: int,
+                     band: Optional[str] = None,
+                     alpha: float = PEER_ALPHA) -> Optional[Dict[str, Any]]:
+    """Is his rate worse than players at his level by more than luck?
+
+    None when there is no calibration, too few chances, or he is in line with
+    his level. Never guesses: an axis with no measured peer rate returns None
+    rather than falling back to a number someone liked.
+    """
+    spec = PEER_RATES.get(key)
+    if not spec or chances < MIN_CHANCES:
+        return None
+    peer = peer_rate(key, band)
+    if peer is None:
+        return None
+    p = binom_sf(wrong, chances, peer)
+    if p > alpha:
+        return None
+    return {"peer_rate": round(peer, 4), "band": band, "p_value": p,
+            "rate": round(wrong / chances, 4), "basis": "worse_than_level"}
+
+
+def needs_drill(key: str, wrong: int, chances: int,
+                band: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Mohit's rule, calibrated: his absolute bar OR worse than his level.
+
+    Returns why it fired, or None when the drill is not owed. The absolute
+    bar is kept first and separately so his instruction survives a
+    re-measurement of the bands.
+    """
+    if chances < MIN_CHANCES:
+        return None
+    spec = PEER_RATES.get(key)
+    if not spec:
+        return None
+    rate = wrong / chances
+    bar = spec.get("absolute_bar")
+    if bar is not None and rate >= bar:
+        return {"rate": round(rate, 4), "absolute_bar": bar,
+                "basis": "at_or_above_absolute_bar"}
+    return worse_than_peers(key, wrong, chances, band)
+
+
+def axis_rates(rows: Sequence[Mapping[str, Any]],
+               game_order: Optional[Sequence[str]] = None,
+               band: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+    """Chances and wrong turns per tracked axis, each over its OWN window.
+
+    `game_order` is his games newest first. Each axis then counts only the
+    games it needs: ten for piece safety and threats, twenty for punishing
+    mistakes, which offers 1.3 chances a game and is simply silent at ten
+    (10 of 65 users reached the minimum, against 43 of 59 at twenty). Pass
+    None to count every row given, which is what the callers did before the
+    windows were measured.
+
+    `band` is his rating band. Given one, each axis also carries whether the
+    drill is owed -- his absolute bar, or measurably worse than players at
+    his level. Without one the rate is still reported; it just does not
+    judge, because the pooled comparison is the wrong comparison (piece
+    safety runs 14.4% in the beginner band against 2.7% at intermediate).
+    """
+    rows = list(rows)
+    order = list(game_order) if game_order else None
     out: Dict[str, Dict[str, Any]] = {}
     for key, spec in AXES.items():
         pair = spec.get("pair")
         if not pair:
             continue
+        peer_key = spec.get("peer_key") or key
+        scoped = rows
+        window = None
+        if order is not None:
+            window = window_games(peer_key)
+            keep = set(order[:window])
+            scoped = [r for r in rows if r.get("game_id") in keep]
         wrong_field, right_field = pair
-        wrong = sum(1 for r in rows if r.get(wrong_field))
-        right = sum(1 for r in rows if r.get(right_field))
+        wrong = sum(1 for r in scoped if r.get(wrong_field))
+        right = sum(1 for r in scoped if r.get(right_field))
         chances = wrong + right
         if not chances:
             continue
-        out[key] = {"title": spec["title"], "chances": chances, "wrong": wrong,
-                    "rate": round(wrong / chances, 4)}
+        row = {"title": spec["title"], "chances": chances, "wrong": wrong,
+               "rate": round(wrong / chances, 4)}
+        if window is not None:
+            row["window_games"] = window
+        peer = peer_rate(peer_key, band)
+        if peer is not None:
+            row["peer_rate"] = round(peer, 4)
+            row["band"] = band
+        if band:
+            owed = needs_drill(peer_key, wrong, chances, band)
+            row["needs_drill"] = bool(owed)
+            if owed:
+                row["why_drill"] = owed
+            elif chances < MIN_CHANCES:
+                # Not "he is fine" -- we have not seen enough to say.
+                row["needs_drill"] = None
+                row["too_few_chances"] = MIN_CHANCES
+        out[key] = row
     return out

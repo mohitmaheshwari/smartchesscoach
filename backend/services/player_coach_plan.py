@@ -29,7 +29,9 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
+from deterministic_coach_service import get_rating_band
 from services import coach_plan_service as cp
+from services import player_behaviour_reading as pbr
 
 STEPS_SHOWN = 3
 # Points at stake need at least this many finished games in the window. 2026-11-13:
@@ -91,6 +93,28 @@ DRILL_RATE = 0.25
 MIN_OPPORTUNITIES = 20
 
 
+def rating_band_of(games: Iterable[Mapping[str, Any]]) -> Optional[str]:
+    """His rating band, for comparing him against players at his own level.
+
+    The median of the ratings in hand, not the newest, because one game can
+    swing a provisional rating by a hundred points. Returns None when no game
+    carries a rating, and the caller then falls back to the pooled rate --
+    never to a guessed band.
+
+    `games.user_rating_at_time` is present on ZERO of 25,799 games (checked
+    2026-11-27), so only `user_rating` is read.
+    """
+    ratings = sorted(g.get("user_rating") for g in games
+                     if isinstance(g.get("user_rating"), (int, float))
+                     and (g.get("user_rating") or 0) > 0)
+    if not ratings:
+        return None
+    mid = len(ratings) // 2
+    median = (ratings[mid] if len(ratings) % 2
+              else (ratings[mid - 1] + ratings[mid]) / 2.0)
+    return get_rating_band(median).get("name")
+
+
 def own_reliability(observations: Iterable[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
     """Per quality_id: how often he faced this decision, how often it went wrong.
 
@@ -116,12 +140,23 @@ def own_reliability(observations: Iterable[Mapping[str, Any]]) -> Dict[str, Dict
 
 
 def below_drill_bar(reliability: Mapping[str, Mapping[str, Any]],
-                    quality_id: Optional[str]) -> Optional[Dict[str, Any]]:
+                    quality_id: Optional[str],
+                    band: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """The error is real but too rare to drill: ask WHY instead.
 
-    Returns the counted evidence when the rate is under DRILL_RATE, else None
-    (drill, or no usable denominator). A step is never withheld on a guess --
-    absent or thin evidence returns None.
+    Returns the counted evidence when the drill is not owed, else None
+    (drill it, or no usable denominator). A step is never withheld on a
+    guess -- absent or thin evidence returns None.
+
+    The drill is owed when he clears Mohit's absolute bar OR when he is
+    measurably worse than players at his own level
+    (`player_behaviour_reading.needs_drill`). Banding matters: piece safety
+    runs 14.4% in the beginner band and 2.7% at intermediate, so a pooled
+    comparison would call a beginner worse-than-peers for being ordinary.
+
+    A quality_id with no measured peer rate falls back to Mohit's 25% alone,
+    because an uncalibrated axis has no level to be compared against and
+    inventing one would withhold a step on a number nobody measured.
 
     The caller owes the player the behavioural reading in this case. Dropping
     the step and saying nothing is the wrong half of Mohit's rule.
@@ -133,12 +168,27 @@ def below_drill_bar(reliability: Mapping[str, Mapping[str, Any]],
         return None
     if row["eligible"] < MIN_OPPORTUNITIES:
         return None
-    if row["error_rate"] >= DRILL_RATE:
+
+    calibrated = quality_id in pbr.PEER_RATES
+    if calibrated:
+        if pbr.needs_drill(quality_id, row["fired"], row["eligible"], band):
+            return None
+    elif row["error_rate"] >= DRILL_RATE:
         return None
-    return {"quality_id": quality_id,
-            "opportunities": row["eligible"], "taken_wrong": row["fired"],
-            "rate": round(row["error_rate"], 4),
-            "drill_bar": DRILL_RATE, "needs": "behavioural_reading"}
+
+    spec = pbr.PEER_RATES.get(quality_id) or {}
+    out = {"quality_id": quality_id,
+           "opportunities": row["eligible"], "taken_wrong": row["fired"],
+           "rate": round(row["error_rate"], 4),
+           "drill_bar": spec.get("absolute_bar", DRILL_RATE),
+           "needs": "behavioural_reading"}
+    peer = pbr.peer_rate(quality_id, band) if calibrated else None
+    if peer is not None:
+        # Why the step was withheld, in numbers, so it is auditable.
+        out["peer_rate"] = round(peer, 4)
+        out["band"] = band
+        out["basis"] = "in_line_with_level"
+    return out
 
 
 def phase_of(fen: str, move_number: int) -> str:
@@ -276,6 +326,9 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
     # reason is auditable, and so a later surface can say "you have these"
     # rather than the plan just going quiet.
     reliable_skips: List[Dict[str, Any]] = []
+    # His level, so "still needs the drill" compares him against players like
+    # him rather than against the whole corpus.
+    band = rating_band_of((games or {}).values())
 
     steps: List[Dict[str, Any]] = []
     others: List[Dict[str, Any]] = []
@@ -289,7 +342,7 @@ def build_plan(*, habit: Optional[Mapping[str, Any]], ranked: Sequence[Mapping[s
         # No chapter opens for something he already has. Frequency times cost
         # ranks a thing he gets right 24 times out of 25 above a thing nobody
         # has taught him, because the first keeps coming up.
-        under = below_drill_bar(reliability, row.get("quality_id"))
+        under = below_drill_bar(reliability, row.get("quality_id"), band)
         if under:
             # The debt comes due here: say WHY, or say plainly that we cannot.
             # An unexplained reading is still a reading and is not dropped.

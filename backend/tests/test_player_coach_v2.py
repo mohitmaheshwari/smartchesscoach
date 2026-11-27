@@ -573,9 +573,12 @@ def _obs(qid, n_eligible, n_fired, game_id="g1"):
     return rows
 
 
-def _plan(ranked, observations):
+def _plan(ranked, observations, rating=None):
     from services import player_coach_plan as ppl
     games = {f"g{i}": {"outcome": "loss"} for i in range(30)}
+    if rating is not None:
+        for g in games.values():
+            g["user_rating"] = rating
     return ppl.build_plan(
         habit=None, ranked=ranked, openings=[], sitting={}, progress={},
         games=games, deciding=[], habit_check=None, newest_game_id=None,
@@ -629,6 +632,76 @@ def test_the_bar_is_a_rate_not_a_count():
     few = ppl.own_reliability(_obs(QID_LANDING, 24, 12))
     assert ppl.below_drill_bar(many, QID_LANDING) is not None      # 6% -> ask why
     assert ppl.below_drill_bar(few, QID_LANDING) is None           # 50% -> drill
+
+
+def test_the_bar_moves_with_his_level():
+    # Measured 2026-11-27: piece safety runs 14.4% in the beginner band and
+    # 2.7% at intermediate. 5 of 63 is ordinary for a beginner and a real
+    # fault for an intermediate, so the same counts must decide differently.
+    from services import player_coach_plan as ppl
+    rel = ppl.own_reliability(_obs(QID_LANDING, 63, 5))
+    assert ppl.below_drill_bar(rel, QID_LANDING, "beginner_high") is not None
+    assert ppl.below_drill_bar(rel, QID_LANDING, "intermediate") is None
+    # The withheld evidence records what it was compared against.
+    owed = ppl.below_drill_bar(rel, QID_LANDING, "beginner_high")
+    assert owed["peer_rate"] == 0.067 and owed["band"] == "beginner_high"
+    assert owed["basis"] == "in_line_with_level"
+
+
+def test_mohits_absolute_bar_survives_any_band():
+    # "if that is 25%, player still need to do the drill" -- including for a
+    # beginner, whose peers are at 14.4% and who would not be caught by the
+    # level test alone on a thin denominator.
+    from services import player_coach_plan as ppl
+    rel = ppl.own_reliability(_obs(QID_LANDING, 20, 6))     # 30%
+    for band in (None, "beginner_low", "beginner_high", "intermediate", "advanced"):
+        assert ppl.below_drill_bar(rel, QID_LANDING, band) is None, band
+
+
+def test_a_step_is_judged_against_his_level_end_to_end():
+    # 5 of 63 with a 1500 rating: the plan must drill it. The same player
+    # rated 1100 gets the question instead. A second weakness is present so
+    # the plan survives the withholding -- see the test below.
+    landing = _ranked_row(QID_LANDING, "Leaving a piece where it can be taken",
+                          "landing", None, 2)
+    fork = _ranked_row("gap:missed_tactic:missed_fork", "Missing forks",
+                       "missed_tactic", "fork", 3)
+    strong = _plan([fork, landing], _obs(QID_LANDING, 63, 5), rating=1500)
+    assert QID_LANDING in [s.get("quality_id") for s in strong["steps"]]
+    assert strong["ask_why"] == []
+    weak = _plan([fork, landing], _obs(QID_LANDING, 63, 5), rating=1100)
+    assert QID_LANDING not in [s.get("quality_id") for s in weak["steps"]]
+    assert weak["ask_why"][0]["quality_id"] == QID_LANDING
+    assert weak["ask_why"][0]["band"] == "beginner_high"
+
+
+def test_known_gap_a_plan_of_only_withheld_steps_is_lost():
+    # DOCUMENTED, NOT WANTED. When every candidate is withheld as in line
+    # with his level, build_plan hits `if not steps: return None` and the
+    # ask_why debt goes with it -- which is the half of Mohit's rule that
+    # says the player is owed a reason. The tail of build_plan indexes
+    # steps[0] four times (title, opening order, habit line), so returning a
+    # plan with no steps needs that tail reworked first.
+    #
+    # It is strictly rarer than before the calibration: the new rule drills
+    # whenever the old 25% rule did AND when he is worse than his level, so
+    # the set of withheld steps can only shrink. Not a regression; a gap.
+    landing = _ranked_row(QID_LANDING, "Leaving a piece where it can be taken",
+                          "landing", None, 2)
+    assert _plan([landing], _obs(QID_LANDING, 63, 5), rating=1100) is None
+
+
+def test_the_band_comes_from_the_median_not_one_game():
+    # A provisional rating can swing a hundred points in a game.
+    from services import player_coach_plan as ppl
+    games = [{"user_rating": 1500}] * 9 + [{"user_rating": 300}]
+    assert ppl.rating_band_of(games) == "intermediate"
+    # No rating anywhere is None, not a guessed band: the caller then
+    # compares against the pooled rate rather than inventing a level.
+    assert ppl.rating_band_of([{"outcome": "loss"}]) is None
+    assert ppl.rating_band_of([]) is None
+    # Zero and None are not ratings.
+    assert ppl.rating_band_of([{"user_rating": 0}, {"user_rating": None}]) is None
 
 
 def test_a_step_with_no_affected_game_in_the_window_is_not_shown():

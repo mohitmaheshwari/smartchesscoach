@@ -913,17 +913,29 @@ def _behaviour_query(user_id: str, game_ids: Sequence[str]) -> Dict[str, Any]:
     return {"user_id": user_id, "game_id": {"$in": list(game_ids)}}
 
 
-def behaviour_axes(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """Tracked behaviour: a rate out of chances per axis, over the window.
+def behaviour_axes(rows: Sequence[Mapping[str, Any]],
+                   game_order: Optional[Sequence[str]] = None,
+                   band: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+    """Tracked behaviour: a rate out of chances per axis, each over its own
+    window and compared against players at his own level.
 
     Mohit, 2026-11-27: "chess is also focus and behavioral tactics, so that's
-    what we want to track." These are TRACKED, not drill gates -- the 25% bar
-    is calibrated to piece safety and would drill 46 of 59 users on threats
-    and 9 of 10 on punishing mistakes. See player_behaviour_reading.AXES.
+    what we want to track." `game_order` is his games newest first; each axis
+    takes the games it needs from the front of it (ten, or twenty for
+    punishing mistakes, which offers too few chances in ten to speak at all).
+    `band` is his rating band, without which the rates are reported but do
+    not judge. See player_behaviour_reading.PEER_RATES.
     """
     from services import player_behaviour_reading as pbr
 
-    return pbr.axis_rates(list(rows))
+    return pbr.axis_rates(list(rows), game_order=game_order, band=band)
+
+
+def axis_window_games() -> int:
+    """The widest window any axis needs, so one read covers them all."""
+    from services import player_behaviour_reading as pbr
+
+    return max([pbr.window_games(k) for k in pbr.PEER_RATES] or [10])
 
 
 def behaviour_readings(rows: Iterable[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]]:
@@ -1116,12 +1128,18 @@ def build_and_store_sync(db, user_id: str) -> Dict[str, Any]:
     # something he already has. Deliberately NOT limited to analysed_ids:
     # see _reliability_pipeline.
     rate_window = analysed_ids[:ppl.RATE_WINDOW_GAMES]
+    # One read covers every axis's window; the readings and the reliability
+    # stay on Mohit's ten games, and only the axes that need more take more.
+    axis_window = analysed_ids[:axis_window_games()]
     reliability = reliability_from_rows(db.move_observations.aggregate(
         _reliability_pipeline(user_id, rate_window)))
     beh_rows = list(db.move_observations.find(
-        _behaviour_query(user_id, rate_window), _BEHAVIOUR_FIELDS)) if rate_window else []
-    behaviour = behaviour_readings(beh_rows)
-    axes = behaviour_axes(beh_rows)
+        _behaviour_query(user_id, axis_window), _BEHAVIOUR_FIELDS)) if axis_window else []
+    _rate_ids = set(rate_window)
+    behaviour = behaviour_readings([r for r in beh_rows if r.get("game_id") in _rate_ids])
+    _band = ppl.rating_band_of(
+        [g for g in dedupe_games(games) if g.get("game_id") in set(axis_window)])
+    axes = behaviour_axes(beh_rows, game_order=axis_window, band=_band)
     doc = build_file(user_id, games, analyses, observations, last_rows, previous, fires, deciding_rows, engine_moments,
                      skipped=skipped, slips_per_game=slips, reliability=reliability,
                      behaviour=behaviour, axes=axes)
@@ -1169,12 +1187,17 @@ async def build_and_store(db, user_id: str) -> Dict[str, Any]:
     slips = _slips_per_game(await db.move_observations.find(
         {"user_id": user_id, "game_id": {"$in": check_ids}}, _SLIP_FIELDS).to_list(None)) if check_ids else None
     rate_window = analysed_ids[:ppl.RATE_WINDOW_GAMES]
+    # See the sync build: one read, each axis takes only the window it needs.
+    axis_window = analysed_ids[:axis_window_games()]
     reliability = reliability_from_rows(await db.move_observations.aggregate(
         _reliability_pipeline(user_id, rate_window)).to_list(None))
     beh_rows = (await db.move_observations.find(
-        _behaviour_query(user_id, rate_window), _BEHAVIOUR_FIELDS).to_list(None)) if rate_window else []
-    behaviour = behaviour_readings(beh_rows)
-    axes = behaviour_axes(beh_rows)
+        _behaviour_query(user_id, axis_window), _BEHAVIOUR_FIELDS).to_list(None)) if axis_window else []
+    _rate_ids = set(rate_window)
+    behaviour = behaviour_readings([r for r in beh_rows if r.get("game_id") in _rate_ids])
+    _band = ppl.rating_band_of(
+        [g for g in dedupe_games(games) if g.get("game_id") in set(axis_window)])
+    axes = behaviour_axes(beh_rows, game_order=axis_window, band=_band)
     # The build may run the engine: keep it off the event loop.
     doc = await asyncio.to_thread(build_file, user_id, games, analyses, observations, last_rows,
                                   previous, fires, deciding_rows, engine_moments, None, skipped, slips,
