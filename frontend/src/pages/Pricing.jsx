@@ -17,6 +17,7 @@ import { ANALYTICS_EVENTS, track } from "@/lib/analytics";
 import { useNavigate } from "react-router-dom";
 import { Check, ChevronRight, Loader2 } from "lucide-react";
 import { API } from "@/App";
+import SinceTheyJoined from "@/components/pricing/SinceTheyJoined";
 
 const RZP_SCRIPT_URL = "https://checkout.razorpay.com/v1/checkout.js";
 
@@ -51,6 +52,24 @@ const PRO_FEATURES = [
 ];
 
 export default function Pricing() {
+  // Real rating curves since players joined. Public, anonymous, and always
+  // carrying its own denominator -- services/rating_journeys.py explains
+  // why both of those are not optional. A failure costs the strip and
+  // nothing else, so it never blocks the page.
+  const [journeys, setJourneys] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API}/rating-journeys`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (alive) setJourneys(d);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const navigate = useNavigate();
   const [config, setConfig] = useState(null);
   const [user, setUser] = useState(null);
@@ -298,6 +317,8 @@ export default function Pricing() {
             )}
           </div>
         </div>
+
+        <SinceTheyJoined data={journeys} />
 
         <p className="text-center text-xs text-gray-600 mt-10">
           Payments processed securely by Razorpay. We never see or store

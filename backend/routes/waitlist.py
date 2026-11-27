@@ -52,6 +52,20 @@ async def signup_status():
     return {"signups_open": signups_open()}
 
 
+@router.get("/rating-journeys")
+async def rating_journeys():
+    """Public. Real rating curves since players joined, for the pricing page.
+
+    Anonymous by construction and always returned WITH its denominator:
+    of the 55 players with enough games to measure, 21 went down. A strip
+    of winners without that number beside it is an advertisement, not
+    proof. services/rating_journeys.py says the rest.
+    """
+    from services.rating_journeys import cached_rating_journeys
+
+    return await cached_rating_journeys(db)
+
+
 @router.post("/waitlist")
 async def request_invite(req: InviteRequest):
     """Public. Asking twice is fine and never downgrades an invited person."""
