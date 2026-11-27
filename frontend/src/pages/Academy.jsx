@@ -97,7 +97,7 @@ function CoachesThisWeek({ academyId }) {
         {d.plans_waiting ? `${d.plans_waiting} plan${d.plans_waiting === 1 ? "" : "s"} waiting for a coach.` : "No plan is waiting for a coach."}
       </p>
       <ul className="grid gap-1 text-sm">
-        {d.coaches.map((c) => (
+        {(d.coaches || []).map((c) => (
           <li key={c.user_id}>
             <span className="font-semibold">{c.name || "A coach"}</span>: approved {c.approved}
             {c.rule_changed ? ` (changed the rule on ${c.rule_changed})` : ""}, skipped {c.skipped}, reports sent {c.reports}
@@ -118,7 +118,11 @@ export function AcademyHome() {
   const [note, setNote] = useState("");
 
   useEffect(() => {
-    if (state.data) rememberAcademyStaff(state.data.academies.length > 0);
+    // Defensive on purpose. `call()` turns any unparseable 200 body into
+    // {} and returns it as data, so an unexpected reply reaches here as an
+    // object with no `academies` -- and an unguarded .length white-screens
+    // the whole page. That happened live on 2026-11-27.
+    if (state.data) rememberAcademyStaff((state.data.academies || []).length > 0);
   }, [state.data]);
 
   const run = async (fn) => {
@@ -128,7 +132,7 @@ export function AcademyHome() {
 
   if (state.loading) return <Page><p>Loading…</p></Page>;
   if (state.error) return <Page><p className="text-red-600">{state.error}</p></Page>;
-  const academies = state.data.academies;
+  const academies = state.data.academies || [];
 
   return (
     <Page>

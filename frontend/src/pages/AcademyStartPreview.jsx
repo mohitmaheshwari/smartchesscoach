@@ -14,7 +14,7 @@
  *
  * Unauthenticated and unlinked, like /shell2, /theme2, /lobby2 and /result2.
  */
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import AcademyStart from "./AcademyStart";
 
 const WHO = [
@@ -28,10 +28,15 @@ const WHO = [
  * (routes/academy.py:390, :435, :452). A wrong shape here would make the
  * preview lie, which is worse than not having one.
  */
-function stubFetch() {
+function stubFetch(realFetch) {
   let kid = 0;
   return (url, options) => {
     const path = String(url);
+    // Anything this preview does not deliberately answer goes to the real
+    // network. Returning {} to every unknown path is what made a leaked stub
+    // able to break a real page: /academy reads `academies` off the reply and
+    // {} has no `academies`.
+    if (!/\/api\/(auth\/me|academy)/.test(path)) return realFetch(url, options);
     const body = options && options.body ? JSON.parse(options.body) : {};
     const json = (data) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) });
 
@@ -94,13 +99,32 @@ export default function AcademyStartPreview() {
   });
   const [nonce, setNonce] = useState(0);
 
-  // Stubbed before the first child render for the same reason.
-  const [, setStubbed] = useState(() => {
-    window.fetch = stubFetch();
-    return true;
-  });
+  // Stubbed before the first child render for the same reason: a child's
+  // effects run BEFORE its parent's, so installing this from an effect here
+  // would land after AcademyStart had already fetched.
+  //
+  // 2026-11-27, live: the first version of this never put the real fetch
+  // back. Its cleanup called setStubbed(false) -- a state write on an
+  // unmounting component, which does nothing at all. So pressing "Open my
+  // academy" on the finish screen client-navigated to /academy with the stub
+  // still installed, /academy/me came back as the stub's {} fallback, and
+  // the page crashed on `academies.length` with no request ever leaving the
+  // browser. Hence both halves below: keep the real one, and give it back.
+  const realFetch = useRef(null);
+  if (realFetch.current === null) {
+    realFetch.current = window.fetch.bind(window);
+    window.fetch = stubFetch(realFetch.current);
+  }
 
-  useEffect(() => () => setStubbed(false), []);
+  useEffect(
+    () => () => {
+      if (realFetch.current) {
+        window.fetch = realFetch.current;
+        realFetch.current = null;
+      }
+    },
+    []
+  );
 
   const choose = (value) => {
     writeWho(value);
