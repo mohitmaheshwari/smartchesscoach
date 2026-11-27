@@ -139,33 +139,26 @@ export function AcademyHome() {
       {error && <p className="text-red-600">{error}</p>}
       {note && <p className="text-emerald-700">{note}</p>}
 
+      {/* Nothing set up yet. This used to be two raw forms with the parent
+          card stacked on top for everybody, including somebody who had just
+          pressed "I'm a coach or academy" on the landing page. The set-up
+          itself now lives at /academy/start, which knows which of the two
+          they are -- docs/academy_onboarding_scope.md. */}
       {academies.length === 0 && (
         <Card>
-          <h2 className="text-xl font-semibold">I am a parent</h2>
-          <p>No academy? Set up your child at home. You get the same weekly report.</p>
-          <button type="button" className={primary + " w-fit"} onClick={() => run(async () => {
-            const out = await call("/academy", { method: "POST", body: { kind: "family" } });
-            if (out.batch_id) navigate(`/academy/batch/${out.batch_id}`);
-          })}>
-            Set up my child
-          </button>
-        </Card>
-      )}
-
-      {academies.length === 0 && (
-        <Card>
-          <h2 className="text-xl font-semibold">Set up your academy</h2>
-          <p>Add your batches and children. Each parent gets a weekly report on WhatsApp.</p>
-          <form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]" onSubmit={(e) => {
-            e.preventDefault();
-            run(() => call("/academy", { method: "POST", body: form }));
-          }}>
-            <input id="academy-name" className={field} placeholder="Academy name" value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <input id="academy-city" className={field} placeholder="City" value={form.city}
-              onChange={(e) => setForm({ ...form, city: e.target.value })} />
-            <button className={primary} type="submit">Create</button>
-          </form>
+          <h2 className="text-xl font-semibold">Let's set you up</h2>
+          <p>
+            It takes about two minutes: name your academy, add one batch, add
+            your first children. A parent is a shorter version of the same
+            thing.
+          </p>
+          <Link
+            to="/academy/start"
+            data-testid="academy-start-setup"
+            className={primary + " w-fit inline-flex min-h-[44px] items-center"}
+          >
+            Start setting up
+          </Link>
         </Card>
       )}
 
@@ -186,17 +179,23 @@ export function AcademyHome() {
           </div>
           <Card>
             <h3 className="font-semibold">Add a batch</h3>
-            <form className="flex flex-wrap gap-2" onSubmit={(e) => {
+            <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => {
               e.preventDefault();
               run(() => call(`/academy/${a.academy_id}/batches`, { method: "POST", body: batchName[a.academy_id] || {} }));
             }}>
-              <input id={`batch-name-${a.academy_id}`} className={`${field} sm:w-56`} placeholder="Batch name, e.g. Saturday batch"
-                value={(batchName[a.academy_id] || {}).name || ""}
-                onChange={(e) => setBatchName({ ...batchName, [a.academy_id]: { ...(batchName[a.academy_id] || {}), name: e.target.value } })} />
-              <input id={`batch-coach-${a.academy_id}`} className={`${field} sm:w-56`} placeholder="Coach's name, e.g. Coach Priya"
-                value={(batchName[a.academy_id] || {}).coach_name || ""}
-                onChange={(e) => setBatchName({ ...batchName, [a.academy_id]: { ...(batchName[a.academy_id] || {}), coach_name: e.target.value } })} />
-              <button className={primary} type="submit">Add batch</button>
+              <label className="grid gap-1.5 text-sm" htmlFor={`batch-name-${a.academy_id}`}>
+                <span className="font-medium">Batch name</span>
+                <input id={`batch-name-${a.academy_id}`} className={`${field} min-h-[44px] sm:w-56`} placeholder="Saturday batch"
+                  value={(batchName[a.academy_id] || {}).name || ""}
+                  onChange={(e) => setBatchName({ ...batchName, [a.academy_id]: { ...(batchName[a.academy_id] || {}), name: e.target.value } })} />
+              </label>
+              <label className="grid gap-1.5 text-sm" htmlFor={`batch-coach-${a.academy_id}`}>
+                <span className="font-medium">Who coaches it</span>
+                <input id={`batch-coach-${a.academy_id}`} className={`${field} min-h-[44px] sm:w-56`} placeholder="Coach Priya"
+                  value={(batchName[a.academy_id] || {}).coach_name || ""}
+                  onChange={(e) => setBatchName({ ...batchName, [a.academy_id]: { ...(batchName[a.academy_id] || {}), coach_name: e.target.value } })} />
+              </label>
+              <button className={`${primary} min-h-[44px]`} type="submit">Add batch</button>
             </form>
           </Card>
           {(a.my_role === "owner" || a.my_role === "admin") && (
@@ -206,17 +205,21 @@ export function AcademyHome() {
                 {a.staff.map((s) => <li key={s.user_id}>{s.name || s.email} · {s.role}</li>)}
               </ul>
               <CoachesThisWeek academyId={a.academy_id} />
-              <form className="flex flex-wrap gap-2" onSubmit={(e) => {
+              <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => {
                 e.preventDefault();
                 run(async () => {
                   const out = await call(`/academy/${a.academy_id}/coaches`, { method: "POST", body: { email: coachEmail[a.academy_id] || "" } });
                   setNote(`${out.name || "The coach"} can now open this academy.`);
                 });
               }}>
-                <input id={`coach-email-${a.academy_id}`} className={`${field} sm:w-72`} placeholder="Coach's ChessGuru email"
-                  value={coachEmail[a.academy_id] || ""}
-                  onChange={(e) => setCoachEmail({ ...coachEmail, [a.academy_id]: e.target.value })} />
-                <button className={secondary} type="submit">Add coach</button>
+                <label className="grid gap-1.5 text-sm" htmlFor={`coach-email-${a.academy_id}`}>
+                  <span className="font-medium">Coach's ChessGuru email</span>
+                  <input id={`coach-email-${a.academy_id}`} className={`${field} min-h-[44px] sm:w-72`} placeholder="priya@example.com"
+                    type="email"
+                    value={coachEmail[a.academy_id] || ""}
+                    onChange={(e) => setCoachEmail({ ...coachEmail, [a.academy_id]: e.target.value })} />
+                </label>
+                <button className={`${secondary} min-h-[44px]`} type="submit">Add coach</button>
               </form>
             </Card>
           )}

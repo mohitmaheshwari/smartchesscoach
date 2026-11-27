@@ -248,16 +248,27 @@ export default function Landing() {
     navigate(`/login?redirect_to=${encodeURIComponent("/welcome")}`);
   };
 
-  // /academy skips the adult onboarding, so a parent or coach lands there
-  // straight after creating an account.
+  // /academy/start skips the adult onboarding, so a parent or coach lands on
+  // their own guided set-up straight after creating an account.
+  //
+  // 2026-11-27: this used to pass `source` to track() and then send BOTH
+  // buttons to the identical URL, so the product could not tell a coach from
+  // a parent and /academy had to show both set-up cards stacked, parent on
+  // top, to everyone. The page asked the right question and threw the answer
+  // away. It now travels, in the URL and in sessionStorage -- the URL because
+  // it is visible and testable, the session because a redirect through
+  // sign-up is where a query string is most likely to be dropped.
   const startAcademy = (source) => {
     track(ANALYTICS_EVENTS.FUNNEL_LANDING_CTA_CLICKED, { source });
     if (!signupsOpen) {
       navigate(`/invite?from=${encodeURIComponent(source)}`);
       return;
     }
-    window.sessionStorage.setItem("post_auth_redirect", "/academy");
-    navigate(`/login?signup=1&redirect_to=${encodeURIComponent("/academy")}`);
+    const who = source === "families_coach" ? "coach" : "parent";
+    const to = `/academy/start?who=${who}`;
+    try { window.sessionStorage.setItem("chessguru.academy_who", who); } catch (e) { /* blocked */ }
+    window.sessionStorage.setItem("post_auth_redirect", to);
+    navigate(`/login?signup=1&redirect_to=${encodeURIComponent(to)}`);
   };
 
   const handleDevLogin = async () => {

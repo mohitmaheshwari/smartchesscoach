@@ -16,7 +16,11 @@ import { Browser } from "@capacitor/browser";
 export default function Login() {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
-  const forAcademy = params.get("redirect_to") === "/academy";
+  // startsWith, not ===: the landing page sends
+  // "/academy/start?who=coach|parent" now, and an exact match silently
+  // dropped the academy wording on the one sign-up screen it was written
+  // for.
+  const forAcademy = (params.get("redirect_to") || "").startsWith("/academy");
   // "signin" | "signup" | "forgot"
   const [mode, setMode] = useState(params.get("signup") ? "signup" : "signin");
   const [sent, setSent] = useState(false);

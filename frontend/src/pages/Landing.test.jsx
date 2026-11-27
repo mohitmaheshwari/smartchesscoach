@@ -102,17 +102,38 @@ describe("outcome-led Landing", () => {
     expect(section.textContent.toLowerCase()).not.toMatch(/improves|boosts|guarantee|iq\b/);
   });
 
+  // Which button was pressed has to SURVIVE sign-up. Until 2026-11-27 both
+  // of these sent the identical URL and the answer was passed to track() and
+  // then dropped, so /academy could not tell a coach from a parent and showed
+  // both set-up cards to everyone, parent first.
   test.each([
-    ["families-parent-button", "families_parent"],
-    ["families-coach-button", "families_coach"],
-  ])("%s goes to sign-up and then to the academy page", async (testId, source) => {
+    ["families-parent-button", "families_parent", "parent"],
+    ["families-coach-button", "families_coach", "coach"],
+  ])("%s carries who they are into the set-up flow", async (testId, source, who) => {
     await renderLanding();
     await act(async () => {
       container.querySelector(`[data-testid="${testId}"]`).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
-    expect(window.sessionStorage.getItem("post_auth_redirect")).toBe("/academy");
-    expect(mockNavigate).toHaveBeenCalledWith("/login?signup=1&redirect_to=%2Facademy");
+    const to = `/academy/start?who=${who}`;
+    expect(window.sessionStorage.getItem("post_auth_redirect")).toBe(to);
+    expect(window.sessionStorage.getItem("chessguru.academy_who")).toBe(who);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      `/login?signup=1&redirect_to=${encodeURIComponent(to)}`
+    );
     expect(mockTrack).toHaveBeenCalledWith("funnel_landing_cta_clicked", { source });
+  });
+
+  test("the two buttons do not send the same thing", async () => {
+    // The whole defect in one assertion.
+    await renderLanding();
+    await act(async () => {
+      container.querySelector('[data-testid="families-parent-button"]').dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    const asParent = window.sessionStorage.getItem("post_auth_redirect");
+    await act(async () => {
+      container.querySelector('[data-testid="families-coach-button"]').dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(window.sessionStorage.getItem("post_auth_redirect")).not.toBe(asParent);
   });
 
   test("the family buttons ask for an invite while sign-ups are closed", async () => {

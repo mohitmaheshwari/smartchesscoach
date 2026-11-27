@@ -34,6 +34,8 @@ import ShellPreview from "@/pages/ShellPreview";
 import ThemePreview from "@/pages/ThemePreview";  // /shell2 — theme harness, real Layout, no backend  // /coach2/settings — dialog + settings preview
 import Instrument from "@/pages/Instrument";      // /instrument — "Instrument" direction: the line AND what is under it
 import LobbyPreview from "@/pages/LobbyPreview";  // /lobby2 — the seek screen, both states, no Lichess seek
+import AcademyStart from "@/pages/AcademyStart";  // /academy/start — docs/academy_onboarding_scope.md
+import AcademyStartPreview from "@/pages/AcademyStartPreview";  // /academy2 — every step, no backend
 import ResultPreview from "@/pages/ResultPreview";  // /result2 — the game-over pop-up, every state, no Lichess game
 import AllGames from "@/pages/AllGames";
 import PersonalMoments from "@/pages/PersonalMoments";  // /coach/moments/:topic — email landing pages
@@ -366,6 +368,7 @@ function AppRouter() {
       <Route path="/instrument" element={<Instrument />} />
       <Route path="/lobby2" element={<LobbyPreview />} />
       <Route path="/result2" element={<ResultPreview />} />
+      <Route path="/academy2" element={<AcademyStartPreview />} />
 
       {/* Public SEO routes — no auth required. Indexed by crawlers,
           served to cold visitors as marketing/teaching content. */}
@@ -627,6 +630,13 @@ function AppRouter() {
       } />
       {/* Who asked for an invite, and one click to let them in. */}
       {/* Academy staff: owner and coaches. The server checks the academy. */}
+      {/* The guided set-up a coach or parent lands on straight after
+          signing up. docs/academy_onboarding_scope.md. */}
+      <Route path="/academy/start" element={
+        <ProtectedRoute skipOnboardingCheck={true}>
+          {() => <AcademyStart />}
+        </ProtectedRoute>
+      } />
       <Route path="/academy" element={
         <ProtectedRoute skipOnboardingCheck={true}>
           {() => <AcademyHome />}
