@@ -69,6 +69,43 @@ def _tail_ge(k: int, n: int, p: float) -> float:
     return sum(comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(k, n + 1))
 
 
+def games_needed_for_absence(rate_then: Optional[float],
+                             chance_p: float = CHANCE_P) -> Optional[int]:
+    """Clean games needed before "you have stopped doing this" can be said.
+
+    Derived, not chosen: absence is claimed when P(zero occurrences by
+    chance) < chance_p, so n must satisfy (1 - rate) ** n < chance_p. At
+    CHANCE_P = 0.10 that is 11 games for a habit in 20% of games, 22 at 10%,
+    45 at 5% and 91 at 2.5%.
+
+    None when there is no earlier rate, or when the habit never happened and
+    so has no absence to prove.
+    """
+    if rate_then is None:
+        return None
+    p = min(max(rate_then, 0.0), 1.0)
+    if p <= 0.0:
+        return None
+    if p >= 1.0:
+        return 1
+    from math import ceil, log
+
+    return max(1, ceil(log(chance_p) / log(1.0 - p)))
+
+
+def can_detect_absence(n_now: int, rate_then: Optional[float],
+                       chance_p: float = CHANCE_P) -> bool:
+    """Could the BEST possible outcome -- zero occurrences -- clear the bar?
+
+    This is a power check on the window, decided before his results are
+    looked at. When it is false, no number of clean games in this window can
+    read as an improvement, so "no clear change" would not be a finding
+    about him at all.
+    """
+    needed = games_needed_for_absence(rate_then, chance_p)
+    return needed is not None and n_now >= needed
+
+
 def change_state(hits_now: int, n_now: int, rate_then: Optional[float],
                  min_games: int = PROGRESS_MIN_GAMES_EACH, hits_then: Optional[int] = None) -> str:
     """better / worse / same / kept / waiting, against his own earlier rate.
@@ -77,7 +114,17 @@ def change_state(hits_now: int, n_now: int, rate_then: Optional[float],
     "kept" need EVIDENCE_GAMES earlier games with the problem (a rate from
     one or two games is not a baseline), and "worse" needs EVIDENCE_GAMES
     recent ones. The 2026-11-12 dry run said "showing up more" for a move
-    seen in no earlier game and two recent ones; that is not enough."""
+    seen in no earlier game and two recent ones; that is not enough.
+
+    "same" means measured and unchanged. It is NOT the answer when the
+    window could not have shown an improvement in the first place: proving a
+    big difference is cheap and proving absence is expensive, so at
+    PROGRESS_NOW = 20 games a habit rarer than about one game in nine can
+    never read as better however much he improved. Measured 2026-11-27 over
+    81 coach files and 311 habit rows, that asymmetry produced 8 rows saying
+    "Getting better" against 31 saying "Showing up more". Those rows are now
+    "waiting", which is what they were.
+    """
     if rate_then is None or n_now < min_games:
         return "waiting"
     p = min(max(rate_then, 0.0), 1.0)
@@ -88,6 +135,10 @@ def change_state(hits_now: int, n_now: int, rate_then: Optional[float],
         return "better"
     if hits_now >= EVIDENCE_GAMES and hits_now / n_now > p and _tail_ge(hits_now, n_now, p) < CHANCE_P:
         return "worse"
+    # Neither direction fired. Only call it unchanged if an improvement could
+    # have been seen; otherwise the window, not the player, is the finding.
+    if enough_then and not can_detect_absence(n_now, p):
+        return "waiting"
     return "same"
 
 
@@ -214,11 +265,17 @@ def progress(analysed_newest_first: Sequence[str], games: Mapping[str, Mapping[s
         rate_then = (len(hits_then) / len(then_ids)) if len(then_ids) >= PROGRESS_MIN_GAMES_EACH else None
         state = change_state(len(hits_now), len(now_ids), rate_then, hits_then=len(hits_then))
         title, words = STATE_WORDS[state]
+        needed = games_needed_for_absence(rate_then)
         rows.append({
             "quality_id": qid, "label": label, "kind": kind, "pattern": pattern,
             "state": state, "title": title, "words": words,
             "measured": {"now_games": len(now_ids), "now_hit_games": len(hits_now),
-                         "then_games": len(then_ids), "then_hit_games": len(hits_then)},
+                         "then_games": len(then_ids), "then_hit_games": len(hits_then),
+                         # What it would take to be able to say he has stopped:
+                         # a rare habit needs many clean games, and a surface
+                         # that says "waiting" should be able to say for what.
+                         "games_needed_for_better": needed,
+                         "can_detect_better": can_detect_absence(len(now_ids), rate_then)},
         })
     order = {"worse": 0, "same": 1, "better": 2, "waiting": 3, "kept": 4}
     rows.sort(key=lambda r: (order[r["state"]], -r["measured"]["now_hit_games"], r["quality_id"]))

@@ -182,6 +182,48 @@ def test_change_state_needs_evidence_beyond_chance():
     assert pch.change_state(3, 20, None) == "waiting"
 
 
+def test_the_games_needed_to_prove_a_habit_has_stopped_are_derived():
+    # (1 - rate) ** n < CHANCE_P, not a chosen number. Hand-checked:
+    # 0.9 ** 22 = 0.098 < 0.10 while 0.9 ** 21 = 0.109.
+    assert pch.games_needed_for_absence(0.20) == 11
+    assert pch.games_needed_for_absence(0.10) == 22
+    assert pch.games_needed_for_absence(0.05) == 45
+    assert pch.games_needed_for_absence(0.025) == 91
+    # No earlier rate, and a habit that never happened, have no absence to prove.
+    assert pch.games_needed_for_absence(None) is None
+    assert pch.games_needed_for_absence(0.0) is None
+
+
+def test_a_window_with_no_power_says_waiting_not_same():
+    # THE BUG THIS CLOSES. Mohit's missed_skewer: 4 of the older 40 games,
+    # ZERO of the newest 20. 0.9 ** 20 = 0.1216, just over the 0.10 bar, so
+    # the page said "Same as before" about a habit he appears to have
+    # stopped. Measured across 311 habit rows, the asymmetry gave 8 rows
+    # "Getting better" against 31 "Showing up more".
+    assert pch.change_state(0, 20, 4 / 40, hits_then=4) == "waiting"
+    # Five more games and the same record is readable.
+    assert pch.change_state(0, 25, 4 / 40, hits_then=4) == "kept"
+    # The power check is about the window, so it does not depend on what he
+    # did: zero is the best possible outcome and it still cannot clear the bar.
+    assert pch.can_detect_absence(20, 0.10) is False
+    assert pch.can_detect_absence(22, 0.10) is True
+
+
+def test_a_measured_no_change_still_reads_as_same():
+    # "Waiting" must not swallow a real finding. A habit in a quarter of his
+    # earlier games, still in a quarter now, is measured and unchanged.
+    assert pch.change_state(5, 20, 0.25, hits_then=10) == "same"
+    assert pch.can_detect_absence(20, 0.25) is True
+
+
+def test_deterioration_is_still_reported_where_absence_is_not_provable():
+    # Getting worse is cheap to prove and must survive the power check: a
+    # habit at 5% before and 5 of 20 games now is worse, even though no
+    # window of 20 could have shown it gone.
+    assert pch.can_detect_absence(20, 0.05) is False
+    assert pch.change_state(5, 20, 0.05, hits_then=2) == "worse"
+
+
 def _games(n, start=datetime(2026, 10, 1, tzinfo=timezone.utc)):
     gs = [{"game_id": f"g{i}", "result": "0-1", "user_color": "white",
            "played_at_utc": start + timedelta(days=i)} for i in range(n)]
