@@ -36,12 +36,23 @@ Checked in the code at `79864287` and against production (read-only) on
 | academies | **1** — "Test academy (Mohit)", created 2026-11-05 |
 | academy_staff / batches | 1 / 1 |
 | academy_students | 2 |
-| **students whose parent has agreed** | **0** |
+| students whose parent has agreed | **2 of 2** (corrected 2026-11-27, see below) |
 
-No academy that is not Mohit's own test has ever been created, and no parent
-has ever agreed. The chain stops at the first human step. Every surface behind
-that step — reports, homework, class games — has never been reached by a real
-family. That is the thing this document is for.
+**Correction, 2026-11-27.** This section first said "no parent has ever
+agreed", and that was wrong. `consent` is a nested object, and the count was
+run as `{"consent": "given"}` against `{"consent": {"status": "given", ...}}`,
+so it matched nothing and reported zero. The right query is
+`{"consent.status": "given"}`, and it returns **2 of 2**.
+
+What survives the correction: both agreements are dated 2026-11-05, both say
+`given_by_name: "Mohit (test)"`, and both have `user_agent: "curl/8.19.0"` —
+they were made by hand while testing, not by a parent on a phone. So no
+academy that is not Mohit's own test has ever been created, and no real
+family has gone through the consent step. The chain in front of a stranger
+has still never run, which is what this document is for. But the number was
+wrong, and the way it was checked was wrong: a nested field needs dotted-path
+notation, and a zero that confirms the story being told deserves a positive
+control before it is quoted.
 
 ### Measured defects on `/academy` today
 
