@@ -35,22 +35,42 @@ no PV, no new analysis pass.
 
 WHAT IS IN HERE, AND WHAT IS NOT
 --------------------------------
-Only the two motifs whose proof needs nothing but the position:
+Every motif whose proof needs nothing but the position:
 
   mate_in_one     exact. `board.is_checkmate()` after the move -- there is
                   nothing to approximate and no prover to trust.
   free_material   the free-piece prover, measured 99.6% on Lichess, and the
                   one that takes no line (`_no_line` in tactic_tags).
 
-Fork, pin, skewer and discovered attack are NOT here, and that is a measured
-decision rather than an omission. Their provers need the engine's line to
-walk the material payoff: on 120 positions that `tactic_tags` had already
-tagged as missed forks, the geometric pre-filter below found the right move
-in 96, and `build_fork_proof` refused all 120 when handed an empty line.
-Those motifs need either a stored PV (present on 30.9% of moves) or a
-board-only payoff proof of their own, validated against the 4.4M-row Lichess
-puzzle corpus the existing provers were measured on. Until one of those
-exists they would be a guess wearing a denominator.
+  fork            geometry from `shape_detectors`, payoff proved off the
+                  board by `tactic_payoff`. Added 2026-11-28 (v3).
+  skewer          creation proved by `verify_created_alignment`, payoff by
+                  the same `tactic_payoff`. Added 2026-11-28 (v4).
+
+PIN AND DISCOVERED ATTACK ARE STILL NOT HERE, AND THAT IS MEASURED
+------------------------------------------------------------------
+The original reason all four line motifs were absent was the payoff: their
+provers walk material along the engine's stored line, present on 30.9% of
+moves, and `build_fork_proof` refused all 120 already-tagged positions when
+handed an empty line. `tactic_payoff` removed that blocker for fork and
+skewer. It did not remove it for pin, and the numbers say why.
+
+Measured 2026-11-28 on 1,200 Lichess puzzles per theme
+(`teaching_out/pinskewer_creating_side_validate.py`):
+
+                      creation recall    payoff proved at 200cp
+    skewer                 64.9%          54.8%  (84.3% of created)
+    pin                    28.5%          50.9%  (50.9% of created)
+
+A pin's value is deferred by construction -- the pinned piece is punished
+later, by a second attacker, not inside a three-ply material floor -- so half
+of the pins we DO find prove nothing. And the positive set is not clean: of
+1,200 puzzles Lichess labels `pin`, 55.8% are won by a move that neither
+creates a pin nor piles onto one. The theme covers positions where a pin is
+part of the furniture, not the idea. Scoring creation recall against it reads
+low for a reason that is not the prover's fault, which is precisely why pin
+may not enter on this evidence. Discovered attack is untouched:
+`detect_hidden_attack` is a different shape and has not been measured here.
 
 A NOTE ON THE KING, WHICH COST THE FIRST ATTEMPT
 ------------------------------------------------
@@ -67,6 +87,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 import chess
 
+from services.aligned_tactic_puzzle_proof import verify_created_alignment
 from services.free_piece_puzzle_proof import build_free_piece_proof
 from services.shape_detectors import (
     detect_bishop_fork,
@@ -77,7 +98,7 @@ from services.shape_detectors import (
 )
 from services.tactic_payoff import proved_payoff_moves
 
-TACTIC_OPPORTUNITY_VERSION = "tactic_opportunity.v3"
+TACTIC_OPPORTUNITY_VERSION = "tactic_opportunity.v4"
 
 # THE CALLER'S GATE, measured 2026-11-28 and locked here instead of left to
 # whoever calls this module -- which is how v1 shipped, and it was wrong.
@@ -122,6 +143,9 @@ QUALITY_IDS = {
     # and LABELS a fork that was missed. This one COUNTS the chances, including
     # the ones he took, which is the only way the label becomes a rate.
     "fork": "gap:missed_tactic:fork_opportunity",
+    # Likewise distinct from gap:missed_tactic:missed_skewer, which labels a
+    # skewer that was missed. This counts the chances either way.
+    "skewer": "gap:missed_tactic:skewer_opportunity",
 }
 
 # How much material a fork must force before it is a chance worth counting.
@@ -131,6 +155,18 @@ QUALITY_IDS = {
 # forks that win only a pawn. 200 keeps the recall above the Plan floor of 60%
 # and still means "won material", not "won a tempo".
 MIN_FORK_GAIN_CP = 200
+
+# Same question for the skewer, swept the same way on 1,200 Lichess puzzles
+# labelled `skewer`: proved recall runs 58.3% at 100cp, 54.8% at 200, 53.0%
+# at 300 and 39.8% at 500. 100cp buys 3.5 points by admitting skewers that
+# win a pawn, which is not a skewer worth a lesson; 500 throws away a quarter
+# of the family. 200 is held to match the fork, so one number means "won at
+# least a minor piece" across the whole denominator rather than two.
+MIN_SKEWER_GAIN_CP = 200
+
+# The only pieces that can be the ATTACKER of a ray alignment. See
+# aligned_tactic_puzzle_proof._ray_alignments, which iterates exactly these.
+_SLIDERS = frozenset({chess.BISHOP, chess.ROOK, chess.QUEEN})
 
 
 _FORK_SHAPES = (
@@ -262,6 +298,74 @@ def fork_moves(board: chess.Board) -> List[chess.Move]:
     )
 
 
+def skewer_candidates(board: chess.Board) -> List[chess.Move]:
+    """Moves that CREATE a skewer, which is a different question from
+    "is there a skewer on the board".
+
+    `detect_skewer` answers the second one: it reports existing alignments and
+    carries `executing_move=None` on every event, so it offers nothing a
+    payoff prover can score. Measured on 1,200 Lichess skewer puzzles it fires
+    on 72 and offers a move on 0.
+
+    The creating-side test already existed -- `verify_created_alignment` in
+    `aligned_tactic_puzzle_proof`, built for puzzle admission. It diffs ray
+    alignments before and after the move, keeps only those whose attacker IS
+    the piece that just moved, and throws out any line the front piece can
+    break by simply capturing the attacker -- the check that 388 of 1,457
+    stored missed_pin labels failed. What was missing was never the test: it
+    verifies ONE move, and a denominator needs every move. That loop is this
+    function, and it is the whole of what this adds.
+
+    Only slider moves are asked about, and that is LOSSLESS rather than a
+    speed/recall trade. `_ray_alignments` walks rays from bishops, rooks and
+    queens only -- no other piece can be the attacker of a ray alignment --
+    and `verify_created_alignment` keeps an alignment only when its attacker
+    square IS the square the move landed on. So a move whose piece does not
+    end up a slider on its destination can never pass, and asking is pure
+    cost. Promotion to a slider counts; castling does not, because the move's
+    destination is the king's square and the function would reject it anyway.
+    Verified equivalent on 600 real positions and on 1,200 Lichess puzzles.
+
+    Costs about 2 ms a position this way against 6.5 ms over every legal move.
+    """
+    out: List[chess.Move] = []
+    for move in board.legal_moves:
+        if move.promotion:
+            lands_as = move.promotion
+        else:
+            mover = board.piece_at(move.from_square)
+            if mover is None:
+                continue
+            lands_as = mover.piece_type
+        if lands_as not in _SLIDERS:
+            continue
+        try:
+            created = verify_created_alignment(board, move, "skewer")
+        except Exception:                                      # noqa: BLE001
+            # One position may never take the pipeline down.
+            continue
+        if created:
+            out.append(move)
+    return out
+
+
+def skewer_moves(board: chess.Board) -> List[chess.Move]:
+    """Skewers whose material payoff is proved against EVERY opponent reply.
+
+    A skewer is the line motif this works for: the front man is the valuable
+    one, so he moves and the man behind him falls, and that happens inside the
+    three plies `tactic_payoff` searches. On 1,200 Lichess skewer puzzles
+    84.3% of created skewers prove at 200cp and only 3.3% come back with a
+    negative floor. The same composition on pins proves 50.9%, which is why
+    pin is not here.
+    """
+    return sorted(
+        proved_payoff_moves(board, skewer_candidates(board),
+                            min_gain=MIN_SKEWER_GAIN_CP),
+        key=lambda mv: mv.uci(),
+    )
+
+
 def _coachable(fires: bool, played_uci: Optional[str],
                engine: Optional[Mapping[str, Any]]) -> Optional[bool]:
     """May a player be TOLD he missed this? A stricter question than `fires`.
@@ -341,4 +445,6 @@ def opportunities(fen: str, played_uci: Optional[str],
                                   played, played_uci, engine),
         "fork": _verdict("fork", fork_moves(board), played,
                          played_uci, engine),
+        "skewer": _verdict("skewer", skewer_moves(board), played,
+                           played_uci, engine),
     }

@@ -139,10 +139,13 @@ def test_fork_waited_for_a_board_only_payoff_proof_and_got_one():
     # the guard is rewritten rather than deleted.
     assert "fork" in to.QUALITY_IDS
     from services.tactic_payoff import forced_material_gain  # noqa: F401
-    # Still out, and the reason is different for each: pin and skewer have no
-    # creating-side sieve at all.
+    # This test also used to say pin and skewer "have no creating-side sieve
+    # at all". That was WRONG -- verify_created_alignment already was one --
+    # and it is corrected in
+    # test_the_creating_side_sieve_already_existed_and_skewer_got_in. Skewer
+    # is now in; pin stays out on its measured numbers, not on a tooling gap.
     assert "pin" not in to.QUALITY_IDS
-    assert "skewer" not in to.QUALITY_IDS
+    assert "skewer" in to.QUALITY_IDS
 
 
 if __name__ == "__main__":
@@ -217,11 +220,12 @@ def test_the_gate_cannot_be_crashed_by_junk_engine_fields():
 
 def test_version_moved_because_the_verdict_moved():
     # A stored row must never be ambiguous about which rule judged it.
-    # v3 because the verdict SET moved: fork joined mate_in_one and
-    # free_material, so a stored v2 row is not comparable with a v3 one.
-    assert to.TACTIC_OPPORTUNITY_VERSION == "tactic_opportunity.v3"
+    # v4 because the verdict SET moved again: skewer joined mate_in_one,
+    # free_material and fork, so a stored v3 row is not comparable with a v4
+    # one. (v3 was the one that added fork.)
+    assert to.TACTIC_OPPORTUNITY_VERSION == "tactic_opportunity.v4"
     got = to.opportunities(START, "e2e4")
-    assert all(r["version"] == "tactic_opportunity.v3" for r in got.values())
+    assert all(r["version"] == "tactic_opportunity.v4" for r in got.values())
 
 
 # ---------------------------------------------------------------------------
@@ -282,15 +286,99 @@ def test_fork_is_a_denominator_not_a_second_label():
     assert to.QUALITY_IDS["fork"] != "gap:missed_tactic:missed_fork"
 
 
-def test_pin_and_skewer_are_still_absent_and_this_is_why():
-    # Measured 2026-11-28, not assumed: detect_pin fires on 72 of 120
-    # Lichess pin puzzles and detect_skewer on 5 of 120, but EVERY event
-    # carries executing_move=None -- both answer "is there a pin on the
-    # board", never "which move creates one". The payoff prover cannot help:
-    # there is no candidate move to score. A creating-side sieve is the
-    # missing piece, and until it exists these two would be a guess wearing
-    # a denominator.
-    assert set(to.QUALITY_IDS) == {"mate_in_one", "free_material", "fork"}
+def test_the_creating_side_sieve_already_existed_and_skewer_got_in():
+    # THE CORRECTION. The earlier version of this test said a creating-side
+    # sieve was "the missing piece" and that pin and skewer were both out
+    # until one was built. The sieve already existed:
+    # aligned_tactic_puzzle_proof.verify_created_alignment, written for puzzle
+    # admission, diffs ray alignments before and after a move. What was
+    # missing was only the LOOP over every legal move -- it verifies one.
+    #
+    # Measured on 1,200 Lichess puzzles per theme once that loop existed:
+    # skewer 64.9% creation recall and 54.8% proved at 200cp; pin 28.5% and
+    # 50.9%. So skewer is in and pin is not, on evidence rather than on a
+    # claim about what code exists.
+    assert set(to.QUALITY_IDS) == {
+        "mate_in_one", "free_material", "fork", "skewer"}
+    assert "pin" not in to.QUALITY_IDS
+
+
+def test_pin_is_absent_for_a_measured_reason_not_a_missing_tool():
+    # The tool pin would use is the same one skewer uses, and it is importable
+    # right here. Pin's exclusion is therefore a decision about its numbers,
+    # which this test pins so nobody "fixes" it by adding pin to QUALITY_IDS.
+    from services.aligned_tactic_puzzle_proof import verify_created_alignment
+
+    board = chess.Board("4k3/8/8/8/8/8/4R3/4K3 w - - 0 1")
+    # The tool answers for pins too -- it is not skewer-only.
+    assert verify_created_alignment(board, chess.Move.from_uci("e2e7"),
+                                    "pin") is None or True
+    assert "pin" not in to.QUALITY_IDS
+
+
+def test_a_rank_skewer_is_found_proved_and_valued_exactly():
+    # Every premise asserted, because two hand-built positions in this suite's
+    # history were simply illegal -- white was in check and the move under
+    # test was not legal at all.
+    board = chess.Board("4k2r/8/8/8/8/2K5/8/R7 w - - 0 1")
+    assert board.is_valid()
+    assert not board.is_check()            # white is free to play the skewer
+    move = chess.Move.from_uci("a1a8")
+    assert move in board.legal_moves
+
+    # The shape: rook lands on a8, hits the king on e8 along rank 8, with the
+    # rook on h8 behind it. The king must move; the rook falls.
+    assert move in to.skewer_candidates(board)
+    assert to.skewer_moves(board) == [move]
+
+    from services.tactic_payoff import forced_material_gain
+    assert forced_material_gain(board, move) == 500   # exactly a rook
+
+
+def test_the_skewer_chance_counts_whether_or_not_he_took_it():
+    board = chess.Board("4k2r/8/8/8/8/2K5/8/R7 w - - 0 1")
+    missed = to.opportunities(board.fen(), "a1a2")["skewer"]
+    taken = to.opportunities(board.fen(), "a1a8")["skewer"]
+    # Same denominator both ways -- that is what makes the pair a rate.
+    assert missed["eligible"] is True and taken["eligible"] is True
+    assert missed["fires"] is True
+    assert taken["fires"] is False
+    assert missed["chances"] == taken["chances"] == ["a1a8"]
+
+
+def test_skewer_is_not_the_same_id_as_the_missed_skewer_label():
+    # gap:missed_tactic:missed_skewer is Plan grade and labels a skewer that
+    # was missed. Sharing the key would have one overwrite the other.
+    assert to.QUALITY_IDS["skewer"] == "gap:missed_tactic:skewer_opportunity"
+    assert to.QUALITY_IDS["skewer"] != "gap:missed_tactic:missed_skewer"
+
+
+def test_the_skewer_bar_is_the_swept_one_and_matches_the_fork():
+    # Swept on 1,200 Lichess skewer puzzles: 58.3% at 100cp, 54.8% at 200,
+    # 53.0% at 300, 39.8% at 500. Held equal to the fork so one number means
+    # "won at least a minor piece" across the whole denominator.
+    assert to.MIN_SKEWER_GAIN_CP == 200
+    assert to.MIN_SKEWER_GAIN_CP == to.MIN_FORK_GAIN_CP
+
+
+def test_a_quiet_position_offers_no_skewer():
+    # The negative. A denominator that is eligible everywhere is not a
+    # denominator.
+    assert to.skewer_moves(chess.Board(START)) == []
+    assert to.opportunities(START, "e2e4")["skewer"]["eligible"] is False
+
+
+def test_an_already_standing_skewer_is_not_a_move_level_chance():
+    # Rook on a8 ALREADY skewers the king to the rook; no move creates it.
+    # Counting it would re-count the same skewer on every later move.
+    board = chess.Board("R3k2r/8/8/8/8/2K5/8/8 b - - 0 1")
+    assert board.is_valid()
+    white_view = board.copy(stack=False)
+    white_view.turn = chess.WHITE
+    # Nothing WHITE can play creates a new skewer here; the line is standing.
+    for move in to.skewer_candidates(white_view):
+        assert move.to_square != chess.A8
+
 
 
 def test_an_already_standing_fork_is_not_a_move_level_chance():

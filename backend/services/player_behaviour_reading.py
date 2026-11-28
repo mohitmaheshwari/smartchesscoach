@@ -334,6 +334,44 @@ PEER_RATES = {
         "bands": {"beginner_low": 0.136, "beginner_high": 0.072,
                   "intermediate": 0.042},
     },
+    # Measured 2026-11-28, same pass and same script as free_material
+    # (teaching_out/calibrate_opportunity_bars.py), 65 users and 54,887
+    # judged moves. Two things differ from every other entry here, and both
+    # are read off the distribution rather than chosen.
+    #
+    # THE WINDOW IS 30 GAMES, NOT 20. Fork chances are rarer than free
+    # material -- about 0.9 a game against 2.4 -- so the usual window cannot
+    # see enough of them to judge anybody:
+    #
+    #     10 games    5 of 65 users reach 20 chances
+    #     15 games   18 of 63
+    #     20 games   26 of 59
+    #     30 games   48 of 55        <- the window this entry uses
+    #
+    # Reading a rate at 20 games would silently drop more than half the
+    # players, which is the same failure as a threshold picked before the
+    # distribution.
+    #
+    # THE BASIS IS `coachable`, NOT `fires`. At 30 games the board miss rate
+    # is 58.6% pooled with bands of 61.8 / 55.3 / 56.2 / 57.0 -- a 1.1x
+    # spread, and a flat 25% bar would drill all 48 eligible players. The
+    # coachable rate spreads 2.2x across the bands it can measure and drills
+    # 3 of 48. Same lesson as free_material: the engine-free rate is the
+    # DENOMINATOR, never the axis.
+    #
+    # advanced is omitted on purpose: 7 users, under MIN_BAND_USERS, so it
+    # pools. Inert while gap:missed_tactic:fork_opportunity is shadow.
+    "gap:missed_tactic:fork_opportunity": {
+        "window_games": 30,
+        "absolute_bar": None,          # Mohit set 25% for piece safety only
+        "pooled": 0.188,
+        "bands": {"beginner_low": 0.235, "beginner_high": 0.158,
+                  "intermediate": 0.107},
+    },
+    # gap:missed_tactic:skewer_opportunity is ABSENT: it shipped the same day
+    # and no per-player pass has been run on it yet. Until one is, no drill
+    # may be judged on a skewer rate -- the consumers below all return None
+    # for an unknown key, which is the behaviour that keeps that true.
     # gap:missed_tactic:mate_in_one is deliberately ABSENT. One user of 65
     # reached 20 chances in ten games and two of 55 in thirty: 0.27 chances a
     # game cannot be a per-player rate at any window this product reads. It

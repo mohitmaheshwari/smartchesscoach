@@ -359,8 +359,10 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "figure for these fires.",
             "Recall against independently selected free-material opportunities "
             "on our own corpus is unmeasured, so Plan grade is not arguable.",
-            "Pin, skewer and discovered attack are absent from the "
-            "denominator; fork is now in it as fork_opportunity.",
+            "Pin and discovered attack are absent from the denominator. "
+            "Fork is in it as fork_opportunity and skewer as "
+            "skewer_opportunity; pin stays out on 28.5% creation recall "
+            "and a payoff that is deferred past three plies.",
         ),
     ),
     "gap:missed_tactic:fork_opportunity": Authorization(
@@ -415,8 +417,83 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "Forks already standing on the board are excluded -- those events "
             "carry no executing_move -- so this counts creating a fork, never "
             "maintaining one.",
-            "No per-band peer rate yet, so no drill may be judged on it. "
-            "player_behaviour_reading.PEER_RATES carries free_material only.",
+            "Per-band peer rates were measured 2026-11-28 and are in "
+            "player_behaviour_reading.PEER_RATES, at a 30-GAME window "
+            "rather than the 20 the other axes use: fork chances arrive "
+            "about 0.9 a game, so 20 games judges only 26 of 59 players "
+            "while 30 judges 48 of 55. The entry is inert while this id "
+            "is shadow.",
+        ),
+    ),
+    "gap:missed_tactic:skewer_opportunity": Authorization(
+        # The opportunity DENOMINATOR for skewers. Like fork_opportunity this
+        # is not a second label: gap:missed_tactic:missed_skewer says "he
+        # missed one", this counts how often the chance came at all.
+        #
+        # What unblocked it was NOT a new sieve. The creating-side test
+        # already existed -- verify_created_alignment in
+        # aligned_tactic_puzzle_proof, written for puzzle admission. It diffs
+        # ray alignments before and after a move, keeps only alignments whose
+        # attacker is the piece that moved, and discards any line the front
+        # man can break by capturing the attacker. What was missing was the
+        # loop: that function verifies ONE move and a denominator needs every
+        # legal move. tactic_opportunity.skewer_candidates is that loop, and
+        # the payoff comes from tactic_payoff's exhaustive three plies, so no
+        # engine line is involved anywhere.
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "measured 2026-11-28 with "
+            "teaching_out/pinskewer_creating_side_validate.py against 1,200 "
+            "Lichess skewer-labelled puzzles"
+        ),
+        rationale=(
+            "First measured RECALL for the skewer family, against "
+            "independently selected positives: Lichess puzzles, each "
+            "engine-verified with a unique solution and solve-tested by "
+            "humans. On 1,200 skewer-labelled puzzles the solution is among "
+            "the moves the enumerator proves create a skewer 64.9% of the "
+            "time, and the exhaustive payoff confirms 54.8% of all labelled "
+            "skewers at the 200cp bar -- 84.3% of every creation hit. The "
+            "board-only detector it replaces fires on 72 of the same 1,200 "
+            "and offers an executing move on 0. Recall is swept, not picked: "
+            "58.3% at 100cp, 54.8% at 200, 53.0% at 300, 39.8% at 500. Only "
+            "3.3% of created skewers return a negative floor, against 4.6% "
+            "for fork, because a skewer's payoff is immediate by "
+            "construction -- the valuable man moves and the one behind him "
+            "falls, inside the three plies searched."
+        ),
+        limitations=(
+            "PRECISION IS NOT MEASURED AND THIS IS NOT A PRECISION CLAIM, "
+            "for the same reason as fork_opportunity: the only available "
+            "check is against Lichess's own theme labels, which the "
+            "2026-08-27 lock rejects as "
+            "implementation-against-implementation. A reviewed packet is "
+            "what this id needs before any grade above shadow.",
+            "Creation caps the denominator at 64.9%. Of the 421 "
+            "skewer-labelled solutions the enumerator does not offer, 407 "
+            "are a different idea entirely and 14 pile onto an alignment "
+            "that already stood on the board. verify_created_alignment "
+            "requires the new alignment's attacker to BE the piece that "
+            "moved, so a skewer opened by moving a blocker out of the way is "
+            "invisible to it. The undercount is shared by every player, "
+            "which a rate survives and a count does not.",
+            "The payoff sees three plies. A skewer paid for by a sacrifice "
+            "reads as material-losing, the same horizon limit fork carries, "
+            "though it bites far less often here: 26 of 779 created hits "
+            "(3.3%) came back negative.",
+            "Skewers already standing on the board are excluded, so this "
+            "counts creating one and never maintaining one.",
+            "PIN IS DELIBERATELY ABSENT and the measurement is why. The same "
+            "composition on 1,200 Lichess pin puzzles reaches 28.5% creation "
+            "recall and proves only 50.9% of what it finds, because a pin is "
+            "punished later by a second attacker rather than inside a "
+            "material floor. The positive set is also not clean: 55.8% of "
+            "those puzzles are won by a move that neither creates a pin nor "
+            "piles onto one, so the theme covers positions where a pin is "
+            "furniture, not the idea. Pin needs a payoff notion that is not "
+            "material-in-three-plies, not a wider sieve.",
+            "No per-band peer rate for skewer yet, so no drill may be judged "
+            "on it. PEER_RATES carries free_material and fork_opportunity.",
         ),
     ),
     "gap:missed_tactic:missed_discovered_attack": Authorization(

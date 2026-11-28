@@ -23,7 +23,12 @@ import statistics
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 23  # v23 (2026-11-28): fork joins the opportunity denominator,
+SCHEMA_VERSION = 24  # v24 (2026-11-28): skewer joins the opportunity denominator.
+# The creating-side test already existed (verify_created_alignment, written for
+# puzzle admission); what was missing was the loop over every legal move. Payoff
+# from the same tactic_payoff. Pin stays out: 28.5% creation recall and a payoff
+# that is deferred past three plies -- measured, not assumed.
+# v23 (same day): fork joins the opportunity denominator,
 # proved off the board by services/tactic_payoff.py instead of the engine's stored
 # line. v22 (same day): tactic_opportunity on every user move --
 # the first OPPORTUNITY DENOMINATOR besides destination_safety_exact. Before this

@@ -376,3 +376,51 @@ def test_the_unknown_band_falls_back_to_pooled_not_to_a_guess():
     # must pool rather than invent a rate.
     assert pbr.peer_rate(FREE_MATERIAL, "advanced") == 0.093
     assert pbr.peer_rate(FREE_MATERIAL, None) == 0.093
+
+
+FORK = "gap:missed_tactic:fork_opportunity"
+SKEWER = "gap:missed_tactic:skewer_opportunity"
+
+
+def test_the_fork_window_is_thirty_games_because_chances_are_rare():
+    # Not the 20 the other axes use, and not a preference. Fork chances arrive
+    # about 0.9 a game, so measured 2026-11-28 on 65 users the number of
+    # players who reach MIN_CHANCES runs 5 of 65 at ten games, 18 of 63 at
+    # fifteen, 26 of 59 at twenty and 48 of 55 at thirty. Reading the rate at
+    # twenty would silently drop more than half the players.
+    assert pbr.window_games(FORK) == 30
+    assert pbr.window_games(FREE_MATERIAL) == 20
+
+
+def test_the_fork_rate_is_the_coachable_one_not_the_board_miss():
+    # 0.188 is the coachable rate. The board `fires` rate is 0.586 pooled with
+    # bands of 61.8 / 55.3 / 56.2 / 57.0 -- a 1.1x spread that separates
+    # nobody, and a flat 25% bar on it would drill all 48 eligible players.
+    assert pbr.PEER_RATES[FORK]["pooled"] == 0.188
+    assert pbr.peer_rate(FORK, "beginner_low") == 0.235
+    assert pbr.peer_rate(FORK, "intermediate") == 0.107
+
+
+def test_the_fork_bands_fall_with_strength():
+    # The property that makes banding worth having: a beginner misses more
+    # forks than an intermediate, so one bar for both would be wrong in two
+    # directions at once.
+    bands = pbr.PEER_RATES[FORK]["bands"]
+    assert bands["beginner_low"] > bands["beginner_high"] > bands["intermediate"]
+
+
+def test_advanced_pools_because_seven_users_is_not_a_band():
+    # 7 users, under MIN_BAND_USERS, so it must fall back to the pooled rate
+    # rather than quote a number measured on seven people.
+    assert "advanced" not in pbr.PEER_RATES[FORK]["bands"]
+    assert pbr.peer_rate(FORK, "advanced") == 0.188
+
+
+def test_skewer_has_no_peer_rate_so_no_drill_may_judge_it():
+    # Skewer shipped the same day as this rate and no per-player pass has run
+    # on it. The consumers must return None rather than borrow another key's
+    # number -- that is what keeps "no rate" from silently meaning "0%".
+    assert SKEWER not in pbr.PEER_RATES
+    assert pbr.peer_rate(SKEWER, "intermediate") is None
+    assert pbr.worse_than_peers(
+        SKEWER, 50, 60, "intermediate") is None
