@@ -57,7 +57,11 @@ SCHEMA_VERSION = 24  # v24 (2026-11-28): skewer joins the opportunity denominato
 D_LIVE_FACT_VERSION = "piece_safety.d_live.v1"
 D_LIVE_SEE_FLOOR_CP = 150
 D_LIVE_CP_LOSS_FLOOR = 150
-DERIVER_SEMANTIC_VERSION = "move_observation_deriver.21.0"
+# Bumped to 24.0 on 2026-11-28. It had been left at 21.0 while the schema
+# moved to 22, 23 and 24, so the identity named a deriver that no longer
+# existed. Nothing outside this module and its test reads it -- grepped --
+# so no stored comparison breaks; it is kept level with SCHEMA_VERSION.
+DERIVER_SEMANTIC_VERSION = "move_observation_deriver.24.0"
 
 
 @lru_cache(maxsize=1)
@@ -75,6 +79,19 @@ def _deriver_identity_json() -> str:
         # v21: the tactic tags and every prover they call.
         "tactic_tags": backend_root / "services" / "tactic_tags.py",
         "tactic_opportunity": backend_root / "services" / "tactic_opportunity.py",
+        # v24: the two engine-free modules the opportunity verdict now rests
+        # on. They were missing and the identity was therefore a lie: this
+        # manifest exists so a stored row can be traced to the code that made
+        # it, and `tactic_payoff` is what DECIDES whether a fork or skewer
+        # counted as a chance at all. Changing its threshold or its search
+        # would have moved every chance count while leaving the identity
+        # byte-identical, so nothing would have signalled a re-derive.
+        # `shape_detectors` is the fork geometry, called straight from
+        # tactic_opportunity.fork_candidates rather than through a prover.
+        # (aligned_tactic_puzzle_proof, which proves a created skewer, is
+        # already covered below as prover_aligned_tactic.)
+        "tactic_payoff": backend_root / "services" / "tactic_payoff.py",
+        "shape_detectors": backend_root / "services" / "shape_detectors.py",
         **{
             f"prover_{name}": backend_root / "services" / f"{name}_puzzle_proof.py"
             for name in ("forced_mate", "back_rank_mate", "fork",

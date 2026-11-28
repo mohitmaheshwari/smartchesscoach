@@ -37,9 +37,23 @@ def test_schema_bumps_for_additive_d_live_fact():
     # v19 (2026-09-22) adds the per-move positional snapshot -- doubled and
     # isolated pawns, loose pieces, bishop quality, centre, space, mobility.
     # Additive: no existing field changed meaning, and D_live is untouched.
+    # v20 (2026-09-26) time flags measured against the player's own pace --
+    # a bump because the DERIVATION changed, not the shape.
+    # v21 (2026-11-13) tactic_tags on every user move.
+    # v22 (2026-11-28) tactic_opportunity on every user move: the first
+    # opportunity denominator besides destination_safety_exact.
+    # v23 (2026-11-28) fork joins that denominator, its payoff proved off the
+    # board by tactic_payoff instead of the engine's stored line.
+    # v24 (2026-11-28) skewer joins it, creation proved by
+    # verify_created_alignment and payoff by the same tactic_payoff.
+    # Every one of those is additive: no existing field changed meaning and
+    # D_live is untouched.
+    #
     # This assertion is a deliberate pin on the record shape, so it firing
-    # is the point -- bump it only alongside a real, described change.
-    assert SCHEMA_VERSION == 19
+    # is the point -- bump it only alongside a real, described change. It had
+    # been left at 19 through five bumps, so it was firing for no one; the
+    # descriptions above are the debt it was meant to collect.
+    assert SCHEMA_VERSION == 24
 
 
 def test_legally_capturable_losing_piece_is_miss_when_both_gates_pass():
@@ -97,7 +111,11 @@ def test_game_derivation_embeds_exact_versioned_fact():
     )
 
     assert len(observations) == 1
-    assert observations[0]["schema_version"] == 19
+    # Was a hard 19, which had been failing since v20 -- and because it is
+    # the FIRST assertion here, the three real checks below it never ran at
+    # all. The version is pinned once, in the test above; this one asks only
+    # that the row carries whatever the current version is.
+    assert observations[0]["schema_version"] == SCHEMA_VERSION
     assert observations[0]["deriver_identity"] == current_deriver_identity()
     assert observations[0]["piece_safety_decision"]["version"] == D_LIVE_FACT_VERSION
     assert observations[0]["piece_safety_decision"]["outcome"] == "miss"
@@ -118,6 +136,17 @@ def test_deriver_identity_is_deterministic_complete_and_defensively_copied():
         "opponent_threat",
         # v21: the tactic tags and the provers they call.
         "tactic_tags",
+        # v22-v24: the opportunity denominator and the two engine-free modules
+        # its verdict rests on. tactic_payoff DECIDES whether a fork or skewer
+        # counted as a chance, and shape_detectors is the fork geometry called
+        # straight from fork_candidates, so a change to either moves every
+        # chance count. They belong in the manifest or a stored identity
+        # cannot be traced to the code that made the row.
+        # aligned_tactic_puzzle_proof, which proves a created skewer, is
+        # already here as prover_aligned_tactic.
+        "tactic_opportunity",
+        "tactic_payoff",
+        "shape_detectors",
         "prover_forced_mate",
         "prover_back_rank_mate",
         "prover_fork",
