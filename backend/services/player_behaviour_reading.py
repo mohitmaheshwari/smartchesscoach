@@ -291,6 +291,53 @@ PEER_RATES = {
         "pooled": 0.410,
         "bands": {"beginner_low": 0.457, "beginner_high": 0.358},
     },
+    # Measured 2026-11-28 with calibrate_opportunity_bars.py, same 65 users,
+    # 54,919 moves judged by services.tactic_opportunity off `fen_before`.
+    # Inert until the detector earns a grade above shadow: nothing calls
+    # needs_drill() with this key yet, and detector_quality forbids a shadow
+    # id from reaching a plan. The numbers are here because MEASURING them is
+    # the expensive half, not because the axis is live.
+    #
+    # THE BASIS IS `coachable`, NOT THE BOARD MISS. Both were measured:
+    #
+    #   basis                      pooled   b_low  b_high  inter   drills
+    #   fires     (board only)      35.4%   39.2%  33.6%   32.6%   1 of 58
+    #   coachable (engine agrees)    9.3%   13.6%   7.2%    4.2%   4 of 58
+    #
+    # The board miss rate is NOT usable as an axis and must not become one.
+    # It sits near 35% for everyone, its bands move 1.2x, and the binomial
+    # drills 1 of 58 users at twenty games (0 of 61 at fifteen) while a flat
+    # 25% bar would drill 52. That is found_best_in_critical again: a number
+    # everyone fails cannot separate anyone, and showing it reads as "you are
+    # bad at chess". The reason is known and is not noise -- 39.9% of v1 fires
+    # were on the engine's own best move, so `fires` counts "he found
+    # something better" as a miss.
+    #
+    # `coachable` adds the engine witness (not the best move, labelled an
+    # error, >=100cp) and behaves: bands move 3.2x, monotone across the three
+    # usable ones, and the test drills 4 of 58 where the 25% bar drills 1 --
+    # strictly more inclusive, the same signature the other three axes have.
+    #
+    # Window 20 games. Chances arrive 2.4 a game, so the minimum of 20 is
+    # reached by 41 of 65 users at ten games, 61 of 63 at fifteen, 58 of 59 at
+    # twenty. Ten is too thin to judge a third of the corpus; twenty costs 3
+    # users against fifteen and buys the power that finds 4 players instead
+    # of 2 (one of them 8/59 = 14% against a 4.2% band, p=2.9e-03, whom no
+    # absolute bar would ever catch).
+    #
+    # The advanced band measured 7.7% on 7 users, below MIN_BAND_USERS, so it
+    # pools -- same exclusion the three axes above make.
+    "gap:missed_tactic:free_material": {
+        "window_games": 20,
+        "absolute_bar": None,          # Mohit set 25% for piece safety only
+        "pooled": 0.093,
+        "bands": {"beginner_low": 0.136, "beginner_high": 0.072,
+                  "intermediate": 0.042},
+    },
+    # gap:missed_tactic:mate_in_one is deliberately ABSENT. One user of 65
+    # reached 20 chances in ten games and two of 55 in thirty: 0.27 chances a
+    # game cannot be a per-player rate at any window this product reads. It
+    # stays a corpus-level fact, not an axis.
 }
 
 

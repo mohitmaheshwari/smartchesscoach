@@ -302,3 +302,77 @@ def test_thin_evidence_reads_as_unknown_not_as_fine():
     got = pbr.axis_rates(rows, band="beginner_low")["axis:threat_answered"]
     assert got["needs_drill"] is None
     assert got["too_few_chances"] == pbr.MIN_CHANCES
+
+
+# ---------------------------------------------------------------------------
+# The opportunity motifs, measured 2026-11-28 (calibrate_opportunity_bars.py).
+# These tests exist because the obvious rate is the wrong one, and the obvious
+# rate is the one already stored on every row.
+# ---------------------------------------------------------------------------
+FREE_MATERIAL = "gap:missed_tactic:free_material"
+
+
+def test_free_material_is_calibrated_per_band_like_every_other_axis():
+    spec = pbr.PEER_RATES[FREE_MATERIAL]
+    assert spec["window_games"] == 20        # 58 of 59 users reach 20 chances
+    assert spec["absolute_bar"] is None      # 25% is Mohit's, for piece safety
+    bands = spec["bands"]
+    assert set(bands) == {"beginner_low", "beginner_high", "intermediate"}
+    # Monotone: the chance is missed less often the stronger the player.
+    assert bands["beginner_low"] > bands["beginner_high"] > bands["intermediate"]
+
+
+def test_the_rate_is_the_coachable_one_not_the_board_miss():
+    # THE WHOLE POINT. The board miss rate sits at 35.4% pooled and its bands
+    # move 1.2x, so it drills 1 of 58 users while a flat 25% bar drills 52 --
+    # found_best_in_critical again. The stored `fires` count is therefore NOT
+    # what this peer rate is calibrated against, and a future re-measurement
+    # must not quietly swap it in.
+    pooled = pbr.PEER_RATES[FREE_MATERIAL]["pooled"]
+    assert pooled == 0.093, "this is the coachable rate; 0.354 is the board miss"
+    assert pooled < 0.15
+
+
+def test_the_band_spread_is_wide_enough_to_be_worth_banding():
+    # Banding is only justified when the level actually moves the rate. Piece
+    # safety moves 6.8x (0.144 -> 0.021) and that is why it is banded at all.
+    bands = pbr.PEER_RATES[FREE_MATERIAL]["bands"]
+    spread = bands["beginner_low"] / bands["intermediate"]
+    assert spread >= 3.0, spread
+
+
+def test_mate_in_one_is_not_an_axis():
+    # 0.27 chances a game: one user of 65 reached the minimum in ten games,
+    # two of 55 in thirty. A corpus fact, never a per-player rate.
+    assert "gap:missed_tactic:mate_in_one" not in pbr.PEER_RATES
+
+
+def test_a_beginners_ordinary_rate_is_not_called_a_weakness():
+    # 3 of 22 = 13.6%, exactly the beginner band. The axis must say nothing.
+    assert pbr.worse_than_peers(FREE_MATERIAL, 3, 22, "beginner_low") is None
+
+
+def test_the_same_count_is_a_fault_at_a_stronger_level():
+    # 5 of 24 = 20.8%. Ordinary for a beginner, measurably worse at
+    # intermediate, where peers miss 4.2%.
+    assert pbr.worse_than_peers(FREE_MATERIAL, 5, 24, "beginner_low") is None
+    got = pbr.worse_than_peers(FREE_MATERIAL, 5, 24, "intermediate")
+    assert got is not None
+    assert got["peer_rate"] == 0.042
+    assert got["basis"] == "worse_than_level"
+
+
+def test_it_catches_the_player_no_absolute_bar_would():
+    # The real user the 20-game window found: 8 of 59 = 14% against a 4.2%
+    # band. Far under any 25% bar, and still 3.3x his peers.
+    got = pbr.needs_drill(FREE_MATERIAL, 8, 59, "intermediate")
+    assert got is not None
+    assert got["basis"] == "worse_than_level"
+    assert got["p_value"] < 0.01
+
+
+def test_the_unknown_band_falls_back_to_pooled_not_to_a_guess():
+    # The advanced band had 7 users, under MIN_BAND_USERS, so it is absent and
+    # must pool rather than invent a rate.
+    assert pbr.peer_rate(FREE_MATERIAL, "advanced") == 0.093
+    assert pbr.peer_rate(FREE_MATERIAL, None) == 0.093

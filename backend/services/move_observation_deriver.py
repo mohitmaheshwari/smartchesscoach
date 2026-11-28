@@ -23,7 +23,9 @@ import statistics
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 22  # v22 (2026-11-28): tactic_opportunity on every user move --
+SCHEMA_VERSION = 23  # v23 (2026-11-28): fork joins the opportunity denominator,
+# proved off the board by services/tactic_payoff.py instead of the engine's stored
+# line. v22 (same day): tactic_opportunity on every user move --
 # the first OPPORTUNITY DENOMINATOR besides destination_safety_exact. Before this
 # a missed tactic was a numerator with nothing under it: 79,277 missed_pattern rows
 # recorded only what went wrong, so "he missed 1,073 forks" could not be turned

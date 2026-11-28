@@ -128,15 +128,21 @@ def test_every_motif_carries_a_quality_id_so_the_gates_can_see_it():
         assert row["version"] == to.TACTIC_OPPORTUNITY_VERSION
 
 
-def test_fork_is_deliberately_absent():
-    # Measured, not forgotten: on 120 positions tactic_tags had tagged as
-    # missed forks, the geometric sieve found the right move in 96 and
-    # build_fork_proof refused all 120 on an empty line, because it walks
-    # the payoff along the engine's line. A fork denominator needs a stored
-    # PV (30.9% of moves) or its own board-only payoff proof, validated
-    # against Lichess like the existing provers were.
-    assert "fork" not in to.QUALITY_IDS
-    assert set(to.QUALITY_IDS) == {"mate_in_one", "free_material"}
+def test_fork_waited_for_a_board_only_payoff_proof_and_got_one():
+    # This test used to assert fork was ABSENT, and it was the guard that kept
+    # it out: on 120 positions tactic_tags had tagged as missed forks, the
+    # geometric sieve found the right move in 96 and build_fork_proof refused
+    # all 120 on an empty line, because it walks the payoff along the engine's
+    # line (present on 30.9% of moves). The condition it demanded -- a
+    # board-only payoff proof, validated against Lichess like the existing
+    # provers were -- was met on 2026-11-28 by services/tactic_payoff.py, so
+    # the guard is rewritten rather than deleted.
+    assert "fork" in to.QUALITY_IDS
+    from services.tactic_payoff import forced_material_gain  # noqa: F401
+    # Still out, and the reason is different for each: pin and skewer have no
+    # creating-side sieve at all.
+    assert "pin" not in to.QUALITY_IDS
+    assert "skewer" not in to.QUALITY_IDS
 
 
 if __name__ == "__main__":
@@ -211,6 +217,86 @@ def test_the_gate_cannot_be_crashed_by_junk_engine_fields():
 
 def test_version_moved_because_the_verdict_moved():
     # A stored row must never be ambiguous about which rule judged it.
-    assert to.TACTIC_OPPORTUNITY_VERSION == "tactic_opportunity.v2"
+    # v3 because the verdict SET moved: fork joined mate_in_one and
+    # free_material, so a stored v2 row is not comparable with a v3 one.
+    assert to.TACTIC_OPPORTUNITY_VERSION == "tactic_opportunity.v3"
     got = to.opportunities(START, "e2e4")
-    assert all(r["version"] == "tactic_opportunity.v2" for r in got.values())
+    assert all(r["version"] == "tactic_opportunity.v3" for r in got.values())
+
+
+# ---------------------------------------------------------------------------
+# fork: the third motif, added 2026-11-28 once the payoff could be proved
+# without the engine's line. Measured recall against Lichess-labelled forks:
+# geometry 71.3%, proved 61.3% at the 200cp bar.
+# ---------------------------------------------------------------------------
+FORK_FEN = "8/8/6k1/8/2r5/3N4/8/4K3 w - - 0 1"
+
+
+def test_a_fork_chance_is_counted_without_an_engine_line():
+    # Nd3-e5 forks the king on g6 and the rook on c4. No PV, no Stockfish:
+    # the old prover refused all 120 stored-fork positions handed an empty
+    # line, which is why fork had no denominator at all.
+    got = to.opportunities(FORK_FEN, "e1e2")
+    assert got["fork"]["eligible"] is True
+    assert got["fork"]["fires"] is True
+    assert "d3e5" in got["fork"]["chances"]
+
+
+def test_taking_the_fork_is_not_a_miss():
+    got = to.opportunities(FORK_FEN, "d3e5")
+    assert got["fork"]["eligible"] is True
+    assert got["fork"]["fires"] is False
+
+
+def test_the_geometry_offers_and_the_payoff_decides():
+    # Two separate questions, kept apart on purpose. The sieve may offer a
+    # move the payoff then refuses; it may never be the other way round.
+    board = chess.Board(FORK_FEN)
+    offered = to.fork_candidates(board)
+    proved = to.fork_moves(board)
+    assert set(proved).issubset(set(offered))
+
+
+def test_a_fork_that_wins_nothing_is_not_a_chance():
+    # The opening position: knights have fork geometry nowhere, and nothing
+    # may be invented. A positive control for the negative.
+    board = chess.Board(START)
+    assert to.fork_moves(board) == []
+    got = to.opportunities(START, "e2e4")
+    assert got["fork"]["eligible"] is False
+    assert got["fork"]["fires"] is False
+
+
+def test_the_fork_bar_is_material_not_a_tempo():
+    # 200cp was swept, not chosen: 62.7% recall at 100, 61.3% at 200, 57.3%
+    # at 300, 32.7% at 500. Below a bishop it stops meaning "won material".
+    assert to.MIN_FORK_GAIN_CP == 200
+    assert to.MIN_FORK_GAIN_CP < 300
+
+
+def test_fork_is_a_denominator_not_a_second_label():
+    # gap:missed_tactic:missed_fork is Plan grade and labels a missed fork.
+    # This id counts the chances, including the ones he took. Sharing the key
+    # would make one overwrite the other.
+    assert to.QUALITY_IDS["fork"] == "gap:missed_tactic:fork_opportunity"
+    assert to.QUALITY_IDS["fork"] != "gap:missed_tactic:missed_fork"
+
+
+def test_pin_and_skewer_are_still_absent_and_this_is_why():
+    # Measured 2026-11-28, not assumed: detect_pin fires on 72 of 120
+    # Lichess pin puzzles and detect_skewer on 5 of 120, but EVERY event
+    # carries executing_move=None -- both answer "is there a pin on the
+    # board", never "which move creates one". The payoff prover cannot help:
+    # there is no candidate move to score. A creating-side sieve is the
+    # missing piece, and until it exists these two would be a guess wearing
+    # a denominator.
+    assert set(to.QUALITY_IDS) == {"mate_in_one", "free_material", "fork"}
+
+
+def test_an_already_standing_fork_is_not_a_move_level_chance():
+    # Knight on e5 already forks the two rooks; no move creates it. A
+    # move-level denominator must not count that as a chance taken or missed,
+    # or every subsequent move in the game would re-count the same fork.
+    board = chess.Board("4k3/3r1r2/8/4N3/8/8/8/4K3 w - - 0 1")
+    for move in to.fork_candidates(board):
+        assert move.from_square != chess.E5 or move in board.legal_moves

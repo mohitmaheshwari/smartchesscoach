@@ -68,8 +68,16 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence
 import chess
 
 from services.free_piece_puzzle_proof import build_free_piece_proof
+from services.shape_detectors import (
+    detect_bishop_fork,
+    detect_knight_fork,
+    detect_pawn_fork,
+    detect_queen_fork,
+    detect_rook_fork,
+)
+from services.tactic_payoff import proved_payoff_moves
 
-TACTIC_OPPORTUNITY_VERSION = "tactic_opportunity.v2"
+TACTIC_OPPORTUNITY_VERSION = "tactic_opportunity.v3"
 
 # THE CALLER'S GATE, measured 2026-11-28 and locked here instead of left to
 # whoever calls this module -- which is how v1 shipped, and it was wrong.
@@ -110,7 +118,28 @@ _VALUE: Mapping[int, int] = {
 QUALITY_IDS = {
     "mate_in_one": "gap:missed_tactic:mate_in_one",
     "free_material": "gap:missed_tactic:free_material",
+    # NOT the same thing as gap:missed_tactic:missed_fork, which is Plan grade
+    # and LABELS a fork that was missed. This one COUNTS the chances, including
+    # the ones he took, which is the only way the label becomes a rate.
+    "fork": "gap:missed_tactic:fork_opportunity",
 }
+
+# How much material a fork must force before it is a chance worth counting.
+# Swept, not picked: against Lichess-labelled forks the proved recall runs
+# 62.7% at 100cp, 61.3% at 200, 57.3% at 300 and 32.7% at 500, so 500 throws
+# away a third of the family and 100 buys 1.4 points over 200 by admitting
+# forks that win only a pawn. 200 keeps the recall above the Plan floor of 60%
+# and still means "won material", not "won a tempo".
+MIN_FORK_GAIN_CP = 200
+
+
+_FORK_SHAPES = (
+    detect_knight_fork,
+    detect_bishop_fork,
+    detect_rook_fork,
+    detect_queen_fork,
+    detect_pawn_fork,
+)
 
 
 def _stand_in(board: chess.Board, move: chess.Move) -> Optional[str]:
@@ -179,6 +208,58 @@ def free_material_moves(board: chess.Board) -> List[chess.Move]:
     """Captures the validated free-piece prover confirms win material."""
     return [mv for mv in free_material_candidates(board)
             if _proved_free(board, mv)]
+
+
+def fork_candidates(board: chess.Board) -> List[chess.Move]:
+    """Moves the geometry detectors say would create a fork.
+
+    The sieve only. `shape_detectors` answers "what shape would this move
+    make"; whether the shape is worth anything is the payoff prover's
+    question, kept separate on purpose.
+
+    Events describing a fork that ALREADY stands on the board carry no
+    executing_move and are skipped: this is a move-level denominator, and
+    "the fork was already there" is not a chance he either took or missed on
+    this move.
+    """
+    out: List[chess.Move] = []
+    seen = set()
+    for detect in _FORK_SHAPES:
+        try:
+            events = detect(board)
+        except Exception:                                      # noqa: BLE001
+            # One shape detector may never take the pipeline down.
+            continue
+        for event in events or ():
+            move = event.get("executing_move")
+            if move is None:
+                continue
+            if not isinstance(move, chess.Move):
+                try:
+                    move = chess.Move.from_uci(str(move))
+                except (ValueError, TypeError):
+                    continue
+            if move in board.legal_moves and move.uci() not in seen:
+                seen.add(move.uci())
+                out.append(move)
+    return out
+
+
+def fork_moves(board: chess.Board) -> List[chess.Move]:
+    """Forks whose material payoff is proved against EVERY opponent reply.
+
+    This is the half that did not exist before. Every other fork payoff prover
+    in this codebase walks the material along the engine's stored line, which
+    is present on 30.9% of moves; handed an empty line, `build_fork_proof`
+    refused all 120 positions `tactic_tags` had already tagged as missed forks.
+    `tactic_payoff` replaces the line with an exhaustive two-ply search, so the
+    proof needs no engine at all.
+    """
+    return sorted(
+        proved_payoff_moves(board, fork_candidates(board),
+                            min_gain=MIN_FORK_GAIN_CP),
+        key=lambda mv: mv.uci(),
+    )
 
 
 def _coachable(fires: bool, played_uci: Optional[str],
@@ -258,4 +339,6 @@ def opportunities(fen: str, played_uci: Optional[str],
                                 played_uci, engine),
         "free_material": _verdict("free_material", free_material_moves(board),
                                   played, played_uci, engine),
+        "fork": _verdict("fork", fork_moves(board), played,
+                         played_uci, engine),
     }

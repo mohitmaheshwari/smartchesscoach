@@ -359,9 +359,64 @@ _AUTHORIZATIONS: Mapping[str, Authorization] = {
             "figure for these fires.",
             "Recall against independently selected free-material opportunities "
             "on our own corpus is unmeasured, so Plan grade is not arguable.",
-            "Fork, pin, skewer and discovered attack are absent: their provers "
-            "walk the payoff along the engine's line and refused all 120 "
-            "stored-fork positions when handed an empty line.",
+            "Pin, skewer and discovered attack are absent from the "
+            "denominator; fork is now in it as fork_opportunity.",
+        ),
+    ),
+    "gap:missed_tactic:fork_opportunity": Authorization(
+        # The opportunity DENOMINATOR for forks, not a second label.
+        # gap:missed_tactic:missed_fork is Plan grade and says "he missed a
+        # fork"; it has never been able to say how often the fork chance came
+        # at all, which is what turns 759 observations into a rate.
+        #
+        # What unblocked it: every fork payoff prover in this codebase walks
+        # the material along the engine's stored line, which exists on 30.9%
+        # of moves. services/tactic_payoff.py proves the payoff exhaustively
+        # instead -- the move, EVERY legal reply, then the best follow-up
+        # capture by static exchange -- so the opponent picks the defence and
+        # the number returned is a floor rather than a hope. No engine at all.
+        grade=QualityGrade.SHADOW,
+        evidence_ref=(
+            "measured 2026-11-28 with teaching_out/fork_boardonly_validate.py "
+            "against Lichess fork-labelled puzzles"
+        ),
+        rationale=(
+            "First measured RECALL for the fork family, against independently "
+            "selected positives: 4,423,645 Lichess puzzles, each "
+            "engine-verified with a unique solution and solve-tested by "
+            "humans. On the fork-labelled set the solution move is among what "
+            "shape_detectors offers 71.3% of the time, and the exhaustive "
+            "payoff confirms 61.3% of all labelled forks at the 200cp bar -- "
+            "86% of every geometry hit. The stored-line prover it replaces "
+            "converted none of 120. Recall is swept, not picked: 62.7% at "
+            "100cp, 61.3% at 200, 57.3% at 300, 32.7% at 500."
+        ),
+        limitations=(
+            "PRECISION IS NOT MEASURED AND THIS IS NOT A PRECISION CLAIM. "
+            "The only check available was against Lichess's own theme "
+            "labels, which the 2026-08-27 lock rejects as "
+            "implementation-against-implementation. On 450 random puzzles we "
+            "proved the solution a fork 82 times and Lichess agreed 38 "
+            "(46.3%) -- but Lichess names one theme per puzzle, so most of "
+            "that gap is a naming difference, not an error. It bounds "
+            "nothing. A reviewed packet is what this id needs.",
+            "The payoff sees three plies, so a fork paid for by a sacrifice "
+            "reads as material-losing: 41 of 882 geometry hits (4.6%) came "
+            "back with a negative floor, and a delay theme (sacrifice, "
+            "attraction, deflection, clearance, interference) is 12.8x "
+            "enriched among them -- 51% against 4% of the rest. About half "
+            "the negatives are therefore delayed payoffs the horizon cannot "
+            "see; the other half is unexplained and unread.",
+            "Geometry caps the denominator at 71.3%: 28.7% of Lichess forks "
+            "are not offered by shape_detectors at all, so the chance count "
+            "undercounts by about a third. Being a shared undercount it "
+            "biases every player alike, which a RATE survives and an absolute "
+            "count does not.",
+            "Forks already standing on the board are excluded -- those events "
+            "carry no executing_move -- so this counts creating a fork, never "
+            "maintaining one.",
+            "No per-band peer rate yet, so no drill may be judged on it. "
+            "player_behaviour_reading.PEER_RATES carries free_material only.",
         ),
     ),
     "gap:missed_tactic:missed_discovered_attack": Authorization(
