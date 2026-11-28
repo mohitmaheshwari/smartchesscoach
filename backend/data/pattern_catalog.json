@@ -544,6 +544,30 @@
       "short_description": "The piece ended up with no safe square to go to.",
       "family": "Game story",
       "example_fen": null
+    },
+    "mate_in_one": {
+      "human_name": "Checkmate was there in one move",
+      "short_description": "One move would have ended the game right then.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "free_material": {
+      "human_name": "A free piece was there to take",
+      "short_description": "One of their pieces could be taken for nothing.",
+      "family": "Game story",
+      "example_fen": null
+    },
+    "fork_opportunity": {
+      "human_name": "A fork was there to play",
+      "short_description": "One move would have attacked two of their pieces at once.",
+      "family": "Forks",
+      "example_fen": null
+    },
+    "skewer_opportunity": {
+      "human_name": "A skewer was there to play",
+      "short_description": "Two of their pieces stood in a line, so the back one could be won.",
+      "family": "Game story",
+      "example_fen": null
     }
   }
 }
