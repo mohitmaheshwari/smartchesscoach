@@ -46,14 +46,19 @@ def test_schema_bumps_for_additive_d_live_fact():
     # board by tactic_payoff instead of the engine's stored line.
     # v24 (2026-11-28) skewer joins it, creation proved by
     # verify_created_alignment and payoff by the same tactic_payoff.
-    # Every one of those is additive: no existing field changed meaning and
-    # D_live is untouched.
+    # v25 (2026-11-28) a fork or skewer must be a SUBSTANTIVE shape before
+    # its payoff counts. Not additive in meaning for skewer -- 58.0% of v24's
+    # proved skewers had a pawn as the rear man and are withdrawn -- so a
+    # stored v24 skewer verdict is not comparable with a v25 one. Fork was
+    # measured unaffected, 0 of 349 withdrawn.
+    # Every one of the others is additive: no existing field changed meaning
+    # and D_live is untouched throughout.
     #
     # This assertion is a deliberate pin on the record shape, so it firing
     # is the point -- bump it only alongside a real, described change. It had
     # been left at 19 through five bumps, so it was firing for no one; the
     # descriptions above are the debt it was meant to collect.
-    assert SCHEMA_VERSION == 24
+    assert SCHEMA_VERSION == 25
 
 
 def test_legally_capturable_losing_piece_is_miss_when_both_gates_pass():

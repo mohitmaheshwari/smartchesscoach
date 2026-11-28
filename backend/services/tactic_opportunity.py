@@ -96,9 +96,10 @@ from services.shape_detectors import (
     detect_queen_fork,
     detect_rook_fork,
 )
+from services.caption_facts import PIECE_VALUE_CP
 from services.tactic_payoff import proved_payoff_moves
 
-TACTIC_OPPORTUNITY_VERSION = "tactic_opportunity.v4"
+TACTIC_OPPORTUNITY_VERSION = "tactic_opportunity.v5"
 
 # THE CALLER'S GATE, measured 2026-11-28 and locked here instead of left to
 # whoever calls this module -- which is how v1 shipped, and it was wrong.
@@ -167,6 +168,96 @@ MIN_SKEWER_GAIN_CP = 200
 # The only pieces that can be the ATTACKER of a ray alignment. See
 # aligned_tactic_puzzle_proof._ray_alignments, which iterates exactly these.
 _SLIDERS = frozenset({chess.BISHOP, chess.ROOK, chess.QUEEN})
+
+# THE SHAPE MUST BE SUBSTANTIVE BEFORE THE PAYOFF IS ASKED ABOUT
+# ---------------------------------------------------------------
+# v4 proved two things and never linked them: `*_candidates` proved the shape
+# and `proved_payoff_moves` proved >= 200cp, with nothing asking whether the
+# 200cp was the SHAPE'S doing. Measured on 8,000 ordinary played positions:
+# 58.0% of proved skewers had a PAWN as the rear man -- the man a skewer is
+# supposed to win -- and 32.7% of proved forks attacked only one material man.
+# Those are attacks and captures that happen to be good moves, not forks and
+# skewers, and "a skewer was there to play" is false about them.
+#
+# The rule below is a pure board property, decided BEFORE the three-ply search
+# (so it is also cheaper, not just safer):
+#
+#   fork    two attacked material men, or one plus check -- a check has to be
+#           answered, so that man cannot also be saved
+#   skewer  the rear man is a real piece, not a pawn
+#
+# Its price, measured on Lichess-verified positives, is almost nothing:
+# fork 65.3% -> 65.3% recall (784 of 784 solutions kept) and skewer
+# 54.8% -> 54.2% (651 of 657; only 6 real skewer solutions have a pawn
+# behind). That asymmetry is the point -- a puzzle is SELECTED to contain a
+# tactic so its shapes are substantive by construction, while an ordinary
+# position's are not. The rule is therefore nearly free on recall and does all
+# of its work on precision.
+#
+# What it is NOT: a claim that the payoff is attributable to the shape. A
+# strict "the capture must land on the target square" test was tried and
+# REJECTED as a measure -- it scores Rg3+ in
+# 8/2r5/6q1/8/8/2PR1R2/1PK3k1/8 w - - 8 53 as false, when Kxg3 is illegal
+# (Rd3 covers g3), black's only capture Qxg3 loses the queen to the recapture,
+# and the forked queen is exactly the mechanism, just collected on g3 instead
+# of g6. A target won anywhere but its own square is invisible to that test,
+# so its 59.6%/39.0% are upper bounds on the false-claim rate and were never
+# the rate.
+_REAL_PIECE_CP = PIECE_VALUE_CP[chess.KNIGHT]
+_MATERIAL_MEN = (chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK,
+                 chess.QUEEN)
+
+
+def _attacked_material_men(board: chess.Board, move: chess.Move) -> int:
+    """How many enemy men worth capturing the piece hits once it lands.
+
+    The king is excluded on purpose, and separately: a check is ANSWERED,
+    never captured, so it can never be where a material payoff comes from --
+    but it does stop the other man running away, which is why one man plus
+    check counts below.
+    """
+    after = board.copy(stack=False)
+    after.push(move)
+    them = not board.turn
+    count = 0
+    for square in after.attacks(move.to_square):
+        piece = after.piece_at(square)
+        if (piece is not None and piece.color == them
+                and piece.piece_type in _MATERIAL_MEN):
+            count += 1
+    return count
+
+
+def fork_is_substantive(board: chess.Board, move: chess.Move) -> bool:
+    """Does this move really hit two things at once?"""
+    men = _attacked_material_men(board, move)
+    if men >= 2:
+        return True
+    if men != 1:
+        return False
+    after = board.copy(stack=False)
+    after.push(move)
+    return after.is_check()
+
+
+def skewer_rear_is_a_real_piece(board: chess.Board, move: chess.Move) -> bool:
+    """Is the man behind the front one worth winning?"""
+    try:
+        created = verify_created_alignment(board, move, "skewer")
+    except Exception:                                          # noqa: BLE001
+        return False
+    rear = (created or {}).get("rear_square")
+    if not rear:
+        return False
+    after = board.copy(stack=False)
+    after.push(move)
+    try:
+        piece = after.piece_at(chess.parse_square(str(rear)))
+    except (ValueError, TypeError):
+        return False
+    if piece is None:
+        return False
+    return PIECE_VALUE_CP.get(piece.piece_type, 0) >= _REAL_PIECE_CP
 
 
 _FORK_SHAPES = (
@@ -276,6 +367,11 @@ def fork_candidates(board: chess.Board) -> List[chess.Move]:
                 except (ValueError, TypeError):
                     continue
             if move in board.legal_moves and move.uci() not in seen:
+                # The shape has to be a fork before its payoff is worth
+                # asking about: on ordinary positions 32.7% of what got this
+                # far hit only one material man. See _REAL_PIECE_CP above.
+                if not fork_is_substantive(board, move):
+                    continue
                 seen.add(move.uci())
                 out.append(move)
     return out
@@ -344,7 +440,9 @@ def skewer_candidates(board: chess.Board) -> List[chess.Move]:
         except Exception:                                      # noqa: BLE001
             # One position may never take the pipeline down.
             continue
-        if created:
+        if created and skewer_rear_is_a_real_piece(board, move):
+            # A pawn behind the front man is a skewer by geometry and not a
+            # lesson: 58.0% of v4's proved skewers were exactly that.
             out.append(move)
     return out
 

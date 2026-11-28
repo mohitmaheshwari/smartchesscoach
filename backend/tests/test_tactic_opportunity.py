@@ -220,12 +220,12 @@ def test_the_gate_cannot_be_crashed_by_junk_engine_fields():
 
 def test_version_moved_because_the_verdict_moved():
     # A stored row must never be ambiguous about which rule judged it.
-    # v4 because the verdict SET moved again: skewer joined mate_in_one,
-    # free_material and fork, so a stored v3 row is not comparable with a v4
-    # one. (v3 was the one that added fork.)
-    assert to.TACTIC_OPPORTUNITY_VERSION == "tactic_opportunity.v4"
+    # v5 because the verdict MEANING moved: a fork or skewer must now be a
+    # substantive shape before its payoff counts, so a stored v4 skewer row is
+    # not comparable with a v5 one. (v3 added fork, v4 added skewer.)
+    assert to.TACTIC_OPPORTUNITY_VERSION == "tactic_opportunity.v5"
     got = to.opportunities(START, "e2e4")
-    assert all(r["version"] == "tactic_opportunity.v4" for r in got.values())
+    assert all(r["version"] == "tactic_opportunity.v5" for r in got.values())
 
 
 # ---------------------------------------------------------------------------
@@ -388,3 +388,84 @@ def test_an_already_standing_fork_is_not_a_move_level_chance():
     board = chess.Board("4k3/3r1r2/8/4N3/8/8/8/4K3 w - - 0 1")
     for move in to.fork_candidates(board):
         assert move.from_square != chess.E5 or move in board.legal_moves
+
+
+def test_a_pawn_behind_the_front_man_is_not_a_skewer_worth_claiming():
+    # THE v4 DEFECT, measured: on 8,000 ordinary played positions 142 of 245
+    # proved skewers (58.0%) had a PAWN as the rear man. The move was a good
+    # capture that happened to leave a pawn on a ray, and "a skewer was there
+    # to play" was false about it.
+    #
+    # Rook a1, black king e5, black PAWN h5. Ra5+ makes the geometry along
+    # rank 5 -- king in front, pawn behind -- and must not be offered.
+    # (The first draft of this test put the pawn on h8, which is not a legal
+    # square for one; python-chess said so and the premises below now say so
+    # too.)
+    board = chess.Board("8/8/8/4k2p/8/8/8/R1K5 w - - 0 1")
+    assert board.is_valid() and not board.is_check()
+    move = chess.Move.from_uci("a1a5")
+    assert move in board.legal_moves
+
+    from services.aligned_tactic_puzzle_proof import verify_created_alignment
+    created = verify_created_alignment(board, move, "skewer")
+    assert created, "the geometry must still be there, or this proves nothing"
+    assert created["rear_square"] == "h5"
+
+    assert to.skewer_rear_is_a_real_piece(board, move) is False
+    assert move not in to.skewer_candidates(board)
+    assert move not in to.skewer_moves(board)
+
+
+def test_a_real_piece_behind_the_front_man_still_counts():
+    # The positive control for the test above: same shape, rook behind instead
+    # of a pawn. A rule that rejected both would be silence, not precision.
+    board = chess.Board("4k2r/8/8/8/8/2K5/8/R7 w - - 0 1")
+    move = chess.Move.from_uci("a1a8")
+    assert to.skewer_rear_is_a_real_piece(board, move) is True
+    assert to.skewer_moves(board) == [move]
+
+
+def test_one_forked_man_plus_check_is_a_fork():
+    # This is why fork needed no correction. 114 of 349 proved forks on real
+    # positions hit only ONE material man -- and every one came with check,
+    # which IS the fork: the check has to be answered, so the man cannot also
+    # be saved. Rg3+ here, with Kxg3 ILLEGAL because Rd3 covers g3 once f3 is
+    # vacated, and black's only capture Qxg3 losing the queen to the
+    # recapture.
+    board = chess.Board("8/2r5/6q1/8/8/2PR1R2/1PK3k1/8 w - - 8 53")
+    assert board.is_valid()
+    move = chess.Move.from_uci("f3g3")
+    assert move in board.legal_moves
+    after = board.copy()
+    after.push(move)
+    assert after.is_check()
+    assert after.attackers(chess.WHITE, chess.G3), "g3 must be defended"
+    assert not any(after.san(m).startswith("Kxg3") for m in after.legal_moves)
+
+    assert to._attacked_material_men(board, move) == 1
+    assert to.fork_is_substantive(board, move) is True
+
+
+def test_one_attacked_man_with_no_check_is_just_an_attack():
+    # The negative the rule exists for. A rook hitting a lone knight, no
+    # check: one man, nothing stopping it moving. Not a fork.
+    # White king on h1, not e1: on e1 it stands between the rook and f1 and
+    # the move under test is not legal at all.
+    board = chess.Board("4k3/8/8/8/5n2/8/8/R6K w - - 0 1")
+    assert board.is_valid() and not board.is_check()
+    move = chess.Move.from_uci("a1f1")
+    assert move in board.legal_moves
+    after = board.copy()
+    after.push(move)
+    assert not after.is_check()
+    assert to._attacked_material_men(board, move) == 1
+    assert to.fork_is_substantive(board, move) is False
+
+
+def test_the_rule_runs_before_the_payoff_so_it_is_also_cheaper():
+    # Ordering matters: the shape test is a handful of board reads and the
+    # payoff is an exhaustive three-ply search, so the cheap test must gate
+    # the expensive one and not the other way round.
+    board = chess.Board("8/8/8/4k2p/8/8/8/R1K5 w - - 0 1")
+    # No candidate survives the sieve, so no payoff search happens at all.
+    assert to.skewer_candidates(board) == []

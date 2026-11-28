@@ -23,7 +23,14 @@ import statistics
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-SCHEMA_VERSION = 24  # v24 (2026-11-28): skewer joins the opportunity denominator.
+SCHEMA_VERSION = 25  # v25 (2026-11-28): a fork or skewer must be a SUBSTANTIVE
+# shape before its payoff counts -- two attacked men, or one plus check; and a
+# skewer's rear man must be a real piece. v24 proved the shape and proved 200cp
+# and never linked them, so 58.0% of its skewers were a pawn behind the front
+# man. Fork was measured UNAFFECTED: 0 of 349 withdrawn, because its one-man
+# cases all come with check. Recall price on Lichess positives: fork 0.0 points,
+# skewer 0.5.
+# v24 (2026-11-28): skewer joins the opportunity denominator.
 # The creating-side test already existed (verify_created_alignment, written for
 # puzzle admission); what was missing was the loop over every legal move. Payoff
 # from the same tactic_payoff. Pin stays out: 28.5% creation recall and a payoff
